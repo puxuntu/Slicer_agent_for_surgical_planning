@@ -46,7 +46,7 @@ The agent chains multiple Slicer operations: loading data → threshold-based se
 
 SlicerAIAgent is not a simple "prompt → code" wrapper. It implements a **role-composed agent pipeline** that combines dense vector retrieval, autonomous tool calling, structured planning, AST-based security validation, safe execution inside Slicer's own Python interpreter, semantic scene verification, and automatic self-correction on failure.
 
-### 1. Role-Composed Request Pipeline
+### 1. Role Model
 
 Every user prompt travels through an agent workflow with explicit internal roles. These roles are encoded in the system prompt, status UI, debug logs, and role trace, but they do not require separate LLM calls for every role.
 
@@ -61,13 +61,19 @@ Every user prompt travels through an agent workflow with explicit internal roles
 | **Verifier** | Compares before/after scene snapshots against optional machine-checkable expectations. |
 | **Repairer** | Performs isolated self-correction if validation, execution, or verification fails. |
 
-The sections below describe the technical mechanisms used to implement these roles. Some mechanisms support multiple roles, and some roles are intentionally lightweight because they are represented through prompt constraints, validation checks, UI state, and debug artifacts rather than separate execution stages.
+### 2. End-to-End Request Flow
 
-#### Observer and Retriever — Dense Vector Pre-Retrieval (RAG)
+The request flow below is ordered by runtime execution. Each section names the role or roles it implements, then gives the technical details for that part of the pipeline. Some roles are lightweight and appear through prompt constraints, validation checks, UI state, and debug artifacts rather than separate LLM calls.
+
+#### 2.1 Context Grounding — Observer and Retriever
+
+The Observer reads the user request and current MRML scene context. The Retriever then grounds the request against local Slicer knowledge before final code generation.
+
+##### Dense Vector Pre-Retrieval (RAG)
 
 Before the LLM ever sees the prompt, the system performs an **intelligent multi-retrieval** pass over a local dense vector index built from the Slicer knowledge base (`Resources/Skills/slicer-skill-full/`).
 
-**Step-by-step:**
+Retrieval is implemented as follows:
 
 1. **Query Decomposition** — The `LLMClient.decomposeQuery()` method analyzes the user request. Simple requests (fewer than 12 words, no commas, at most one "and") are kept as-is. Complex multi-step requests are broken into 2–5 independent sub-queries via a lightweight LLM call. This ensures each sub-task gets its own focused semantic search.
 
@@ -86,11 +92,11 @@ Before the LLM ever sees the prompt, the system performs an **intelligent multi-
 
 If the vector index is missing or not ready, this retrieval mechanism silently skips itself and the system falls back to the traditional pure tool-calling workflow.
 
-#### Retriever — Autonomous Tool-Calling Loop
+##### Autonomous Tool-Calling Loop
 
 After pre-retrieval, the LLM is given **five tools** from the start: `FindFile`, `SearchSymbol`, `Grep`, `ReadFile`, and `VectorSearch`. The LLM autonomously decides the best path to a solution, so no manual staged orchestration is required.
 
-**Workflow:**
+The tool loop has three main operations:
 
 1. **Search** — The LLM may call `Grep`, `FindFile`, or `SearchSymbol` to locate relevant APIs across the skill knowledge base. Multiple tool calls are executed in parallel via a `ThreadPoolExecutor`.
 
@@ -106,7 +112,7 @@ After pre-retrieval, the LLM is given **five tools** from the start: `FindFile`,
 
 **Conversation history management:** Full tool results are used within the current turn, but before persisting to `conversation_history`, they are compressed via `_compressToolResultsForHistory()`. ReadFile content is passed through (already sliced at the tool layer), Grep results are kept as-is, and VectorSearch drops the large `formatted_context` field. This prevents context bloat across multi-turn conversations. History is also subject to FIFO character-based trimming (500K character limit), dropping the oldest messages first.
 
-#### Planner and Programmer — Structured Plan and Code Generation
+#### 2.2 Plan and Code Generation — Planner and Programmer
 
 Before code execution, the assistant response must include a valid parsed `agent_plan`. The plan contains:
 
@@ -121,11 +127,12 @@ Each step includes an action, API evidence, confidence, and optionally `expected
 
 Supported `expected_scene_change` checks include `node_count_delta`, `node_exists`, `node_modified`, `node_has_display`, `node_name_matches`, `layout_changed`, `selection_changed`, `module_entered`, `property_true`, and `not_checked`. Unsupported checks are skipped with warnings instead of forcing unnecessary self-correction.
 
-#### Safety Critic, Executor, and Verifier — Validation, Execution, and Scene Verification
+#### 2.3 Validation and Execution — Safety Critic, Executor, and Verifier
 
 Generated code is **auto-executed** without requiring a manual button press.
 
-**Pre-validation:**
+##### Pre-Validation
+
 - The parsed `agent_plan` must be valid before auto-execution.
 - `CodeValidator` parses the code with the Python `ast` module.
 - It blocks imports from dangerous modules (`os`, `subprocess`, `sys`, `socket`, `urllib`, `ctypes`, `pickle`, etc.).
@@ -133,28 +140,31 @@ Generated code is **auto-executed** without requiring a manual button press.
 - It detects potentially destructive operations (`RemoveNode`, `Clear`, `Delete`, `saveNode`, etc.) and flags them for confirmation.
 - If plan or code validation fails, the system enters self-correction directly without attempting execution.
 
-**Execution:**
+##### Execution
+
 - `SafeExecutor.execute()` runs the code in `sys.modules['__main__'].__dict__`, which is the **exact same namespace** as the Slicer Python Console. This means shortcuts like `getNode` (injected by `slicerqt.py`) are automatically available.
 - Execution is scheduled via `qt.QTimer.singleShot(10, ...)` to stay on the Qt main thread, satisfying MRML scene and GUI thread-safety requirements.
 - stdout and stderr are captured with `contextlib.redirect_stdout/stderr`.
 - VTK C++ errors are intercepted by temporarily replacing the global `vtkOutputWindow` with a `vtkFileOutputWindow` pointing to a temp file. After execution, the log is read back, prefixed with `[VTK ERROR]` or `[VTK WARNING]`, and injected into the captured stderr. This allows the self-correction mechanism to react to runtime VTK errors even when no Python exception was raised.
 
-**Scene rollback on failure:**
+##### Scene Rollback on Failure
+
 - Before execution, the system calls `slicer.mrmlScene.SaveStateForUndo()`.
 - It also snapshots the set of existing node IDs.
 - If execution raises an exception or times out, it calls `slicer.mrmlScene.Undo()` and then deletes any nodes whose IDs did not exist before execution (catching display nodes, storage nodes, and subject-hierarchy items that `Undo()` may miss because their `UndoEnabled` flag is `False`).
 - The original undo flag is restored regardless of outcome.
 
-**Scene verification:**
+##### Scene Verification
+
 - Before execution, the logic records a lightweight scene snapshot including node counts, node names/classes, display state, segmentation/model summaries, active module, layout, and selection IDs.
 - After successful execution, the `Verifier` checks any supported `expected_scene_change` items from the plan against the updated scene.
 - Verification failures can trigger the same self-correction path as runtime errors. Unsupported or `not_checked` expectations are treated as warnings or skipped.
 
-#### Repairer — Self-Correction and Recovery
+#### 2.4 Self-Correction and Recovery — Repairer
 
 If execution fails, times out, or produces error indicators in stdout/stderr (including `[VTK ERROR]`), the agent automatically enters **self-correction mode**.
 
-**How it works:**
+The correction loop works as follows:
 
 1. An **isolated retry** is launched in a background thread via `chatWithToolsIsolated()`. This method runs the full tool-calling loop but does **not** read from or write to the main `conversation_history`, and it does **not** increment `turn_number`. Failed attempts therefore never pollute the user's conversation context.
 
@@ -174,7 +184,7 @@ If execution fails, times out, or produces error indicators in stdout/stderr (in
 
 ---
 
-### 2. Streaming & Real-Time Feedback
+### 3. Streaming & Real-Time Feedback
 
 Because MRML scene access and all UI updates must happen on the Qt main thread, HTTP I/O runs in a background `threading.Thread`, while UI updates are marshaled back via a thread-safe `queue.Queue`.
 
@@ -209,7 +219,7 @@ Correction artifacts use suffixes such as `{turn}_correction_1_code.txt` and `{t
 
 ---
 
-### 3. Dense Vector Retrieval Backend
+### 4. Dense Vector Retrieval Backend
 
 The `SkillIndexer.py` module implements a complete dense retrieval pipeline that can be built and updated independently via `scripts/build_rag.py`.
 
@@ -239,7 +249,7 @@ The `SkillIndexer.py` module implements a complete dense retrieval pipeline that
 
 ---
 
-### 4. Security Model
+### 5. Security Model
 
 Generated code is treated as untrusted until validated. The security layers are:
 
