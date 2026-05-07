@@ -73,6 +73,11 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._streamPollTimer = None
         # Timing data for performance analysis
         self._timing = None
+        self.currentAgentPlan = None
+        self._pendingConfirmation = None
+        self._roleTrace = []
+        self._currentLogDir = None
+        self._currentAgentRole = "Idle"
 
     def setup(self):
         ScriptedLoadableModuleWidget.setup(self)
@@ -372,7 +377,38 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.thinkingTimerLabel.text = f"⏱ {final_status} {elapsed:.1f}s"
             else:
                 self.thinkingTimerLabel.text = f"⏱ {elapsed:.1f}s"
-            self._thinkingStartTime = None
+        self._thinkingStartTime = None
+
+    def _setAgentStatus(self, role, status):
+        """Show current role-composed agent phase in the existing status label."""
+        self._currentAgentRole = role or "Agent"
+        if hasattr(self, 'statusLabel') and self.statusLabel is not None:
+            self.statusLabel.text = f"{self._currentAgentRole}: {status}"
+
+    def _setReadyStatus(self):
+        """Reset status label after a turn finishes or is cancelled."""
+        self._currentAgentRole = "Idle"
+        if hasattr(self, 'statusLabel') and self.statusLabel is not None:
+            self.statusLabel.text = "Ready"
+
+    def _roleForStatus(self, status_text):
+        """Map low-level API status messages to the composed role shown in the UI."""
+        normalized = str(status_text or "").lower()
+        if "retriev" in normalized or "search" in normalized or "read" in normalized or "tool" in normalized:
+            return "Retriever"
+        if "generat" in normalized:
+            return "Planner/Programmer"
+        if "think" in normalized:
+            return "Retriever"
+        if "validat" in normalized:
+            return "Safety Critic"
+        if "execut" in normalized:
+            return "Executor"
+        if "verify" in normalized:
+            return "Verifier"
+        if "correct" in normalized:
+            return "Repairer"
+        return self._currentAgentRole or "Agent"
     
     def _finalizeStreamingEntry(self):
         """Commit the current streaming assistant entry into chat history."""
@@ -439,7 +475,14 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self._handleCorrectionError(**payload)
                 i += 1
             elif event_type == 'status':
-                self.statusLabel.text = payload
+                self._setAgentStatus(self._roleForStatus(payload), payload)
+                i += 1
+            elif event_type == 'role_trace':
+                self._recordRoleEvent(
+                    payload.get('role', 'Unknown'),
+                    payload.get('event', 'event'),
+                    payload.get('details', {})
+                )
                 i += 1
             else:
                 i += 1
@@ -495,7 +538,18 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Display generated code if any and auto-execute
         if response.get("code"):
             self.currentCode = response["code"]
+            self.currentAgentPlan = response.get("agent_plan")
+            self._recordRoleEvent("Planner", "agent_plan_received", {
+                "has_plan": bool(self.currentAgentPlan),
+                "steps": len(self.currentAgentPlan.get("steps", [])) if isinstance(self.currentAgentPlan, dict) else 0,
+                "risk_level": self.currentAgentPlan.get("risk_level") if isinstance(self.currentAgentPlan, dict) else None,
+            })
+            self._recordRoleEvent("Programmer", "code_received", {
+                "code_chars": len(self.currentCode or ""),
+            })
             self.codeDisplay.setPlainText(response["code"])
+            self._displayAgentPlanSummary(self.currentAgentPlan)
+            self._saveAgentPlanToFile(self.currentAgentPlan)
             self._saveGeneratedCodeToFile(response["code"])
             # Auto-execute the generated code
             if self._timing:
@@ -509,7 +563,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._updateTokenLabel()
 
         self._stopThinkingTimer("Done")
-        self.statusLabel.text = "Ready"
+        self._setReadyStatus()
         self.sendButton.setEnabled(True)
 
     def _onStreamError(self, error_msg):
@@ -530,7 +584,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.appendToChat("Error", f"Failed to generate response: {error_msg}")
 
         self._stopThinkingTimer("Error")
-        self.statusLabel.text = "Ready"
+        self._setReadyStatus()
         self.sendButton.setEnabled(True)
 
     def onSendButtonClicked(self):
@@ -568,6 +622,15 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             'turn_start': time.time(),
             'prompt': prompt,
         }
+        self._currentLogDir = self._createRunLogDir(getattr(self, "_currentTurn", 1))
+        if self.logic and self.logic.llmClient:
+            self.logic.llmClient.setDebugOutputDir(self._currentLogDir)
+        self._roleTrace = []
+        self._setAgentStatus("Observer", "Reading request...")
+        self._recordRoleEvent("Observer", "received_prompt", {
+            "prompt_length": len(prompt),
+            "turn": getattr(self, "_currentTurn", 1),
+        })
         
         # Start real-time thinking timer
         self._startThinkingTimer()
@@ -578,6 +641,11 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         context = {"scene": self.logic._buildSceneContext()} if self.logic else None
         if self._timing:
             self._timing['context_build_time'] = _time.time() - ctx_start
+        self._recordRoleEvent("Observer", "captured_scene_context", {
+            "has_scene_context": bool(context and context.get("scene")),
+            "elapsed_sec": round(_time.time() - ctx_start, 3),
+        })
+        self._setAgentStatus("Retriever", "Retrieving...")
 
         # Launch the streaming request in a background thread
         def _backgroundStream():
@@ -595,6 +663,15 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 response = self.logic.generateResponseStream(prompt, context, _onDelta, on_status=_onStatus)
                 if self._timing:
                     self._timing['generation_end'] = _time.time()
+                self._streamQueue.put(('role_trace', {
+                    'role': 'Retriever',
+                    'event': 'retrieval_and_tool_loop_completed',
+                    'details': {
+                        'has_retrieval_timing': bool(response.get('retrieval_timing')),
+                        'tool_rounds': response.get('timing_report', {}).get('tool_rounds', 0),
+                        'api_calls': response.get('timing_report', {}).get('api_calls', 0),
+                    },
+                }))
                 self._streamQueue.put(('complete', dict(response)))
             except Exception as e:
                 self._streamQueue.put(('error', str(e)))
@@ -614,7 +691,18 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
             if response.get("code"):
                 self.currentCode = response["code"]
+                self.currentAgentPlan = response.get("agent_plan")
+                self._recordRoleEvent("Planner", "agent_plan_received", {
+                    "has_plan": bool(self.currentAgentPlan),
+                    "steps": len(self.currentAgentPlan.get("steps", [])) if isinstance(self.currentAgentPlan, dict) else 0,
+                    "risk_level": self.currentAgentPlan.get("risk_level") if isinstance(self.currentAgentPlan, dict) else None,
+                })
+                self._recordRoleEvent("Programmer", "code_received", {
+                    "code_chars": len(self.currentCode or ""),
+                })
                 self.codeDisplay.setPlainText(response["code"])
+                self._displayAgentPlanSummary(self.currentAgentPlan)
+                self._saveAgentPlanToFile(self.currentAgentPlan)
                 self._saveGeneratedCodeToFile(response["code"])
                 # Auto-execute the generated code
                 self._autoExecuteCode()
@@ -635,7 +723,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             logger.error(f"Error generating response: {e}")
             self.appendToChat("Error", f"Failed to generate response: {str(e)}")
         finally:
-            self.statusLabel.text = "Ready"
+            self._setReadyStatus()
             self.sendButton.setEnabled(True)
 
     def _saveGeneratedCodeToFile(self, code, suffix=""):
@@ -646,17 +734,261 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             suffix: Optional suffix for the filename (e.g. '_correction_1').
         """
         try:
-            moduleDir = os.path.dirname(__file__)
             turn_number = getattr(self, '_currentTurn', 1)
-            latestPath = os.path.join(moduleDir, f'{turn_number}{suffix}_code.txt')
+            latestPath = os.path.join(self._getCurrentLogDir(), f'{turn_number}{suffix}_code.txt')
             with open(latestPath, 'w', encoding='utf-8') as f:
                 f.write(code)
         except Exception as e:
             logger.warning(f"Failed to save generated code to file: {e}")
 
+    def _saveAgentPlanToFile(self, plan, suffix=""):
+        """Persist the parsed agent_plan JSON as a standalone debug artifact."""
+        if not isinstance(plan, dict):
+            return
+        try:
+            turn_number = getattr(self, '_currentTurn', 1)
+            path = os.path.join(self._getCurrentLogDir(), f'{turn_number}{suffix}_agent_plan.json')
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(plan, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.warning(f"Failed to save agent plan to file: {e}")
+
+    def _createRunLogDir(self, turn_number):
+        """Create logs/YYYYmmdd_HHMMSS_turnN for all artifacts from one run."""
+        from datetime import datetime
+        moduleDir = os.path.dirname(__file__)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_dir = os.path.join(moduleDir, "logs", f"{stamp}_turn{turn_number}")
+        os.makedirs(log_dir, exist_ok=True)
+        return log_dir
+
+    def _getCurrentLogDir(self):
+        """Return current run log directory, creating a fallback if needed."""
+        if not self._currentLogDir:
+            self._currentLogDir = self._createRunLogDir(getattr(self, "_currentTurn", 1))
+            if self.logic and self.logic.llmClient:
+                self.logic.llmClient.setDebugOutputDir(self._currentLogDir)
+        os.makedirs(self._currentLogDir, exist_ok=True)
+        return self._currentLogDir
+
+    def _recordRoleEvent(self, role, event, details=None):
+        """Record a structured event for the role-composed agent trace."""
+        import time
+        entry = {
+            "time": round(time.time(), 3),
+            "role": role,
+            "event": event,
+            "details": details or {},
+        }
+        self._roleTrace.append(entry)
+        if self._timing is not None:
+            self._timing["role_trace"] = list(self._roleTrace)
+
+    def _saveRoleTraceToFile(self, suffix=""):
+        """Persist the current role trace for academic/debug inspection."""
+        try:
+            turn_number = getattr(self, '_currentTurn', 1)
+            path = os.path.join(self._getCurrentLogDir(), f'{turn_number}{suffix}_role_trace.json')
+            payload = {
+                "turn": turn_number,
+                "prompt": getattr(self, "_lastUserPrompt", ""),
+                "events": self._roleTrace,
+            }
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.warning(f"Failed to save role trace: {e}")
+
+    def _displayAgentPlanSummary(self, plan):
+        """Show a compact plan summary in chat without adding a new UI surface."""
+        if not plan:
+            self.appendToChat("System", "No valid agent_plan block was returned. Auto-execution will be blocked.")
+            return
+        try:
+            summary = plan.get("task_summary", "No task summary")
+            overall_confidence = plan.get("overall_confidence") or self._deriveOverallPlanConfidence(plan)
+            steps = plan.get("steps", [])
+            step_lines = []
+            for i, step in enumerate(steps[:5], start=1):
+                if isinstance(step, dict):
+                    action = step.get("action", "Unnamed step")
+                    confidence = step.get("confidence", "unknown")
+                    step_lines.append(f"{i}. {action} [{confidence}]")
+            extra = "" if len(steps) <= 5 else f"\n... {len(steps) - 5} more step(s)"
+            self.appendToChat(
+                "System",
+                "Verified plan received.\n"
+                f"Task: {summary}\n"
+                f"Overall confidence: {overall_confidence}\n"
+                + ("\n".join(step_lines) if step_lines else "No steps listed")
+                + extra
+            )
+        except Exception as e:
+            logger.warning(f"Failed to display agent plan: {e}")
+
+    def _deriveOverallPlanConfidence(self, plan):
+        """Estimate whole-plan confidence for display when the plan lacks the field."""
+        if not isinstance(plan, dict):
+            return "unknown"
+        steps = plan.get("steps", [])
+        if not isinstance(steps, list) or not steps:
+            return "unknown"
+        confidence_values = [
+            str(step.get("confidence", "unknown")).lower()
+            for step in steps
+            if isinstance(step, dict)
+        ]
+        if not confidence_values:
+            return "unknown"
+        if any(value in ("low", "needs_lookup", "unknown") for value in confidence_values):
+            return "low"
+        if any(value == "medium" for value in confidence_values):
+            return "medium"
+        return "high"
+
+    def _validateAgentPlan(self, plan):
+        """Validate the structured plan enough to prevent blind execution."""
+        errors = []
+        warnings = []
+        if not isinstance(plan, dict):
+            return {
+                "valid": False,
+                "requires_confirmation": False,
+                "errors": ["Missing or invalid agent_plan JSON block"],
+                "warnings": [],
+            }
+
+        steps = plan.get("steps")
+        if not isinstance(steps, list) or not steps:
+            errors.append("agent_plan.steps must be a non-empty list")
+
+        risk = str(plan.get("risk_level", "unknown")).lower()
+        plan_requires_confirmation = bool(plan.get("requires_confirmation")) or risk == "high"
+        unresolved = plan.get("unverified_assumptions", [])
+        if unresolved is None:
+            unresolved = []
+        if not isinstance(unresolved, list):
+            warnings.append("agent_plan.unverified_assumptions should be a list")
+            unresolved = [str(unresolved)]
+
+        high_conf_steps = 0
+        high_conf_without_evidence = 0
+        needs_lookup = []
+        if isinstance(steps, list):
+            for idx, step in enumerate(steps, start=1):
+                if not isinstance(step, dict):
+                    errors.append(f"Step {idx} must be an object")
+                    continue
+                if not step.get("action"):
+                    errors.append(f"Step {idx} is missing action")
+                confidence = str(step.get("confidence", "unknown")).lower()
+                if confidence == "needs_lookup":
+                    needs_lookup.append(step.get("action", f"step {idx}"))
+                if confidence == "high":
+                    high_conf_steps += 1
+                    evidence = step.get("evidence")
+                    if not evidence:
+                        high_conf_without_evidence += 1
+                scene_change = step.get("expected_scene_change")
+                if scene_change is not None and not isinstance(scene_change, dict):
+                    warnings.append(f"Step {idx} expected_scene_change is not machine-checkable and will be ignored")
+                elif isinstance(scene_change, dict):
+                    change_type = scene_change.get("type")
+                    legacy_shape = scene_change.get("node_class") or scene_change.get("property")
+                    allowed_types = set(self.logic.getSceneCheckRegistry().keys()) if self.logic else {
+                        "node_count_delta",
+                        "node_exists",
+                        "node_modified",
+                        "node_has_display",
+                        "node_name_matches",
+                        "layout_changed",
+                        "selection_changed",
+                        "module_entered",
+                        "property_true",
+                        "not_checked",
+                    }
+                    if change_type and change_type not in allowed_types:
+                        warnings.append(f"Step {idx} expected_scene_change has unknown type '{change_type}' and may be ignored")
+                    elif not change_type and not legacy_shape:
+                        warnings.append(f"Step {idx} expected_scene_change has no recognized check type and may be ignored")
+
+        if needs_lookup:
+            errors.append("Plan still contains needs_lookup step(s): " + ", ".join(needs_lookup[:3]))
+        if high_conf_steps and high_conf_without_evidence == high_conf_steps and high_conf_steps >= 2:
+            warnings.append("Most high-confidence API steps have no explicit evidence")
+
+        return {
+            "valid": len(errors) == 0,
+            "requires_confirmation": plan_requires_confirmation,
+            "errors": errors,
+            "warnings": warnings,
+        }
+
+    def _askExecutionConfirmation(self, reason, resume_callback):
+        """Ask the user before executing high-risk or destructive code."""
+        message_box = qt.QMessageBox(slicer.util.mainWindow())
+        message_box.setWindowTitle("Confirm Agent Execution")
+        message_box.setText("The generated plan or code requires confirmation before execution.")
+        message_box.setInformativeText(reason)
+        message_box.setStandardButtons(qt.QMessageBox.Yes | qt.QMessageBox.No)
+        message_box.setDefaultButton(qt.QMessageBox.No)
+        result = message_box.exec_()
+        if result == qt.QMessageBox.Yes:
+            self._recordRoleEvent("SafetyCritic", "execution_confirmed_by_user", {
+                "reason": reason,
+            })
+            resume_callback()
+        else:
+            self._setReadyStatus()
+            self.sendButton.setEnabled(True)
+            self._recordRoleEvent("SafetyCritic", "execution_cancelled_by_user", {
+                "reason": reason,
+            })
+            self._saveRoleTraceToFile()
+            self.appendToChat("System", "Execution cancelled by user.")
+
     def _autoExecuteCode(self, attempt=1, max_attempts=5):
         """Auto-execute generated code with pre-validation and self-correction on failure."""
         if not hasattr(self, 'currentCode') or not self.currentCode:
+            return
+
+        self._setAgentStatus("Safety Critic", "Validating plan...")
+        plan_validation = self._validateAgentPlan(getattr(self, "currentAgentPlan", None))
+        self._recordRoleEvent("SafetyCritic", "plan_validation_completed", {
+            "valid": plan_validation.get("valid"),
+            "requires_confirmation": plan_validation.get("requires_confirmation"),
+            "errors": plan_validation.get("errors", []),
+            "warnings": plan_validation.get("warnings", []),
+        })
+        if not plan_validation["valid"]:
+            error_msg = "; ".join(plan_validation["errors"])
+            if attempt >= max_attempts:
+                self._setReadyStatus()
+                self.sendButton.setEnabled(True)
+                self._recordRoleEvent("Repairer", "max_attempts_reached", {
+                    "attempts": max_attempts,
+                    "final_error": error_msg,
+                    "stage": "plan_validation",
+                })
+                self._saveRoleTraceToFile()
+                self.appendToChat(
+                    "Error",
+                    f"Plan validation failed after {max_attempts} attempts.\nFinal error: {error_msg}"
+                )
+                return
+            self.appendToChat(
+                "System",
+                f"Plan validation failed (attempt {attempt}/{max_attempts}).\n"
+                f"Error: {error_msg}\n"
+                "Auto-correcting..."
+            )
+            if self.logic:
+                self.logic.addExecutionFeedback(
+                    f"Agent plan validation failed (attempt {attempt}/{max_attempts}):\n"
+                    f"Error: {error_msg}\n"
+                    "The response must include a valid ```agent_plan JSON block before the Python code."
+                )
+            self._selfCorrectCode(error_msg, attempt, max_attempts)
             return
 
         # Pre-validation: check for syntax errors and common issues
@@ -664,13 +996,36 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._timing:
             self._timing['validation_start'] = time.time()
         
+        validation = None
         if self.logic and hasattr(self.logic, 'codeValidator'):
+            self._setAgentStatus("Safety Critic", "Validating code...")
             validation = self.logic.codeValidator.validate(self.currentCode)
+            self._recordRoleEvent("SafetyCritic", "code_validation_completed", {
+                "valid": validation.get("valid"),
+                "requires_confirmation": validation.get("requires_confirmation"),
+                "destructive_ops": validation.get("destructive_ops", []),
+                "warnings": validation.get("warnings", []),
+                "reason": validation.get("reason"),
+            })
             if self._timing:
                 self._timing['validation_end'] = time.time()
             if not validation['valid']:
                 # Syntax error detected before execution
                 error_msg = validation['reason']
+                if attempt >= max_attempts:
+                    self._setReadyStatus()
+                    self.sendButton.setEnabled(True)
+                    self._recordRoleEvent("Repairer", "max_attempts_reached", {
+                        "attempts": max_attempts,
+                        "final_error": error_msg,
+                        "stage": "code_validation",
+                    })
+                    self._saveRoleTraceToFile()
+                    self.appendToChat(
+                        "Error",
+                        f"Pre-validation failed after {max_attempts} attempts.\nFinal error: {error_msg}"
+                    )
+                    return
                 self.appendToChat("System", 
                     f"Pre-validation failed (attempt {attempt}/{max_attempts}).\n"
                     f"Error: {error_msg}\n"
@@ -687,7 +1042,36 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if self._timing:
                 self._timing['validation_end'] = time.time()
 
-        self.statusLabel.text = f"Executing (attempt {attempt}/{max_attempts})..."
+        requires_confirmation = plan_validation.get("requires_confirmation", False)
+        confirmation_reasons = []
+        if plan_validation.get("warnings"):
+            for warning in plan_validation["warnings"]:
+                logger.warning(f"Agent plan warning: {warning}")
+        if requires_confirmation:
+            confirmation_reasons.append(
+                f"Plan risk level: {getattr(self, 'currentAgentPlan', {}).get('risk_level', 'unknown')}"
+            )
+        if validation and validation.get("requires_confirmation"):
+            destructive_ops = ", ".join(validation.get("destructive_ops", []))
+            confirmation_reasons.append(f"Potentially destructive operation(s): {destructive_ops}")
+        if confirmation_reasons:
+            reason = "\n".join(confirmation_reasons)
+            self._recordRoleEvent("SafetyCritic", "confirmation_required", {
+                "reason": reason,
+            })
+            self._askExecutionConfirmation(
+                reason,
+                lambda: self._autoExecuteCodeConfirmed(attempt, max_attempts)
+            )
+            return
+
+        self._autoExecuteCodeConfirmed(attempt, max_attempts)
+
+    def _autoExecuteCodeConfirmed(self, attempt=1, max_attempts=5):
+        """Run already-validated code after optional confirmation has passed."""
+        import time
+
+        self._setAgentStatus("Executor", f"Executing (attempt {attempt}/{max_attempts})...")
         slicer.app.processEvents()
 
         if self._timing and 'execution_start' not in self._timing:
@@ -695,13 +1079,28 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._timing:
             self._timing['execution_async_call'] = time.time()
 
+        scene_before = self.logic.buildSceneSnapshot() if self.logic else {}
+        self._recordRoleEvent("Executor", "execution_scheduled", {
+            "attempt": attempt,
+            "code_chars": len(self.currentCode or ""),
+        })
+        self._recordRoleEvent("Verifier", "pre_execution_snapshot_captured", {
+            "node_classes": len(scene_before.get("counts", {})) if isinstance(scene_before, dict) else 0,
+        })
+
         def onExecutionComplete(result):
             if self._timing:
                 self._timing['execution_callback_start'] = time.time()
             feedback_lines = []
             output_has_errors = False
+            self._recordRoleEvent("Executor", "execution_completed", {
+                "success": result.get("success"),
+                "timed_out": result.get("timed_out", False),
+                "execution_time": result.get("execution_time", 0),
+                "error": result.get("error"),
+            })
             if result.get("timed_out", False):
-                self.statusLabel.text = "Ready"
+                self._setReadyStatus()
                 output = result.get('output', 'No output')
                 exec_time = result.get('execution_time', 30)
                 msg = f"Code execution timed out after {exec_time:.1f}s."
@@ -710,7 +1109,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.appendToChat("Warning", msg)
                 feedback_lines.append(f"Status: timed_out\nExecution time: {exec_time:.1f}s\nOutput: {output}")
             elif result["success"]:
-                self.statusLabel.text = "Ready"
+                self._setAgentStatus("Verifier", "Verifying scene...")
                 output = result.get('output', 'No output')
                 execution_time = result.get('execution_time', 0)
                 msg = f"Code executed successfully in {execution_time:.2f}s."
@@ -723,6 +1122,25 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 if any(k in lower_output for k in ('error:', 'traceback', 'exception', 'failed', '[vtk error]')):
                     output_has_errors = True
                     feedback_lines.append("Warning: execution output contains error indicators even though no uncaught exception was raised.")
+                if self.logic:
+                    scene_after = self.logic.buildSceneSnapshot()
+                    verification = self.logic.verifySceneAgainstPlan(
+                        scene_before,
+                        scene_after,
+                        getattr(self, "currentAgentPlan", None)
+                    )
+                    self._recordRoleEvent("Verifier", "scene_verification_completed", {
+                        "valid": verification.get("valid", True),
+                        "errors": verification.get("errors", []),
+                        "warnings": verification.get("warnings", []),
+                    })
+                    if verification.get("warnings"):
+                        feedback_lines.append("Scene verification warnings: " + "; ".join(verification["warnings"]))
+                    if not verification.get("valid", True):
+                        output_has_errors = True
+                        verification_error = "Scene verification failed: " + "; ".join(verification.get("errors", []))
+                        feedback_lines.append(verification_error)
+                        self.appendToChat("System", verification_error)
             else:
                 # Execution failed
                 error_msg = result.get('error', 'Unknown error')
@@ -755,14 +1173,30 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     if not error_for_correction and output_has_errors:
                         # success=True but output contains error indicators (e.g. VTK errors)
                         # Pass the output so LLM knows what to fix
-                        error_for_correction = output
+                        error_for_correction = "\n".join(feedback_lines) or output
+                    self._recordRoleEvent("Repairer", "correction_requested", {
+                        "attempt": attempt + 1,
+                        "reason": error_for_correction[:1000] if error_for_correction else "",
+                    })
                     self._selfCorrectCode(error_for_correction, attempt, max_attempts)
                 else:
-                    self.statusLabel.text = "Ready"
+                    self._setReadyStatus()
                     final_error = result.get('error', 'Unknown error') if not result["success"] else "Output contains errors"
                     self.appendToChat("Error", 
                         f"Execution failed after {max_attempts} attempts.\n"
                         f"Final error: {final_error}")
+                    self._recordRoleEvent("Repairer", "max_attempts_reached", {
+                        "attempts": max_attempts,
+                        "final_error": final_error,
+                    })
+                    self._saveRoleTraceToFile()
+            else:
+                self._recordRoleEvent("Verifier", "task_completed", {
+                    "execution_success": result.get("success"),
+                    "semantic_success": not output_has_errors,
+                })
+                self._saveRoleTraceToFile()
+                self._setReadyStatus()
         
         # Execute asynchronously
         self.logic.executeCodeAsync(self.currentCode, onExecutionComplete)
@@ -778,8 +1212,12 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             corrections.append({'attempt': attempt + 1, 'start': time.time()})
 
         error_detail = error_msg if error_msg else "Unknown error"
+        self._recordRoleEvent("Repairer", "correction_started", {
+            "attempt": attempt + 1,
+            "error": error_detail[:1000],
+        })
         self.appendToChat("You", f"[Auto-correction attempt {attempt+1}]")
-        self.statusLabel.text = "Correcting..."
+        self._setAgentStatus("Repairer", "Correcting...")
         self._startThinkingTimer()
         if self.logic and self.logic.llmClient:
             self.logic.llmClient.debug_suffix = "_correction"
@@ -829,7 +1267,12 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 
                 isolated_messages.append({
                     'role': 'assistant',
-                    'content': f'```python\n{_currentCode}\n```'
+                    'content': (
+                        f"Previous agent_plan:\n"
+                        f"```json\n{json.dumps(getattr(self, 'currentAgentPlan', None), ensure_ascii=False, indent=2)}\n```\n\n"
+                        f"Previous Python code:\n"
+                        f"```python\n{_currentCode}\n```"
+                    )
                 })
                 
                 isolated_messages.append({
@@ -842,14 +1285,14 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         "use the tools to verify the correct usage before fixing. "
                         "Do NOT search unnecessarily — if you are confident in the fix, apply it directly.\n\n"
                         "Your task is to fix the error and output the COMPLETE corrected Python code in ONE ```python block."
+                        " Also output a corrected ```agent_plan JSON block before the Python block."
                     )
                 })
                 
                 # Save isolated prompt to debug file before sending
                 try:
-                    moduleDir = os.path.dirname(__file__)
                     suffix = f"_correction_{attempt}"
-                    first_debug = os.path.join(moduleDir, f'{_currentTurn}{suffix}_first_prompt_debug.txt')
+                    first_debug = os.path.join(self._getCurrentLogDir(), f'{_currentTurn}{suffix}_first_prompt_debug.txt')
                     with open(first_debug, 'w', encoding='utf-8') as f:
                         for i, msg in enumerate(isolated_messages):
                             f.write(f"{'='*60}\n")
@@ -915,7 +1358,15 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         
         if response.get("code"):
             self.currentCode = response["code"]
+            self.currentAgentPlan = response.get("agent_plan")
+            self._recordRoleEvent("Repairer", "correction_received", {
+                "attempt": attempt + 1,
+                "has_plan": bool(self.currentAgentPlan),
+                "code_chars": len(self.currentCode or ""),
+            })
             self.codeDisplay.setPlainText(response["code"])
+            self._displayAgentPlanSummary(self.currentAgentPlan)
+            self._saveAgentPlanToFile(self.currentAgentPlan, suffix=f"_correction_{attempt}")
             self._saveGeneratedCodeToFile(response["code"], suffix=f"_correction_{attempt}")
             self._stopThinkingTimer("Corrected")
             
@@ -957,15 +1408,13 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             raw_msg = response.get('message', '')[:300]
             self.appendToChat("System", f"Correction response contained no code block. Raw response preview:\n{raw_msg}")
             self._stopThinkingTimer("Failed")
-            self.statusLabel.text = "Ready"
+            self._setReadyStatus()
     
     def _appendThinkingToFile(self, reasoning_content: str, turn: int = 1):
         """Append LLM thinking/reasoning content to a local text file."""
-        import os
         from datetime import datetime
         try:
-            moduleDir = os.path.dirname(__file__)
-            filepath = os.path.join(moduleDir, 'thinking_history.txt')
+            filepath = os.path.join(self._getCurrentLogDir(), f'{turn}_thinking_history.txt')
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             with open(filepath, 'a', encoding='utf-8') as f:
                 f.write(f"{'='*60}\n")
@@ -981,7 +1430,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self.logic and self.logic.llmClient:
             self.logic.llmClient.debug_suffix = ""
         self.appendToChat("Error", f"Self-correction failed: {error_msg}")
-        self.statusLabel.text = "Ready"
+        self._setReadyStatus()
 
 
     def _updateTokenLabel(self):
@@ -993,11 +1442,10 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def _writeTimingReport(self):
         """Write detailed performance timing to a text file."""
-        import os, time
+        import time
         if not self._timing:
             return
         try:
-            moduleDir = os.path.dirname(__file__)
             turn_number = 1
             if self.logic and hasattr(self.logic, 'llmClient') and self.logic.llmClient:
                 turn_number = getattr(self.logic.llmClient, 'turn_number', 1)
@@ -1006,7 +1454,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 suffix = ""
             # turn_number is already incremented after response, so current turn is turn_number-1
             turn_number = max(1, turn_number - 1)
-            logPath = os.path.join(moduleDir, f'{turn_number}_performance_log{suffix}.txt')
+            logPath = os.path.join(self._getCurrentLogDir(), f'{turn_number}_performance_log{suffix}.txt')
 
             t = self._timing
             lines = ["="*50, "Performance Timing Report", "="*50, ""]
@@ -1080,6 +1528,21 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if 'cost' in t:
                 lines.append(f"Main generation cost: ${t['cost']:.4f}")
             lines.append("")
+
+            # ---- Role Trace ----
+            if t.get('role_trace'):
+                lines.append("-" * 40)
+                lines.append("Role-Composed Agent Trace")
+                lines.append("-" * 40)
+                for event in t.get('role_trace', []):
+                    role = event.get('role', 'Unknown')
+                    name = event.get('event', 'event')
+                    details = event.get('details', {})
+                    detail_text = json.dumps(details, ensure_ascii=False, default=str)
+                    if len(detail_text) > 240:
+                        detail_text = detail_text[:240] + "... "
+                    lines.append(f"{role}: {name} | {detail_text}")
+                lines.append("")
 
             # ---- Phase 1: Scene Context (detail) ----
             if 'context_build_time' in t:
@@ -1231,6 +1694,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.logic.clearConversation()
         self.codeDisplay.clear()
         self.currentCode = None
+        self.currentAgentPlan = None
 
     def appendToChat(self, sender, message):
         if not hasattr(self, 'chatHistory') or self.chatHistory is None:
@@ -1731,6 +2195,7 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
             retrieval = self._buildRetrievalContext(prompt, retrieval_timing)
             if retrieval:
                 context["retrieval_results"] = retrieval
+        retrieval_timing["used_tool_loop"] = bool(use_tools and self.toolExecutor and self.skillTools)
 
         if use_tools and self.toolExecutor and self.skillTools:
             # Use tool calling for skill search
@@ -1867,6 +2332,274 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
             return
         
         self.executor.executeAsync(code, callback)
+
+    def buildSceneSnapshot(self):
+        """Capture lightweight scene state for semantic verification."""
+        snapshot = {
+            "counts": {},
+            "nodes": [],
+            "segmentations": [],
+            "models": [],
+            "visible_nodes": 0,
+            "layout": None,
+            "active_module": None,
+            "active_volume_id": None,
+            "active_label_volume_id": None,
+            "active_place_node_id": None,
+        }
+        try:
+            scene = slicer.mrmlScene
+            try:
+                layout_node = slicer.app.layoutManager().layoutLogic().GetLayoutNode()
+                if layout_node:
+                    snapshot["layout"] = layout_node.GetViewArrangement()
+            except Exception:
+                pass
+            try:
+                module_manager = slicer.app.moduleManager()
+                active_module = module_manager.activeModule() if module_manager else None
+                snapshot["active_module"] = active_module.name if active_module else None
+            except Exception:
+                pass
+            try:
+                selection_node = slicer.app.applicationLogic().GetSelectionNode()
+                if selection_node:
+                    snapshot["active_volume_id"] = selection_node.GetActiveVolumeID()
+                    snapshot["active_label_volume_id"] = selection_node.GetActiveLabelVolumeID()
+                    snapshot["active_place_node_id"] = selection_node.GetActivePlaceNodeID()
+            except Exception:
+                pass
+            for i in range(scene.GetNumberOfNodes()):
+                node = scene.GetNthNode(i)
+                if not node:
+                    continue
+                class_name = node.GetClassName()
+                snapshot["counts"][class_name] = snapshot["counts"].get(class_name, 0) + 1
+
+                display_node = node.GetDisplayNode() if hasattr(node, "GetDisplayNode") else None
+                node_info = {
+                    "id": node.GetID(),
+                    "name": node.GetName(),
+                    "class": class_name,
+                    "mtime": node.GetMTime() if hasattr(node, "GetMTime") else None,
+                    "has_display": bool(display_node),
+                    "visible": bool(display_node and display_node.GetVisibility()),
+                }
+                snapshot["nodes"].append(node_info)
+                if display_node and display_node.GetVisibility():
+                    snapshot["visible_nodes"] += 1
+
+                if class_name == "vtkMRMLSegmentationNode":
+                    segmentation_info = {
+                        "id": node.GetID(),
+                        "name": node.GetName(),
+                        "segments": 0,
+                        "has_closed_surface": False,
+                    }
+                    try:
+                        segmentation = node.GetSegmentation()
+                        segmentation_info["segments"] = segmentation.GetNumberOfSegments()
+                        if hasattr(segmentation, "ContainsRepresentation"):
+                            segmentation_info["has_closed_surface"] = bool(segmentation.ContainsRepresentation("Closed surface"))
+                    except Exception:
+                        pass
+                    snapshot["segmentations"].append(segmentation_info)
+
+                if class_name == "vtkMRMLModelNode":
+                    model_info = {
+                        "id": node.GetID(),
+                        "name": node.GetName(),
+                        "points": 0,
+                        "cells": 0,
+                    }
+                    try:
+                        polydata = node.GetPolyData()
+                        if polydata:
+                            model_info["points"] = polydata.GetNumberOfPoints()
+                            model_info["cells"] = polydata.GetNumberOfCells()
+                    except Exception:
+                        pass
+                    snapshot["models"].append(model_info)
+        except Exception as e:
+            logger.warning(f"Failed to build scene snapshot: {e}")
+        return snapshot
+
+    def getSceneCheckRegistry(self):
+        """Return supported deterministic checks for optional plan verification."""
+        return {
+            "node_count_delta": self._checkNodeCountDelta,
+            "node_exists": self._checkNodeExists,
+            "node_modified": self._checkNodeModified,
+            "node_has_display": self._checkNodeHasDisplay,
+            "node_name_matches": self._checkNodeNameMatches,
+            "layout_changed": self._checkLayoutChanged,
+            "selection_changed": self._checkSelectionChanged,
+            "module_entered": self._checkModuleEntered,
+            "property_true": self._checkPropertyTrue,
+            "not_checked": self._checkNotChecked,
+        }
+
+    def verifySceneAgainstPlan(self, before, after, plan):
+        """Compare optional machine-checkable expectations against scene snapshots."""
+        result = {"valid": True, "errors": [], "warnings": []}
+        if not isinstance(plan, dict):
+            return result
+
+        steps = plan.get("steps", [])
+        if not isinstance(steps, list):
+            return result
+
+        registry = self.getSceneCheckRegistry()
+
+        for idx, step in enumerate(steps, start=1):
+            if not isinstance(step, dict):
+                continue
+            expected = step.get("expected_scene_change")
+            if not isinstance(expected, dict):
+                continue
+
+            change_type = str(expected.get("type", "")).lower()
+            if not change_type:
+                change_type = self._inferLegacySceneCheckType(expected)
+            check = registry.get(change_type)
+            if not check:
+                result["warnings"].append(
+                    f"Step {idx} has unsupported expected_scene_change type '{change_type}' and was not checked"
+                )
+                continue
+            check_result = check(before, after, expected)
+            for warning in check_result.get("warnings", []):
+                result["warnings"].append(f"Step {idx} {warning}")
+            for error in check_result.get("errors", []):
+                result["errors"].append(f"Step {idx} {error}")
+
+        if result["errors"]:
+            result["valid"] = False
+        return result
+
+    def _inferLegacySceneCheckType(self, expected):
+        if expected.get("node_class") or expected.get("class"):
+            return "node_count_delta"
+        if expected.get("property"):
+            return "property_true"
+        return ""
+
+    def _matchSnapshotNodes(self, snapshot, node_class=None, name_contains=None):
+        nodes = snapshot.get("nodes", []) if isinstance(snapshot, dict) else []
+        name_filter = str(name_contains or "").lower()
+        matches = []
+        for node in nodes:
+            if node_class and node.get("class") != node_class:
+                continue
+            if name_filter and name_filter not in str(node.get("name") or "").lower():
+                continue
+            matches.append(node)
+        return matches
+
+    def _checkNotChecked(self, before, after, expected):
+        return {"errors": [], "warnings": []}
+
+    def _checkNodeCountDelta(self, before, after, expected):
+        before_counts = before.get("counts", {}) if isinstance(before, dict) else {}
+        after_counts = after.get("counts", {}) if isinstance(after, dict) else {}
+        node_class = expected.get("node_class") or expected.get("class")
+        count_delta = expected.get("min_delta", expected.get("count_delta"))
+        if not node_class or not isinstance(count_delta, int) or count_delta <= 0:
+            return {"errors": [], "warnings": ["node_count_delta is missing node_class or positive min_delta"]}
+        observed_delta = after_counts.get(node_class, 0) - before_counts.get(node_class, 0)
+        if observed_delta < count_delta:
+            return {"errors": [f"expected {node_class} count_delta >= {count_delta}, observed {observed_delta}"], "warnings": []}
+        return {"errors": [], "warnings": []}
+
+    def _checkNodeExists(self, before, after, expected):
+        node_class = expected.get("node_class") or expected.get("class")
+        matches = self._matchSnapshotNodes(after, node_class, expected.get("name_contains"))
+        if not matches:
+            label = node_class or "node"
+            name = expected.get("name_contains")
+            suffix = f" with name containing '{name}'" if name else ""
+            return {"errors": [f"expected {label}{suffix} to exist"], "warnings": []}
+        return {"errors": [], "warnings": []}
+
+    def _checkNodeModified(self, before, after, expected):
+        node_class = expected.get("node_class") or expected.get("class")
+        before_nodes = {
+            node.get("id"): node
+            for node in self._matchSnapshotNodes(before, node_class, expected.get("name_contains"))
+            if node.get("id")
+        }
+        after_nodes = [
+            node for node in self._matchSnapshotNodes(after, node_class, expected.get("name_contains"))
+            if node.get("id")
+        ]
+        for node in after_nodes:
+            before_node = before_nodes.get(node.get("id"))
+            if before_node and node.get("mtime") and before_node.get("mtime") and node.get("mtime") > before_node.get("mtime"):
+                return {"errors": [], "warnings": []}
+        return {"errors": [f"expected an existing {node_class or 'node'} to be modified"], "warnings": []}
+
+    def _checkNodeHasDisplay(self, before, after, expected):
+        node_class = expected.get("node_class") or expected.get("class")
+        matches = self._matchSnapshotNodes(after, node_class, expected.get("name_contains"))
+        if not any(node.get("has_display") for node in matches):
+            return {"errors": [f"expected {node_class or 'node'} to have a display node"], "warnings": []}
+        return {"errors": [], "warnings": []}
+
+    def _checkNodeNameMatches(self, before, after, expected):
+        name_contains = expected.get("name_contains")
+        if not name_contains:
+            return {"errors": [], "warnings": ["node_name_matches is missing name_contains"]}
+        return self._checkNodeExists(before, after, expected)
+
+    def _checkLayoutChanged(self, before, after, expected):
+        if before.get("layout") == after.get("layout"):
+            return {"errors": [f"expected layout to change from {before.get('layout')}"], "warnings": []}
+        return {"errors": [], "warnings": []}
+
+    def _checkSelectionChanged(self, before, after, expected):
+        before_selection = (
+            before.get("active_volume_id"),
+            before.get("active_label_volume_id"),
+            before.get("active_place_node_id"),
+        )
+        after_selection = (
+            after.get("active_volume_id"),
+            after.get("active_label_volume_id"),
+            after.get("active_place_node_id"),
+        )
+        if before_selection == after_selection:
+            return {"errors": [f"expected active selection to change from {before_selection}"], "warnings": []}
+        return {"errors": [], "warnings": []}
+
+    def _checkModuleEntered(self, before, after, expected):
+        module_name = expected.get("module") or expected.get("module_name")
+        active_module = after.get("active_module")
+        if module_name and str(module_name).lower() != str(active_module).lower():
+            return {"errors": [f"expected active module '{module_name}', observed '{active_module}'"], "warnings": []}
+        if not module_name and before.get("active_module") == active_module:
+            return {"errors": [f"expected active module to change from '{active_module}'"], "warnings": []}
+        return {"errors": [], "warnings": []}
+
+    def _checkPropertyTrue(self, before, after, expected):
+        prop = str(expected.get("property", "")).lower()
+        expected_value = expected.get("expected", True)
+        if expected_value is not True:
+            return {"errors": [], "warnings": ["property_true only checks expected=true properties"]}
+        if prop in ("segmentation_has_segments", "segmentation_contains_segment"):
+            if not any(s.get("segments", 0) > 0 for s in after.get("segmentations", [])):
+                return {"errors": ["expected a segmentation with at least one segment"], "warnings": []}
+        elif prop in ("segmentation_has_closed_surface", "closed_surface"):
+            if not any(s.get("has_closed_surface") for s in after.get("segmentations", [])):
+                return {"errors": ["expected a closed surface segmentation representation"], "warnings": []}
+        elif prop in ("model_has_polydata", "model_polydata"):
+            if not any(m.get("points", 0) > 0 and m.get("cells", 0) > 0 for m in after.get("models", [])):
+                return {"errors": ["expected a model node with valid polydata"], "warnings": []}
+        elif prop in ("display_visibility", "visible"):
+            if after.get("visible_nodes", 0) <= 0:
+                return {"errors": [], "warnings": ["expected at least one visible display node"]}
+        else:
+            return {"errors": [], "warnings": [f"unsupported property_true property '{prop}' was not checked"]}
+        return {"errors": [], "warnings": []}
 
     def clearConversation(self):
         if self.conversationStore:

@@ -48,6 +48,7 @@ Resources/Skills/slicer-skill-full/**
 Resources/Code_RAG/
 
 # Debug / runtime output files
+logs/
 *_prompt_debug.txt
 *_code.txt
 *_performance_log.txt

@@ -43,7 +43,7 @@ class CodeValidator:
     
     # Allowed modules for Slicer operations
     ALLOWED_MODULES = {
-        'slicer', 'vtk', 'qt', 'ctk', 'numpy', 'SimpleITK', 'sitk',
+        'slicer', 'vtk', 'qt', 'ctk', 'SampleData', 'numpy', 'SimpleITK', 'sitk',
         'math', 'random', 'datetime', 'collections', 'itertools',
         'functools', 'json', 're', 'string', 'hashlib', 'copy',
         'typing', 'abc', 'enum', 'decimal', 'fractions', 'numbers',

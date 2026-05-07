@@ -110,6 +110,7 @@ class LLMClient:
         self.total_cost = 0.0
         self.turn_number = 1
         self.debug_suffix = ""  # e.g., "_correction" for self-correction turns
+        self.debug_output_dir: Optional[str] = None
         self._system_prompt_template = self._loadSystemPromptTemplate()
 
     def _normalizeModelName(self, model: Optional[str]) -> str:
@@ -134,6 +135,16 @@ class LLMClient:
     def setProvider(self, provider: str):
         """Set the API provider ('kimi', 'deepseek', or 'claude')."""
         self.provider = (provider or "kimi").lower()
+
+    def setDebugOutputDir(self, path: Optional[str]):
+        """Set directory for per-run debug artifacts."""
+        self.debug_output_dir = path
+
+    def _debugPath(self, filename: str) -> str:
+        """Return a debug artifact path, creating the output directory if needed."""
+        base_dir = self.debug_output_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        os.makedirs(base_dir, exist_ok=True)
+        return os.path.join(base_dir, filename)
 
     def _isAnthropicNative(self) -> bool:
         """
@@ -322,10 +333,7 @@ class LLMClient:
 
         # DEBUG: Write the first-turn prompt to a local file for inspection
         try:
-            debug_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                f'{self.turn_number}_first_prompt_debug{self.debug_suffix}.txt'
-            )
+            debug_path = self._debugPath(f'{self.turn_number}_first_prompt_debug{self.debug_suffix}.txt')
             with open(debug_path, 'w', encoding='utf-8') as f:
                 total_user_msgs = sum(1 for m in messages if m.get('role') == 'user')
                 users_seen = 0
@@ -462,6 +470,39 @@ class LLMClient:
         base_prompt += "The search tools (FindFile, SearchSymbol, Grep, ReadFile) handle platform differences automatically.\n"
         base_prompt += "You only need to specify the relative path within the skill directory. "
         base_prompt += "Do NOT prepend 'Resources/Skills/slicer-skill-full/' to your paths — the tool handles this automatically.\n"
+
+        base_prompt += "\n\n## ROLE-COMPOSED AGENT PROTOCOL\n"
+        base_prompt += "Operate as a single LLM agent with explicit internal roles, without adding extra dialogue turns:\n"
+        base_prompt += "- Observer: use the current MRML scene context to understand available nodes and state.\n"
+        base_prompt += "- Retriever: use pre-retrieved snippets and tools to ground important Slicer APIs in evidence.\n"
+        base_prompt += "- Planner: produce the final agent_plan with verified steps, overall confidence, optional machine-checkable expectations, risk, and assumptions.\n"
+        base_prompt += "- Programmer: produce one complete Python block that implements the plan.\n"
+        base_prompt += "- Safety Critic: avoid destructive, file-writing, or high-risk operations unless the plan marks requires_confirmation=true.\n"
+        base_prompt += "Do not print separate role transcripts. Encode Planner output only in the agent_plan block and Programmer output only in the python block.\n"
+
+        base_prompt += "\n\n## REQUIRED OUTPUT FORMAT\n"
+        base_prompt += "When you are ready to generate executable code, output exactly two fenced blocks in this order:\n"
+        base_prompt += "1. ```agent_plan containing valid JSON.\n"
+        base_prompt += "2. ```python containing the complete executable code.\n"
+        base_prompt += "The agent_plan is a verified execution plan, not a guess. Include task_summary, overall_confidence, steps, risk_level, requires_confirmation, and unverified_assumptions.\n"
+        base_prompt += "overall_confidence is the estimated correctness confidence for the whole plan/code path: high, medium, or low. risk_level is separate safety/complexity metadata: low, medium, or high.\n"
+        base_prompt += "Each step should include action, api, confidence, and evidence. Add expected_scene_change only when the step has a simple deterministic scene/UI result from the supported registry.\n"
+        base_prompt += "For important Slicer APIs, set confidence to high only if tool or retrieved evidence supports it. If an API still needs lookup, set confidence to low and add it to unverified_assumptions instead of pretending it is verified.\n"
+        base_prompt += "expected_scene_change is optional machine-check metadata, not the whole correctness proof. Use it conservatively. It must be an object, never a string or list. Supported registry forms:\n"
+        base_prompt += '- {"type":"node_count_delta","node_class":"vtkMRMLScalarVolumeNode","min_delta":1}\n'
+        base_prompt += '- {"type":"node_exists","node_class":"vtkMRMLModelNode","name_contains":"output"}\n'
+        base_prompt += '- {"type":"node_modified","node_class":"vtkMRMLTransformNode","name_contains":"transform"}\n'
+        base_prompt += '- {"type":"node_has_display","node_class":"vtkMRMLModelNode","name_contains":"model"}\n'
+        base_prompt += '- {"type":"node_name_matches","node_class":"vtkMRMLSegmentationNode","name_contains":"segmentation"}\n'
+        base_prompt += '- {"type":"layout_changed"}\n'
+        base_prompt += '- {"type":"selection_changed"}\n'
+        base_prompt += '- {"type":"module_entered","module":"SegmentEditor"}\n'
+        base_prompt += '- {"type":"property_true","property":"segmentation_has_segments"}\n'
+        base_prompt += '- {"type":"property_true","property":"segmentation_has_closed_surface"}\n'
+        base_prompt += '- {"type":"property_true","property":"model_has_polydata"}\n'
+        base_prompt += '- {"type":"property_true","property":"display_visibility"}\n'
+        base_prompt += '- {"type":"not_checked","reason":"Intermediate or non-machine-checkable step"}\n'
+        base_prompt += "Do not invent check types. Do not add expected_scene_change to every step. If the user task is not covered by the registry, omit expected_scene_change or use not_checked with a short reason.\n"
 
         # Inject dense vector retrieval results if available
         if context and context.get('retrieval_results'):
@@ -714,10 +755,12 @@ class LLMClient:
         self.total_cost += cost
 
         code = self._extractCode(message)
+        agent_plan = self._extractAgentPlan(message)
 
         return {
             'message': message,
             'reasoning_content': reasoning_content,
+            'agent_plan': agent_plan,
             'code': code,
             'tokens': tokens_used,
             'cost': cost,
@@ -1307,8 +1350,11 @@ class LLMClient:
             'role': 'user',
             'content': (
                 "You have reached the maximum number of search rounds. "
-                "Stop searching and generate the final Python code block now. "
-                "Output the complete code inside ```python ... ```."
+                "Stop searching and generate the final answer now. "
+                "You MUST output exactly two fenced blocks in this order:\n"
+                "1. ```agent_plan with valid JSON using the required schema.\n"
+                "2. ```python with the complete executable code.\n"
+                "Do not output Python without an agent_plan."
             ),
         })
         intermediate_messages.append(messages[-1])
@@ -1413,10 +1459,7 @@ class LLMClient:
         if result['has_code']:
             # Final response with code - DEBUG: write messages to file
             try:
-                debug_path = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    f'{self.turn_number}_last_prompt_debug{self.debug_suffix}.txt'
-                )
+                debug_path = self._debugPath(f'{self.turn_number}_last_prompt_debug{self.debug_suffix}.txt')
                 with open(debug_path, 'w', encoding='utf-8') as f:
                     total_user_msgs = sum(1 for m in messages if m.get('role') == 'user')
                     users_seen = 0
@@ -1616,12 +1659,30 @@ class LLMClient:
         if matches:
             return matches[0]  # Enforce exactly one code block
 
-        code_pattern = r'```\s*\n(.*?)\n```'
-        matches = re.findall(code_pattern, message, re.DOTALL)
-        if matches:
-            return matches[0]  # Enforce exactly one code block
+        block_pattern = r'```([A-Za-z0-9_-]*)\s*\n(.*?)\n```'
+        matches = re.findall(block_pattern, message, re.DOTALL)
+        for language, content in matches:
+            if (language or "").strip().lower() != "agent_plan":
+                return content
 
         return None
+
+    def _extractAgentPlan(self, message: str) -> Optional[Dict[str, Any]]:
+        """
+        Extract and parse the required agent_plan JSON block from an assistant message.
+        Returns None if no valid plan block is present.
+        """
+        plan_pattern = r'```agent_plan\s*\n(.*?)\n```'
+        matches = re.findall(plan_pattern, message or "", re.DOTALL)
+        if not matches:
+            return None
+        raw_plan = matches[0].strip()
+        try:
+            plan = json.loads(raw_plan)
+            return plan if isinstance(plan, dict) else None
+        except Exception:
+            logger.warning("Failed to parse agent_plan JSON")
+            return None
 
     def _calculateCost(self, usage: Dict[str, Any]) -> float:
         """
