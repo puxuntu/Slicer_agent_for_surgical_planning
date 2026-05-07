@@ -272,13 +272,13 @@ Generated code is treated as untrusted until validated. The security layers are:
 
 ### 1. Download the Slicer Skill
 
-Download the Slicer skill knowledge base into the expected local folder:
+Follow the download and setup instructions in the [pieper/slicer-skill](https://github.com/pieper/slicer-skill) repository, then place the downloaded skill content under:
 
-```bash
-git clone https://github.com/pieper/slicer-skill Resources/Skills/slicer-skill-full
+```text
+Resources/Skills/slicer-skill-full/
 ```
 
-The agent uses this folder for local documentation search, API lookup, and dense vector retrieval.
+The agent uses this local folder for documentation search, API lookup, and dense vector retrieval.
 
 ### 2. Build the Dense Vector Index (Optional but Recommended)
 
