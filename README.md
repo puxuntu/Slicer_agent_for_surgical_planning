@@ -270,26 +270,17 @@ Generated code is treated as untrusted until validated. The security layers are:
 
 ## Setup & Installation
 
-### 1. Install the Extension
+### 1. Download the Slicer Skill
 
-Add the repository root to Slicer's additional module paths:
+Download the Slicer skill knowledge base into the expected local folder:
 
-1. Open 3D Slicer.
-2. Go to **View → Application Settings → Modules → Additional module paths**.
-3. Add the root of this repository.
-4. Restart Slicer. The module appears under the **AI** category.
+```bash
+git clone https://github.com/pieper/slicer-skill Resources/Skills/slicer-skill-full
+```
 
-### 2. Configure API Key
+The agent uses this folder for local documentation search, API lookup, and dense vector retrieval.
 
-Enter your API key in the Settings panel of the module UI. Supported providers:
-
-- **Kimi / Moonshot** (default): `https://api.moonshot.cn/v1`, default model `kimi-k2.5`
-- **DeepSeek**: OpenAI-compatible DeepSeek endpoints and model list from the provider selector.
-- **Claude**: native Anthropic Messages API when using `https://api.anthropic.com/v1`; OpenAI-compatible Claude proxies are also supported when their base URL uses OpenAI-compatible chat completions.
-
-Use the **Test** button to verify the configured provider, model, base URL, and API key.
-
-### 3. Build the Dense Vector Index (Optional but Recommended)
+### 2. Build the Dense Vector Index (Optional but Recommended)
 
 The vector index enables fast pre-retrieval of relevant knowledge base snippets before each LLM call.
 
@@ -299,16 +290,24 @@ python scripts/build_rag.py
 
 This scans `Resources/Skills/slicer-skill-full/`, chunks changed files, encodes them with the ONNX model, and writes the FAISS index to `Resources/Code_RAG/v1/`. The first run downloads the ~640 MB ONNX model.
 
-### 4. Run Tests
+### 3. Install the Extension
 
-Tests must run inside a live Slicer instance:
+Add the repository root to Slicer's additional module paths:
 
-```python
-import unittest
-loader = unittest.TestLoader()
-suite = loader.loadTestsFromName('SlicerAIAgentTest')
-unittest.TextTestRunner(verbosity=2).run(suite)
-```
+1. Open 3D Slicer.
+2. Go to **View → Application Settings → Modules → Additional module paths**.
+3. Add the root of this repository.
+4. Restart Slicer. The module appears under the **AI** category.
+
+### 4. Configure API Key
+
+Enter your API key in the Settings panel of the module UI. Supported providers:
+
+- **Kimi / Moonshot** (default): `https://api.moonshot.cn/v1`, default model `kimi-k2.5`
+- **DeepSeek**: OpenAI-compatible DeepSeek endpoints and model list from the provider selector.
+- **Claude**: native Anthropic Messages API when using `https://api.anthropic.com/v1`; OpenAI-compatible Claude proxies are also supported when their base URL uses OpenAI-compatible chat completions.
+
+Use the **Test** button to verify the configured provider, model, base URL, and API key.
 
 ---
 
