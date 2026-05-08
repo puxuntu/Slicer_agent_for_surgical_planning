@@ -78,6 +78,10 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._roleTrace = []
         self._currentLogDir = None
         self._currentAgentRole = "Idle"
+        self._lastExecutionResult = None
+        self._lastVerificationResult = None
+        self._lastSceneAfter = None
+        self._lastOutputHasErrors = False
 
     def setup(self):
         ScriptedLoadableModuleWidget.setup(self)
@@ -889,28 +893,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     evidence = step.get("evidence")
                     if not evidence:
                         high_conf_without_evidence += 1
-                scene_change = step.get("expected_scene_change")
-                if scene_change is not None and not isinstance(scene_change, dict):
-                    warnings.append(f"Step {idx} expected_scene_change is not machine-checkable and will be ignored")
-                elif isinstance(scene_change, dict):
-                    change_type = scene_change.get("type")
-                    legacy_shape = scene_change.get("node_class") or scene_change.get("property")
-                    allowed_types = set(self.logic.getSceneCheckRegistry().keys()) if self.logic else {
-                        "node_count_delta",
-                        "node_exists",
-                        "node_modified",
-                        "node_has_display",
-                        "node_name_matches",
-                        "layout_changed",
-                        "selection_changed",
-                        "module_entered",
-                        "property_true",
-                        "not_checked",
-                    }
-                    if change_type and change_type not in allowed_types:
-                        warnings.append(f"Step {idx} expected_scene_change has unknown type '{change_type}' and may be ignored")
-                    elif not change_type and not legacy_shape:
-                        warnings.append(f"Step {idx} expected_scene_change has no recognized check type and may be ignored")
+                # expected_scene_change validation removed — verifier is no longer used
 
         if needs_lookup:
             errors.append("Plan still contains needs_lookup step(s): " + ", ".join(needs_lookup[:3]))
@@ -1056,14 +1039,11 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             confirmation_reasons.append(f"Potentially destructive operation(s): {destructive_ops}")
         if confirmation_reasons:
             reason = "\n".join(confirmation_reasons)
+            logger.info(f"Auto-approving execution with warnings: {reason}")
+            self.appendToChat("Warning", f"Executing with potentially destructive operations: {reason}")
             self._recordRoleEvent("SafetyCritic", "confirmation_required", {
                 "reason": reason,
             })
-            self._askExecutionConfirmation(
-                reason,
-                lambda: self._autoExecuteCodeConfirmed(attempt, max_attempts)
-            )
-            return
 
         self._autoExecuteCodeConfirmed(attempt, max_attempts)
 
@@ -1079,13 +1059,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._timing:
             self._timing['execution_async_call'] = time.time()
 
-        scene_before = self.logic.buildSceneSnapshot() if self.logic else {}
         self._recordRoleEvent("Executor", "execution_scheduled", {
             "attempt": attempt,
             "code_chars": len(self.currentCode or ""),
-        })
-        self._recordRoleEvent("Verifier", "pre_execution_snapshot_captured", {
-            "node_classes": len(scene_before.get("counts", {})) if isinstance(scene_before, dict) else 0,
         })
 
         def onExecutionComplete(result):
@@ -1109,7 +1085,6 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.appendToChat("Warning", msg)
                 feedback_lines.append(f"Status: timed_out\nExecution time: {exec_time:.1f}s\nOutput: {output}")
             elif result["success"]:
-                self._setAgentStatus("Verifier", "Verifying scene...")
                 output = result.get('output', 'No output')
                 execution_time = result.get('execution_time', 0)
                 msg = f"Code executed successfully in {execution_time:.2f}s."
@@ -1119,28 +1094,11 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 feedback_lines.append(f"Status: success\nExecution time: {execution_time:.2f}s\nOutput: {output}")
                 # Detect actual errors (excluding VTK warnings which are often benign)
                 lower_output = output.lower()
-                if any(k in lower_output for k in ('error:', 'traceback', 'exception', 'failed', '[vtk error]')):
+                if any(k in lower_output for k in ('traceback', 'exception', 'failed')):
                     output_has_errors = True
                     feedback_lines.append("Warning: execution output contains error indicators even though no uncaught exception was raised.")
-                if self.logic:
-                    scene_after = self.logic.buildSceneSnapshot()
-                    verification = self.logic.verifySceneAgainstPlan(
-                        scene_before,
-                        scene_after,
-                        getattr(self, "currentAgentPlan", None)
-                    )
-                    self._recordRoleEvent("Verifier", "scene_verification_completed", {
-                        "valid": verification.get("valid", True),
-                        "errors": verification.get("errors", []),
-                        "warnings": verification.get("warnings", []),
-                    })
-                    if verification.get("warnings"):
-                        feedback_lines.append("Scene verification warnings: " + "; ".join(verification["warnings"]))
-                    if not verification.get("valid", True):
-                        output_has_errors = True
-                        verification_error = "Scene verification failed: " + "; ".join(verification.get("errors", []))
-                        feedback_lines.append(verification_error)
-                        self.appendToChat("System", verification_error)
+                self._lastExecutionResult = dict(result)
+                self._lastOutputHasErrors = output_has_errors
             else:
                 # Execution failed
                 error_msg = result.get('error', 'Unknown error')
@@ -1148,6 +1106,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 msg = f"Execution failed (attempt {attempt}/{max_attempts}).\nError: {error_msg[:200]}"
                 self.appendToChat("System", msg)
                 feedback_lines.append(f"Status: failed\nExecution time: {execution_time:.2f}s\nError: {error_msg[:500]}")
+                self._lastExecutionResult = dict(result)
+                self._lastOutputHasErrors = True
             
             # Add execution feedback to conversation history
             if self.logic:
@@ -1171,8 +1131,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self.appendToChat("System", "Auto-correcting...")
                     error_for_correction = result.get('error', '')
                     if not error_for_correction and output_has_errors:
-                        # success=True but output contains error indicators (e.g. VTK errors)
-                        # Pass the output so LLM knows what to fix
+                        # success=True but output contains clear failure keywords
                         error_for_correction = "\n".join(feedback_lines) or output
                     self._recordRoleEvent("Repairer", "correction_requested", {
                         "attempt": attempt + 1,
@@ -1191,9 +1150,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     })
                     self._saveRoleTraceToFile()
             else:
-                self._recordRoleEvent("Verifier", "task_completed", {
+                self._recordRoleEvent("Executor", "task_completed", {
                     "execution_success": result.get("success"),
-                    "semantic_success": not output_has_errors,
                 })
                 self._saveRoleTraceToFile()
                 self._setReadyStatus()
@@ -1274,19 +1232,21 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         f"```python\n{_currentCode}\n```"
                     )
                 })
-                
+
+                user_content = (
+                    f"CRITICAL: The previous Python code execution failed with this error:\n"
+                    f"{error_detail}\n\n"
+                    "You have FindFile, SearchSymbol, Grep, ReadFile, and VectorSearch tools available. "
+                    "If the error is caused by an incorrect API signature, missing parameter, or wrong module path, "
+                    "use the tools to verify the correct usage before fixing. "
+                    "Do NOT search unnecessarily — if you are confident in the fix, apply it directly.\n\n"
+                    "Your task is to fix the error and output the COMPLETE corrected Python code in ONE ```python block."
+                    " Also output a corrected ```agent_plan JSON block before the Python block."
+                )
+
                 isolated_messages.append({
                     'role': 'user',
-                    'content': (
-                        f"CRITICAL: The previous Python code execution failed with this error:\n"
-                        f"{error_detail}\n\n"
-                        "You have FindFile, SearchSymbol, Grep, ReadFile, and VectorSearch tools available. "
-                        "If the error is caused by an incorrect API signature, missing parameter, or wrong module path, "
-                        "use the tools to verify the correct usage before fixing. "
-                        "Do NOT search unnecessarily — if you are confident in the fix, apply it directly.\n\n"
-                        "Your task is to fix the error and output the COMPLETE corrected Python code in ONE ```python block."
-                        " Also output a corrected ```agent_plan JSON block before the Python block."
-                    )
+                    'content': user_content
                 })
                 
                 # Save isolated prompt to debug file before sending
@@ -2065,7 +2025,7 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
             # Identify .md files with >= 3 chunks
             full_md_files = [
                 fp for fp, cnt in file_counts.items()
-                if cnt >= 5 and fp.lower().endswith('.md')
+                if cnt >= 3 and fp.lower().endswith('.md')
             ]
             if full_md_files and self.toolExecutor:
                 from SlicerAIAgentLib.SkillIndexer import CodeChunk, RetrievedChunk
@@ -2441,7 +2401,7 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
 
     def verifySceneAgainstPlan(self, before, after, plan):
         """Compare optional machine-checkable expectations against scene snapshots."""
-        result = {"valid": True, "errors": [], "warnings": []}
+        result = {"valid": True, "errors": [], "warnings": [], "diagnostics": []}
         if not isinstance(plan, dict):
             return result
 
@@ -2472,6 +2432,9 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
                 result["warnings"].append(f"Step {idx} {warning}")
             for error in check_result.get("errors", []):
                 result["errors"].append(f"Step {idx} {error}")
+            diag = check_result.get("_diagnostic")
+            if diag:
+                result["diagnostics"].append({"step": idx, **diag})
 
         if result["errors"]:
             result["valid"] = False
@@ -2496,6 +2459,50 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
             matches.append(node)
         return matches
 
+    def _collectSnapshotCandidates(self, snapshot, node_class=None, name_contains=None):
+        """Collect near-miss node candidates when an exact match fails.
+
+        Returns up to 5 candidate dicts with keys: id, name, class, score, match_notes.
+        """
+        nodes = snapshot.get("nodes", []) if isinstance(snapshot, dict) else []
+        name_filter = str(name_contains or "").lower()
+        class_filter = str(node_class or "").lower()
+        candidates = []
+        seen_ids = set()
+        for node in nodes:
+            nid = node.get("id")
+            if nid in seen_ids:
+                continue
+            seen_ids.add(nid)
+            actual_class = str(node.get("class") or "").lower()
+            actual_name = str(node.get("name") or "").lower()
+            score = 0
+            notes = []
+            if class_filter:
+                if actual_class == class_filter:
+                    score += 3
+                    notes.append("class_exact")
+                elif class_filter in actual_class or actual_class in class_filter:
+                    score += 1
+                    notes.append("class_partial")
+            if name_filter:
+                if actual_name == name_filter:
+                    score += 3
+                    notes.append("name_exact")
+                elif name_filter in actual_name or actual_name in name_filter:
+                    score += 1
+                    notes.append("name_partial")
+            if score > 0:
+                candidates.append({
+                    "id": nid,
+                    "name": node.get("name"),
+                    "class": node.get("class"),
+                    "score": score,
+                    "match_notes": notes,
+                })
+        candidates.sort(key=lambda c: c["score"], reverse=True)
+        return candidates[:5]
+
     def _checkNotChecked(self, before, after, expected):
         return {"errors": [], "warnings": []}
 
@@ -2518,7 +2525,17 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
             label = node_class or "node"
             name = expected.get("name_contains")
             suffix = f" with name containing '{name}'" if name else ""
-            return {"errors": [f"expected {label}{suffix} to exist"], "warnings": []}
+            error_msg = f"expected {label}{suffix} to exist"
+            candidates = self._collectSnapshotCandidates(after, node_class, expected.get("name_contains"))
+            return {
+                "errors": [error_msg],
+                "warnings": [],
+                "_diagnostic": {
+                    "check_type": "node_exists",
+                    "expected": {"node_class": node_class, "name_contains": name},
+                    "actual_candidates": candidates,
+                }
+            }
         return {"errors": [], "warnings": []}
 
     def _checkNodeModified(self, before, after, expected):

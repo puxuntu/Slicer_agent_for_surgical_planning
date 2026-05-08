@@ -486,23 +486,8 @@ class LLMClient:
         base_prompt += "2. ```python containing the complete executable code.\n"
         base_prompt += "The agent_plan is a verified execution plan, not a guess. Include task_summary, overall_confidence, steps, risk_level, requires_confirmation, and unverified_assumptions.\n"
         base_prompt += "overall_confidence is the estimated correctness confidence for the whole plan/code path: high, medium, or low. risk_level is separate safety/complexity metadata: low, medium, or high.\n"
-        base_prompt += "Each step should include action, api, confidence, and evidence. Add expected_scene_change only when the step has a simple deterministic scene/UI result from the supported registry.\n"
+        base_prompt += "Each step should include action, api, confidence, and evidence.\n"
         base_prompt += "For important Slicer APIs, set confidence to high only if tool or retrieved evidence supports it. If an API still needs lookup, set confidence to low and add it to unverified_assumptions instead of pretending it is verified.\n"
-        base_prompt += "expected_scene_change is optional machine-check metadata, not the whole correctness proof. Use it conservatively. It must be an object, never a string or list. Supported registry forms:\n"
-        base_prompt += '- {"type":"node_count_delta","node_class":"vtkMRMLScalarVolumeNode","min_delta":1}\n'
-        base_prompt += '- {"type":"node_exists","node_class":"vtkMRMLModelNode","name_contains":"output"}\n'
-        base_prompt += '- {"type":"node_modified","node_class":"vtkMRMLTransformNode","name_contains":"transform"}\n'
-        base_prompt += '- {"type":"node_has_display","node_class":"vtkMRMLModelNode","name_contains":"model"}\n'
-        base_prompt += '- {"type":"node_name_matches","node_class":"vtkMRMLSegmentationNode","name_contains":"segmentation"}\n'
-        base_prompt += '- {"type":"layout_changed"}\n'
-        base_prompt += '- {"type":"selection_changed"}\n'
-        base_prompt += '- {"type":"module_entered","module":"SegmentEditor"}\n'
-        base_prompt += '- {"type":"property_true","property":"segmentation_has_segments"}\n'
-        base_prompt += '- {"type":"property_true","property":"segmentation_has_closed_surface"}\n'
-        base_prompt += '- {"type":"property_true","property":"model_has_polydata"}\n'
-        base_prompt += '- {"type":"property_true","property":"display_visibility"}\n'
-        base_prompt += '- {"type":"not_checked","reason":"Intermediate or non-machine-checkable step"}\n'
-        base_prompt += "Do not invent check types. Do not add expected_scene_change to every step. If the user task is not covered by the registry, omit expected_scene_change or use not_checked with a short reason.\n"
 
         # Inject dense vector retrieval results if available
         if context and context.get('retrieval_results'):
