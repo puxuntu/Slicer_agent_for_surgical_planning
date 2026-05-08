@@ -74,6 +74,10 @@ class SlicerAIAgentTest(ScriptedLoadableModuleTest):
         self.setUp()
         self.test_Integration()
         self.tearDown()
+        
+        self.setUp()
+        self.test_GenerateSegmentationCode()
+        self.tearDown()
 
     def test_ModuleImport(self):
         """Test that all module components can be imported."""
@@ -350,6 +354,66 @@ More text.
         self.assertIn("```python", formatted)
         
         self.delayDisplay("SlicerCodeTemplates tests passed")
+
+    def test_GenerateSegmentationCode(self):
+        """Test the GenerateSegmentationCode tool."""
+        from SlicerAIAgentLib import SkillTools
+        
+        tools = SkillTools.SkillTools()
+        
+        # Test 1: Basic organ segmentation — passes through arbitrary prompts
+        result = tools.execute("GenerateSegmentationCode", {"prompt": "segment the liver and spleen"})
+        self.assertNotIn("error", result, f"Tool returned error: {result.get('error')}")
+        self.assertEqual(result["tool"], "GenerateSegmentationCode")
+        self.assertIn("liver", result["extracted_targets"])
+        self.assertIn("spleen", result["extracted_targets"])
+        self.assertIn("code", result)
+        self.assertIn("VoxTell", result["code"])
+        self.assertIn("runSegmentation", result["code"])
+        self.assertIn("explanation", result)
+        self.assertIn("requirements", result)
+        
+        # Test 2: Arbitrary anatomical terms (no keyword filtering)
+        result = tools.execute("GenerateSegmentationCode", {"prompt": "find the hippocampus and amygdala"})
+        self.assertIn("hippocampus", result["extracted_targets"])
+        self.assertIn("amygdala", result["extracted_targets"])
+        self.assertIn("runSegmentation", result["code"])
+        
+        # Test 3: Custom volume node name and output name
+        result = tools.execute(
+            "GenerateSegmentationCode",
+            {
+                "prompt": "segment the aorta",
+                "volume_node_name": "CTChest",
+                "output_segmentation_name": "AortaSeg",
+            }
+        )
+        self.assertIn("CTChest", result["code"])
+        self.assertIn("AortaSeg", result["code"])
+        self.assertIn("aorta", result["extracted_targets"])
+        
+        # Test 4: No recognizable anatomical targets (fallback)
+        result = tools.execute("GenerateSegmentationCode", {"prompt": "do something vague"})
+        self.assertEqual(result["extracted_targets"], ["structure of interest"])
+        self.assertIn("runSegmentation", result["code"])
+        
+        # Test 5: Verify GPU detection, widget-based logic access, offline mode, model check
+        result = tools.execute("GenerateSegmentationCode", {"prompt": "segment kidneys"})
+        self.assertIn("torch.cuda.is_available()", result["code"])
+        self.assertIn("8_000_000_000", result["code"])
+        self.assertIn("useGpu=use_gpu", result["code"])
+        self.assertIn("widgetRepresentation().self()", result["code"])
+        self.assertIn("_voxtell_widget.logic", result["code"])
+        self.assertIn("HF_HUB_OFFLINE", result["code"])
+        self.assertIn("isModelInstalled", result["code"])
+        self.assertNotIn("slicer.modules.voxtell.logic()", result["code"])
+        
+        # Test 6: Tool spec includes the new tool
+        spec = tools.getToolsSpec()
+        tool_names = [t["function"]["name"] for t in spec]
+        self.assertIn("GenerateSegmentationCode", tool_names)
+        
+        self.delayDisplay("GenerateSegmentationCode tests passed")
 
     def test_Integration(self):
         """Integration test of multiple components."""

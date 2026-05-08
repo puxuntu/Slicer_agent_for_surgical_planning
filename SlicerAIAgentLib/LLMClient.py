@@ -1238,12 +1238,15 @@ class LLMClient:
                 has_search = any(n in ('Grep', 'FindFile', 'SearchSymbol') for n in tool_names)
                 has_readfile = any(n == 'ReadFile' for n in tool_names)
                 has_vector = any(n == 'VectorSearch' for n in tool_names)
+                has_segmentation = any(n == 'GenerateSegmentationCode' for n in tool_names)
                 if has_search and has_readfile:
                     phase_label = "Search+Read"
                 elif has_readfile:
                     phase_label = "Read"
                 elif has_search or has_vector:
                     phase_label = "Search"
+                elif has_segmentation:
+                    phase_label = "Segmentation"
                 else:
                     phase_label = "Tools"
 
@@ -1254,6 +1257,8 @@ class LLMClient:
                         on_status("Reading...")
                     elif has_search or has_vector:
                         on_status("Searching...")
+                    elif has_segmentation:
+                        on_status("Generating segmentation code...")
                     else:
                         on_status("Running tools...")
 
