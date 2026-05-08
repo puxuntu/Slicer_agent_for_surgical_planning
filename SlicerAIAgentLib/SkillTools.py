@@ -287,7 +287,7 @@ class SkillToolExecutor:
         Execute a tool call.
         
         Args:
-            tool_name: Name of the tool (FindFile, SearchSymbol, Grep, ReadFile, VectorSearch)
+            tool_name: Name of the tool (SearchSymbol, Grep, ReadFile, VectorSearch)
             arguments: Tool arguments
             
         Returns:
@@ -296,9 +296,7 @@ class SkillToolExecutor:
         import time
         start = time.time()
         
-        if tool_name == "FindFile":
-            result = self._findfile(arguments.get("pattern", ""), arguments.get("path", ""))
-        elif tool_name == "SearchSymbol":
+        if tool_name == "SearchSymbol":
             result = self._search_symbol(
                 arguments.get("pattern", ""),
                 arguments.get("path", ""),
@@ -327,7 +325,7 @@ class SkillToolExecutor:
         if isinstance(result, dict):
             if "path" in result:
                 result["path"] = self._relativize(result["path"])
-            # Legacy line-by-line results (FindFile / SearchSymbol / old Grep)
+            # Legacy line-by-line results (SearchSymbol / old Grep)
             if "results" in result and isinstance(result["results"], list):
                 for item in result["results"]:
                     if isinstance(item, dict) and "file" in item:
@@ -871,41 +869,6 @@ class SkillToolExecutor:
         
         return ''.join(parts)
     
-    def _findfile(self, pattern: str, path: str) -> Dict:
-        """Search for files by name pattern (case-insensitive)."""
-        if not os.path.isabs(path):
-            path = os.path.join(self.skill_path, path)
-        
-        if not os.path.exists(path):
-            return {"error": f"Path not found: {path}"}
-        
-        results = []
-        regex = re.compile(pattern.replace('*', '.*').replace('?', '.'), re.IGNORECASE)
-        
-        try:
-            for root, _, filenames in os.walk(path):
-                for filename in filenames:
-                    if regex.search(filename):
-                        results.append(os.path.join(root, filename))
-                        if len(results) >= 20:
-                            break
-                if len(results) >= 20:
-                    break
-        except Exception as e:
-            return {"error": f"Failed to find files: {str(e)}"}
-        
-        return {
-            "tool": "FindFile",
-            "pattern": pattern,
-            "path": path,
-            "results": results,
-            "count": len(results),
-            "results_with_type": [
-                {"file": self._relativize(r), "source_type": self._infer_source_type(r)}
-                for r in results
-            ],
-        }
-
     def _rg_find_symbol_candidates(self, pattern: str, path: str) -> List[str]:
         """Use ripgrep to quickly find files that may contain the symbol name.
         
@@ -1079,27 +1042,6 @@ def get_skill_tools() -> List[Dict]:
         {
             "type": "function",
             "function": {
-                "name": "FindFile",
-                "description": "Search for files by name pattern (case-insensitive, supports * and ? wildcards). Use this as the first step when you need to locate a specific file or type of file within the skill knowledge base. Returns up to 20 matches.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "pattern": {
-                            "type": "string",
-                            "description": "File name pattern (e.g., 'volumes*', '*.py', 'qSlicerVolume*')"
-                        },
-                        "path": {
-                            "type": "string",
-                            "description": "Relative path within skill to search under (e.g., 'slicer-source')"
-                        }
-                    },
-                    "required": ["pattern", "path"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
                 "name": "SearchSymbol",
                 "description": "Search for symbol definitions (functions, classes, markdown headings) by name. Only matches actual definitions, not call sites or comments. Supports Python, C/C++, and Markdown files. Use this when you want to find where a specific function or class is defined.",
                 "parameters": {
@@ -1127,7 +1069,7 @@ def get_skill_tools() -> List[Dict]:
             "type": "function",
             "function": {
                 "name": "Grep",
-                "description": "Full-text search across files. Returns an aggregated summary (per-file hit counts + representative matches), not line-by-line results. Use after FindFile or SearchSymbol to confirm specific usage patterns.",
+                "description": "Full-text search across files. Returns an aggregated summary (per-file hit counts + representative matches), not line-by-line results. Use after SearchSymbol or VectorSearch to confirm specific usage patterns.",
                 "parameters": {
                     "type": "object",
                     "properties": {
