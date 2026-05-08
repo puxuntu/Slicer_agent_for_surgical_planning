@@ -485,6 +485,11 @@ _segmentation_node.CreateClosedSurfaceRepresentation()
             "prompt": prompt,
             "extracted_targets": targets,
             "code": code,
+            "instruction": (
+                "OUTPUT THE 'code' FIELD ABOVE VERBATIM INSIDE A ```python BLOCK "
+                "AS YOUR NEXT RESPONSE. Do not modify the code. "
+                "Do not write analysis or explanation before the code block."
+            ),
             "explanation": (
                 f"VoxTell segmentation for: {', '.join(targets)}. "
                 f"GPU auto-detected (falls back to CPU if <8 GB VRAM)."
