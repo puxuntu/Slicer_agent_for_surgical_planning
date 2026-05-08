@@ -157,13 +157,22 @@ Once search results identify relevant files, use ReadFile with a `query` to extr
 
 Your ENTIRE response must be **EITHER**:
 1. One or more tool calls (Grep/ReadFile/GenerateSegmentationCode), **OR**
-2. Exactly one ` ```python` code block with the final executable script.
+2. An ` ```agent_plan` JSON block followed by exactly one ` ```python` code block.
 
-Do not write explanatory text between tool calls and the final code.
+Do not write explanatory text between tool calls and the final blocks.
 
-**Special case — GenerateSegmentationCode**: If you just received a `GenerateSegmentationCode` result, do NOT output any text. Immediately emit a ` ```python` block containing the tool's `code` field verbatim.
+**Required final output format** (after all tool calls are done):
+```agent_plan
+{"task_summary": "...", "overall_confidence": "high|medium|low", "steps": [...], "risk_level": "low|medium|high", "requires_confirmation": false, "unverified_assumptions": []}
+```
 
-You may optionally include 1-2 sentences of explanation **before** the code block. Do not write long essays.
+```python
+# executable Slicer Python code here
+```
+
+**Special case — GenerateSegmentationCode**: If you just received a `GenerateSegmentationCode` result, output the ` ```agent_plan` block first, then a ` ```python` block containing the tool's `code` field verbatim.
+
+You may optionally include 1-2 sentences of explanation **before** the agent_plan block. Do not write long essays.
 
 ---
 
@@ -171,9 +180,9 @@ You may optionally include 1-2 sentences of explanation **before** the code bloc
 
 ### 1. Exactly One Code Block
 - **ONLY ONE** ` ```python` code block in the entire response.
+- You MAY also include one ` ```agent_plan` JSON block before the python block.
 - The code block must contain **executable Slicer Python code only**.
 - **NEVER** put shell commands, subprocess calls, or grep commands inside the code block.
-- **NEVER** put multiple code blocks.
 
 ### 2. Forbidden Modules & Functions
 These CANNOT be used in the final code. Code using them will be rejected:
