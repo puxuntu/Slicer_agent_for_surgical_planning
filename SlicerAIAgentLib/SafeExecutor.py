@@ -220,6 +220,10 @@ class SafeExecutor:
             original_vtk_window = None
             vtk_log_path = None
 
+        # Force HuggingFace offline mode for VoxTell and other ML extensions
+        # so that cached models are used without attempting network access.
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        
         try:
             # Execute with output capture
             with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(stderr_capture):

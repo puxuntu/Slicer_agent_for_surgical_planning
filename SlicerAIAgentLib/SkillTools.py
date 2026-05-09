@@ -445,11 +445,6 @@ try:
 except Exception:
     use_gpu = False
 
-# Force HuggingFace offline mode so VoxTell never tries to re-download
-# models that are already cached locally (prevents SSL/network errors).
-import os
-os.environ["HF_HUB_OFFLINE"] = "1"
-
 # Access VoxTell logic through widget representation.
 # slicer.modules.voxtell.logic() returns the C++ base wrapper which lacks
 # runSegmentation; the Python VoxTellLogic lives on the widget.

@@ -404,9 +404,9 @@ More text.
         self.assertIn("useGpu=use_gpu", result["code"])
         self.assertIn("widgetRepresentation().self()", result["code"])
         self.assertIn("_voxtell_widget.logic", result["code"])
-        self.assertIn("HF_HUB_OFFLINE", result["code"])
         self.assertIn("isModelInstalled", result["code"])
         self.assertNotIn("slicer.modules.voxtell.logic()", result["code"])
+        self.assertNotIn("import os", result["code"])
         
         # Test 6: Tool spec includes the new tool
         spec = tools.getToolsSpec()
