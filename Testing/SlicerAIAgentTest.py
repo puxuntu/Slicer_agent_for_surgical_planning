@@ -267,6 +267,43 @@ More text.
         
         self.delayDisplay("SafeExecutor tests passed")
 
+    def test_ProgressBarFilter(self):
+        """Test SafeExecutor progress bar filtering."""
+        from SlicerAIAgentLib.SafeExecutor import SafeExecutor
+        
+        # Test 1: Strip tqdm lines
+        noisy = (
+            "0%| | 0/25 [00:00<?, ?it/s] 4%|4 | 1/25 [00:39<15:44, 39.35s/it]\n"
+            "100%|##########| 25/25 [13:27<00:00, 32.28s/it]\n"
+        )
+        self.assertEqual(SafeExecutor._filter_progress_bars(noisy), "")
+        
+        # Test 2: Strip checkpoint loading lines
+        shards = (
+            "Loading checkpoint shards: 0%| | 0/2 [00:00<?, ?it/s] "
+            "Loading checkpoint shards: 100%|##########| 2/2 [00:35<00:00, 17.65s/it]\n"
+        )
+        self.assertEqual(SafeExecutor._filter_progress_bars(shards), "")
+        
+        # Test 3: Preserve real errors
+        mixed = (
+            "0%| | 0/25 [00:00<?, ?it/s]\n"
+            "[VTK ERROR] Invalid segment\n"
+            "Loading checkpoint shards: 50%|##### | 1/2 [00:22<00:22, 22.69s/it]\n"
+            "RuntimeError: model not found\n"
+        )
+        filtered = SafeExecutor._filter_progress_bars(mixed)
+        self.assertIn("[VTK ERROR] Invalid segment", filtered)
+        self.assertIn("RuntimeError: model not found", filtered)
+        self.assertNotIn("0%|", filtered)
+        self.assertNotIn("Loading checkpoint shards", filtered)
+        
+        # Test 4: Empty input
+        self.assertEqual(SafeExecutor._filter_progress_bars(""), "")
+        self.assertEqual(SafeExecutor._filter_progress_bars(None), None)
+        
+        self.delayDisplay("Progress bar filter tests passed")
+
     def test_SkillPath(self):
         """Test skill path resolution and mode detection in logic."""
         from SlicerAIAgent import SlicerAIAgentLogic

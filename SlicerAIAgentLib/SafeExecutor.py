@@ -105,7 +105,36 @@ class SafeExecutor:
         
         return globals_dict
     
-    def execute(self, code: str, timeout: Optional[int] = None, 
+    @staticmethod
+    def _filter_progress_bars(text: str) -> str:
+        """Remove tqdm and checkpoint-loading progress bar noise from stderr.
+
+        Progress bars like:
+            0%| | 0/25 [00:00<?, ?it/s]
+            Loading checkpoint shards: 50%|##### | 1/2 [00:22<00:22, 22.69s/it]
+        are stripped while real error/warning messages are preserved.
+        """
+        if not text:
+            return text
+        import re
+        # tqdm uses \r to overwrite lines; split on both \r and \n
+        fragments = re.split(r'[\r\n]', text)
+        kept = []
+        for frag in fragments:
+            line = frag.strip()
+            if not line:
+                continue
+            # Match typical tqdm lines: "0%| | 0/25 [00:00<?, ?it/s]"
+            # or "Loading checkpoint shards: 50%|##### | 1/2 [00:22<00:22, 22.69s/it]"
+            if re.search(r'\d+%\|.*\|.*\[\d+[/:]', line) and 'it/s' in line:
+                continue
+            # Also filter checkpoint-shard lines that lack it/s but have %|
+            if 'Loading checkpoint shards:' in line and re.search(r'\d+%\|', line):
+                continue
+            kept.append(line)
+        return '\n'.join(kept)
+    
+    def execute(self, code: str, timeout: Optional[int] = None,
                 progress_callback: Optional[Callable[[str], None]] = None) -> Dict:
         """
         Execute Python code safely in the main thread.
@@ -223,6 +252,8 @@ class SafeExecutor:
         # Force HuggingFace offline mode for VoxTell and other ML extensions
         # so that cached models are used without attempting network access.
         os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        # Suppress tqdm progress bars in captured output.
+        os.environ.setdefault("TQDM_DISABLE", "1")
         
         try:
             # Execute with output capture
@@ -321,7 +352,7 @@ class SafeExecutor:
         
         # Get output (limited length)
         output = stdout_capture.getvalue()
-        stderr_output = stderr_capture.getvalue()
+        stderr_output = self._filter_progress_bars(stderr_capture.getvalue())
         
         if stderr_output:
             output += "\n[STDERR]:\n" + stderr_output
