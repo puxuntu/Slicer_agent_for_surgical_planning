@@ -26,7 +26,7 @@ SlicerAIAgent closes this gap by letting clinicians state their goal in plain la
 
 **Turn 4:** give a random displacement to one part to separate them
 
-[demo/demo1.mp4](demo/demo1.mp4)
+<video src="demo/demo1.mp4" controls width="100%"></video>
 
 The agent carries out a multi-turn interactive workflow: loading data → threshold-based segmentation → 3D surface reconstruction (`vtkMarchingCubes`) → arbitrary plane clipping → multi-color display → random displacement to separate the clipped parts.
 
@@ -40,7 +40,7 @@ The agent carries out a multi-turn interactive workflow: loading data → thresh
 
 **Turn 3:** segment the left lung
 
-[demo/demo2.mp4](demo/demo2.mp4)
+<video src="demo/demo2.mp4" controls width="100%"></video>
 
 > **Note:** The segmentation inference uses SlicerVoxTell. When running on CPU the inference time is very long, so those waiting segments were removed during video editing.
 
