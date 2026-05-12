@@ -325,13 +325,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Build HTML for the current streaming assistant entry."""
         timestamp = getattr(self, '_streamTimestamp', '')
         parts = []
-        if self._streamReasoning:
-            escaped_reasoning = self.escapeHtml(self._streamReasoning).replace(chr(10), '<br>')
-            parts.append(
-                f'<div style="margin-left: 10px; margin-top: 5px; color: #666; '
-                f'border-left: 3px solid #ccc; padding-left: 8px; font-style: italic;">'
-                f'{escaped_reasoning}</div>'
-            )
+        # Reasoning/thinking content is intentionally suppressed from the chat UI
+        # and only persisted to debug log files.
         if self._streamContent:
             escaped_content = self.escapeHtml(self._streamContent).replace(chr(10), '<br>')
             parts.append(
@@ -449,20 +444,18 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self._onStreamDelta(payload)
                     i += 1
                 else:
-                    # Batch consecutive streaming deltas (reasoning/content)
-                    batched_reasoning = ""
+                    # Batch consecutive streaming deltas (content only)
                     batched_content = ""
                     batch_start = i
                     while i < len(events):
                         et, ep = events[i]
                         if et != 'delta' or ep.get('round'):
                             break
-                        batched_reasoning += ep.get('reasoning_content', '')
+                        # reasoning_content is intentionally suppressed from the chat UI
                         batched_content += ep.get('content', '')
                         i += 1
                     # Apply batched deltas in one go
-                    if batched_reasoning or batched_content:
-                        self._streamReasoning += batched_reasoning
+                    if batched_content:
                         self._streamContent += batched_content
                         self._renderStreamingEntry()
                     slicer.app.processEvents()
@@ -496,7 +489,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if delta.get('round'):
             self._updateToolProgress(delta)
         else:
-            self._streamReasoning += delta.get('reasoning_content', '')
+            # reasoning_content is intentionally not accumulated into the chat UI
             self._streamContent += delta.get('content', '')
             self._renderStreamingEntry()
         slicer.app.processEvents()
@@ -1899,7 +1892,7 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
 
     def _initializeComponents(self):
         try:
-            from SlicerAIAgentLib import LLMClient, CodeValidator, SafeExecutor, ConversationStore, SkillTools
+            from SlicerAIAgentLib import LLMClient, CodeValidator, SafeExecutor, ConversationStore, SkillTools, SceneTools
 
             self.conversationStore = ConversationStore()
             self.llmClient = LLMClient()
@@ -1913,7 +1906,7 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
 
             # Initialize tool executor for skill searching
             self.toolExecutor = SkillTools.SkillToolExecutor(self.skill_path)
-            self.skillTools = SkillTools.get_skill_tools()
+            self.skillTools = SkillTools.get_skill_tools() + SceneTools.get_scene_tools()
             self.codeValidator = CodeValidator()
             self.executor = SafeExecutor()
 
@@ -2223,19 +2216,46 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
         Execute a tool call.
         
         Args:
-            tool_name: Name of the tool (FindFile, SearchSymbol, Grep, ReadFile, VectorSearch)
+            tool_name: Name of the tool (SearchSymbol, Grep, ReadFile, VectorSearch, GetNodeProperties)
             tool_args: Tool arguments dict
             
         Returns:
             Tool execution result dict
         """
+        # Scene introspection tools (do not require skill executor)
+        if tool_name == "GetNodeProperties":
+            try:
+                from SlicerAIAgentLib import SceneTools
+                ids = tool_args.get("ids", [])
+                if isinstance(ids, str):
+                    ids = [ids]
+                if not ids:
+                    return {
+                        "error": (
+                            "GetNodeProperties was called with an empty ids list. "
+                            "Do NOT call this tool unless you have specific node IDs from the scene summary. "
+                            "If the scene summary is missing, proceed with the information you have."
+                        )
+                    }
+                results = {}
+                for node_id in ids:
+                    results[node_id] = SceneTools.getNodeProperties(node_id)
+                return {
+                    "tool": "GetNodeProperties",
+                    "results": results,
+                    "count": len(results),
+                }
+            except Exception as e:
+                logger.error(f"GetNodeProperties failed: {e}")
+                return {"error": str(e)}
+
         if not self.toolExecutor:
             return {"error": "Tool executor not initialized"}
         
         try:
             result = self.toolExecutor.execute(tool_name, tool_args)
             # Log tool execution for debugging
-            logger.info(f"Tool {tool_name} executed: {tool_args.get('pattern', tool_args.get('path', 'N/A'))}")
+            logger.info(f"Tool {tool_name} executed: {tool_args.get('pattern', tool_args.get('path', tool_args.get('ids', 'N/A')))}")
             return result
         except Exception as e:
             logger.error(f"Tool execution failed: {tool_name} - {e}")
@@ -2243,22 +2263,18 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
 
     def _buildSceneContext(self):
         """
-        Build raw context about the current Slicer MRML scene.
+        Build structured context about the current Slicer MRML scene.
 
         Returns:
-            Dictionary with the full raw MRML XML string, or None.
+            Dictionary with a structured scene summary, or None.
         """
         try:
-            scene = slicer.mrmlScene
-            scene.SetSaveToXMLString(1)
-            scene.Commit()
-            raw_mrml = scene.GetSceneXMLString()
-            if raw_mrml:
-                return {"raw_mrml": raw_mrml}
-            else:
-                logger.warning("GetSceneXMLString() returned empty string")
+            from SlicerAIAgentLib import SceneTools
+            summary = SceneTools.buildSceneSummary(max_nodes=50)
+            if summary.get("scene_summary") is not None:
+                return summary
         except Exception as e:
-            logger.warning(f"Failed to get scene XML: {e}")
+            logger.warning(f"Failed to build scene context: {e}")
 
         return None
 

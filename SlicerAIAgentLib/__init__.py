@@ -4,6 +4,7 @@ SlicerAIAgentLib - Core library for the SlicerAIAgent extension.
 This package contains the core components for AI-powered assistance in 3D Slicer:
 - LLMClient: HTTP client for LLM API communication (OpenAI-compatible)
 - SkillTools: Tool calling support for searching the skill
+- SceneTools: Structured scene introspection (summary + node properties)
 - SkillIndexer: Dense vector retrieval index (FAISS) for the knowledge base
 - CodeValidator: Validates Python code for safety before execution
 - SafeExecutor: Sandboxed execution environment for generated code
@@ -18,6 +19,7 @@ __all__ = [
     'SafeExecutor',
     'ConversationStore',
     'SlicerCodeTemplates',
+    'SceneTools',
 ]
 
 # Import main classes for convenient access
@@ -35,3 +37,4 @@ from .CodeValidator import CodeValidator
 from .SafeExecutor import SafeExecutor
 from .ConversationStore import ConversationStore
 from .SlicerCodeTemplates import SlicerCodeTemplates
+from .SceneTools import buildSceneSummary, getNodeProperties, get_scene_tools

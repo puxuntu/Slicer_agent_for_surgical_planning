@@ -500,7 +500,14 @@ class LLMClient:
         if context and context.get('scene'):
             scene = context['scene']
             base_prompt += "\n\n## CURRENT SLICER SCENE\n"
-            base_prompt += "Raw unprocessed MRML scene context (let the AI analyze):\n```\n"
+            base_prompt += (
+                "The following JSON is a structured summary of all nodes currently in the Slicer scene. "
+                "Each entry includes id, name, class, visibility, and a one-line brief. "
+                "Use the `GetNodeProperties` tool with a node's id if you need detailed properties "
+                "(dimensions, spacing, segment names/colors, control point positions, transform matrices, "
+                "display color/opacity, storage filenames) before operating on it.\n"
+            )
+            base_prompt += "```json\n"
             try:
                 base_prompt += json.dumps(scene, ensure_ascii=False, indent=2)
             except Exception:
@@ -514,6 +521,71 @@ class LLMClient:
         if self.timeout is None:
             return urllib.request.urlopen(request)
         return urllib.request.urlopen(request, timeout=self.timeout)
+
+    def _probeConnection(self, url: str) -> bool:
+        """
+        Quick TCP connection probe to detect network reachability before
+        making a full HTTPS request. Prints diagnostics to the Python console.
+        """
+        try:
+            parsed = urllib.parse.urlparse(url)
+            host = parsed.hostname
+            port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+            if not host:
+                return False
+            probe_start = time.time()
+            test_sock = socket.create_connection((host, port), timeout=5)
+            test_sock.close()
+            elapsed = time.time() - probe_start
+            if elapsed > 2.0:
+                print(f"[NETWORK DIAGNOSTIC] Connection probe to {host}:{port} succeeded but took {elapsed:.1f}s. "
+                      f"Slow connectivity may cause long 'thinking' states.")
+            return True
+        except socket.timeout:
+            print(f"[NETWORK DIAGNOSTIC] Connection probe to {url} TIMED OUT after 5s. "
+                  f"Likely causes: firewall blocking, DNS blackhole, GFW silent drop, or API endpoint down.")
+            return False
+        except OSError as e:
+            print(f"[NETWORK DIAGNOSTIC] Connection probe to {url} FAILED: {e}. "
+                  f"Check internet connection, proxy settings, and API base URL.")
+            return False
+        except Exception as e:
+            print(f"[NETWORK DIAGNOSTIC] Connection probe to {url} ERROR: {e}")
+            return False
+
+    def _fetchWithDiagnostics(self, request: urllib.request.Request) -> Dict[str, Any]:
+        """
+        Execute a full HTTP request with a watcher thread that prints
+        diagnostics to the Python console if the request hangs.
+        """
+        import threading
+        url = request.get_full_url()
+        start = time.time()
+        done = threading.Event()
+
+        def _watcher():
+            thresholds = [30, 60, 120, 180]
+            for t in thresholds:
+                if done.wait(timeout=t):
+                    return
+                elapsed = time.time() - start
+                print(f"[NETWORK DIAGNOSTIC] LLM API request to {url} has been waiting {int(elapsed)}s. "
+                      f"Possible cause: silent packet drop, firewall/GFW blocking, DNS blackhole, or stalled TCP connection. "
+                      f"If this persists, check your network, proxy, or restart Slicer.")
+
+        watcher = threading.Thread(target=_watcher, daemon=True)
+        watcher.start()
+
+        try:
+            with self._openRequest(request) as response:
+                data = json.loads(response.read().decode('utf-8'))
+            elapsed = time.time() - start
+            if elapsed > 60:
+                print(f"[NETWORK DIAGNOSTIC] LLM API request to {url} finally completed after {elapsed:.1f}s. "
+                      f"Unusually slow — consider investigating network stability.")
+            return data
+        finally:
+            done.set()
 
     def _buildRequest(self, url: str, payload: Optional[Dict[str, Any]] = None, method: str = 'POST') -> urllib.request.Request:
         """Create an HTTP request for the LLM API."""
@@ -1096,8 +1168,12 @@ class LLMClient:
 
                 payload = self._buildPayload(messages, stream=False, tools=tools)
                 request = self._buildRequest(url, payload)
-                with self._openRequest(request) as response:
-                    data = json.loads(response.read().decode('utf-8'))
+
+                # On first round, run a quick TCP probe to catch network issues early
+                if round_num == 0:
+                    self._probeConnection(url)
+
+                data = self._fetchWithDiagnostics(request)
                 api_time = time.time() - api_start
                 if self._isClaude():
                     data = self._normalizeClaudeResponse(data)
