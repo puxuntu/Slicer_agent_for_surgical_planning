@@ -37,7 +37,7 @@ class LLMClient:
     # Compatible with OpenAI API format
     DEFAULT_BASE_URL = "https://api.moonshot.cn/v1"
     DEFAULT_MODEL = "kimi-k2.5"
-    DEFAULT_TIMEOUT = 60  # seconds; abort hung API calls instead of waiting forever
+    DEFAULT_TIMEOUT = 120  # seconds; abort hung API calls instead of waiting forever
     MAX_RETRIES = 5  # Retry up to 5 times for transient errors
     LEGACY_MODEL_ALIASES = {
         "kimi-latest": DEFAULT_MODEL,
