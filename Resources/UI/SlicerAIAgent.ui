@@ -54,6 +54,11 @@
             <string>Claude</string>
            </property>
           </item>
+          <item>
+           <property name="text">
+            <string>OpenAI</string>
+           </property>
+          </item>
          </widget>
         </item>
         <item>
@@ -102,6 +107,36 @@
           <item>
            <property name="text">
             <string>moonshot-v1-128k</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>deepseek-v4-pro</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>deepseek-v4-flash</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>claude-sonnet-4-6</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>gpt-5.5-turbo</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>gpt-5.5-mini</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>o4-mini</string>
            </property>
           </item>
          </widget>
