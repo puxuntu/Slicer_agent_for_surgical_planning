@@ -130,7 +130,7 @@ Before code execution, the assistant response must include a valid parsed `agent
 - `requires_confirmation`
 - `unverified_assumptions`
 
-Each step includes an action, API evidence, confidence, and assumptions. The agent does not enforce machine-checkable scene expectations.
+Each step includes an action, API evidence, confidence, and assumptions. Steps may optionally include `expected_scene_change` for machine-checkable scene expectations (e.g., `node_exists`, `node_count_delta`, `property_true`). When present, the agent verifies them after execution and enters self-correction if the scene does not match the plan.
 
 #### 2.3 Validation and Execution — Safety Critic and Executor
 

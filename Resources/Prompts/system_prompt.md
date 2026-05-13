@@ -166,6 +166,64 @@ Do not write explanatory text between tool calls and the final blocks.
 {"task_summary": "...", "overall_confidence": "high|medium|low", "steps": [...], "risk_level": "low|medium|high", "requires_confirmation": false, "unverified_assumptions": []}
 ```
 
+**Every step that touches the scene MUST have `expected_scene_change`.** Steps without it will trigger a validation error and the plan will be rejected. Use `"type": "not_checked"` only for pure computation steps with no scene side effects.
+
+**Step schema:** each step is an object with `action`, `api`, `confidence`, `evidence`, and optionally `assumptions`.
+
+**You MUST include `expected_scene_change` on EVERY step that creates, modifies, or deletes scene nodes.** This is not optional — it is how the system catches silent failures. If a step truly has no observable scene effect (e.g., a pure computation), use `"type": "not_checked"`. Do NOT omit the field because you are "unsure"; make your best prediction and the system will report mismatches.
+
+Supported `expected_scene_change` types:
+- `node_count_delta` — `node_class` + `min_delta` (e.g., `{"type": "node_count_delta", "node_class": "vtkMRMLModelNode", "min_delta": 1}`)
+- `node_exists` — `node_class` + optional `name_contains`
+- `node_modified` — `node_class` + optional `name_contains`
+- `node_has_display` — `node_class` + optional `name_contains`
+- `node_name_matches` — `name_contains`
+- `layout_changed` — no extra fields
+- `selection_changed` — no extra fields
+- `module_entered` — `module` (module name) or no field to check any change
+- `property_true` — `property` (e.g., `segmentation_has_segments`, `segmentation_has_closed_surface`, `model_has_polydata`, `display_visibility`)
+- `not_checked` — explicitly skip verification for this step
+
+**Example plan with expected_scene_change:**
+```json
+{
+  "task_summary": "Threshold a volume and create a 3D model",
+  "steps": [
+    {
+      "action": "Create segmentation node from volume",
+      "api": "slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')",
+      "confidence": "high",
+      "evidence": "segmentations.md",
+      "expected_scene_change": {"type": "node_count_delta", "node_class": "vtkMRMLSegmentationNode", "min_delta": 1}
+    },
+    {
+      "action": "Add threshold segment",
+      "api": "segmentation.AddSegment(...)",
+      "confidence": "high",
+      "evidence": "segmentations.md",
+      "expected_scene_change": {"type": "property_true", "property": "segmentation_has_segments"}
+    },
+    {
+      "action": "Create closed surface representation",
+      "api": "segmentationNode.CreateClosedSurfaceRepresentation()",
+      "confidence": "high",
+      "evidence": "segmentations.md",
+      "expected_scene_change": {"type": "property_true", "property": "segmentation_has_closed_surface"}
+    },
+    {
+      "action": "Convert segment to model node",
+      "api": "slicer.modules.models.logic().AddModel(...)",
+      "confidence": "high",
+      "evidence": "models.md",
+      "expected_scene_change": {"type": "node_count_delta", "node_class": "vtkMRMLModelNode", "min_delta": 1}
+    }
+  ],
+  "risk_level": "low",
+  "requires_confirmation": false,
+  "unverified_assumptions": []
+}
+```
+
 ```python
 # executable Slicer Python code here
 ```

@@ -886,7 +886,16 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     evidence = step.get("evidence")
                     if not evidence:
                         high_conf_without_evidence += 1
-                # expected_scene_change validation removed — verifier is no longer used
+                # Validate expected_scene_change
+                expected = step.get("expected_scene_change")
+                if not isinstance(expected, dict) or not expected.get("type"):
+                    errors.append(f"Step {idx} is missing required 'expected_scene_change'. Use 'not_checked' if this step has no scene effect.")
+                else:
+                    valid_types = {"node_count_delta", "node_exists", "node_modified",
+                                   "node_has_display", "node_name_matches", "layout_changed",
+                                   "selection_changed", "module_entered", "property_true", "not_checked"}
+                    if str(expected.get("type")).lower() not in valid_types:
+                        warnings.append(f"Step {idx} has unsupported expected_scene_change type '{expected.get('type')}'")
 
         if needs_lookup:
             errors.append("Plan still contains needs_lookup step(s): " + ", ".join(needs_lookup[:3]))
@@ -1057,6 +1066,14 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             "code_chars": len(self.currentCode or ""),
         })
 
+        # Capture scene state BEFORE execution for semantic verification
+        before_snapshot = None
+        if self.logic and hasattr(self.logic, 'buildSceneSnapshot'):
+            try:
+                before_snapshot = self.logic.buildSceneSnapshot()
+            except Exception as e:
+                logger.warning(f"Failed to build pre-execution scene snapshot: {e}")
+
         def onExecutionComplete(result):
             if self._timing:
                 self._timing['execution_callback_start'] = time.time()
@@ -1101,7 +1118,32 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 feedback_lines.append(f"Status: failed\nExecution time: {execution_time:.2f}s\nError: {error_msg[:500]}")
                 self._lastExecutionResult = dict(result)
                 self._lastOutputHasErrors = True
-            
+
+            # Semantic scene verification: compare before/after snapshots against agent_plan expectations
+            if result.get("success") and not result.get("timed_out", False) and before_snapshot:
+                try:
+                    if self.logic and hasattr(self.logic, 'buildSceneSnapshot') and hasattr(self.logic, 'verifySceneAgainstPlan'):
+                        after_snapshot = self.logic.buildSceneSnapshot()
+                        plan = getattr(self, 'currentAgentPlan', None)
+                        if plan:
+                            verification = self.logic.verifySceneAgainstPlan(before_snapshot, after_snapshot, plan)
+                            if not verification.get("valid", True):
+                                output_has_errors = True
+                                verr = "; ".join(verification.get("errors", []))
+                                feedback_lines.append(f"Scene verification failed: {verr}")
+                                self.appendToChat("System", f"Scene verification failed: {verr}")
+                                self._recordRoleEvent("SafetyCritic", "scene_verification_failed", {
+                                    "errors": verification.get("errors", []),
+                                    "warnings": verification.get("warnings", []),
+                                    "diagnostics": verification.get("diagnostics", []),
+                                })
+                            elif verification.get("warnings"):
+                                self._recordRoleEvent("SafetyCritic", "scene_verification_warnings", {
+                                    "warnings": verification.get("warnings", []),
+                                })
+                except Exception as e:
+                    logger.warning(f"Scene verification raised exception: {e}")
+
             # Add execution feedback to conversation history
             if self.logic:
                 feedback_text = "Code execution result:\n" + "\n".join(feedback_lines) + "\nThe MRML scene has been updated. Refer to the CURRENT SLICER SCENE in the next system prompt for the complete raw MRML."
