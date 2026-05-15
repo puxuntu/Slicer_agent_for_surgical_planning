@@ -20,6 +20,7 @@ __all__ = [
     'ConversationStore',
     'SlicerCodeTemplates',
     'SceneTools',
+    'PelvicFractureTools',
 ]
 
 # Import main classes for convenient access
@@ -38,3 +39,4 @@ from .SafeExecutor import SafeExecutor
 from .ConversationStore import ConversationStore
 from .SlicerCodeTemplates import SlicerCodeTemplates
 from .SceneTools import buildSceneSummary, getNodeProperties, get_scene_tools
+from .PelvicFractureTools import get_pelvic_fracture_tools, generate_pelvic_fracture_code

@@ -15,6 +15,7 @@ import platform
 import logging
 from typing import List, Dict, Optional, Any
 from pathlib import Path
+from .PelvicFractureTools import get_pelvic_fracture_tools, generate_pelvic_fracture_code
 
 logger = logging.getLogger(__name__)
 
@@ -319,6 +320,12 @@ class SkillToolExecutor:
                 prompt=arguments.get("prompt", ""),
                 volume_node_name=arguments.get("volume_node_name"),
                 output_segmentation_name=arguments.get("output_segmentation_name"),
+            )
+        elif tool_name == "PelvicFracturePlanning":
+            result = generate_pelvic_fracture_code(
+                stage=arguments.get("stage", "full"),
+                volume_node_name=arguments.get("volume_node_name"),
+                screw_radius=arguments.get("screw_radius"),
             )
         else:
             return {"error": f"Unknown tool: {tool_name}"}
@@ -1270,4 +1277,4 @@ def get_skill_tools() -> List[Dict]:
                 }
             }
         },
-    ]
+    ] + get_pelvic_fracture_tools()
