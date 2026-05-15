@@ -177,12 +177,23 @@ Supported `expected_scene_change` types:
 - `node_exists` — `node_class` + optional `name_contains`
 - `node_modified` — `node_class` + optional `name_contains`
 - `node_has_display` — `node_class` + optional `name_contains`
+- `node_has_content` — `node_class` + content assertions (see below)
 - `node_name_matches` — `name_contains`
 - `layout_changed` — no extra fields
 - `selection_changed` — no extra fields
 - `module_entered` — `module` (module name) or no field to check any change
-- `property_true` — `property` (e.g., `segmentation_has_segments`, `segmentation_has_closed_surface`, `model_has_polydata`, `display_visibility`)
+- `property_true` — `property` (e.g., `segmentation_has_segments`, `segmentation_has_closed_surface`, `segmentation_has_voxels`, `model_has_polydata`, `model_has_points`, `transform_is_non_identity`, `display_visibility`)
 - `not_checked` — explicitly skip verification for this step
+
+**Content assertions:** When a step creates geometry (models, segmentations, volumes), you MUST verify the content is non-empty, not just that the node exists. Add `content_assertions` to `node_count_delta`, `node_exists`, or use `node_has_content` directly:
+- `min_points` (for `vtkMRMLModelNode`) — e.g., `{"type": "node_count_delta", "node_class": "vtkMRMLModelNode", "min_delta": 1, "content_assertions": {"min_points": 1}}`
+- `min_cells` (for `vtkMRMLModelNode`)
+- `min_voxels` (for `vtkMRMLSegmentationNode`)
+- `min_segments` (for `vtkMRMLSegmentationNode`)
+- `min_voxel_count` (for `vtkMRMLScalarVolumeNode`)
+- `is_non_identity` (for `vtkMRMLLinearTransformNode`) — `true` to verify the transform actually moved something
+
+**CRITICAL:** A model node with 0 points is an empty shell — it will fail validation. Always assert `min_points: 1` when creating models from segmentations or clip operations.
 
 **Example plan with expected_scene_change:**
 ```json
@@ -215,7 +226,7 @@ Supported `expected_scene_change` types:
       "api": "slicer.modules.models.logic().AddModel(...)",
       "confidence": "high",
       "evidence": "models.md",
-      "expected_scene_change": {"type": "node_count_delta", "node_class": "vtkMRMLModelNode", "min_delta": 1}
+      "expected_scene_change": {"type": "node_count_delta", "node_class": "vtkMRMLModelNode", "min_delta": 1, "content_assertions": {"min_points": 1}}
     }
   ],
   "risk_level": "low",

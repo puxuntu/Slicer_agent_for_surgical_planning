@@ -152,7 +152,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Row 1: Provider + Model
         providerModelLayout = qt.QHBoxLayout()
         self.providerSelector = qt.QComboBox()
-        self.providerSelector.addItems(["Kimi", "DeepSeek", "Claude", "OpenAI"])
+        self.providerSelector.addItems(["Kimi", "DeepSeek", "Claude", "OpenAI", "Qwen"])
         self.providerSelector.setToolTip("Select AI provider")
         providerModelLayout.addWidget(self.providerSelector)
 
@@ -1767,6 +1767,38 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 "claude-haiku-4-5-20251001",
                 "claude-haiku-4-5-20251001-thinking",
             ]
+        if provider == "Qwen":
+            return [
+                # Qwen3.6 series (use snapshot IDs that the API recognizes)
+                "qwen3.6-plus-2026-04-02",
+                "qwen3.6-flash-2026-04-16",
+                "qwen3.6-flash",
+                "qwen3.6-35b-a3b",
+                # Qwen3.5 series
+                "qwen3.5-plus",
+                "qwen3.5-flash",
+                "qwen3.5-flash-2026-02-23",
+                "qwen3.5-122b-a10b",
+                "qwen3.5-397b-a17b",
+                "qwen3.5-35b-a3b",
+                "qwen3.5-27b",
+                # Qwen3 series
+                "qwen3-max-2026-01-23",
+                "qwen3-max-preview",
+                "qwen3-coder-plus",
+                "qwen3-coder-flash",
+                # Legacy aliases with latest routing
+                "qwen-plus",
+                "qwen-plus-latest",
+                "qwen-turbo",
+                "qwen-turbo-latest",
+                "qwen-flash",
+                "qwen-flash-latest",
+                "qwen-long-latest",
+                # QwQ reasoning models
+                "qwq-plus",
+                "qwq-32b",
+            ]
         return ["kimi-k2.6", "kimi-k2.5", "kimi-k2-thinking", "kimi-k2-turbo-preview", "kimi-k2-0905-preview", "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"]
 
     def _defaultBaseUrlForProvider(self, provider: str) -> str:
@@ -1776,6 +1808,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return "https://api.deepseek.com"
         if provider == "Claude":
             return "https://api.anthropic.com/v1"
+        if provider == "Qwen":
+            return "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
         return "https://api.moonshot.cn/v1"
 
     def onProviderChanged(self, provider: str):
@@ -2374,6 +2408,8 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
             "nodes": [],
             "segmentations": [],
             "models": [],
+            "transforms": [],
+            "volumes": [],
             "visible_nodes": 0,
             "layout": None,
             "active_module": None,
@@ -2429,12 +2465,21 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
                         "name": node.GetName(),
                         "segments": 0,
                         "has_closed_surface": False,
+                        "total_voxels": 0,
                     }
                     try:
                         segmentation = node.GetSegmentation()
                         segmentation_info["segments"] = segmentation.GetNumberOfSegments()
                         if hasattr(segmentation, "ContainsRepresentation"):
                             segmentation_info["has_closed_surface"] = bool(segmentation.ContainsRepresentation("Closed surface"))
+                        # Count total voxels across all segments
+                        import vtkSegmentationCorePython as vtkSegmentationCore
+                        for seg_idx in range(segmentation.GetNumberOfSegments()):
+                            segment = segmentation.GetNthSegment(seg_idx)
+                            if segment:
+                                labelmap = segment.GetRepresentation("Binary labelmap")
+                                if labelmap:
+                                    segmentation_info["total_voxels"] += labelmap.GetNumberOfPoints()
                     except Exception:
                         pass
                     snapshot["segmentations"].append(segmentation_info)
@@ -2445,15 +2490,48 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
                         "name": node.GetName(),
                         "points": 0,
                         "cells": 0,
+                        "has_polydata": False,
                     }
                     try:
                         polydata = node.GetPolyData()
                         if polydata:
                             model_info["points"] = polydata.GetNumberOfPoints()
                             model_info["cells"] = polydata.GetNumberOfCells()
+                            model_info["has_polydata"] = True
                     except Exception:
                         pass
                     snapshot["models"].append(model_info)
+
+                if class_name == "vtkMRMLLinearTransformNode":
+                    transform_info = {
+                        "id": node.GetID(),
+                        "name": node.GetName(),
+                        "is_identity": True,
+                    }
+                    try:
+                        matrix = vtk.vtkMatrix4x4()
+                        node.GetMatrixTransformToParent(matrix)
+                        transform_info["is_identity"] = matrix.IsIdentity()
+                    except Exception:
+                        pass
+                    snapshot["transforms"].append(transform_info)
+
+                if class_name == "vtkMRMLScalarVolumeNode":
+                    volume_info = {
+                        "id": node.GetID(),
+                        "name": node.GetName(),
+                        "dimensions": [0, 0, 0],
+                        "voxel_count": 0,
+                    }
+                    try:
+                        image_data = node.GetImageData()
+                        if image_data:
+                            dims = image_data.GetDimensions()
+                            volume_info["dimensions"] = list(dims)
+                            volume_info["voxel_count"] = dims[0] * dims[1] * dims[2]
+                    except Exception:
+                        pass
+                    snapshot["volumes"].append(volume_info)
         except Exception as e:
             logger.warning(f"Failed to build scene snapshot: {e}")
         return snapshot
@@ -2466,6 +2544,7 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
             "node_modified": self._checkNodeModified,
             "node_has_display": self._checkNodeHasDisplay,
             "node_name_matches": self._checkNodeNameMatches,
+            "node_has_content": self._checkNodeHasContent,
             "layout_changed": self._checkLayoutChanged,
             "selection_changed": self._checkSelectionChanged,
             "module_entered": self._checkModuleEntered,
@@ -2590,6 +2669,10 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
         observed_delta = after_counts.get(node_class, 0) - before_counts.get(node_class, 0)
         if observed_delta < count_delta:
             return {"errors": [f"expected {node_class} count_delta >= {count_delta}, observed {observed_delta}"], "warnings": []}
+        # If content assertions are specified, also verify the new nodes have actual data
+        content_errors = self._checkContentAssertions(after, node_class, expected)
+        if content_errors:
+            return {"errors": content_errors, "warnings": []}
         return {"errors": [], "warnings": []}
 
     def _checkNodeExists(self, before, after, expected):
@@ -2610,6 +2693,10 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
                     "actual_candidates": candidates,
                 }
             }
+        # If content assertions are specified, also verify matching nodes have actual data
+        content_errors = self._checkContentAssertions(after, node_class, expected)
+        if content_errors:
+            return {"errors": content_errors, "warnings": []}
         return {"errors": [], "warnings": []}
 
     def _checkNodeModified(self, before, after, expected):
@@ -2634,6 +2721,99 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
         matches = self._matchSnapshotNodes(after, node_class, expected.get("name_contains"))
         if not any(node.get("has_display") for node in matches):
             return {"errors": [f"expected {node_class or 'node'} to have a display node"], "warnings": []}
+        return {"errors": [], "warnings": []}
+
+    def _checkContentAssertions(self, snapshot, node_class, expected):
+        """Verify that matching nodes in the snapshot have actual content (points, voxels, etc.).
+        
+        Supported assertions:
+        - min_points (for vtkMRMLModelNode)
+        - min_cells (for vtkMRMLModelNode)
+        - min_voxels (for vtkMRMLSegmentationNode)
+        - min_segments (for vtkMRMLSegmentationNode)
+        - min_voxel_count (for vtkMRMLScalarVolumeNode)
+        - is_non_identity (for vtkMRMLLinearTransformNode)
+        
+        Returns a list of error strings (empty if all pass).
+        """
+        errors = []
+        assertions = expected.get("content_assertions", {})
+        if not assertions:
+            # Also check legacy top-level keys for backward compat
+            if expected.get("min_points") is not None:
+                assertions["min_points"] = expected["min_points"]
+            if expected.get("min_cells") is not None:
+                assertions["min_cells"] = expected["min_cells"]
+            if expected.get("min_voxels") is not None:
+                assertions["min_voxels"] = expected["min_voxels"]
+            if expected.get("min_segments") is not None:
+                assertions["min_segments"] = expected["min_segments"]
+            if expected.get("is_non_identity") is not None:
+                assertions["is_non_identity"] = expected["is_non_identity"]
+            if not assertions:
+                return errors
+
+        # Match nodes by class and optional name filter
+        name_filter = expected.get("name_contains")
+        if node_class == "vtkMRMLModelNode":
+            models = snapshot.get("models", [])
+            if name_filter:
+                models = [m for m in models if name_filter.lower() in m.get("name", "").lower()]
+            if assertions.get("min_points") is not None:
+                min_p = assertions["min_points"]
+                if not any(m.get("points", 0) >= min_p for m in models):
+                    actual = ", ".join(f"{m.get('name', '?')}:{m.get('points', 0)}pts" for m in models) if models else "none"
+                    errors.append(f"expected model with >= {min_p} points, found: {actual}")
+            if assertions.get("min_cells") is not None:
+                min_c = assertions["min_cells"]
+                if not any(m.get("cells", 0) >= min_c for m in models):
+                    actual = ", ".join(f"{m.get('name', '?')}:{m.get('cells', 0)}cells" for m in models) if models else "none"
+                    errors.append(f"expected model with >= {min_c} cells, found: {actual}")
+
+        elif node_class == "vtkMRMLSegmentationNode":
+            segmentations = snapshot.get("segmentations", [])
+            if name_filter:
+                segmentations = [s for s in segmentations if name_filter.lower() in s.get("name", "").lower()]
+            if assertions.get("min_voxels") is not None:
+                min_v = assertions["min_voxels"]
+                if not any(s.get("total_voxels", 0) >= min_v for s in segmentations):
+                    actual = ", ".join(f"{s.get('name', '?')}:{s.get('total_voxels', 0)}voxels" for s in segmentations) if segmentations else "none"
+                    errors.append(f"expected segmentation with >= {min_v} voxels, found: {actual}")
+            if assertions.get("min_segments") is not None:
+                min_s = assertions["min_segments"]
+                if not any(s.get("segments", 0) >= min_s for s in segmentations):
+                    actual = ", ".join(f"{s.get('name', '?')}:{s.get('segments', 0)}segs" for s in segmentations) if segmentations else "none"
+                    errors.append(f"expected segmentation with >= {min_s} segments, found: {actual}")
+
+        elif node_class == "vtkMRMLScalarVolumeNode":
+            volumes = snapshot.get("volumes", [])
+            if name_filter:
+                volumes = [v for v in volumes if name_filter.lower() in v.get("name", "").lower()]
+            if assertions.get("min_voxel_count") is not None:
+                min_vc = assertions["min_voxel_count"]
+                if not any(v.get("voxel_count", 0) >= min_vc for v in volumes):
+                    actual = ", ".join(f"{v.get('name', '?')}:{v.get('voxel_count', 0)}voxels" for v in volumes) if volumes else "none"
+                    errors.append(f"expected volume with >= {min_vc} voxels, found: {actual}")
+
+        elif node_class == "vtkMRMLLinearTransformNode":
+            transforms = snapshot.get("transforms", [])
+            if name_filter:
+                transforms = [t for t in transforms if name_filter.lower() in t.get("name", "").lower()]
+            if assertions.get("is_non_identity"):
+                if not any(not t.get("is_identity", True) for t in transforms):
+                    actual = ", ".join(f"{t.get('name', '?')}:identity={t.get('is_identity', True)}" for t in transforms) if transforms else "none"
+                    errors.append(f"expected non-identity transform, found: {actual}")
+
+        return errors
+
+    def _checkNodeHasContent(self, before, after, expected):
+        """Verify that matching nodes have actual content (points, voxels, etc.)."""
+        node_class = expected.get("node_class") or expected.get("class")
+        if not node_class:
+            return {"errors": [], "warnings": ["node_has_content is missing node_class"]}
+        content_errors = self._checkContentAssertions(after, node_class, expected)
+        if content_errors:
+            return {"errors": content_errors, "warnings": []}
         return {"errors": [], "warnings": []}
 
     def _checkNodeNameMatches(self, before, after, expected):
@@ -2682,9 +2862,18 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
         elif prop in ("segmentation_has_closed_surface", "closed_surface"):
             if not any(s.get("has_closed_surface") for s in after.get("segmentations", [])):
                 return {"errors": ["expected a closed surface segmentation representation"], "warnings": []}
+        elif prop in ("segmentation_has_voxels", "segmentation_voxels"):
+            if not any(s.get("total_voxels", 0) > 0 for s in after.get("segmentations", [])):
+                return {"errors": ["expected a segmentation with at least one voxel"], "warnings": []}
         elif prop in ("model_has_polydata", "model_polydata"):
             if not any(m.get("points", 0) > 0 and m.get("cells", 0) > 0 for m in after.get("models", [])):
                 return {"errors": ["expected a model node with valid polydata"], "warnings": []}
+        elif prop in ("model_has_points", "model_points"):
+            if not any(m.get("points", 0) > 0 for m in after.get("models", [])):
+                return {"errors": ["expected a model node with at least one point"], "warnings": []}
+        elif prop in ("transform_is_non_identity", "non_identity_transform"):
+            if not any(not t.get("is_identity", True) for t in after.get("transforms", [])):
+                return {"errors": ["expected a non-identity transform"], "warnings": []}
         elif prop in ("display_visibility", "visible"):
             if after.get("visible_nodes", 0) <= 0:
                 return {"errors": [], "warnings": ["expected at least one visible display node"]}

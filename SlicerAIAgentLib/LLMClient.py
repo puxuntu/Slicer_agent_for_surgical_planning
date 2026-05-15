@@ -75,6 +75,38 @@ class LLMClient:
         # DeepSeek models
         "deepseek-v4-pro": {"input": 0.00174, "output": 0.00348},
         "deepseek-v4-flash": {"input": 0.00014, "output": 0.00028},
+        # Qwen / DashScope models (Qwen3.6 / Qwen3.5 / Qwen3 series)
+        # Qwen3.6 series
+        "qwen3.6-max-preview": {"input": 0.003, "output": 0.012},
+        "qwen3.6-plus-2026-04-02": {"input": 0.0015, "output": 0.006},
+        "qwen3.6-plus": {"input": 0.0015, "output": 0.006},
+        "qwen3.6-flash-2026-04-16": {"input": 0.0003, "output": 0.001},
+        "qwen3.6-flash": {"input": 0.0003, "output": 0.001},
+        "qwen3.6-35b-a3b": {"input": 0.0003, "output": 0.001},
+        # Qwen3.5 series
+        "qwen3.5-plus": {"input": 0.001, "output": 0.004},
+        "qwen3.5-flash": {"input": 0.0002, "output": 0.0008},
+        "qwen3.5-flash-2026-02-23": {"input": 0.0002, "output": 0.0008},
+        "qwen3.5-122b-a10b": {"input": 0.001, "output": 0.004},
+        "qwen3.5-397b-a17b": {"input": 0.001, "output": 0.004},
+        "qwen3.5-35b-a3b": {"input": 0.0002, "output": 0.0008},
+        "qwen3.5-27b": {"input": 0.0002, "output": 0.0008},
+        # Qwen3 series
+        "qwen3-max-2026-01-23": {"input": 0.003, "output": 0.012},
+        "qwen3-max-preview": {"input": 0.003, "output": 0.012},
+        "qwen3-coder-plus": {"input": 0.001, "output": 0.004},
+        "qwen3-coder-flash": {"input": 0.0002, "output": 0.0008},
+        # Qwen legacy aliases (latest routing)
+        "qwen-plus": {"input": 0.001, "output": 0.004},
+        "qwen-plus-latest": {"input": 0.001, "output": 0.004},
+        "qwen-turbo": {"input": 0.0003, "output": 0.0006},
+        "qwen-turbo-latest": {"input": 0.0003, "output": 0.0006},
+        "qwen-flash": {"input": 0.0002, "output": 0.0008},
+        "qwen-flash-latest": {"input": 0.0002, "output": 0.0008},
+        "qwen-long-latest": {"input": 0.0005, "output": 0.002},
+        # QwQ reasoning models
+        "qwq-plus": {"input": 0.001, "output": 0.004},
+        "qwq-32b": {"input": 0.0003, "output": 0.0006},
         # Claude / Anthropic models (legacy fallbacks)
         "claude-opus-4-5": {"input": 0.015, "output": 0.075},
         "claude-sonnet-4-5": {"input": 0.003, "output": 0.015},
@@ -133,7 +165,7 @@ class LLMClient:
         self.base_url = base_url.rstrip('/')
 
     def setProvider(self, provider: str):
-        """Set the API provider ('kimi', 'deepseek', 'claude', or 'openai')."""
+        """Set the API provider ('kimi', 'deepseek', 'claude', 'openai', or 'qwen')."""
         self.provider = (provider or "kimi").lower()
 
     def setDebugOutputDir(self, path: Optional[str]):
@@ -166,6 +198,10 @@ class LLMClient:
     def _isDeepSeek(self) -> bool:
         """True for DeepSeek models that support reasoning_effort."""
         return self.model.startswith("deepseek-")
+
+    def _isQwen(self) -> bool:
+        """True for Qwen models accessed via DashScope compatible API."""
+        return self.model.startswith("qwen-")
 
     def _isOpenAIReasoningModel(self) -> bool:
         """True for OpenAI o-series and gpt-5 reasoning models that support reasoning_effort."""
@@ -321,6 +357,8 @@ class LLMClient:
         if self.model.startswith("kimi-k2"):
             return True
         if self.model.startswith("deepseek-"):
+            return True
+        if self.model.startswith("qwen-"):
             return True
         if self.model.endswith("-thinking"):
             return True
@@ -1754,9 +1792,11 @@ class LLMClient:
         """
         pricing = self.MODEL_PRICING.get(self.model)
         if pricing is None:
-            # Fallback: use Claude sonnet pricing for Claude provider, else Kimi default
+            # Fallback: use provider-specific default pricing
             if self._isClaudeProvider():
                 pricing = self.MODEL_PRICING.get("claude-3-5-sonnet-20241022", {"input": 0.003, "output": 0.015})
+            elif getattr(self, 'provider', 'kimi').lower() == 'qwen':
+                pricing = self.MODEL_PRICING.get("qwen3.6-plus", {"input": 0.0015, "output": 0.006})
             else:
                 pricing = self.MODEL_PRICING[self.DEFAULT_MODEL]
         input_tokens = usage.get('prompt_tokens', 0)

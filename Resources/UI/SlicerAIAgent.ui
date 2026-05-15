@@ -59,6 +59,11 @@
             <string>OpenAI</string>
            </property>
           </item>
+          <item>
+           <property name="text">
+            <string>Qwen</string>
+           </property>
+          </item>
          </widget>
         </item>
         <item>
@@ -137,6 +142,56 @@
           <item>
            <property name="text">
             <string>o4-mini</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>qwen3.6-plus-2026-04-02</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>qwen3.6-flash-2026-04-16</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>qwen3.6-flash</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>qwen3.5-plus</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>qwen3.5-flash</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>qwen3.5-flash-2026-02-23</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>qwen3-max-2026-01-23</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>qwen3-coder-plus</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>qwq-plus</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>qwq-32b</string>
            </property>
           </item>
          </widget>
