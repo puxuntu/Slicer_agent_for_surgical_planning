@@ -68,6 +68,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._streamReasoning = ""
         self._streamContent = ""
         self._streaming = False
+        # Thinking display state (shown during streaming, hidden after)
+        self._thinkingDisplayText = ""
+        self._thinkingDisplayed = False
         # Thread-safe queue for streaming events (filled by worker, drained on main thread)
         self._streamQueue = queue.Queue()
         self._streamPollTimer = None
@@ -97,6 +100,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.logic = SlicerAIAgentLogic()
         self.loadSettings()
+
+        # Extension CLI Generator UI (insert after Settings, before Conversation History)
+        self._setupExtensionCLIGenerator()
 
         self._streamPollTimer = qt.QTimer()
         self._streamPollTimer.setInterval(50)
@@ -296,6 +302,512 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if status != "Ready":
             logger.info(f"Vector index status: {status} — pre-retrieval will be skipped. Run 'python scripts/build_rag.py' to build the index.")
 
+    # ------------------------------------------------------------------
+    # Extension CLI Generator UI
+    # ------------------------------------------------------------------
+    def _setupExtensionCLIGenerator(self):
+        """Set up the Extension CLI Generator collapsible UI section."""
+        # Create collapsible group box
+        self._cliGeneratorGroup = ctk.ctkCollapsibleGroupBox()
+        self._cliGeneratorGroup.title = "Extension CLI Generator"
+        self._cliGeneratorGroup.collapsed = True
+        # Insert after Settings, before Conversation History
+        settingsGroup = self.ui.findChild(ctk.ctkCollapsibleGroupBox, "settingsGroupBox")
+        if settingsGroup:
+            parentLayout = settingsGroup.parent().layout()
+            idx = parentLayout.indexOf(settingsGroup)
+            parentLayout.insertWidget(idx + 1, self._cliGeneratorGroup)
+        else:
+            self.layout.insertWidget(1, self._cliGeneratorGroup)
+
+        cliLayout = qt.QVBoxLayout(self._cliGeneratorGroup)
+
+        # Row 1: Source selector + Refresh button
+        sourceLayout = qt.QHBoxLayout()
+        sourceLabel = qt.QLabel("Source:")
+        sourceLayout.addWidget(sourceLabel)
+
+        self._sourceSelector = qt.QComboBox()
+        self._sourceSelector.setToolTip("Select the extension source to browse")
+        self._sourceSelector.setMinimumWidth(200)
+        self._sourceSelector.addItems(["Extension Manager", "Additional Module Paths", "Loaded Modules"])
+        sourceLayout.addWidget(self._sourceSelector, 1)
+
+        self._refreshExtensionsButton = qt.QPushButton("Refresh")
+        self._refreshExtensionsButton.setToolTip("Re-scan extensions from the selected source")
+        self._refreshExtensionsButton.setMaximumWidth(80)
+        sourceLayout.addWidget(self._refreshExtensionsButton)
+
+        cliLayout.addLayout(sourceLayout)
+
+        # Row 2: Extension selector (populated based on source)
+        extLayout = qt.QHBoxLayout()
+        extLabel = qt.QLabel("Extension:")
+        extLayout.addWidget(extLabel)
+
+        self._extensionSelector = qt.QComboBox()
+        self._extensionSelector.setToolTip("Select an extension from the chosen source")
+        self._extensionSelector.setMinimumWidth(200)
+        extLayout.addWidget(self._extensionSelector, 1)
+
+        cliLayout.addLayout(extLayout)
+
+        # Store extension data separately (keyed by label text)
+        self._extensionDataMap = {}
+        self._discoveredExtensions = []
+
+        # Row 3: Analyze & Generate button
+        self._analyzeGenerateButton = qt.QPushButton("Analyze & Generate CLI")
+        self._analyzeGenerateButton.setToolTip(
+            "Analyze the selected extension and generate operation CLI tools"
+        )
+        self._analyzeGenerateButton.setEnabled(False)
+        cliLayout.addWidget(self._analyzeGenerateButton)
+
+        # Row 4: Progress display
+        self._cliProgressDisplay = qt.QTextEdit()
+        self._cliProgressDisplay.setReadOnly(True)
+        self._cliProgressDisplay.setMaximumHeight(150)
+        self._cliProgressDisplay.setFont(qt.QFont("Monospace", 9))
+        self._cliProgressDisplay.setPlaceholderText("Progress will appear here...")
+        cliLayout.addWidget(self._cliProgressDisplay)
+
+        # Row 5: Status indicator
+        self._cliStatusLabel = qt.QLabel("Ready")
+        self._cliStatusLabel.setStyleSheet("font-weight: bold;")
+        cliLayout.addWidget(self._cliStatusLabel)
+
+        # Row 6: Result group (hidden until generation completes)
+        self._cliResultGroup = qt.QGroupBox("Result")
+        self._cliResultGroup.setVisible(False)
+        resultLayout = qt.QVBoxLayout(self._cliResultGroup)
+
+        self._cliResultSummary = qt.QLabel("")
+        self._cliResultSummary.setWordWrap(True)
+        resultLayout.addWidget(self._cliResultSummary)
+
+        cliLayout.addWidget(self._cliResultGroup)
+
+        # Row 7: Action buttons
+        actionLayout = qt.QHBoxLayout()
+        self._testCliButton = qt.QPushButton("Test CLI")
+        self._testCliButton.setToolTip("Validate generated templates with CodeValidator")
+        self._testCliButton.setEnabled(False)
+        actionLayout.addWidget(self._testCliButton)
+
+        self._deleteCliButton = qt.QPushButton("Delete CLI")
+        self._deleteCliButton.setToolTip("Remove the generated CLI files")
+        self._deleteCliButton.setEnabled(False)
+        actionLayout.addWidget(self._deleteCliButton)
+
+        self._reviseCliButton = qt.QPushButton("Revise with LLM")
+        self._reviseCliButton.setToolTip("Fix failed validation using LLM revision")
+        self._reviseCliButton.setEnabled(False)
+        actionLayout.addWidget(self._reviseCliButton)
+
+        cliLayout.addLayout(actionLayout)
+
+        # Internal state
+        self._cliGeneratorRunning = False
+
+        # Connect signals
+        self._refreshExtensionsButton.clicked.connect(self._onRefreshExtensionsClicked)
+        self._sourceSelector.currentIndexChanged.connect(self._onSourceSelectionChanged)
+        self._extensionSelector.currentIndexChanged.connect(self._onExtensionSelectionChanged)
+        self._analyzeGenerateButton.clicked.connect(self._onAnalyzeGenerateClicked)
+        self._testCliButton.clicked.connect(self._onTestCliClicked)
+        self._deleteCliButton.clicked.connect(self._onDeleteCliClicked)
+        self._reviseCliButton.clicked.connect(self._onReviseCliClicked)
+
+        # Populate initial extension list
+        self._onRefreshExtensionsClicked()
+
+    def _onRefreshExtensionsClicked(self):
+        """Re-scan extensions from all sources and populate based on current source selection."""
+        try:
+            from SlicerAIAgentLib.ExtensionCLILoader import discover_installed_extensions
+            self._discoveredExtensions = discover_installed_extensions()
+        except Exception:
+            self._discoveredExtensions = []
+
+        self._populateExtensionSelector()
+
+    def _onSourceSelectionChanged(self, index):
+        """When the source combo changes, repopulate the extension list."""
+        self._populateExtensionSelector()
+
+    # Map from source combo label to source_type tag in discovered extensions
+    _SOURCE_TYPE_MAP = {
+        "Extension Manager": "extension_manager",
+        "Additional Module Paths": "additional_paths",
+        "Loaded Modules": "loaded_modules",
+    }
+
+    def _populateExtensionSelector(self):
+        """Populate the extension combo box based on the selected source."""
+        self._extensionSelector.clear()
+        self._extensionDataMap.clear()
+
+        source_label = self._sourceSelector.currentText
+        source_type = self._SOURCE_TYPE_MAP.get(source_label, "")
+        if not source_type:
+            return
+
+        for ext in self._discoveredExtensions:
+            if ext.get("source_type") != source_type:
+                continue
+
+            name = ext["name"]
+            label = name
+            if ext.get("cli_status"):
+                label += f" [{ext['cli_status']}]"
+            if not ext.get("has_python"):
+                label += " (no Python)"
+            self._extensionDataMap[label] = {
+                "type": "installed",
+                "name": name,
+                "path": ext.get("source_path", ext.get("install_path", "")),
+            }
+            self._extensionSelector.addItem(label)
+
+        self._analyzeGenerateButton.setEnabled(False)
+
+    def _onExtensionSelectionChanged(self, index):
+        """Enable/disable the Analyze button based on selection."""
+        has_selection = index >= 0
+        self._analyzeGenerateButton.setEnabled(has_selection and not self._cliGeneratorRunning)
+
+    def _onAnalyzeGenerateClicked(self):
+        """Start the analysis pipeline in a background thread."""
+        data = self._getSelectedExtensionData()
+        if not data:
+            return
+
+        ext_name = data["name"]
+        source_path = data["path"]
+
+        if not source_path or not os.path.isdir(source_path):
+            self._cliProgressDisplay.append(f"Error: Source path not found: {source_path}")
+            return
+
+        if self._cliGeneratorRunning:
+            return
+
+        self._cliGeneratorRunning = True
+        self._analyzeGenerateButton.setEnabled(False)
+        self._cliStatusLabel.setText("Analyzing...")
+        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
+        self._cliProgressDisplay.clear()
+        self._cliResultGroup.setVisible(False)
+        self._reviseCliButton.setEnabled(False)
+
+        self._cliProgressDisplay.append(f"Starting analysis of '{ext_name}'...")
+        self._cliProgressDisplay.append(f"Source: {source_path}")
+
+        # Run in background thread
+        import threading
+
+        def _run_analysis():
+            try:
+                from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+                from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+                analyzer = ExtensionCLIAnalyzer(
+                    llm_client=self.logic.llmClient,
+                    code_validator=CodeValidator(),
+                    on_progress=lambda n, s, d: self._streamQueue.put(
+                        ('cli_progress', {'stage': n, 'name': s, 'detail': d})
+                    ),
+                    on_error=lambda e: self._streamQueue.put(('cli_error', e)),
+                )
+
+                result = analyzer.analyze_and_generate(
+                    extension_name=ext_name,
+                    source_path=source_path,
+                    force_overwrite=False,
+                )
+                self._streamQueue.put(('cli_complete', result))
+
+            except Exception as e:
+                self._streamQueue.put(('cli_error', str(e)))
+
+        thread = threading.Thread(target=_run_analysis, daemon=True)
+        thread.start()
+
+    def _onTestCliClicked(self):
+        """Validate generated templates with CodeValidator."""
+        data = self._getSelectedExtensionData()
+        if not data:
+            return
+
+        ext_name = data["name"]
+        from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
+        cli_dir = os.path.join(get_cli_base_dir(), ext_name)
+        if not os.path.isdir(cli_dir):
+            self._cliProgressDisplay.append(f"No CLI directory found for {ext_name}")
+            return
+
+        # Load generators to find template files
+        gen_path = os.path.join(cli_dir, "code_generators.json")
+        if not os.path.isfile(gen_path):
+            self._cliProgressDisplay.append("No code_generators.json found")
+            return
+
+        with open(gen_path, "r") as f:
+            generators = json.load(f)
+
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+        validator = CodeValidator()
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+
+        self._cliProgressDisplay.append("Running validation tests...")
+        all_pass = True
+
+        for gen in generators:
+            tpl_file = gen.get("template_file", "")
+            tpl_path = os.path.join(cli_dir, tpl_file)
+            if not os.path.isfile(tpl_path):
+                self._cliProgressDisplay.append(f"  SKIP: {tpl_file} not found")
+                continue
+
+            with open(tpl_path, "r") as f:
+                content = f.read()
+
+            sample = content.replace(
+                "{vol_lookup}",
+                "inputVolume = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScalarVolumeNode')"
+            )
+            sample = ExtensionCLIAnalyzer._fill_remaining_placeholders(sample)
+            result = validator.validate(sample)
+
+            status = "PASS" if result.get("valid", True) else "FAIL"
+            self._cliProgressDisplay.append(f"  {tpl_file}: {status}")
+            if not result.get("valid", True):
+                all_pass = False
+                self._cliProgressDisplay.append(f"    Error: {result.get('reason', 'unknown')}")
+            for w in result.get("warnings", []):
+                self._cliProgressDisplay.append(f"    Warning: {w}")
+
+        if all_pass:
+            self._cliStatusLabel.setText("Validated")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: green;")
+            self._reviseCliButton.setEnabled(False)
+        else:
+            self._cliStatusLabel.setText("Validation Failed")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
+            self._reviseCliButton.setEnabled(True)
+
+    def _onDeleteCliClicked(self):
+        """Delete the CLI for the selected extension."""
+        data = self._getSelectedExtensionData()
+        if not data:
+            return
+
+        ext_name = data["name"]
+
+        # Confirm
+        reply = qt.QMessageBox.question(
+            None, "Delete CLI",
+            f"Delete the generated CLI for '{ext_name}'?",
+            qt.QMessageBox.Yes | qt.QMessageBox.No,
+        )
+        if reply != qt.QMessageBox.Yes:
+            return
+
+        from SlicerAIAgentLib.ExtensionCLILoader import delete_cli
+        if delete_cli(ext_name):
+            self._cliProgressDisplay.append(f"Deleted CLI for '{ext_name}'")
+            self._cliStatusLabel.setText("Ready")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold;")
+            self._cliResultGroup.setVisible(False)
+            self._testCliButton.setEnabled(False)
+            self._deleteCliButton.setEnabled(False)
+            self._reviseCliButton.setEnabled(False)
+            self._onRefreshExtensionsClicked()
+        else:
+            self._cliProgressDisplay.append(f"No CLI found for '{ext_name}'")
+
+    def _onReviseCliClicked(self):
+        """Revise failed templates using LLM feedback."""
+        data = self._getSelectedExtensionData()
+        if not data:
+            return
+
+        ext_name = data["name"]
+
+        if self._cliGeneratorRunning:
+            return
+
+        self._cliGeneratorRunning = True
+        self._cliStatusLabel.setText("Revising...")
+        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
+        self._reviseCliButton.setEnabled(False)
+
+        # Collect errors from the progress display
+        progress_text = self._cliProgressDisplay.toPlainText()
+        errors = [
+            line.strip() for line in progress_text.split("\n")
+            if "Error:" in line or "FAIL" in line
+        ]
+
+        import threading
+
+        def _run_revision():
+            try:
+                from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+                from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+                analyzer = ExtensionCLIAnalyzer(
+                    llm_client=self.logic.llmClient,
+                    code_validator=CodeValidator(),
+                    on_progress=lambda n, s, d: self._streamQueue.put(
+                        ('cli_progress', {'stage': n, 'name': s, 'detail': d})
+                    ),
+                    on_error=lambda e: self._streamQueue.put(('cli_error', e)),
+                )
+
+                result = analyzer.revise(ext_name, errors)
+                self._streamQueue.put(('cli_revision_complete', result))
+
+            except Exception as e:
+                self._streamQueue.put(('cli_error', str(e)))
+
+        thread = threading.Thread(target=_run_revision, daemon=True)
+        thread.start()
+
+    def _autoReviseCli(self, generation_result):
+        """Automatically trigger LLM revision after generation validation fails."""
+        data = self._getSelectedExtensionData()
+        if not data:
+            self._reviseCliButton.setEnabled(True)
+            return
+
+        ext_name = data["name"]
+        self._cliGeneratorRunning = True
+        self._cliStatusLabel.setText("Auto-revising...")
+        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
+
+        # Extract validation errors
+        val_result = generation_result.get("validation_result", {})
+        errors = val_result.get("errors", [])
+        if not errors:
+            error = val_result.get("reason", "Unknown validation error")
+            errors = [error]
+
+        import threading
+
+        def _run_revision():
+            try:
+                from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+                from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+                analyzer = ExtensionCLIAnalyzer(
+                    llm_client=self.logic.llmClient,
+                    code_validator=CodeValidator(),
+                    on_progress=lambda n, s, d: self._streamQueue.put(
+                        ('cli_progress', {'stage': n, 'name': s, 'detail': d})
+                    ),
+                    on_error=lambda e: self._streamQueue.put(('cli_error', e)),
+                )
+
+                result = analyzer.revise(ext_name, errors)
+                self._streamQueue.put(('cli_revision_complete', result))
+
+            except Exception as e:
+                self._streamQueue.put(('cli_error', str(e)))
+
+        thread = threading.Thread(target=_run_revision, daemon=True)
+        thread.start()
+
+    def _getSelectedExtensionData(self):
+        """Get the data dict for the currently selected extension."""
+        current_text = self._extensionSelector.currentText
+        if not current_text:
+            return None
+        return self._extensionDataMap.get(current_text)
+
+    def _handleCliProgress(self, stage_num, stage_name, detail):
+        """Handle CLI generator progress updates on the main thread."""
+        self._cliProgressDisplay.append(f"  Stage {stage_num}: {stage_name} — {detail}")
+
+    def _handleCliComplete(self, result):
+        """Handle CLI generator completion on the main thread."""
+        self._cliGeneratorRunning = False
+        self._analyzeGenerateButton.setEnabled(True)
+
+        if result.get("success"):
+            self._cliStatusLabel.setText("Validated")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: green;")
+            self._cliResultGroup.setVisible(True)
+            self._testCliButton.setEnabled(True)
+            self._deleteCliButton.setEnabled(True)
+            self._reviseCliButton.setEnabled(False)
+
+            manifest = result.get("manifest", {})
+            stages = manifest.get("stages", [])
+            self._cliResultSummary.setText(
+                f"Generated CLI for {manifest.get('extension_name', '?')} "
+                f"(stages: {', '.join(stages)}). "
+                f"Saved to: {result.get('cli_dir', '?')}"
+            )
+            self._cliProgressDisplay.append("CLI generation complete and validated!")
+
+            # Refresh the extension selector to show updated status, preserving selection
+            ext_name = manifest.get("extension_name", "")
+            self._onRefreshExtensionsClicked()
+            if ext_name:
+                for i in range(self._extensionSelector.count):
+                    if ext_name in self._extensionSelector.itemText(i):
+                        self._extensionSelector.setCurrentIndex(i)
+                        break
+
+        else:
+            self._cliStatusLabel.setText("Failed")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
+            error = result.get("error", "Unknown error")
+            self._cliProgressDisplay.append(f"FAILED: {error}")
+
+            stages = result.get("stages_completed", [])
+            if stages:
+                self._cliProgressDisplay.append(
+                    f"Completed stages: {stages}"
+                )
+
+            # Auto-revise if templates were generated but validation failed
+            if result.get("validation_result") and not result["validation_result"].get("valid"):
+                self._cliProgressDisplay.append("Auto-revising with LLM...")
+                self._autoReviseCli(result)
+
+    def _handleCliRevisionComplete(self, result):
+        """Handle CLI revision completion on the main thread."""
+        self._cliGeneratorRunning = False
+        self._reviseCliButton.setEnabled(False)
+        self._analyzeGenerateButton.setEnabled(True)
+
+        if result.get("success"):
+            self._cliStatusLabel.setText("Revised & Validated")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: green;")
+            self._cliProgressDisplay.append(
+                f"Revision succeeded after {result.get('attempts', '?')} attempts."
+            )
+            self._testCliButton.setEnabled(True)
+            self._deleteCliButton.setEnabled(True)
+        else:
+            self._cliStatusLabel.setText("Revision Failed")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
+            self._cliProgressDisplay.append(
+                f"Revision failed: {result.get('error', 'unknown')}"
+            )
+            self._reviseCliButton.setEnabled(True)
+
+    def _handleCliError(self, error_msg):
+        """Handle CLI generator error on the main thread."""
+        self._cliGeneratorRunning = False
+        self._analyzeGenerateButton.setEnabled(True)
+        self._cliStatusLabel.setText("Error")
+        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
+        self._cliProgressDisplay.append(f"ERROR: {error_msg}")
+
     def enter(self):
         if (hasattr(self, 'chatHistory') and self.chatHistory is not None and
             self.logic and not self.logic.hasApiKey()):
@@ -325,8 +837,21 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Build HTML for the current streaming assistant entry."""
         timestamp = getattr(self, '_streamTimestamp', '')
         parts = []
-        # Reasoning/thinking content is intentionally suppressed from the chat UI
-        # and only persisted to debug log files.
+
+        # Thinking section — shown during streaming, hidden after thinking_done
+        if getattr(self, '_thinkingDisplayed', False) and self._thinkingDisplayText:
+            escaped = self.escapeHtml(self._thinkingDisplayText).replace(chr(10), '<br>')
+            # Truncate display to last ~2000 chars to avoid UI lag
+            if len(escaped) > 2000:
+                escaped = '...' + escaped[-2000:]
+            parts.append(
+                f'<div style="margin-left: 10px; margin-top: 5px; padding: 8px; '
+                f'background-color: #f5f5f0; border-left: 3px solid #ccc; '
+                f'color: #888; font-style: italic; max-height: 300px; overflow-y: auto;">'
+                f'{escaped}</div>'
+            )
+
+        # Content section
         if self._streamContent:
             escaped_content = self.escapeHtml(self._streamContent).replace(chr(10), '<br>')
             parts.append(
@@ -481,6 +1006,28 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     payload.get('details', {})
                 )
                 i += 1
+            elif event_type == 'cli_progress':
+                self._handleCliProgress(payload['stage'], payload['name'], payload['detail'])
+                i += 1
+            elif event_type == 'cli_complete':
+                self._handleCliComplete(payload)
+                i += 1
+            elif event_type == 'cli_revision_complete':
+                self._handleCliRevisionComplete(payload)
+                i += 1
+            elif event_type == 'cli_error':
+                self._handleCliError(payload)
+                i += 1
+            elif event_type == 'thinking_delta':
+                self._thinkingDisplayText += payload
+                self._thinkingDisplayed = True
+                self._renderStreamingEntry()
+                i += 1
+            elif event_type == 'thinking_done':
+                self._thinkingDisplayed = False
+                self._thinkingDisplayText = ""
+                self._renderStreamingEntry()
+                i += 1
             else:
                 i += 1
 
@@ -514,6 +1061,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def _onStreamComplete(self, response):
         """Called on the main thread when streaming finishes successfully."""
         self._streaming = False
+        self._thinkingDisplayed = False
+        self._thinkingDisplayText = ""
         self._finalizeStreamingEntry()
 
         # Record LLM internal timing and token usage
@@ -528,9 +1077,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if response.get('cost') is not None:
                 self._timing['cost'] = response['cost']
 
-        # Persist thinking/reasoning content to file
-        if response.get('reasoning_content'):
-            self._appendThinkingToFile(response['reasoning_content'], turn=getattr(self, '_currentTurn', 1))
+        # Thinking is already persisted per-round via on_reasoning callback — no need to write again here
 
         # Display generated code if any and auto-execute
         if response.get("code"):
@@ -610,6 +1157,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._streamReasoning = ""
         self._streamContent = ""
         self._streaming = True
+        self._thinkingDisplayText = ""
+        self._thinkingDisplayed = False
         self._streamTimestamp = qt.QDateTime.currentDateTime().toString("hh:mm:ss")
         self._renderStreamingEntry()
 
@@ -653,11 +1202,19 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 def _onStatus(status_text):
                     self._streamQueue.put(('status', status_text))
 
+                def _onReasoning(reasoning_text, round_num):
+                    self._appendThinkingToFile(reasoning_text, turn=getattr(self, '_currentTurn', 1))
+                    # Hide thinking from UI when the round completes
+                    self._streamQueue.put(('thinking_done', None))
+
+                def _onReasoningDelta(chunk):
+                    self._streamQueue.put(('thinking_delta', chunk))
+
                 import time as _time
                 gen_start = _time.time()
                 if self._timing:
                     self._timing['generation_start'] = gen_start
-                response = self.logic.generateResponseStream(prompt, context, _onDelta, on_status=_onStatus)
+                response = self.logic.generateResponseStream(prompt, context, _onDelta, on_status=_onStatus, on_reasoning=_onReasoning, on_reasoning_delta=_onReasoningDelta)
                 if self._timing:
                     self._timing['generation_end'] = _time.time()
                 self._streamQueue.put(('role_trace', {
@@ -1271,7 +1828,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 user_content = (
                     f"CRITICAL: The previous Python code execution failed with this error:\n"
                     f"{error_detail}\n\n"
-                    "You have FindFile, SearchSymbol, Grep, ReadFile, and VectorSearch tools available. "
+                    "You have SearchSymbol, Grep, ReadFile, and VectorSearch tools available. "
                     "If the error is caused by an incorrect API signature, missing parameter, or wrong module path, "
                     "use the tools to verify the correct usage before fixing. "
                     "Do NOT search unnecessarily — if you are confident in the fix, apply it directly.\n\n"
@@ -1303,7 +1860,14 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
                 def _on_correction_status(status_text):
                     self._streamQueue.put(('status', status_text))
-                
+
+                def _on_correction_reasoning(reasoning_text, round_num):
+                    self._appendThinkingToFile(reasoning_text, turn=getattr(self, '_currentTurn', 1))
+                    self._streamQueue.put(('thinking_done', None))
+
+                def _on_correction_reasoning_delta(chunk):
+                    self._streamQueue.put(('thinking_delta', chunk))
+
                 response = _logic.llmClient.chatWithToolsIsolated(
                     messages=isolated_messages,
                     tools=_logic.skillTools,
@@ -1311,6 +1875,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     max_tool_rounds=5,
                     on_progress=_on_correction_progress,
                     on_status=_on_correction_status,
+                    on_reasoning=_on_correction_reasoning,
+                    on_reasoning_delta=_on_correction_reasoning_delta,
                 )
                 
                 # Dispatch result handling via _streamQueue so it runs on the main thread
@@ -2207,7 +2773,7 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
         self.conversationStore.addExchange(prompt, response)
         return response
 
-    def generateResponseStream(self, prompt, context=None, on_delta=None, use_tools=True, on_status=None):
+    def generateResponseStream(self, prompt, context=None, on_delta=None, use_tools=True, on_status=None, on_reasoning=None, on_reasoning_delta=None):
         """
         Generate AI response using streaming with optional tool calling.
 
@@ -2259,6 +2825,8 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
                     context=context,
                     on_progress=_on_progress,
                     on_status=on_status,
+                    on_reasoning=on_reasoning,
+                    on_reasoning_delta=on_reasoning_delta,
                 )
                 
                 # Tool calling returns complete response (no streaming during tool rounds).

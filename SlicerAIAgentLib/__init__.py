@@ -20,7 +20,8 @@ __all__ = [
     'ConversationStore',
     'SlicerCodeTemplates',
     'SceneTools',
-    'PelvicFractureTools',
+    'ExtensionCLILoader',
+    'ExtensionCLIAnalyzer',
 ]
 
 # Import main classes for convenient access
@@ -39,4 +40,4 @@ from .SafeExecutor import SafeExecutor
 from .ConversationStore import ConversationStore
 from .SlicerCodeTemplates import SlicerCodeTemplates
 from .SceneTools import buildSceneSummary, getNodeProperties, get_scene_tools
-from .PelvicFractureTools import get_pelvic_fracture_tools, generate_pelvic_fracture_code
+from .ExtensionCLILoader import get_dynamic_extension_tools, dispatch_extension_cli_tool

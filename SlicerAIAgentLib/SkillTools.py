@@ -15,7 +15,7 @@ import platform
 import logging
 from typing import List, Dict, Optional, Any
 from pathlib import Path
-from .PelvicFractureTools import get_pelvic_fracture_tools, generate_pelvic_fracture_code
+from .ExtensionCLILoader import get_dynamic_extension_tools, dispatch_extension_cli_tool
 
 logger = logging.getLogger(__name__)
 
@@ -315,20 +315,10 @@ class SkillToolExecutor:
                 arguments.get("query", ""),
                 arguments.get("top_k", 10)
             )
-        elif tool_name == "GenerateSegmentationCode":
-            result = self._generate_segmentation_code(
-                prompt=arguments.get("prompt", ""),
-                volume_node_name=arguments.get("volume_node_name"),
-                output_segmentation_name=arguments.get("output_segmentation_name"),
-            )
-        elif tool_name == "PelvicFracturePlanning":
-            result = generate_pelvic_fracture_code(
-                stage=arguments.get("stage", "full"),
-                volume_node_name=arguments.get("volume_node_name"),
-                screw_radius=arguments.get("screw_radius"),
-            )
         else:
-            return {"error": f"Unknown tool: {tool_name}"}
+            result = dispatch_extension_cli_tool(tool_name, arguments)
+            if result is None:
+                return {"error": f"Unknown tool: {tool_name}"}
         
         elapsed = time.time() - start
         if isinstance(result, dict):
@@ -398,109 +388,6 @@ class SkillToolExecutor:
                 "query": query,
                 "error": str(e),
             }
-
-    def _generate_segmentation_code(
-        self,
-        prompt: str,
-        volume_node_name: Optional[str] = None,
-        output_segmentation_name: Optional[str] = None,
-    ) -> Dict:
-        """
-        Parse a natural-language segmentation request and generate a VoxTell
-        code snippet.  Returns a dict with the generated 'code' key plus
-        metadata so the LLM can incorporate the snippet into the final script.
-        """
-        # Clean the prompt by stripping action words and splitting on conjunctions.
-        # VoxTell is a text-promptable foundation model — it can segment arbitrary
-        # anatomical descriptions ("hippocampus", "appendix", "carotid artery", etc.).
-        # We do NOT filter against a keyword list because that would limit the model.
-        import re
-        cleaned = prompt.lower()
-        # Remove common action/filler words
-        for filler in [
-            "segment", "find", "extract", "locate", "identify",
-            "show", "me", "the", "a", "an", "please",
-            "can you", "could you", "would you",
-        ]:
-            cleaned = cleaned.replace(filler, " ")
-        cleaned = cleaned.strip(" ,.;")
-
-        # Split on commas or "and" to get multiple targets
-        raw_targets = re.split(r",\s*|\s+and\s+", cleaned)
-        targets = [t.strip() for t in raw_targets if t.strip()]
-        if not targets:
-            targets = ["structure of interest"]
-
-        # Build the code snippet
-        if volume_node_name:
-            vol_lookup = f'slicer.util.getNode("{volume_node_name}")'
-        else:
-            # Fallback: grab the first scalar volume node in the scene
-            vol_lookup = (
-                "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScalarVolumeNode')"
-            )
-
-        seg_name = output_segmentation_name or ("_".join(targets) + "_VoxTell")
-
-        code = f'''# --- AI Segmentation via SlicerVoxTell ---
-# Detect GPU and available VRAM (VoxTell recommends >= 8 GB)
-import torch
-try:
-    _has_gpu = torch.cuda.is_available()
-    _gpu_mem = torch.cuda.get_device_properties(0).total_memory if _has_gpu else 0
-    use_gpu = _has_gpu and (_gpu_mem > 8_000_000_000)
-except Exception:
-    use_gpu = False
-
-# Access VoxTell logic through widget representation.
-# slicer.modules.voxtell.logic() returns the C++ base wrapper which lacks
-# runSegmentation; the Python VoxTellLogic lives on the widget.
-_voxtell_widget = slicer.modules.voxtell.widgetRepresentation().self()
-_voxtell = _voxtell_widget.logic
-
-# Pre-flight check: ensure model files exist locally
-_model_path = _voxtell.defaultModelPath()
-if not _voxtell.isModelInstalled(_model_path):
-    raise RuntimeError(
-        f"VoxTell model not found at {{_model_path}}. "
-        "Open the VoxTell module UI and click 'Download Model' first."
-    )
-
-# Resolve input volume
-input_volume = {vol_lookup}
-
-# Run segmentation with natural-language prompts: {targets}
-_segmentation_node = _voxtell.runSegmentation(
-    inputVolumeNode=input_volume,
-    textPrompts={targets},
-    modelPath=_model_path,
-    useGpu=use_gpu,
-    outputSegmentationNode=None,
-)
-_segmentation_node.SetName("{seg_name}")
-
-# Create 3D surface representation for visualization
-_segmentation_node.CreateClosedSurfaceRepresentation()
-'''
-        return {
-            "tool": "GenerateSegmentationCode",
-            "prompt": prompt,
-            "extracted_targets": targets,
-            "code": code,
-            "instruction": (
-                "OUTPUT THE 'code' FIELD ABOVE VERBATIM INSIDE A ```python BLOCK "
-                "AS YOUR NEXT RESPONSE. Do not modify the code. "
-                "Do not write analysis or explanation before the code block."
-            ),
-            "explanation": (
-                f"VoxTell segmentation for: {', '.join(targets)}. "
-                f"GPU auto-detected (falls back to CPU if <8 GB VRAM)."
-            ),
-            "requirements": [
-                "SlicerVoxTell extension must be installed and loaded",
-                "VoxTell model auto-downloads on first run (~3.5 GB)",
-            ],
-        }
 
     def _find_rg(self) -> Optional[str]:
         # 1. Windows bundled binary
@@ -1244,37 +1131,4 @@ def get_skill_tools() -> List[Dict]:
                 }
             }
         },
-        {
-            "type": "function",
-            "function": {
-                "name": "GenerateSegmentationCode",
-                "description": (
-                    "Generate a Python code snippet for AI-based organ/tissue segmentation using SlicerVoxTell. "
-                    "Use this tool ONLY when the user asks to segment specific anatomical structures "
-                    "(organs, tissues, tumors, bones, vessels, etc.). "
-                    "Do NOT use this for generic thresholding, grow-from-seeds, or manual segmentation. "
-                    "The tool returns executable Python code that handles GPU detection, model path resolution, "
-                    "and fallback to CPU if the GPU has insufficient VRAM. "
-                    "The returned 'code' string should be inserted directly into the final executable script."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "prompt": {
-                            "type": "string",
-                            "description": "The user's original segmentation request (e.g., 'segment the liver and spleen')"
-                        },
-                        "volume_node_name": {
-                            "type": "string",
-                            "description": "Name of the input volume node to segment. If unknown, omit and the tool will use a scene fallback."
-                        },
-                        "output_segmentation_name": {
-                            "type": "string",
-                            "description": "Optional desired name for the output segmentation node."
-                        }
-                    },
-                    "required": ["prompt"]
-                }
-            }
-        },
-    ] + get_pelvic_fracture_tools()
+    ] + get_dynamic_extension_tools()

@@ -1,0 +1,16 @@
+{
+  "extension_name": "PelvicFracturePlanning",
+  "extension_module_name": "PelvicFracturePlanning",
+  "logic_class_name": "PelvicFracturePlanningLogic",
+  "version": "1.0.0",
+  "generated_at": "2026-05-19T03:49:31.736384",
+  "source_type": "analyzed_extension",
+  "source_path": "/media/ps/85D96EED9527D342/PuxunTu_workspace/Slicer_SKill/PelvicFracturePlanner/PelvicFracturePlanning",
+  "status": "validated",
+  "tool_count": 1,
+  "stages": [
+    "segmentation",
+    "planning",
+    "full"
+  ]
+}
