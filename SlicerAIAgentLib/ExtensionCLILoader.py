@@ -106,6 +106,12 @@ def invalidate_cache():
     _cli_cache.clear()
 
 
+def get_validated_extensions() -> Dict[str, Dict]:
+    """Return the full cache of validated extension CLI data."""
+    _ensure_cache()
+    return dict(_cli_cache)
+
+
 def get_dynamic_extension_tools() -> List[Dict]:
     """Return tool schemas from all validated extension CLIs."""
     _ensure_cache()

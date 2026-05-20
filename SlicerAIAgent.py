@@ -2564,6 +2564,14 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
 
             # Initialize tool executor for skill searching
             self.toolExecutor = SkillTools.SkillToolExecutor(self.skill_path)
+
+            # Register extension source directories as searchable roots
+            from SlicerAIAgentLib.ExtensionCLILoader import get_validated_extensions
+            for ext_name, ext_data in get_validated_extensions().items():
+                source_path = ext_data["manifest"].get("source_path", "")
+                if source_path and os.path.isdir(source_path):
+                    self.toolExecutor.extra_roots[ext_name] = source_path
+
             self.skillTools = SkillTools.get_skill_tools() + SceneTools.get_scene_tools()
             self.codeValidator = CodeValidator()
             self.executor = SafeExecutor()

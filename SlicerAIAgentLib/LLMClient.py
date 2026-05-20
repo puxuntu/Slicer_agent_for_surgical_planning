@@ -586,6 +586,22 @@ class LLMClient:
             base_prompt += "\n\n## EXTENSION CLI TOOLS\n"
             base_prompt += cli_fragments
 
+        # Inject extension source paths so LLM can search extension source code
+        from SlicerAIAgentLib.ExtensionCLILoader import get_validated_extensions
+        ext_source_info = []
+        for ext_name, ext_data in get_validated_extensions().items():
+            source_path = ext_data["manifest"].get("source_path", "")
+            logic_class = ext_data["manifest"].get("logic_class_name", "")
+            if source_path and os.path.isdir(source_path):
+                entry = f"- **{ext_name}**: source at `ext:{ext_name}/`, logic class `{logic_class}`"
+                ext_source_info.append(entry)
+        if ext_source_info:
+            base_prompt += "\n\n## EXTENSION SOURCE CODE\n"
+            base_prompt += "These extensions' source code is searchable via your tools (SearchSymbol, Grep, ReadFile). "
+            base_prompt += "Use the `ext:<ExtensionName>/` path prefix to search extension source. "
+            base_prompt += "Example: `ext:VoxTell/` to search VoxTell source, `ext:VoxTell/VoxTell.py` to read a file.\n\n"
+            base_prompt += "\n".join(ext_source_info)
+
         return base_prompt
 
     def _openRequest(self, request: urllib.request.Request):

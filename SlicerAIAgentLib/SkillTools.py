@@ -31,6 +31,7 @@ class SkillToolExecutor:
     
     def __init__(self, skill_path: str):
         self.skill_path = skill_path
+        self.extra_roots: Dict[str, str] = {}  # {prefix: abs_path} for extension source dirs
         self.platform = platform.system().lower()  # 'windows', 'linux', 'darwin'
         self._tree_sitter_available = self._ensure_tree_sitter()
         self._tree_sitter_parsers = {}  # ext -> parser cache
@@ -235,13 +236,13 @@ class SkillToolExecutor:
         # If already relative, normalize separators only
         if not os.path.isabs(path):
             return path.replace(os.sep, '/')
-        
+
         try:
             rel = os.path.relpath(path, self.skill_path)
         except ValueError:
             # On Windows, relpath can fail if paths are on different drives
             rel = path
-        
+
         # If relpath escapes skill_path (starts with ..), the path is not under skill_path
         # or path resolution produced an anomaly. Try manual suffix extraction.
         if rel.startswith('..'):
@@ -250,12 +251,40 @@ class SkillToolExecutor:
             if norm_path.startswith(norm_skill):
                 suffix = norm_path[len(norm_skill):].lstrip('/')
                 return suffix
+            # Try extra roots (extension source directories)
+            for prefix, root in self.extra_roots.items():
+                try:
+                    ext_rel = os.path.relpath(path, root)
+                except ValueError:
+                    continue
+                if not ext_rel.startswith('..'):
+                    return f"ext:{prefix}/{ext_rel.replace(os.sep, '/')}"
             # Path genuinely outside skill_path — return basename to avoid leaking
             # system directory structure to the LLM (which may reuse it in next round)
             base = os.path.basename(path.rstrip(os.sep))
             return base if base else path
-        
+
         return rel.replace(os.sep, '/')
+
+    def _resolve_path(self, path: str) -> str:
+        """Resolve a tool path argument to an absolute filesystem path.
+
+        Handles three cases:
+        - Absolute path: used as-is
+        - ext:<prefix>/...: resolved against extra_roots
+        - Relative path: resolved against skill_path
+        """
+        if os.path.isabs(path):
+            return path
+        if path.startswith("ext:"):
+            rest = path[4:]
+            slash = rest.find('/')
+            if slash >= 0:
+                prefix, sub = rest[:slash], rest[slash + 1:]
+                if prefix in self.extra_roots:
+                    return os.path.join(self.extra_roots[prefix], sub)
+            return path
+        return os.path.join(self.skill_path, path)
 
     def _init_vector_retriever(self) -> Any:
         """
@@ -450,7 +479,7 @@ class SkillToolExecutor:
         representative = []
 
         for file_path, _ in sorted_files[:5]:
-            abs_path = os.path.join(self.skill_path, file_path) if not os.path.isabs(file_path) else file_path
+            abs_path = self._resolve_path(file_path)
             sample_cmd = [
                 rg_exe, "-H", "-n", "-i", "-B", "5", "-A", "5", "-m", "3",
                 "--max-columns", "500",
@@ -530,8 +559,7 @@ class SkillToolExecutor:
         Search for pattern in files using ripgrep.
         Returns aggregated summary (per-file hit counts + representative matches).
         """
-        if not os.path.isabs(path):
-            path = os.path.join(self.skill_path, path)
+        path = self._resolve_path(path)
 
         if not os.path.exists(path):
             return {"error": f"Path not found: {path}"}
@@ -561,9 +589,8 @@ class SkillToolExecutor:
     def _readfile(self, path: str, query: Optional[str] = None) -> Dict:
         """Read file content with smart slicing for large files."""
         # Normalize path
-        if not os.path.isabs(path):
-            path = os.path.join(self.skill_path, path)
-        
+        path = self._resolve_path(path)
+
         if not os.path.exists(path):
             return {"error": f"File not found: {path}"}
         
@@ -904,9 +931,8 @@ class SkillToolExecutor:
         Search for symbol definitions (functions, classes, headings).
         Only matches definitions, not call sites or comments.
         """
-        if not os.path.isabs(path):
-            path = os.path.join(self.skill_path, path)
-        
+        path = self._resolve_path(path)
+
         if not os.path.exists(path):
             return {"error": f"Path not found: {path}"}
         

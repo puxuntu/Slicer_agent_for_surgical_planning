@@ -40,4 +40,4 @@ from .SafeExecutor import SafeExecutor
 from .ConversationStore import ConversationStore
 from .SlicerCodeTemplates import SlicerCodeTemplates
 from .SceneTools import buildSceneSummary, getNodeProperties, get_scene_tools
-from .ExtensionCLILoader import get_dynamic_extension_tools, dispatch_extension_cli_tool
+from .ExtensionCLILoader import get_dynamic_extension_tools, dispatch_extension_cli_tool, get_validated_extensions
