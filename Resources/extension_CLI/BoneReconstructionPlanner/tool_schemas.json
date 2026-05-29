@@ -3,33 +3,27 @@
     "type": "function",
     "function": {
       "name": "BoneReconstructionPlanner",
-      "description": "Guided interactive workflow for BoneReconstructionPlanner. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'create_bone_models': Generate 3D surface models from mandible and fibula segmentations using the module's Logic.; 'add_mandibular_curve': Place a markup curve along the ideal mandibular arch to guide initial cut plane positioning. (interactive: curve); 'add_cut_plane': Place a markup plane on the mandible model; adjacent planes define bone pieces for reconstruction. (interactive: plane); 'add_fibula_line': Draw a markup line along the fibula diaphysis (distal to proximal) to define the fibula axis. (interactive: line); 'center_fibula_line': Automatically adjust the fibula line to coincide with the anatomical axis of the fibula model.; 'update_fibula_planes': Compute fibula cut planes from mandible planes and fibula axis, create bone pieces, and transform them to the mandible position.; 'hard_vsp_update': Force a complete recomputation of the virtual surgical plan outputs without modifying input objects.; 'create_reconstruction_3d_model': Generate a combined STL model of the neomandible (mandible plus fibula pieces) for 3D printing.; 'create_dental_implant_fiducials': Place fiducial points on neomandible pieces where dental implant cylinders should be positioned. (optional — ask user first); 'create_dental_implant_cylinders': Generate cylindrical models representing dental implants at the fiducial locations on the neomandible. (optional — ask user first)",
+      "description": "Guided interactive workflow for BoneReconstructionPlanner. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': 1. If the fibula is from the right leg, tick the \"Right side leg\" checkbox.; 'cb_step_2': 2. In the \"Select mandibular segmentation\" section, choose the mandibular segmentation, and in the \"Select fibula segmentation\" section, choose the fibula segmentation.; 'cb_step_3': 3. For the \"Current Scalar Volume\" option, select the Mandible Volume.; 'cb_step_4': 4. Click \"Create bone models from segmentations\" botton.; 'cb_step_5': 5. Change the layout to \"Conventional\". For the R (red) view, toggle on slice visibility in the 3D view. You should also toggle on slice intersection visibility and enable interaction. Then, you manually adjust the slice intersection position.; 'cb_step_6': 6. Click the \"Add mandibular curve\" button and open the \"Markups\" module. Expand the \"Display\" panel, then the \"Advanced\" panel, and set \"View\" to \"View 1\" with \"Red\" selected.; 'cb_step_7': 7. Manually click and draw on the \"Red\" view to create a curve along the mandible. (interactive: curve); 'cb_step_8': 8. Change the layout from \"Conventional\" back to the custom layout \"BoneReconstructionPlanner\". For the R (red) view, toggle off the slice visibility in the 3D view.; 'cb_step_9': 9. Click \"Add cut plane\" botton and click where you want the plane in \"3D View 1\" to create the first plane. Repeat this process by clicking \"Add cut plane\" again to add as many planes as needed.; 'cb_step_10': 10. Click \"Add fibula line.\" Draw a line over the fibula in \"3D View 2\", starting with the first point distally and the last point proximally.",
       "parameters": {
         "type": "object",
         "properties": {
           "workflow_step": {
             "type": "string",
             "enum": [
-              "create_bone_models",
-              "add_mandibular_curve",
-              "add_cut_plane",
-              "add_fibula_line",
-              "center_fibula_line",
-              "update_fibula_planes",
-              "hard_vsp_update",
-              "create_reconstruction_3d_model",
-              "create_dental_implant_fiducials",
-              "create_dental_implant_cylinders",
-              "create_plate_curve",
-              "create_custom_plate",
-              "create_miter_boxes",
-              "create_fibula_screw_fiducials",
-              "create_fibula_screw_cylinders",
-              "boolean_fibula_guide",
-              "create_mandible_saw_boxes",
-              "create_mandible_screw_fiducials",
-              "create_mandible_screw_cylinders",
-              "boolean_mandible_guide"
+              "cb_step_1",
+              "cb_step_2",
+              "cb_step_3",
+              "cb_step_4",
+              "cb_step_5",
+              "cb_step_6",
+              "cb_step_7",
+              "cb_step_8",
+              "cb_step_9",
+              "cb_step_10",
+              "cb_step_11",
+              "cb_step_12",
+              "cb_step_13",
+              "cb_step_14"
             ],
             "description": "Which workflow step to execute"
           },
@@ -39,9 +33,10 @@
               "start",
               "proceed",
               "skip",
-              "cancel"
+              "cancel",
+              "choice_made"
             ],
-            "description": "Action: 'start' to begin a step, 'proceed' after user completes interaction, 'skip' for optional steps, 'cancel' to abort workflow"
+            "description": "Action: 'start' to begin a step, 'proceed' after user completes interaction, 'skip' for optional steps, 'cancel' to abort workflow, 'choice_made' for user_choice steps"
           }
         },
         "required": [

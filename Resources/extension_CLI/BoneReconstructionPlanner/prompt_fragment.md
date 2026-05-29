@@ -9,42 +9,41 @@ Execute steps sequentially, ONE STEP PER TURN. After each interactive step, rela
 and wait for them to complete the interaction before proceeding.
 
 **Workflow Steps:**
-1. `create_bone_models` [automated] — Generate 3D surface models from mandible and fibula segmentations using the module's Logic.
-2. `add_mandibular_curve` [interactive] — Place a markup curve along the ideal mandibular arch to guide initial cut plane positioning.
+1. `cb_step_1` [optional] — 1. If the fibula is from the right leg, tick the "Right side leg" checkbox.
+2. `cb_step_2` [optional] — 2. In the "Select mandibular segmentation" section, choose the mandibular segmentation, and in the "Select fibula segmentation" section, choose the fi
+3. `cb_step_3` [optional] — 3. For the "Current Scalar Volume" option, select the Mandible Volume.
+4. `cb_step_4` [automated: extension_op] — 4. Click "Create bone models from segmentations" botton.
+5. `cb_step_5` [mixed: automated + interaction] — 5. Change the layout to "Conventional". For the R (red) view, toggle on slice visibility in the 3D view. You should also toggle on slice intersection 
+   - User interaction: fiducial
+   - Tell user: Drag the slice intersection point in the 3D view to adjust its position.
+6. `cb_step_6` [mixed: automated + interaction] — 6. Click the "Add mandibular curve" button and open the "Markups" module. Expand the "Display" panel, then the "Advanced" panel, and set "View" to "Vi
+7. `cb_step_7` [interactive] — 7. Manually click and draw on the "Red" view to create a curve along the mandible.
    - Interaction: curve
-   - Tell user: Switch to curve placement mode. Click on the mandibular segmentation to define a curve. Use at least three points for an accurate curve representation.
-3. `add_cut_plane` [interactive] — Place a markup plane on the mandible model; adjacent planes define bone pieces for reconstruction.
+   - Tell user: Click and draw on the Red slice view to create a curve along the mandible.
+8. `cb_step_8` [mixed: automated + interaction] — 8. Change the layout from "Conventional" back to the custom layout "BoneReconstructionPlanner". For the R (red) view, toggle off the slice visibility 
+9. `cb_step_9` [mixed: automated + interaction] — 9. Click "Add cut plane" botton and click where you want the plane in "3D View 1" to create the first plane. Repeat this process by clicking "Add cut 
+   - User interaction: plane
+   - Tell user: Click in 3D View 1 where you want the cut plane to be placed. Each click creates a new plane after clicking 'Add cut plane'.
+10. `cb_step_10` [mixed: automated + interaction] — 10. Click "Add fibula line." Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally.
+   - User interaction: line
+   - Tell user: In 3D View 2, click the first point at the distal end of the fibula, then click the last point at the proximal end to create the line.
+11. `cb_step_11` [automated: extension_op] — 11. Click "Center fibula line using fibula model" botton to align the line with the anatomical axis of the fibula.
+12. `cb_step_12` [automated: extension_op] — 12. Tick the following options: "Automatic mandibular planes positioning for maximum bones contact area" and "Make all mandible planes rotate together
+13. `cb_step_13` [automated: extension_op] — 13. Click "Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible" to generate the reconstruction and create 
+14. `cb_step_14` [interactive] — 14. Move the mandible planes manually to change the position and orientation of the cuts.
    - Interaction: plane
-   - Tell user: Switch to persistent plane placement mode. Click three points on the mandibular model to define each cut plane. Continue placing planes until all resections are defined.
-4. `add_fibula_line` [interactive] — Draw a markup line along the fibula diaphysis (distal to proximal) to define the fibula axis.
-   - Interaction: line
-   - Tell user: Switch to line placement mode. Click two points along the fibula segmentation to define the fibula axis.
-5. `center_fibula_line` [automated] — Automatically adjust the fibula line to coincide with the anatomical axis of the fibula model.
-6. `update_fibula_planes` [automated] — Compute fibula cut planes from mandible planes and fibula axis, create bone pieces, and transform them to the mandible position.
-7. `hard_vsp_update` [automated] — Force a complete recomputation of the virtual surgical plan outputs without modifying input objects.
-8. `create_reconstruction_3d_model` [automated] — Generate a combined STL model of the neomandible (mandible plus fibula pieces) for 3D printing.
-9. `create_dental_implant_fiducials` [optional] — Place fiducial points on neomandible pieces where dental implant cylinders should be positioned.
-10. `create_dental_implant_cylinders` [optional] — Generate cylindrical models representing dental implants at the fiducial locations on the neomandible.
-11. `create_plate_curve` [optional] — Draw a markup curve along the neomandible surface to define the path of the custom titanium plate.
-12. `create_custom_plate` [optional] — Generate a 3D model of a patient-specific titanium plate following the plate curve.
-13. `create_miter_boxes` [optional] — Create miter box models for fibula osteotomies; each box includes a slit for the saw blade.
-14. `create_fibula_screw_fiducials` [optional] — Place fiducial points on the fibula guide base where screw holes will be drilled.
-15. `create_fibula_screw_cylinders` [optional] — Generate cylinder models for screw holes on the fibula guide base at the fiducial locations.
-16. `boolean_fibula_guide` [optional] — Perform Boolean subtraction to combine screw holes, dental implant cylinders, and miter boxes into a final fibula surgical guide prototype.
-17. `create_mandible_saw_boxes` [optional] — Create saw box models for mandible osteotomies at the first and last cut planes.
-18. `create_mandible_screw_fiducials` [optional] — Place fiducial points on the mandible guide base where screw holes will be drilled.
-19. `create_mandible_screw_cylinders` [optional] — Generate cylinder models for screw holes on the mandible guide base at the fiducial locations.
-20. `boolean_mandible_guide` [optional] — Perform Boolean subtraction to combine screw holes, bridge model, and saw boxes into a final mandible surgical guide prototype.
+   - Tell user: Drag and rotate the mandible planes in the 3D view to change their position and orientation for optimal cuts.
 
 **Protocol:**
-1. Call `BoneReconstructionPlanner` with `workflow_step='create_bone_models'` and `user_action='start'` to begin
-2. For **automated** steps: output the returned `code` verbatim in a ```python block. Then call the next step.
+1. Call `BoneReconstructionPlanner` with `workflow_step='cb_step_1'` and `user_action='start'` to begin
+2. For **automated** steps (extension_op and slicer_op): output the returned `code` verbatim in a ```python block. Then call the next step.
 3. For **interactive** steps: output the returned `pre_code` verbatim in a ```python block. Relay instructions to the user. Wait for them to click 'Done'.
-4. For **optional** steps: ask user if they want to proceed. If yes, call with `user_action='start'`. If no, call with `user_action='skip'`.
-5. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.
-6. Continue until all steps are done.
+4. For **mixed** steps: output the returned `pre_code` verbatim. Then relay interaction instructions. Wait for 'Done'. Then output post_code.
+5. For **optional** steps: ask user if they want to proceed. If yes, call with `user_action='start'`. If no, call with `user_action='skip'`.
+6. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.
+7. Continue until all steps are done.
 
 **CRITICAL RULES:**
 - Execute ONE step per turn. Do NOT call multiple steps in a single turn.
 - Do NOT skip automated steps. Their code MUST be output and executed.
-- Always start from step 1 (`create_bone_models`) and proceed in order.
+- Always start from step 1 (`cb_step_1`) and proceed in order.

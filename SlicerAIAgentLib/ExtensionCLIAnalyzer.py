@@ -1,6 +1,9 @@
 """
-ExtensionCLIAnalyzer - 8-stage pipeline for analyzing Slicer extensions
+ExtensionCLIAnalyzer - 9-stage pipeline for analyzing Slicer extensions
 and generating operation CLIs (tool schemas + code templates).
+
+The pipeline is cookbook-driven: a markdown cookbook describing the extension's
+step-by-step workflow is REQUIRED.  Without it the pipeline aborts.
 
 Uses the same LLM provider as the main agent to analyze extension source code,
 identify operations, and generate validated code templates that integrate with
@@ -11,6 +14,7 @@ import ast
 import json
 import logging
 import os
+import re as _re
 import textwrap
 import traceback
 from datetime import datetime
@@ -25,10 +29,34 @@ _ANALYZER_PROMPT_PATH = os.path.join(
 )
 
 # Maximum source file size to send to LLM (chars)
-_MAX_SOURCE_FOR_LLM = 30_000
+_MAX_SOURCE_FOR_LLM = 300_000
 
 # Maximum revision attempts for failed validation
 _MAX_REVISION_ATTEMPTS = 3
+
+# Regex to strip JavaScript-style // comments from LLM JSON output.
+# Matches // comments that appear after JSON structural chars (, : [ ] { })
+# or whitespace — avoids breaking URLs inside string values.
+_JS_COMMENT_RE = _re.compile(r'(?<=[,\[\]{}:\s])\s*//[^\n]*')
+
+
+def _validate_extension_name(name: str) -> str:
+    """Validate and sanitize an extension name to prevent path traversal.
+
+    Returns the sanitized name.  Raises ValueError if the name is invalid.
+    """
+    if not name or not name.strip():
+        raise ValueError("Extension name must not be empty.")
+    # Reject path separators and traversal patterns
+    if any(ch in name for ch in ("/", "\\", "\x00")):
+        raise ValueError(
+            f"Invalid extension name '{name}': contains path separators."
+        )
+    if ".." in name:
+        raise ValueError(
+            f"Invalid extension name '{name}': contains '..' traversal."
+        )
+    return name.strip()
 
 
 def _tokenize_name(name: str) -> set:
@@ -107,15 +135,19 @@ class ExtensionCLIAnalyzer:
     """
     Analyzes a Slicer extension's source code and generates operation CLIs.
 
-    8-stage pipeline:
-    1. Extension Scanning (AST, no LLM)
-    2. Logic Class Analysis (LLM-assisted)
-    3. State Dependency Analysis (programmatic + optional LLM)
-    4. Node Lifecycle Analysis (LLM-assisted)
-    5. Tool Schema Generation (LLM-assisted)
-    6. Code Template Generation (LLM-assisted)
-    7. Prompt Fragment Generation (LLM-assisted)
-    8. Validation (CodeValidator, no LLM)
+    9-stage cookbook-driven pipeline:
+    1. AST Scanning (no LLM)
+    2. Cookbook Detection & Parsing (regex-based, no LLM, REQUIRED)
+    3. Logic Class Analysis (LLM)
+    3.5. AST Signature Verification (no LLM)
+    4. Cookbook Stage Map — LLM Decomposition into sub-operations
+    4.5. Cross-Stage Parameter Mapping (LLM)
+    5C. Workflow Graph Building
+    5T. Slicer Op Templates (KB search + LLM)
+    6. Tool Schema Generation (LLM)
+    7. Code Template Generation (LLM, includes internal LLM review)
+    8. Prompt Fragment Generation (LLM)
+    9. Validation + Save (CodeValidator, semantic checks, optional revision)
     """
 
     def __init__(
@@ -125,6 +157,7 @@ class ExtensionCLIAnalyzer:
         code_validator=None,
         on_progress: Optional[Callable[[int, str, str], None]] = None,
         on_error: Optional[Callable[[str], None]] = None,
+        method_keyword_map: Optional[Dict[str, str]] = None,
     ):
         """
         Args:
@@ -134,20 +167,27 @@ class ExtensionCLIAnalyzer:
             code_validator: CodeValidator instance. Created if not provided.
             on_progress: Callback(stage_num, stage_name, detail) for progress updates.
             on_error: Callback(error_message) for error reporting.
+            method_keyword_map: Optional per-extension mapping of cookbook
+                description keywords to logic method names (e.g.
+                {"create bone model": "createBoneModels"}).  Used by the
+                heuristic fallback when LLM decomposition fails.  If not
+                provided, only fuzzy word-overlap matching is used.
         """
         self.llm_client = llm_client
         self.output_base_dir = output_base_dir or self._default_base_dir()
         self.code_validator = code_validator
         self.on_progress = on_progress or (lambda n, s, d: None)
         self.on_error = on_error or (lambda e: None)
+        self._method_keyword_map = method_keyword_map or {}
         self._analyzer_prompt = self._load_analyzer_prompt()
         self._cancelled = False
         # Pipeline-scoped state (reset in analyze_and_generate)
-        self._readme_content: Optional[str] = None
-        self._ui_workflow: Optional[Dict] = None
+        self._ui_workflow: Optional[Dict] = None  # only used by legacy fallback methods
         self._debug_dir: Optional[str] = None
         self._llm_call_counter: int = 0
         self._current_stage_label: str = ""
+        self._cookbook_def = None                # Parsed CookbookDef when cookbook found
+        self._slicer_op_templates: Dict = {}     # Pre-generated slicer_op templates
 
     @staticmethod
     def _default_base_dir() -> str:
@@ -178,7 +218,7 @@ class ExtensionCLIAnalyzer:
         force_overwrite: bool = False,
     ) -> Dict:
         """
-        Run the full 8-stage analysis pipeline.
+        Run the full 9-stage cookbook-driven analysis pipeline.
 
         Args:
             extension_name: Name for the generated CLI directory.
@@ -192,11 +232,15 @@ class ExtensionCLIAnalyzer:
             'validation_result', 'error' keys.
         """
         self._cancelled = False
-        self._readme_content = None
-        self._ui_workflow = None
         self._debug_dir = None
         self._llm_call_counter = 0
         self._current_stage_label = ""
+        self._cookbook_def = None
+        self._slicer_op_templates = {}
+
+        # Validate extension name (prevent path traversal)
+        extension_name = _validate_extension_name(extension_name)
+
         result = {
             "success": False,
             "cli_dir": None,
@@ -215,7 +259,7 @@ class ExtensionCLIAnalyzer:
             # Set up debug directory (lazily created on first LLM call)
             self._debug_dir = os.path.join(ext_dir, "debug")
 
-            # Stage 1: Scanning
+            # ── Stage 1: AST Scanning (no LLM) ──
             self._current_stage_label = "1"
             scan_result = self._stage1_scan(source_path)
             result["stages_completed"].append(1)
@@ -230,125 +274,108 @@ class ExtensionCLIAnalyzer:
                 )
                 return result
 
-            # README discovery (supplementary context for LLM stages)
-            self._readme_content = self._find_readme(
-                extension_name, source_path, source_type
-            )
-            if self._readme_content:
-                self.on_progress(
-                    1, "Scanning extension files",
-                    f"README found ({len(self._readme_content)} chars)"
+            # Extract Widget button→logic-method connections for post-classification verification
+            self._widget_connections = []
+            widget_info = scan_result.get("widget_class")
+            if widget_info:
+                widget_source = self._extract_class_source(
+                    widget_info.get("file", ""), widget_info.get("class_name", "")
                 )
-            else:
-                self.on_progress(
-                    1, "Scanning extension files",
-                    f"No README found for '{extension_name}'"
-                )
+                if widget_source:
+                    self._widget_connections = self._extract_widget_connections(widget_source)
 
-            # Stage 1.5: UI Workflow Extraction
-            self._current_stage_label = "1.5"
-            self._ui_workflow = self._stage1_5_extract_workflow(scan_result)
-            if self._ui_workflow:
-                step_count = sum(
-                    len(s.get("steps", []))
-                    for s in self._ui_workflow.get("ui_sections", [])
-                )
-                self.on_progress(
-                    1.5, "UI workflow extraction",
-                    f"Extracted {step_count} steps from UI analysis"
-                )
-            result["stages_completed"].append("1.5")
-            if self._cancelled:
-                result["error"] = "Cancelled during Stage 1.5"
-                return result
-
-            # Stage 2: Logic Class Analysis (LLM)
+            # ── Stage 2: Cookbook Detection & Parsing (no LLM, REQUIRED) ──
             self._current_stage_label = "2"
-            logic_analysis = self._stage2_analyze_logic(scan_result)
+            cookbook_path = self._find_cookbook(extension_name)
+            if not cookbook_path:
+                result["error"] = (
+                    f"No cookbook found for '{extension_name}'. "
+                    "A cookbook (.md) in Resources/extensions_cookbook/ is required "
+                    "for pipeline generation. "
+                    "Expected: Resources/extensions_cookbook/{extension_name}.md "
+                    "or Resources/extensions_cookbook/Slicer{extension_name}.md"
+                )
+                return result
+
+            try:
+                from .CookbookParser import CookbookParser
+                parser = CookbookParser()
+                self._cookbook_def = parser.parse(cookbook_path)
+            except Exception as e:
+                result["error"] = f"Cookbook parse error: {e}"
+                return result
+
+            if not self._cookbook_def or not self._cookbook_def.steps:
+                result["error"] = (
+                    f"Cookbook found at {cookbook_path} but failed to parse "
+                    "or contains no steps."
+                )
+                return result
+
+            self.on_progress(
+                2, "Cookbook detection & parsing",
+                f"Parsed cookbook: {cookbook_path} "
+                f"({len(self._cookbook_def.steps)} steps)"
+            )
             result["stages_completed"].append(2)
-            if self._cancelled:
-                result["error"] = "Cancelled during Stage 2"
-                return result
 
-            # Stage 2.5: AST Signature Verification
-            self._current_stage_label = "2.5"
-            self._verify_signatures_ast(logic_analysis, scan_result)
-            result["stages_completed"].append("2.5")
-            if self._cancelled:
-                result["error"] = "Cancelled during Stage 2.5"
-                return result
-
-            # Stage 3: State Dependency Analysis
+            # ── Stage 3: Logic Class Analysis (LLM) ──
             self._current_stage_label = "3"
-            stage_map = self._stage3_state_dependencies(logic_analysis)
+            logic_analysis = self._stage3_analyze_logic(scan_result)
             result["stages_completed"].append(3)
             if self._cancelled:
                 result["error"] = "Cancelled during Stage 3"
                 return result
 
-            # Stage 3.5: Cross-Stage Parameter Mapping
+            # ── Stage 3.5: AST Signature Verification (no LLM) ──
             self._current_stage_label = "3.5"
-            cross_stage_map = self._map_cross_stage_params(stage_map, extension_name)
+            self._verify_signatures_ast(logic_analysis, scan_result)
             result["stages_completed"].append("3.5")
             if self._cancelled:
                 result["error"] = "Cancelled during Stage 3.5"
                 return result
 
-            # Stage 4: Node Lifecycle Analysis (AST-based)
+            # ── Stage 4: Cookbook Stage Map — LLM Decomposition ──
             self._current_stage_label = "4"
-            node_lifecycle = self._stage4_node_lifecycle(scan_result, logic_analysis)
+            stage_map = self._stage4_cookbook_decomposition(
+                self._cookbook_def, logic_analysis
+            )
             result["stages_completed"].append(4)
             if self._cancelled:
                 result["error"] = "Cancelled during Stage 4"
                 return result
 
-            # Stage 4.5: Interactive Pattern Detection
+            # ── Stage 4.5: Cross-Stage Parameter Mapping (LLM) ──
             self._current_stage_label = "4.5"
-            interactive_patterns = self._stage4b_detect_interactive_patterns(
-                scan_result, logic_analysis
+            cross_stage_map = self._stage4_5_cross_stage_mapping(
+                stage_map, logic_analysis, extension_name
             )
             result["stages_completed"].append("4.5")
             if self._cancelled:
                 result["error"] = "Cancelled during Stage 4.5"
                 return result
 
-            # Stage 4.7: Workflow Graph Construction (if interactive patterns found)
-            self._current_stage_label = "4.7"
-            workflow_graph = None
-            if interactive_patterns.get("has_interactive"):
-                workflow_graph = self._stage4c_build_workflow_graph(
-                    interactive_patterns, logic_analysis, stage_map, extension_name
-                )
-            result["stages_completed"].append("4.7")
-            if self._cancelled:
-                result["error"] = "Cancelled during Stage 4.7"
-                return result
-
-            # Stage 4.9: Workflow Validation (if workflow graph was built)
-            self._current_stage_label = "4.9"
-            if workflow_graph:
-                workflow_graph = self._stage4d_validate_workflow(
-                    workflow_graph, logic_analysis
-                )
-            result["stages_completed"].append("4.9")
-
-            # Stage 5: Tool Schema Generation (user-facing params only)
-            self._current_stage_label = "5"
-            tool_schemas = self._stage5_generate_schemas(
-                extension_name, stage_map, logic_analysis,
-                node_lifecycle=node_lifecycle,
-                cross_stage_map=cross_stage_map,
-                workflow_graph=workflow_graph,
+            # ── Stage 5C: Workflow Graph Building ──
+            self._current_stage_label = "5C"
+            workflow_graph = self._build_workflow_from_cookbook(
+                self._cookbook_def, logic_analysis, stage_map
             )
-            result["stages_completed"].append(5)
+            result["stages_completed"].append("5C")
             if self._cancelled:
-                result["error"] = "Cancelled during Stage 5"
+                result["error"] = "Cancelled during Stage 5C"
                 return result
 
-            # Stage 6: Code Template Generation (with cross-stage wiring)
+            # ── Stage 5T: Slicer Op Template Generation (KB search) ──
+            self._current_stage_label = "5T"
+            self._slicer_op_templates = self._generate_slicer_op_templates(
+                stage_map
+            )
+            result["stages_completed"].append("5T")
+
+            # ── Stage 6: Tool Schema Generation (LLM) ──
             self._current_stage_label = "6"
-            templates = self._stage6_generate_templates(
-                extension_name, stage_map, node_lifecycle, scan_result, logic_analysis,
+            tool_schemas = self._stage6_generate_schemas(
+                extension_name, stage_map, logic_analysis,
                 cross_stage_map=cross_stage_map,
                 workflow_graph=workflow_graph,
             )
@@ -357,37 +384,42 @@ class ExtensionCLIAnalyzer:
                 result["error"] = "Cancelled during Stage 6"
                 return result
 
-            # Stage 6.5: LLM Review of Templates
-            self._current_stage_label = "6.5"
-            templates = self._stage6b_review_templates(
-                templates, logic_analysis, node_lifecycle,
-            )
-            result["stages_completed"].append("6.5")
-            if self._cancelled:
-                result["error"] = "Cancelled during Stage 6.5"
-                return result
-
-            # Stage 7: Prompt Fragment Generation
+            # ── Stage 7: Code Template Generation (LLM + internal review) ──
             self._current_stage_label = "7"
-            prompt_fragment = self._stage7_generate_prompt(
-                extension_name, tool_schemas, stage_map, logic_analysis,
+            node_lifecycle = self._compute_node_lifecycle(scan_result, logic_analysis)
+            templates = self._stage7_generate_templates(
+                extension_name, stage_map, node_lifecycle, scan_result, logic_analysis,
+                cross_stage_map=cross_stage_map,
                 workflow_graph=workflow_graph,
             )
+            # Internal LLM review (not a separate numbered stage)
+            templates = self._review_templates(templates, logic_analysis, node_lifecycle)  # internal LLM review
             result["stages_completed"].append(7)
             if self._cancelled:
                 result["error"] = "Cancelled during Stage 7"
                 return result
 
-            # Stage 8: Validation (CodeValidator + semantic) + Save
+            # ── Stage 8: Prompt Fragment Generation (LLM) ──
             self._current_stage_label = "8"
+            prompt_fragment = self._stage8_generate_prompt(
+                extension_name, tool_schemas, stage_map, logic_analysis,
+                workflow_graph=workflow_graph,
+            )
+            result["stages_completed"].append(8)
+            if self._cancelled:
+                result["error"] = "Cancelled during Stage 8"
+                return result
+
+            # ── Stage 9: Validation + Save ──
+            self._current_stage_label = "9"
             manifest, generators = self._build_manifest_and_generators(
                 extension_name, scan_result, stage_map,
                 workflow_graph=workflow_graph,
             )
-            validation_result = self._stage8_validate(
+            validation_result = self._stage9_validate(
                 templates, generators, logic_analysis=logic_analysis,
             )
-            result["stages_completed"].append(8)
+            result["stages_completed"].append(9)
             result["validation_result"] = validation_result
 
             # Save CLI package
@@ -776,17 +808,17 @@ class ExtensionCLIAnalyzer:
         return calls
 
     # ================================================================
-    # Stage 2: Logic Class Analysis (LLM-assisted)
+    # Stage 3: Logic Class Analysis (LLM)
     # ================================================================
 
-    def _stage2_analyze_logic(self, scan_result: Dict) -> Dict:
-        """Use LLM to analyze the Logic class methods in detail."""
+    def _stage3_analyze_logic(self, scan_result: Dict) -> Dict:
+        """Stage 3: Use LLM to analyze the Logic class methods in detail."""
         logic_info = scan_result["logic_class"]
         logic_file = logic_info["file"]
         class_name = logic_info["class_name"]
 
         self.on_progress(
-            2, "Analyzing logic class",
+            3, "Analyzing logic class",
             f"Reading {class_name} from {os.path.basename(logic_file)}..."
         )
 
@@ -836,19 +868,7 @@ For each method, be precise about:
 - Whether it reads state from self.* that must be set by a prior method call
 - Whether it writes state to self.* that future method calls depend on""")
 
-        # Inject README context if available
-        if self._readme_content:
-            prompt += textwrap.dedent(f"""\
-
-Extension README (for understanding the implementation pipeline):
-Focus on the pipeline, algorithm, and workflow descriptions below.
-Ignore setup, installation, build instructions, and dependency lists.
-
-{self._readme_content}
-
-""")
-
-        # Inject UI workflow context if available
+        # Inject UI workflow context if available (skipped when cookbook-driven)
         if self._ui_workflow:
             prompt += textwrap.dedent(f"""\
 Extracted UI Workflow (from .ui file and Widget class analysis):
@@ -857,6 +877,38 @@ Extracted UI Workflow (from .ui file and Widget class analysis):
 ```
 Use this workflow to understand the intended user-facing sequence of operations.
 Match method descriptions to their corresponding UI workflow steps.
+
+""")
+
+        # Inject cookbook context if available (cookbook-driven pipeline)
+        if self._cookbook_def:
+            cookbook_steps_text = "\n".join(
+                f"{s.step_number}. {s.description}"
+                for s in self._cookbook_def.steps
+            )
+            # Extract method hints from cookbook descriptions using fuzzy matching
+            # against known method names (no extension-specific hardcoding).
+            # NOTE: logic_info["methods"] is a list of *strings* from Stage 1 AST
+            # scanning, not a list of dicts.
+            ext_method_hints = []
+            raw_methods = logic_info.get("methods", [])
+            method_names_for_hint = [
+                m if isinstance(m, str) else m.get("name", "")
+                for m in raw_methods
+            ]
+            for s in self._cookbook_def.steps:
+                hint = self._match_description_to_method(
+                    s.description.lower(), method_names_for_hint
+                )
+                if hint and hint not in ext_method_hints:
+                    ext_method_hints.append(hint)
+            prompt += textwrap.dedent(f"""\
+
+Cookbook workflow (ground truth — only methods referenced here should be analyzed):
+{cookbook_steps_text}
+
+Extension method hints from cookbook: {', '.join(ext_method_hints) if ext_method_hints else 'none identified'}
+Focus your analysis on methods that match the cookbook workflow. Other methods can be listed briefly.
 
 """)
 
@@ -877,12 +929,13 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
             )
 
         self.on_progress(
-            2, "Analyzing logic class",
+            3, "Analyzing logic class",
             f"Analyzed {len(analysis.get('methods', []))} methods"
         )
 
         analysis["_logic_source"] = logic_source
         analysis["_logic_file"] = logic_file
+        analysis["_cookbook_method_hints"] = ext_method_hints if self._cookbook_def else []
         return analysis
 
     def _verify_signatures_ast(self, logic_analysis: Dict, scan_result: Dict) -> None:
@@ -987,12 +1040,626 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
 
         if corrections:
             self.on_progress(
-                2, "Verifying signatures",
+                "3.5", "Verifying signatures",
                 f"Corrected {corrections} method signature(s) via AST"
             )
 
     # ================================================================
-    # Stage 3: State Dependency Analysis (programmatic + optional LLM)
+    # Stage 4: Cookbook Stage Map — LLM Decomposition
+    # ================================================================
+
+    def _stage4_cookbook_decomposition(
+        self, cookbook_def, logic_analysis: Dict
+    ) -> Dict:
+        """
+        Use LLM to decompose each cookbook step into sub-operations.
+
+        Each step is classified into one or more of:
+        - extension_op: Calls a method on the extension's Logic class.
+        - slicer_op: Uses Slicer core API (layout changes, view toggles, etc.).
+        - user_interaction: Requires the user to draw/click in the 3D view.
+        - user_choice: A chat-based decision point.
+
+        Falls back to keyword heuristics (_cookbook_build_stage_map) on LLM failure.
+        """
+        self.on_progress(
+            4, "Cookbook Stage Map",
+            "Decomposing cookbook steps via LLM..."
+        )
+
+        # Build cookbook steps text
+        steps_text = "\n".join(
+            f"Step {s.step_number}: {s.description}"
+            for s in cookbook_def.steps
+        )
+
+        # Build method catalog from logic analysis
+        methods = logic_analysis.get("methods", [])
+        method_catalog = []
+        for m in methods:
+            mname = m.get("name", "")
+            params = [
+                f"{p.get('name', '')}: {p.get('type', '?')}"
+                for p in m.get("parameters", [])
+                if p.get("name") != "self"
+            ]
+            state_reads = m.get("state_reads", [])
+            state_writes = m.get("state_writes", [])
+            method_catalog.append({
+                "name": mname,
+                "purpose": m.get("purpose", ""),
+                "parameters": params,
+                "state_reads": state_reads,
+                "state_writes": state_writes,
+                "calls_addnode": m.get("calls_addnode", False),
+                "adds_output_to_scene": m.get("adds_output_to_scene", False),
+            })
+
+        method_names = [m["name"] for m in methods]
+
+        # Build cookbook method hints section (AST-verified, not subject to truncation)
+        cookbook_method_hints = logic_analysis.get("_cookbook_method_hints", [])
+        if cookbook_method_hints:
+            _cookbook_hints_section = (
+                "\n        ## Cookbook Method Hints (AST-verified)\n"
+                "        These methods were identified by matching cookbook step descriptions\n"
+                "        against the full AST method list (not subject to truncation).\n"
+                "        If a step's description matches one of these, classify as extension_op\n"
+                "        with the hinted method:\n"
+                f"        {json.dumps(cookbook_method_hints, indent=2)}\n"
+            )
+        else:
+            _cookbook_hints_section = ""
+
+        prompt = textwrap.dedent(f"""\
+        You are analyzing a 3D Slicer extension's cookbook workflow and must decompose
+        each step into atomic sub-operations.
+
+        ## Cookbook Steps
+        {steps_text}
+
+        ## Available Logic Methods
+        {json.dumps(method_catalog, indent=2)}
+{_cookbook_hints_section}
+
+        ## Task
+        For EACH cookbook step, decompose it into one or more sub-operations.
+        Each sub-operation must have one of these types:
+
+        1. **extension_op** — The operation calls a method on THIS extension's own
+           Logic class. The code to generate it comes directly from the extension's
+           source code — NO knowledge-base search is needed.
+           Specify `extension_method_hint` matching one of:
+           {json.dumps(method_names[:40])}
+           Examples: calling addMandibularCurve(), generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible(),
+           or any other method defined in the extension's Logic/Widget class.
+
+        2. **slicer_op** — The operation uses Slicer CORE APIs that are NOT part of
+           this extension. Code generation requires searching the Slicer knowledge base
+           for the correct API calls (layout changes, view toggles, module switching,
+           node selection from Slicer's core modules).
+           Specify `slicer_api_keywords` (e.g., ["layout", "red view", "set layout"]).
+           Examples: slicer.app.layoutManager().setLayout(),
+           slicer.util.getNode(), switching to Markups module, toggling slice visibility.
+           IMPORTANT: Checkbox ticks, dropdown selections, or button clicks in THIS
+           extension's own UI panel are NOT slicer_op — they are either extension_op
+           (if a Logic method exists) or user_choice (if the agent cannot determine
+           the value, e.g. left vs. right).
+
+        3. **user_interaction** — The user must physically interact with the 3D
+           visualization window — drawing curves, positioning planes, placing
+           fiducials, dragging objects in the viewport.
+           Specify `interaction_type` (one of: "curve", "plane", "line", "fiducial"),
+           `node_class` (e.g., "vtkMRMLMarkupsCurveNode"), and
+           `placement_instructions` (what to tell the user to do).
+           Examples: "Draw a curve along the mandible in the Red slice view",
+           "Position the cutting plane by dragging in 3D view".
+
+        4. **user_choice** — The agent CANNOT determine the answer on its own and
+           must ask the user via the chat box. This applies whenever a parameter
+           value depends on patient-specific or case-specific context that is not
+           available in the scene.
+           Specify `question` (the question to ask), `choices` (list of
+           {{"label": "...", "value": "..."}} objects), `parameter_name`
+           (snake_case identifier for the choice), and `default_value` (optional).
+           Examples:
+           - "Tick Right side leg checkbox" → user_choice (left/right depends on patient)
+           - "Select mandibulectomy type" → user_choice (clinical decision)
+           - "Choose segmentation" → user_choice if multiple options exist and the
+             agent cannot determine the correct one from context.
+           Anti-patterns (NOT user_choice):
+           - If the agent CAN determine the value programmatically from the scene,
+             it is extension_op or slicer_op, not user_choice.
+           - A step like "click the Create Models button" is extension_op (there is
+             a Logic method) or slicer_op (Slicer core API), NOT user_choice.
+
+        ## Output Format
+        Return a JSON object with this structure:
+        {{
+          "steps": [
+            {{
+              "step_number": 1,
+              "sub_operations": [
+                {{
+                  "op_type": "extension_op" | "slicer_op" | "user_interaction" | "user_choice",
+                  "description": "what this sub-operation does",
+                  "extension_method_hint": "methodName" or null,
+                  "slicer_api_keywords": ["keyword1"] or [],
+                  "interaction_type": "curve" | "plane" | "line" | "fiducial" or null,
+                  "node_class": "vtkMRML..." or null,
+                  "placement_instructions": "..." or null,
+                  "min_control_points": 0,
+                  "question": "..." or null,
+                  "choices": [{{"label": "...", "value": "..."}}] or [],
+                  "parameter_name": "..." or null,
+                  "default_value": "..." or null,
+                  "is_optional": false
+                }}
+              ]
+            }}
+          ]
+        }}
+
+        ## Classification Rules (CRITICAL — read carefully)
+        - A single cookbook step may have MULTIPLE sub-operations (e.g., setup + user interaction).
+        - Every step must have at least one sub-operation.
+        - **Ask yourself for each step**: "Can the agent determine ALL parameter values
+          programmatically from the scene, or does it need information only the user knows?"
+          If it needs user-only information → user_choice.
+        - **Ask yourself**: "Does the code for this step come from THIS extension's source,
+          or from Slicer's core API?" If from this extension → extension_op. If from
+          Slicer core → slicer_op.
+        - **Ask yourself**: "Does the user need to physically touch the 3D view?" If yes →
+          user_interaction.
+        - **Checkbox/toggle steps**: If the checkbox controls patient-specific or
+          case-specific behavior (e.g., left/right, type selection) → user_choice.
+          If the checkbox triggers a known extension method → extension_op.
+          If the checkbox sets an extension parameter node value (no Logic method call,
+          just UI state) → extension_op with extension_method_hint set to the parameter name.
+          Extension UI checkboxes are NEVER slicer_op.
+        - **Dropdown selections**: If selecting from this extension's outputs (e.g.,
+          picking a segmentation it created) → extension_op (use the Logic class).
+          If selecting from Slicer core nodes or modules → slicer_op.
+          If the agent cannot determine WHICH option to select → user_choice.
+          IMPORTANT: "Select the [X] volume/segmentation/node" is user_choice when the
+          agent cannot programmatically determine WHICH scene node is X. Do NOT guess
+          based on node names (e.g., "maybe there's a volume named 'Mandible'").
+          If the step says "select the Mandible Volume" and the agent has no reliable
+          way to know which volume is the mandible, it must ask the user → user_choice.
+        - **Button clicks**: If a step says "Click [X] button" where X is a button in
+          THIS extension's UI panel, classify as extension_op even if the exact method
+          name is not in the catalog. Extension buttons call extension Logic methods.
+          Only classify as slicer_op when the step explicitly references Slicer core
+          features (layout changes, module switching, slicer.app, slicer.util).
+        - Mark optional/experimental steps with is_optional: true.
+        - Return ONLY the JSON object, no markdown fences or explanation.""")
+
+        try:
+            response = self._call_llm(prompt)
+            decomposition = self._parse_json_response(response)
+            if decomposition is None:
+                logger.warning(
+                    "Stage 4: LLM response could not be parsed as JSON. "
+                    "Response starts with: %s... Falling back to keyword heuristics.",
+                    response[:200] if response else "(empty)",
+                )
+        except Exception as e:
+            logger.warning(
+                "Stage 4 LLM decomposition failed (%s), falling back to heuristics", e
+            )
+            decomposition = None
+
+        # Validate LLM output structure
+        if (
+            not decomposition
+            or not isinstance(decomposition.get("steps"), list)
+            or len(decomposition["steps"]) != len(cookbook_def.steps)
+        ):
+            logger.warning(
+                "Stage 4 LLM decomposition returned invalid structure "
+                "(got %d steps, expected %d), falling back to keyword heuristics",
+                len(decomposition.get("steps", [])) if decomposition and isinstance(decomposition, dict) else 0,
+                len(cookbook_def.steps),
+            )
+            return self._cookbook_build_stage_map(cookbook_def, logic_analysis)
+
+        # Convert LLM decomposition into stage_map format
+        return self._build_stage_map_from_decomposition(
+            decomposition, cookbook_def, logic_analysis
+        )
+
+    def _build_stage_map_from_decomposition(
+        self, decomposition: Dict, cookbook_def, logic_analysis: Dict
+    ) -> Dict:
+        """Convert LLM decomposition output into the stage_map dict format."""
+        raw_methods = logic_analysis.get("methods", [])
+        if isinstance(raw_methods, list):
+            all_methods = {}
+            for m in raw_methods:
+                if isinstance(m, dict) and m.get("name"):
+                    all_methods[m["name"]] = m
+        else:
+            all_methods = raw_methods if isinstance(raw_methods, dict) else {}
+
+        stages = []
+        llm_steps = {s["step_number"]: s for s in decomposition.get("steps", [])}
+
+        for cb_step in cookbook_def.steps:
+            step_num = cb_step.step_number
+            step_id = f"cb_step_{step_num}"
+            llm_step = llm_steps.get(step_num, {})
+            llm_sub_ops = llm_step.get("sub_operations", [])
+
+            # If LLM returned nothing for this step, fall back to heuristic
+            if not llm_sub_ops:
+                llm_sub_ops = [{
+                    "op_type": "extension_op",
+                    "description": cb_step.description[:200],
+                    "extension_method_hint": None,
+                    "slicer_api_keywords": [],
+                    "interaction_type": None,
+                    "node_class": None,
+                    "placement_instructions": None,
+                }]
+
+            # Normalize sub-operations: ensure required fields
+            sub_ops = []
+            for so in llm_sub_ops:
+                op_type = so.get("op_type", "extension_op")
+                if op_type not in ("extension_op", "slicer_op", "user_interaction", "user_choice"):
+                    op_type = "extension_op"
+                normalized = {
+                    "op_type": op_type,
+                    "description": so.get("description", cb_step.description[:200]),
+                    "extension_method_hint": so.get("extension_method_hint"),
+                    "slicer_api_keywords": so.get("slicer_api_keywords", []),
+                    "interaction_type": so.get("interaction_type"),
+                    "node_class": so.get("node_class"),
+                    "placement_instructions": so.get("placement_instructions"),
+                    "min_control_points": so.get("min_control_points", 0),
+                    "is_optional": so.get("is_optional", False),
+                }
+                # user_choice-specific fields
+                if op_type == "user_choice":
+                    normalized["question"] = so.get("question", cb_step.description)
+                    normalized["choices"] = so.get("choices", [])
+                    normalized["parameter_name"] = so.get("parameter_name", f"choice_step_{step_num}")
+                    normalized["default_value"] = so.get("default_value")
+                sub_ops.append(normalized)
+
+            # Resolve extension_method_hint to actual method names
+            method_names = list(all_methods.keys())
+            for so in sub_ops:
+                hint = so.get("extension_method_hint")
+                if hint and hint not in all_methods:
+                    matched = self._match_method_name(hint, method_names)
+                    if matched:
+                        so["extension_method_hint"] = matched
+
+            # ── Reclassify extension-specific slicer_ops → extension_op ──
+            # slicer_ops that reference the extension's own resources (custom
+            # layouts, extension-defined node types, extension module names)
+            # cannot be resolved via Slicer KB search. Reclassify them as
+            # extension_op so they use the extension source for code generation.
+            ext_name = cookbook_def.extension_name
+            ext_name_lower = ext_name.lower() if ext_name else ""
+            # Common patterns indicating extension-specific knowledge:
+            # - The extension's own name in layout/view descriptions
+            # - Custom layout IDs registered by the extension
+            # - Extension module names not in Slicer core
+            _extension_specific_indicators = set()
+            if ext_name_lower:
+                _extension_specific_indicators.add(ext_name_lower)
+                # Also add shortened forms (e.g., "brp" for BoneReconstructionPlanner)
+                parts = _re.sub(r'([a-z])([A-Z])', r'\1 \2', ext_name).split()
+                if parts:
+                    acronym = "".join(p[0].lower() for p in parts if p)
+                    if len(acronym) >= 2:
+                        _extension_specific_indicators.add(acronym)
+
+            for so in sub_ops:
+                if so["op_type"] != "slicer_op":
+                    continue
+                desc_lower = so.get("description", "").lower()
+                keywords_lower = [k.lower() for k in so.get("slicer_api_keywords", [])]
+                combined_text = desc_lower + " " + " ".join(keywords_lower)
+
+                # Check if the description/keywords reference the extension itself
+                is_extension_specific = False
+                for indicator in _extension_specific_indicators:
+                    if indicator in combined_text:
+                        is_extension_specific = True
+                        break
+
+                if is_extension_specific:
+                    # Try to find a matching extension method
+                    matched_method = self._match_description_to_method(desc_lower, method_names)
+                    so["op_type"] = "extension_op"
+                    so["extension_method_hint"] = matched_method
+                    so["slicer_api_keywords"] = []
+                    logger.info(
+                        "[Stage 4] Reclassified step %d slicer_op → extension_op "
+                        "(extension-specific: '%s'): %s",
+                        step_num, ext_name, desc_lower[:60],
+                    )
+
+            # ── Widget connection verification: slicer_ops matching extension buttons → extension_op ──
+            if self._widget_connections:
+                for so in sub_ops:
+                    if so["op_type"] != "slicer_op":
+                        continue
+                    desc_lower = so.get("description", "").lower()
+                    for conn in self._widget_connections:
+                        btn_name = conn.get("button_widget_name", "").lower()
+                        logic_methods = conn.get("logic_methods", [])
+                        # Extract significant words from button name for matching
+                        btn_words = [w for w in btn_name.replace("_", " ").replace(".", " ").split() if len(w) > 3]
+                        if not btn_words:
+                            continue
+                        match_count = sum(1 for w in btn_words if w in desc_lower)
+                        if match_count >= 2 or (len(btn_words) == 1 and match_count == 1):
+                            so["op_type"] = "extension_op"
+                            if logic_methods:
+                                so["extension_method_hint"] = logic_methods[0]
+                            so["slicer_api_keywords"] = []
+                            logger.info(
+                                "[Stage 4] Reclassified step %d slicer_op → extension_op "
+                                "(widget button '%s' match): %s",
+                                step_num, conn.get("button_widget_name", ""), desc_lower[:60],
+                            )
+                            break
+
+            # ── "Select/choose/set" without method hint → user_choice ──
+            for so in sub_ops:
+                if so["op_type"] != "slicer_op":
+                    continue
+                desc = so.get("description", "").lower()
+                has_hint = bool(so.get("extension_method_hint"))
+                if not has_hint and any(
+                    desc.startswith(w) for w in ("select ", "choose ", "set the ")
+                ):
+                    so["op_type"] = "user_choice"
+                    so["question"] = so.get("description", "")
+                    so["slicer_api_keywords"] = []
+                    so["parameter_name"] = f"choice_step_{step_num}"
+                    logger.info(
+                        "[Stage 4] Reclassified step %d slicer_op → user_choice "
+                        "(selection without method hint): %s",
+                        step_num, desc[:60],
+                    )
+
+            # Build method_details from matched extension_op sub-operations
+            stage_methods = []
+            for so in sub_ops:
+                if so["op_type"] == "extension_op" and so.get("extension_method_hint"):
+                    matched = so["extension_method_hint"]
+                    m_info = all_methods.get(matched, {})
+                    stage_methods.append({
+                        "name": matched,
+                        "purpose": so["description"],
+                        "parameters": m_info.get("parameters", []),
+                        "return_value": m_info.get("return_value"),
+                        "state_reads": m_info.get("state_reads", []),
+                        "state_writes": m_info.get("state_writes", []),
+                        "calls_addnode": m_info.get("calls_addnode", False),
+                        "adds_output_to_scene": m_info.get("adds_output_to_scene", False),
+                        "side_effects": m_info.get("side_effects", []),
+                    })
+
+            # Determine overall step op_type
+            op_types = {so["op_type"] for so in sub_ops}
+            if len(op_types) > 1:
+                stage_op_type = "mixed"
+            elif op_types:
+                stage_op_type = op_types.pop()
+            else:
+                stage_op_type = "extension_op"
+
+            # Determine stage name
+            stage_method_names = [m["name"] for m in stage_methods] if stage_methods else []
+            stage_name = self._infer_stage_name(
+                stage_method_names, step_num - 1, len(cookbook_def.steps)
+            )
+
+            # Determine if the step is optional
+            is_optional = any(so.get("is_optional") for so in sub_ops)
+
+            stage = {
+                "stage_index": step_num - 1,
+                "stage_name": stage_name,
+                "methods": stage_method_names,
+                "method_details": stage_methods,
+                "depends_on": (
+                    [f"cb_step_{d}" for d in cb_step.depends_on]
+                    if cb_step.depends_on
+                    else ([f"cb_step_{step_num - 1}"] if step_num > 1 else [])
+                ),
+                "input_nodes": [],
+                "output_nodes": [],
+                "op_type": stage_op_type,
+                "cookbook_step": cb_step,
+                "sub_operations": sub_ops,
+                "is_optional": is_optional,
+            }
+            stages.append(stage)
+
+        self.on_progress(
+            4, "Cookbook Stage Map",
+            f"Decomposed {len(stages)} cookbook steps via LLM"
+        )
+
+        return {
+            "stages": stages,
+            "stage_count": len(stages),
+            "source": "cookbook_llm_decomposition",
+        }
+
+    # ================================================================
+    # Stage 4.5: Cross-Stage Parameter Mapping (LLM)
+    # ================================================================
+
+    def _stage4_5_cross_stage_mapping(
+        self, stage_map: Dict, logic_analysis: Dict, extension_name: str
+    ) -> Dict:
+        """
+        Use LLM to analyze data flow between cookbook steps.
+
+        Produces a cross_stage_map: e.g., "Step 2 writes self.mandibularSegmentation,
+        and Step 4 reads it." Falls back to programmatic Jaccard matching on failure.
+        """
+        self.on_progress(
+            "4.5", "Cross-Stage Parameter Mapping",
+            "LLM analyzing data flow between steps..."
+        )
+
+        stages = stage_map.get("stages", [])
+        if len(stages) <= 1:
+            self.on_progress(
+                "4.5", "Cross-Stage Parameter Mapping",
+                "Single stage — no cross-stage mapping needed"
+            )
+            return {"_extension_name": extension_name}
+
+        # Build step summaries with state info
+        step_summaries = []
+        for s in stages:
+            idx = s.get("stage_index", 0)
+            methods = s.get("method_details") or []
+            state_reads = []
+            state_writes = []
+            for m in methods:
+                if not isinstance(m, dict):
+                    continue
+                state_reads.extend(m.get("state_reads") or [])
+                state_writes.extend(m.get("state_writes") or [])
+            # Also include sub-operation info
+            sub_ops = s.get("sub_operations") or []
+            sub_ops_desc = [
+                f"  - {so['op_type']}: {so.get('description', '')[:100]}"
+                for so in sub_ops
+                if isinstance(so, dict)
+            ]
+            step_summaries.append({
+                "step_number": idx + 1,
+                "step_id": f"cb_step_{idx + 1}",
+                "stage_name": s.get("stage_name", ""),
+                "methods": s.get("methods", []),
+                "state_reads": list(set(state_reads)),
+                "state_writes": list(set(state_writes)),
+                "sub_operations": sub_ops_desc,
+            })
+
+        state_fields = logic_analysis.get("state_fields", [])
+
+        prompt = textwrap.dedent(f"""\
+        Analyze the data flow between steps of a Slicer extension cookbook workflow.
+
+        ## State Fields (Logic class self.* fields)
+        {json.dumps(state_fields, indent=2)}
+
+        ## Workflow Steps
+        {json.dumps(step_summaries, indent=2)}
+
+        ## Task
+        For each step that depends on data produced by an earlier step, identify the
+        connection. This is critical for code template generation so that later steps
+        can find nodes created by earlier steps.
+
+        Connections can be:
+        - **state_field**: Step N writes self.fieldX, and Step M reads self.fieldX.
+        - **output_node**: Step N creates a vtkMRML node (via parameter or state write),
+          and Step M needs that node as input.
+        - **scene_state**: Step N changes the scene (selects a node, changes layout),
+          and Step M relies on that state.
+
+        Return a JSON object:
+        {{
+          "connections": [
+            {{
+              "from_step": 2,
+              "to_step": 4,
+              "type": "state_field" | "output_node" | "scene_state",
+              "field": "self.mandibularSegmentation",
+              "description": "Step 2 creates the mandible segmentation node which Step 4 reads"
+            }}
+          ]
+        }}
+
+        Return ONLY the JSON, no markdown fences or explanation.""")
+
+        try:
+            response = self._call_llm(prompt)
+            result = self._parse_json_response(response)
+        except Exception as e:
+            logger.warning(
+                "Stage 4.5 LLM cross-stage mapping failed (%s), "
+                "falling back to programmatic matching", e
+            )
+            result = None
+
+        # Convert LLM connections into cross_stage_map format
+        if result and isinstance(result.get("connections"), list):
+            cross_map = {"_extension_name": extension_name}
+            for conn in result["connections"]:
+                to_step = conn.get("to_step")
+                if to_step is None:
+                    continue
+                to_idx = to_step - 1
+                from_idx = conn.get("from_step", 0) - 1
+                field = conn.get("field", "")
+                desc = conn.get("description", "")
+                conn_type = conn.get("type", "state_field")
+
+                stage_map_entry = cross_map.setdefault(to_idx, {})
+                # Use the field name as the parameter key
+                param_key = field.replace("self.", "") if field else f"step_{from_idx + 1}_output"
+                stage_map_entry[param_key] = {
+                    "source_stage": from_idx,
+                    "source_param": param_key,
+                    "type": conn_type,
+                    "description": desc,
+                }
+
+            self.on_progress(
+                "4.5", "Cross-Stage Parameter Mapping",
+                f"LLM identified {len(result['connections'])} cross-stage connections"
+            )
+            return cross_map
+
+        # Fallback to programmatic Jaccard matching
+        self.on_progress(
+            "4.5", "Cross-Stage Parameter Mapping",
+            "Falling back to programmatic name-similarity matching"
+        )
+        return self._map_cross_stage_params(stage_map, extension_name)
+
+    # ================================================================
+    # Node Lifecycle Analysis (folded into Stage 7)
+    # ================================================================
+
+    def _compute_node_lifecycle(self, scan_result: Dict, logic_analysis: Dict) -> Dict:
+        """Compute node creation mode and param role for each vtkMRML parameter.
+
+        This is an AST-based analysis (no LLM unless AST finds nothing) used
+        internally by code template generation (Stage 7).
+        """
+        return self._stage4_node_lifecycle(scan_result, logic_analysis)
+
+    # ================================================================
+    # Internal LLM Review of Templates (part of Stage 7)
+    # ================================================================
+
+    def _review_templates(
+        self,
+        templates: Dict[str, str],
+        logic_analysis: Dict,
+        node_lifecycle: Dict,
+    ) -> Dict[str, str]:
+        """Internal LLM review of generated templates. Not a separate pipeline stage."""
+        return self._stage7b_review_templates(templates, logic_analysis, node_lifecycle)
+
+    # ================================================================
+    # [Kept for fallback] Stage 3: State Dependency Analysis
     # ================================================================
 
     @staticmethod
@@ -1198,12 +1865,12 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
         return cross_map
 
     # ================================================================
-    # Stage 4: Node Lifecycle Analysis (LLM-assisted)
+    # Node Lifecycle Analysis (used internally by Stage 7)
     # ================================================================
 
     def _stage4_node_lifecycle(self, scan_result: Dict, logic_analysis: Dict) -> Dict:
         """Determine node creation mode and param role for each vtkMRML parameter."""
-        self.on_progress(4, "Analyzing node lifecycle", "Determining node creation patterns via AST...")
+        self.on_progress(7, "Analyzing node lifecycle", "Determining node creation patterns via AST...")
 
         node_lifecycle = {}
         methods = logic_analysis.get("methods", [])
@@ -1241,7 +1908,6 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                     "output" in pname.lower()
                     or "result" in pname.lower()
                     or "out" in pname.lower()
-                    or p == params[-1]
                 )
                 if not is_output:
                     continue
@@ -1273,13 +1939,13 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
         # If no output nodes found from parameters, ask LLM
         if not node_lifecycle:
             self.on_progress(
-                4, "Analyzing node lifecycle",
+                7, "Analyzing node lifecycle",
                 "Asking LLM about node creation patterns..."
             )
             node_lifecycle = self._llm_node_lifecycle(logic_analysis)
 
         self.on_progress(
-            4, "Analyzing node lifecycle",
+            7, "Analyzing node lifecycle",
             f"Analyzed {len(node_lifecycle)} output nodes via AST"
         )
 
@@ -1335,7 +2001,7 @@ Return JSON:
         return result
 
     # ================================================================
-    # Stage 4.5: Interactive Pattern Detection
+    # [Kept for fallback] Interactive Pattern Detection
     # ================================================================
 
     # MRML markup node class prefixes for AST scanning
@@ -1472,7 +2138,7 @@ Return JSON:
 
         Widget class source (excerpt):
         ```python
-        {widget_source[:20000]}
+        {widget_source}
         ```
 
         Classify each detected interactive pattern into a structured phase.
@@ -1930,7 +2596,7 @@ Return JSON:
         return workflow_graph
 
     # ================================================================
-    # Stage 5: Tool Schema Generation (LLM-assisted)
+    # Stage 6: Tool Schema Generation (LLM)
     # ================================================================
 
     def _generate_workflow_schemas(
@@ -1939,7 +2605,7 @@ Return JSON:
         """Generate tool schema for an interactive workflow extension."""
         steps = workflow_graph.get("steps", [])
         # Filter out removed/invalid steps
-        valid_types = {"automated", "interactive", "branch"}
+        valid_types = {"automated", "interactive", "branch", "mixed", "user_choice"}
         steps = [s for s in steps if s.get("step_type") in valid_types]
         step_ids = [s["step_id"] for s in steps]
         automated_steps = [s for s in steps if s["step_type"] == "automated"]
@@ -1978,11 +2644,11 @@ Return JSON:
                         },
                         "user_action": {
                             "type": "string",
-                            "enum": ["start", "proceed", "skip", "cancel"],
+                            "enum": ["start", "proceed", "skip", "cancel", "choice_made"],
                             "description": (
                                 "Action: 'start' to begin a step, 'proceed' after user "
                                 "completes interaction, 'skip' for optional steps, "
-                                "'cancel' to abort workflow"
+                                "'cancel' to abort workflow, 'choice_made' for user_choice steps"
                             ),
                         },
                     },
@@ -1992,12 +2658,12 @@ Return JSON:
         }
 
         self.on_progress(
-            5, "Generating tool schemas",
+            6, "Generating tool schemas",
             f"Generated interactive workflow schema with {len(steps)} steps"
         )
         return [schema]
 
-    def _stage5_generate_schemas(
+    def _stage6_generate_schemas(
         self,
         extension_name: str,
         stage_map: Dict,
@@ -2007,7 +2673,7 @@ Return JSON:
         workflow_graph: Optional[Dict] = None,
     ) -> List[Dict]:
         """Generate OpenAI function-calling tool schemas."""
-        self.on_progress(5, "Generating tool schemas", "Building tool definitions...")
+        self.on_progress(6, "Generating tool schemas", "Building tool definitions...")
 
         # Interactive workflow schema generation
         if workflow_graph:
@@ -2095,16 +2761,6 @@ Extension stages:
 
 {'The extension has multiple stages, so include a "stage" enum parameter.' if has_multiple_stages else 'The extension has a single stage, so no "stage" parameter is needed.'}""")
 
-        if self._readme_content:
-            prompt += textwrap.dedent(f"""\
-
-Extension README context (for designing descriptive tool parameters):
-Focus on the pipeline and workflow descriptions; ignore setup and installation.
-
-{self._readme_content}
-
-""")
-
         if self._ui_workflow:
             prompt += textwrap.dedent(f"""\
 Extracted UI Workflow (reflects the intended user-facing operation sequence):
@@ -2188,7 +2844,7 @@ Return ONLY the JSON array, no markdown fences.""")
                 del params_obj["required"]
 
         self.on_progress(
-            5, "Generating tool schemas",
+            6, "Generating tool schemas",
             f"Generated {len(schemas)} tool schema(s): "
             f"{[s.get('function', {}).get('name', '?') for s in schemas]}"
         )
@@ -2196,7 +2852,7 @@ Return ONLY the JSON array, no markdown fences.""")
         return schemas
 
     # ================================================================
-    # Stage 6: Code Template Generation (LLM-assisted)
+    # Stage 7: Code Template Generation (LLM + internal review)
     # ================================================================
 
     def _generate_workflow_templates(
@@ -2223,8 +2879,25 @@ Return ONLY the JSON array, no markdown fences.""")
         for step in steps:
             step_id = step["step_id"]
             step_type = step["step_type"]
+            op_type = step.get("op_type", "")
 
-            if step_type == "automated":
+            if step_type == "automated" and op_type == "slicer_op":
+                # Slicer_op templates are pre-generated in Stage 4T
+                key = f"templates/{step_id}_slicer.py.tpl"
+                step["code_template"] = key
+                # Look up pre-generated template by step_id prefix
+                pregen = ""
+                for tpl_key, tpl_code in self._slicer_op_templates.items():
+                    if step_id in tpl_key:
+                        pregen = tpl_code
+                        break
+                if pregen:
+                    templates[key] = pregen
+                else:
+                    # Fallback: generate via LLM with generic slicer prompt
+                    templates[key] = self._generate_slicer_fallback_template(step)
+
+            elif step_type == "automated":
                 # Single code template for automated steps
                 tpl = self._generate_automated_workflow_template(
                     extension_name, step, logic_class_name, module_name, logic_analysis,
@@ -2247,18 +2920,62 @@ Return ONLY the JSON array, no markdown fences.""")
                 templates[f"templates/{step_id}_post.py.tpl"] = post_tpl
                 step["post_template"] = f"templates/{step_id}_post.py.tpl"
 
+            elif step_type == "mixed":
+                # Mixed step: pre_template contains all automated sub-ops,
+                # then user interaction follows.
+                sub_ops = step.get("sub_operations", [])
+                auto_parts = []
+                for so in sub_ops:
+                    if so["op_type"] == "extension_op" and so.get("extension_method_hint"):
+                        # Generate extension_op code
+                        ext_step = dict(step)
+                        ext_step["method_name"] = so["extension_method_hint"]
+                        ext_step["description"] = so["description"]
+                        ext_tpl = self._generate_automated_workflow_template(
+                            extension_name, ext_step, logic_class_name, module_name,
+                            logic_analysis,
+                        )
+                        auto_parts.append(f"# Extension op: {so['description']}\n{ext_tpl}")
+                    elif so["op_type"] == "slicer_op":
+                        # Use pre-generated slicer_op template
+                        pregen = ""
+                        for tk, tc in self._slicer_op_templates.items():
+                            if step_id in tk:
+                                pregen = tc
+                                break
+                        if pregen:
+                            auto_parts.append(f"# Slicer op: {so['description']}\n{pregen}")
+                        else:
+                            auto_parts.append(f"# Slicer op: {so['description']}\n# TODO: generate slicer code\npass")
+
+                pre_key = f"templates/{step_id}_pre.py.tpl"
+                templates[pre_key] = "\n\n".join(auto_parts) if auto_parts else "# No automated sub-operations\npass"
+                step["pre_template"] = pre_key
+
+                # Post-interaction template for the user_interaction part
+                post_key = f"templates/{step_id}_post.py.tpl"
+                step["post_template"] = post_key
+                templates[post_key] = self._generate_post_interaction_template(
+                    extension_name, step, logic_class_name, module_name, logic_analysis,
+                )
+
             elif step_type == "branch":
                 # Branch steps don't need templates — handled by the orchestrator
                 pass
 
+            elif step_type == "user_choice":
+                # user_choice steps don't need code templates — handled by the
+                # orchestrator which presents the question and collects the answer.
+                pass
+
         # Store workflow graph as JSON template (only valid steps)
-        valid_types = {"automated", "interactive", "branch"}
+        valid_types = {"automated", "interactive", "branch", "mixed", "user_choice"}
         clean_graph = {k: v for k, v in workflow_graph.items() if k != "steps"}
         clean_graph["steps"] = [s for s in steps if s.get("step_type") in valid_types]
         templates["workflow.json"] = json.dumps(clean_graph, indent=2)
 
         self.on_progress(
-            6, "Generating code templates",
+            7, "Generating code templates",
             f"Generated {len(templates)} workflow templates"
         )
         return templates
@@ -2283,21 +3000,42 @@ Return ONLY the JSON array, no markdown fences.""")
             return tpl
 
         # Fallback: static template
-        return textwrap.dedent(f"""\
-            # --- {extension_name}: {description} ---
-            try:
-                from {module_name} import {logic_class_name}
-            except ImportError:
-                raise RuntimeError("{extension_name} extension is not installed.")
+        if method_name:
+            method_call_lines = [
+                "# Execute the automated step",
+                f"if hasattr(logic, '{method_name}'):",
+                f"    result = logic.{method_name}()",
+                "else:",
+                "    result = None",
+            ]
+        else:
+            method_call_lines = [
+                "# No specific method mapped to this step",
+                "# TODO: Determine the correct extension method to call",
+                "pass",
+            ]
 
-            logic = _{extension_name.lower()}_logic if '_{extension_name.lower()}_logic' in dir() else {logic_class_name}()
+        lines = [
+            f"# --- {extension_name}: {description} ---",
+            "try:",
+            f"    from {module_name} import {logic_class_name}",
+            "except ImportError:",
+            f"    raise RuntimeError(\"{extension_name} extension is not installed.\")",
+            "",
+            "try:",
+            f"    logic = _{extension_name.lower()}_logic",
+            "except NameError:",
+            f"    logic = {logic_class_name}()",
+            "",
+        ]
+        lines.extend(method_call_lines)
+        lines.extend([
+            "",
+            f"_{extension_name.lower()}_logic = logic",
+            f"print(\"[{extension_name}] Step '{step_id}' completed.\")",
+        ])
 
-            # Execute the automated step
-            result = logic.{method_name}() if '{method_name}' in dir(logic) else None
-
-            _{extension_name.lower()}_logic = logic
-            print("[{extension_name}] Step '{step_id}' completed.")
-            """)
+        return "\n".join(lines) + "\n"
 
     def _generate_automated_template_llm(
         self, extension_name, step, logic_class_name, module_name, logic_analysis,
@@ -2321,9 +3059,9 @@ Return ONLY the JSON array, no markdown fences.""")
         if not method_source and not method_info:
             return None
 
-        # Truncate source if needed
-        if len(method_source) > 5000:
-            method_source = method_source[:5000] + "\n# ... [truncated]"
+        # Truncate source if needed (no limit — full method source for template generation)
+        # if len(method_source) > 5000:
+        #     method_source = method_source[:5000] + "\n# ... [truncated]"
 
         # Build method signature info
         params_desc = ""
@@ -2392,10 +3130,33 @@ Return ONLY the JSON array, no markdown fences.""")
             - Return ONLY raw Python code. Do NOT wrap it in markdown fences (```python ... ```).""")
 
         try:
-            response = self._call_llm(prompt)
-            response = self._strip_markdown_fences(response) if response else None
-            if response and "import" in response:
-                return response
+            for _attempt in range(2):
+                response = self._call_llm(prompt)
+                response = self._strip_markdown_fences(response) if response else None
+                if not response or "import" not in response:
+                    break
+                # Validate syntax immediately — retry once on failure
+                import ast as _ast
+                try:
+                    _ast.parse(response)
+                    return response
+                except (SyntaxError, IndentationError) as e:
+                    if _attempt == 0:
+                        logger.info(
+                            "LLM automated template for step %s had syntax error: %s. Retrying...",
+                            step.get("step_id", "?"), e,
+                        )
+                        # Add error context for retry
+                        prompt += (
+                            f"\n\nYour previous output had a syntax error: {e}\n"
+                            "Output ONLY the corrected Python code, no explanation."
+                        )
+                    else:
+                        logger.warning(
+                            "LLM automated template for step %s still has syntax error after retry: %s",
+                            step.get("step_id", "?"), e,
+                        )
+                        return response  # Return as-is, stage 9 / revision will catch it
         except Exception:
             logger.debug("LLM automated template generation failed", exc_info=True)
         return None
@@ -2410,27 +3171,29 @@ Return ONLY the JSON array, no markdown fences.""")
         node_name = step["step_id"].replace("_", " ").title()
         min_points = step.get("min_control_points", 0)
 
-        return textwrap.dedent(f"""\
-            # --- {extension_name}: {step.get('description', step['step_id'])} (Setup) ---
-            import slicer
+        lines = [
+            f"# --- {extension_name}: {step.get('description', step['step_id'])} (Setup) ---",
+            "import slicer",
+            "",
+            "# Create the markup node for user interaction",
+            f"node = slicer.mrmlScene.AddNewNodeByClass(\"{node_class}\", \"{node_name}\")",
+            "displayNode = node.GetDisplayNode()",
+            "if displayNode is None:",
+            "    displayNode = node.CreateDefaultDisplayNode()",
+            "displayNode.SetVisibility(True)",
+            "",
+            f"print(\"[{extension_name}] Please {instructions}\")",
+            "print(\"When finished, press the 'Done' button in the workflow panel.\")",
+            "",
+            "# Enter placement mode",
+            "slicer.modules.markups.logic().SetActiveListID(node)",
+            "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
+            "interactionNode.SwitchToPersistentPlaceMode()",
+            "",
+            f"_{extension_name.lower()}_{step['step_id']}_id = node.GetID()",
+        ]
 
-            # Create the markup node for user interaction
-            node = slicer.mrmlScene.AddNewNodeByClass("{node_class}", "{node_name}")
-            displayNode = node.GetDisplayNode()
-            if displayNode is None:
-                displayNode = node.CreateDefaultDisplayNode()
-            displayNode.SetVisibility(True)
-
-            print("[{extension_name}] Please {instructions}")
-            print("When finished, press the 'Done' button in the workflow panel.")
-
-            # Enter placement mode
-            slicer.modules.markups.logic().SetActiveListID(node)
-            interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-            interactionNode.SwitchToPersistentPlaceMode()
-
-            _{extension_name.lower()}_{step['step_id']}_id = node.GetID()
-            """)
+        return "\n".join(lines) + "\n"
 
     def _generate_post_interaction_template(
         self, extension_name, step, logic_class_name, module_name, logic_analysis,
@@ -2447,36 +3210,38 @@ Return ONLY the JSON array, no markdown fences.""")
         min_points = step.get("min_control_points", 0)
         node_var = f"_{extension_name.lower()}_{step['step_id']}_id"
 
-        validation_code = ""
-        if min_points > 0:
-            validation_code = textwrap.dedent(f"""\
-                # Validate user input
-                numPoints = node.GetNumberOfControlPoints()
-                if numPoints < {min_points}:
-                    raise RuntimeError(f"Need at least {min_points} control points, got {{numPoints}}. Please add more.")
-                """)
+        lines = [
+            f"# --- {extension_name}: {step.get('description', step['step_id'])} (Process) ---",
+            "import slicer",
+            "",
+            f"node = slicer.mrmlScene.GetNodeByID({node_var})",
+            "if node is None:",
+            f"    raise RuntimeError(\"Node not found for step '{step['step_id']}'\")",
+            "",
+        ]
 
-        reactive_code = ""
+        if min_points > 0:
+            lines += [
+                "# Validate user input",
+                "numPoints = node.GetNumberOfControlPoints()",
+                f"if numPoints < {min_points}:",
+                f"    raise RuntimeError(\"Need at least {min_points} control points, got %d. Please add more.\" % numPoints)",
+                "",
+            ]
+
         if step.get("reactive_chains"):
             for chain in step["reactive_chains"]:
-                reactive_code += f"# Reactive chain: {chain.get('recompute_description', '')}\n"
+                lines.append(f"# Reactive chain: {chain.get('recompute_description', '')}")
 
-        return textwrap.dedent(f"""\
-            # --- {extension_name}: {step.get('description', step['step_id'])} (Process) ---
-            import slicer
+        lines += [
+            "# Exit placement mode",
+            "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
+            "interactionNode.SwitchToViewTransformMode()",
+            "",
+            f"print(\"[{extension_name}] Step '{step['step_id']}' processed with %d control points.\" % node.GetNumberOfControlPoints())",
+        ]
 
-            node = slicer.mrmlScene.GetNodeByID({node_var})
-            if node is None:
-                raise RuntimeError("Node not found for step '{step['step_id']}'")
-
-            {validation_code}
-            # Exit placement mode
-            interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-            interactionNode.SwitchToViewTransformMode()
-
-            {reactive_code}
-            print(f"[{extension_name}] Step '{step['step_id']}' processed with {{node.GetNumberOfControlPoints()}} control points.")
-            """)
+        return "\n".join(lines) + "\n"
 
     def _generate_post_interaction_template_llm(
         self, extension_name, step, logic_class_name, module_name, logic_analysis,
@@ -2500,8 +3265,9 @@ Return ONLY the JSON array, no markdown fences.""")
         if not method_source and not method_info:
             return None
 
-        if len(method_source) > 5000:
-            method_source = method_source[:5000] + "\n# ... [truncated]"
+        # Method source sent in full (no truncation)
+        # if len(method_source) > 5000:
+        #     method_source = method_source[:5000] + "\n# ... [truncated]"
 
         # Build parameter / state info
         params_desc = ""
@@ -2570,15 +3336,148 @@ Return ONLY the JSON array, no markdown fences.""")
             - Return ONLY raw Python code. Do NOT wrap it in markdown fences (```python ... ```).""")
 
         try:
-            response = self._call_llm(prompt)
-            response = self._strip_markdown_fences(response) if response else None
-            if response and "import" in response:
-                return response
+            for _attempt in range(2):
+                response = self._call_llm(prompt)
+                response = self._strip_markdown_fences(response) if response else None
+                if not response or "import" not in response:
+                    break
+                # Validate syntax immediately — retry once on failure
+                import ast as _ast
+                try:
+                    _ast.parse(response)
+                    return response
+                except (SyntaxError, IndentationError) as e:
+                    if _attempt == 0:
+                        logger.info(
+                            "LLM post-interaction template for step %s had syntax error: %s. Retrying...",
+                            step.get("step_id", "?"), e,
+                        )
+                        prompt += (
+                            f"\n\nYour previous output had a syntax error: {e}\n"
+                            "Output ONLY the corrected Python code, no explanation."
+                        )
+                    else:
+                        logger.warning(
+                            "LLM post-interaction template for step %s still has syntax error after retry: %s",
+                            step.get("step_id", "?"), e,
+                        )
+                        return response
         except Exception:
             logger.debug("LLM post-interaction template generation failed", exc_info=True)
         return None
 
-    def _stage6_generate_templates(
+    @staticmethod
+    def _sanitize_templates(templates: Dict[str, str]) -> Dict[str, str]:
+        """Post-generation sanitization of code templates.
+
+        Fixes common LLM output issues that would cause Stage 9 validation
+        failures:
+        1. Null bytes in generated code
+        2. Blocked module imports (sys, os, subprocess, etc.)
+        3. Trailing whitespace / mixed line endings
+        4. Unexpected indentation (LLM returns indented blocks)
+        5. Empty method calls like ``logic.()`` from null method hints
+
+        This runs BEFORE Stage 9 validation and BEFORE the internal LLM
+        review, so it catches the most basic issues cheaply without needing
+        an LLM revision pass.
+        """
+        import ast as _ast
+        import textwrap as _textwrap
+
+        # Blocked imports — mirror CodeValidator's list
+        _BLOCKED_MODULES = {
+            "os", "sys", "subprocess", "socket", "shutil",
+            "pathlib", "signal", "ctypes", "multiprocessing",
+        }
+        _BLOCKED_IMPORT_RE = _re.compile(
+            r'^(\s*)import\s+(' + "|".join(_BLOCKED_MODULES) + r')\b.*$',
+            _re.MULTILINE,
+        )
+        _BLOCKED_FROM_IMPORT_RE = _re.compile(
+            r'^(\s*)from\s+(' + "|".join(_BLOCKED_MODULES) + r')\s+import\b.*$',
+            _re.MULTILINE,
+        )
+        # Empty method call pattern: logic.() or result = logic.()
+        _EMPTY_METHOD_CALL_RE = _re.compile(
+            r'(\w+)\.\(\)',
+        )
+
+        sanitized = {}
+        fixes_applied = 0
+        for key, code in templates.items():
+            if not isinstance(code, str) or not code.strip():
+                sanitized[key] = code
+                continue
+
+            # Skip non-code entries (workflow.json, etc.)
+            if not key.endswith(".py.tpl"):
+                sanitized[key] = code
+                continue
+
+            original = code
+
+            # 1. Strip null bytes
+            code = code.replace("\x00", "")
+
+            # 2. Normalize line endings
+            code = code.replace("\r\n", "\n").replace("\r", "\n")
+
+            # 3. Remove blocked module imports
+            code = _BLOCKED_FROM_IMPORT_RE.sub(
+                lambda m: f"{m.group(1)}# [removed blocked import: {m.group(0).strip()}]",
+                code,
+            )
+            code = _BLOCKED_IMPORT_RE.sub(
+                lambda m: f"{m.group(1)}# [removed blocked import: {m.group(0).strip()}]",
+                code,
+            )
+
+            # 4. Fix indentation: try ast.parse, on failure try dedent
+            try:
+                _ast.parse(code)
+            except (SyntaxError, IndentationError) as e:
+                if "indent" in str(e).lower() or "unexpected" in str(e).lower():
+                    dedented = _textwrap.dedent(code)
+                    try:
+                        _ast.parse(dedented)
+                        code = dedented
+                        logger.info(
+                            "[Stage 7] Fixed indentation in '%s' via dedent",
+                            key,
+                        )
+                    except (SyntaxError, IndentationError):
+                        # dedent didn't help — leave for revision
+                        pass
+
+            # 5. Fix empty method calls: logic.() → # logic.<no method available>()
+            if _EMPTY_METHOD_CALL_RE.search(code):
+                def _fix_empty_call(m):
+                    var = m.group(1)
+                    # Only fix if it looks like a method call on a logic/object var
+                    if var in ("logic", "_logic", "result"):
+                        return f"# {var}.<method>()  # method name not available"
+                    return m.group(0)
+                code = _EMPTY_METHOD_CALL_RE.sub(_fix_empty_call, code)
+
+            if code != original:
+                fixes_applied += 1
+                logger.info(
+                    "[Stage 7] Sanitized template '%s'",
+                    key,
+                )
+
+            sanitized[key] = code
+
+        if fixes_applied:
+            logger.info(
+                "[Stage 7] Sanitization fixed %d/%d templates",
+                fixes_applied, len(templates),
+            )
+
+        return sanitized
+
+    def _stage7_generate_templates(
         self,
         extension_name: str,
         stage_map: Dict,
@@ -2591,9 +3490,10 @@ Return ONLY the JSON array, no markdown fences.""")
         """Generate Python code templates for each stage."""
         # Interactive workflow template generation
         if workflow_graph:
-            return self._generate_workflow_templates(
+            templates = self._generate_workflow_templates(
                 extension_name, workflow_graph, scan_result, logic_analysis,
             )
+            return self._sanitize_templates(templates)
 
         stages = stage_map.get("stages", [])
         templates = {}
@@ -2603,7 +3503,7 @@ Return ONLY the JSON array, no markdown fences.""")
         for i, stage in enumerate(stages):
             stage_name = stage["stage_name"]
             self.on_progress(
-                6, "Generating code templates",
+                7, "Generating code templates",
                 f"Generating template for stage '{stage_name}' ({i+1}/{len(stages)})..."
             )
 
@@ -2616,7 +3516,7 @@ Return ONLY the JSON array, no markdown fences.""")
         # Also generate "full" template if multiple stages
         if len(stages) > 1:
             self.on_progress(
-                6, "Generating code templates",
+                7, "Generating code templates",
                 "Generating combined 'full' template..."
             )
             full_template = self._generate_full_template(
@@ -2626,13 +3526,13 @@ Return ONLY the JSON array, no markdown fences.""")
             templates["full.py.tpl"] = full_template
 
         self.on_progress(
-            6, "Generating code templates",
+            7, "Generating code templates",
             f"Generated {len(templates)} templates: {list(templates.keys())}"
         )
 
-        return templates
+        return self._sanitize_templates(templates)
 
-    def _stage6b_review_templates(
+    def _stage7b_review_templates(
         self,
         templates: Dict[str, str],
         logic_analysis: Dict,
@@ -2640,7 +3540,7 @@ Return ONLY the JSON array, no markdown fences.""")
     ) -> Dict[str, str]:
         """LLM review of generated templates against actual method source."""
         self.on_progress(
-            6, "Reviewing templates",
+            7, "Reviewing templates",
             "Sending templates to LLM for correctness review..."
         )
 
@@ -2772,12 +3672,12 @@ If the template is correct with no issues, return:
 
         if corrections_count:
             self.on_progress(
-                6, "Reviewing templates",
+                7, "Reviewing templates",
                 f"LLM corrected {corrections_count} template(s)"
             )
         else:
             self.on_progress(
-                6, "Reviewing templates",
+                7, "Reviewing templates",
                 "All templates passed LLM review"
             )
 
@@ -3252,7 +4152,7 @@ If the template is correct with no issues, return:
         return "\n".join(lines)
 
     # ================================================================
-    # Stage 7: Prompt Fragment Generation (LLM-assisted)
+    # Stage 8: Prompt Fragment Generation (LLM)
     # ================================================================
 
     def _generate_workflow_prompt_fragment(
@@ -3281,23 +4181,49 @@ If the template is correct with no issues, return:
 
         for i, step in enumerate(steps):
             step_type = step["step_type"]
+            op_type = step.get("op_type", "")
             desc = step.get("description", step["step_id"])
-            marker = "[automated]" if step_type == "automated" else "[interactive]" if step_type == "interactive" else "[optional]"
-            lines.append(f"{i+1}. `{step['step_id']}` {marker} — {desc}")
+            # Cookbook-aware markers
+            if step_type == "automated":
+                if op_type == "slicer_op":
+                    marker = "[automated: slicer_op]"
+                elif op_type == "extension_op":
+                    marker = "[automated: extension_op]"
+                else:
+                    marker = "[automated]"
+            elif step_type == "interactive":
+                marker = "[interactive]"
+            elif step_type == "mixed":
+                marker = "[mixed: automated + interaction]"
+            else:
+                marker = "[optional]"
+            # Truncate long descriptions for readability
+            short_desc = desc.split("\n")[0][:150] if len(desc) > 150 else desc.split("\n")[0]
+            lines.append(f"{i+1}. `{step['step_id']}` {marker} — {short_desc}")
             if step_type == "interactive":
                 lines.append(f"   - Interaction: {step.get('interaction_type', 'unknown')}")
                 if step.get("placement_instructions"):
-                    lines.append(f"   - Tell user: {step['placement_instructions']}")
+                    lines.append(f"   - Tell user: {step['placement_instructions'][:200]}")
+            elif step_type == "mixed":
+                sub_ops = step.get("sub_operations", [])
+                for so in sub_ops:
+                    so_type = so.get("op_type", "")
+                    so_desc = so.get("description", "")[:100]
+                    if so_type == "user_interaction":
+                        lines.append(f"   - User interaction: {so.get('interaction_type', 'unknown')}")
+                        if so.get("placement_instructions"):
+                            lines.append(f"   - Tell user: {so['placement_instructions'][:200]}")
 
         lines.extend([
             "",
             "**Protocol:**",
             f"1. Call `{tool_name}` with `workflow_step='{first_step_id}'` and `user_action='start'` to begin",
-            "2. For **automated** steps: output the returned `code` verbatim in a ```python block. Then call the next step.",
+            "2. For **automated** steps (extension_op and slicer_op): output the returned `code` verbatim in a ```python block. Then call the next step.",
             "3. For **interactive** steps: output the returned `pre_code` verbatim in a ```python block. Relay instructions to the user. Wait for them to click 'Done'.",
-            "4. For **optional** steps: ask user if they want to proceed. If yes, call with `user_action='start'`. If no, call with `user_action='skip'`.",
-            "5. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.",
-            "6. Continue until all steps are done.",
+            "4. For **mixed** steps: output the returned `pre_code` verbatim. Then relay interaction instructions. Wait for 'Done'. Then output post_code.",
+            "5. For **optional** steps: ask user if they want to proceed. If yes, call with `user_action='start'`. If no, call with `user_action='skip'`.",
+            "6. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.",
+            "7. Continue until all steps are done.",
             "",
             "**CRITICAL RULES:**",
             "- Execute ONE step per turn. Do NOT call multiple steps in a single turn.",
@@ -3306,10 +4232,10 @@ If the template is correct with no issues, return:
         ])
 
         fragment = "\n".join(lines)
-        self.on_progress(7, "Generating prompt fragment", "Generated workflow prompt")
+        self.on_progress(8, "Generating prompt fragment", "Generated workflow prompt")
         return fragment
 
-    def _stage7_generate_prompt(
+    def _stage8_generate_prompt(
         self,
         extension_name: str,
         tool_schemas: List[Dict],
@@ -3318,7 +4244,7 @@ If the template is correct with no issues, return:
         workflow_graph: Optional[Dict] = None,
     ) -> str:
         """Generate markdown prompt fragment for system prompt injection."""
-        self.on_progress(7, "Generating prompt fragment", "Building usage instructions...")
+        self.on_progress(8, "Generating prompt fragment", "Building usage instructions...")
 
         # Interactive workflow prompt fragment
         if workflow_graph:
@@ -3376,7 +4302,7 @@ If the template is correct with no issues, return:
   **CRITICAL**: After receiving the `{tool_name}` result, your very next response must be exactly one ```agent_plan JSON block followed by one ```python code block containing the tool's `code` string verbatim. Do NOT modify the generated code. Do NOT write analysis or planning text before the code blocks.
 """)
 
-        self.on_progress(7, "Generating prompt fragment", "Prompt fragment generated")
+        self.on_progress(8, "Generating prompt fragment", "Prompt fragment generated")
         return fragment.strip()
 
     def _llm_capability_summary(self, extension_name: str, logic_analysis: Dict, stages: List[Dict]) -> str:
@@ -3461,17 +4387,17 @@ Return ONLY the sentence, nothing else.""")
         return stage.get("stage_name", "unknown").replace("_", " ")
 
     # ================================================================
-    # Stage 8: Validation (CodeValidator, no LLM)
+    # Stage 9: Validation + Save
     # ================================================================
 
-    def _stage8_validate(
+    def _stage9_validate(
         self,
         templates: Dict[str, str],
         generators: List[Dict],
         logic_analysis: Optional[Dict] = None,
     ) -> Dict:
         """Validate all templates with CodeValidator + semantic checks."""
-        self.on_progress(8, "Validating templates", "Running CodeValidator...")
+        self.on_progress(9, "Validating templates", "Running CodeValidator...")
 
         if not self.code_validator:
             from .CodeValidator import CodeValidator
@@ -3527,7 +4453,7 @@ Return ONLY the sentence, nothing else.""")
                 )
 
         self.on_progress(
-            8, "Validating templates",
+            9, "Validating templates",
             "PASS" if results["valid"] else f"FAIL: {results['errors']}"
         )
 
@@ -3557,7 +4483,12 @@ Return ONLY the sentence, nothing else.""")
             "Exception", "ValueError", "RuntimeError",
             "ImportError", "NameError", "TypeError", "KeyError",
             "AttributeError", "IndexError", "FileNotFoundError",
-            "os", "json", "math", "time", "path",
+            "SystemExit", "KeyboardInterrupt", "GeneratorExit",
+            "StopIteration", "StopAsyncIteration", "ArithmeticError",
+            "BufferError", "EOFError", "LookupError", "MemoryError",
+            "OSError", "ReferenceError", "UnicodeError",
+            "ZeroDivisionError", "OverflowError", "FloatingPointError",
+            "json", "math", "time", "path",
             "_ProgressStub",
         })
 
@@ -3589,6 +4520,13 @@ Return ONLY the sentence, nothing else.""")
             elif isinstance(node, ast.For):
                 if isinstance(node.target, ast.Name):
                     defined.add(node.target.id)
+            elif isinstance(node, ast.comprehension):
+                if isinstance(node.target, ast.Name):
+                    defined.add(node.target.id)
+                elif isinstance(node.target, (ast.Tuple, ast.List)):
+                    for elt in node.target.elts:
+                        if isinstance(elt, ast.Name):
+                            defined.add(elt.id)
             elif isinstance(node, (ast.With, ast.AsyncWith)):
                 for item in node.items:
                     if item.optional_vars and isinstance(item.optional_vars, ast.Name):
@@ -3663,7 +4601,7 @@ Return ONLY the sentence, nothing else.""")
         def _replace(match):
             full = match.group(0)
             name = match.group(1)
-            default = match.group(4)  # may be None (group 4 = actual default value, group 3 = ': ' separator)
+            default = match.group(3)  # group 3 = default value (after optional ': ')
             # If the placeholder has an inline default (e.g. {text_prompts: ["seg"]}), use it
             if default is not None:
                 return default
@@ -3675,28 +4613,330 @@ Return ONLY the sentence, nothing else.""")
             if "path" in name.lower():
                 return '"/tmp/sample"'
             return '""'
-        # Replace single-brace placeholders that aren't double-brace escapes
-        # First, temporarily replace {{ }} with a sentinel
-        sentinel = "\x00LBRACE\x00"
-        code = code.replace("{{", sentinel + "{")
-        code = code.replace("}}", "}" + sentinel)
-        # Match {name} or {name: default_value} — the default can contain brackets, strings, etc.
-        # We use a balanced-brace match for the default portion.
-        code = re.sub(r'\{(\w+)((: )(.*?))?\}', _replace, code)
+        # Replace single-brace placeholders that aren't double-brace escapes.
+        # Strategy: use a UUID-based sentinel that cannot collide with regex output.
+        # The sentinel must NOT contain { or } so the regex never partially consumes it.
+        import uuid
+        _L = f"__DBLBRACE_L_{uuid.uuid4().hex}__"
+        _R = f"__DBLBRACE_R_{uuid.uuid4().hex}__"
+        code = code.replace("{{", _L)
+        code = code.replace("}}", _R)
+        # Match {name} or {name:default} or {name: default}
+        # The colon-space is optional: both {name:val} and {name: val} are accepted.
+        code = re.sub(r'\{(\w+)(: *(.*?))?\}', _replace, code)
         # Restore literal braces
-        code = code.replace(sentinel + "{", "{{")
-        code = code.replace("}" + sentinel, "}}")
+        code = code.replace(_L, "{{")
+        code = code.replace(_R, "}}")
         return code
+
+    # ================================================================
+    # Live Execution Validation (runs on Qt main thread)
+    # ================================================================
+
+    @staticmethod
+    def live_validate_templates(
+        cli_dir: str,
+        executor,
+        on_progress=None,
+    ) -> Dict[str, Dict]:
+        """Validate generated templates by executing them in Slicer's Python console.
+
+        Runs each .py.tpl template with safe default placeholder values via
+        SafeExecutor.execute(always_rollback=True). The MRML scene is always
+        rolled back after each execution regardless of success or failure.
+
+        This method MUST be called on the Qt main thread (where SafeExecutor
+        has access to slicer.mrmlScene).
+
+        Args:
+            cli_dir: Path to the extension CLI directory (containing templates/).
+            executor: A SafeExecutor instance.
+            on_progress: Optional callback(idx, total, key, result) called
+                after each template is tested.
+
+        Returns:
+            Dict mapping template key → {
+                "live_valid": bool,
+                "error": str or None,
+                "output": str,
+                "execution_time": float,
+            }
+        """
+        import glob as _glob
+
+        templates_dir = os.path.join(cli_dir, "templates")
+        if not os.path.isdir(templates_dir):
+            return {}
+
+        # Collect all .py.tpl files
+        tpl_files = sorted(_glob.glob(os.path.join(templates_dir, "*.py.tpl")))
+        if not tpl_files:
+            return {}
+
+        # ── Capture full scene state before validation ──
+        # SafeExecutor's always_rollback handles MRML node add/remove,
+        # but does NOT restore layout, module, or interaction state.
+        # We capture these separately and restore after all templates run.
+        _pre_layout = None
+        _pre_module = None
+        _pre_interaction_node_mode = None
+        try:
+            lm = slicer.app.layoutManager()
+            if lm:
+                _pre_layout = lm.layout
+        except Exception:
+            pass
+        try:
+            _pre_module = slicer.util.getSelectedModule()
+        except Exception:
+            pass
+        try:
+            interactionNode = slicer.mrmlScene.GetNodeByID(
+                "vtkMRMLInteractionNodeSingleton"
+            )
+            if interactionNode:
+                _pre_interaction_node_mode = interactionNode.GetCurrentInteractionMode()
+        except Exception:
+            pass
+
+        results = {}
+        total = len(tpl_files)
+
+        for idx, tpl_path in enumerate(tpl_files):
+            tpl_key = os.path.relpath(tpl_path, cli_dir)  # e.g. "templates/cb_step_4_pre.py.tpl"
+            tpl_name = os.path.basename(tpl_path)
+
+            try:
+                with open(tpl_path, "r", encoding="utf-8") as f:
+                    raw_code = f.read()
+            except Exception as e:
+                results[tpl_key] = {
+                    "live_valid": False,
+                    "error": f"Failed to read template: {e}",
+                    "output": "",
+                    "execution_time": 0,
+                }
+                if on_progress:
+                    on_progress(idx, total, tpl_key, results[tpl_key])
+                continue
+
+            if not raw_code.strip():
+                results[tpl_key] = {
+                    "live_valid": True,
+                    "error": None,
+                    "output": "(empty template)",
+                    "execution_time": 0,
+                }
+                if on_progress:
+                    on_progress(idx, total, tpl_key, results[tpl_key])
+                continue
+
+            # Fill placeholders with safe defaults
+            filled_code = ExtensionCLIAnalyzer._fill_remaining_placeholders(raw_code)
+
+            # Wrap in try/except to catch runtime errors cleanly
+            wrapped_code = textwrap.dedent(f"""\
+                _tpl_validation_error = None
+                try:
+                    exec({repr(filled_code)})
+                except SystemExit:
+                    pass  # SystemExit is ok (e.g. sys.exit in tested code)
+                except Exception as _e:
+                    _tpl_validation_error = f"{{type(_e).__name__}}: {{_e}}"
+                """).strip()
+
+            exec_result = executor.execute(wrapped_code, always_rollback=True)
+
+            # Check for execution errors
+            error = exec_result.get("error")
+            output = exec_result.get("output", "")
+            traceback_str = exec_result.get("traceback", "")
+
+            # Also check the captured validation error from the wrapper
+            # (runtime errors like AttributeError, ImportError are caught by our wrapper)
+            if not error and "_tpl_validation_error" in output:
+                # Parse the validation error from stdout
+                import re
+                m = re.search(r"_tpl_validation_error\s*=\s*(.+)", output)
+                if m:
+                    val_err = m.group(1).strip().strip('"').strip("'")
+                    if val_err and val_err != "None":
+                        error = val_err
+
+            # If executor itself reported an error (syntax error, etc.), use that
+            if exec_result.get("error") and not error:
+                error = exec_result["error"]
+
+            # Also check traceback for useful error info
+            if not error and traceback_str:
+                # Extract the last line of traceback which has the error type
+                tb_lines = traceback_str.strip().split("\n")
+                for line in reversed(tb_lines):
+                    line = line.strip()
+                    if line and not line.startswith("File ") and not line.startswith("Traceback"):
+                        error = line
+                        break
+
+            results[tpl_key] = {
+                "live_valid": error is None,
+                "error": error,
+                "output": output[:500] if output else "",
+                "execution_time": exec_result.get("execution_time", 0),
+            }
+
+            if on_progress:
+                on_progress(idx, total, tpl_key, results[tpl_key])
+
+        # ── Restore scene state after all templates validated ──
+        try:
+            if _pre_layout is not None:
+                lm = slicer.app.layoutManager()
+                if lm and lm.layout != _pre_layout:
+                    lm.setLayout(_pre_layout)
+        except Exception:
+            pass
+        try:
+            if _pre_module is not None:
+                slicer.util.selectModule(_pre_module)
+        except Exception:
+            pass
+        try:
+            if _pre_interaction_node_mode is not None:
+                interactionNode = slicer.mrmlScene.GetNodeByID(
+                    "vtkMRMLInteractionNodeSingleton"
+                )
+                if interactionNode:
+                    interactionNode.SetCurrentInteractionMode(
+                        _pre_interaction_node_mode
+                    )
+        except Exception:
+            pass
+
+        return results
 
     # ================================================================
     # Revision System
     # ================================================================
+
+    _MAX_SOURCE_CONTEXT_CHARS = 400_000
+
+    def _build_revision_source_context(
+        self,
+        source_path: Optional[str],
+        manifest: Dict,
+        generators: List[Dict],
+    ) -> str:
+        """Build source code context for the revision prompt.
+
+        Extracts the logic class method sources and UI file content from
+        the extension's source directory.  Method sources are extracted via
+        AST so only the relevant class body is included (not the full file).
+
+        Returns a formatted string for the revision prompt, or empty string
+        if source_path is not available.
+        """
+        if not source_path or not os.path.isdir(source_path):
+            return ""
+
+        logic_class_name = manifest.get("logic_class_name", "")
+        module_name = manifest.get("extension_module_name", "")
+
+        # Find .py and .ui files in the extension source tree
+        py_files = []
+        ui_files = []
+        for root, dirs, files in os.walk(source_path):
+            dirs[:] = [d for d in dirs if not d.startswith((".", "__")) and d != "build"]
+            for f in files:
+                if f.endswith(".py"):
+                    py_files.append(os.path.join(root, f))
+                elif f.endswith(".ui"):
+                    ui_files.append(os.path.join(root, f))
+
+        # Extract logic class method sources
+        parts = []
+        for py_file in py_files:
+            try:
+                with open(py_file, "r", encoding="utf-8", errors="ignore") as f:
+                    source = f.read()
+                tree = ast.parse(source)
+            except Exception:
+                continue
+
+            lines = source.split("\n")
+            for node in ast.iter_child_nodes(tree):
+                if not isinstance(node, ast.ClassDef):
+                    continue
+                # Match the logic class
+                if node.name != logic_class_name and not (
+                    logic_class_name and node.name.endswith("Logic")
+                ):
+                    continue
+
+                method_sources = []
+                for item in node.body:
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        start = item.lineno - 1
+                        end = (
+                            item.end_lineno
+                            if hasattr(item, "end_lineno") and item.end_lineno
+                            else start + 60
+                        )
+                        method_src = "\n".join(lines[start:end])
+                        method_sources.append(
+                            f"  def {item.name}(...):\n"
+                            + "\n".join("    " + l for l in method_src.split("\n")[1:])
+                        )
+
+                if method_sources:
+                    parts.append(
+                        f"--- {os.path.basename(py_file)}: class {node.name} ---\n"
+                        + "\n\n".join(method_sources)
+                    )
+                break
+
+        # Include UI file (has parameter node property names, widget names)
+        for ui_file in ui_files:
+            try:
+                with open(ui_file, "r", encoding="utf-8", errors="ignore") as f:
+                    ui_content = f.read()
+                # Trim UI to just property names and node references (remove layout boilerplate)
+                if len(ui_content) > 5000:
+                    # Extract lines with objectName, property, node references
+                    import re
+                    key_lines = []
+                    for line in ui_content.split("\n"):
+                        stripped = line.strip()
+                        if any(kw in stripped for kw in (
+                            "objectName", "property", "nodeReference",
+                            "MRMLNode", "parameterName", "SetNodeReferenceID",
+                            "<property", "<string>", "ctkMRMLNodeComboBox",
+                        )):
+                            key_lines.append(stripped)
+                    if key_lines:
+                        ui_content = (
+                            "<!-- UI key properties (truncated) -->\n"
+                            + "\n".join(key_lines[:200])
+                        )
+                    else:
+                        ui_content = "<!-- UI file present but no key properties found -->"
+                parts.append(f"--- {os.path.basename(ui_file)} (UI) ---\n{ui_content}")
+            except Exception:
+                pass
+
+        combined = "\n\n".join(parts)
+
+        # Truncate if too large
+        if len(combined) > self._MAX_SOURCE_CONTEXT_CHARS:
+            combined = combined[:self._MAX_SOURCE_CONTEXT_CHARS] + "\n# ... [truncated]"
+
+        return combined
 
     def revise(
         self,
         extension_name: str,
         errors: List[str],
         max_attempts: int = _MAX_REVISION_ATTEMPTS,
+        source_path: Optional[str] = None,
     ) -> Dict:
         """
         Revise failed templates using LLM feedback.
@@ -3704,10 +4944,15 @@ Return ONLY the sentence, nothing else.""")
         Args:
             extension_name: Name of the CLI to revise.
             errors: List of error messages from validation or testing.
+            source_path: Path to the extension's source directory. If provided,
+                the logic class source code and UI file are included in the
+                revision prompt so the LLM can verify API calls against actual
+                method signatures.
 
         Returns:
             Dict with 'success', 'validation_result', 'attempts' keys.
         """
+        extension_name = _validate_extension_name(extension_name)
         from .ExtensionCLILoader import get_cli_base_dir
 
         cli_dir = os.path.join(get_cli_base_dir(), extension_name)
@@ -3722,6 +4967,11 @@ Return ONLY the sentence, nothing else.""")
             manifest = json.load(f)
         with open(generators_path, "r") as f:
             generators = json.load(f)
+
+        # Collect source code context (logic class methods + UI file)
+        source_context = self._build_revision_source_context(
+            source_path, manifest, generators
+        )
 
         result = {
             "success": False,
@@ -3760,13 +5010,17 @@ Return ONLY the sentence, nothing else.""")
                 for name, content in templates.items()
             )
 
+            source_section = ""
+            if source_context:
+                source_section = f"\nEXTENSION SOURCE CODE (use to verify correct API calls):\n{source_context}\n"
+
             prompt = textwrap.dedent(f"""\
 The following code templates for the "{extension_name}" extension failed validation.
 Please fix ALL errors while maintaining the template format (use {{placeholder}} for dynamic values, {{{{ }}}} for literal braces).
 
 ERRORS:
 {chr(10).join(f'- {e}' for e in errors)}
-
+{source_section}
 CONSTRAINTS (CodeValidator):
 - BLOCKED: os, subprocess, sys, socket, urllib, http, pickle, ctypes, mmap
 - BLOCKED: eval, exec, compile, __import__, open, file, input, getattr, setattr, delattr
@@ -3875,6 +5129,580 @@ Return ONLY the JSON, no markdown fences.""")
         result["error"] = f"Revision failed after {max_attempts} attempts"
         return result
 
+    # ================================================================
+    # Cookbook-Driven Pipeline Helpers
+    # ================================================================
+
+    def _find_cookbook(self, extension_name: str) -> Optional[str]:
+        """Search for a cookbook .md file for the given extension.
+
+        Looks in Resources/extensions_cookbook/ for {name}.md or
+        Slicer{name}.md.
+
+        Returns the path if found, else None.
+        """
+        module_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cookbook_dir = os.path.join(module_dir, "Resources", "extensions_cookbook")
+        candidates = [
+            os.path.join(cookbook_dir, f"{extension_name}.md"),
+            os.path.join(cookbook_dir, f"Slicer{extension_name}.md"),
+        ]
+        for path in candidates:
+            if os.path.isfile(path):
+                return path
+        return None
+
+    # Optional per-extension keyword map: cookbook description → method hint.
+    # Populated by callers via the method_keyword_map constructor parameter.
+    _method_keyword_map: Dict[str, str] = {}
+
+    def _match_description_to_method(self, desc_lower: str, method_names: List[str]) -> Optional[str]:
+        """Match a cookbook step description to a logic method name.
+
+        Uses the per-extension keyword map (if any) first, then falls back
+        to fuzzy word-overlap matching against known method names.
+
+        The scoring normalizes by method name length (sqrt of word count)
+        to prevent very long method names from winning simply because
+        they contain more words.
+        """
+        # Keyword map lookup (per-extension, not hardcoded)
+        for keyword, method_hint in self._method_keyword_map.items():
+            if keyword in desc_lower:
+                matched = self._match_method_name(method_hint, method_names)
+                if matched:
+                    return matched
+
+        # Fuzzy: extract significant words and try to match
+        words = [w for w in desc_lower.split() if len(w) > 3]
+        if not words:
+            return None
+        best_name = None
+        best_score = 0.0
+        for name in method_names:
+            name_lower = name.lower()
+            # Raw word overlap count
+            raw_hits = sum(1 for w in words if w in name_lower)
+            if raw_hits == 0:
+                continue
+            # Normalize by sqrt of method's word count to penalize very long
+            # method names that match many words by sheer length.
+            name_word_count = max(len(name.split('_')), 1)
+            score = raw_hits / (name_word_count ** 0.5)
+            if score > best_score:
+                best_score = score
+                best_name = name
+        # Threshold: require at least 2 raw word hits AND a good normalized score
+        if best_score >= 1.5 and best_name is not None:
+            # Double-check: verify at least 2 words actually overlap
+            raw_check = sum(1 for w in words if w in best_name.lower())
+            if raw_check >= 2:
+                return best_name
+        return None
+
+    def _match_method_name(self, hint: str, available: List[str]) -> Optional[str]:
+        """Match a hinted method name to an actual method name (fuzzy).
+
+        Uses exact match, case-insensitive match, then substring containment
+        with a length-ratio guard to prevent short hints from matching
+        very long method names (e.g., a 4-char hint should not match a
+        60-char method via substring containment).
+        """
+        if hint in available:
+            return hint
+        hint_lower = hint.lower()
+        # Try case-insensitive exact match
+        for name in available:
+            if name.lower() == hint_lower:
+                return name
+        # Try substring containment with length-ratio guard
+        # Reject matches where one side is >3x longer than the other,
+        # which prevents e.g. "plane" matching
+        # "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible"
+        max_ratio = 3.0
+        for name in available:
+            name_lower = name.lower()
+            if hint_lower in name_lower:
+                ratio = len(name_lower) / max(len(hint_lower), 1)
+                if ratio <= max_ratio:
+                    return name
+            elif name_lower in hint_lower:
+                ratio = len(hint_lower) / max(len(name_lower), 1)
+                if ratio <= max_ratio:
+                    return name
+        return None
+
+    def _build_ui_summary(self, scan_result: Dict) -> str:
+        """Build a text summary of UI elements from scan_result."""
+        parts = []
+        logic = scan_result.get("logic_class", {})
+        methods = logic.get("methods", [])
+        if methods:
+            if isinstance(methods, list):
+                # Methods may be strings or dicts
+                for m in methods[:30]:
+                    if isinstance(m, str):
+                        parts.append(f"  method: {m}")
+                    elif isinstance(m, dict):
+                        parts.append(f"  method: {m.get('name', '?')}")
+            elif isinstance(methods, dict):
+                for name in list(methods.keys())[:30]:
+                    parts.append(f"  method: {name}")
+        return "\n".join(parts) if parts else "(no UI info)"
+
+    def _cookbook_build_stage_map(self, cookbook_def, logic_analysis: Dict) -> Dict:
+        """Build a stage_map from cookbook steps using keyword heuristics.
+
+        Classifies each cookbook step's operations into sub_operations of type
+        extension_op / slicer_op / user_interaction / user_choice using keyword
+        heuristics and method name matching against the logic analysis.
+
+        Classification criteria:
+        - extension_op: Calls this extension's own Logic methods (code from local source).
+        - slicer_op: Uses Slicer core API not in this extension (needs KB search).
+        - user_interaction: User physically acts in 3D view (draw, position, drag).
+        - user_choice: Agent cannot determine value, must ask user via chat.
+        """
+        stages = []
+        raw_methods = logic_analysis.get("methods", [])
+        # Convert list of method dicts to name-keyed dict
+        if isinstance(raw_methods, list):
+            all_methods = {}
+            for m in raw_methods:
+                if isinstance(m, dict) and m.get("name"):
+                    all_methods[m["name"]] = m
+        elif isinstance(raw_methods, dict):
+            all_methods = raw_methods
+        else:
+            all_methods = {}
+        method_names = list(all_methods.keys())
+
+        # Keyword heuristics for classification
+        #
+        # user_choice keywords: steps where the agent cannot determine the
+        # answer on its own and must ask the user (patient-specific, case-specific
+        # choices, left/right, type selection, checkbox for unknown value).
+        _USER_CHOICE_KEYWORDS = {
+            "left or right", "left/right", "right side", "left side",
+            "choose", "select the", "which side", "which type",
+            "segmental", "hemimandibulectomy", "hemimandible",
+            "tick the", "check the", "checkbox for",
+        }
+        # slicer_op keywords: Slicer core API operations NOT in this extension.
+        # These need knowledge-base search to generate correct API calls.
+        _SLICER_OP_KEYWORDS = {
+            "layout", "conventional", "slice visibility", "slice intersection",
+            "toggle on", "toggle off", "enable interaction", "open the",
+            "module", "markups module", "display panel", "view node",
+            "view 1", "red view", "3d view", "set layout",
+        }
+        # user_interaction keywords: user physically interacts with 3D view.
+        _USER_INTERACTION_KEYWORDS = {
+            "draw", "click and draw", "click where", "place", "move the",
+            "manually adjust", "drag", "position", "create a curve",
+            "drawing", "placing", "click in", "click on",
+        }
+
+        for step in cookbook_def.steps:
+            step_id = f"cb_step_{step.step_number}"
+            desc_lower = step.description.lower()
+
+            # Classify sub-operations for this step
+            sub_ops = []
+
+            # 0. Check for user_choice FIRST — if the step describes a decision
+            #    the agent cannot make on its own (e.g., left/right, type choice),
+            #    classify as user_choice before attempting method/keyword matching.
+            #    This prevents misclassifying "Tick Right side leg checkbox" as slicer_op.
+            user_choice_kw = None
+            for kw in _USER_CHOICE_KEYWORDS:
+                if kw in desc_lower:
+                    user_choice_kw = kw
+                    break
+            if user_choice_kw:
+                # Derive choices and question from the step description
+                choices = []
+                question = step.description[:200]
+                parameter_name = f"choice_step_{step.step_number}"
+                if "left" in desc_lower and "right" in desc_lower:
+                    choices = [
+                        {"label": "Left", "value": "left"},
+                        {"label": "Right", "value": "right"},
+                    ]
+                    parameter_name = "side"
+                    question = "Which side? (Left or Right)"
+                elif "segmental" in desc_lower and "hemimandibulectomy" in desc_lower:
+                    choices = [
+                        {"label": "Segmental", "value": "segmental"},
+                        {"label": "Hemimandibulectomy", "value": "hemimandibulectomy"},
+                    ]
+                    parameter_name = "mandibulectomy_type"
+                    question = "Which mandibulectomy type?"
+                sub_ops.append({
+                    "op_type": "user_choice",
+                    "description": step.description[:200],
+                    "extension_method_hint": None,
+                    "slicer_api_keywords": [],
+                    "interaction_type": None,
+                    "node_class": None,
+                    "placement_instructions": None,
+                    "question": question,
+                    "choices": choices,
+                    "parameter_name": parameter_name,
+                    "default_value": None,
+                    "is_optional": False,
+                })
+
+            # 1. Try to match extension methods by keyword extraction from description
+            matched_method = self._match_description_to_method(desc_lower, method_names)
+            if matched_method:
+                m_info = all_methods.get(matched_method, {})
+                sub_ops.append({
+                    "op_type": "extension_op",
+                    "description": step.description[:200],
+                    "extension_method_hint": matched_method,
+                    "slicer_api_keywords": [],
+                    "interaction_type": None,
+                    "node_class": None,
+                    "placement_instructions": None,
+                })
+
+            # 2. Check for slicer_op keywords (layout, view, module changes)
+            #    Only Slicer core API operations that need KB search.
+            slicer_parts = []
+            for kw in _SLICER_OP_KEYWORDS:
+                if kw in desc_lower:
+                    slicer_parts.append(kw)
+            if slicer_parts:
+                sub_ops.append({
+                    "op_type": "slicer_op",
+                    "description": f"Slicer core operations: {', '.join(slicer_parts[:3])}",
+                    "extension_method_hint": None,
+                    "slicer_api_keywords": slicer_parts[:5],
+                    "interaction_type": None,
+                    "node_class": None,
+                    "placement_instructions": None,
+                })
+
+            # 3. Check for user_interaction keywords (drawing, clicking in view)
+            interaction_type = None
+            for kw in _USER_INTERACTION_KEYWORDS:
+                if kw in desc_lower:
+                    if "curve" in desc_lower or "draw" in desc_lower:
+                        interaction_type = "curve"
+                    elif "plane" in desc_lower:
+                        interaction_type = "plane"
+                    elif "line" in desc_lower:
+                        interaction_type = "line"
+                    elif "fiducial" in desc_lower or "point" in desc_lower:
+                        interaction_type = "fiducial"
+                    else:
+                        interaction_type = "fiducial"
+                    break
+
+            if interaction_type:
+                node_class = {
+                    "curve": "vtkMRMLMarkupsCurveNode",
+                    "plane": "vtkMRMLMarkupsPlaneNode",
+                    "line": "vtkMRMLMarkupsLineNode",
+                    "fiducial": "vtkMRMLMarkupsFiducialNode",
+                }.get(interaction_type)
+                sub_ops.append({
+                    "op_type": "user_interaction",
+                    "description": step.description[:200],
+                    "extension_method_hint": None,
+                    "slicer_api_keywords": [],
+                    "interaction_type": interaction_type,
+                    "node_class": node_class,
+                    "placement_instructions": step.description[:300],
+                })
+
+            # Default: if nothing matched, treat as extension_op
+            if not sub_ops:
+                sub_ops.append({
+                    "op_type": "extension_op",
+                    "description": step.description[:200],
+                    "extension_method_hint": matched_method,
+                    "slicer_api_keywords": [],
+                    "interaction_type": None,
+                    "node_class": None,
+                    "placement_instructions": None,
+                })
+
+            # Determine overall step op_type
+            op_types = {so["op_type"] for so in sub_ops}
+            if len(op_types) > 1:
+                stage_op_type = "mixed"
+            elif op_types:
+                stage_op_type = op_types.pop()
+            else:
+                stage_op_type = "extension_op"
+
+            # Build stage_methods from matched extension_op sub-operations
+            stage_methods = []
+            for so in sub_ops:
+                if so["op_type"] == "extension_op" and so.get("extension_method_hint"):
+                    matched = so["extension_method_hint"]
+                    m_info = all_methods.get(matched, {})
+                    stage_methods.append({
+                        "name": matched,
+                        "purpose": so["description"],
+                        "parameters": m_info.get("parameters", []),
+                        "return_value": m_info.get("return_value"),
+                        "state_reads": m_info.get("state_reads", []),
+                        "state_writes": m_info.get("state_writes", []),
+                        "calls_addnode": m_info.get("calls_addnode", False),
+                        "adds_output_to_scene": m_info.get("adds_output_to_scene", False),
+                        "side_effects": m_info.get("side_effects", []),
+                    })
+
+            # Determine stage name
+            stage_method_names = [m["name"] for m in stage_methods] if stage_methods else []
+            stage_name = self._infer_stage_name(
+                stage_method_names, step.step_number - 1, len(cookbook_def.steps)
+            )
+
+            stage = {
+                "stage_index": step.step_number - 1,
+                "stage_name": stage_name,
+                "methods": stage_methods,
+                "method_details": stage_methods,
+                "depends_on": [
+                    f"cb_step_{d}" for d in step.depends_on
+                ] if step.depends_on else (
+                    [f"cb_step_{step.step_number - 1}"] if step.step_number > 1 else []
+                ),
+                "input_nodes": [],
+                "output_nodes": [],
+                "op_type": stage_op_type,
+                "cookbook_step": step,
+                "sub_operations": sub_ops,
+            }
+            stages.append(stage)
+
+        return {
+            "stages": stages,
+            "stage_count": len(stages),
+            "source": "cookbook",
+        }
+
+    def _build_workflow_from_cookbook(
+        self, cookbook_def, logic_analysis: Dict, stage_map: Dict,
+    ) -> Dict:
+        """Build a workflow.json-compatible dict from cookbook steps.
+
+        Each cookbook step becomes a workflow step with the appropriate
+        step_type, op_type, and sub_operations.  Supports all five
+        step types: automated, interactive, mixed, branch, user_choice.
+
+        When the stage_map was produced by LLM decomposition (source ==
+        "cookbook_llm_decomposition"), the op_type is reused directly
+        instead of being re-derived from sub_operations, avoiding
+        classification mismatches between the two code paths.
+        """
+        # Determine if we can trust the decomposition's classification
+        from_llm_decomposition = (
+            stage_map.get("source") == "cookbook_llm_decomposition"
+        )
+
+        steps = []
+        for stage in stage_map.get("stages", []):
+            cb_step = stage.get("cookbook_step")
+            if not cb_step:
+                continue
+
+            step_id = f"cb_step_{cb_step.step_number}"
+            sub_ops = stage.get("sub_operations", [])
+            op_type = stage.get("op_type", "extension_op")
+            is_optional = stage.get("is_optional", False)
+
+            # Determine step_type — reuse decomposition's classification when
+            # available, otherwise derive from sub_operations.
+            if from_llm_decomposition:
+                # Trust the LLM decomposition's op_type mapping
+                _OP_TYPE_TO_STEP_TYPE = {
+                    "extension_op": "automated",
+                    "slicer_op": "automated",
+                    "user_interaction": "interactive",
+                    "user_choice": "user_choice",
+                    "mixed": "mixed",
+                }
+                step_type = _OP_TYPE_TO_STEP_TYPE.get(op_type, "automated")
+                # Apply optional→branch override
+                if is_optional and step_type == "automated":
+                    step_type = "branch"
+            else:
+                # Heuristic fallback: derive from sub_operations
+                has_interaction = any(so["op_type"] == "user_interaction" for so in sub_ops)
+                has_auto = any(so["op_type"] in ("extension_op", "slicer_op") for so in sub_ops)
+                has_choice = any(so["op_type"] == "user_choice" for so in sub_ops)
+
+                if has_choice and not has_interaction:
+                    step_type = "user_choice"
+                elif is_optional and not has_interaction and not has_choice:
+                    step_type = "branch"
+                elif has_interaction and has_auto:
+                    step_type = "mixed"
+                elif has_interaction:
+                    step_type = "interactive"
+                else:
+                    step_type = "automated"
+
+            # Extract interaction info if present
+            interaction_info = {}
+            for so in sub_ops:
+                if so["op_type"] == "user_interaction":
+                    interaction_info = {
+                        "interaction_type": so.get("interaction_type"),
+                        "node_class": so.get("node_class"),
+                        "placement_instructions": so.get("placement_instructions", ""),
+                        "min_control_points": so.get("min_control_points", 0),
+                    }
+                    break
+
+            # Extract user_choice info if present
+            choice_info = {}
+            for so in sub_ops:
+                if so["op_type"] == "user_choice":
+                    choice_info = {
+                        "question": so.get("question", cb_step.description),
+                        "choices": so.get("choices", []),
+                        "parameter_name": so.get("parameter_name", f"choice_step_{cb_step.step_number}"),
+                        "default_value": so.get("default_value"),
+                    }
+                    break
+
+            # Extract method name for template generation
+            method_name = None
+            for so in sub_ops:
+                if so["op_type"] == "extension_op" and so.get("extension_method_hint"):
+                    method_name = so["extension_method_hint"]
+                    break
+
+            step = {
+                "step_id": step_id,
+                "step_type": step_type,
+                "op_type": op_type,
+                "description": cb_step.description,
+                "depends_on": stage.get("depends_on", []),
+                "sub_operations": sub_ops,
+            }
+            if method_name:
+                step["method_name"] = method_name
+            if interaction_info:
+                step.update(interaction_info)
+            if choice_info:
+                step["choice_info"] = choice_info
+            if is_optional:
+                step["is_optional"] = True
+                if step_type == "branch":
+                    step["condition"] = cb_step.description
+                    # Find the next non-optional step for the "no" branch
+                    stage_idx = stage.get("stage_index", 0)
+                    next_steps = [
+                        f"cb_step_{s.get('stage_index', 0) + 1}"
+                        for s in stage_map.get("stages", [])
+                        if s.get("stage_index", 0) > stage_idx
+                        and not s.get("is_optional", False)
+                    ]
+                    step["branches"] = {
+                        "yes": step_id,
+                        "no": next_steps[0] if next_steps else "",
+                    }
+
+            steps.append(step)
+
+        return {
+            "steps": steps,
+            "step_count": len(steps),
+            "source": "cookbook",
+        }
+
+    def _generate_slicer_op_templates(self, stage_map) -> Dict[str, str]:
+        """Generate code templates for all slicer_op sub-operations via KB search.
+
+        Extracts slicer_op sub-operations from the stage_map and uses
+        SlicerOpGenerator to search the KB and generate code templates.
+
+        Returns a dict mapping "cb_step_{num}_{idx}" -> template code.
+        """
+        from .SlicerOpGenerator import SlicerOpGenerator
+        from .CookbookParser import SubOperation
+
+        # Collect all slicer_op sub-operations from stage_map
+        slicer_ops = []
+        for stage in stage_map.get("stages", []):
+            step_num = stage.get("stage_index", 0) + 1
+            for so in stage.get("sub_operations", []):
+                if so.get("op_type") == "slicer_op":
+                    sub_op = SubOperation(
+                        op_type="slicer_op",
+                        description=so.get("description", ""),
+                        extension_method_hint=so.get("extension_method_hint"),
+                        slicer_api_keywords=so.get("slicer_api_keywords", []),
+                        interaction_type=so.get("interaction_type"),
+                        node_class=so.get("node_class"),
+                        placement_instructions=so.get("placement_instructions"),
+                    )
+                    slicer_ops.append((step_num, sub_op))
+
+        if not slicer_ops:
+            self.on_progress("5T", "Slicer op generation", "No slicer_op sub-operations found")
+            return {}
+
+        self.on_progress(
+            "5T", "Slicer op generation",
+            f"Generating templates for {len(slicer_ops)} slicer_op operations..."
+        )
+
+        # Determine skill_path for KB search
+        module_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        skill_path = os.path.join(module_dir, "Resources", "Skills", "slicer-skill-full")
+
+        def _on_op_progress(finished, total, desc):
+            self.on_progress(
+                "5T", "Slicer op generation",
+                f"[{finished}/{total}] ✓ {desc}",
+            )
+
+        # Set up debug file path for live progress tracking
+        debug_path = None
+        if self._debug_dir:
+            debug_path = os.path.join(self._debug_dir, "stage_5T_debug.json")
+
+        generator = SlicerOpGenerator(
+            llm_client=self.llm_client,
+            skill_path=skill_path,
+            on_progress=_on_op_progress,
+            debug_path=debug_path,
+        )
+
+        templates = generator.generate(slicer_ops)
+
+        self.on_progress(
+            "5T", "Slicer op generation",
+            f"Generated {len(templates)} slicer_op templates"
+        )
+
+        # Log template keys for debug
+        for key, code in templates.items():
+            code_preview = code.split("\n")[0][:80] if code else "(empty)"
+            logger.info("[5T] Template '%s': %s", key, code_preview)
+
+        return templates
+
+    def _generate_slicer_fallback_template(self, step: Dict) -> str:
+        """Fallback template for slicer_op steps when no pre-generated template exists."""
+        sub_ops = step.get("sub_operations", [])
+        slicer_descs = [so["description"] for so in sub_ops if so["op_type"] == "slicer_op"]
+        desc = "; ".join(slicer_descs) if slicer_descs else step.get("description", "")
+        return (
+            f"# Slicer core operation: {desc}\n"
+            "# TODO: This slicer_op template was generated as a fallback.\n"
+            "# The KB search did not produce a usable template.\n"
+            "pass\n"
+        )
+
     def _build_workflow_manifest_and_generators(
         self,
         extension_name: str,
@@ -3895,11 +5723,24 @@ Return ONLY the JSON, no markdown fences.""")
             "workflow_graph_file": "workflow.json",
             "stages": stage_names,
         }
+        # Add cookbook metadata when cookbook-driven
+        if self._cookbook_def:
+            manifest["cookbook_driven"] = True
+            manifest["cookbook_file"] = os.path.basename(self._cookbook_def.source_file)
+            op_types = set()
+            for step in steps:
+                if step.get("op_type"):
+                    op_types.add(step["op_type"])
+                for so in step.get("sub_operations", []):
+                    if so.get("op_type"):
+                        op_types.add(so["op_type"])
+            manifest["operation_types"] = sorted(op_types)
 
         generators = []
         for step in steps:
             step_id = step["step_id"]
             step_type = step["step_type"]
+            op_type = step.get("op_type", "")
 
             gen = {
                 "tool_name": extension_name,
@@ -3908,6 +5749,8 @@ Return ONLY the JSON, no markdown fences.""")
                 "requirements": [f"{extension_name} extension must be installed"],
                 "step_type": step_type,
             }
+            if op_type:
+                gen["op_type"] = op_type
 
             if step_type == "automated" and step.get("code_template"):
                 gen["template_file"] = step["code_template"]
@@ -3919,9 +5762,32 @@ Return ONLY the JSON, no markdown fences.""")
                     "node_class": step.get("node_class"),
                     "placement_instructions": step.get("placement_instructions", ""),
                 }
+            elif step_type == "mixed":
+                gen["pre_template_file"] = step.get("pre_template", "")
+                gen["post_template_file"] = step.get("post_template", "")
+                # Collect interaction info from sub_operations
+                interaction_desc = {}
+                for so in step.get("sub_operations", []):
+                    if so.get("op_type") == "user_interaction":
+                        interaction_desc = {
+                            "interaction_type": so.get("interaction_type"),
+                            "node_class": so.get("node_class"),
+                            "placement_instructions": so.get("placement_instructions", ""),
+                        }
+                        break
+                gen["interaction_descriptor"] = interaction_desc
+                gen["sub_operations"] = step.get("sub_operations", [])
             elif step_type == "branch":
                 gen["condition"] = step.get("condition", "")
                 gen["branches"] = step.get("branches", {})
+            elif step_type == "user_choice":
+                choice_info = step.get("choice_info", {})
+                gen["choice_descriptor"] = {
+                    "question": choice_info.get("question", ""),
+                    "choices": choice_info.get("choices", []),
+                    "parameter_name": choice_info.get("parameter_name", ""),
+                    "default_value": choice_info.get("default_value"),
+                }
 
             generators.append(gen)
 
@@ -4011,6 +5877,8 @@ Return ONLY the JSON, no markdown fences.""")
 
         If self._debug_dir is set, also saves the full input/output/thinking
         to a JSON file in the debug directory.
+
+        Retries once on empty responses.
         """
         messages = [
             {"role": "system", "content": self._analyzer_prompt},
@@ -4018,6 +5886,12 @@ Return ONLY the JSON, no markdown fences.""")
         ]
         response = self.llm_client.chatIsolated(messages)
         message_text = response.get("message", "")
+
+        # Retry once on empty responses
+        if not message_text or not message_text.strip():
+            logger.info("Empty LLM response, retrying once...")
+            response = self.llm_client.chatIsolated(messages)
+            message_text = response.get("message", "")
 
         # Debug saving
         if self._debug_dir:
@@ -4086,24 +5960,40 @@ Return ONLY the JSON, no markdown fences.""")
                 lines = lines[:-1]
             text = "\n".join(lines)
 
+        # Strip JavaScript-style // comments that LLMs frequently emit.
+        # Only strip when // appears after a JSON structural character
+        # (comma, colon, bracket, brace) or whitespace — this avoids
+        # breaking URL strings like "https://...".
+        text = _JS_COMMENT_RE.sub("", text)
+
         try:
             return json.loads(text)
         except json.JSONDecodeError:
-            # Try to find JSON in the text
-            import re
-            # Look for JSON array or object
-            for pattern in [
-                r'\[[\s\S]*\]',
-                r'\{[\s\S]*\}',
-            ]:
-                match = re.search(pattern, text)
-                if match:
-                    try:
-                        return json.loads(match.group())
-                    except json.JSONDecodeError:
-                        continue
-            logger.warning("Could not parse JSON from LLM response: %s", text[:300])
-            return None
+            # Use json.JSONDecoder.raw_decode for balanced extraction
+            # instead of greedy regex that matches too broadly.
+            return ExtensionCLIAnalyzer._extract_json_balanced(text)
+
+    @staticmethod
+    def _extract_json_balanced(text: str) -> Any:
+        """Extract the first valid JSON object or array using balanced-brace matching.
+
+        Uses json.JSONDecoder.raw_decode() which stops at the end of the first
+        valid JSON value, avoiding the greedy-regex problem of matching from
+        the first ``{`` to the *last* ``}`` in the response.
+        """
+        decoder = json.JSONDecoder()
+        # Search for the first '{' or '[' in the text
+        for i, ch in enumerate(text):
+            if ch in ('{', '['):
+                try:
+                    obj, _ = decoder.raw_decode(text, i)
+                    return obj
+                except json.JSONDecodeError:
+                    # This opening brace wasn't the start of valid JSON;
+                    # continue scanning for the next one.
+                    continue
+        logger.warning("Could not parse JSON from LLM response: %s", text[:300])
+        return None
 
     def _extract_class_source(self, file_path: str, class_name: str) -> Optional[str]:
         """Extract the full source of a class from a Python file."""
@@ -4129,7 +6019,12 @@ Return ONLY the JSON, no markdown fences.""")
         return None
 
     def _extract_method_source(self, file_path: str, method_name: str) -> Optional[str]:
-        """Extract the source of a specific method from the logic file."""
+        """Extract the source of a specific method, scoped to the Logic class body.
+
+        Walks only the top-level class definitions to find the Logic class,
+        then searches its methods — avoids matching identically-named methods
+        in other classes (e.g. ``setup()`` in Widget vs Logic).
+        """
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 source = f.read()
@@ -4141,96 +6036,44 @@ Return ONLY the JSON, no markdown fences.""")
         except SyntaxError:
             return None
 
-        for node in ast.walk(tree):
+        lines = source.split("\n")
+
+        # First try: search only inside Logic-like class bodies
+        for node in ast.iter_child_nodes(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            # Only search classes that look like the Logic class
+            bases = [self._ast_name(b) for b in node.bases]
+            is_logic = (
+                "ScriptedLoadableModuleLogic" in bases
+                or node.name.endswith("Logic")
+            )
+            if not is_logic:
+                continue
+            for item in node.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if item.name == method_name:
+                        start = item.lineno - 1
+                        end = (
+                            item.end_lineno
+                            if hasattr(item, "end_lineno") and item.end_lineno
+                            else start + 50
+                        )
+                        return "\n".join(lines[start:end])
+
+        # Fallback: search all top-level nodes (covers helper functions
+        # defined outside any class).
+        for node in ast.iter_child_nodes(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 if node.name == method_name:
-                    lines = source.split("\n")
                     start = node.lineno - 1
-                    end = node.end_lineno if hasattr(node, 'end_lineno') and node.end_lineno else start + 50
+                    end = (
+                        node.end_lineno
+                        if hasattr(node, "end_lineno") and node.end_lineno
+                        else start + 50
+                    )
                     return "\n".join(lines[start:end])
 
-        return None
-
-    # ================================================================
-    # README Discovery
-    # ================================================================
-
-    _README_NAMES = ("README.md", "README", "Readme.md", "README.MD", "README.rst")
-
-    def _find_readme(
-        self, extension_name: str, source_path: str, source_type: str
-    ) -> Optional[str]:
-        """Locate and read a README for the extension.
-
-        Strategy depends on *source_type*:
-        - "extension_manager" -> look up the README in the knowledge base
-          (Resources/Skills/slicer-skill-full/slicer-extensions/) using the
-          JSON metadata mapping.
-        - "additional_paths" / "loaded_modules" -> look for a README directly
-          inside *source_path* (the source folder itself may contain one).
-
-        Returns the README text (truncated), or None if not found.
-        """
-        if source_type == "extension_manager":
-            return self._find_readme_in_knowledge_base(extension_name)
-        return self._find_readme_in_directory(source_path)
-
-    def _find_readme_in_knowledge_base(self, extension_name: str) -> Optional[str]:
-        """Find README via the slicer-extensions knowledge base JSON mapping."""
-        try:
-            ext_index_dir = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                "Resources", "Skills", "slicer-skill-full", "slicer-extensions",
-            )
-            if not os.path.isdir(ext_index_dir):
-                return None
-
-            json_path = os.path.join(ext_index_dir, f"{extension_name}.json")
-            if not os.path.isfile(json_path):
-                return None
-
-            with open(json_path, "r", encoding="utf-8") as f:
-                meta = json.load(f)
-
-            scm_url = meta.get("scm_url", "")
-            if not scm_url:
-                return None
-
-            repo_name = scm_url.rstrip("/").split("/")[-1].replace(".git", "")
-            repo_dir = os.path.join(ext_index_dir, repo_name)
-            if not os.path.isdir(repo_dir):
-                return None
-
-            return self._read_readme_from_dir(repo_dir)
-        except Exception:
-            logger.debug("README lookup failed for %s", extension_name, exc_info=True)
-            return None
-
-    def _find_readme_in_directory(self, directory: str) -> Optional[str]:
-        """Find README directly in the given source directory."""
-        try:
-            if not os.path.isdir(directory):
-                return None
-            return self._read_readme_from_dir(directory)
-        except Exception:
-            logger.debug("README lookup failed in %s", directory, exc_info=True)
-            return None
-
-    def _read_readme_from_dir(self, directory: str) -> Optional[str]:
-        """Search for a README file in *directory* and return its content."""
-        entries = os.listdir(directory)
-        for name in self._README_NAMES:
-            if name in entries:
-                readme_path = os.path.join(directory, name)
-                if os.path.isfile(readme_path):
-                    with open(readme_path, "r", encoding="utf-8", errors="ignore") as f:
-                        return f.read()
-        # Case-insensitive fallback (e.g. readme.md)
-        for entry in entries:
-            if entry.upper().startswith("README") and os.path.isfile(os.path.join(directory, entry)):
-                readme_path = os.path.join(directory, entry)
-                with open(readme_path, "r", encoding="utf-8", errors="ignore") as f:
-                    return f.read()
         return None
 
     # ================================================================
@@ -4238,7 +6081,7 @@ Return ONLY the JSON, no markdown fences.""")
     # ================================================================
 
     def _stage1_5_extract_workflow(self, scan_result: Dict) -> Optional[Dict]:
-        """Extract the user-facing workflow from UI (.ui file) + Widget class + README.
+        """Extract the user-facing workflow from UI (.ui file) + Widget class.
 
         Returns a structured workflow dict, or None if insufficient UI data.
         """
@@ -4264,15 +6107,15 @@ Return ONLY the JSON, no markdown fences.""")
                 widget_connections = self._extract_widget_connections(widget_source)
 
         # If no UI data at all, skip this stage
-        if not ui_sections and not widget_connections and not self._readme_content:
-            self.on_progress(1.5, "UI workflow extraction", "No UI/Widget/README data — skipping")
+        if not ui_sections and not widget_connections:
+            self.on_progress(1.5, "UI workflow extraction", "No UI/Widget data — skipping")
             return None
 
         # Build the LLM prompt for workflow synthesis
         prompt_parts = [
             "## Task: Synthesize Extension Workflow from UI Analysis\n",
             "You are analyzing a 3D Slicer extension's user-facing workflow.",
-            "Based on the UI layout, Widget signal connections, and README description below,",
+            "Based on the UI layout and Widget signal connections below,",
             "produce a structured JSON workflow that reflects the actual user-facing workflow.\n",
         ]
 
@@ -4292,12 +6135,6 @@ Return ONLY the JSON, no markdown fences.""")
             prompt_parts.append("```json")
             prompt_parts.append(json.dumps(widget_connections, indent=2))
             prompt_parts.append("```\n")
-
-        # README workflow
-        if self._readme_content:
-            prompt_parts.append("### README Workflow Description\n")
-            prompt_parts.append(self._readme_content)
-            prompt_parts.append("\n")
 
         # Logic class methods (for context)
         logic_class = scan_result.get("logic_class")
@@ -4338,8 +6175,7 @@ Return ONLY the JSON, no markdown fences.""")
             1. Use the UI section order as the workflow sequence.
             2. Match button widget names to logic methods using the signal connections.
             3. Include ALL buttons from the signal connections, even those not in the UI Layout — they are created programmatically.
-            4. If the README describes a workflow, use it to validate and enrich descriptions.
-            5. `step_type` is "interactive" if the button triggers user 3D interaction (placing markups, drawing curves), "automated" for buttons that just trigger computation.
+            4. `step_type` is "interactive" if the button triggers user 3D interaction (placing markups, drawing curves), "automated" for buttons that just trigger computation.
             6. `interaction_type` should be one of: fiducial, curve, line, plane, or null for automated steps.
             7. `depends_on` should list step_ids of prerequisite steps (sequential by default).
             8. Mark optional/experimental sections with `is_optional: true`.

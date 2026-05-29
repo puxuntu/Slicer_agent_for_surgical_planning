@@ -92,8 +92,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._workflowBannerLabel = None
         self._autoAdvanceWorkflowStep = None
         self._workflowInstructionsLabel = None
-        self._workflowDoneButton = None
-        self._workflowCancelButton = None
+
 
     def setup(self):
         ScriptedLoadableModuleWidget.setup(self)
@@ -465,12 +464,24 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if not source_type:
             return
 
+        module_dir = os.path.dirname(os.path.abspath(__file__))
+        cookbook_dir = os.path.join(module_dir, "Resources", "extensions_cookbook")
+
         for ext in self._discoveredExtensions:
             if ext.get("source_type") != source_type:
                 continue
 
             name = ext["name"]
             label = name
+            # Check for cookbook
+            has_cookbook = (
+                os.path.isfile(os.path.join(cookbook_dir, f"{name}.md"))
+                or os.path.isfile(os.path.join(cookbook_dir, f"Slicer{name}.md"))
+            )
+            if has_cookbook:
+                label += " [has cookbook]"
+            else:
+                label += " [no cookbook]"
             if ext.get("cli_status"):
                 label += f" [{ext['cli_status']}]"
             if not ext.get("has_python"):
@@ -503,6 +514,20 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if not source_path or not os.path.isdir(source_path):
             self._cliProgressDisplay.append(f"Error: Source path not found: {source_path}")
+            return
+
+        # Cookbook is required for CLI generation
+        module_dir = os.path.dirname(os.path.abspath(__file__))
+        cookbook_dir = os.path.join(module_dir, "Resources", "extensions_cookbook")
+        has_cookbook = (
+            os.path.isfile(os.path.join(cookbook_dir, f"{ext_name}.md"))
+            or os.path.isfile(os.path.join(cookbook_dir, f"Slicer{ext_name}.md"))
+        )
+        if not has_cookbook:
+            self._cliProgressDisplay.append(
+                f"Error: No cookbook found for '{ext_name}'. "
+                f"Create one at Resources/extensions_cookbook/{ext_name}.md first."
+            )
             return
 
         if self._cliGeneratorRunning:
@@ -539,7 +564,6 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 result = analyzer.analyze_and_generate(
                     extension_name=ext_name,
                     source_path=source_path,
-                    source_type=data.get("source_type", ""),
                     force_overwrite=False,
                 )
                 self._streamQueue.put(('cli_complete', result))
@@ -650,6 +674,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         ext_name = data["name"]
+        source_path = data.get("path", "")
 
         if self._cliGeneratorRunning:
             return
@@ -682,7 +707,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     on_error=lambda e: self._streamQueue.put(('cli_error', e)),
                 )
 
-                result = analyzer.revise(ext_name, errors)
+                result = analyzer.revise(ext_name, errors, source_path=source_path)
                 self._streamQueue.put(('cli_revision_complete', result))
 
             except Exception as e:
@@ -699,6 +724,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         ext_name = data["name"]
+        source_path = data.get("path", "")
         self._cliGeneratorRunning = True
         self._cliStatusLabel.setText("Auto-revising...")
         self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
@@ -726,7 +752,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     on_error=lambda e: self._streamQueue.put(('cli_error', e)),
                 )
 
-                result = analyzer.revise(ext_name, errors)
+                result = analyzer.revise(ext_name, errors, source_path=source_path)
                 self._streamQueue.put(('cli_revision_complete', result))
 
             except Exception as e:
@@ -773,25 +799,6 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._workflowInstructionsLabel.setStyleSheet("color: #333;")
         workflowLayout.addWidget(self._workflowInstructionsLabel)
 
-        buttonLayout = qt.QHBoxLayout()
-        self._workflowDoneButton = qt.QPushButton("Done")
-        self._workflowDoneButton.setStyleSheet(
-            "background-color: #4CAF50; color: white; font-weight: bold; "
-            "padding: 6px 16px; border-radius: 3px;"
-        )
-        self._workflowDoneButton.connect("clicked()", self._onWorkflowDoneClicked)
-        buttonLayout.addWidget(self._workflowDoneButton)
-
-        self._workflowCancelButton = qt.QPushButton("Cancel Workflow")
-        self._workflowCancelButton.setStyleSheet(
-            "background-color: #f44336; color: white; "
-            "padding: 6px 16px; border-radius: 3px;"
-        )
-        self._workflowCancelButton.connect("clicked()", self._onWorkflowCancelClicked)
-        buttonLayout.addWidget(self._workflowCancelButton)
-        buttonLayout.addStretch()
-
-        workflowLayout.addLayout(buttonLayout)
         self._workflowFrame.setVisible(False)
 
         # Insert after Extension CLI Generator panel, before stream poll timer setup
@@ -800,9 +807,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def _enterWorkflowWait(self, step_info):
         """
         Enter wait state for an interactive workflow step.
-        Shows the workflow banner with instructions and enables Done/Cancel buttons.
+        Shows instructions in chat (no UI banner). User types 'done' in chat when finished.
         """
-        # Support both nested dict format and flat dispatch_workflow_step format
         interaction = step_info.get("interaction", {})
         step_desc = (
             step_info.get("explanation")
@@ -821,99 +827,31 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._waitingForUser = True
         self._currentWorkflowStepInfo = step_info
 
-        self._workflowBannerLabel.text = (
-            f"Waiting for your interaction: {step_desc}"
-        )
-        self._workflowInstructionsLabel.text = (
-            f"Interaction type: {interaction_type}\n"
-            f"{instructions}\n\n"
-            f"Complete the interaction in the 3D view, then click 'Done' to continue."
-        )
-        self._workflowFrame.setVisible(True)
-        self._workflowDoneButton.setEnabled(True)
-        self.sendButton.setEnabled(False)
+        # Show instructions in chat instead of UI banner
+        step_type = step_info.get("type", "interactive")
+        sub_ops = step_info.get("sub_operations", [])
+
+        msg_parts = [f"[Interaction Required] {step_desc}"]
+        if interaction_type:
+            msg_parts.append(f"Interaction type: {interaction_type}")
+        if instructions:
+            msg_parts.append(instructions)
+        if step_type == "mixed" and sub_ops:
+            auto_ops = [so for so in sub_ops if so.get("op_type") in ("extension_op", "slicer_op")]
+            if auto_ops:
+                msg_parts.append("(Automated setup steps have been executed)")
+        msg_parts.append("When finished, type 'done' in the chat and send it.")
+
+        self.appendToChat("System", "\n".join(msg_parts))
 
         self._setAgentStatus("Workflow", f"Waiting: {step_desc}")
         logger.info(f"[Workflow] Entered wait state for step: {step_desc}")
 
     def _exitWorkflowWait(self):
-        """Hide workflow UI and restore normal state."""
+        """Exit workflow wait state and restore normal state."""
         self._waitingForUser = False
-        self._workflowFrame.setVisible(False)
         self._currentWorkflowStepInfo = None
         self._setReadyStatus()
-
-    def _onWorkflowDoneClicked(self):
-        """User clicked Done after completing an interactive step."""
-        if not self._workflowOrchestrator or not self._activeWorkflowId:
-            self._exitWorkflowWait()
-            return
-
-        self._workflowDoneButton.setEnabled(False)
-        self._setAgentStatus("Workflow", "Processing interaction...")
-
-        result = self._workflowOrchestrator.complete_interaction(
-            self._activeWorkflowId,
-            template_filler=self._getWorkflowTemplateFiller(),
-        )
-
-        if result.get("type") == "error" and result.get("retry"):
-            # Validation failed — tell the user and keep waiting
-            self.appendToChat("System", f"Validation failed: {result['error']}")
-            self._workflowDoneButton.setEnabled(True)
-            self._workflowOrchestrator._get_state(self._activeWorkflowId).status = "waiting_for_user"
-            return
-
-        if result.get("type") == "error":
-            self.appendToChat("System", f"Workflow error: {result.get('error', 'Unknown error')}")
-            self._exitWorkflowWait()
-            return
-
-        # Sync the completed interactive step to ExtensionCLILoader's tracking
-        # so _find_next_step_local doesn't re-discover it on auto-advance.
-        completed_step_id = result.get("step_id")
-        if completed_step_id:
-            wf_state = self._workflowOrchestrator._get_state(self._activeWorkflowId)
-            if wf_state:
-                from SlicerAIAgentLib.ExtensionCLILoader import _workflow_completed_steps
-                done = _workflow_completed_steps.setdefault(wf_state.extension_name, set())
-                done.add(completed_step_id)
-
-        # Show post-interaction result
-        post_result = result.get("post_result")
-        if post_result:
-            if post_result.get("success"):
-                output = post_result.get("output", "")
-                if output:
-                    self.appendToChat("System", f"Step completed. Output: {output}")
-            else:
-                self.appendToChat("System", f"Post-processing error: {post_result.get('error', '')}")
-                self._exitWorkflowWait()
-                return
-
-        self._exitWorkflowWait()
-
-        if result.get("workflow_completed"):
-            self.appendToChat("System", "Workflow completed successfully!")
-            self._activeWorkflowId = None
-            self.sendButton.setEnabled(True)
-            return
-
-        # Auto-proceed to next step
-        next_step = result.get("next_step")
-        if next_step:
-            self._autoProceedWorkflowStep(next_step)
-        else:
-            self.sendButton.setEnabled(True)
-
-    def _onWorkflowCancelClicked(self):
-        """User clicked Cancel Workflow."""
-        if self._workflowOrchestrator and self._activeWorkflowId:
-            self._workflowOrchestrator.cancel_workflow(self._activeWorkflowId)
-            self._activeWorkflowId = None
-        self._exitWorkflowWait()
-        self.appendToChat("System", "Workflow cancelled.")
-        self.sendButton.setEnabled(True)
 
     def _autoProceedWorkflowStep(self, next_step_info):
         """Automatically prompt the LLM to execute the next workflow step."""
@@ -966,6 +904,101 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         return filler
 
+    def _applyWorkflowDisplayProperties(self, step_info):
+        """Apply display properties from the workflow step to newly created markup nodes."""
+        display_props = step_info.get("display_properties")
+        if not display_props:
+            return
+
+        try:
+            # Find recently created markup nodes matching the step's node class
+            node_class = step_info.get("node_class", "")
+            interaction_type = step_info.get("interaction_type", "")
+            step_id = step_info.get("step_id", "")
+
+            # Try to find the node by the template variable convention
+            ext_name = step_info.get("tool", "")
+            node_var = f"_{ext_name.lower()}_{step_id}_id"
+            import __main__
+            node_id = getattr(__main__, node_var, None)
+
+            if node_id:
+                node = slicer.mrmlScene.GetNodeByID(node_id)
+            else:
+                # Fallback: find the most recently added markup node of the expected class
+                node = None
+                all_nodes = slicer.mrmlScene.GetNodesByClass(node_class) if node_class else None
+                if all_nodes:
+                    all_nodes.UnRegister(None)
+                    count = all_nodes.GetNumberOfItems()
+                    if count > 0:
+                        node = all_nodes.GetItemAsObject(count - 1)
+
+            if not node:
+                logger.warning(
+                    f"[Workflow] Could not find markup node for step '{step_id}' "
+                    f"to apply display properties"
+                )
+                return
+
+            # Check for unresolved symbolic view tags and attempt fallback resolution
+            view_ids = display_props.get("addViewNodeIDs", [])
+            resolved_ids = []
+            unresolved = []
+            for ref in view_ids:
+                vid = self._interactionManager._resolve_view_node_ref(ref)
+                if vid:
+                    resolved_ids.append(vid)
+                else:
+                    tag = ref.get("tag", "?")
+                    unresolved.append(tag)
+                    # Fallback: resolve symbolic tag via slicer module globals
+                    # (set by the create_bone_models template or extension init)
+                    if ref.get("symbolic"):
+                        try:
+                            tag_val = getattr(slicer, ref["tag"], None)
+                            if tag_val is not None:
+                                cls = ref.get("class", "vtkMRMLViewNode")
+                                vn = slicer.mrmlScene.GetSingletonNode(str(tag_val), cls)
+                                if vn:
+                                    resolved_ids.append(vn.GetID())
+                                    unresolved.pop()
+                        except Exception:
+                            pass
+
+            if resolved_ids:
+                # Replace symbolic refs with resolved IDs
+                display_props = dict(display_props)
+                display_props["addViewNodeIDs"] = resolved_ids
+
+            if unresolved:
+                logger.warning(
+                    f"[Workflow] Could not resolve view tags for step '{step_id}': {unresolved}. "
+                    f"Markup will be visible in all views."
+                )
+
+            display_node = node.GetDisplayNode()
+            if display_node:
+                self._interactionManager._apply_display_properties(display_node, display_props)
+
+                # Verify: log what was actually applied
+                applied_views = []
+                if hasattr(display_node, "GetNumberOfViewNodeIDs"):
+                    for i in range(display_node.GetNumberOfViewNodeIDs()):
+                        applied_views.append(display_node.GetNthViewNodeID(i))
+                logger.info(
+                    f"[Workflow] Applied display properties to '{node.GetName()}' "
+                    f"for step '{step_id}': views={applied_views}, "
+                    f"props={list(display_props.keys())}"
+                )
+
+            # Apply locked state on the node itself
+            if display_props.get("locked") is not None:
+                node.SetLocked(display_props["locked"])
+
+        except Exception as e:
+            logger.warning(f"[Workflow] Failed to apply display properties: {e}")
+
     def _handleCliProgress(self, stage_num, stage_name, detail):
         """Handle CLI generator progress updates on the main thread."""
         self._cliProgressDisplay.append(f"  Stage {stage_num}: {stage_name} — {detail}")
@@ -976,30 +1009,17 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._analyzeGenerateButton.setEnabled(True)
 
         if result.get("success"):
-            self._cliStatusLabel.setText("Validated")
-            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: green;")
-            self._cliResultGroup.setVisible(True)
-            self._testCliButton.setEnabled(True)
-            self._deleteCliButton.setEnabled(True)
-            self._reviseCliButton.setEnabled(False)
-
-            manifest = result.get("manifest", {})
-            stages = manifest.get("stages", [])
-            self._cliResultSummary.setText(
-                f"Generated CLI for {manifest.get('extension_name', '?')} "
-                f"(stages: {', '.join(stages)}). "
-                f"Saved to: {result.get('cli_dir', '?')}"
-            )
-            self._cliProgressDisplay.append("CLI generation complete and validated!")
-
-            # Refresh the extension selector to show updated status, preserving selection
-            ext_name = manifest.get("extension_name", "")
-            self._onRefreshExtensionsClicked()
-            if ext_name:
-                for i in range(self._extensionSelector.count):
-                    if ext_name in self._extensionSelector.itemText(i):
-                        self._extensionSelector.setCurrentIndex(i)
-                        break
+            # Live execution validation on Qt main thread (after static validation passed)
+            cli_dir = result.get("cli_dir", "")
+            if cli_dir and self.logic.executor:
+                self._cliStatusLabel.setText("Live-validating...")
+                self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
+                self._cliProgressDisplay.append("Running live execution validation...")
+                self._liveValidateCliTemplates(result)
+                return  # _liveValidateCliTemplates will finalize the UI
+            else:
+                # No executor or cli_dir — fall back to static-only validation
+                self._finalizeCliValidation(result, live_results={})
 
         else:
             self._cliStatusLabel.setText("Failed")
@@ -1017,6 +1037,99 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if result.get("validation_result") and not result["validation_result"].get("valid"):
                 self._cliProgressDisplay.append("Auto-revising with LLM...")
                 self._autoReviseCli(result)
+
+    def _liveValidateCliTemplates(self, result):
+        """Run live execution validation for each generated .py.tpl template.
+
+        Executes templates one at a time via SafeExecutor with always_rollback=True
+        so the MRML scene is restored after each trial. Called on the Qt main thread
+        from _handleCliComplete after static AST validation passes.
+        """
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+
+        cli_dir = result.get("cli_dir", "")
+
+        def _on_live_progress(idx, total, tpl_key, tpl_result):
+            status = "✓" if tpl_result.get("live_valid") else "✗"
+            self._cliProgressDisplay.append(
+                f"  [{idx + 1}/{total}] {tpl_key}: {status}"
+            )
+            if tpl_result.get("error"):
+                self._cliProgressDisplay.append(f"    Error: {tpl_result['error'][:200]}")
+
+        live_results = ExtensionCLIAnalyzer.live_validate_templates(
+            cli_dir=cli_dir,
+            executor=self.logic.executor,
+            on_progress=_on_live_progress,
+        )
+
+        # Finalize the UI based on live results
+        self._finalizeCliValidation(result, live_results)
+
+    def _finalizeCliValidation(self, result, live_results):
+        """Finalize the CLI generation UI after validation (static + optional live).
+
+        Args:
+            result: The original generation result dict from the analyzer.
+            live_results: Dict from live_validate_templates, or {} if live
+                validation was skipped.
+        """
+        # Check for live execution failures
+        live_errors = []
+        for tpl_key, tpl_res in live_results.items():
+            if not tpl_res.get("live_valid"):
+                live_errors.append(
+                    f"{tpl_key}: Live execution failed: {tpl_res.get('error', 'unknown')}"
+                )
+
+        if live_errors:
+            self._cliStatusLabel.setText("Live validation failed")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
+            self._cliProgressDisplay.append(
+                f"Live validation: {len(live_errors)} template(s) failed."
+            )
+
+            # Combine static errors (if any) with live errors for revision
+            static_errors = []
+            val_result = result.get("validation_result", {})
+            if val_result and not val_result.get("valid"):
+                static_errors = val_result.get("errors", [])
+
+            all_errors = static_errors + live_errors
+            self._cliProgressDisplay.append("Auto-revising with live errors...")
+            self._autoReviseCli({
+                "validation_result": {"errors": all_errors, "valid": False},
+            })
+            return
+
+        # All validations passed
+        has_live = bool(live_results)
+        status_text = "Live-Validated ✓" if has_live else "Validated"
+        self._cliStatusLabel.setText(status_text)
+        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: green;")
+        self._cliResultGroup.setVisible(True)
+        self._testCliButton.setEnabled(True)
+        self._deleteCliButton.setEnabled(True)
+        self._reviseCliButton.setEnabled(False)
+
+        manifest = result.get("manifest", {})
+        stages = manifest.get("stages", [])
+        live_info = f" ({len(live_results)} templates live-validated)" if has_live else ""
+        self._cliResultSummary.setText(
+            f"Generated CLI for {manifest.get('extension_name', '?')} "
+            f"(stages: {', '.join(stages)}).{live_info} "
+            f"Saved to: {result.get('cli_dir', '?')}"
+        )
+        self._cliProgressDisplay.append(f"CLI generation complete: {status_text}!")
+
+        # Refresh the extension selector to show updated status, preserving selection
+        ext_name = manifest.get("extension_name", "")
+        self._onRefreshExtensionsClicked()
+        if ext_name:
+            for i in range(self._extensionSelector.count):
+                if ext_name in self._extensionSelector.itemText(i):
+                    self._extensionSelector.setCurrentIndex(i)
+                    break
 
     def _handleCliRevisionComplete(self, result):
         """Handle CLI revision completion on the main thread."""
@@ -1147,7 +1260,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Show current role-composed agent phase in the existing status label."""
         self._currentAgentRole = role or "Agent"
         if hasattr(self, 'statusLabel') and self.statusLabel is not None:
-            self.statusLabel.text = f"{self._currentAgentRole}: {status}"
+            # Truncate very long status text so the QLabel doesn't force the panel wide
+            truncated = status[:80] + "..." if len(status) > 80 else status
+            self.statusLabel.text = f"{self._currentAgentRole}: {truncated}"
 
     def _setReadyStatus(self):
         """Reset status label after a turn finishes or is cancelled."""
@@ -1339,75 +1454,75 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Thinking is already persisted per-round via on_reasoning callback — no need to write again here
 
+        # Transfer workflow step info from Logic to Widget (for all response types)
+        _stepInfoFromInteractive = False
+        if hasattr(self.logic, '_lastInteractiveStep') and self.logic._lastInteractiveStep:
+            step_info = self.logic._lastInteractiveStep
+            self._currentWorkflowStepInfo = step_info
+            self.logic._lastInteractiveStep = None
+            _stepInfoFromInteractive = True
+
+            # Start or update the workflow if needed
+            if self._workflowOrchestrator and step_info.get("step_id"):
+                if not self._activeWorkflowId:
+                    # Auto-start workflow for the extension
+                    ext_name = step_info.get("tool", "")
+                    try:
+                        from SlicerAIAgentLib.ExtensionCLILoader import _ensure_cache, get_cli_base_dir
+                        _ensure_cache()
+                        import os, json
+                        wf_path = os.path.join(get_cli_base_dir(), ext_name, "workflow.json")
+                        if os.path.isfile(wf_path):
+                            with open(wf_path, "r") as f:
+                                wf_graph = json.load(f)
+                            self._workflowOrchestrator.load_workflow_graph(ext_name, wf_graph)
+                            state = self._workflowOrchestrator.start_workflow(ext_name)
+                            self._activeWorkflowId = state.workflow_id
+                    except Exception as e:
+                        logger.warning(f"Failed to start workflow: {e}")
+
+                # Set the orchestrator's current step to waiting
+                if self._activeWorkflowId:
+                    state = self._workflowOrchestrator._get_state(self._activeWorkflowId)
+                    if state:
+                        state.current_step = step_info.get("step_id")
+                        state.status = "running"
+
+        # Handle automated (non-interactive) workflow steps the same way
+        if (not _stepInfoFromInteractive
+            and hasattr(self.logic, '_lastWorkflowStep')
+            and self.logic._lastWorkflowStep):
+            step_info = self.logic._lastWorkflowStep
+            self._currentWorkflowStepInfo = step_info
+            self.logic._lastWorkflowStep = None
+
+            if step_info.get("step_id"):
+                if not self._activeWorkflowId:
+                    ext_name = step_info.get("tool", "")
+                    try:
+                        from SlicerAIAgentLib.ExtensionCLILoader import _ensure_cache, get_cli_base_dir
+                        _ensure_cache()
+                        import os, json
+                        wf_path = os.path.join(get_cli_base_dir(), ext_name, "workflow.json")
+                        if os.path.isfile(wf_path):
+                            with open(wf_path, "r") as f:
+                                wf_graph = json.load(f)
+                            self._workflowOrchestrator.load_workflow_graph(ext_name, wf_graph)
+                            state = self._workflowOrchestrator.start_workflow(ext_name)
+                            self._activeWorkflowId = state.workflow_id
+                    except Exception as e:
+                        logger.warning(f"Failed to start workflow for automated step: {e}")
+
+                if self._activeWorkflowId:
+                    state = self._workflowOrchestrator._get_state(self._activeWorkflowId)
+                    if state:
+                        state.current_step = step_info.get("step_id")
+                        state.status = "running"
+
         # Display generated code if any and auto-execute
         if response.get("code"):
             self.currentCode = response["code"]
             self.currentAgentPlan = response.get("agent_plan")
-
-            # Transfer interactive workflow step info from Logic to Widget
-            _stepInfoFromInteractive = False
-            if hasattr(self.logic, '_lastInteractiveStep') and self.logic._lastInteractiveStep:
-                step_info = self.logic._lastInteractiveStep
-                self._currentWorkflowStepInfo = step_info
-                self.logic._lastInteractiveStep = None
-                _stepInfoFromInteractive = True
-
-                # Start or update the workflow if needed
-                if self._workflowOrchestrator and step_info.get("step_id"):
-                    if not self._activeWorkflowId:
-                        # Auto-start workflow for the extension
-                        ext_name = step_info.get("tool", "")
-                        try:
-                            from SlicerAIAgentLib.ExtensionCLILoader import _ensure_cache, get_cli_base_dir
-                            _ensure_cache()
-                            import os, json
-                            wf_path = os.path.join(get_cli_base_dir(), ext_name, "workflow.json")
-                            if os.path.isfile(wf_path):
-                                with open(wf_path, "r") as f:
-                                    wf_graph = json.load(f)
-                                self._workflowOrchestrator.load_workflow_graph(ext_name, wf_graph)
-                                state = self._workflowOrchestrator.start_workflow(ext_name)
-                                self._activeWorkflowId = state.workflow_id
-                        except Exception as e:
-                            logger.warning(f"Failed to start workflow: {e}")
-
-                    # Set the orchestrator's current step to waiting
-                    if self._activeWorkflowId:
-                        state = self._workflowOrchestrator._get_state(self._activeWorkflowId)
-                        if state:
-                            state.current_step = step_info.get("step_id")
-                            state.status = "running"
-
-            # Handle automated (non-interactive) workflow steps the same way
-            if (not _stepInfoFromInteractive
-                and hasattr(self.logic, '_lastWorkflowStep')
-                and self.logic._lastWorkflowStep):
-                step_info = self.logic._lastWorkflowStep
-                self._currentWorkflowStepInfo = step_info
-                self.logic._lastWorkflowStep = None
-
-                if step_info.get("step_id"):
-                    if not self._activeWorkflowId:
-                        ext_name = step_info.get("tool", "")
-                        try:
-                            from SlicerAIAgentLib.ExtensionCLILoader import _ensure_cache, get_cli_base_dir
-                            _ensure_cache()
-                            import os, json
-                            wf_path = os.path.join(get_cli_base_dir(), ext_name, "workflow.json")
-                            if os.path.isfile(wf_path):
-                                with open(wf_path, "r") as f:
-                                    wf_graph = json.load(f)
-                                self._workflowOrchestrator.load_workflow_graph(ext_name, wf_graph)
-                                state = self._workflowOrchestrator.start_workflow(ext_name)
-                                self._activeWorkflowId = state.workflow_id
-                        except Exception as e:
-                            logger.warning(f"Failed to start workflow for automated step: {e}")
-
-                    if self._activeWorkflowId:
-                        state = self._workflowOrchestrator._get_state(self._activeWorkflowId)
-                        if state:
-                            state.current_step = step_info.get("step_id")
-                            state.status = "running"
 
             self._recordRoleEvent("Planner", "agent_plan_received", {
                 "has_plan": bool(self.currentAgentPlan),
@@ -1425,6 +1540,24 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if self._timing:
                 self._timing['autoexecute_start'] = time.time()
             self._autoExecuteCode()
+
+        elif response.get("workflow_wait"):
+            # Workflow step is waiting for user input (e.g., user_choice)
+            if response.get("message"):
+                self.appendToChat("Assistant", response["message"])
+            if self._currentWorkflowStepInfo and self._currentWorkflowStepInfo.get("type") == "user_choice":
+                question = self._currentWorkflowStepInfo.get("question", "")
+                choices = self._currentWorkflowStepInfo.get("choices", [])
+                if question:
+                    lines = [f"[Workflow Question] {question}"]
+                    if choices:
+                        lines.append("Options:")
+                        for i, c in enumerate(choices, 1):
+                            lines.append(f"  {i}. {c.get('label', '')}")
+                    default = self._currentWorkflowStepInfo.get("default_value")
+                    if default is not None:
+                        lines.append(f"(Default: {default})")
+                    self.appendToChat("System", "\n".join(lines))
 
         # Update per-turn cumulative token usage
         if response.get("tokens"):
@@ -2065,15 +2198,30 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 wf_state = self._workflowOrchestrator._get_state(self._activeWorkflowId)
                 if wf_state and wf_state.status == "running":
                     step_info = getattr(self, '_currentWorkflowStepInfo', None)
-                    if step_info and step_info.get("type") == "interactive":
+                    if step_info and step_info.get("type") in ("interactive", "mixed"):
+                        # Apply display properties before entering wait state
+                        self._applyWorkflowDisplayProperties(step_info)
                         wf_state.status = "waiting_for_user"
                         self._recordRoleEvent("Workflow", "entering_wait", {
                             "step_id": wf_state.current_step,
                         })
                         self._streamQueue.put(('workflow_wait', step_info))
                         return
+                    # user_choice steps: no UI state change — the LLM handles the
+                    # question/answer via normal chat turns. Just keep chat enabled.
+                    if step_info and step_info.get("type") == "user_choice":
+                        wf_state.status = "waiting_for_choice"
+                        self._recordRoleEvent("Workflow", "waiting_for_choice", {
+                            "step_id": wf_state.current_step,
+                        })
+                        pass  # chat stays enabled, LLM will relay question
                     # Automated step completed — auto-advance to next step
-                    if step_info and step_info.get("type") == "automated":
+                    if step_info and step_info.get("type") in (
+                        "automated", "skipped", "choice_made",
+                        "interactive_done", "mixed_done",
+                    ):
+                        # Apply display properties for automated steps
+                        self._applyWorkflowDisplayProperties(step_info)
                         completed_step_id = step_info.get("step_id", "")
                         # Mark current step complete in both tracking systems
                         from SlicerAIAgentLib.ExtensionCLILoader import _find_next_step_local, _workflow_completed_steps
@@ -2085,6 +2233,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                             wf_st = self._workflowOrchestrator._get_state(self._activeWorkflowId)
                             if wf_st and completed_step_id not in wf_st.completed_steps:
                                 wf_st.completed_steps.append(completed_step_id)
+                            # Advance current_step so prompt fragment doesn't advertise the skipped step
+                            if wf_st and step_info.get("type") == "skipped":
+                                wf_st.current_step = None
                         # Load workflow graph for next-step lookup
                         try:
                             import os, json
@@ -2096,11 +2247,22 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                     wf_graph = json.load(wf_f)
                                 next_step = _find_next_step_local(wf_graph, done)
                                 if next_step:
-                                    self.appendToChat("System",
-                                        f"Step '{completed_step_id}' completed. "
-                                        f"Proceeding to next step: '{next_step['step_id']}'...")
+                                    if step_info.get("type") == "skipped":
+                                        self.appendToChat("System",
+                                            f"Step '{completed_step_id}' skipped. "
+                                            f"Proceeding to next step: '{next_step['step_id']}'...")
+                                    else:
+                                        self.appendToChat("System",
+                                            f"Step '{completed_step_id}' completed. "
+                                            f"Proceeding to next step: '{next_step['step_id']}'...")
                                     # Trigger a new turn with the next step
                                     self._autoAdvanceWorkflowStep = next_step
+                                elif step_info.get("type") == "skipped":
+                                    # No more steps after the skipped one — end the workflow
+                                    self.appendToChat("System",
+                                        f"Step '{completed_step_id}' skipped. No more steps available.")
+                                    if wf_st:
+                                        wf_st.status = "completed"
                         except Exception as e:
                             logger.warning(f"Workflow auto-advance failed: {e}")
 
@@ -2685,7 +2847,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         <div style="margin: 10px 0;">
             <span style="color: #999; font-size: 10px;">[{timestamp}]</span>
             <span style="color: {color}; font-weight: bold;">{sender}:</span>
-            <div style="margin-left: 10px; margin-top: 5px;">{self.escapeHtml(message).replace(chr(10), '<br>')}</div>
+            <div style="margin-left: 10px; margin-top: 5px; word-wrap: break-word;">{self.escapeHtml(message).replace(chr(10), '<br>')}</div>
         </div>
         <hr style="border: none; border-top: 1px solid #eee; margin: 5px 0;">
         """
@@ -3334,8 +3496,8 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
             # Log tool execution for debugging
             logger.info(f"Tool {tool_name} executed: {tool_args.get('pattern', tool_args.get('path', tool_args.get('ids', 'N/A')))}")
 
-            # Track interactive workflow dispatch results for the Widget
-            if isinstance(result, dict) and result.get("type") == "interactive":
+            # Track interactive/mixed/user_choice workflow dispatch results for the Widget
+            if isinstance(result, dict) and result.get("type") in ("interactive", "mixed", "user_choice"):
                 self._lastInteractiveStep = result
             # Track all workflow step dispatches (including automated) for auto-advance
             if isinstance(result, dict) and result.get("step_id") and result.get("tool"):

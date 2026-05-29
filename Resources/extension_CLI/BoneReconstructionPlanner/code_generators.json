@@ -2,307 +2,434 @@
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "create_bone_models"
+      "workflow_step": "cb_step_1"
     },
-    "description": "Generate 3D surface models from mandible and fibula segmentations using the module's Logic.",
+    "description": "1. If the fibula is from the right leg, tick the \"Right side leg\" checkbox.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
-    "step_type": "automated",
-    "template_file": "templates/create_bone_models.py.tpl"
+    "step_type": "user_choice",
+    "op_type": "user_choice",
+    "choice_descriptor": {
+      "question": "Is the fibula from the right leg?",
+      "choices": [
+        {
+          "label": "Yes",
+          "value": "true"
+        },
+        {
+          "label": "No",
+          "value": "false"
+        }
+      ],
+      "parameter_name": "right_side_leg",
+      "default_value": "false"
+    }
   },
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "add_mandibular_curve"
+      "workflow_step": "cb_step_2"
     },
-    "description": "Place a markup curve along the ideal mandibular arch to guide initial cut plane positioning.",
+    "description": "2. In the \"Select mandibular segmentation\" section, choose the mandibular segmentation, and in the \"Select fibula segmentation\" section, choose the fibula segmentation.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "step_type": "user_choice",
+    "op_type": "user_choice",
+    "choice_descriptor": {
+      "question": "Select the mandibular segmentation node from the scene.",
+      "choices": [],
+      "parameter_name": "mandible_segmentation",
+      "default_value": null
+    }
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_3"
+    },
+    "description": "3. For the \"Current Scalar Volume\" option, select the Mandible Volume.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "step_type": "user_choice",
+    "op_type": "user_choice",
+    "choice_descriptor": {
+      "question": "Select the mandible volume (scalar volume node) from the scene.",
+      "choices": [],
+      "parameter_name": "mandible_volume",
+      "default_value": null
+    }
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_4"
+    },
+    "description": "4. Click \"Create bone models from segmentations\" botton.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "step_type": "automated",
+    "op_type": "extension_op",
+    "template_file": "templates/cb_step_4.py.tpl"
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_5"
+    },
+    "description": "5. Change the layout to \"Conventional\". For the R (red) view, toggle on slice visibility in the 3D view. You should also toggle on slice intersection visibility and enable interaction. Then, you manually adjust the slice intersection position.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "step_type": "mixed",
+    "op_type": "mixed",
+    "pre_template_file": "templates/cb_step_5_pre.py.tpl",
+    "post_template_file": "templates/cb_step_5_post.py.tpl",
+    "interaction_descriptor": {
+      "interaction_type": "fiducial",
+      "node_class": "vtkMRMLSliceIntersectionNode",
+      "placement_instructions": "Drag the slice intersection point in the 3D view to adjust its position."
+    },
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "description": "Change layout to 'Conventional'.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [
+          "layout",
+          "conventional"
+        ],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      },
+      {
+        "op_type": "slicer_op",
+        "description": "Toggle slice visibility in the 3D view for the Red (R) view.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [
+          "red view",
+          "slice visibility",
+          "3D",
+          "toggle"
+        ],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      },
+      {
+        "op_type": "slicer_op",
+        "description": "Toggle slice intersection visibility in the 3D view.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [
+          "slice intersection",
+          "visibility",
+          "toggle"
+        ],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      },
+      {
+        "op_type": "slicer_op",
+        "description": "Enable interaction for the slice intersection.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [
+          "slice intersection",
+          "enable interaction"
+        ],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      },
+      {
+        "op_type": "user_interaction",
+        "description": "Manually adjust the slice intersection position in the 3D view.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [],
+        "interaction_type": "fiducial",
+        "node_class": "vtkMRMLSliceIntersectionNode",
+        "placement_instructions": "Drag the slice intersection point in the 3D view to adjust its position.",
+        "min_control_points": 1,
+        "is_optional": false
+      }
+    ]
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_6"
+    },
+    "description": "6. Click the \"Add mandibular curve\" button and open the \"Markups\" module. Expand the \"Display\" panel, then the \"Advanced\" panel, and set \"View\" to \"View 1\" with \"Red\" selected.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "step_type": "mixed",
+    "op_type": "mixed",
+    "pre_template_file": "templates/cb_step_6_pre.py.tpl",
+    "post_template_file": "templates/cb_step_6_post.py.tpl",
+    "interaction_descriptor": {},
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "description": "Click 'Add mandibular curve' button to create a curve markup node.",
+        "extension_method_hint": "addMandibularCurve",
+        "slicer_api_keywords": [],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      },
+      {
+        "op_type": "slicer_op",
+        "description": "Open the Markups module.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [
+          "module",
+          "Markups"
+        ],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      },
+      {
+        "op_type": "slicer_op",
+        "description": "In the Markups module, expand the Display and Advanced panels, and set View to View 1 with Red selected.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [
+          "Markups",
+          "Display",
+          "Advanced",
+          "View",
+          "Red"
+        ],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      }
+    ]
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_7"
+    },
+    "description": "7. Manually click and draw on the \"Red\" view to create a curve along the mandible.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "interactive",
-    "pre_template_file": "templates/add_mandibular_curve_pre.py.tpl",
-    "post_template_file": "templates/add_mandibular_curve_post.py.tpl",
+    "op_type": "user_interaction",
+    "pre_template_file": "templates/cb_step_7_pre.py.tpl",
+    "post_template_file": "templates/cb_step_7_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "curve",
       "node_class": "vtkMRMLMarkupsCurveNode",
-      "placement_instructions": "Switch to curve placement mode. Click on the mandibular segmentation to define a curve. Use at least three points for an accurate curve representation."
+      "placement_instructions": "Click and draw on the Red slice view to create a curve along the mandible."
     }
   },
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "add_cut_plane"
+      "workflow_step": "cb_step_8"
     },
-    "description": "Place a markup plane on the mandible model; adjacent planes define bone pieces for reconstruction.",
+    "description": "8. Change the layout from \"Conventional\" back to the custom layout \"BoneReconstructionPlanner\". For the R (red) view, toggle off the slice visibility in the 3D view.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
-    "step_type": "interactive",
-    "pre_template_file": "templates/add_cut_plane_pre.py.tpl",
-    "post_template_file": "templates/add_cut_plane_post.py.tpl",
+    "step_type": "mixed",
+    "op_type": "mixed",
+    "pre_template_file": "templates/cb_step_8_pre.py.tpl",
+    "post_template_file": "templates/cb_step_8_post.py.tpl",
+    "interaction_descriptor": {},
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "description": "Change layout from 'Conventional' to custom layout 'BoneReconstructionPlanner'.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      },
+      {
+        "op_type": "slicer_op",
+        "description": "Toggle off slice visibility in the 3D view for the Red (R) view.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [
+          "red view",
+          "slice visibility",
+          "3D",
+          "off"
+        ],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      }
+    ]
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_9"
+    },
+    "description": "9. Click \"Add cut plane\" botton and click where you want the plane in \"3D View 1\" to create the first plane. Repeat this process by clicking \"Add cut plane\" again to add as many planes as needed.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "step_type": "mixed",
+    "op_type": "mixed",
+    "pre_template_file": "templates/cb_step_9_pre.py.tpl",
+    "post_template_file": "templates/cb_step_9_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "plane",
       "node_class": "vtkMRMLMarkupsPlaneNode",
-      "placement_instructions": "Switch to persistent plane placement mode. Click three points on the mandibular model to define each cut plane. Continue placing planes until all resections are defined."
-    }
+      "placement_instructions": "Click in 3D View 1 where you want the cut plane to be placed. Each click creates a new plane after clicking 'Add cut plane'."
+    },
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "description": "Click 'Add cut plane' button to create a new plane markup node.",
+        "extension_method_hint": "addCutPlane",
+        "slicer_api_keywords": [],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      },
+      {
+        "op_type": "user_interaction",
+        "description": "Place the cut plane in 3D View 1 by clicking on the desired location. Repeat as needed by clicking 'Add cut plane' again.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [],
+        "interaction_type": "plane",
+        "node_class": "vtkMRMLMarkupsPlaneNode",
+        "placement_instructions": "Click in 3D View 1 where you want the cut plane to be placed. Each click creates a new plane after clicking 'Add cut plane'.",
+        "min_control_points": 1,
+        "is_optional": false
+      }
+    ]
   },
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "add_fibula_line"
+      "workflow_step": "cb_step_10"
     },
-    "description": "Draw a markup line along the fibula diaphysis (distal to proximal) to define the fibula axis.",
+    "description": "10. Click \"Add fibula line.\" Draw a line over the fibula in \"3D View 2\", starting with the first point distally and the last point proximally.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "step_type": "mixed",
+    "op_type": "mixed",
+    "pre_template_file": "templates/cb_step_10_pre.py.tpl",
+    "post_template_file": "templates/cb_step_10_post.py.tpl",
+    "interaction_descriptor": {
+      "interaction_type": "line",
+      "node_class": "vtkMRMLMarkupsLineNode",
+      "placement_instructions": "In 3D View 2, click the first point at the distal end of the fibula, then click the last point at the proximal end to create the line."
+    },
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "description": "Click 'Add fibula line' button to create a line markup node.",
+        "extension_method_hint": "addFibulaLine",
+        "slicer_api_keywords": [],
+        "interaction_type": null,
+        "node_class": null,
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false
+      },
+      {
+        "op_type": "user_interaction",
+        "description": "Draw a line over the fibula in 3D View 2, starting distally and ending proximally.",
+        "extension_method_hint": null,
+        "slicer_api_keywords": [],
+        "interaction_type": "line",
+        "node_class": "vtkMRMLMarkupsLineNode",
+        "placement_instructions": "In 3D View 2, click the first point at the distal end of the fibula, then click the last point at the proximal end to create the line.",
+        "min_control_points": 2,
+        "is_optional": false
+      }
+    ]
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_11"
+    },
+    "description": "11. Click \"Center fibula line using fibula model\" botton to align the line with the anatomical axis of the fibula.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "step_type": "automated",
+    "op_type": "extension_op",
+    "template_file": "templates/cb_step_11.py.tpl"
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_12"
+    },
+    "description": "12. Tick the following options: \"Automatic mandibular planes positioning for maximum bones contact area\" and \"Make all mandible planes rotate together.\"",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "step_type": "automated",
+    "op_type": "extension_op",
+    "template_file": "templates/cb_step_12.py.tpl"
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_13"
+    },
+    "description": "13. Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to generate the reconstruction and create the fibula cut planes.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "step_type": "automated",
+    "op_type": "extension_op",
+    "template_file": "templates/cb_step_13.py.tpl"
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_14"
+    },
+    "description": "14. Move the mandible planes manually to change the position and orientation of the cuts.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "interactive",
-    "pre_template_file": "templates/add_fibula_line_pre.py.tpl",
-    "post_template_file": "templates/add_fibula_line_post.py.tpl",
+    "op_type": "user_interaction",
+    "pre_template_file": "templates/cb_step_14_pre.py.tpl",
+    "post_template_file": "templates/cb_step_14_post.py.tpl",
     "interaction_descriptor": {
-      "interaction_type": "line",
-      "node_class": "vtkMRMLMarkupsLineNode",
-      "placement_instructions": "Switch to line placement mode. Click two points along the fibula segmentation to define the fibula axis."
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "center_fibula_line"
-    },
-    "description": "Automatically adjust the fibula line to coincide with the anatomical axis of the fibula model.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "automated",
-    "template_file": "templates/center_fibula_line.py.tpl"
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "update_fibula_planes"
-    },
-    "description": "Compute fibula cut planes from mandible planes and fibula axis, create bone pieces, and transform them to the mandible position.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "automated",
-    "template_file": "templates/update_fibula_planes.py.tpl"
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "hard_vsp_update"
-    },
-    "description": "Force a complete recomputation of the virtual surgical plan outputs without modifying input objects.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "automated",
-    "template_file": "templates/hard_vsp_update.py.tpl"
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_reconstruction_3d_model"
-    },
-    "description": "Generate a combined STL model of the neomandible (mandible plus fibula pieces) for 3D printing.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "automated",
-    "template_file": "templates/create_reconstruction_3d_model.py.tpl"
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_dental_implant_fiducials"
-    },
-    "description": "Place fiducial points on neomandible pieces where dental implant cylinders should be positioned.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Place fiducial points on neomandible pieces where dental implant cylinders should be positioned.",
-    "branches": {
-      "yes": "create_dental_implant_fiducials",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_dental_implant_cylinders"
-    },
-    "description": "Generate cylindrical models representing dental implants at the fiducial locations on the neomandible.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Generate cylindrical models representing dental implants at the fiducial locations on the neomandible.",
-    "branches": {
-      "yes": "create_dental_implant_cylinders",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_plate_curve"
-    },
-    "description": "Draw a markup curve along the neomandible surface to define the path of the custom titanium plate.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Draw a markup curve along the neomandible surface to define the path of the custom titanium plate.",
-    "branches": {
-      "yes": "create_plate_curve",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_custom_plate"
-    },
-    "description": "Generate a 3D model of a patient-specific titanium plate following the plate curve.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Generate a 3D model of a patient-specific titanium plate following the plate curve.",
-    "branches": {
-      "yes": "create_custom_plate",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_miter_boxes"
-    },
-    "description": "Create miter box models for fibula osteotomies; each box includes a slit for the saw blade.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Create miter box models for fibula osteotomies; each box includes a slit for the saw blade.",
-    "branches": {
-      "yes": "create_miter_boxes",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_fibula_screw_fiducials"
-    },
-    "description": "Place fiducial points on the fibula guide base where screw holes will be drilled.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Place fiducial points on the fibula guide base where screw holes will be drilled.",
-    "branches": {
-      "yes": "create_fibula_screw_fiducials",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_fibula_screw_cylinders"
-    },
-    "description": "Generate cylinder models for screw holes on the fibula guide base at the fiducial locations.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Generate cylinder models for screw holes on the fibula guide base at the fiducial locations.",
-    "branches": {
-      "yes": "create_fibula_screw_cylinders",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "boolean_fibula_guide"
-    },
-    "description": "Perform Boolean subtraction to combine screw holes, dental implant cylinders, and miter boxes into a final fibula surgical guide prototype.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Perform Boolean subtraction to combine screw holes, dental implant cylinders, and miter boxes into a final fibula surgical guide prototype.",
-    "branches": {
-      "yes": "boolean_fibula_guide",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_mandible_saw_boxes"
-    },
-    "description": "Create saw box models for mandible osteotomies at the first and last cut planes.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Create saw box models for mandible osteotomies at the first and last cut planes.",
-    "branches": {
-      "yes": "create_mandible_saw_boxes",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_mandible_screw_fiducials"
-    },
-    "description": "Place fiducial points on the mandible guide base where screw holes will be drilled.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Place fiducial points on the mandible guide base where screw holes will be drilled.",
-    "branches": {
-      "yes": "create_mandible_screw_fiducials",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "create_mandible_screw_cylinders"
-    },
-    "description": "Generate cylinder models for screw holes on the mandible guide base at the fiducial locations.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Generate cylinder models for screw holes on the mandible guide base at the fiducial locations.",
-    "branches": {
-      "yes": "create_mandible_screw_cylinders",
-      "no": ""
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "boolean_mandible_guide"
-    },
-    "description": "Perform Boolean subtraction to combine screw holes, bridge model, and saw boxes into a final mandible surgical guide prototype.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "branch",
-    "condition": "Perform Boolean subtraction to combine screw holes, bridge model, and saw boxes into a final mandible surgical guide prototype.",
-    "branches": {
-      "yes": "boolean_mandible_guide",
-      "no": ""
+      "interaction_type": "plane",
+      "node_class": "vtkMRMLMarkupsPlaneNode",
+      "placement_instructions": "Drag and rotate the mandible planes in the 3D view to change their position and orientation for optimal cuts."
     }
   }
 ]
