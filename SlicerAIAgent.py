@@ -1009,17 +1009,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._analyzeGenerateButton.setEnabled(True)
 
         if result.get("success"):
-            # Live execution validation on Qt main thread (after static validation passed)
-            cli_dir = result.get("cli_dir", "")
-            if cli_dir and self.logic.executor:
-                self._cliStatusLabel.setText("Live-validating...")
-                self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
-                self._cliProgressDisplay.append("Running live execution validation...")
-                self._liveValidateCliTemplates(result)
-                return  # _liveValidateCliTemplates will finalize the UI
-            else:
-                # No executor or cli_dir — fall back to static-only validation
-                self._finalizeCliValidation(result, live_results={})
+            self._finalizeCliValidation(result, live_results={})
 
         else:
             self._cliStatusLabel.setText("Failed")
@@ -1037,34 +1027,6 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if result.get("validation_result") and not result["validation_result"].get("valid"):
                 self._cliProgressDisplay.append("Auto-revising with LLM...")
                 self._autoReviseCli(result)
-
-    def _liveValidateCliTemplates(self, result):
-        """Run live execution validation for each generated .py.tpl template.
-
-        Executes templates one at a time via SafeExecutor with always_rollback=True
-        so the MRML scene is restored after each trial. Called on the Qt main thread
-        from _handleCliComplete after static AST validation passes.
-        """
-        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
-
-        cli_dir = result.get("cli_dir", "")
-
-        def _on_live_progress(idx, total, tpl_key, tpl_result):
-            status = "✓" if tpl_result.get("live_valid") else "✗"
-            self._cliProgressDisplay.append(
-                f"  [{idx + 1}/{total}] {tpl_key}: {status}"
-            )
-            if tpl_result.get("error"):
-                self._cliProgressDisplay.append(f"    Error: {tpl_result['error'][:200]}")
-
-        live_results = ExtensionCLIAnalyzer.live_validate_templates(
-            cli_dir=cli_dir,
-            executor=self.logic.executor,
-            on_progress=_on_live_progress,
-        )
-
-        # Finalize the UI based on live results
-        self._finalizeCliValidation(result, live_results)
 
     def _finalizeCliValidation(self, result, live_results):
         """Finalize the CLI generation UI after validation (static + optional live).
