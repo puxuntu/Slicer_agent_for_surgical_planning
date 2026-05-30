@@ -1428,6 +1428,26 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                         step_num, desc[:60],
                     )
 
+            # ── "Tick/enable/toggle" extension UI controls without method hint → extension_op ──
+            # Extension UI checkboxes/toggles set extension parameter node values,
+            # not Slicer core API. If there's no Logic method, it's still extension_op
+            # because the parameter names are extension-specific.
+            for so in sub_ops:
+                if so["op_type"] != "slicer_op":
+                    continue
+                desc = so.get("description", "").lower()
+                has_hint = bool(so.get("extension_method_hint"))
+                if not has_hint and any(
+                    desc.startswith(w) for w in ("tick ", "toggle ", "enable ", "check ", "uncheck ")
+                ):
+                    so["op_type"] = "extension_op"
+                    so["slicer_api_keywords"] = []
+                    logger.info(
+                        "[Stage 4] Reclassified step %d slicer_op → extension_op "
+                        "(extension UI control without method hint): %s",
+                        step_num, desc[:60],
+                    )
+
             # Build method_details from matched extension_op sub-operations
             stage_methods = []
             for so in sub_ops:
@@ -2949,8 +2969,45 @@ Return ONLY the JSON array, no markdown fences.""")
                             auto_parts.append(f"# Slicer op: {so['description']}\n# TODO: generate slicer code\npass")
 
                 pre_key = f"templates/{step_id}_pre.py.tpl"
-                templates[pre_key] = "\n\n".join(auto_parts) if auto_parts else "# No automated sub-operations\npass"
                 step["pre_template"] = pre_key
+
+                # Append node creation + ID storage for the interaction sub-op
+                # so the post-template can retrieve the node.
+                interaction_sub_ops = [
+                    so for so in sub_ops if so.get("op_type") == "user_interaction"
+                ]
+                if interaction_sub_ops:
+                    iso = interaction_sub_ops[0]
+                    node_class = iso.get("node_class") or step.get("node_class", "")
+                    if node_class:
+                        node_name = step_id.replace("_", " ").title()
+                        node_var = f"_{extension_name.lower()}_{step_id}_id"
+                        instructions = iso.get(
+                            "placement_instructions",
+                            step.get("description", ""),
+                        )
+                        interaction_block = (
+                            f"\n\n# --- Setup interaction node ---\n"
+                            f"import slicer\n"
+                            f"node = slicer.mrmlScene.AddNewNodeByClass"
+                            f"(\"{node_class}\", \"{node_name}\")\n"
+                            f"displayNode = node.GetDisplayNode()\n"
+                            f"if displayNode is None:\n"
+                            f"    displayNode = node.CreateDefaultDisplayNode()\n"
+                            f"displayNode.SetVisibility(True)\n"
+                            f"slicer.modules.markups.logic().SetActiveListID(node)\n"
+                            f"interactionNode = slicer.mrmlScene.GetNodeByID"
+                            f"(\"vtkMRMLInteractionNodeSingleton\")\n"
+                            f"interactionNode.SwitchToPersistentPlaceMode()\n"
+                            f"{node_var} = node.GetID()\n"
+                            f"print(\"[{extension_name}] Please {instructions}\")\n"
+                        )
+                        auto_parts.append(interaction_block)
+
+                templates[pre_key] = (
+                    "\n\n".join(auto_parts) if auto_parts
+                    else "# No automated sub-operations\npass"
+                )
 
                 # Post-interaction template for the user_interaction part
                 post_key = f"templates/{step_id}_post.py.tpl"
@@ -2967,6 +3024,51 @@ Return ONLY the JSON array, no markdown fences.""")
                 # user_choice steps don't need code templates — handled by the
                 # orchestrator which presents the question and collects the answer.
                 pass
+
+        # Post-generation consistency check: verify pre/post templates agree
+        # on node ID variables (_ext_step_id).
+        consistency_fixes = 0
+        for step in steps:
+            if step.get("step_type") not in ("interactive", "mixed"):
+                continue
+            s_id = step["step_id"]
+            node_var = f"_{extension_name.lower()}_{s_id}_id"
+
+            # Check post-template references the var
+            post_key = step.get("post_template", "")
+            if not post_key or post_key not in templates:
+                continue
+            if node_var not in templates[post_key]:
+                continue
+
+            # Verify pre-template defines it
+            pre_key = step.get("pre_template", "")
+            if not pre_key or pre_key not in templates:
+                continue
+            if node_var in templates[pre_key]:
+                continue
+
+            # Missing — inject node ID storage at end of pre-template
+            node_class = step.get("node_class", "vtkMRMLMarkupsFiducialNode")
+            injection = (
+                f"\n# [Auto-injected] Store node ID for post-step\n"
+                f"try:\n"
+                f"    {node_var} = node.GetID()\n"
+                f"except NameError:\n"
+                f"    {node_var} = ''\n"
+            )
+            templates[pre_key] = templates[pre_key].rstrip() + "\n" + injection
+            consistency_fixes += 1
+            logger.info(
+                "[Stage 7] Injected missing node ID '%s' into %s",
+                node_var, pre_key,
+            )
+
+        if consistency_fixes:
+            logger.info(
+                "[Stage 7] Fixed %d pre/post node ID consistency issues",
+                consistency_fixes,
+            )
 
         # Store workflow graph as JSON template (only valid steps)
         valid_types = {"automated", "interactive", "branch", "mixed", "user_choice"}
@@ -3459,6 +3561,23 @@ Return ONLY the JSON array, no markdown fences.""")
                         return f"# {var}.<method>()  # method name not available"
                     return m.group(0)
                 code = _EMPTY_METHOD_CALL_RE.sub(_fix_empty_call, code)
+
+            # 6. Detect stub templates (only pass + comments/print)
+            _stripped = [
+                l.strip() for l in code.split('\n')
+                if l.strip() and not l.strip().startswith('#')
+            ]
+            _non_trivial = [
+                l for l in _stripped
+                if l != 'pass' and not l.startswith('print(')
+            ]
+            if not _non_trivial:
+                fixes_applied += 1
+                logger.warning(
+                    "[Stage 7] Template '%s' appears to be a stub "
+                    "(only pass/comments). Consider regenerating.",
+                    key,
+                )
 
             if code != original:
                 fixes_applied += 1
@@ -5528,6 +5647,20 @@ Return ONLY the JSON, no markdown fences.""")
                     "mixed": "mixed",
                 }
                 step_type = _OP_TYPE_TO_STEP_TYPE.get(op_type, "automated")
+                # Validate "mixed" actually contains interaction/choice sub-ops.
+                # A step with only extension_op + slicer_op is not truly mixed.
+                if step_type == "mixed":
+                    has_user_part = any(
+                        so.get("op_type") in ("user_interaction", "user_choice")
+                        for so in sub_ops
+                    )
+                    if not has_user_part:
+                        logger.info(
+                            "Downgrading step %s from 'mixed' to 'automated' "
+                            "(no user_interaction/user_choice sub-ops)",
+                            step_id,
+                        )
+                        step_type = "automated"
                 # Apply optional→branch override
                 if is_optional and step_type == "automated":
                     step_type = "branch"
