@@ -554,6 +554,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
                 analyzer = ExtensionCLIAnalyzer(
                     llm_client=self.logic.llmClient,
+                    output_base_dir=os.path.join(
+                        os.path.dirname(__file__), "Resources", "extension_CLI"
+                    ),
                     code_validator=CodeValidator(),
                     on_progress=lambda n, s, d: self._streamQueue.put(
                         ('cli_progress', {'stage': n, 'name': s, 'detail': d})
@@ -569,7 +572,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self._streamQueue.put(('cli_complete', result))
 
             except Exception as e:
-                self._streamQueue.put(('cli_error', str(e)))
+                import traceback
+                self._streamQueue.put(('cli_error', f"{e}\n{traceback.format_exc()}"))
 
         thread = threading.Thread(target=_run_analysis, daemon=True)
         thread.start()
@@ -700,6 +704,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
                 analyzer = ExtensionCLIAnalyzer(
                     llm_client=self.logic.llmClient,
+                    output_base_dir=os.path.join(
+                        os.path.dirname(__file__), "Resources", "extension_CLI"
+                    ),
                     code_validator=CodeValidator(),
                     on_progress=lambda n, s, d: self._streamQueue.put(
                         ('cli_progress', {'stage': n, 'name': s, 'detail': d})
@@ -745,6 +752,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
                 analyzer = ExtensionCLIAnalyzer(
                     llm_client=self.logic.llmClient,
+                    output_base_dir=os.path.join(
+                        os.path.dirname(__file__), "Resources", "extension_CLI"
+                    ),
                     code_validator=CodeValidator(),
                     on_progress=lambda n, s, d: self._streamQueue.put(
                         ('cli_progress', {'stage': n, 'name': s, 'detail': d})

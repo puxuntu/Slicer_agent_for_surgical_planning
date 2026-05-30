@@ -205,6 +205,15 @@ def getNodeProperties(node_id: str) -> Dict[str, Any]:
                 d["opacity"] = displayNode.GetOpacity()
             if hasattr(displayNode, "GetSliceIntersectionVisibility"):
                 d["sliceIntersectionVisible"] = bool(displayNode.GetSliceIntersectionVisibility())
+            # View node IDs for per-view visibility
+            view_node_ids = []
+            if hasattr(displayNode, "GetNumberOfViewNodeIDs"):
+                for i in range(displayNode.GetNumberOfViewNodeIDs()):
+                    vid = displayNode.GetNthViewNodeID(i)
+                    if vid:
+                        view_node_ids.append(vid)
+            if view_node_ids:
+                d["viewNodeIDs"] = view_node_ids
             result["display"] = d
 
     if hasattr(node, "GetTransformNode"):

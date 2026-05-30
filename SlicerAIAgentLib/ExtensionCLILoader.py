@@ -688,6 +688,13 @@ def _handle_interactive_start(ctx: _WorkflowContext) -> Dict:
         pre_code = None
 
     interaction_desc = ctx.target_gen.get("interaction_descriptor", {})
+    nc = interaction_desc.get("node_class", "")
+    _NC_MAP = {
+        "vtkMRMLMarkupsCurveNode": "curve",
+        "vtkMRMLMarkupsPlaneNode": "plane",
+        "vtkMRMLMarkupsLineNode": "line",
+        "vtkMRMLMarkupsFiducialNode": "fiducial",
+    }
 
     return {
         "tool": ctx.tool_name,
@@ -705,7 +712,7 @@ def _handle_interactive_start(ctx: _WorkflowContext) -> Dict:
             "Do NOT call any more tools until the user confirms they are done."
         ),
         "interaction_instructions": interaction_desc.get("placement_instructions", ""),
-        "interaction_type": interaction_desc.get("interaction_type", ""),
+        "interaction_type": _NC_MAP.get(nc, "generic"),
         "step_id": ctx.workflow_step,
         "explanation": ctx.target_step.get("description", ""),
         "display_properties": ctx.target_step.get("display_properties"),
@@ -793,7 +800,14 @@ def _handle_mixed_step(ctx: _WorkflowContext) -> Dict:
     # Determine mixed sub-type: interaction vs choice
     interaction_desc = ctx.target_gen.get("interaction_descriptor", {})
     choice_desc = ctx.target_gen.get("choice_descriptor", {})
-    has_interaction = bool(interaction_desc.get("interaction_type"))
+    # Use sub_operations as the authoritative signal for user interaction,
+    # NOT interaction_type (which may be null for non-markup interactions
+    # like slice crosshair adjustment).
+    sub_ops = ctx.target_gen.get("sub_operations",
+                ctx.target_step.get("sub_operations", []))
+    has_interaction = any(
+        so.get("op_type") == "user_interaction" for so in sub_ops
+    )
     has_choice = bool(choice_desc.get("question"))
 
     # Handle choice_made for mixed+choice steps
@@ -960,15 +974,24 @@ def _build_mixed_interaction_response(
     """Build the response for a mixed auto+interaction step (initial start)."""
     sub_ops = ctx.target_step.get("sub_operations", [])
     interaction_instructions = interaction_desc.get("placement_instructions", "")
-    interaction_type = interaction_desc.get("interaction_type", "")
+    node_class = interaction_desc.get("node_class", "")
 
     # If no interaction_descriptor from generator, check sub_operations
     if not interaction_instructions:
         for so in sub_ops:
             if so.get("op_type") == "user_interaction":
                 interaction_instructions = so.get("placement_instructions") or so.get("description", "")
-                interaction_type = so.get("interaction_type", "")
+                node_class = so.get("node_class", "") or node_class
                 break
+
+    # Derive interaction_type from node_class for display
+    _NC_MAP = {
+        "vtkMRMLMarkupsCurveNode": "curve",
+        "vtkMRMLMarkupsPlaneNode": "plane",
+        "vtkMRMLMarkupsLineNode": "line",
+        "vtkMRMLMarkupsFiducialNode": "fiducial",
+    }
+    interaction_type = _NC_MAP.get(node_class, "generic")
 
     return {
         "tool": ctx.tool_name,

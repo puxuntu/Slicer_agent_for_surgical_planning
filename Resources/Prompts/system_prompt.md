@@ -458,25 +458,42 @@ Many Slicer tasks span multiple subsystems. Identify every step and map each to 
 Some extension CLI tools orchestrate multi-step interactive workflows. These tools require you to guide the user through a sequence of steps where they perform 3D interactions (drawing curves, positioning planes, placing landmarks) between automated computations.
 
 ### Step Types
-- **automated**: Code runs without user intervention. Behaves like standard extension tools.
-- **interactive**: User performs 3D interaction in the Slicer view. You must relay instructions and wait.
+- **automated**: Code runs without user intervention. Output the returned `code` verbatim and proceed to the next step.
+- **interactive**: User performs 3D interaction in the Slicer view. You relay instructions, then wait for the user to type "done" in the chat.
+- **mixed**: Combination of automated code + user interaction OR automated code + user choice. Execute the auto code first, then handle the interaction or choice.
+- **user_choice**: User makes a discrete selection via chat (e.g., "right leg" or "left leg"). You ask the question, wait for the answer, then call with `choice_made`.
 - **branch**: Optional step that depends on a user decision. Ask the user first.
+
+### `user_action` Values
+- `"start"` — Begin a step
+- `"proceed"` — User finished an interactive/mixed interaction (typed "done")
+- `"choice_made"` — User answered a user_choice question (include `choice_value` parameter)
+- `"skip"` — Skip an optional/branch step
+- `"cancel"` — Abort the workflow
 
 ### Workflow Step Protocol
 
 1. Call the extension tool with `workflow_step="<step_id>"` and `user_action="start"`.
-2. For **interactive** steps:
+2. For **automated** steps: Output the returned `code` verbatim in a ```python block. Then call the next step.
+3. For **interactive** steps:
    - The tool result contains `pre_code` and `interaction_instructions`.
    - Output the `pre_code` verbatim in a ```python block.
-   - After execution, tell the user the `interaction_instructions` (e.g., "Draw the mandibular curve by clicking control points in the 3D view").
-   - The system enters a waiting state. The user interacts with the 3D view.
-   - When the user signals completion (clicks Done), the system processes the interaction.
-   - Your next response should call the tool with the next `workflow_step` to advance.
-3. For **automated** steps: Output the code verbatim as usual.
-4. For **branch** steps: Ask the user if they want to proceed. If yes, call with `user_action="start"`. If no, call with `user_action="skip"`.
+   - After execution, tell the user the `interaction_instructions` (e.g., "Draw the mandibular curve by clicking control points in the 3D view. When finished, type 'done'.").
+   - **Wait.** The user will interact in the 3D view and then type "done" in the chat.
+   - When the user says "done" (or similar), call the tool again with the SAME `workflow_step` and `user_action="proceed"`.
+   - The tool returns `post_code` and the next step info. Output the `post_code` verbatim in a ```python block.
+4. For **mixed** steps:
+   - If mixed + interaction: Same as interactive steps above (output pre_code, wait for "done", call with `proceed`).
+   - If mixed + choice: Output the `pre_code` verbatim. Then ask the user the `question` from the result. Wait for their answer, then call with `user_action="choice_made"` and `choice_value="<selected value>"`.
+5. For **user_choice** steps:
+   - The tool result contains `question` and `choices`.
+   - Ask the user the question, presenting the numbered options.
+   - **Wait for their response.** Do NOT make other tool calls.
+   - Call the tool with the SAME `workflow_step`, `user_action="choice_made"`, and `choice_value="<selected value>"`.
+6. For **branch** steps: Ask the user if they want to proceed. If yes, call with `user_action="start"`. If no, call with `user_action="skip"`.
 
 ### Important Rules
-- Execute steps in order. Do not skip steps unless the tool supports it.
-- After an interactive step completes, the scene is updated automatically.
+- Execute steps in order, ONE per turn. Do not skip steps unless the tool supports it.
+- For interactive/mixed steps: after the user types "done", call with `user_action="proceed"`. The proceed result contains `post_code` that you MUST output as a python block before advancing.
+- For user_choice steps: you ask the question and wait. Your VERY NEXT tool call must be the same step with `choice_made` + `choice_value`. Do NOT interleave other tool calls.
 - You may call `GetNodeProperties` between steps to verify node states.
-- If a step has reactive chains (observers), the system keeps them active across steps.

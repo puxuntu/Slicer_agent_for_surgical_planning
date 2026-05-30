@@ -602,6 +602,30 @@ class LLMClient:
             base_prompt += "Example: `ext:VoxTell/` to search VoxTell source, `ext:VoxTell/VoxTell.py` to read a file.\n\n"
             base_prompt += "\n".join(ext_source_info)
 
+        # Inject cookbook-guided workflow info for interactive workflow extensions
+        for ext_name, ext_data in get_validated_extensions().items():
+            manifest = ext_data["manifest"]
+            if manifest.get("workflow_type") == "interactive":
+                base_prompt += "\n\n## COOKBOOK-GUIDED WORKFLOW\n"
+                base_prompt += (
+                    f"The **{ext_name}** tool follows a cookbook-driven workflow. "
+                    "Steps are classified by operation type:\n"
+                    "- **extension_op**: Calls this extension's own Logic methods (code from local source, no KB search)\n"
+                    "- **slicer_op**: Uses Slicer core API not in this extension (needs KB search)\n"
+                    "- **user_interaction**: User physically acts in 3D view (draw, position, drag)\n"
+                    "- **user_choice**: Agent cannot determine value, must ask user via chat\n"
+                    "- **mixed**: Combination of automated + user interaction or automated + user choice\n\n"
+                    "For automated steps (extension_op, slicer_op): output code, proceed immediately.\n"
+                    "For interactive/mixed+interaction steps: output pre_code, relay instructions to the user. "
+                    "When the user types 'done' in the chat, call the tool again with the SAME "
+                    "workflow_step and user_action='proceed'. Output the returned post_code verbatim.\n"
+                    "For mixed+choice steps: output pre_code, ask the question, wait for answer, "
+                    "then call with user_action='choice_made' and choice_value='<selected value>'.\n"
+                    "For user_choice steps: ask the question, wait for answer, then call with "
+                    "user_action='choice_made' and choice_value='<selected value>'.\n"
+                )
+                break
+
         # Inject active workflow state if one is running
         if context and context.get("workflow_state"):
             base_prompt += "\n\n## ACTIVE WORKFLOW\n"
@@ -1429,6 +1453,7 @@ class LLMClient:
             'rounds': [],
         }
 
+        pending_workflow_wait = False
         for round_num in range(max_tool_rounds):
             logger.info(f"Tool calling round {round_num + 1}")
             round_start = time.time()
@@ -1506,6 +1531,28 @@ class LLMClient:
                             'tool_calls_history': tool_calls_history,
                             'intermediate_messages': intermediate_messages,
                             'has_code': True,
+                        }
+
+                    # If a workflow step is waiting for user input, return the
+                    # assistant's text instead of nudging the LLM to keep going.
+                    if pending_workflow_wait:
+                        messages.append({
+                            'role': 'assistant',
+                            'content': content,
+                        })
+                        if reasoning_content:
+                            messages[-1]['reasoning_content'] = reasoning_content
+                        intermediate_messages.append(messages[-1])
+                        accumulated_reasoning = '\n\n'.join(all_reasoning_parts) if all_reasoning_parts else reasoning_content
+                        return {
+                            'content': content,
+                            'reasoning_content': accumulated_reasoning,
+                            'data': data,
+                            'timing_report': timing_report,
+                            'tool_calls_history': tool_calls_history,
+                            'intermediate_messages': intermediate_messages,
+                            'has_code': False,
+                            'workflow_wait': True,
                         }
 
                     messages.append({
@@ -1590,6 +1637,15 @@ class LLMClient:
                     if out["history_entry"] is not None:
                         tool_calls_history.append(out["history_entry"])
                     tool_names.append(out["name"])
+
+                # Detect workflow steps that require waiting for user input
+                for out in outputs:
+                    try:
+                        result_data = json.loads(out["tool_result"]["content"])
+                        if isinstance(result_data, dict) and result_data.get("type") == "user_choice":
+                            pending_workflow_wait = True
+                    except Exception:
+                        pass
 
                 tool_time = time.time() - tool_start
                 usage = data.get('usage', {})
@@ -1818,8 +1874,8 @@ class LLMClient:
         timing_report = result['timing_report']
         tool_calls_history = result['tool_calls_history']
         intermediate_messages = result['intermediate_messages']
-        if result['has_code']:
-            # Final response with code - DEBUG: write messages to file
+        if result['has_code'] or result.get('workflow_wait'):
+            # Final response with code or workflow wait - DEBUG: write messages to file
             try:
                 debug_path = self._debugPath(f'{self.turn_number}_last_prompt_debug{self.debug_suffix}.txt')
                 with open(debug_path, 'w', encoding='utf-8') as f:
@@ -1871,6 +1927,7 @@ class LLMClient:
         response['tool_calls_history'] = tool_calls_history
         response['timing_report'] = timing_report
         response['intermediate_messages'] = intermediate_messages
+        response['workflow_wait'] = result.get('workflow_wait')
         return response
 
     def decomposeQuery(self, prompt: str) -> List[str]:

@@ -135,19 +135,23 @@ class SafeExecutor:
         return '\n'.join(kept)
     
     def execute(self, code: str, timeout: Optional[int] = None,
-                progress_callback: Optional[Callable[[str], None]] = None) -> Dict:
+                progress_callback: Optional[Callable[[str], None]] = None,
+                always_rollback: bool = False) -> Dict:
         """
         Execute Python code safely in the main thread.
-        
+
         NOTE: Due to Qt GUI requirements, execution happens in the main thread.
         For long-running operations, the code should call keepAlive() periodically
         or the timeout will be checked between statements.
-        
+
         Args:
             code: Python code to execute
             timeout: Override default timeout (seconds)
             progress_callback: Optional callback for progress updates
-            
+            always_rollback: If True, always roll back MRML scene changes after
+                execution, even on success. Used for trial/validation runs where
+                the code should be tested without side effects.
+
         Returns:
             Dictionary with:
                 - success: bool
@@ -292,20 +296,21 @@ class SafeExecutor:
                 except Exception:
                     pass
             
-            # Roll back MRML scene state if execution failed.
+            # Roll back MRML scene state if execution failed (or trial run).
             # Layer 1: Undo — restores undo-enabled nodes and their properties.
-            if _undo_snapshot_taken and (error_msg is not None or timed_out):
+            _should_rollback = (error_msg is not None or timed_out or always_rollback)
+            if _undo_snapshot_taken and _should_rollback:
                 try:
                     slicer.mrmlScene.Undo()
                     slicer.mrmlScene.ClearRedoStack()
                 except Exception:
                     pass
-            
+
             # Layer 2: Delete any nodes that were created during execution but
             # were not captured by the undo snapshot (e.g., nodes with
             # UndoEnabled=False such as display nodes, storage nodes, or
             # subject-hierarchy items).
-            if _node_ids_before and (error_msg is not None or timed_out):
+            if _node_ids_before and _should_rollback:
                 try:
                     nodes_to_remove = []
                     for i in range(slicer.mrmlScene.GetNumberOfNodes()):
@@ -370,6 +375,7 @@ class SafeExecutor:
             "execution_time": execution_time,
             "result": result_value,
             "timed_out": timed_out,
+            "trial_run": always_rollback,
         }
     
     def executeAsync(self, code: str, callback: Optional[Callable[[Dict], None]] = None, 

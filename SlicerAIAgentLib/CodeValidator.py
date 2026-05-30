@@ -231,13 +231,20 @@ class CodeAnalysisVisitor(ast.NodeVisitor):
     def _checkModule(self, module_name: str, lineno: int):
         """Check if a module is allowed."""
         self.imported_modules.add(module_name)
-        
+
         if module_name in self.blocked_modules:
             self.errors.append(f"Blocked module import: {module_name} (line {lineno})")
         elif module_name not in self.allowed_modules:
             # Not in explicit allow list - warn but don't block
-            # This allows user-defined modules and Slicer extensions
-            if not module_name.startswith('slicer') and not module_name.startswith('vtk'):
+            # Allow Slicer extensions (PascalCase names from extension_manager)
+            # and BRPLib-style subpackages without warning
+            is_slicer_ext = (
+                module_name.startswith('slicer')
+                or module_name.startswith('vtk')
+                or (module_name[0:1].isupper() and not module_name.startswith('_'))
+                or '.' in module_name  # subpackages like BRPLib.helperFunctions
+            )
+            if not is_slicer_ext:
                 self.warnings.append(f"Unrecognized module: {module_name} (line {lineno})")
                 
     def _getCallName(self, node) -> Optional[str]:

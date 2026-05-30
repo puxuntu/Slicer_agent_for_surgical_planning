@@ -27,7 +27,7 @@ class WorkflowStep:
     """Describes a single step in an interactive workflow."""
     step_id: str
     phase: str
-    step_type: str              # "automated" | "interactive" | "branch"
+    step_type: str              # "automated" | "interactive" | "branch" | "user_choice"
     description: str
 
     # Interactive step fields
@@ -47,6 +47,12 @@ class WorkflowStep:
     condition: Optional[str] = None
     branches: Optional[Dict[str, str]] = None
 
+    # User choice step fields
+    question: Optional[str] = None
+    choices: Optional[List[Dict]] = None
+    parameter_name: Optional[str] = None
+    default_value: Optional[str] = None
+
     # Dependency fields
     depends_on: List[str] = field(default_factory=list)
     produces_nodes: List[str] = field(default_factory=list)
@@ -55,6 +61,10 @@ class WorkflowStep:
     pre_template: Optional[str] = None    # Template file for pre-interaction setup
     post_template: Optional[str] = None   # Template file for post-interaction processing
     code_template: Optional[str] = None   # Template file for fully automated steps
+
+    # Cookbook-driven fields
+    op_type: Optional[str] = None         # "extension_op"|"slicer_op"|"user_interaction"|"mixed"
+    sub_operations: Optional[List[Dict]] = None  # Ordered sub-ops for mixed steps
 
     @classmethod
     def from_dict(cls, d: Dict) -> "WorkflowStep":
@@ -74,11 +84,17 @@ class WorkflowStep:
             method_name=d.get("method_name"),
             condition=d.get("condition"),
             branches=d.get("branches"),
+            question=d.get("question"),
+            choices=d.get("choices"),
+            parameter_name=d.get("parameter_name"),
+            default_value=d.get("default_value"),
             depends_on=d.get("depends_on", []),
             produces_nodes=d.get("produces_nodes", []),
             pre_template=d.get("pre_template"),
             post_template=d.get("post_template"),
             code_template=d.get("code_template"),
+            op_type=d.get("op_type"),
+            sub_operations=d.get("sub_operations"),
         )
 
 
@@ -91,7 +107,7 @@ class WorkflowState:
     completed_steps: List[str] = field(default_factory=list)
     node_registry: Dict[str, str] = field(default_factory=dict)  # var_name -> node_id
     step_results: Dict[str, Dict] = field(default_factory=dict)  # step_id -> result
-    status: str = "running"  # "running", "waiting_for_user", "completed", "error", "cancelled"
+    status: str = "running"  # "running", "waiting_for_user", "waiting_for_choice", "completed", "error", "cancelled"
     error_message: Optional[str] = None
 
 
@@ -237,8 +253,12 @@ class WorkflowOrchestrator:
             return self._execute_automated_step(state, step, args, template_filler)
         elif step.step_type == "interactive":
             return self._execute_interactive_step(state, step, args, template_filler)
+        elif step.step_type == "mixed":
+            return self._execute_mixed_step(state, step, args, template_filler)
         elif step.step_type == "branch":
             return self._handle_branch_step(state, step, args)
+        elif step.step_type == "user_choice":
+            return self._execute_user_choice_step(state, step)
         else:
             return {"type": "error", "error": f"Unknown step_type: {step.step_type}"}
 
@@ -375,7 +395,7 @@ class WorkflowOrchestrator:
         """
         active = [
             (wid, s) for wid, s in self._active_workflows.items()
-            if s.status in ("running", "waiting_for_user")
+            if s.status in ("running", "waiting_for_user", "waiting_for_choice")
         ]
         if not active:
             return ""
@@ -396,6 +416,11 @@ class WorkflowOrchestrator:
                     lines.append(f"- Interaction type: {step.interaction_type}")
                     if step.placement_instructions:
                         lines.append(f"- Instructions: {step.placement_instructions}")
+                elif step.step_type == "user_choice":
+                    lines.append(f"- Waiting for user choice: {step.question}")
+                    if step.choices:
+                        labels = ", ".join(c.get("label", "?") for c in step.choices)
+                        lines.append(f"- Options: {labels}")
 
             # Show remaining steps
             remaining = [
@@ -412,14 +437,14 @@ class WorkflowOrchestrator:
     def get_active_workflow_id(self) -> Optional[str]:
         """Return the ID of the first active (non-completed) workflow, or None."""
         for wid, state in self._active_workflows.items():
-            if state.status in ("running", "waiting_for_user"):
+            if state.status in ("running", "waiting_for_user", "waiting_for_choice"):
                 return wid
         return None
 
     def is_workflow_active(self) -> bool:
         """Check if any workflow is currently running or waiting."""
         return any(
-            s.status in ("running", "waiting_for_user")
+            s.status in ("running", "waiting_for_user", "waiting_for_choice")
             for s in self._active_workflows.values()
         )
 
@@ -556,6 +581,82 @@ class WorkflowOrchestrator:
         )
         return result
 
+    def _execute_mixed_step(
+        self,
+        state: WorkflowState,
+        step: WorkflowStep,
+        args: Dict,
+        template_filler: Optional[Callable],
+    ) -> Dict:
+        """
+        Execute a mixed step: run automated sub-operations as pre_code,
+        then enter wait for user interaction.
+
+        Mixed steps combine automated operations (extension_op, slicer_op)
+        with user_interaction in a single step.
+        """
+        # Build pre_code from the step's pre_template (which already
+        # concatenates all automated sub-operation code)
+        pre_code = None
+        if template_filler and step.pre_template:
+            fill_args = {**state.node_registry, **args}
+            pre_code = template_filler(step.pre_template, fill_args)
+        elif step.pre_template:
+            pre_code = f"# Mixed step pre-template: {step.pre_template}\npass"
+
+        # Extract interaction info from sub_operations or step fields
+        node_class = step.node_class
+        placement_instructions = step.placement_instructions or step.description
+        sub_ops = step.sub_operations or []
+
+        # If sub_operations have explicit interaction info, use it
+        for so in sub_ops:
+            if so.get("op_type") == "user_interaction":
+                if so.get("node_class"):
+                    node_class = so["node_class"]
+                if so.get("placement_instructions"):
+                    placement_instructions = so["placement_instructions"]
+                elif so.get("description"):
+                    placement_instructions = so["description"]
+                break
+
+        # Derive interaction_type from node_class (display label only)
+        _NC_MAP = {
+            "vtkMRMLMarkupsCurveNode": "curve",
+            "vtkMRMLMarkupsPlaneNode": "plane",
+            "vtkMRMLMarkupsLineNode": "line",
+            "vtkMRMLMarkupsFiducialNode": "fiducial",
+        }
+        interaction_type = _NC_MAP.get(node_class or "", "generic")
+
+        result = {
+            "type": "mixed",
+            "step_id": step.step_id,
+            "interaction": {
+                "interaction_type": interaction_type,
+                "node_class": node_class,
+                "placement_instructions": placement_instructions,
+                "validation_rules": step.validation_rules,
+            },
+            "step_info": {
+                "step_id": step.step_id,
+                "description": step.description,
+            },
+            "sub_operations": sub_ops,
+        }
+
+        if pre_code:
+            result["pre_code"] = pre_code
+        else:
+            result["pre_code"] = self._generate_minimal_placement_code(step)
+
+        state.status = "waiting_for_user"
+        logger.info(
+            f"[WorkflowOrchestrator] Entering mixed step wait for '{step.step_id}' "
+            f"(interaction: {interaction_type})"
+        )
+        return result
+
     def _handle_branch_step(
         self,
         state: WorkflowState,
@@ -573,6 +674,90 @@ class WorkflowOrchestrator:
             "user_choice": user_choice,
             "description": step.description,
         }
+
+    def _execute_user_choice_step(
+        self,
+        state: WorkflowState,
+        step: WorkflowStep,
+    ) -> Dict:
+        """
+        Return the question and choices for a user_choice step.
+        Sets status to waiting_for_choice. The LLM relays the question
+        to the user and calls complete_choice() with the answer.
+        """
+        state.status = "waiting_for_choice"
+
+        return {
+            "type": "user_choice",
+            "step_id": step.step_id,
+            "question": step.question or step.description,
+            "choices": step.choices or [],
+            "parameter_name": step.parameter_name,
+            "default_value": step.default_value,
+            "explanation": step.description,
+        }
+
+    def complete_choice(
+        self,
+        workflow_id: str,
+        choice_value: str,
+    ) -> Dict:
+        """
+        Record the user's choice for a user_choice step and advance.
+
+        Args:
+            workflow_id: Active workflow instance.
+            choice_value: The value selected by the user.
+
+        Returns:
+            Dict with completion status and next step info.
+        """
+        state = self._get_state(workflow_id)
+        if not state:
+            return {"type": "error", "error": f"Workflow {workflow_id} not found"}
+        if state.status != "waiting_for_choice":
+            return {"type": "error", "error": "Not in waiting_for_choice state"}
+
+        steps = self._workflow_steps.get(state.extension_name, {})
+        step = steps.get(state.current_step)
+        if not step:
+            return {"type": "error", "error": f"Current step '{state.current_step}' not found"}
+
+        # Store the choice in step_results
+        state.completed_steps.append(step.step_id)
+        state.step_results[step.step_id] = {
+            "status": "completed",
+            "parameter_name": step.parameter_name,
+            "choice_value": choice_value,
+        }
+        state.status = "running"
+
+        # Find next step
+        next_step = self._find_next_step(state)
+        result = {
+            "type": "choice_made",
+            "step_id": step.step_id,
+            "parameter_name": step.parameter_name,
+            "choice_value": choice_value,
+        }
+        if next_step:
+            state.current_step = next_step.step_id
+            result["next_step"] = {
+                "step_id": next_step.step_id,
+                "step_type": next_step.step_type,
+                "description": next_step.description,
+                "interaction_type": next_step.interaction_type,
+            }
+        else:
+            state.current_step = None
+            state.status = "completed"
+            result["workflow_completed"] = True
+
+        logger.info(
+            f"[WorkflowOrchestrator] Choice step '{step.step_id}' resolved: "
+            f"{step.parameter_name}={choice_value}, next: {state.current_step or 'DONE'}"
+        )
+        return result
 
     def _resolve_branch(
         self,
@@ -659,6 +844,55 @@ class WorkflowOrchestrator:
     def _generate_minimal_placement_code(self, step: WorkflowStep) -> str:
         """Generate minimal code for creating a markup node and entering placement mode."""
         node_name = step.step_id.replace("_", " ").title()
+
+        # Generate display property code (view restrictions + handles)
+        display_lines = []
+        dp = step.display_properties
+        if dp:
+            # Handle properties
+            for key, method in [("handlesInteractive", "HandlesInteractive")]:
+                if key in dp:
+                    suffix = "On" if dp[key] else "Off"
+                    display_lines.append(f"displayNode.{method}{suffix}()")
+            for key, method in [("rotationHandles", "RotationHandleVisibility"),
+                                ("translationHandles", "TranslationHandleVisibility"),
+                                ("scaleHandles", "ScaleHandleVisibility")]:
+                if key in dp:
+                    suffix = "On" if dp[key] else "Off"
+                    display_lines.append(f"displayNode.{method}{suffix}()")
+            # View restrictions
+            for ref in dp.get("addViewNodeIDs", []):
+                if not isinstance(ref, dict):
+                    continue
+                ref_type = ref.get("type", "")
+                cls = ref.get("class", "vtkMRMLViewNode")
+                if ref_type == "singleton_tag":
+                    tag = ref["tag"]
+                    if ref.get("symbolic"):
+                        display_lines.append("try:")
+                        display_lines.append(f"    _tag = getattr(slicer, '{tag}', None)")
+                        display_lines.append(f"    if _tag is not None:")
+                        display_lines.append(f"        _vn = slicer.mrmlScene.GetSingletonNode(str(_tag), '{cls}')")
+                        display_lines.append(f"        if _vn:")
+                        display_lines.append(f"            displayNode.AddViewNodeID(_vn.GetID())")
+                        display_lines.append("except Exception:")
+                        display_lines.append("    pass")
+                    else:
+                        display_lines.append(f"_vn = slicer.mrmlScene.GetSingletonNode('{tag}', '{cls}')")
+                        display_lines.append("if _vn:")
+                        display_lines.append("    displayNode.AddViewNodeID(_vn.GetID())")
+                elif ref_type == "singleton_name":
+                    name = ref["name"]
+                    cls = ref.get("class", "vtkMRMLSliceNode")
+                    display_lines.append(f"_vn = slicer.mrmlScene.GetSingletonNode('{name}', '{cls}')")
+                    display_lines.append("if _vn:")
+                    display_lines.append("    displayNode.AddViewNodeID(_vn.GetID())")
+
+        display_block = ""
+        if display_lines:
+            display_block = "\n# Apply display properties from original extension\n"
+            display_block += "\n".join(display_lines) + "\n"
+
         return (
             f"# --- {step.description} (Setup) ---\n"
             f"import slicer\n\n"
@@ -666,7 +900,8 @@ class WorkflowOrchestrator:
             f"displayNode = node.GetDisplayNode()\n"
             f"if displayNode is None:\n"
             f"    displayNode = node.CreateDefaultDisplayNode()\n"
-            f"displayNode.SetVisibility(True)\n\n"
+            f"displayNode.SetVisibility(True)\n"
+            f"{display_block}\n"
             f"print('[Workflow] {step.placement_instructions or step.description}')\n\n"
             f"selectionNode = slicer.app.applicationLogic().GetSelectionNode()\n"
             f"selectionNode.SetActivePlaceNodeID(node.GetID())\n"

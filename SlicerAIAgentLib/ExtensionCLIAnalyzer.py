@@ -39,12 +39,55 @@ _MAX_REVISION_ATTEMPTS = 3
 # or whitespace — avoids breaking URLs inside string values.
 _JS_COMMENT_RE = _re.compile(r'(?<=[,\[\]{}:\s])\s*//[^\n]*')
 
+# Derive interaction_type from node_class.  interaction_type is kept as a
+# convenience label for display / logging but is NEVER used as a gate — the
+# presence of a `user_interaction` sub-operation in `sub_operations` is the
+# authoritative signal that a step requires user interaction.
+_NODE_CLASS_TO_INTERACTION_TYPE = {
+    "vtkMRMLMarkupsCurveNode": "curve",
+    "vtkMRMLMarkupsPlaneNode": "plane",
+    "vtkMRMLMarkupsLineNode": "line",
+    "vtkMRMLMarkupsFiducialNode": "fiducial",
+    "vtkMRMLMarkupsROINode": "roi",
+}
+
+
+def _derive_interaction_type(node_class, fallback="generic"):
+    """Derive a human-readable interaction type from a node class string."""
+    return _NODE_CLASS_TO_INTERACTION_TYPE.get(node_class or "", fallback)
+
 
 def _validate_extension_name(name: str) -> str:
     """Validate and sanitize an extension name to prevent path traversal.
 
     Returns the sanitized name.  Raises ValueError if the name is invalid.
     """
+
+
+def __collect_attr_chain(node) -> List[str]:
+    """Recursively collect attribute chain from an AST node.
+
+    Turns `slicer.app.layoutManager().setLayout` into
+    ["slicer", "app", "layoutManager", "setLayout"].
+    """
+    import ast as _ast
+    parts = []
+    current = node
+    while True:
+        if isinstance(current, _ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        elif isinstance(current, _ast.Call):
+            current = current.func
+        elif isinstance(current, _ast.Name):
+            parts.append(current.id)
+            break
+        elif isinstance(current, _ast.Subscript):
+            current = current.value
+        else:
+            break
+    parts.reverse()
+    return parts
     if not name or not name.strip():
         raise ValueError("Extension name must not be empty.")
     # Reject path separators and traversal patterns
@@ -191,8 +234,28 @@ class ExtensionCLIAnalyzer:
 
     @staticmethod
     def _default_base_dir() -> str:
-        module_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        return os.path.join(module_dir, "Resources", "extension_CLI")
+        # __file__ may not point to the actual source in some Slicer setups
+        # (e.g., when loaded from a staged build directory). Try multiple paths.
+        candidates = []
+        try:
+            candidates.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        except Exception:
+            pass
+        # Fallback: look relative to the SlicerAIAgent module
+        try:
+            import SlicerAIAgent as _root_mod
+            candidates.append(os.path.dirname(os.path.abspath(_root_mod.__file__)))
+        except Exception:
+            pass
+        for module_dir in candidates:
+            cli_dir = os.path.join(module_dir, "Resources", "extension_CLI")
+            if os.path.isdir(cli_dir):
+                return cli_dir
+        # Last resort: return the first candidate anyway (will fail later
+        # with a clear error if the path doesn't exist)
+        if candidates:
+            return os.path.join(candidates[0], "Resources", "extension_CLI")
+        return ""
 
     def _load_analyzer_prompt(self) -> str:
         try:
@@ -249,6 +312,15 @@ class ExtensionCLIAnalyzer:
             "validation_result": None,
             "error": None,
         }
+
+        if not self.output_base_dir:
+            self.output_base_dir = self._default_base_dir()
+        if not self.output_base_dir:
+            result["error"] = (
+                "output_base_dir is not set. "
+                "Ensure the analyzer is constructed with a valid output directory."
+            )
+            return result
 
         ext_dir = os.path.join(self.output_base_dir, extension_name)
         if os.path.isdir(ext_dir) and not force_overwrite:
@@ -397,6 +469,15 @@ class ExtensionCLIAnalyzer:
             result["stages_completed"].append(7)
             if self._cancelled:
                 result["error"] = "Cancelled during Stage 7"
+                return result
+
+            # ── Stage 7.5: Live API Probing ──
+            self._current_stage_label = "7.5"
+            probe_result = self._stage7c_live_api_probe(templates)
+            result["stages_completed"].append("7.5")
+            result["api_probe_result"] = probe_result
+            if self._cancelled:
+                result["error"] = "Cancelled during Stage 7.5"
                 return result
 
             # ── Stage 8: Prompt Fragment Generation (LLM) ──
@@ -3048,8 +3129,13 @@ Return ONLY the JSON array, no markdown fences.""")
             if node_var in templates[pre_key]:
                 continue
 
-            # Missing — inject node ID storage at end of pre-template
-            node_class = step.get("node_class", "vtkMRMLMarkupsFiducialNode")
+            # Missing — inject node ID storage at end of pre-template.
+            # Only inject when node_class is set (a markup node was created).
+            # For steps with empty node_class (e.g. slice crosshair adjustment),
+            # no node exists to store — skip injection.
+            node_class = step.get("node_class", "")
+            if not node_class:
+                continue
             injection = (
                 f"\n# [Auto-injected] Store node ID for post-step\n"
                 f"try:\n"
@@ -3595,6 +3681,316 @@ Return ONLY the JSON array, no markdown fences.""")
             )
 
         return sanitized
+
+    # ================================================================
+    # Stage 7.5: Live API Probing
+    # ================================================================
+
+    @staticmethod
+    def _extract_api_chains(code: str) -> List[str]:
+        """Extract slicer API attribute chains from template code.
+
+        Parses calls like `slicer.app.layoutManager().setLayout(...)` into
+        probeable chains: `slicer.app.layoutManager`, `setLayout`.
+        """
+        import ast as _ast
+        chains = []
+        try:
+            tree = _ast.parse(code)
+        except (SyntaxError, IndentationError):
+            return chains
+
+        for node in _ast.walk(tree):
+            # Match: slicer.something.something(...).method(...)
+            if isinstance(node, _ast.Call):
+                attrs = _ExtensionCLIAnalyzer__collect_attr_chain(node.func)
+                if attrs and attrs[0] == "slicer" and len(attrs) >= 2:
+                    chains.append(".".join(attrs))
+        return chains
+
+    @staticmethod
+    def _generate_probes(api_chains: List[str]) -> List[Dict]:
+        """Generate read-only probe snippets from API chains.
+
+        Each probe checks whether the attribute chain is traversable and
+        the final attribute is callable (for method calls).
+
+        Returns list of dicts:
+            {"chain": str, "probe_code": str, "kind": "hasattr"|"callable"}
+        """
+        probes = []
+        seen = set()
+        for chain in api_chains:
+            parts = chain.rsplit(".", 1)
+            if len(parts) == 2:
+                parent_chain, attr = parts
+            else:
+                continue
+            if len(parent_chain) > 80:
+                continue
+            key = f"{parent_chain}.{attr}"
+            if key in seen:
+                continue
+            seen.add(key)
+
+            # Probe 1: does the parent object have this attribute?
+            probe_hasattr = (
+                f"try:\n"
+                f"    _obj = {parent_chain}\n"
+                f"    __result = hasattr(_obj, '{attr}')\n"
+                f"except Exception as _e:\n"
+                f"    __result = f'ERROR: {{_e}}'"
+            )
+            probes.append({
+                "chain": key,
+                "parent_chain": parent_chain,
+                "attr": attr,
+                "probe_code": probe_hasattr,
+                "kind": "hasattr",
+            })
+
+            # Probe 2: if it exists, list available attrs for revision context
+            probe_dir = (
+                f"try:\n"
+                f"    _obj = {parent_chain}\n"
+                f"    if hasattr(_obj, '{attr}'):\n"
+                f"        __result = 'OK'\n"
+                f"    else:\n"
+                f"        _methods = [m for m in dir(_obj) if not m.startswith('_') and callable(getattr(_obj, m))]\n"
+                f"        __result = f'MISSING: {{_methods[:20]}}'\n"
+                f"except Exception as _e:\n"
+                f"    __result = f'ERROR: {{_e}}'"
+            )
+            probes.append({
+                "chain": key,
+                "parent_chain": parent_chain,
+                "attr": attr,
+                "probe_code": probe_dir,
+                "kind": "dir_fallback",
+            })
+
+        return probes
+
+    @staticmethod
+    def _execute_probe(probe_code: str) -> Any:
+        """Execute a probe snippet in Slicer's Python environment.
+
+        Runs in the caller's thread — the pipeline runs in a background
+        thread, but slicer objects are generally safe to read from here
+        since we only do hasattr/dir checks.
+        """
+        import slicer as _slicer_mod
+        exec_globals = {
+            "__builtins__": __builtins__,
+            "slicer": _slicer_mod,
+            "vtk": globals().get("vtk"),
+            "qt": globals().get("qt"),
+            "ctk": globals().get("ctk"),
+        }
+        try:
+            exec(probe_code, exec_globals)
+            return exec_globals.get("__result", "NO_RESULT")
+        except Exception as e:
+            return f"EXCEPTION: {e}"
+
+    def _stage7c_live_api_probe(
+        self, templates: Dict[str, str],
+    ) -> Dict[str, Any]:
+        """Probe generated templates against the live Slicer API.
+
+        For each .py.tpl template, extracts `slicer.*` API calls and
+        verifies that the attribute chain exists.  Returns a report of
+        failures with available-alternative context for LLM revision.
+
+        Returns:
+            {"probed": int, "failures": [...], "revised": int}
+        """
+        try:
+            import slicer as _slicer_mod  # noqa: F401
+        except ImportError:
+            logger.info(
+                "[Stage 7.5] Slicer not available — skipping live API probe"
+            )
+            return {"probed": 0, "failures": [], "revised": 0}
+
+        self.on_progress(
+            "7.5", "Live API Probing",
+            "Verifying template API calls against running Slicer..."
+        )
+
+        all_chains_by_template = {}
+        for key, code in templates.items():
+            if not key.endswith(".py.tpl") or not code or not code.strip():
+                continue
+            chains = self._extract_api_chains(code)
+            if chains:
+                all_chains_by_template[key] = chains
+
+        if not all_chains_by_template:
+            return {"probed": 0, "failures": [], "revised": 0}
+
+        # Collect all unique chains and generate probes
+        all_chains = []
+        seen_chains = set()
+        for chains in all_chains_by_template.values():
+            for c in chains:
+                if c not in seen_chains:
+                    seen_chains.add(c)
+                    all_chains.append(c)
+
+        probes = self._generate_probes(all_chains)
+        logger.info(
+            "[Stage 7.5] Generated %d probes for %d API chains across %d templates",
+            len(probes), len(all_chains), len(all_chains_by_template),
+        )
+
+        # Execute probes
+        probe_results = {}
+        for probe in probes:
+            chain_key = f"{probe['parent_chain']}.{probe['attr']}"
+            result = self._execute_probe(probe["probe_code"])
+            probe_results[chain_key] = probe_results.get(chain_key, {})
+            probe_results[chain_key][probe["kind"]] = result
+
+        # Analyze results — collect failures
+        failures = []
+        for chain_key, kinds in probe_results.items():
+            dir_result = kinds.get("dir_fallback", "")
+            if isinstance(dir_result, str) and dir_result.startswith("MISSING:"):
+                # Extract available methods from the result
+                available_str = dir_result[len("MISSING: "):]
+                try:
+                    available = eval(available_str)  # list repr
+                except Exception:
+                    available = available_str
+                failures.append({
+                    "chain": chain_key,
+                    "available_methods": available,
+                })
+            elif isinstance(dir_result, str) and dir_result.startswith("ERROR:"):
+                failures.append({
+                    "chain": chain_key,
+                    "error": dir_result,
+                })
+
+        if not failures:
+            logger.info("[Stage 7.5] All %d API probes passed", len(probes))
+            self.on_progress(
+                "7.5", "Live API Probing",
+                f"All {len(probes)} API probes passed"
+            )
+            return {"probed": len(probes), "failures": [], "revised": 0}
+
+        # Log failures
+        logger.warning(
+            "[Stage 7.5] %d/%d API probes failed",
+            len(failures), len(all_chains),
+        )
+        for f in failures:
+            logger.warning("[Stage 7.5] FAILED: %s", f["chain"])
+
+        # Map failures back to affected templates
+        affected_templates = {}
+        for tpl_key, chains in all_chains_by_template.items():
+            for chain in chains:
+                for f in failures:
+                    if chain == f["chain"] or chain.startswith(f["chain"] + "."):
+                        affected_templates.setdefault(tpl_key, []).append(f)
+                        break
+
+        # Revise affected templates via LLM
+        revised_count = 0
+        for tpl_key, tpl_failures in affected_templates.items():
+            if tpl_key not in templates:
+                continue
+            original_code = templates[tpl_key]
+            revised = self._revise_template_for_api(
+                tpl_key, original_code, tpl_failures,
+            )
+            if revised and revised != original_code:
+                templates[tpl_key] = revised
+                revised_count += 1
+                logger.info(
+                    "[Stage 7.5] Revised template '%s' for API failures",
+                    tpl_key,
+                )
+
+        self.on_progress(
+            "7.5", "Live API Probing",
+            f"Found {len(failures)} API issues, revised {revised_count} templates"
+        )
+        return {
+            "probed": len(probes),
+            "failures": failures,
+            "revised": revised_count,
+        }
+
+    def _revise_template_for_api(
+        self, template_key: str, code: str, failures: List[Dict],
+    ) -> Optional[str]:
+        """Ask the LLM to revise a template to fix API failures."""
+        failure_descriptions = []
+        for f in failures:
+            desc = f"API call `{f['chain']}` does NOT EXIST."
+            if "available_methods" in f:
+                methods = f["available_methods"]
+                if isinstance(methods, list):
+                    desc += f" Available methods on the parent object: {methods}"
+                else:
+                    desc += f" Available: {methods}"
+            elif "error" in f:
+                desc += f" Error: {f['error']}"
+            failure_descriptions.append(desc)
+
+        prompt = textwrap.dedent(f"""\
+            The following Python template for 3D Slicer has API errors detected
+            by live probing against the running Slicer instance.
+
+            Template file: {template_key}
+
+            API failures:
+            {chr(10).join(f'- {{f}}' for f in failure_descriptions)}
+
+            Current template code:
+            ```python
+            {code}
+            ```
+
+            Fix the template so it uses the correct Slicer API.
+            Only fix the broken API calls. Do not change the logic or structure.
+
+            IMPORTANT restrictions:
+            - Do NOT use `os`, `sys`, `subprocess`, `socket`, `shutil`, `pathlib`.
+            - Do NOT use `eval()`, `exec()`, `open()`, `getattr()` on user input.
+            - Do NOT use `dir()`, `globals()`, `locals()`.
+            - Use `try/except NameError` to check variable existence.
+            - Return ONLY raw Python code. Do NOT wrap in markdown fences.
+        """)
+
+        try:
+            for _attempt in range(2):
+                response = self._call_llm(prompt)
+                response = self._strip_markdown_fences(response) if response else None
+                if not response or "import" not in response:
+                    break
+                import ast as _ast
+                try:
+                    _ast.parse(response)
+                    return response
+                except (SyntaxError, IndentationError) as e:
+                    if _attempt == 0:
+                        prompt += (
+                            f"\n\nYour previous output had a syntax error: {e}\n"
+                            "Output ONLY the corrected Python code, no explanation."
+                        )
+                    else:
+                        return response
+        except Exception:
+            logger.debug(
+                "[Stage 7.5] LLM revision failed for %s", template_key,
+                exc_info=True,
+            )
+        return None
 
     def _stage7_generate_templates(
         self,
@@ -5685,9 +6081,10 @@ Return ONLY the JSON, no markdown fences.""")
             interaction_info = {}
             for so in sub_ops:
                 if so["op_type"] == "user_interaction":
+                    node_cls = so.get("node_class")
                     interaction_info = {
-                        "interaction_type": so.get("interaction_type"),
-                        "node_class": so.get("node_class"),
+                        "interaction_type": _derive_interaction_type(node_cls),
+                        "node_class": node_cls or "",
                         "placement_instructions": so.get("placement_instructions", ""),
                         "min_control_points": so.get("min_control_points", 0),
                     }
@@ -5890,9 +6287,10 @@ Return ONLY the JSON, no markdown fences.""")
             elif step_type == "interactive":
                 gen["pre_template_file"] = step.get("pre_template", "")
                 gen["post_template_file"] = step.get("post_template", "")
+                nc = step.get("node_class")
                 gen["interaction_descriptor"] = {
-                    "interaction_type": step.get("interaction_type"),
-                    "node_class": step.get("node_class"),
+                    "interaction_type": _derive_interaction_type(nc),
+                    "node_class": nc or "",
                     "placement_instructions": step.get("placement_instructions", ""),
                 }
             elif step_type == "mixed":
@@ -5902,9 +6300,10 @@ Return ONLY the JSON, no markdown fences.""")
                 interaction_desc = {}
                 for so in step.get("sub_operations", []):
                     if so.get("op_type") == "user_interaction":
+                        nc = so.get("node_class")
                         interaction_desc = {
-                            "interaction_type": so.get("interaction_type"),
-                            "node_class": so.get("node_class"),
+                            "interaction_type": _derive_interaction_type(nc),
+                            "node_class": nc or "",
                             "placement_instructions": so.get("placement_instructions", ""),
                         }
                         break

@@ -323,8 +323,21 @@ class InteractionManager:
             display_node.SetPointSize(props["pointSize"])
         if "lineWidth" in props:
             display_node.SetLineWidth(props["lineWidth"])
+        if "glyphScale" in props:
+            display_node.SetGlyphScale(props["glyphScale"])
+
+        # Boolean display properties
+        if "occludedVisibility" in props:
+            display_node.SetOccludedVisibility(props["occludedVisibility"])
+        if "propertiesLabelVisibility" in props:
+            display_node.SetPropertiesLabelVisibility(props["propertiesLabelVisibility"])
 
         # Interaction handle visibility
+        if "handlesInteractive" in props:
+            if props["handlesInteractive"]:
+                display_node.HandlesInteractiveOn()
+            else:
+                display_node.HandlesInteractiveOff()
         if props.get("rotationHandles"):
             display_node.RotationHandleVisibilityOn()
         else:
@@ -335,6 +348,44 @@ class InteractionManager:
             display_node.TranslationHandleVisibilityOff()
         if props.get("scaleHandles", False) is False:
             display_node.ScaleHandleVisibilityOff()
+        else:
+            display_node.ScaleHandleVisibilityOn()
+
+        # View-specific visibility
+        if "addViewNodeIDs" in props:
+            for ref in props["addViewNodeIDs"]:
+                view_id = self._resolve_view_node_ref(ref)
+                if view_id:
+                    display_node.AddViewNodeID(view_id)
+
+    def _resolve_view_node_ref(self, ref) -> Optional[str]:
+        """Resolve a view node reference descriptor to an actual MRML node ID."""
+        if isinstance(ref, str):
+            return ref
+        ref_type = ref.get("type", "")
+        if ref_type == "singleton_tag":
+            tag = ref["tag"]
+            cls = ref.get("class", "vtkMRMLViewNode")
+            if ref.get("symbolic"):
+                # Symbolic tag like MANDIBLE_VIEW_SINGLETON_TAG — try to resolve
+                # via slicer module attribute, then fall back to iterating singletons
+                tag_val = getattr(slicer, tag, None)
+                if tag_val is None:
+                    # Try common naming conventions
+                    for attr in (tag, tag.upper(), tag.lower()):
+                        tag_val = getattr(slicer, attr, None)
+                        if tag_val is not None:
+                            break
+                if tag_val is not None:
+                    node = slicer.mrmlScene.GetSingletonNode(str(tag_val), cls)
+                    return node.GetID() if node else None
+                return None
+            node = slicer.mrmlScene.GetSingletonNode(tag, cls)
+            return node.GetID() if node else None
+        elif ref_type == "singleton_name":
+            node = slicer.mrmlScene.GetSingletonNode(ref["name"], ref.get("class", "vtkMRMLSliceNode"))
+            return node.GetID() if node else None
+        return None
 
     def _cleanup_node(self, node_id: str) -> None:
         """Remove observers and timers for a specific node."""
