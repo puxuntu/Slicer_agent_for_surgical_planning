@@ -235,17 +235,34 @@ class CodeAnalysisVisitor(ast.NodeVisitor):
         if module_name in self.blocked_modules:
             self.errors.append(f"Blocked module import: {module_name} (line {lineno})")
         elif module_name not in self.allowed_modules:
-            # Not in explicit allow list - warn but don't block
-            # Allow Slicer extensions (PascalCase names from extension_manager)
-            # and BRPLib-style subpackages without warning
             is_slicer_ext = (
                 module_name.startswith('slicer')
                 or module_name.startswith('vtk')
-                or (module_name[0:1].isupper() and not module_name.startswith('_'))
                 or '.' in module_name  # subpackages like BRPLib.helperFunctions
             )
-            if not is_slicer_ext:
+            is_pascal_case = (
+                module_name[0:1].isupper() and not module_name.startswith('_')
+            )
+            if is_pascal_case:
+                self._try_import_feasibility(module_name, lineno)
+            elif not is_slicer_ext:
                 self.warnings.append(f"Unrecognized module: {module_name} (line {lineno})")
+
+    def _try_import_feasibility(self, module_name: str, lineno: int):
+        """Probe whether a PascalCase module can actually be imported.
+
+        Emits a warning (not an error) if the import fails, since the
+        module might not be loaded yet at validation time.
+        """
+        try:
+            __import__(module_name)
+        except ImportError:
+            self.warnings.append(
+                f"PascalCase module '{module_name}' could not be imported "
+                f"(line {lineno}). Verify the extension is installed."
+            )
+        except Exception:
+            pass
                 
     def _getCallName(self, node) -> Optional[str]:
         """Get the full name of a function call."""

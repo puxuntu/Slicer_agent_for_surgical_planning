@@ -499,6 +499,7 @@ class ExtensionCLIAnalyzer:
             )
             validation_result = self._stage9_validate(
                 templates, generators, logic_analysis=logic_analysis,
+                api_probe_result=probe_result,
             )
             result["stages_completed"].append(9)
             result["validation_result"] = validation_result
@@ -3047,7 +3048,16 @@ Return ONLY the JSON array, no markdown fences.""")
                         if pregen:
                             auto_parts.append(f"# Slicer op: {so['description']}\n{pregen}")
                         else:
-                            auto_parts.append(f"# Slicer op: {so['description']}\n# TODO: generate slicer code\npass")
+                            # No pre-generated template — try LLM with keywords
+                            so_keywords = so.get("slicer_api_keywords", [])
+                            so_desc = so.get("description", "")
+                            llm_code = self._generate_slicer_api_template_llm(
+                                step_id, so_desc, so_keywords,
+                            )
+                            if llm_code:
+                                auto_parts.append(f"# Slicer op: {so_desc}\n{llm_code}")
+                            else:
+                                auto_parts.append(f"# Slicer op: {so_desc}\n# TODO: generate slicer code\npass")
 
                 pre_key = f"templates/{step_id}_pre.py.tpl"
                 step["pre_template"] = pre_key
@@ -3197,31 +3207,63 @@ Return ONLY the JSON array, no markdown fences.""")
                 "    result = None",
             ]
         else:
-            method_call_lines = [
-                "# No specific method mapped to this step",
-                "# TODO: Determine the correct extension method to call",
-                "pass",
-            ]
+            # No extension method — try to generate code from sub-operations via LLM
+            sub_ops = step.get("sub_operations", [])
+            sub_op_parts = []
+            for so in sub_ops:
+                so_desc = so.get("description", "")
+                so_keywords = so.get("slicer_api_keywords", [])
+                so_method = so.get("extension_method_hint")
+                if so.get("op_type") == "slicer_op" and so_keywords:
+                    code = self._generate_slicer_api_template_llm(
+                        step_id, so_desc, so_keywords,
+                    )
+                    if code:
+                        sub_op_parts.append(f"# {so_desc}\n{code}")
+                elif so.get("op_type") == "extension_op" and so_method:
+                    sub_op_parts.append(
+                        f"# {so_desc}\n"
+                        f"if hasattr(logic, '{so_method}'):\n"
+                        f"    logic.{so_method}()"
+                    )
+            if sub_op_parts:
+                method_call_lines = ["\n\n".join(sub_op_parts)]
+            else:
+                method_call_lines = [
+                    "# No specific method mapped to this step",
+                    "# TODO: Determine the correct extension method to call",
+                    "pass",
+                ]
 
         lines = [
             f"# --- {extension_name}: {description} ---",
-            "try:",
-            f"    from {module_name} import {logic_class_name}",
-            "except ImportError:",
-            f"    raise RuntimeError(\"{extension_name} extension is not installed.\")",
-            "",
-            "try:",
-            f"    logic = _{extension_name.lower()}_logic",
-            "except NameError:",
-            f"    logic = {logic_class_name}()",
-            "",
         ]
+        # Only include extension import boilerplate if we actually call an extension method
+        if method_name or any(
+            so.get("op_type") == "extension_op" and so.get("extension_method_hint")
+            for so in step.get("sub_operations", [])
+        ):
+            lines.extend([
+                "try:",
+                f"    from {module_name} import {logic_class_name}",
+                "except ImportError:",
+                f"    raise RuntimeError(\"{extension_name} extension is not installed.\")",
+                "",
+                "try:",
+                f"    logic = _{extension_name.lower()}_logic",
+                "except NameError:",
+                f"    logic = {logic_class_name}()",
+                "",
+            ])
         lines.extend(method_call_lines)
-        lines.extend([
-            "",
-            f"_{extension_name.lower()}_logic = logic",
-            f"print(\"[{extension_name}] Step '{step_id}' completed.\")",
-        ])
+        lines.append("")
+        # Only store logic instance if we actually created one
+        if method_name or any(
+            so.get("op_type") == "extension_op" and so.get("extension_method_hint")
+            for so in step.get("sub_operations", [])
+        ):
+            lines.append(f"_{extension_name.lower()}_logic = logic")
+        lines.append(f"print(\"[{extension_name}] Step '{step_id}' completed.\")")
 
         return "\n".join(lines) + "\n"
 
@@ -3347,6 +3389,59 @@ Return ONLY the JSON array, no markdown fences.""")
                         return response  # Return as-is, stage 9 / revision will catch it
         except Exception:
             logger.debug("LLM automated template generation failed", exc_info=True)
+        return None
+
+    def _generate_slicer_api_template_llm(
+        self, step_id: str, description: str, slicer_api_keywords: List[str],
+    ) -> Optional[str]:
+        """Generate pure Slicer API code via LLM for steps with no extension method.
+
+        Called when a step has slicer_op sub-operations but no method_name on the
+        extension Logic class.  Uses the LLM with the step description and API
+        keyword hints to produce Slicer core API code (no extension imports).
+        """
+        keywords_str = ", ".join(slicer_api_keywords) if slicer_api_keywords else "none"
+        prompt = textwrap.dedent(f"""\
+            Generate a Python code snippet for a 3D Slicer operation.
+
+            Step ID: {step_id}
+            Description: {description}
+            API keyword hints: [{keywords_str}]
+
+            The code must:
+            1. Use Slicer's built-in Python API only (slicer.mrmlScene,
+               slicer.app.layoutManager(), slicer.modules, etc.)
+            2. Be a complete, self-contained snippet that performs the described operation
+            3. Use robust patterns (check for None, handle missing nodes gracefully)
+            4. Print a short completion message
+
+            IMPORTANT restrictions:
+            - Do NOT use `dir()`, `eval()`, `exec()`, `globals()`, or `locals()`
+            - Do NOT import the extension module — use only Slicer core APIs
+            - Do NOT use curly brace template placeholders — write actual Python values
+            - Escape all braces in f-strings by doubling them
+            - Return ONLY raw Python code, no markdown fences""")
+
+        try:
+            for _attempt in range(2):
+                response = self._call_llm(prompt)
+                response = self._strip_markdown_fences(response) if response else None
+                if not response or "slicer" not in response.lower():
+                    break
+                import ast as _ast
+                try:
+                    _ast.parse(response)
+                    return response
+                except (SyntaxError, IndentationError) as e:
+                    if _attempt == 0:
+                        prompt += (
+                            f"\n\nPrevious output had syntax error: {e}\n"
+                            "Output ONLY the corrected Python code, no explanation."
+                        )
+                    else:
+                        return response
+        except Exception:
+            logger.debug("Slicer API LLM template generation failed", exc_info=True)
         return None
 
     def _generate_pre_interaction_template(
@@ -3687,11 +3782,52 @@ Return ONLY the JSON array, no markdown fences.""")
     # ================================================================
 
     @staticmethod
+    def _build_var_to_chain_map(code: str) -> Dict[str, str]:
+        """Map local variable names to their slicer/vtk/qt/ctk origin chains.
+
+        Walks top-level assignments to find patterns like:
+            lm = slicer.app.layoutManager()
+            layoutLogic = slicer.app.layoutManager().layoutLogic()
+        Returns e.g. {"layoutLogic": "slicer.app.layoutManager.layoutLogic"}.
+
+        Only tracks single-level assignments (not multi-hop a=b; c=a).
+        """
+        import ast as _ast
+        var_map: Dict[str, str] = {}
+        try:
+            tree = _ast.parse(code)
+        except (SyntaxError, IndentationError):
+            return var_map
+
+        _API_ROOTS = ("slicer", "vtk", "qt", "ctk")
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.Assign):
+                continue
+            if len(node.targets) != 1 or not isinstance(node.targets[0], _ast.Name):
+                continue
+            var_name = node.targets[0].id
+            value = node.value
+            if isinstance(value, _ast.Call):
+                attrs = _collect_attr_chain(value.func)
+            elif isinstance(value, _ast.Attribute):
+                attrs = _collect_attr_chain(value)
+            else:
+                continue
+            if attrs and attrs[0] in _API_ROOTS and len(attrs) >= 2:
+                var_map[var_name] = ".".join(attrs)
+        return var_map
+
+    @staticmethod
     def _extract_api_chains(code: str) -> List[str]:
         """Extract slicer API attribute chains from template code.
 
         Parses calls like `slicer.app.layoutManager().setLayout(...)` into
-        probeable chains: `slicer.app.layoutManager`, `setLayout`.
+        probeable chains: `slicer.app.layoutManager.setLayout`.
+
+        Also resolves intermediate variables:
+            layoutLogic = slicer.app.layoutManager().layoutLogic()
+            layoutLogic.GetLayoutByName(...)
+        produces chain: `slicer.app.layoutManager.layoutLogic.GetLayoutByName`.
         """
         import ast as _ast
         chains = []
@@ -3700,12 +3836,19 @@ Return ONLY the JSON array, no markdown fences.""")
         except (SyntaxError, IndentationError):
             return chains
 
+        var_map = ExtensionCLIAnalyzer._build_var_to_chain_map(code)
+        _API_ROOTS = {"slicer", "vtk", "qt", "ctk"}
+
         for node in _ast.walk(tree):
-            # Match: slicer.something.something(...).method(...)
             if isinstance(node, _ast.Call):
                 attrs = _collect_attr_chain(node.func)
-                if attrs and attrs[0] == "slicer" and len(attrs) >= 2:
+                if not attrs or len(attrs) < 2:
+                    continue
+                if attrs[0] in _API_ROOTS:
                     chains.append(".".join(attrs))
+                elif attrs[0] in var_map:
+                    resolved = var_map[attrs[0]] + "." + ".".join(attrs[1:])
+                    chains.append(resolved)
         return chains
 
     @staticmethod
@@ -4910,6 +5053,7 @@ Return ONLY the sentence, nothing else.""")
         templates: Dict[str, str],
         generators: List[Dict],
         logic_analysis: Optional[Dict] = None,
+        api_probe_result: Optional[Dict] = None,
     ) -> Dict:
         """Validate all templates with CodeValidator + semantic checks."""
         self.on_progress(9, "Validating templates", "Running CodeValidator...")
@@ -4943,7 +5087,7 @@ Return ONLY the sentence, nothing else.""")
 
             # Semantic validation (undefined vars, arg count)
             if logic_analysis:
-                semantic = self._semantic_validate(sample_code, logic_analysis)
+                semantic = self._semantic_validate(sample_code, logic_analysis, api_probe_result=api_probe_result)
                 if semantic.get("errors"):
                     validation["valid"] = False
                     existing_reason = validation.get("reason") or ""
@@ -4974,8 +5118,10 @@ Return ONLY the sentence, nothing else.""")
 
         return results
 
-    def _semantic_validate(self, code: str, logic_analysis: Dict) -> Dict:
-        """Check for undefined variables, wrong arg counts, invalid node types."""
+    def _semantic_validate(self, code: str, logic_analysis: Dict,
+                           api_probe_result: Optional[Dict] = None) -> Dict:
+        """Check for undefined variables, wrong arg counts, invalid node types,
+        and cross-reference API chains against live probe failures."""
         result = {"errors": [], "warnings": []}
 
         try:
@@ -5095,6 +5241,18 @@ Return ONLY the sentence, nothing else.""")
                                 result["warnings"].append(
                                     f"Unknown MRML node class: '{cls}'"
                                 )
+
+        # Cross-check API chains against live probe failures
+        if api_probe_result and api_probe_result.get("failures"):
+            failed_chains = {f.get("chain", "") for f in api_probe_result["failures"]}
+            template_chains = ExtensionCLIAnalyzer._extract_api_chains(code)
+            for chain in template_chains:
+                for failed in failed_chains:
+                    if chain == failed or chain.startswith(failed + "."):
+                        result["warnings"].append(
+                            f"API chain '{chain}' was flagged by live probe as potentially invalid"
+                        )
+                        break
 
         return result
 
