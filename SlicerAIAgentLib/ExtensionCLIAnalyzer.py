@@ -4986,23 +4986,12 @@ Return ONLY the sentence, nothing else.""")
 
         # Collect defined names (assignments, imports, function/class defs, for-loop targets)
         defined = set()
-        # Builtins and implicit Slicer names that are always available
+        # All Python builtins (functions, constants, exceptions, types)
+        import builtins as _builtins
+        defined.update(name for name in dir(_builtins) if not name.startswith("_"))
+        # Slicer-runtime names that are always available but not in builtins
         defined.update({
             "slicer", "qt", "vtk", "ctk", "inputVolume", "logic",
-            "True", "False", "None", "print", "range", "len", "int",
-            "float", "str", "bool", "list", "dict", "set", "tuple",
-            "isinstance", "type", "super", "property", "staticmethod",
-            "classmethod", "hasattr", "getattr", "callable", "abs",
-            "min", "max", "sum", "any", "all", "sorted", "reversed",
-            "enumerate", "zip", "map", "filter", "round", "hex", "oct",
-            "Exception", "ValueError", "RuntimeError",
-            "ImportError", "NameError", "TypeError", "KeyError",
-            "AttributeError", "IndexError", "FileNotFoundError",
-            "SystemExit", "KeyboardInterrupt", "GeneratorExit",
-            "StopIteration", "StopAsyncIteration", "ArithmeticError",
-            "BufferError", "EOFError", "LookupError", "MemoryError",
-            "OSError", "ReferenceError", "UnicodeError",
-            "ZeroDivisionError", "OverflowError", "FloatingPointError",
             "json", "math", "time", "path",
             "_ProgressStub",
         })
