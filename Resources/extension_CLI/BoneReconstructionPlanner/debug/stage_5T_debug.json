@@ -1,0 +1,156 @@
+{
+  "stage": "5T",
+  "total_operations": 8,
+  "started": 8,
+  "finished": 8,
+  "errors_count": 1,
+  "operations": [
+    {
+      "step": 6,
+      "key": "cb_step_6_0",
+      "description": "Change the layout to Conventional",
+      "keywords": [
+        "layout",
+        "conventional"
+      ],
+      "category": "layout_slice_view",
+      "status": "deterministic",
+      "search_time_s": 0.0,
+      "codegen_time_s": 0.0,
+      "total_time_s": 0.2,
+      "snippet_chars": 0,
+      "code_chars": 195,
+      "search_rounds": 0,
+      "error": null
+    },
+    {
+      "step": 7,
+      "key": "cb_step_7_1",
+      "description": "Toggle on slice visibility in 3D view for the Red slice view",
+      "keywords": [
+        "layout_slice_view"
+      ],
+      "category": "layout_slice_view",
+      "status": "deterministic",
+      "search_time_s": 0.0,
+      "codegen_time_s": 0.0,
+      "total_time_s": 0.15,
+      "snippet_chars": 0,
+      "code_chars": 319,
+      "search_rounds": 0,
+      "error": null
+    },
+    {
+      "step": 8,
+      "key": "cb_step_8_2",
+      "description": "Set FOV/Spacing match 2D for the Red slice view",
+      "keywords": [
+        "fov",
+        "spacing",
+        "match 2d",
+        "red view"
+      ],
+      "category": "layout_slice_view",
+      "status": "deterministic",
+      "search_time_s": 0.0,
+      "codegen_time_s": 0.0,
+      "total_time_s": 0.31,
+      "snippet_chars": 0,
+      "code_chars": 361,
+      "search_rounds": 0,
+      "error": null
+    },
+    {
+      "step": 9,
+      "key": "cb_step_9_3",
+      "description": "Toggle on slice intersection visibility in the crosshair toolbar",
+      "keywords": [
+        "crosshair"
+      ],
+      "category": "crosshair",
+      "status": "deterministic",
+      "search_time_s": 0.0,
+      "codegen_time_s": 0.0,
+      "total_time_s": 0.21,
+      "snippet_chars": 0,
+      "code_chars": 354,
+      "search_rounds": 0,
+      "error": null
+    },
+    {
+      "step": 10,
+      "key": "cb_step_10_4",
+      "description": "Toggle on enable interaction in the crosshair toolbar",
+      "keywords": [
+        "crosshair"
+      ],
+      "category": "crosshair",
+      "status": "deterministic",
+      "search_time_s": 0.0,
+      "codegen_time_s": 0.0,
+      "total_time_s": 0.31,
+      "snippet_chars": 0,
+      "code_chars": 354,
+      "search_rounds": 0,
+      "error": null
+    },
+    {
+      "step": 13,
+      "key": "cb_step_13_5",
+      "description": "Open the Markups module",
+      "keywords": [
+        "markups",
+        "module",
+        "switch"
+      ],
+      "category": "module_switching",
+      "status": "deterministic",
+      "search_time_s": 0.0,
+      "codegen_time_s": 0.0,
+      "total_time_s": 0.31,
+      "snippet_chars": 0,
+      "code_chars": 92,
+      "search_rounds": 0,
+      "error": null
+    },
+    {
+      "step": 14,
+      "key": "cb_step_14_6",
+      "description": "Configure display settings: expand Display and Advanced panels, set View to both View 1 and Red",
+      "keywords": [
+        "markups",
+        "display",
+        "advanced",
+        "view",
+        "view 1",
+        "red"
+      ],
+      "category": "markups_display",
+      "status": "low_evidence",
+      "search_time_s": 6.55,
+      "codegen_time_s": 0.25,
+      "total_time_s": 6.99,
+      "snippet_chars": 46,
+      "code_chars": 345,
+      "search_rounds": 0,
+      "error": "Low evidence for slicer_op generation"
+    },
+    {
+      "step": 17,
+      "key": "cb_step_17_7",
+      "description": "Toggle off slice visibility in 3D view for the Red slice view",
+      "keywords": [
+        "layout_slice_view"
+      ],
+      "category": "layout_slice_view",
+      "status": "deterministic",
+      "search_time_s": 0.0,
+      "codegen_time_s": 0.0,
+      "total_time_s": 0.2,
+      "snippet_chars": 0,
+      "code_chars": 320,
+      "search_rounds": 0,
+      "error": null
+    }
+  ]
+}

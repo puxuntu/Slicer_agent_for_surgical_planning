@@ -46,7 +46,23 @@ Requirements:
 - Output ONLY the Python code, no markdown fences, no explanation.
 """
 
+_RETRIEVAL_POLICY = """\
+Retrieval policy:
+- Review pre-retrieved snippets before searching broader sources.
+- Prefer script repository examples and API docs, then exact API definitions.
+- Use targeted source areas before broad search:
+  1. slicer-source/Base/Python/slicer/util.py
+  2. slicer-source/Modules/CLI/
+  3. slicer-source/Modules/Scripted/<relevant-module>/
+  4. slicer-source/Modules/Loadable/<relevant-module>/
+  5. slicer-source/Base/Python/slicer/
+  6. slicer-source/Libs/MRML/Core/
+- Stop when evidence is sufficient; do not search for completeness.
+"""
+
 _CODEGEN_USER_TEMPLATE = """\
+{retrieval_policy}
+
 ## Operation to implement
 
 {description}
@@ -85,6 +101,9 @@ _MAX_ROUNDS = 10
 _MAX_SNIPPET_CHARS = 25000
 _CONVERGENCE_THRESHOLD_CHARS = 300
 _PER_OP_TIMEOUT_S = 120  # Max seconds per slicer_op before giving up
+_MIN_EVIDENCE_CHARS = 300
+_NO_EVIDENCE_TEXT = "(No relevant snippets found in knowledge base)"
+_GENERATION_FAILED_SENTINEL = "SLICER_OP_GENERATION_FAILED"
 
 # Source-type weights (mirrors VectorRetriever._SOURCE_TYPE_WEIGHT)
 _SOURCE_TYPE_WEIGHTS = {
@@ -102,6 +121,67 @@ _FULL_FILE_CHUNK_THRESHOLD = 3
 # How many top files from vector/grep to queue for reading
 _MAX_READFILE_PER_ROUND = 6
 _MAX_GREP_FILES_TO_QUEUE = 8
+
+_CATEGORY_SEARCH_HINTS = {
+    "layout_slice_view": [
+        "layoutManager", "vtkMRMLLayoutNode", "sliceWidget",
+        "mrmlSliceNode", "SetSliceVisible", "SpacingModeMatch2D",
+    ],
+    "module_switching": [
+        "slicer.util.selectModule", "moduleSelector", "markups module",
+    ],
+    "markups_display": [
+        "vtkMRMLMarkupsDisplayNode", "AddViewNodeID", "SetActiveListID",
+        "Markups display advanced view",
+    ],
+    "crosshair": [
+        "vtkMRMLCrosshairNode", "SetCrosshairMode", "ShowIntersection",
+        "slice intersection",
+    ],
+    "subject_hierarchy": [
+        "GetSubjectHierarchyNode", "CreateFolderItem", "SetItemParent",
+    ],
+    "node_display": [
+        "GetDisplayNode", "SetVisibility", "AddViewNodeID",
+    ],
+    "scene_node_lookup": [
+        "slicer.util.getNode", "GetFirstNodeByClass", "GetNodesByClass",
+    ],
+    "cli_module": [
+        "slicer.cli.run", "Modules/CLI",
+    ],
+}
+
+_CATEGORY_TARGET_PATHS = {
+    "layout_slice_view": [
+        "slicer-source/Base/Python/slicer/",
+        "slicer-source/Libs/MRML/Core/",
+    ],
+    "module_switching": [
+        "slicer-source/Base/Python/slicer/util.py",
+        "slicer-source/Base/Python/slicer/",
+    ],
+    "markups_display": [
+        "slicer-source/Modules/Loadable/Markups/",
+        "slicer-source/Docs/developer_guide/script_repository/",
+        "slicer-source/Libs/MRML/Core/",
+    ],
+    "crosshair": [
+        "slicer-source/Libs/MRML/Core/",
+        "slicer-source/Modules/Loadable/",
+    ],
+    "subject_hierarchy": [
+        "slicer-source/Libs/MRML/Core/",
+        "slicer-source/Base/Python/slicer/",
+    ],
+    "node_display": [
+        "slicer-source/Libs/MRML/Core/",
+        "slicer-source/Modules/Loadable/",
+    ],
+    "cli_module": [
+        "slicer-source/Modules/CLI/",
+    ],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +218,7 @@ class _SearchContext:
 
     def get_accumulated(self) -> str:
         if not self._snippet_parts:
-            return "(No relevant snippets found in knowledge base)"
+            return _NO_EVIDENCE_TEXT
         combined = "\n\n".join(self._snippet_parts)
         if len(combined) > _MAX_SNIPPET_CHARS:
             combined = combined[:_MAX_SNIPPET_CHARS] + "\n\n# ... [truncated for length]"
@@ -262,6 +342,75 @@ class SlicerOpGenerator:
         except Exception:
             logger.exception("SlicerOpGenerator: failed to load SkillToolExecutor")
 
+    @staticmethod
+    def _infer_category(sub_op) -> str:
+        category = getattr(sub_op, "slicer_op_category", None)
+        if category:
+            return category
+        text = (
+            getattr(sub_op, "description", "") + " "
+            + " ".join(getattr(sub_op, "slicer_api_keywords", []) or [])
+        ).lower()
+        if any(t in text for t in ("layout", "slice visibility", "red view", "fov", "spacing")):
+            return "layout_slice_view"
+        if "crosshair" in text or "slice intersection" in text:
+            return "crosshair"
+        if "markups module" in text or "open the markups" in text:
+            return "module_switching"
+        if "display panel" in text or "advanced panel" in text:
+            return "markups_display"
+        if "subject hierarchy" in text or "folder" in text:
+            return "subject_hierarchy"
+        if "display" in text or "visibility" in text:
+            return "node_display"
+        return "generic_slicer_api"
+
+    @staticmethod
+    def _deterministic_template(sub_op, category: str) -> Optional[str]:
+        """Return deterministic code for common high-confidence Slicer ops."""
+        desc = getattr(sub_op, "description", "")
+        text = (desc + " " + " ".join(getattr(sub_op, "slicer_api_keywords", []) or [])).lower()
+        if category == "module_switching" and "markup" in text:
+            return (
+                "import slicer\n\n"
+                "slicer.util.selectModule('Markups')\n"
+                "print(\"[Slicer] Markups module opened.\")\n"
+            )
+        if category == "layout_slice_view":
+            lines = [
+                "import slicer",
+                "",
+                "layoutManager = slicer.app.layoutManager()",
+            ]
+            if "conventional" in text:
+                lines.append("layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)")
+            if "red" in text or "slice" in text:
+                lines.extend([
+                    "redWidget = layoutManager.sliceWidget('Red')",
+                    "if redWidget is None:",
+                    "    raise RuntimeError(\"Red slice widget is not available\")",
+                    "redSliceNode = redWidget.mrmlSliceNode()",
+                ])
+                if "toggle off" in text or "visibility off" in text:
+                    lines.append("redSliceNode.SetSliceVisible(False)")
+                elif "slice visibility" in text or "3d" in text:
+                    lines.append("redSliceNode.SetSliceVisible(True)")
+                if "spacing" in text or "fov" in text or "match 2d" in text:
+                    lines.append("redSliceNode.SetSliceSpacingMode(slicer.vtkMRMLSliceNode.SpacingModeMatch2D)")
+            lines.append("")
+            lines.append("print(\"[Slicer] Layout/slice view operation completed.\")")
+            return "\n".join(lines) + "\n"
+        if category == "crosshair":
+            return (
+                "import slicer\n\n"
+                "crosshairNode = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLCrosshairNode')\n"
+                "if crosshairNode is None:\n"
+                "    crosshairNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLCrosshairNode', 'Crosshair')\n"
+                "crosshairNode.SetCrosshairMode(slicer.vtkMRMLCrosshairNode.ShowIntersection)\n"
+                "print(\"[Slicer] Crosshair slice intersection visibility enabled.\")\n"
+            )
+        return None
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -316,6 +465,7 @@ class SlicerOpGenerator:
             step_num, sub_op = item
             key = f"cb_step_{step_num}_{idx}"
             desc_short = sub_op.description.split("\n")[0][:60]
+            category = self._infer_category(sub_op)
             t0 = _time.monotonic()
 
             op_record = {
@@ -323,6 +473,7 @@ class SlicerOpGenerator:
                 "key": key,
                 "description": sub_op.description[:200],
                 "keywords": sub_op.slicer_api_keywords[:10],
+                "category": category,
                 "status": "started",
                 "search_time_s": None,
                 "codegen_time_s": None,
@@ -344,6 +495,20 @@ class SlicerOpGenerator:
             _write_debug()
 
             try:
+                deterministic = self._deterministic_template(sub_op, category)
+                if deterministic:
+                    op_record["status"] = "deterministic"
+                    op_record["search_time_s"] = 0.0
+                    op_record["snippet_chars"] = 0
+                    op_record["codegen_time_s"] = 0.0
+                    op_record["total_time_s"] = round(_time.monotonic() - t0, 2)
+                    op_record["code_chars"] = len(deterministic)
+                    logger.info(
+                        "[5T] step %d deterministic template (%s): %s",
+                        step_num, category, desc_short,
+                    )
+                    return key, deterministic
+
                 t1 = _time.monotonic()
                 snippets = self._iterative_search(sub_op)
                 t2 = _time.monotonic()
@@ -358,11 +523,28 @@ class SlicerOpGenerator:
                     "[5T] step %d search done: %.1fs, snippets=%d chars  %s",
                     step_num, search_time, len(snippets), desc_short,
                 )
-                code = self._generate_code(sub_op, snippets)
+                if self._is_low_evidence(snippets):
+                    code = self._generation_failed_template(
+                        sub_op,
+                        "Knowledge-base search did not find enough reliable Slicer API evidence.",
+                    )
+                    op_record["status"] = "low_evidence"
+                    op_record["error"] = "Low evidence for slicer_op generation"
+                    with lock:
+                        errors.append(
+                            f"Step {step_num} ({desc_short}): low evidence for slicer_op generation"
+                        )
+                    logger.warning(
+                        "[5T] step %d low evidence; emitted blocking template: %s",
+                        step_num, desc_short,
+                    )
+                else:
+                    code = self._generate_code(sub_op, snippets)
                 t3 = _time.monotonic()
                 codegen_time = t3 - t2
 
-                op_record["status"] = "done"
+                if op_record.get("status") != "low_evidence":
+                    op_record["status"] = "done"
                 op_record["codegen_time_s"] = round(codegen_time, 2)
                 op_record["total_time_s"] = round(t3 - t0, 2)
                 op_record["code_chars"] = len(code)
@@ -481,6 +663,10 @@ class SlicerOpGenerator:
         n_queries = len(ctx.sub_queries)
         logger.info("[5T] Phase1.1 decompose: %.1fs (%d queries)", t1 - t0, n_queries)
 
+        self._phase1_targeted_grep(ctx)
+        t1b = _time.monotonic()
+        logger.info("[5T] Phase1.1b targeted grep: %.1fs", t1b - t1)
+
         # Step 2: Multi-query vector search
         queries = ctx.sub_queries if ctx.sub_queries else [ctx.description]
         all_vector_results = []
@@ -494,7 +680,7 @@ class SlicerOpGenerator:
                     seen_chunk_ids.add(cid)
                     all_vector_results.append(item)
         t2 = _time.monotonic()
-        logger.info("[5T] Phase1.2 vector: %.1fs (%d chunks)", t2 - t1, len(all_vector_results))
+        logger.info("[5T] Phase1.2 vector: %.1fs (%d chunks)", t2 - t1b, len(all_vector_results))
 
         # Re-rank by source-type weighted score
         all_vector_results = self._rerank_by_source_type(all_vector_results)
@@ -590,6 +776,38 @@ class SlicerOpGenerator:
 
         # Fallback: description + each keyword as separate queries
         ctx.sub_queries = [desc] + [k for k in keywords if k and k != desc]
+
+    def _phase1_targeted_grep(self, ctx: _SearchContext) -> None:
+        """Search category-specific source areas before broad vector/grep."""
+        category = getattr(ctx, "category", None)
+        if not category:
+            return
+        paths = _CATEGORY_TARGET_PATHS.get(category, [])
+        if not paths or not ctx.keywords:
+            return
+        terms = ctx.keywords[:6]
+        pattern = "|".join(re.escape(t) for t in terms if t)
+        if not pattern:
+            return
+        parts = []
+        for path in paths[:3]:
+            result = self._executor._grep(pattern, path)
+            if "error" in result:
+                continue
+            for m in result.get("representative_matches", [])[:4]:
+                file_path = m.get("file", "")
+                line = m.get("line", "")
+                content = m.get("context", m.get("content", ""))
+                parts.append(f"### {file_path}:{line}\n```\n{content}\n```")
+            for f in result.get("files", [])[:3]:
+                file_path = f.get("file")
+                if file_path and file_path not in ctx._files_read and file_path not in ctx._grep_file_hits:
+                    ctx._grep_file_hits.append(file_path)
+        if parts:
+            ctx.add_snippet(
+                f"## Targeted grep ({category})",
+                "\n\n".join(parts[:10]),
+            )
 
     def _rerank_by_source_type(self, results: List[Dict]) -> List[Dict]:
         """Re-rank vector search results by source-type weight.
@@ -698,7 +916,11 @@ class SlicerOpGenerator:
         """
         import time as _time
 
-        ctx = _SearchContext(sub_op.description, sub_op.slicer_api_keywords or [])
+        category = self._infer_category(sub_op)
+        seed_keywords = list(sub_op.slicer_api_keywords or [])
+        seed_keywords.extend(_CATEGORY_SEARCH_HINTS.get(category, []))
+        ctx = _SearchContext(sub_op.description, seed_keywords)
+        ctx.category = category
 
         if not self._executor:
             logger.warning("[5T] No executor available — skipping search for '%s'",
@@ -944,6 +1166,26 @@ class SlicerOpGenerator:
     # Code generation (LLM)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _is_low_evidence(snippets: str) -> bool:
+        """Return True when retrieval did not provide enough grounding."""
+        if not snippets or snippets.strip() == _NO_EVIDENCE_TEXT:
+            return True
+        useful = snippets.replace(_NO_EVIDENCE_TEXT, "").strip()
+        return len(useful) < _MIN_EVIDENCE_CHARS
+
+    @staticmethod
+    def _generation_failed_template(sub_op, reason: str) -> str:
+        desc = getattr(sub_op, "description", "")
+        safe_reason = reason.replace('"', "'")
+        return (
+            f"# [{_GENERATION_FAILED_SENTINEL}] {safe_reason}\n"
+            f"# Operation: {desc}\n"
+            "raise RuntimeError("
+            f"\"Slicer-op template generation failed: {safe_reason}\""
+            ")\n"
+        )
+
     def _generate_code(self, sub_op, kb_snippets: str) -> str:
         """Use LLM to generate a Python code template from accumulated KB snippets.
 
@@ -959,6 +1201,7 @@ class SlicerOpGenerator:
 
         user_content = (
             _CODEGEN_USER_TEMPLATE
+            .replace("{retrieval_policy}", _RETRIEVAL_POLICY)
             .replace("{description}", sub_op.description)
             .replace("{snippets}", kb_snippets)
         )

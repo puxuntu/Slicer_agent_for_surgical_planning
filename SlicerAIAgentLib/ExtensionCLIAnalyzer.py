@@ -105,8 +105,45 @@ def _validate_extension_name(name: str) -> str:
 def _tokenize_name(name: str) -> set:
     """Split a CamelCase/underscore name into lowercase tokens."""
     import re
+    name = _text_or_empty(name)
     parts = re.split(r'(?<=[a-z])(?=[A-Z])|_|(?<=[A-Z])(?=[A-Z][a-z])', name)
     return {p.lower() for p in parts if p}
+
+
+def _text_or_empty(value: Any) -> str:
+    """Return a safe text value for fields that may come from LLM JSON."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+def _optional_text(value: Any) -> Optional[str]:
+    """Return a stripped string for meaningful text fields, otherwise None."""
+    if value is None or isinstance(value, bool):
+        return None
+    text = _text_or_empty(value).strip()
+    return text or None
+
+
+def _text_list(value: Any) -> List[str]:
+    """Coerce a possibly malformed LLM field into a list of text values."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [_text_or_empty(v) for v in value if v is not None]
+    return [_text_or_empty(value)]
+
+
+def _int_or_none(value: Any) -> Optional[int]:
+    """Coerce simple integer-like values without treating booleans as numbers."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _name_similarity(name_a: str, name_b: str) -> float:
@@ -201,6 +238,7 @@ class ExtensionCLIAnalyzer:
         on_progress: Optional[Callable[[int, str, str], None]] = None,
         on_error: Optional[Callable[[str], None]] = None,
         method_keyword_map: Optional[Dict[str, str]] = None,
+        live_probe_executor: Optional[Callable[[str], Any]] = None,
     ):
         """
         Args:
@@ -215,6 +253,8 @@ class ExtensionCLIAnalyzer:
                 {"create bone model": "createBoneModels"}).  Used by the
                 heuristic fallback when LLM decomposition fails.  If not
                 provided, only fuzzy word-overlap matching is used.
+            live_probe_executor: Optional callable that executes a probe snippet
+                on Slicer's main thread and returns the probe result.
         """
         self.llm_client = llm_client
         self.output_base_dir = output_base_dir or self._default_base_dir()
@@ -222,6 +262,7 @@ class ExtensionCLIAnalyzer:
         self.on_progress = on_progress or (lambda n, s, d: None)
         self.on_error = on_error or (lambda e: None)
         self._method_keyword_map = method_keyword_map or {}
+        self._live_probe_executor = live_probe_executor
         self._analyzer_prompt = self._load_analyzer_prompt()
         self._cancelled = False
         # Pipeline-scoped state (reset in analyze_and_generate)
@@ -230,7 +271,9 @@ class ExtensionCLIAnalyzer:
         self._llm_call_counter: int = 0
         self._current_stage_label: str = ""
         self._cookbook_def = None                # Parsed CookbookDef when cookbook found
+        self._widget_connections: List[Dict] = []
         self._slicer_op_templates: Dict = {}     # Pre-generated slicer_op templates
+        self._placement_starter_methods: Dict = {}
 
     @staticmethod
     def _default_base_dir() -> str:
@@ -300,6 +343,7 @@ class ExtensionCLIAnalyzer:
         self._current_stage_label = ""
         self._cookbook_def = None
         self._slicer_op_templates = {}
+        self._placement_starter_methods = {}
 
         # Validate extension name (prevent path traversal)
         extension_name = _validate_extension_name(extension_name)
@@ -459,6 +503,9 @@ class ExtensionCLIAnalyzer:
             # ── Stage 7: Code Template Generation (LLM + internal review) ──
             self._current_stage_label = "7"
             node_lifecycle = self._compute_node_lifecycle(scan_result, logic_analysis)
+            self._placement_starter_methods = self._classify_placement_starter_methods(
+                logic_analysis
+            )
             templates = self._stage7_generate_templates(
                 extension_name, stage_map, node_lifecycle, scan_result, logic_analysis,
                 cross_stage_map=cross_stage_map,
@@ -476,19 +523,10 @@ class ExtensionCLIAnalyzer:
             probe_result = self._stage7c_live_api_probe(templates)
             result["stages_completed"].append("7.5")
             result["api_probe_result"] = probe_result
+            if probe_result.get("revised", 0) > 0:
+                templates = self._sanitize_templates(templates)
             if self._cancelled:
                 result["error"] = "Cancelled during Stage 7.5"
-                return result
-
-            # ── Stage 8: Prompt Fragment Generation (LLM) ──
-            self._current_stage_label = "8"
-            prompt_fragment = self._stage8_generate_prompt(
-                extension_name, tool_schemas, stage_map, logic_analysis,
-                workflow_graph=workflow_graph,
-            )
-            result["stages_completed"].append(8)
-            if self._cancelled:
-                result["error"] = "Cancelled during Stage 8"
                 return result
 
             # ── Stage 9: Validation + Save ──
@@ -503,6 +541,28 @@ class ExtensionCLIAnalyzer:
             )
             result["stages_completed"].append(9)
             result["validation_result"] = validation_result
+
+            if validation_result.get("valid"):
+                manifest["status"] = "validated"
+                # ── Stage 8: Prompt Fragment Generation (LLM) ──
+                # Generate the runtime prompt only after templates are known to
+                # be valid, so prompt instructions match the final package.
+                self._current_stage_label = "8"
+                prompt_fragment = self._stage8_generate_prompt(
+                    extension_name, tool_schemas, stage_map, logic_analysis,
+                    workflow_graph=workflow_graph,
+                )
+                result["stages_completed"].append(8)
+                if self._cancelled:
+                    result["error"] = "Cancelled during Stage 8"
+                    return result
+            else:
+                manifest["status"] = "failed"
+                prompt_fragment = (
+                    f"### {extension_name}\n\n"
+                    "Generation failed validation. This CLI package is saved "
+                    "only for debugging/revision and is not loaded as a runtime tool.\n"
+                )
 
             # Save CLI package
             from .ExtensionCLILoader import save_cli_package
@@ -1130,6 +1190,143 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
     # Stage 4: Cookbook Stage Map — LLM Decomposition
     # ================================================================
 
+    def _collect_step_evidence(
+        self, step_description: str, method_names: List[str], extension_name: str = ""
+    ) -> Dict[str, Any]:
+        """Collect deterministic classification evidence for one cookbook step."""
+        desc = _text_or_empty(step_description)
+        desc_lower = desc.lower()
+        evidence = {
+            "logic_method_candidates": [],
+            "widget_candidates": [],
+            "ui_control_candidates": [],
+            "slicer_core_candidates": [],
+            "interaction_candidates": [],
+            "choice_candidates": [],
+        }
+
+        matched_method = self._match_description_to_method(desc_lower, method_names)
+        if matched_method:
+            evidence["logic_method_candidates"].append({
+                "method": matched_method,
+                "reason": "method name/purpose token overlap",
+            })
+
+        for conn in getattr(self, "_widget_connections", []) or []:
+            btn_name = _text_or_empty(conn.get("button_widget_name"))
+            btn_text = btn_name.lower().replace("_", " ").replace(".", " ")
+            btn_words = [w for w in btn_text.split() if len(w) > 3]
+            if not btn_words:
+                continue
+            hits = [w for w in btn_words if w in desc_lower]
+            if len(hits) >= 2 or (len(btn_words) == 1 and hits):
+                evidence["widget_candidates"].append({
+                    "button_widget_name": btn_name,
+                    "logic_methods": conn.get("logic_methods", []),
+                    "matched_words": hits,
+                })
+
+        choice_patterns = {
+            "left/right": ("left" in desc_lower and "right" in desc_lower),
+            "which side": "which side" in desc_lower,
+            "which type": "which type" in desc_lower or "mandibulectomy type" in desc_lower,
+            "select scene node": any(
+                p in desc_lower for p in (
+                    "select the", "choose the", "current scalar volume",
+                    "select mandibular segmentation", "select fibula segmentation",
+                )
+            ),
+            "number requested": any(p in desc_lower for p in ("how many", "number of")),
+        }
+        for name, present in choice_patterns.items():
+            if present:
+                evidence["choice_candidates"].append(name)
+
+        interaction_patterns = [
+            ("markup_placement", "curve", "vtkMRMLMarkupsCurveNode", ("draw", "curve")),
+            ("markup_placement", "plane", "vtkMRMLMarkupsPlaneNode", ("plane", "place")),
+            ("markup_placement", "line", "vtkMRMLMarkupsLineNode", ("line", "draw")),
+            ("view_adjustment", "generic", "vtkMRMLCrosshairNode", ("crosshair", "slice intersection", "drag")),
+        ]
+        for kind, interaction_type, node_class, words in interaction_patterns:
+            if any(w in desc_lower for w in words) and any(
+                v in desc_lower for v in ("manual", "manually", "draw", "drag", "click", "place", "position", "adjust")
+            ):
+                evidence["interaction_candidates"].append({
+                    "interaction_kind": kind,
+                    "interaction_type": interaction_type,
+                    "node_class": node_class,
+                    "matched_terms": [w for w in words if w in desc_lower],
+                })
+
+        slicer_concepts = [
+            ("layout_slice_view", ("layout", "conventional", "slice visibility", "red view", "fov", "spacing")),
+            ("module_switching", ("open the markups module", "markups module", "module")),
+            ("markups_display", ("display panel", "advanced panel", "view 1", "markups")),
+            ("crosshair", ("crosshair", "slice intersection", "enable interaction")),
+            ("subject_hierarchy", ("subject hierarchy", "folder")),
+            ("node_display", ("display node", "visibility", "view node")),
+        ]
+        for category, terms in slicer_concepts:
+            matched = [t for t in terms if t in desc_lower]
+            if matched:
+                evidence["slicer_core_candidates"].append({
+                    "category": category,
+                    "matched_terms": matched,
+                })
+
+        extension_tokens = []
+        if extension_name:
+            extension_tokens.append(extension_name.lower())
+            parts = _re.sub(r'([a-z])([A-Z])', r'\1 \2', extension_name).split()
+            acronym = "".join(p[0].lower() for p in parts if p)
+            if len(acronym) >= 2:
+                extension_tokens.append(acronym)
+        for token in extension_tokens:
+            if token and token in desc_lower:
+                evidence["ui_control_candidates"].append({
+                    "control": token,
+                    "reason": "extension-specific name/acronym appears in step",
+                })
+
+        return evidence
+
+    @staticmethod
+    def _evidence_has(evidence: Dict[str, Any], key: str) -> bool:
+        value = evidence.get(key, [])
+        return isinstance(value, list) and bool(value)
+
+    def _infer_interaction_kind_from_evidence(self, evidence: Dict[str, Any], node_class: str = "") -> str:
+        for item in evidence.get("interaction_candidates", []) or []:
+            kind = item.get("interaction_kind")
+            if kind:
+                return kind
+        if self._is_markup_node_class(node_class):
+            return "markup_placement"
+        if node_class:
+            return "view_adjustment"
+        return "none"
+
+    def _infer_slicer_op_category(self, text: str, evidence: Optional[Dict[str, Any]] = None) -> Optional[str]:
+        desc = _text_or_empty(text).lower()
+        if evidence:
+            cats = evidence.get("slicer_core_candidates", []) or []
+            if cats and isinstance(cats[0], dict) and cats[0].get("category"):
+                return cats[0]["category"]
+        if any(t in desc for t in ("layout", "red view", "slice visibility", "fov", "spacing")):
+            return "layout_slice_view"
+        if "crosshair" in desc or "slice intersection" in desc:
+            return "crosshair"
+        if "markups module" in desc or "open the markups" in desc:
+            return "module_switching"
+        if "display panel" in desc or "advanced panel" in desc:
+            return "markups_display"
+        if "subject hierarchy" in desc or "folder" in desc:
+            return "subject_hierarchy"
+        if "display" in desc or "visibility" in desc:
+            return "node_display"
+        return None
+
     def _stage4_cookbook_decomposition(
         self, cookbook_def, logic_analysis: Dict
     ) -> Dict:
@@ -1178,6 +1375,12 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
             })
 
         method_names = [m["name"] for m in methods]
+        evidence_by_step = {
+            s.step_number: self._collect_step_evidence(
+                s.description, method_names, cookbook_def.extension_name
+            )
+            for s in cookbook_def.steps
+        }
 
         # Build cookbook method hints section (AST-verified, not subject to truncation)
         cookbook_method_hints = logic_analysis.get("_cookbook_method_hints", [])
@@ -1203,6 +1406,14 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
         ## Available Logic Methods
         {json.dumps(method_catalog, indent=2)}
 {_cookbook_hints_section}
+
+        ## Deterministic Evidence Candidates
+        These candidates were extracted from the extension source, UI/widget
+        connections, and known Slicer-core concepts before this LLM call.
+        Prefer high-confidence evidence over guessing. If no extension evidence
+        or Slicer-core evidence supports an operation, use `unknown_op` instead
+        of guessing.
+        {json.dumps(evidence_by_step, indent=2)}
 
         ## Task
         For EACH cookbook step, decompose it into one or more sub-operations.
@@ -1255,6 +1466,10 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
            - A step like "click the Create Models button" is extension_op (there is
              a Logic method) or slicer_op (Slicer core API), NOT user_choice.
 
+        5. **unknown_op** — The operation is required by the cookbook but cannot
+           be proven as extension_op or slicer_op from the evidence. Do NOT use
+           slicer_op as a catch-all fallback.
+
         ## Output Format
         Return a JSON object with this structure:
         {{
@@ -1263,7 +1478,7 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
               "step_number": 1,
               "sub_operations": [
                 {{
-                  "op_type": "extension_op" | "slicer_op" | "user_interaction" | "user_choice",
+                  "op_type": "extension_op" | "slicer_op" | "user_interaction" | "user_choice" | "unknown_op",
                   "description": "what this sub-operation does",
                   "extension_method_hint": "methodName" or null,
                   "slicer_api_keywords": ["keyword1"] or [],
@@ -1271,6 +1486,11 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                   "node_class": "vtkMRML..." or null,
                   "placement_instructions": "..." or null,
                   "min_control_points": 0,
+                  "evidence_type": "logic_method" | "widget_connection" | "ui_control" | "parameter_node" | "slicer_core" | "viewport_action" | "user_context" | "unknown",
+                  "evidence_id": "method/widget/concept id" or null,
+                  "confidence": "high" | "medium" | "low",
+                  "interaction_kind": "markup_placement" | "view_adjustment" | "none",
+                  "slicer_op_category": "layout_slice_view" | "module_switching" | "markups_display" | "crosshair" | "subject_hierarchy" | "node_display" | "scene_node_lookup" | "cli_module" | "generic_slicer_api" or null,
                   "question": "..." or null,
                   "choices": [{{"label": "...", "value": "..."}}] or [],
                   "parameter_name": "..." or null,
@@ -1313,6 +1533,23 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
           name is not in the catalog. Extension buttons call extension Logic methods.
           Only classify as slicer_op when the step explicitly references Slicer core
           features (layout changes, module switching, slicer.app, slicer.util).
+        - **Slicer core UI operations** (CRITICAL — these are slicer_op, NOT extension_op):
+          The following operations use Slicer's core API, not the extension's Logic class.
+          Even if described in the context of using the extension, they are slicer_op:
+          • "Slice visibility in 3D view" → slicer_op (vtkMRMLSliceNode.SetSliceVisible)
+          • "Slice intersection visibility" / "Crosshair" → slicer_op (vtkMRMLCrosshairNode)
+          • "FOV/Spacing match 2D" → slicer_op (vtkMRMLSliceNode.SetSliceSpacingMode)
+          • "Open [X] module" / "Switch to [X] module" → slicer_op (slicer.util.selectModule)
+          • Layout changes (Conventional, Four-Up, etc.) → slicer_op (layoutManager.setLayout)
+          • "Display" panel / "View" settings on markup nodes → slicer_op (display node API)
+          Extension UI toggles (checkboxes in the extension's own panel) are still
+          extension_op, but Slicer core view/display/interaction toggles are slicer_op.
+          Key test: "Does this use slicer.app, slicer.util, or a vtkMRML*Node method?"
+          If yes → slicer_op. "Does this set an extension parameter node value?" If yes → extension_op.
+        - **Evidence requirement**: extension_op must cite extension evidence
+          (logic_method/widget_connection/ui_control/parameter_node). slicer_op must
+          cite slicer_core evidence and include `slicer_op_category`.
+          If evidence is weak or absent, return unknown_op with confidence "low".
         - Mark optional/experimental steps with is_optional: true.
         - Return ONLY the JSON object, no markdown fences or explanation.""")
 
@@ -1364,13 +1601,23 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
             all_methods = raw_methods if isinstance(raw_methods, dict) else {}
 
         stages = []
-        llm_steps = {s["step_number"]: s for s in decomposition.get("steps", [])}
+        llm_steps = {}
+        for raw_step in decomposition.get("steps", []):
+            if not isinstance(raw_step, dict):
+                continue
+            step_number = _int_or_none(raw_step.get("step_number"))
+            if step_number is not None:
+                llm_steps[step_number] = raw_step
 
         for cb_step in cookbook_def.steps:
             step_num = cb_step.step_number
             step_id = f"cb_step_{step_num}"
             llm_step = llm_steps.get(step_num, {})
             llm_sub_ops = llm_step.get("sub_operations", [])
+            method_names = list(all_methods.keys())
+            step_evidence = self._collect_step_evidence(
+                cb_step.description, method_names, cookbook_def.extension_name
+            )
 
             # If LLM returned nothing for this step, fall back to heuristic
             if not llm_sub_ops:
@@ -1387,30 +1634,57 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
             # Normalize sub-operations: ensure required fields
             sub_ops = []
             for so in llm_sub_ops:
-                op_type = so.get("op_type", "extension_op")
-                if op_type not in ("extension_op", "slicer_op", "user_interaction", "user_choice"):
+                if not isinstance(so, dict):
+                    so = {"description": so}
+                op_type = _optional_text(so.get("op_type")) or "extension_op"
+                if op_type not in ("extension_op", "slicer_op", "user_interaction", "user_choice", "unknown_op"):
                     op_type = "extension_op"
+                description = _text_or_empty(
+                    so.get("description", cb_step.description[:200])
+                )
+                method_hint = _optional_text(so.get("extension_method_hint"))
+                node_class = _optional_text(so.get("node_class"))
+                evidence_type = _optional_text(so.get("evidence_type")) or "unknown"
+                evidence_id = _optional_text(so.get("evidence_id"))
+                confidence = (_optional_text(so.get("confidence")) or "medium").lower()
+                if confidence not in ("high", "medium", "low"):
+                    confidence = "medium"
+                interaction_kind = (
+                    _optional_text(so.get("interaction_kind"))
+                    or self._infer_interaction_kind_from_evidence(step_evidence, node_class or "")
+                )
+                slicer_op_category = (
+                    _optional_text(so.get("slicer_op_category"))
+                    or self._infer_slicer_op_category(description, step_evidence)
+                )
                 normalized = {
                     "op_type": op_type,
-                    "description": so.get("description", cb_step.description[:200]),
-                    "extension_method_hint": so.get("extension_method_hint"),
-                    "slicer_api_keywords": so.get("slicer_api_keywords", []),
-                    "interaction_type": so.get("interaction_type"),
-                    "node_class": so.get("node_class"),
-                    "placement_instructions": so.get("placement_instructions"),
+                    "description": description,
+                    "extension_method_hint": method_hint,
+                    "slicer_api_keywords": _text_list(so.get("slicer_api_keywords", [])),
+                    "interaction_type": _optional_text(so.get("interaction_type")),
+                    "node_class": node_class,
+                    "placement_instructions": _optional_text(so.get("placement_instructions")),
                     "min_control_points": so.get("min_control_points", 0),
+                    "evidence_type": evidence_type,
+                    "evidence_id": evidence_id,
+                    "confidence": confidence,
+                    "interaction_kind": interaction_kind,
+                    "slicer_op_category": slicer_op_category,
                     "is_optional": so.get("is_optional", False),
                 }
                 # user_choice-specific fields
                 if op_type == "user_choice":
-                    normalized["question"] = so.get("question", cb_step.description)
-                    normalized["choices"] = so.get("choices", [])
-                    normalized["parameter_name"] = so.get("parameter_name", f"choice_step_{step_num}")
+                    normalized["question"] = _text_or_empty(so.get("question", cb_step.description))
+                    choices = so.get("choices", [])
+                    normalized["choices"] = choices if isinstance(choices, list) else []
+                    normalized["parameter_name"] = (
+                        _optional_text(so.get("parameter_name")) or f"choice_step_{step_num}"
+                    )
                     normalized["default_value"] = so.get("default_value")
                 sub_ops.append(normalized)
 
             # Resolve extension_method_hint to actual method names
-            method_names = list(all_methods.keys())
             for so in sub_ops:
                 hint = so.get("extension_method_hint")
                 if hint and hint not in all_methods:
@@ -1418,12 +1692,119 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                     if matched:
                         so["extension_method_hint"] = matched
 
+            # Deterministic evidence validation. The LLM may propose op_type,
+            # but source/UI/Slicer-core evidence decides whether it can stand.
+            for so in sub_ops:
+                desc_lower = _text_or_empty(so.get("description")).lower()
+                if (
+                    so["op_type"] not in ("user_choice", "user_interaction")
+                    and self._evidence_has(step_evidence, "choice_candidates")
+                    and not self._evidence_has(step_evidence, "widget_candidates")
+                    and not so.get("extension_method_hint")
+                ):
+                    so["op_type"] = "user_choice"
+                    so["question"] = so.get("question") or so.get("description", cb_step.description)
+                    so["choices"] = so.get("choices", [])
+                    so["parameter_name"] = so.get("parameter_name") or f"choice_step_{step_num}"
+                    so["slicer_api_keywords"] = []
+                    so["evidence_type"] = "user_context"
+                    so["confidence"] = "high"
+                elif (
+                    so["op_type"] == "unknown_op"
+                    and self._evidence_has(step_evidence, "interaction_candidates")
+                ):
+                    interaction = step_evidence["interaction_candidates"][0]
+                    so["op_type"] = "user_interaction"
+                    so["interaction_kind"] = interaction.get("interaction_kind", "markup_placement")
+                    so["interaction_type"] = interaction.get("interaction_type")
+                    so["node_class"] = interaction.get("node_class")
+                    so["placement_instructions"] = so.get("placement_instructions") or so.get("description")
+                    so["evidence_type"] = "viewport_action"
+                    so["confidence"] = "high"
+                elif so["op_type"] == "unknown_op" and self._evidence_has(
+                    step_evidence, "logic_method_candidates"
+                ):
+                    method = step_evidence["logic_method_candidates"][0].get("method")
+                    so["op_type"] = "extension_op"
+                    so["extension_method_hint"] = method
+                    so["evidence_type"] = "logic_method"
+                    so["evidence_id"] = method
+                    so["confidence"] = "high"
+                elif so["op_type"] == "unknown_op" and self._evidence_has(
+                    step_evidence, "slicer_core_candidates"
+                ):
+                    category = self._infer_slicer_op_category(so.get("description", ""), step_evidence)
+                    if category:
+                        so["op_type"] = "slicer_op"
+                        so["slicer_op_category"] = category
+                        so["evidence_type"] = "slicer_core"
+                        so["evidence_id"] = category
+                        so["confidence"] = "medium"
+
+                if so["op_type"] == "extension_op":
+                    if so.get("extension_method_hint"):
+                        so["evidence_type"] = "logic_method"
+                        so["evidence_id"] = so["extension_method_hint"]
+                        so["confidence"] = "high"
+                    elif self._evidence_has(step_evidence, "widget_candidates"):
+                        widget = step_evidence["widget_candidates"][0]
+                        logic_methods = widget.get("logic_methods") or []
+                        if logic_methods:
+                            so["extension_method_hint"] = logic_methods[0]
+                        so["evidence_type"] = "widget_connection"
+                        so["evidence_id"] = widget.get("button_widget_name")
+                        so["confidence"] = "high"
+                    elif self._evidence_has(step_evidence, "ui_control_candidates"):
+                        so["evidence_type"] = "ui_control"
+                        so["evidence_id"] = step_evidence["ui_control_candidates"][0].get("control")
+                        so["confidence"] = "medium"
+                    else:
+                        matched = self._match_description_to_method(desc_lower, method_names)
+                        if matched:
+                            so["extension_method_hint"] = matched
+                            so["evidence_type"] = "logic_method"
+                            so["evidence_id"] = matched
+                            so["confidence"] = "high"
+                        else:
+                            so["op_type"] = "unknown_op"
+                            so["evidence_type"] = "unknown"
+                            so["confidence"] = "low"
+                elif so["op_type"] == "slicer_op":
+                    category = so.get("slicer_op_category") or self._infer_slicer_op_category(
+                        so.get("description", ""), step_evidence
+                    )
+                    if self._evidence_has(step_evidence, "slicer_core_candidates") and category:
+                        so["slicer_op_category"] = category
+                        so["evidence_type"] = "slicer_core"
+                        so["evidence_id"] = category
+                        if so.get("confidence") == "low":
+                            so["confidence"] = "medium"
+                    else:
+                        so["op_type"] = "unknown_op"
+                        so["slicer_api_keywords"] = []
+                        so["evidence_type"] = "unknown"
+                        so["confidence"] = "low"
+                elif so["op_type"] == "user_interaction":
+                    so["evidence_type"] = "viewport_action"
+                    so["interaction_kind"] = (
+                        so.get("interaction_kind")
+                        or self._infer_interaction_kind_from_evidence(
+                            step_evidence, so.get("node_class", "")
+                        )
+                    )
+                    if so["interaction_kind"] == "view_adjustment" and not so.get("node_class"):
+                        so["node_class"] = "vtkMRMLCrosshairNode"
+                elif so["op_type"] == "user_choice":
+                    so["evidence_type"] = "user_context"
+                elif so["op_type"] == "unknown_op":
+                    so["confidence"] = "low"
+
             # ── Reclassify extension-specific slicer_ops → extension_op ──
             # slicer_ops that reference the extension's own resources (custom
             # layouts, extension-defined node types, extension module names)
             # cannot be resolved via Slicer KB search. Reclassify them as
             # extension_op so they use the extension source for code generation.
-            ext_name = cookbook_def.extension_name
+            ext_name = _text_or_empty(cookbook_def.extension_name)
             ext_name_lower = ext_name.lower() if ext_name else ""
             # Common patterns indicating extension-specific knowledge:
             # - The extension's own name in layout/view descriptions
@@ -1442,8 +1823,11 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
             for so in sub_ops:
                 if so["op_type"] != "slicer_op":
                     continue
-                desc_lower = so.get("description", "").lower()
-                keywords_lower = [k.lower() for k in so.get("slicer_api_keywords", [])]
+                desc_lower = _text_or_empty(so.get("description")).lower()
+                keywords_lower = [
+                    _text_or_empty(k).lower()
+                    for k in _text_list(so.get("slicer_api_keywords", []))
+                ]
                 combined_text = desc_lower + " " + " ".join(keywords_lower)
 
                 # Check if the description/keywords reference the extension itself
@@ -1459,6 +1843,9 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                     so["op_type"] = "extension_op"
                     so["extension_method_hint"] = matched_method
                     so["slicer_api_keywords"] = []
+                    so["evidence_type"] = "ui_control"
+                    so["evidence_id"] = ext_name
+                    so["confidence"] = "medium"
                     logger.info(
                         "[Stage 4] Reclassified step %d slicer_op → extension_op "
                         "(extension-specific: '%s'): %s",
@@ -1470,9 +1857,9 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                 for so in sub_ops:
                     if so["op_type"] != "slicer_op":
                         continue
-                    desc_lower = so.get("description", "").lower()
+                    desc_lower = _text_or_empty(so.get("description")).lower()
                     for conn in self._widget_connections:
-                        btn_name = conn.get("button_widget_name", "").lower()
+                        btn_name = _text_or_empty(conn.get("button_widget_name")).lower()
                         logic_methods = conn.get("logic_methods", [])
                         # Extract significant words from button name for matching
                         btn_words = [w for w in btn_name.replace("_", " ").replace(".", " ").split() if len(w) > 3]
@@ -1484,6 +1871,9 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                             if logic_methods:
                                 so["extension_method_hint"] = logic_methods[0]
                             so["slicer_api_keywords"] = []
+                            so["evidence_type"] = "widget_connection"
+                            so["evidence_id"] = conn.get("button_widget_name", "")
+                            so["confidence"] = "high"
                             logger.info(
                                 "[Stage 4] Reclassified step %d slicer_op → extension_op "
                                 "(widget button '%s' match): %s",
@@ -1495,7 +1885,7 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
             for so in sub_ops:
                 if so["op_type"] != "slicer_op":
                     continue
-                desc = so.get("description", "").lower()
+                desc = _text_or_empty(so.get("description")).lower()
                 has_hint = bool(so.get("extension_method_hint"))
                 if not has_hint and any(
                     desc.startswith(w) for w in ("select ", "choose ", "set the ")
@@ -1504,6 +1894,8 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                     so["question"] = so.get("description", "")
                     so["slicer_api_keywords"] = []
                     so["parameter_name"] = f"choice_step_{step_num}"
+                    so["evidence_type"] = "user_context"
+                    so["confidence"] = "high"
                     logger.info(
                         "[Stage 4] Reclassified step %d slicer_op → user_choice "
                         "(selection without method hint): %s",
@@ -1517,17 +1909,82 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
             for so in sub_ops:
                 if so["op_type"] != "slicer_op":
                     continue
-                desc = so.get("description", "").lower()
+                desc = _text_or_empty(so.get("description")).lower()
                 has_hint = bool(so.get("extension_method_hint"))
                 if not has_hint and any(
                     desc.startswith(w) for w in ("tick ", "toggle ", "enable ", "check ", "uncheck ")
                 ):
                     so["op_type"] = "extension_op"
                     so["slicer_api_keywords"] = []
+                    so["evidence_type"] = "ui_control"
+                    so["evidence_id"] = "extension_ui_toggle"
+                    so["confidence"] = "medium"
                     logger.info(
                         "[Stage 4] Reclassified step %d slicer_op → extension_op "
                         "(extension UI control without method hint): %s",
                         step_num, desc[:60],
+                    )
+
+            # ── Reclassify extension_op/unknown_op → slicer_op when no method hint and matches Slicer core ──
+            # Sub-ops classified as extension_op (or downgraded to unknown_op due to
+            # no matching method) that describe Slicer core UI operations should be
+            # slicer_op so Stage 5T / Stage 7 can generate proper Slicer API code.
+            _SLICER_CORE_PATTERNS = {
+                "layout_slice_view": [
+                    "layout", "conventional", "four-up", "slice view",
+                    "fov", "spacing match", "field of view",
+                ],
+                "module_switching": [
+                    "module", "switch to", "open module",
+                    "select module", "markups module",
+                ],
+                "crosshair": [
+                    "crosshair", "slice intersection",
+                    "intersection visibility", "enable interaction",
+                ],
+                "node_display": [
+                    "slice visibility", "slice visible",
+                    "set slice visible", "toggle slice",
+                ],
+                "markups_display": [
+                    "display view", "view node", "display node",
+                    "set view", "view 1", "advanced panel",
+                ],
+            }
+            for so in sub_ops:
+                if so["op_type"] not in ("extension_op", "unknown_op"):
+                    continue
+                if so.get("extension_method_hint"):
+                    continue
+                desc_lower = _text_or_empty(so.get("description")).lower()
+                # Skip if description references the extension name
+                is_extension_specific = False
+                for indicator in _extension_specific_indicators:
+                    if indicator in desc_lower:
+                        is_extension_specific = True
+                        break
+                if is_extension_specific:
+                    continue
+                category = so.get("slicer_op_category", "")
+                patterns = _SLICER_CORE_PATTERNS.get(category, [])
+                if not patterns:
+                    # Also check all categories for keyword matches
+                    for cat, kws in _SLICER_CORE_PATTERNS.items():
+                        if any(kw in desc_lower for kw in kws):
+                            category = cat
+                            patterns = kws
+                            break
+                if patterns and any(kw in desc_lower for kw in patterns):
+                    so["op_type"] = "slicer_op"
+                    so["slicer_op_category"] = category
+                    so["slicer_api_keywords"] = so.get("slicer_api_keywords") or [category]
+                    so["evidence_type"] = "slicer_core"
+                    so["evidence_id"] = category
+                    so["confidence"] = "high"
+                    logger.info(
+                        "[Stage 4] Reclassified step %d %s → slicer_op "
+                        "(Slicer core UI pattern '%s'): %s",
+                        step_num, so.get("op_type", "?"), category, desc_lower[:60],
                     )
 
             # Build method_details from matched extension_op sub-operations
@@ -1746,6 +2203,55 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
         internally by code template generation (Stage 7).
         """
         return self._stage4_node_lifecycle(scan_result, logic_analysis)
+
+    def _classify_placement_starter_methods(self, logic_analysis: Dict) -> Dict[str, Dict]:
+        """Detect extension methods that create a markup and enter placement mode.
+
+        These methods correspond to UI buttons such as "Add cut plane" or
+        "Add fibula line".  The generated workflow should call them in the
+        pre-interaction template and should not create a second markup node or
+        call the same method again in the post-interaction template.
+        """
+        logic_file = logic_analysis.get("_logic_file", "")
+        starters: Dict[str, Dict] = {}
+
+        for method in logic_analysis.get("methods", []):
+            method_name = method.get("name", "")
+            if not method_name:
+                continue
+            source = self._extract_method_source(logic_file, method_name) or ""
+            if not source:
+                continue
+
+            markup_classes = sorted(set(_re.findall(r'"(vtkMRMLMarkups[^"]+Node)"', source)))
+            creates_markup = bool(markup_classes) and (
+                "CreateNodeByClass" in source or "AddNewNodeByClass" in source
+            )
+            sets_active_markup = "SetActiveListID" in source
+            enters_place_mode = (
+                "SwitchToSinglePlaceMode" in source
+                or "SwitchToPersistentPlaceMode" in source
+                or "SetCurrentInteractionMode" in source
+            )
+            has_placement_observer = "PointPositionDefinedEvent" in source
+
+            if creates_markup and sets_active_markup and enters_place_mode:
+                starters[method_name] = {
+                    "node_classes": markup_classes,
+                    "has_placement_observer": has_placement_observer,
+                    "reason": "creates a Markups node, activates it, and enters placement mode",
+                }
+
+        if starters:
+            logger.info(
+                "[Stage 7] Detected placement-starter methods: %s",
+                ", ".join(sorted(starters)),
+            )
+            self.on_progress(
+                7, "Analyzing interaction methods",
+                f"Detected {len(starters)} placement-starter method(s)"
+            )
+        return starters
 
     # ================================================================
     # Internal LLM Review of Templates (part of Stage 7)
@@ -2978,47 +3484,163 @@ Return ONLY the JSON array, no markdown fences.""")
         entry_module = scan_result.get("entry_module", "")
         module_name = os.path.splitext(os.path.basename(entry_module))[0] if entry_module else extension_name
 
+        def _matching_slicer_templates(step_id: str) -> List[str]:
+            matches = []
+            prefix = f"{step_id}_"
+            for tpl_key, tpl_code in self._slicer_op_templates.items():
+                if tpl_key == step_id or tpl_key.startswith(prefix):
+                    matches.append((tpl_key, tpl_code))
+            matches.sort(key=lambda item: item[0])
+            return [code for _, code in matches]
+
+        placement_starter_by_step = {}
         for step in steps:
+            method = step.get("method_name")
+            if method in self._placement_starter_methods:
+                placement_starter_by_step[step.get("step_id", "")] = method
+                continue
+            for so in step.get("sub_operations", []):
+                hint = so.get("extension_method_hint")
+                if hint in self._placement_starter_methods:
+                    placement_starter_by_step[step.get("step_id", "")] = hint
+                    break
+
+        for step_index, step in enumerate(steps):
             step_id = step["step_id"]
             step_type = step["step_type"]
             op_type = step.get("op_type", "")
 
-            if step_type == "automated" and op_type == "slicer_op":
-                # Slicer_op templates are pre-generated in Stage 4T
+            if op_type == "unknown_op" or any(
+                so.get("op_type") == "unknown_op" for so in step.get("sub_operations", [])
+            ):
+                key = f"templates/{step_id}.py.tpl"
+                step["step_type"] = "automated"
+                step["code_template"] = key
+                templates[key] = self._generate_unknown_op_template(step)
+
+            elif step_type == "automated" and op_type == "slicer_op":
+                # Slicer_op templates are pre-generated in Stage 5T
                 key = f"templates/{step_id}_slicer.py.tpl"
                 step["code_template"] = key
-                # Look up pre-generated template by step_id prefix
-                pregen = ""
-                for tpl_key, tpl_code in self._slicer_op_templates.items():
-                    if step_id in tpl_key:
-                        pregen = tpl_code
-                        break
-                if pregen:
-                    templates[key] = pregen
+                pregen_parts = _matching_slicer_templates(step_id)
+                if pregen_parts:
+                    templates[key] = "\n\n".join(pregen_parts)
                 else:
                     # Fallback: generate via LLM with generic slicer prompt
                     templates[key] = self._generate_slicer_fallback_template(step)
 
+            elif step_type == "automated" and op_type == "mixed":
+                # Automated step with mixed sub-operations: compose ALL sub-ops
+                # (extension_op + slicer_op) into a single template.
+                sub_ops = step.get("sub_operations", [])
+                auto_parts = []
+                # Consume Stage 5T templates once for the whole step.
+                consumed_5t = False
+                for so in sub_ops:
+                    if so["op_type"] == "extension_op" and so.get("extension_method_hint"):
+                        ext_step = dict(step)
+                        ext_step["method_name"] = so["extension_method_hint"]
+                        ext_step["description"] = so["description"]
+                        if so["extension_method_hint"] in self._placement_starter_methods:
+                            ext_tpl = self._generate_placement_starter_pre_template(
+                                extension_name, ext_step, logic_class_name, module_name,
+                            )
+                        else:
+                            ext_tpl = self._generate_automated_workflow_template(
+                                extension_name, ext_step, logic_class_name, module_name,
+                                logic_analysis,
+                            )
+                        auto_parts.append(f"# Extension op: {so['description']}\n{ext_tpl}")
+                    elif so["op_type"] == "slicer_op":
+                        if not consumed_5t:
+                            pregen_parts = _matching_slicer_templates(step_id)
+                            if pregen_parts:
+                                auto_parts.append(
+                                    "# Slicer ops (Stage 5T)\n"
+                                    + "\n\n".join(pregen_parts)
+                                )
+                            else:
+                                so_keywords = so.get("slicer_api_keywords", [])
+                                so_desc = so.get("description", "")
+                                llm_code = self._generate_slicer_api_template_llm(
+                                    step_id, so_desc, so_keywords,
+                                )
+                                if llm_code:
+                                    auto_parts.append(f"# Slicer op: {so_desc}\n{llm_code}")
+                                else:
+                                    auto_parts.append(f"# Slicer op: {so_desc}\n# TODO: generate slicer code\npass")
+                            consumed_5t = True
+                    elif so["op_type"] in ("extension_op", "unknown_op") and not so.get("extension_method_hint"):
+                        # No method hint — generate targeted code for this sub-op only.
+                        so_desc = so.get("description", "")
+                        so_keywords = so.get("slicer_api_keywords", [])
+                        category = so.get("slicer_op_category")
+                        if category or so_keywords:
+                            llm_code = self._generate_slicer_api_template_llm(
+                                step_id, so_desc, so_keywords,
+                            )
+                            if llm_code:
+                                auto_parts.append(f"# Auto op: {so_desc}\n{llm_code}")
+                            else:
+                                auto_parts.append(
+                                    f"# Auto op: {so_desc}\n"
+                                    f"# TODO: implement this operation\npass"
+                                )
+                key = f"templates/{step_id}.py.tpl"
+                templates[key] = "\n\n".join(auto_parts) if auto_parts else "# No sub-operations\npass"
+                step["code_template"] = key
+
             elif step_type == "automated":
                 # Single code template for automated steps
-                tpl = self._generate_automated_workflow_template(
-                    extension_name, step, logic_class_name, module_name, logic_analysis,
-                )
+                if step.get("method_name") in self._placement_starter_methods:
+                    step["interaction_owner"] = "extension_method"
+                    step["placement_starter_method"] = step.get("method_name")
+                    tpl = self._generate_placement_starter_pre_template(
+                        extension_name, step, logic_class_name, module_name,
+                    )
+                else:
+                    tpl = self._generate_automated_workflow_template(
+                        extension_name, step, logic_class_name, module_name, logic_analysis,
+                    )
                 templates[f"templates/{step_id}.py.tpl"] = tpl
                 step["code_template"] = f"templates/{step_id}.py.tpl"
 
             elif step_type == "interactive":
+                node_class = step.get("node_class", "")
+                is_non_markup_interaction = bool(node_class) and not self._is_markup_node_class(node_class)
+                prev_starter_method = None
+                if step_index > 0:
+                    prev_step_id = steps[step_index - 1].get("step_id", "")
+                    prev_starter_method = placement_starter_by_step.get(prev_step_id)
+                if prev_starter_method and self._is_markup_node_class(node_class):
+                    step["interaction_owner"] = "previous_extension_method"
+                    step["placement_starter_method"] = prev_starter_method
+
                 # Pre-interaction template
-                pre_tpl = self._generate_pre_interaction_template(
-                    extension_name, step, logic_class_name, module_name,
-                )
+                if prev_starter_method and self._is_markup_node_class(node_class):
+                    pre_tpl = self._generate_existing_placement_pre_template(
+                        extension_name, step, prev_starter_method,
+                    )
+                elif is_non_markup_interaction:
+                    pre_tpl = self._generate_view_adjustment_pre_template(
+                        extension_name, step,
+                    )
+                else:
+                    pre_tpl = self._generate_pre_interaction_template(
+                        extension_name, step, logic_class_name, module_name,
+                    )
                 templates[f"templates/{step_id}_pre.py.tpl"] = pre_tpl
                 step["pre_template"] = f"templates/{step_id}_pre.py.tpl"
 
                 # Post-interaction template
-                post_tpl = self._generate_post_interaction_template(
-                    extension_name, step, logic_class_name, module_name, logic_analysis,
-                )
+                if is_non_markup_interaction:
+                    post_tpl = self._generate_view_adjustment_post_template(
+                        extension_name, step,
+                    )
+                else:
+                    post_tpl = self._generate_post_interaction_template(
+                        extension_name, step, logic_class_name, module_name, logic_analysis,
+                    )
                 templates[f"templates/{step_id}_post.py.tpl"] = post_tpl
                 step["post_template"] = f"templates/{step_id}_post.py.tpl"
 
@@ -3027,26 +3649,38 @@ Return ONLY the JSON array, no markdown fences.""")
                 # then user interaction follows.
                 sub_ops = step.get("sub_operations", [])
                 auto_parts = []
+                placement_starter_method = None
+                slicer_templates_appended = False
                 for so in sub_ops:
                     if so["op_type"] == "extension_op" and so.get("extension_method_hint"):
                         # Generate extension_op code
                         ext_step = dict(step)
                         ext_step["method_name"] = so["extension_method_hint"]
                         ext_step["description"] = so["description"]
-                        ext_tpl = self._generate_automated_workflow_template(
-                            extension_name, ext_step, logic_class_name, module_name,
-                            logic_analysis,
-                        )
+                        if so["extension_method_hint"] in self._placement_starter_methods:
+                            placement_starter_method = so["extension_method_hint"]
+                            step["interaction_owner"] = "extension_method"
+                            step["placement_starter_method"] = placement_starter_method
+                            ext_tpl = self._generate_placement_starter_pre_template(
+                                extension_name, ext_step, logic_class_name, module_name,
+                            )
+                        else:
+                            ext_tpl = self._generate_automated_workflow_template(
+                                extension_name, ext_step, logic_class_name, module_name,
+                                logic_analysis,
+                            )
                         auto_parts.append(f"# Extension op: {so['description']}\n{ext_tpl}")
                     elif so["op_type"] == "slicer_op":
                         # Use pre-generated slicer_op template
-                        pregen = ""
-                        for tk, tc in self._slicer_op_templates.items():
-                            if step_id in tk:
-                                pregen = tc
-                                break
-                        if pregen:
-                            auto_parts.append(f"# Slicer op: {so['description']}\n{pregen}")
+                        if slicer_templates_appended:
+                            continue
+                        pregen_parts = _matching_slicer_templates(step_id)
+                        if pregen_parts:
+                            auto_parts.append(
+                                f"# Slicer op: {so['description']}\n"
+                                + "\n\n".join(pregen_parts)
+                            )
+                            slicer_templates_appended = True
                         else:
                             # No pre-generated template — try LLM with keywords
                             so_keywords = so.get("slicer_api_keywords", [])
@@ -3070,7 +3704,11 @@ Return ONLY the JSON array, no markdown fences.""")
                 if interaction_sub_ops:
                     iso = interaction_sub_ops[0]
                     node_class = iso.get("node_class") or step.get("node_class", "")
-                    if node_class:
+                    if (
+                        node_class
+                        and self._is_markup_node_class(node_class)
+                        and not placement_starter_method
+                    ):
                         node_name = step_id.replace("_", " ").title()
                         node_var = f"_{extension_name.lower()}_{step_id}_id"
                         instructions = iso.get(
@@ -3083,9 +3721,8 @@ Return ONLY the JSON array, no markdown fences.""")
                             f"node = slicer.mrmlScene.AddNewNodeByClass"
                             f"(\"{node_class}\", \"{node_name}\")\n"
                             f"displayNode = node.GetDisplayNode()\n"
-                            f"if displayNode is None:\n"
-                            f"    displayNode = node.CreateDefaultDisplayNode()\n"
-                            f"displayNode.SetVisibility(True)\n"
+                            f"if displayNode is not None:\n"
+                            f"    displayNode.SetVisibility(True)\n"
                             f"slicer.modules.markups.logic().SetActiveListID(node)\n"
                             f"interactionNode = slicer.mrmlScene.GetNodeByID"
                             f"(\"vtkMRMLInteractionNodeSingleton\")\n"
@@ -3094,6 +3731,17 @@ Return ONLY the JSON array, no markdown fences.""")
                             f"print(\"[{extension_name}] Please {instructions}\")\n"
                         )
                         auto_parts.append(interaction_block)
+                    elif node_class and not self._is_markup_node_class(node_class):
+                        step["interaction_kind"] = "view_adjustment"
+                        instructions = iso.get(
+                            "placement_instructions",
+                            step.get("description", ""),
+                        )
+                        auto_parts.append(
+                            "\n\n# --- View adjustment interaction ---\n"
+                            f"print(\"[{extension_name}] Please {instructions}\")\n"
+                            "print(\"When finished, press the 'Done' button in the workflow panel.\")\n"
+                        )
 
                 templates[pre_key] = (
                     "\n\n".join(auto_parts) if auto_parts
@@ -3103,9 +3751,20 @@ Return ONLY the JSON array, no markdown fences.""")
                 # Post-interaction template for the user_interaction part
                 post_key = f"templates/{step_id}_post.py.tpl"
                 step["post_template"] = post_key
-                templates[post_key] = self._generate_post_interaction_template(
-                    extension_name, step, logic_class_name, module_name, logic_analysis,
-                )
+                if placement_starter_method:
+                    templates[post_key] = self._generate_placement_starter_post_template(
+                        extension_name, step, placement_starter_method,
+                    )
+                elif interaction_sub_ops and not self._is_markup_node_class(
+                    interaction_sub_ops[0].get("node_class") or step.get("node_class", "")
+                ):
+                    templates[post_key] = self._generate_view_adjustment_post_template(
+                        extension_name, step,
+                    )
+                else:
+                    templates[post_key] = self._generate_post_interaction_template(
+                        extension_name, step, logic_class_name, module_name, logic_analysis,
+                    )
 
             elif step_type == "branch":
                 # Branch steps don't need templates — handled by the orchestrator
@@ -3363,7 +4022,7 @@ Return ONLY the JSON array, no markdown fences.""")
             for _attempt in range(2):
                 response = self._call_llm(prompt)
                 response = self._strip_markdown_fences(response) if response else None
-                if not response or "import" not in response:
+                if not response:
                     break
                 # Validate syntax immediately — retry once on failure
                 import ast as _ast
@@ -3444,6 +4103,129 @@ Return ONLY the JSON array, no markdown fences.""")
             logger.debug("Slicer API LLM template generation failed", exc_info=True)
         return None
 
+    def _generate_placement_starter_pre_template(
+        self, extension_name, step, logic_class_name, module_name,
+    ) -> str:
+        """Generate deterministic setup code for extension-driven placement.
+
+        The extension method itself creates the markup node and enters
+        placement mode, so this template only calls that method.
+        """
+        method_name = step.get("method_name", "")
+        step_id = step.get("step_id", "")
+        description = step.get("description", step_id)
+
+        lines = [
+            f"# --- {extension_name}: {description} (Setup) ---",
+            "import slicer",
+            f"from {module_name} import {logic_class_name}",
+            "",
+            "try:",
+            f"    logic = _{extension_name.lower()}_logic",
+            "except NameError:",
+            f"    logic = {logic_class_name}()",
+            "",
+            f"logic.{method_name}()",
+            f"_{extension_name.lower()}_logic = logic",
+            "",
+            f"print(\"[{extension_name}] Placement started for step '{step_id}'.\")",
+        ]
+        return "\n".join(lines) + "\n"
+
+    def _generate_placement_starter_post_template(
+        self, extension_name, step, method_name,
+    ) -> str:
+        """Generate post-interaction code for extension-driven placement.
+
+        Placement-starter extension methods usually attach their own observers
+        and process control points as the user places them.  The post step only
+        exits placement mode and reports completion.
+        """
+        step_id = step.get("step_id", "")
+        lines = [
+            f"# --- {extension_name}: {step.get('description', step_id)} (Done) ---",
+            "import slicer",
+            "",
+            "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
+            "if interactionNode is not None:",
+            "    interactionNode.SwitchToViewTransformMode()",
+            "",
+            f"print(\"[{extension_name}] Step '{step_id}' interaction completed after {method_name}().\")",
+        ]
+        return "\n".join(lines) + "\n"
+
+    @staticmethod
+    def _is_markup_node_class(node_class: str) -> bool:
+        """Return True for MRML Markups nodes that support placement/control points."""
+        return _text_or_empty(node_class).startswith("vtkMRMLMarkups")
+
+    def _generate_existing_placement_pre_template(
+        self, extension_name, step, starter_method,
+    ) -> str:
+        """Reuse the markup node created by the previous placement-starter step."""
+        step_id = step.get("step_id", "")
+        node_class = step.get("node_class", "vtkMRMLMarkupsFiducialNode")
+        instructions = step.get("placement_instructions", step.get("description", ""))
+        node_var = f"_{extension_name.lower()}_{step_id}_id"
+
+        lines = [
+            f"# --- {extension_name}: {step.get('description', step_id)} (Setup) ---",
+            "import slicer",
+            "",
+            f"# Reuse the markup node created by {starter_method}() in the previous step.",
+            f"nodes = slicer.mrmlScene.GetNodesByClass(\"{node_class}\")",
+            "node = None",
+            "for i in range(nodes.GetNumberOfItems() - 1, -1, -1):",
+            "    candidate = nodes.GetItemAsObject(i)",
+            "    if candidate is not None:",
+            "        node = candidate",
+            "        break",
+            "if node is None:",
+            f"    raise RuntimeError(\"No {node_class} found from previous placement step.\")",
+            "",
+            "displayNode = node.GetDisplayNode()",
+            "if displayNode is not None:",
+            "    displayNode.SetVisibility(True)",
+            "slicer.modules.markups.logic().SetActiveListID(node)",
+            "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
+            "if interactionNode is not None:",
+            "    interactionNode.SwitchToPersistentPlaceMode()",
+            f"{node_var} = node.GetID()",
+            "",
+            f"print(\"[{extension_name}] Please {instructions}\")",
+            "print(\"When finished, press the 'Done' button in the workflow panel.\")",
+        ]
+        return "\n".join(lines) + "\n"
+
+    def _generate_view_adjustment_pre_template(self, extension_name, step) -> str:
+        """Generate setup for interactions that do not create markups nodes."""
+        step_id = step.get("step_id", "")
+        instructions = step.get("placement_instructions", step.get("description", ""))
+        lines = [
+            f"# --- {extension_name}: {step.get('description', step_id)} (Setup) ---",
+            "import slicer",
+            "",
+            "# This step is a view adjustment, not a Markups placement.",
+            f"print(\"[{extension_name}] Please {instructions}\")",
+            "print(\"When finished, press the 'Done' button in the workflow panel.\")",
+        ]
+        return "\n".join(lines) + "\n"
+
+    def _generate_view_adjustment_post_template(self, extension_name, step) -> str:
+        """Generate completion code for non-markup interactions."""
+        step_id = step.get("step_id", "")
+        lines = [
+            f"# --- {extension_name}: {step.get('description', step_id)} (Done) ---",
+            "import slicer",
+            "",
+            "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
+            "if interactionNode is not None:",
+            "    interactionNode.SwitchToViewTransformMode()",
+            "",
+            f"print(\"[{extension_name}] Step '{step_id}' view adjustment completed.\")",
+        ]
+        return "\n".join(lines) + "\n"
+
     def _generate_pre_interaction_template(
         self, extension_name, step, logic_class_name, module_name,
     ) -> str:
@@ -3461,9 +4243,8 @@ Return ONLY the JSON array, no markdown fences.""")
             "# Create the markup node for user interaction",
             f"node = slicer.mrmlScene.AddNewNodeByClass(\"{node_class}\", \"{node_name}\")",
             "displayNode = node.GetDisplayNode()",
-            "if displayNode is None:",
-            "    displayNode = node.CreateDefaultDisplayNode()",
-            "displayNode.SetVisibility(True)",
+            "if displayNode is not None:",
+            "    displayNode.SetVisibility(True)",
             "",
             f"print(\"[{extension_name}] Please {instructions}\")",
             "print(\"When finished, press the 'Done' button in the workflow panel.\")",
@@ -3782,15 +4563,13 @@ Return ONLY the JSON array, no markdown fences.""")
     # ================================================================
 
     @staticmethod
-    def _build_var_to_chain_map(code: str) -> Dict[str, str]:
-        """Map local variable names to their slicer/vtk/qt/ctk origin chains.
+    def _build_var_to_expr_map(code: str) -> Dict[str, str]:
+        """Map local variables to the expressions that create them.
 
-        Walks top-level assignments to find patterns like:
+        This preserves calls, unlike the old chain extractor.  For example:
             lm = slicer.app.layoutManager()
-            layoutLogic = slicer.app.layoutManager().layoutLogic()
-        Returns e.g. {"layoutLogic": "slicer.app.layoutManager.layoutLogic"}.
-
-        Only tracks single-level assignments (not multi-hop a=b; c=a).
+            lm.setLayout(...)
+        is probed as `hasattr(slicer.app.layoutManager(), "setLayout")`.
         """
         import ast as _ast
         var_map: Dict[str, str] = {}
@@ -3799,117 +4578,186 @@ Return ONLY the JSON array, no markdown fences.""")
         except (SyntaxError, IndentationError):
             return var_map
 
-        _API_ROOTS = ("slicer", "vtk", "qt", "ctk")
-        for node in _ast.walk(tree):
+        for node in tree.body:
             if not isinstance(node, _ast.Assign):
                 continue
             if len(node.targets) != 1 or not isinstance(node.targets[0], _ast.Name):
                 continue
-            var_name = node.targets[0].id
-            value = node.value
-            if isinstance(value, _ast.Call):
-                attrs = _collect_attr_chain(value.func)
-            elif isinstance(value, _ast.Attribute):
-                attrs = _collect_attr_chain(value)
-            else:
+            try:
+                expr = _ast.unparse(node.value)
+            except Exception:
                 continue
-            if attrs and attrs[0] in _API_ROOTS and len(attrs) >= 2:
-                var_map[var_name] = ".".join(attrs)
+            var_map[node.targets[0].id] = expr
         return var_map
 
     @staticmethod
-    def _extract_api_chains(code: str) -> List[str]:
-        """Extract slicer API attribute chains from template code.
+    def _expand_probe_expr(expr: str, var_map: Dict[str, str]) -> str:
+        """Inline simple variable assignments inside a receiver expression."""
+        import ast as _ast
 
-        Parses calls like `slicer.app.layoutManager().setLayout(...)` into
-        probeable chains: `slicer.app.layoutManager.setLayout`.
+        class _ReplaceNames(_ast.NodeTransformer):
+            def __init__(self):
+                self.changed = False
 
-        Also resolves intermediate variables:
-            layoutLogic = slicer.app.layoutManager().layoutLogic()
-            layoutLogic.GetLayoutByName(...)
-        produces chain: `slicer.app.layoutManager.layoutLogic.GetLayoutByName`.
+            def visit_Name(self, node):
+                if isinstance(node.ctx, _ast.Load) and node.id in var_map:
+                    replacement = var_map[node.id]
+                    try:
+                        repl_node = _ast.parse(f"({replacement})", mode="eval").body
+                    except SyntaxError:
+                        return node
+                    self.changed = True
+                    return _ast.copy_location(repl_node, node)
+                return node
+
+        expanded = expr
+        for _ in range(5):
+            try:
+                tree = _ast.parse(expanded, mode="eval")
+            except SyntaxError:
+                return expanded
+            replacer = _ReplaceNames()
+            tree = replacer.visit(tree)
+            _ast.fix_missing_locations(tree)
+            if not replacer.changed:
+                return expanded
+            try:
+                new_expanded = _ast.unparse(tree.body)
+            except Exception:
+                return expanded
+            if new_expanded == expanded:
+                return expanded
+            expanded = new_expanded
+        return expanded
+
+    @staticmethod
+    def _expr_starts_with_api_root(expr: str) -> bool:
+        return bool(_re.match(r'^\s*\(*\s*(slicer|vtk|qt|ctk)\b', expr))
+
+    @staticmethod
+    def _make_probe_receiver_safe(expr: str) -> str:
+        """Avoid scene mutations while probing receiver objects."""
+        import ast as _ast
+
+        class _SafeReceiverCalls(_ast.NodeTransformer):
+            def visit_Call(self, node):
+                node = self.generic_visit(node)
+                if (
+                    isinstance(node.func, _ast.Attribute)
+                    and node.func.attr == "AddNewNodeByClass"
+                    and len(node.args) >= 1
+                ):
+                    node.func.attr = "CreateNodeByClass"
+                    node.args = node.args[:1]
+                    node.keywords = []
+                return node
+
+        try:
+            tree = _ast.parse(expr, mode="eval")
+            tree = _SafeReceiverCalls().visit(tree)
+            _ast.fix_missing_locations(tree)
+            return _ast.unparse(tree.body)
+        except Exception:
+            return expr
+
+    @staticmethod
+    def _extract_api_probe_specs(code: str) -> List[Dict[str, Any]]:
+        """Extract receiver-level API probes from template code.
+
+        Each returned spec evaluates the actual receiver object and then checks
+        the method on that object.  This avoids false positives such as probing
+        `slicer.app.layoutManager.setLayout` instead of
+        `slicer.app.layoutManager().setLayout`.
         """
         import ast as _ast
-        chains = []
         try:
             tree = _ast.parse(code)
         except (SyntaxError, IndentationError):
-            return chains
+            return []
 
-        var_map = ExtensionCLIAnalyzer._build_var_to_chain_map(code)
-        _API_ROOTS = {"slicer", "vtk", "qt", "ctk"}
-
+        var_map = ExtensionCLIAnalyzer._build_var_to_expr_map(code)
+        specs: List[Dict[str, Any]] = []
+        seen = set()
         for node in _ast.walk(tree):
-            if isinstance(node, _ast.Call):
-                attrs = _collect_attr_chain(node.func)
-                if not attrs or len(attrs) < 2:
-                    continue
-                if attrs[0] in _API_ROOTS:
-                    chains.append(".".join(attrs))
-                elif attrs[0] in var_map:
-                    resolved = var_map[attrs[0]] + "." + ".".join(attrs[1:])
-                    chains.append(resolved)
-        return chains
+            if not isinstance(node, _ast.Call) or not isinstance(node.func, _ast.Attribute):
+                continue
+            attr = node.func.attr
+            try:
+                receiver_expr = _ast.unparse(node.func.value)
+            except Exception:
+                continue
+            receiver_expr = ExtensionCLIAnalyzer._expand_probe_expr(receiver_expr, var_map)
+            receiver_expr = ExtensionCLIAnalyzer._make_probe_receiver_safe(receiver_expr)
+            if ".GetDisplayNode()" in receiver_expr:
+                # A display node may legitimately be None until the template's
+                # following fallback creates one.  Probe GetDisplayNode itself,
+                # but do not treat methods on its current return value as API
+                # availability checks.
+                continue
+            if not ExtensionCLIAnalyzer._expr_starts_with_api_root(receiver_expr):
+                continue
+            # Skip expressions that still depend on unresolved local variables.
+            try:
+                recv_tree = _ast.parse(receiver_expr, mode="eval")
+            except SyntaxError:
+                continue
+            unresolved = {
+                n.id for n in _ast.walk(recv_tree)
+                if isinstance(n, _ast.Name) and n.id not in {"slicer", "vtk", "qt", "ctk"}
+            }
+            if unresolved:
+                continue
+
+            chain = f"{receiver_expr}.{attr}"
+            key = (receiver_expr, attr)
+            if key in seen:
+                continue
+            seen.add(key)
+            specs.append({
+                "chain": chain,
+                "receiver_expr": receiver_expr,
+                "attr": attr,
+                "lineno": getattr(node, "lineno", 0),
+            })
+        return specs
 
     @staticmethod
-    def _generate_probes(api_chains: List[str]) -> List[Dict]:
-        """Generate read-only probe snippets from API chains.
+    def _extract_api_chains(code: str) -> List[str]:
+        """Return display names for API calls extracted from template code."""
+        return [p["chain"] for p in ExtensionCLIAnalyzer._extract_api_probe_specs(code)]
 
-        Each probe checks whether the attribute chain is traversable and
-        the final attribute is callable (for method calls).
-
-        Returns list of dicts:
-            {"chain": str, "probe_code": str, "kind": "hasattr"|"callable"}
-        """
+    @staticmethod
+    def _generate_probes(api_specs: List[Dict[str, Any]]) -> List[Dict]:
+        """Generate micro-probes that evaluate actual receiver objects."""
         probes = []
         seen = set()
-        for chain in api_chains:
-            parts = chain.rsplit(".", 1)
-            if len(parts) == 2:
-                parent_chain, attr = parts
-            else:
+        for spec in api_specs:
+            receiver_expr = spec.get("receiver_expr", "")
+            attr = spec.get("attr", "")
+            if not receiver_expr or not attr:
                 continue
-            if len(parent_chain) > 80:
-                continue
-            key = f"{parent_chain}.{attr}"
+            key = f"{receiver_expr}.{attr}"
             if key in seen:
                 continue
             seen.add(key)
 
-            # Probe 1: does the parent object have this attribute?
-            probe_hasattr = (
+            probe_code = (
                 f"try:\n"
-                f"    _obj = {parent_chain}\n"
-                f"    __result = hasattr(_obj, '{attr}')\n"
+                f"    _obj = {receiver_expr}\n"
+                f"    _exists = _obj is not None and hasattr(_obj, '{attr}')\n"
+                f"    _available = []\n"
+                f"    if not _exists and _obj is not None:\n"
+                f"        _available = [m for m in dir(_obj) if not m.startswith('_') and callable(getattr(_obj, m))][:40]\n"
+                f"    __result = {{'exists': _exists, 'is_none': _obj is None, 'type': type(_obj).__name__, 'available_methods': _available}}\n"
                 f"except Exception as _e:\n"
-                f"    __result = f'ERROR: {{_e}}'"
+                f"    __result = {{'error': f'{{type(_e).__name__}}: {{_e}}'}}"
             )
             probes.append({
                 "chain": key,
-                "parent_chain": parent_chain,
+                "receiver_expr": receiver_expr,
                 "attr": attr,
-                "probe_code": probe_hasattr,
-                "kind": "hasattr",
-            })
-
-            # Probe 2: if it exists, list available attrs for revision context
-            probe_dir = (
-                f"try:\n"
-                f"    _obj = {parent_chain}\n"
-                f"    if hasattr(_obj, '{attr}'):\n"
-                f"        __result = 'OK'\n"
-                f"    else:\n"
-                f"        _methods = [m for m in dir(_obj) if not m.startswith('_') and callable(getattr(_obj, m))]\n"
-                f"        __result = f'MISSING: {{_methods[:20]}}'\n"
-                f"except Exception as _e:\n"
-                f"    __result = f'ERROR: {{_e}}'"
-            )
-            probes.append({
-                "chain": key,
-                "parent_chain": parent_chain,
-                "attr": attr,
-                "probe_code": probe_dir,
-                "kind": "dir_fallback",
+                "probe_code": probe_code,
+                "lineno": spec.get("lineno", 0),
             })
 
         return probes
@@ -3918,9 +4766,9 @@ Return ONLY the JSON array, no markdown fences.""")
     def _execute_probe(probe_code: str) -> Any:
         """Execute a probe snippet in Slicer's Python environment.
 
-        Runs in the caller's thread — the pipeline runs in a background
-        thread, but slicer objects are generally safe to read from here
-        since we only do hasattr/dir checks.
+        Runs in the caller's thread.  Probes may instantiate temporary MRML
+        nodes when evaluating receivers such as AddNewNodeByClass(...), so this
+        method removes any newly added nodes before returning.
         """
         import slicer as _slicer_mod
         exec_globals = {
@@ -3930,11 +4778,40 @@ Return ONLY the JSON array, no markdown fences.""")
             "qt": globals().get("qt"),
             "ctk": globals().get("ctk"),
         }
+
+        def _scene_node_ids():
+            ids = set()
+            try:
+                nodes = _slicer_mod.mrmlScene.GetNodes()
+                for i in range(nodes.GetNumberOfItems()):
+                    node = nodes.GetItemAsObject(i)
+                    if node:
+                        ids.add(node.GetID())
+            except Exception:
+                pass
+            return ids
+
+        before_ids = _scene_node_ids()
         try:
             exec(probe_code, exec_globals)
             return exec_globals.get("__result", "NO_RESULT")
         except Exception as e:
             return f"EXCEPTION: {e}"
+        finally:
+            try:
+                after_ids = _scene_node_ids()
+                for node_id in after_ids - before_ids:
+                    node = _slicer_mod.mrmlScene.GetNodeByID(node_id)
+                    if node:
+                        _slicer_mod.mrmlScene.RemoveNode(node)
+            except Exception:
+                pass
+
+    def _execute_live_probe(self, probe_code: str) -> Any:
+        """Execute a live probe, using the UI-provided main-thread bridge if available."""
+        if self._live_probe_executor:
+            return self._live_probe_executor(probe_code)
+        return self._execute_probe(probe_code)
 
     def _stage7c_live_api_probe(
         self, templates: Dict[str, str],
@@ -3961,59 +4838,65 @@ Return ONLY the JSON array, no markdown fences.""")
             "Verifying template API calls against running Slicer..."
         )
 
-        all_chains_by_template = {}
+        all_specs_by_template = {}
         for key, code in templates.items():
             if not key.endswith(".py.tpl") or not code or not code.strip():
                 continue
-            chains = self._extract_api_chains(code)
-            if chains:
-                all_chains_by_template[key] = chains
+            sample_code = code.replace(
+                "{vol_lookup}",
+                "inputVolume = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScalarVolumeNode')"
+            )
+            sample_code = self._fill_remaining_placeholders(sample_code)
+            specs = self._extract_api_probe_specs(sample_code)
+            if specs:
+                all_specs_by_template[key] = specs
 
-        if not all_chains_by_template:
+        if not all_specs_by_template:
             return {"probed": 0, "failures": [], "revised": 0}
 
-        # Collect all unique chains and generate probes
-        all_chains = []
-        seen_chains = set()
-        for chains in all_chains_by_template.values():
-            for c in chains:
-                if c not in seen_chains:
-                    seen_chains.add(c)
-                    all_chains.append(c)
+        # Collect all unique receiver probes
+        all_specs = []
+        seen_specs = set()
+        for specs in all_specs_by_template.values():
+            for spec in specs:
+                key = (spec.get("receiver_expr", ""), spec.get("attr", ""))
+                if key not in seen_specs:
+                    seen_specs.add(key)
+                    all_specs.append(spec)
 
-        probes = self._generate_probes(all_chains)
+        probes = self._generate_probes(all_specs)
         logger.info(
-            "[Stage 7.5] Generated %d probes for %d API chains across %d templates",
-            len(probes), len(all_chains), len(all_chains_by_template),
+            "[Stage 7.5] Generated %d probes for %d API calls across %d templates",
+            len(probes), len(all_specs), len(all_specs_by_template),
         )
 
         # Execute probes
         probe_results = {}
         for probe in probes:
-            chain_key = f"{probe['parent_chain']}.{probe['attr']}"
-            result = self._execute_probe(probe["probe_code"])
-            probe_results[chain_key] = probe_results.get(chain_key, {})
-            probe_results[chain_key][probe["kind"]] = result
+            chain_key = probe["chain"]
+            result = self._execute_live_probe(probe["probe_code"])
+            probe_results[chain_key] = result
 
         # Analyze results — collect failures
         failures = []
-        for chain_key, kinds in probe_results.items():
-            dir_result = kinds.get("dir_fallback", "")
-            if isinstance(dir_result, str) and dir_result.startswith("MISSING:"):
-                # Extract available methods from the result
-                available_str = dir_result[len("MISSING: "):]
-                try:
-                    available = eval(available_str)  # list repr
-                except Exception:
-                    available = available_str
+        for chain_key, probe_result in probe_results.items():
+            if isinstance(probe_result, dict):
+                if probe_result.get("error"):
+                    failures.append({
+                        "chain": chain_key,
+                        "error": probe_result["error"],
+                    })
+                elif not probe_result.get("exists"):
+                    failures.append({
+                        "chain": chain_key,
+                        "receiver_type": probe_result.get("type"),
+                        "receiver_is_none": probe_result.get("is_none"),
+                        "available_methods": probe_result.get("available_methods", []),
+                    })
+            elif isinstance(probe_result, str) and probe_result.startswith("EXCEPTION:"):
                 failures.append({
                     "chain": chain_key,
-                    "available_methods": available,
-                })
-            elif isinstance(dir_result, str) and dir_result.startswith("ERROR:"):
-                failures.append({
-                    "chain": chain_key,
-                    "error": dir_result,
+                    "error": probe_result,
                 })
 
         if not failures:
@@ -4027,15 +4910,16 @@ Return ONLY the JSON array, no markdown fences.""")
         # Log failures
         logger.warning(
             "[Stage 7.5] %d/%d API probes failed",
-            len(failures), len(all_chains),
+            len(failures), len(all_specs),
         )
         for f in failures:
             logger.warning("[Stage 7.5] FAILED: %s", f["chain"])
 
         # Map failures back to affected templates
         affected_templates = {}
-        for tpl_key, chains in all_chains_by_template.items():
-            for chain in chains:
+        for tpl_key, specs in all_specs_by_template.items():
+            for spec in specs:
+                chain = spec.get("chain", "")
                 for f in failures:
                     if chain == f["chain"] or chain.startswith(f["chain"] + "."):
                         affected_templates.setdefault(tpl_key, []).append(f)
@@ -4075,6 +4959,10 @@ Return ONLY the JSON array, no markdown fences.""")
         failure_descriptions = []
         for f in failures:
             desc = f"API call `{f['chain']}` does NOT EXIST."
+            if f.get("receiver_type"):
+                desc += f" Receiver type: {f['receiver_type']}."
+            if f.get("receiver_is_none"):
+                desc += " Receiver evaluated to None."
             if "available_methods" in f:
                 methods = f["available_methods"]
                 if isinstance(methods, list):
@@ -4092,7 +4980,7 @@ Return ONLY the JSON array, no markdown fences.""")
             Template file: {template_key}
 
             API failures:
-            {chr(10).join(f'- {{f}}' for f in failure_descriptions)}
+            {chr(10).join(f'- {f}' for f in failure_descriptions)}
 
             Current template code:
             ```python
@@ -5069,6 +5957,8 @@ Return ONLY the sentence, nothing else.""")
             "per_template": {},
         }
 
+        template_context = self._build_template_validation_context(generators)
+
         for tpl_name, tpl_content in templates.items():
             # Skip non-Python files (e.g., workflow.json)
             if not tpl_name.endswith((".py.tpl", ".py")):
@@ -5085,6 +5975,21 @@ Return ONLY the sentence, nothing else.""")
             # CodeValidator (security + syntax)
             validation = self.code_validator.validate(sample_code)
 
+            if "SLICER_OP_GENERATION_FAILED" in sample_code:
+                validation["valid"] = False
+                reason = "Slicer-op template generation failed due to insufficient retrieval evidence"
+                validation["reason"] = (
+                    f"{validation.get('reason')}; {reason}"
+                    if validation.get("reason") else reason
+                )
+            if "UNKNOWN_OP_GENERATION_FAILED" in sample_code:
+                validation["valid"] = False
+                reason = "Operation type could not be proven from extension or Slicer-core evidence"
+                validation["reason"] = (
+                    f"{validation.get('reason')}; {reason}"
+                    if validation.get("reason") else reason
+                )
+
             # Semantic validation (undefined vars, arg count)
             if logic_analysis:
                 semantic = self._semantic_validate(sample_code, logic_analysis, api_probe_result=api_probe_result)
@@ -5098,6 +6003,20 @@ Return ONLY the sentence, nothing else.""")
                     )
                 if semantic.get("warnings"):
                     validation.setdefault("warnings", []).extend(semantic["warnings"])
+
+            contract = self._validate_template_contract(
+                tpl_name, sample_code, template_context.get(tpl_name), templates
+            )
+            if contract.get("errors"):
+                validation["valid"] = False
+                existing_reason = validation.get("reason") or ""
+                new_reasons = "; ".join(contract["errors"])
+                validation["reason"] = (
+                    f"{existing_reason}; {new_reasons}" if existing_reason
+                    else new_reasons
+                )
+            if contract.get("warnings"):
+                validation.setdefault("warnings", []).extend(contract["warnings"])
 
             results["per_template"][tpl_name] = validation
 
@@ -5117,6 +6036,174 @@ Return ONLY the sentence, nothing else.""")
         )
 
         return results
+
+    @staticmethod
+    def _build_template_validation_context(generators: List[Dict]) -> Dict[str, Dict]:
+        """Map each template file to its workflow generator and role."""
+        context = {}
+        for gen in generators or []:
+            for role, key in (
+                ("template", "template_file"),
+                ("pre", "pre_template_file"),
+                ("post", "post_template_file"),
+            ):
+                tpl_name = gen.get(key)
+                if tpl_name:
+                    context[tpl_name] = {"generator": gen, "role": role}
+        return context
+
+    @staticmethod
+    def _template_has_meaningful_code(code: str) -> bool:
+        """Return False for required templates that only pass/print/comment."""
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return True
+        for stmt in tree.body:
+            if isinstance(stmt, (ast.Import, ast.ImportFrom, ast.Pass)):
+                continue
+            if (
+                isinstance(stmt, ast.Expr)
+                and isinstance(stmt.value, ast.Call)
+                and isinstance(stmt.value.func, ast.Name)
+                and stmt.value.func.id == "print"
+            ):
+                continue
+            if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
+                continue
+            return True
+        return False
+
+    @staticmethod
+    def _template_assigns_name(code: str, name: str) -> bool:
+        """Return True if code assigns a variable name directly."""
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return False
+        for node in ast.walk(tree):
+            targets = []
+            if isinstance(node, ast.Assign):
+                targets = list(node.targets)
+            elif isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            elif isinstance(node, ast.AugAssign):
+                targets = [node.target]
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == name:
+                    return True
+        return False
+
+    def _validate_template_contract(
+        self,
+        tpl_name: str,
+        code: str,
+        context: Optional[Dict],
+        templates: Dict[str, str],
+    ) -> Dict:
+        """Validate workflow-level contracts that CodeValidator cannot know."""
+        result = {"errors": [], "warnings": []}
+        if not context:
+            return result
+
+        gen = context.get("generator", {})
+        role = context.get("role")
+        sub_ops = gen.get("sub_operations", []) or []
+        for so in sub_ops:
+            if so.get("op_type") == "unknown_op":
+                result["errors"].append("Required operation has unknown_op classification")
+            if so.get("op_type") == "slicer_op" and so.get("confidence") == "low":
+                result["errors"].append("Required slicer_op has low classification confidence")
+
+        # ── Sub-operation coverage check ──
+        # Verify every non-optional, code-generating sub-operation has a code
+        # footprint in the template.  user_interaction and user_choice don't
+        # generate code in the same template, so skip them.
+        if sub_ops and self._template_has_meaningful_code(code):
+            for so in sub_ops:
+                if so.get("is_optional"):
+                    continue
+                so_type = so.get("op_type", "")
+                # Skip sub-ops that don't contribute code to this template
+                if so_type in ("user_interaction", "user_choice"):
+                    continue
+                so_desc = (so.get("description") or "").lower()
+                so_keywords = [k.lower() for k in (so.get("slicer_api_keywords") or [])]
+                so_method = so.get("extension_method_hint") or ""
+                # Check if the template references this sub-operation
+                found = False
+                # Check for extension method call
+                if so_method and so_method in code:
+                    found = True
+                # Check for comment header referencing the description
+                if not found:
+                    # Extract significant words from description (>4 chars)
+                    desc_words = [w for w in so_desc.split() if len(w) > 4]
+                    if desc_words:
+                        match_count = sum(1 for w in desc_words if w in code.lower())
+                        if match_count >= min(2, len(desc_words)):
+                            found = True
+                # Check for slicer API keywords
+                if not found and so_keywords:
+                    for kw in so_keywords:
+                        if kw and kw in code.lower():
+                            found = True
+                            break
+                # Check for slicer_op_category-specific API patterns
+                if not found and so_type == "slicer_op":
+                    category = so.get("slicer_op_category", "")
+                    _CATEGORY_API_HINTS = {
+                        "layout_slice_view": ["setLayout", "SliceVisible", "SliceSpacing", "SetFieldOfView", "layoutManager"],
+                        "module_switching": ["selectModule", "moduleManager"],
+                        "markups_display": ["GetDisplayNode", "SetViewNodeID", "AddViewNodeID"],
+                        "crosshair": ["Crosshair", "SetCrosshairMode", "ShowIntersection"],
+                        "node_display": ["SetSliceVisible", "SetVisibility", "GetDisplayNode"],
+                    }
+                    hints = _CATEGORY_API_HINTS.get(category, [])
+                    for hint in hints:
+                        if hint in code:
+                            found = True
+                            break
+                if not found:
+                    result["errors"].append(
+                        f"Sub-operation '{so_desc[:60]}' ({so_type}) has no code in template"
+                    )
+        node_class = (
+            gen.get("interaction_descriptor", {}).get("node_class", "")
+            if isinstance(gen.get("interaction_descriptor"), dict)
+            else ""
+        )
+        is_markup = self._is_markup_node_class(node_class)
+
+        if "TODO" in code:
+            result["errors"].append("Required template contains TODO")
+        allow_instruction_only = role == "pre" and node_class and not is_markup
+        if not allow_instruction_only and not self._template_has_meaningful_code(code):
+            result["errors"].append("Required template is a stub (only pass/comments/prints)")
+
+        if "GetNumberOfControlPoints(" in code and node_class and not is_markup:
+            result["errors"].append(
+                f"Template uses Markups control-point API on non-Markups node class '{node_class}'"
+            )
+        if "SetActiveListID(" in code and node_class and not is_markup:
+            result["errors"].append(
+                f"Template enters Markups placement mode for non-Markups node class '{node_class}'"
+            )
+
+        if role == "post":
+            pre_name = gen.get("pre_template_file")
+            pre_code = templates.get(pre_name, "") if pre_name else ""
+            for var_name in sorted(set(_re.findall(r"\b(_[A-Za-z0-9]+_cb_step_\d+_id)\b", code))):
+                if not pre_code:
+                    result["errors"].append(
+                        f"Post-template references '{var_name}' but has no pre-template"
+                    )
+                elif not self._template_assigns_name(pre_code, var_name):
+                    result["errors"].append(
+                        f"Post-template references '{var_name}' but pre-template does not assign it"
+                    )
+
+        return result
 
     def _semantic_validate(self, code: str, logic_analysis: Dict,
                            api_probe_result: Optional[Dict] = None) -> Dict:
@@ -5227,6 +6314,7 @@ Return ONLY the sentence, nothing else.""")
             "vtkMRMLView", "vtkMRMLLayout", "vtkMRMLCamera",
             "vtkMRMLClip", "vtkMRMLColor", "vtkMRMLDisplay",
             "vtkMRMLStorage", "vtkMRMLSubjectHierarchy",
+            "vtkMRMLCrosshair",
         )
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -5234,7 +6322,7 @@ Return ONLY the sentence, nothing else.""")
                 if isinstance(node.func, ast.Attribute):
                     func_name = node.func.attr
                 if func_name in ("CreateNodeByClass", "AddNewNodeByClass"):
-                    for arg in node.args:
+                    for arg in node.args[:1]:
                         if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
                             cls = arg.value
                             if not cls.startswith(valid_prefixes):
@@ -5593,6 +6681,42 @@ Return ONLY the sentence, nothing else.""")
 
         return combined
 
+    def _build_revision_prompt_fragment(
+        self,
+        extension_name: str,
+        tool_schemas: List[Dict],
+        generators: List[Dict],
+    ) -> str:
+        """Build a deterministic prompt fragment after successful revision."""
+        tool_names = []
+        for schema in tool_schemas or []:
+            fn = schema.get("function", {}) if isinstance(schema, dict) else {}
+            if fn.get("name"):
+                tool_names.append(fn["name"])
+        if not tool_names:
+            tool_names = [extension_name]
+
+        step_lines = []
+        for gen in generators or []:
+            step = gen.get("param_signature", {}).get("workflow_step", "")
+            desc = gen.get("description", "")
+            step_type = gen.get("step_type", "automated")
+            if step:
+                step_lines.append(f"- `{step}` [{step_type}]: {desc}")
+
+        return (
+            f"### {extension_name}\n\n"
+            f"Generated CLI package status: validated.\n\n"
+            f"Available tool: `{tool_names[0]}`.\n\n"
+            "Execute cookbook workflow steps in order. For automated steps, run "
+            "the returned code. For interactive or mixed steps, run the pre-code, "
+            "wait for the user to finish the requested interaction, then run the "
+            "post-code.\n\n"
+            "Workflow steps:\n"
+            + "\n".join(step_lines)
+            + "\n"
+        )
+
     def revise(
         self,
         extension_name: str,
@@ -5624,11 +6748,29 @@ Return ONLY the sentence, nothing else.""")
         # Load existing CLI data
         manifest_path = os.path.join(cli_dir, "manifest.json")
         generators_path = os.path.join(cli_dir, "code_generators.json")
+        tool_schemas_path = os.path.join(cli_dir, "tool_schemas.json")
 
-        with open(manifest_path, "r") as f:
+        with open(manifest_path, "r", encoding="utf-8") as f:
             manifest = json.load(f)
-        with open(generators_path, "r") as f:
+        with open(generators_path, "r", encoding="utf-8") as f:
             generators = json.load(f)
+
+        # Load workflow.json to provide semantic context for revision
+        workflow_path = os.path.join(cli_dir, manifest.get("workflow_graph_file", "workflow.json"))
+        workflow_steps = {}
+        if os.path.isfile(workflow_path):
+            try:
+                with open(workflow_path, "r", encoding="utf-8") as f:
+                    workflow_data = json.load(f)
+                for ws in workflow_data.get("steps", []):
+                    workflow_steps[ws.get("step_id", "")] = ws
+            except Exception:
+                pass
+
+        tool_schemas = []
+        if os.path.isfile(tool_schemas_path):
+            with open(tool_schemas_path, "r", encoding="utf-8") as f:
+                tool_schemas = json.load(f)
 
         # Collect source code context (logic class methods + UI file)
         source_context = self._build_revision_source_context(
@@ -5676,6 +6818,38 @@ Return ONLY the sentence, nothing else.""")
             if source_context:
                 source_section = f"\nEXTENSION SOURCE CODE (use to verify correct API calls):\n{source_context}\n"
 
+            # Build semantic context from workflow.json so the LLM knows what
+            # each template is SUPPOSED to do (not just what the stub looks like).
+            semantic_section = ""
+            if workflow_steps:
+                semantic_lines = []
+                for tpl_file, tpl_code in templates.items():
+                    # Find matching workflow step(s) by template file reference
+                    step_id = None
+                    # Extract step ID from template filename (e.g., cb_step_5 from templates/cb_step_5.py.tpl)
+                    import re as _re_for_tpl
+                    m = _re_for_tpl.search(r"(cb_step_\d+)", tpl_file)
+                    if m:
+                        step_id = m.group(1)
+                    ws = workflow_steps.get(step_id) if step_id else None
+                    if ws:
+                        desc = ws.get("description", "")
+                        sub_ops = ws.get("sub_operations", [])
+                        sub_ops_text = "\n".join(
+                            f"    - [{so.get('op_type')}] {so.get('description')}"
+                            for so in sub_ops
+                        )
+                        semantic_lines.append(
+                            f"Template '{tpl_file}' (step {step_id}):\n"
+                            f"  Cookbook description: {desc}\n"
+                            f"  Required sub-operations:\n{sub_ops_text}"
+                        )
+                if semantic_lines:
+                    semantic_section = (
+                        "\nSEMANTIC CONTEXT (what each template should implement):\n"
+                        + "\n".join(semantic_lines) + "\n"
+                    )
+
             prompt = textwrap.dedent(f"""\
 The following code templates for the "{extension_name}" extension failed validation.
 Please fix ALL errors while maintaining the template format (use {{placeholder}} for dynamic values, {{{{ }}}} for literal braces).
@@ -5683,6 +6857,7 @@ Please fix ALL errors while maintaining the template format (use {{placeholder}}
 ERRORS:
 {chr(10).join(f'- {e}' for e in errors)}
 {source_section}
+{semantic_section}
 CONSTRAINTS (CodeValidator):
 - BLOCKED: os, subprocess, sys, socket, urllib, http, pickle, ctypes, mmap
 - BLOCKED: eval, exec, compile, __import__, open, file, input, getattr, setattr, delattr
@@ -5718,54 +6893,38 @@ Return ONLY the JSON, no markdown fences.""")
                 os.makedirs(os.path.dirname(tpl_path), exist_ok=True)
                 with open(tpl_path, "w", encoding="utf-8") as f:
                     f.write(tpl_content)
+                templates[tpl_name] = tpl_content
 
             # Re-validate
             if not self.code_validator:
                 from .CodeValidator import CodeValidator
                 self.code_validator = CodeValidator()
 
-            all_valid = True
-            new_errors = []
-            for gen in generators:
-                # Collect all template files to re-validate
-                tpl_files = []
-                if gen.get("template_file"):
-                    tpl_files.append(gen["template_file"])
-                if gen.get("pre_template_file"):
-                    tpl_files.append(gen["pre_template_file"])
-                if gen.get("post_template_file"):
-                    tpl_files.append(gen["post_template_file"])
-                for tpl_file in tpl_files:
-                    if not tpl_file.endswith((".py.tpl", ".py")):
-                        continue
-                    tpl_path = os.path.join(cli_dir, tpl_file)
-                    if not os.path.isfile(tpl_path):
-                        continue
-                    with open(tpl_path, "r") as f:
-                        content = f.read()
+            validation_result = self._stage9_validate(
+                templates, generators, logic_analysis=None, api_probe_result=None,
+            )
 
-                    sample = content.replace(
-                        "{vol_lookup}",
-                        "inputVolume = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScalarVolumeNode')"
-                    )
-                    sample = self._fill_remaining_placeholders(sample)
-                    validation = self.code_validator.validate(sample)
-
-                    if not validation.get("valid", True):
-                        all_valid = False
-                        new_errors.append(f"{tpl_file}: {validation.get('reason', 'unknown')}")
-
-            if all_valid:
+            if validation_result.get("valid"):
                 # Update manifest status
                 manifest["status"] = "validated"
-                with open(manifest_path, "w") as f:
+                with open(manifest_path, "w", encoding="utf-8") as f:
                     json.dump(manifest, f, indent=2)
+
+                prompt_fragment = self._build_revision_prompt_fragment(
+                    extension_name, tool_schemas, generators
+                )
+                with open(
+                    os.path.join(cli_dir, "prompt_fragment.md"),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+                    f.write(prompt_fragment)
 
                 # Append to generation log
                 log_path = os.path.join(cli_dir, "generation_log.json")
                 log_entries = []
                 if os.path.isfile(log_path):
-                    with open(log_path, "r") as f:
+                    with open(log_path, "r", encoding="utf-8") as f:
                         log_entries = json.load(f)
                 log_entries.append({
                     "attempt": len(log_entries) + 1,
@@ -5774,19 +6933,36 @@ Return ONLY the JSON, no markdown fences.""")
                     "trigger": "validation_failure",
                     "error": "; ".join(errors),
                     "fix": fixed.get("fix_description", ""),
-                    "validation_result": {"valid": True},
+                    "validation_result": validation_result,
                 })
-                with open(log_path, "w") as f:
+                with open(log_path, "w", encoding="utf-8") as f:
                     json.dump(log_entries, f, indent=2)
 
                 from .ExtensionCLILoader import invalidate_cache
                 invalidate_cache()
 
                 result["success"] = True
-                result["validation_result"] = {"valid": True}
+                result["validation_result"] = validation_result
                 return result
 
-            errors = new_errors
+            manifest["status"] = "failed"
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump(manifest, f, indent=2)
+            errors = validation_result.get("errors", [])
+
+        manifest["status"] = "failed"
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
+        with open(
+            os.path.join(cli_dir, "prompt_fragment.md"),
+            "w",
+            encoding="utf-8",
+        ) as f:
+            f.write(
+                f"### {extension_name}\n\n"
+                "Revision failed validation. This CLI package is saved only "
+                "for debugging and is not loaded as a runtime tool.\n"
+            )
 
         result["error"] = f"Revision failed after {max_attempts} attempts"
         return result
@@ -5828,6 +7004,7 @@ Return ONLY the JSON, no markdown fences.""")
         to prevent very long method names from winning simply because
         they contain more words.
         """
+        desc_lower = _text_or_empty(desc_lower).lower()
         # Keyword map lookup (per-extension, not hardcoded)
         for keyword, method_hint in self._method_keyword_map.items():
             if keyword in desc_lower:
@@ -5870,6 +7047,9 @@ Return ONLY the JSON, no markdown fences.""")
         very long method names (e.g., a 4-char hint should not match a
         60-char method via substring containment).
         """
+        hint = _optional_text(hint)
+        if not hint:
+            return None
         if hint in available:
             return hint
         hint_lower = hint.lower()
@@ -6187,6 +7367,7 @@ Return ONLY the JSON, no markdown fences.""")
                     "slicer_op": "automated",
                     "user_interaction": "interactive",
                     "user_choice": "user_choice",
+                    "unknown_op": "automated",
                     "mixed": "mixed",
                 }
                 step_type = _OP_TYPE_TO_STEP_TYPE.get(op_type, "automated")
@@ -6210,7 +7391,7 @@ Return ONLY the JSON, no markdown fences.""")
             else:
                 # Heuristic fallback: derive from sub_operations
                 has_interaction = any(so["op_type"] == "user_interaction" for so in sub_ops)
-                has_auto = any(so["op_type"] in ("extension_op", "slicer_op") for so in sub_ops)
+                has_auto = any(so["op_type"] in ("extension_op", "slicer_op", "unknown_op") for so in sub_ops)
                 has_choice = any(so["op_type"] == "user_choice" for so in sub_ops)
 
                 if has_choice and not has_interaction:
@@ -6231,6 +7412,7 @@ Return ONLY the JSON, no markdown fences.""")
                     node_cls = so.get("node_class")
                     interaction_info = {
                         "interaction_type": _derive_interaction_type(node_cls),
+                        "interaction_kind": so.get("interaction_kind") or self._infer_interaction_kind_from_evidence({}, node_cls or ""),
                         "node_class": node_cls or "",
                         "placement_instructions": so.get("placement_instructions", ""),
                         "min_control_points": so.get("min_control_points", 0),
@@ -6320,6 +7502,11 @@ Return ONLY the JSON, no markdown fences.""")
                         interaction_type=so.get("interaction_type"),
                         node_class=so.get("node_class"),
                         placement_instructions=so.get("placement_instructions"),
+                        evidence_type=so.get("evidence_type"),
+                        evidence_id=so.get("evidence_id"),
+                        confidence=so.get("confidence"),
+                        interaction_kind=so.get("interaction_kind"),
+                        slicer_op_category=so.get("slicer_op_category"),
                     )
                     slicer_ops.append((step_num, sub_op))
 
@@ -6374,10 +7561,18 @@ Return ONLY the JSON, no markdown fences.""")
         slicer_descs = [so["description"] for so in sub_ops if so["op_type"] == "slicer_op"]
         desc = "; ".join(slicer_descs) if slicer_descs else step.get("description", "")
         return (
-            f"# Slicer core operation: {desc}\n"
-            "# TODO: This slicer_op template was generated as a fallback.\n"
-            "# The KB search did not produce a usable template.\n"
-            "pass\n"
+            "# [SLICER_OP_GENERATION_FAILED] No generated slicer_op template was available.\n"
+            f"# Operation: {desc}\n"
+            "raise RuntimeError(\"Slicer-op template generation failed: no generated template was available\")\n"
+        )
+
+    def _generate_unknown_op_template(self, step: Dict) -> str:
+        """Blocking template for required operations without enough evidence."""
+        desc = _text_or_empty(step.get("description", step.get("step_id", "")))
+        return (
+            "# [UNKNOWN_OP_GENERATION_FAILED] Operation type could not be proven from extension or Slicer-core evidence.\n"
+            f"# Operation: {desc}\n"
+            "raise RuntimeError(\"Operation generation failed: insufficient classification evidence\")\n"
         )
 
     def _build_workflow_manifest_and_generators(
@@ -6395,7 +7590,7 @@ Return ONLY the JSON, no markdown fences.""")
             "extension_module_name": os.path.splitext(os.path.basename(scan_result.get("entry_module", "")))[0],
             "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
             "version": "1.0.0",
-            "status": "validated",
+            "status": "draft",
             "workflow_type": "interactive",
             "workflow_graph_file": "workflow.json",
             "stages": stage_names,
@@ -6431,12 +7626,15 @@ Return ONLY the JSON, no markdown fences.""")
 
             if step_type == "automated" and step.get("code_template"):
                 gen["template_file"] = step["code_template"]
+                if step.get("sub_operations"):
+                    gen["sub_operations"] = step["sub_operations"]
             elif step_type == "interactive":
                 gen["pre_template_file"] = step.get("pre_template", "")
                 gen["post_template_file"] = step.get("post_template", "")
                 nc = step.get("node_class")
                 gen["interaction_descriptor"] = {
                     "interaction_type": _derive_interaction_type(nc),
+                    "interaction_kind": step.get("interaction_kind", ""),
                     "node_class": nc or "",
                     "placement_instructions": step.get("placement_instructions", ""),
                 }
@@ -6450,10 +7648,17 @@ Return ONLY the JSON, no markdown fences.""")
                         nc = so.get("node_class")
                         interaction_desc = {
                             "interaction_type": _derive_interaction_type(nc),
+                            "interaction_kind": so.get("interaction_kind", ""),
                             "node_class": nc or "",
                             "placement_instructions": so.get("placement_instructions", ""),
                         }
                         break
+                if step.get("interaction_owner"):
+                    interaction_desc["interaction_owner"] = step.get("interaction_owner")
+                if step.get("placement_starter_method"):
+                    interaction_desc["placement_starter_method"] = step.get(
+                        "placement_starter_method"
+                    )
                 gen["interaction_descriptor"] = interaction_desc
                 gen["sub_operations"] = step.get("sub_operations", [])
             elif step_type == "branch":
@@ -6544,7 +7749,7 @@ Return ONLY the JSON, no markdown fences.""")
             "generated_at": datetime.now().isoformat(),
             "source_type": "analyzed_extension",
             "source_path": scan_result.get("source_path", ""),
-            "status": "validated",
+            "status": "draft",
             "tool_count": 1,
             "stages": stage_names,
         }

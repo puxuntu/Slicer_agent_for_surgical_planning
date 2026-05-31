@@ -1,0 +1,373 @@
+[
+  {
+    "attempt": 1,
+    "timestamp": "2026-05-31T11:41:50.114997",
+    "stage": "initial_generation",
+    "trigger": "user_request",
+    "analysis_stages_completed": [
+      1,
+      2,
+      3,
+      "3.5",
+      4,
+      "4.5",
+      "5C",
+      "5T",
+      6,
+      7,
+      "7.5",
+      9
+    ],
+    "validation_result": {
+      "valid": false,
+      "errors": [
+        "templates/cb_step_14_slicer.py.tpl: Slicer-op template generation failed due to insufficient retrieval evidence",
+        "templates/cb_step_16.py.tpl: Undefined variable: 'scalarVolumeID'"
+      ],
+      "warnings": [
+        "templates/cb_step_24.py.tpl: Unknown MRML node class: 'vtkMRMLScriptedModuleNode'"
+      ],
+      "per_template": {
+        "templates/cb_step_5.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_6_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_7_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_8_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_9_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_10_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_11_pre.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_11_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_12.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_13_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_14_slicer.py.tpl": {
+          "valid": false,
+          "reason": "Slicer-op template generation failed due to insufficient retrieval evidence",
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_15_pre.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_15_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_16.py.tpl": {
+          "valid": false,
+          "reason": "Undefined variable: 'scalarVolumeID'",
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_17_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_19.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_20_pre.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_20_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_21.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_22_pre.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_22_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_23.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_24.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [
+            "Unknown MRML node class: 'vtkMRMLScriptedModuleNode'"
+          ],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        }
+      }
+    }
+  },
+  {
+    "attempt": 2,
+    "timestamp": "2026-05-31T11:42:29.914354",
+    "stage": "revision",
+    "trigger": "validation_failure",
+    "error": "templates/cb_step_14_slicer.py.tpl: Slicer-op template generation failed due to insufficient retrieval evidence; templates/cb_step_16.py.tpl: Undefined variable: 'scalarVolumeID'",
+    "fix": "cb_step_14_slicer.py.tpl: Replaced the stub error with a valid implementation that finds the mandibular curve node created in step 12 and adds the Red slice view to its display node. cb_step_16.py.tpl: Replaced the incorrect call to setBackgroundVolumeFromID (which used undefined scalarVolumeID) with a proper layout change to the custom BoneReconstructionPlanner layout using setLayoutByName.",
+    "validation_result": {
+      "valid": true,
+      "errors": [],
+      "warnings": [],
+      "per_template": {
+        "templates/cb_step_5.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_6_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_7_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_8_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_9_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_10_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_11_pre.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_11_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_12.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_13_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_14_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_15_pre.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_15_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_16.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_17_slicer.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_19.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_20_pre.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_20_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_21.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_22_pre.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_22_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_23.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_24.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        }
+      }
+    }
+  }
+]

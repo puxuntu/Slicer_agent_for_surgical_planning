@@ -1,0 +1,43 @@
+{
+  "extension_name": "BoneReconstructionPlanner",
+  "extension_module_name": "BoneReconstructionPlanner",
+  "logic_class_name": "BoneReconstructionPlannerLogic",
+  "version": "1.0.0",
+  "status": "validated",
+  "workflow_type": "interactive",
+  "workflow_graph_file": "workflow.json",
+  "stages": [
+    "cb_step_1",
+    "cb_step_2",
+    "cb_step_3",
+    "cb_step_4",
+    "cb_step_5",
+    "cb_step_6",
+    "cb_step_7",
+    "cb_step_8",
+    "cb_step_9",
+    "cb_step_10",
+    "cb_step_11",
+    "cb_step_12",
+    "cb_step_13",
+    "cb_step_14",
+    "cb_step_15",
+    "cb_step_16",
+    "cb_step_17",
+    "cb_step_18",
+    "cb_step_19",
+    "cb_step_20",
+    "cb_step_21",
+    "cb_step_22",
+    "cb_step_23",
+    "cb_step_24"
+  ],
+  "cookbook_driven": true,
+  "cookbook_file": "SlicerBoneReconstructionPlanner.md",
+  "operation_types": [
+    "extension_op",
+    "slicer_op",
+    "user_choice",
+    "user_interaction"
+  ]
+}
