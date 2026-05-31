@@ -1,7 +1,7 @@
-import slicer
-
-crosshairNode = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLCrosshairNode')
+crosshairNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLCrosshairNode")
 if crosshairNode is None:
-    crosshairNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLCrosshairNode', 'Crosshair')
+    crosshairNode = slicer.mrmlScene.AddNewNode("vtkMRMLCrosshairNode", "Crosshair")
+    crosshairNode.SetSingletonTag("default")
+
 crosshairNode.SetCrosshairMode(slicer.vtkMRMLCrosshairNode.ShowIntersection)
-print("[Slicer] Crosshair slice intersection visibility enabled.")
+print("Crosshair slice intersection visibility enabled.")

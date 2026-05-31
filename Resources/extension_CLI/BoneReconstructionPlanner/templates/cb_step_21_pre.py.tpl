@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: 22. Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally. (Setup) ---
+# --- BoneReconstructionPlanner: 21. Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally. (Setup) ---
 import slicer
 
 # Reuse the markup node created by addFibulaLine() in the previous step.
@@ -19,7 +19,7 @@ slicer.modules.markups.logic().SetActiveListID(node)
 interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
 if interactionNode is not None:
     interactionNode.SwitchToPersistentPlaceMode()
-_bonereconstructionplanner_cb_step_22_id = node.GetID()
+_bonereconstructionplanner_cb_step_21_id = node.GetID()
 
-print("[BoneReconstructionPlanner] Please Draw a line over the fibula in 3D View 2. Place the first point distally and the last point proximally.")
+print("[BoneReconstructionPlanner] Please Click first point at the distal end of the fibula, then click second point at the proximal end in 3D View 2.")
 print("When finished, press the 'Done' button in the workflow panel.")

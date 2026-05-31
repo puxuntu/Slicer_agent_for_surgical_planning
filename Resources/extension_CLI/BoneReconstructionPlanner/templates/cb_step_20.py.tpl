@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: 19. Click "Add cut plane" button. (Setup) ---
+# --- BoneReconstructionPlanner: 20. Click "Add fibula line" button. (Setup) ---
 import slicer
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
@@ -7,7 +7,7 @@ try:
 except NameError:
     logic = BoneReconstructionPlannerLogic()
 
-logic.addCutPlane()
+logic.addFibulaLine()
 _bonereconstructionplanner_logic = logic
 
-print("[BoneReconstructionPlanner] Placement started for step 'cb_step_19'.")
+print("[BoneReconstructionPlanner] Placement started for step 'cb_step_20'.")

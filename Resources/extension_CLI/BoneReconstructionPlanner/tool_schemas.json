@@ -3,7 +3,7 @@
     "type": "function",
     "function": {
       "name": "BoneReconstructionPlanner",
-      "description": "Guided interactive workflow for BoneReconstructionPlanner. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': 1. If the fibula is from the right leg, tick the \"Right side leg\" checkbox.; 'cb_step_2': 2. In the \"Select mandibular segmentation\" section, choose the mandibular segmentation.; 'cb_step_3': 3. In the \"Select fibula segmentation\" section, choose the fibula segmentation.; 'cb_step_4': 4. For the \"Current Scalar Volume\" option, select the Mandible Volume.; 'cb_step_5': 5. Click \"Create bone models from segmentations\" button.; 'cb_step_6': 6. Change the layout to \"Conventional\".; 'cb_step_7': 7. For the R (red) view, toggle on \"slice visibility in 3D view\".; 'cb_step_8': 8. For the R (red) view, select \"FOV, Spacing match 2D\".; 'cb_step_9': 9. In the \"Crosshair selection\" toolbar, toggle on \"slice intersection visibility\".; 'cb_step_10': 10. In the \"Crosshair selection\" toolbar, toggle on \"enable interaction\".",
+      "description": "Guided interactive workflow for BoneReconstructionPlanner. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': 1. If the fibula is from the right leg, tick the \"Right side leg\" checkbox.; 'cb_step_2': 2. In the \"Select mandibular segmentation\" section, choose the mandibular segmentation.; 'cb_step_3': 3. In the \"Select fibula segmentation\" section, choose the fibula segmentation.; 'cb_step_4': 4. For the \"Current Scalar Volume\" option, select the Mandible Volume.; 'cb_step_5': 5. Click \"Create bone models from segmentations\" button.; 'cb_step_6': 6. Change the layout to \"Conventional\".; 'cb_step_7': 7. For the R (red) view, toggle on \"slice visibility in 3D view\".; 'cb_step_8': 8. For the R (red) view, select \"FOV, Spacing match 2D\" (adjusts slice resolution to match the 2D viewport pixel spacing).; 'cb_step_9': 9. In the \"Crosshair selection\" toolbar, toggle on \"slice intersection visibility\" (shows crosshair lines at slice intersections in 2D views).; 'cb_step_10': 10. In the \"Crosshair selection\" toolbar, toggle on \"enable interaction\" (allows dragging the crosshair to navigate slices by clicking in 2D views).",
       "parameters": {
         "type": "object",
         "properties": {
@@ -32,8 +32,7 @@
               "cb_step_20",
               "cb_step_21",
               "cb_step_22",
-              "cb_step_23",
-              "cb_step_24"
+              "cb_step_23"
             ],
             "description": "Which workflow step to execute"
           },

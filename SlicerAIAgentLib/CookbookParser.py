@@ -37,6 +37,11 @@ class SubOperation:
     interaction_type: Optional[str] = None        # "curve", "plane", "line", "fiducial"
     node_class: Optional[str] = None              # VTK MRML node class for interaction
     placement_instructions: Optional[str] = None   # Guidance text for the user
+    evidence_type: Optional[str] = None            # logic_method/widget_connection/slicer_core/etc.
+    evidence_id: Optional[str] = None              # Method name, widget name, or matched concept
+    confidence: Optional[str] = None               # high | medium | low
+    interaction_kind: Optional[str] = None         # markup_placement | view_adjustment | none
+    slicer_op_category: Optional[str] = None       # layout_slice_view, markups_display, etc.
     # user_choice-specific fields
     question: Optional[str] = None                # Question to ask the user
     choices: List[Dict] = field(default_factory=list)  # [{"label": "...", "value": "..."}]

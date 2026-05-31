@@ -552,6 +552,20 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
                 from SlicerAIAgentLib.CodeValidator import CodeValidator
 
+                def _run_live_probe_on_main_thread(probe_code):
+                    response_queue = queue.Queue(maxsize=1)
+                    self._streamQueue.put((
+                        'cli_probe_request',
+                        {
+                            'probe_code': probe_code,
+                            'response_queue': response_queue,
+                        },
+                    ))
+                    try:
+                        return response_queue.get(timeout=30)
+                    except queue.Empty:
+                        return {"error": "Timeout waiting for main-thread live API probe"}
+
                 analyzer = ExtensionCLIAnalyzer(
                     llm_client=self.logic.llmClient,
                     output_base_dir=os.path.join(
@@ -562,6 +576,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         ('cli_progress', {'stage': n, 'name': s, 'detail': d})
                     ),
                     on_error=lambda e: self._streamQueue.put(('cli_error', e)),
+                    live_probe_executor=_run_live_probe_on_main_thread,
                 )
 
                 result = analyzer.analyze_and_generate(
@@ -623,6 +638,11 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             )
             sample = ExtensionCLIAnalyzer._fill_remaining_placeholders(sample)
             result = validator.validate(sample)
+            if "SLICER_OP_GENERATION_FAILED" in sample:
+                result["valid"] = False
+                result["reason"] = (
+                    "Slicer-op template generation failed due to insufficient retrieval evidence"
+                )
 
             status = "PASS" if result.get("valid", True) else "FAIL"
             self._cliProgressDisplay.append(f"  {tpl_file}: {status}")
@@ -1013,6 +1033,18 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Handle CLI generator progress updates on the main thread."""
         self._cliProgressDisplay.append(f"  Stage {stage_num}: {stage_name} — {detail}")
 
+    def _handleCliProbeRequest(self, payload):
+        """Execute a CLI live-API probe on the Qt/Slicer main thread."""
+        response_queue = payload.get('response_queue')
+        probe_code = payload.get('probe_code', '')
+        try:
+            from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+            result = ExtensionCLIAnalyzer._execute_probe(probe_code)
+        except Exception as exc:
+            result = {"error": f"{type(exc).__name__}: {exc}"}
+        if response_queue is not None:
+            response_queue.put(result)
+
     def _handleCliComplete(self, result):
         """Handle CLI generator completion on the main thread."""
         self._cliGeneratorRunning = False
@@ -1361,6 +1393,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 i += 1
             elif event_type == 'cli_error':
                 self._handleCliError(payload)
+                i += 1
+            elif event_type == 'cli_probe_request':
+                self._handleCliProbeRequest(payload)
                 i += 1
             elif event_type == 'thinking_delta':
                 self._thinkingDisplayText += payload

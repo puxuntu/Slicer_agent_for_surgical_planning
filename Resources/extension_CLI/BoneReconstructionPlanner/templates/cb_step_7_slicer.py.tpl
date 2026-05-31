@@ -1,10 +1,4 @@
-import slicer
-
 layoutManager = slicer.app.layoutManager()
-redWidget = layoutManager.sliceWidget('Red')
-if redWidget is None:
-    raise RuntimeError("Red slice widget is not available")
-redSliceNode = redWidget.mrmlSliceNode()
-redSliceNode.SetSliceVisible(True)
-
-print("[Slicer] Layout/slice view operation completed.")
+sliceWidget = layoutManager.sliceWidget("Red")
+sliceController = sliceWidget.sliceController()
+sliceController.setSliceVisible(True)

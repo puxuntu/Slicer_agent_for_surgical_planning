@@ -1,10 +1,18 @@
-import slicer
+# Set FOV/Spacing match 2D for the Red slice view
 
-layoutManager = slicer.app.layoutManager()
-redWidget = layoutManager.sliceWidget('Red')
-if redWidget is None:
-    raise RuntimeError("Red slice widget is not available")
-redSliceNode = redWidget.mrmlSliceNode()
-redSliceNode.SetSliceSpacingMode(slicer.vtkMRMLSliceNode.SpacingModeMatch2D)
+# Get the Red slice node
+sliceNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSliceNodeRed")
+if sliceNode is None:
+    raise ValueError("Red slice node not found. Make sure a Red slice view exists.")
 
-print("[Slicer] Layout/slice view operation completed.")
+# Block modified events for efficiency
+wasModified = sliceNode.StartModify()
+
+# Set slice resolution mode to match 2D view (FOV matches the 2D view dimensions)
+sliceNode.SetSliceResolutionMode(slicer.vtkMRMLSliceNode.SliceResolutionMatch2DView)
+
+# Set slice spacing mode to automatic (spacing computed from the 2D view)
+sliceNode.SetSliceSpacingMode(slicer.vtkMRMLSliceNode.AutomaticSliceSpacingMode)
+
+# Re-enable modified events
+sliceNode.EndModify(wasModified)

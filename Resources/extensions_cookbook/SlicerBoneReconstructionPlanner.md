@@ -7,20 +7,19 @@
 5. Click "Create bone models from segmentations" button.
 6. Change the layout to "Conventional".
 7. For the R (red) view, toggle on "slice visibility in 3D view".
-8. For the R (red) view, select "FOV, Spacing match 2D".
-9. In the "Crosshair selection" toolbar, toggle on "slice intersection visibility".
-10. In the "Crosshair selection" toolbar, toggle on "enable interaction".
+8. For the R (red) view, select "FOV, Spacing match 2D" (adjusts slice resolution to match the 2D viewport pixel spacing).
+9. In the "Crosshair selection" toolbar, toggle on "slice intersection visibility" (shows crosshair lines at slice intersections in 2D views).
+10. In the "Crosshair selection" toolbar, toggle on "enable interaction" (allows dragging the crosshair to navigate slices by clicking in 2D views).
 11. Manually adjust the slice intersection position.
 12. Click the "Add mandibular curve" button.
-13. Open the "Markups" module.
-14. Expand the "Display" panel, then expand the "Advanced" panel, and Configure "View" in "Advanced" panel to both "View 1" and "Red" selected.
-15. Manually click and draw on the "Red" view to create a curve along the mandible.
-16. Change the layout from "Conventional" back to the custom layout "BoneReconstructionPlanner".
-17. For the R (red) view, toggle off "slice visibility in 3D view".
-18. Manually set how many cut planes you want.
-19. Click "Add cut plane" button.
-20. Click where you want the plane in "3D View 1" to create the first plane. Repeat this process to add as many planes as needed.
-21. Click "Add fibula line" button.
-22. Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally.
-23. Click "Center fibula line using fibula model" button to align the line with the anatomical axis of the fibula.
-24. Click "Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible" to generate the reconstruction and create the fibula cut planes.
+13. In the Markups module's "Display" > "Advanced" panel, configure "View" to show in both "View 1" and "Red".
+14. Manually click and draw on the "Red" view to create a curve along the mandible.
+15. Change the layout from "Conventional" back to the custom layout "BoneReconstructionPlanner" (restore the extension's dedicated layout).
+16. For the R (red) view, toggle off "slice visibility in 3D view".
+17. Manually set how many cut planes you want.
+18. Click "Add cut plane" button.
+19. Click where you want the plane in "3D View 1" to create the first plane. Repeat this process to add as many planes as needed.
+20. Click "Add fibula line" button.
+21. Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally.
+22. Click "Center fibula line using fibula model" button to align the line with the anatomical axis of the fibula.
+23. Click "Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible" to generate the reconstruction and create the fibula cut planes.

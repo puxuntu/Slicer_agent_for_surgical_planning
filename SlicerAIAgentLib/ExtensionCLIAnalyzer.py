@@ -4664,10 +4664,8 @@ Return ONLY the JSON array, no markdown fences.""")
     def _extract_api_probe_specs(code: str) -> List[Dict[str, Any]]:
         """Extract receiver-level API probes from template code.
 
-        Each returned spec evaluates the actual receiver object and then checks
-        the method on that object.  This avoids false positives such as probing
-        `slicer.app.layoutManager.setLayout` instead of
-        `slicer.app.layoutManager().setLayout`.
+        Pass 1: Extract method call chains (e.g., obj.method()).
+        Pass 2: Extract bare attribute accesses (e.g., slicer.vtkMRMLSliceNode.EnumValue).
         """
         import ast as _ast
         try:
@@ -4678,6 +4676,8 @@ Return ONLY the JSON array, no markdown fences.""")
         var_map = ExtensionCLIAnalyzer._build_var_to_expr_map(code)
         specs: List[Dict[str, Any]] = []
         seen = set()
+
+        # Pass 1: method calls (existing logic)
         for node in _ast.walk(tree):
             if not isinstance(node, _ast.Call) or not isinstance(node.func, _ast.Attribute):
                 continue
@@ -4689,14 +4689,9 @@ Return ONLY the JSON array, no markdown fences.""")
             receiver_expr = ExtensionCLIAnalyzer._expand_probe_expr(receiver_expr, var_map)
             receiver_expr = ExtensionCLIAnalyzer._make_probe_receiver_safe(receiver_expr)
             if ".GetDisplayNode()" in receiver_expr:
-                # A display node may legitimately be None until the template's
-                # following fallback creates one.  Probe GetDisplayNode itself,
-                # but do not treat methods on its current return value as API
-                # availability checks.
                 continue
             if not ExtensionCLIAnalyzer._expr_starts_with_api_root(receiver_expr):
                 continue
-            # Skip expressions that still depend on unresolved local variables.
             try:
                 recv_tree = _ast.parse(receiver_expr, mode="eval")
             except SyntaxError:
@@ -4718,7 +4713,54 @@ Return ONLY the JSON array, no markdown fences.""")
                 "receiver_expr": receiver_expr,
                 "attr": attr,
                 "lineno": getattr(node, "lineno", 0),
+                "is_attribute": False,
             })
+
+        # Pass 2: bare attribute accesses (e.g., slicer.vtkMRMLSliceNode.SpacingModeMatch2D)
+        # These are ast.Attribute nodes that are NOT the func of a Call.
+        call_func_ids = set()
+        for node in _ast.walk(tree):
+            if isinstance(node, _ast.Call) and isinstance(node.func, _ast.Attribute):
+                call_func_ids.add(id(node.func))
+
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.Attribute):
+                continue
+            if id(node) in call_func_ids:
+                continue
+            attr = node.attr
+            try:
+                receiver_expr = _ast.unparse(node.value)
+            except Exception:
+                continue
+            receiver_expr = ExtensionCLIAnalyzer._expand_probe_expr(receiver_expr, var_map)
+            if not ExtensionCLIAnalyzer._expr_starts_with_api_root(receiver_expr):
+                continue
+            # Skip expressions with unresolved locals
+            try:
+                recv_tree = _ast.parse(receiver_expr, mode="eval")
+            except SyntaxError:
+                continue
+            unresolved = {
+                n.id for n in _ast.walk(recv_tree)
+                if isinstance(n, _ast.Name) and n.id not in {"slicer", "vtk", "qt", "ctk"}
+            }
+            if unresolved:
+                continue
+
+            chain = f"{receiver_expr}.{attr}"
+            key = (receiver_expr, attr)
+            if key in seen:
+                continue
+            seen.add(key)
+            specs.append({
+                "chain": chain,
+                "receiver_expr": receiver_expr,
+                "attr": attr,
+                "lineno": getattr(node, "lineno", 0),
+                "is_attribute": True,
+            })
+
         return specs
 
     @staticmethod
@@ -4726,14 +4768,34 @@ Return ONLY the JSON array, no markdown fences.""")
         """Return display names for API calls extracted from template code."""
         return [p["chain"] for p in ExtensionCLIAnalyzer._extract_api_probe_specs(code)]
 
+    def _get_template_purpose(self, tpl_key: str) -> str:
+        """Look up a human-readable description for a template from the cookbook."""
+        import re as _re
+        m = _re.search(r"cb_step_(\d+)", tpl_key)
+        if not m:
+            return ""
+        step_num = int(m.group(1))
+        if not self._cookbook_def:
+            return ""
+        for step in self._cookbook_def.steps:
+            if step.step_number == step_num:
+                return step.description
+        return ""
+
     @staticmethod
     def _generate_probes(api_specs: List[Dict[str, Any]]) -> List[Dict]:
-        """Generate micro-probes that evaluate actual receiver objects."""
+        """Generate micro-probes that evaluate actual receiver objects.
+
+        For method calls: check hasattr and return available methods.
+        For attribute accesses (enums, constants): try to resolve and return
+        all public attributes on failure.
+        """
         probes = []
         seen = set()
         for spec in api_specs:
             receiver_expr = spec.get("receiver_expr", "")
             attr = spec.get("attr", "")
+            is_attr = spec.get("is_attribute", False)
             if not receiver_expr or not attr:
                 continue
             key = f"{receiver_expr}.{attr}"
@@ -4741,17 +4803,33 @@ Return ONLY the JSON array, no markdown fences.""")
                 continue
             seen.add(key)
 
-            probe_code = (
-                f"try:\n"
-                f"    _obj = {receiver_expr}\n"
-                f"    _exists = _obj is not None and hasattr(_obj, '{attr}')\n"
-                f"    _available = []\n"
-                f"    if not _exists and _obj is not None:\n"
-                f"        _available = [m for m in dir(_obj) if not m.startswith('_') and callable(getattr(_obj, m))][:40]\n"
-                f"    __result = {{'exists': _exists, 'is_none': _obj is None, 'type': type(_obj).__name__, 'available_methods': _available}}\n"
-                f"except Exception as _e:\n"
-                f"    __result = {{'error': f'{{type(_e).__name__}}: {{_e}}'}}"
-            )
+            if is_attr:
+                # Attribute access probe: resolve the attribute and catch errors
+                probe_code = (
+                    f"try:\n"
+                    f"    _obj = {receiver_expr}\n"
+                    f"    _val = getattr(_obj, '{attr}')\n"
+                    f"    __result = {{'exists': True, 'type': type(_val).__name__, 'value_repr': repr(_val)[:80]}}\n"
+                    f"except AttributeError as _e:\n"
+                    f"    _all = [m for m in dir(_obj) if not m.startswith('_')][:40]\n"
+                    f"    __result = {{'exists': False, 'error': str(_e), 'type': type(_obj).__name__, 'available_methods': _all, 'all_attrs': _all}}\n"
+                    f"except Exception as _e:\n"
+                    f"    __result = {{'error': f'{{type(_e).__name__}}: {{_e}}'}}"
+                )
+            else:
+                # Method call probe: check hasattr and return available methods
+                probe_code = (
+                    f"try:\n"
+                    f"    _obj = {receiver_expr}\n"
+                    f"    _exists = _obj is not None and hasattr(_obj, '{attr}')\n"
+                    f"    _available = []\n"
+                    f"    if not _exists and _obj is not None:\n"
+                    f"        _available = [m for m in dir(_obj) if not m.startswith('_')][:40]\n"
+                    f"    _all_attrs = [m for m in dir(_obj) if not m.startswith('_')][:80] if _obj else []\n"
+                    f"    __result = {{'exists': _exists, 'is_none': _obj is None, 'type': type(_obj).__name__, 'available_methods': _available, 'all_attrs': _all_attrs}}\n"
+                    f"except Exception as _e:\n"
+                    f"    __result = {{'error': f'{{type(_e).__name__}}: {{_e}}'}}"
+                )
             probes.append({
                 "chain": key,
                 "receiver_expr": receiver_expr,
@@ -4931,8 +5009,11 @@ Return ONLY the JSON array, no markdown fences.""")
             if tpl_key not in templates:
                 continue
             original_code = templates[tpl_key]
+            # Look up template purpose from stage_map for better LLM context
+            purpose = self._get_template_purpose(tpl_key)
             revised = self._revise_template_for_api(
                 tpl_key, original_code, tpl_failures,
+                template_purpose=purpose,
             )
             if revised and revised != original_code:
                 templates[tpl_key] = revised
@@ -4954,33 +5035,45 @@ Return ONLY the JSON array, no markdown fences.""")
 
     def _revise_template_for_api(
         self, template_key: str, code: str, failures: List[Dict],
+        template_purpose: str = "",
     ) -> Optional[str]:
         """Ask the LLM to revise a template to fix API failures."""
         failure_descriptions = []
         for f in failures:
-            desc = f"API call `{f['chain']}` does NOT EXIST."
+            chain = f.get("chain", "")
+            failed_attr = chain.rsplit(".", 1)[-1] if "." in chain else chain
+            desc = f"API call `{chain}` does NOT EXIST."
             if f.get("receiver_type"):
                 desc += f" Receiver type: {f['receiver_type']}."
             if f.get("receiver_is_none"):
                 desc += " Receiver evaluated to None."
-            if "available_methods" in f:
-                methods = f["available_methods"]
-                if isinstance(methods, list):
-                    desc += f" Available methods on the parent object: {methods}"
-                else:
-                    desc += f" Available: {methods}"
+            # Include all attributes (not just callables) for better LLM context
+            all_attrs = f.get("all_attrs") or f.get("available_methods", [])
+            if all_attrs and isinstance(all_attrs, list):
+                desc += f"\n  All public attributes on the receiver: {all_attrs}"
+                # Add close matches: attributes whose names contain parts of the failed attr
+                close = [
+                    a for a in all_attrs
+                    if any(part in a.lower() for part in failed_attr.lower().split("_") if len(part) > 2)
+                ]
+                if close:
+                    desc += f"\n  Close matches for '{failed_attr}': {close}"
             elif "error" in f:
                 desc += f" Error: {f['error']}"
             failure_descriptions.append(desc)
+
+        purpose_section = ""
+        if template_purpose:
+            purpose_section = f"\nTemplate purpose: {template_purpose}\n"
 
         prompt = textwrap.dedent(f"""\
             The following Python template for 3D Slicer has API errors detected
             by live probing against the running Slicer instance.
 
             Template file: {template_key}
-
+            {purpose_section}
             API failures:
-            {chr(10).join(f'- {f}' for f in failure_descriptions)}
+            {chr(10).join(f'- {fd}' for fd in failure_descriptions)}
 
             Current template code:
             ```python
@@ -4989,6 +5082,10 @@ Return ONLY the JSON array, no markdown fences.""")
 
             Fix the template so it uses the correct Slicer API.
             Only fix the broken API calls. Do not change the logic or structure.
+
+            When fixing attribute access errors (e.g., incorrect enum values),
+            select from the "Close matches" list above. These are attributes on
+            the actual receiver object whose names are similar to the failed attribute.
 
             IMPORTANT restrictions:
             - Do NOT use `os`, `sys`, `subprocess`, `socket`, `shutil`, `pathlib`.
@@ -6153,10 +6250,10 @@ Return ONLY the sentence, nothing else.""")
                 if not found and so_type == "slicer_op":
                     category = so.get("slicer_op_category", "")
                     _CATEGORY_API_HINTS = {
-                        "layout_slice_view": ["setLayout", "SliceVisible", "SliceSpacing", "SetFieldOfView", "layoutManager"],
+                        "layout_slice_view": ["setLayout", "SliceVisible", "SetSliceResolutionMode", "SliceResolutionMatch", "SetViewArrangement", "AddLayoutDescription", "GetLayoutByName", "layoutManager"],
                         "module_switching": ["selectModule", "moduleManager"],
                         "markups_display": ["GetDisplayNode", "SetViewNodeID", "AddViewNodeID"],
-                        "crosshair": ["Crosshair", "SetCrosshairMode", "ShowIntersection"],
+                        "crosshair": ["Crosshair", "SetCrosshairMode", "ShowIntersection", "SetCrosshairBehavior", "OffsetJumpSlice", "NoCrosshair"],
                         "node_display": ["SetSliceVisible", "SetVisibility", "GetDisplayNode"],
                     }
                     hints = _CATEGORY_API_HINTS.get(category, [])
@@ -7524,9 +7621,17 @@ Return ONLY the JSON, no markdown fences.""")
         skill_path = os.path.join(module_dir, "Resources", "Skills", "slicer-skill-full")
 
         def _on_op_progress(finished, total, desc):
+            if desc.startswith("done "):
+                detail = f"[{finished}/{total}] done {desc[5:]}"
+            elif desc.startswith("started "):
+                detail = f"[{finished}/{total}] running {desc[8:]}"
+            elif "timed out" in desc.lower() or "failed" in desc.lower():
+                detail = f"[{finished}/{total}] {desc}"
+            else:
+                detail = f"[{finished}/{total}] {desc}"
             self.on_progress(
                 "5T", "Slicer op generation",
-                f"[{finished}/{total}] ✓ {desc}",
+                detail,
             )
 
         # Set up debug file path for live progress tracking

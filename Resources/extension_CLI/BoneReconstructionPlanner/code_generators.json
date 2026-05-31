@@ -14,16 +14,16 @@
       "question": "Is the fibula from the right leg?",
       "choices": [
         {
-          "label": "Yes",
-          "value": true
+          "label": "Yes, right leg",
+          "value": "True"
         },
         {
-          "label": "No",
-          "value": false
+          "label": "No, left leg",
+          "value": "False"
         }
       ],
-      "parameter_name": "rightSideLegFibula",
-      "default_value": null
+      "parameter_name": "rightSideLegFibulaChecked",
+      "default_value": "False"
     }
   },
   {
@@ -40,7 +40,7 @@
     "choice_descriptor": {
       "question": "Which segmentation node represents the mandible?",
       "choices": [],
-      "parameter_name": "mandibularSegmentation",
+      "parameter_name": "mandibularSegmentationNode",
       "default_value": null
     }
   },
@@ -58,7 +58,7 @@
     "choice_descriptor": {
       "question": "Which segmentation node represents the fibula?",
       "choices": [],
-      "parameter_name": "fibulaSegmentation",
+      "parameter_name": "fibulaSegmentationNode",
       "default_value": null
     }
   },
@@ -74,7 +74,7 @@
     "step_type": "user_choice",
     "op_type": "user_choice",
     "choice_descriptor": {
-      "question": "Which volume node is the mandible volume?",
+      "question": "Which scalar volume is the Mandible Volume?",
       "choices": [],
       "parameter_name": "mandibleVolume",
       "default_value": null
@@ -95,7 +95,7 @@
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Create bone models from segmentations by calling makeModels",
+        "description": "Create bone models from segmentations.",
         "extension_method_hint": "makeModels",
         "slicer_api_keywords": [],
         "interaction_type": null,
@@ -126,11 +126,12 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Change the layout to Conventional",
+        "description": "Change the layout to Conventional.",
         "extension_method_hint": null,
         "slicer_api_keywords": [
           "layout",
-          "conventional"
+          "setLayout",
+          "Conventional"
         ],
         "interaction_type": null,
         "node_class": null,
@@ -160,7 +161,7 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Toggle on slice visibility in 3D view for the Red slice view",
+        "description": "Toggle on slice visibility in 3D view for the Red slice view.",
         "extension_method_hint": null,
         "slicer_api_keywords": [
           "layout_slice_view"
@@ -183,7 +184,7 @@
     "param_signature": {
       "workflow_step": "cb_step_8"
     },
-    "description": "8. For the R (red) view, select \"FOV, Spacing match 2D\".",
+    "description": "8. For the R (red) view, select \"FOV, Spacing match 2D\" (adjusts slice resolution to match the 2D viewport pixel spacing).",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
@@ -193,13 +194,12 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Set FOV/Spacing match 2D for the Red slice view",
+        "description": "Set FOV/Spacing match 2D for the Red slice view.",
         "extension_method_hint": null,
         "slicer_api_keywords": [
-          "fov",
-          "spacing",
-          "match 2d",
-          "red view"
+          "Red",
+          "SetSliceSpacingMode",
+          "SpacingModePrescribed"
         ],
         "interaction_type": null,
         "node_class": null,
@@ -219,7 +219,7 @@
     "param_signature": {
       "workflow_step": "cb_step_9"
     },
-    "description": "9. In the \"Crosshair selection\" toolbar, toggle on \"slice intersection visibility\".",
+    "description": "9. In the \"Crosshair selection\" toolbar, toggle on \"slice intersection visibility\" (shows crosshair lines at slice intersections in 2D views).",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
@@ -229,7 +229,7 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Toggle on slice intersection visibility in the crosshair toolbar",
+        "description": "Toggle on slice intersection visibility in the crosshair.",
         "extension_method_hint": null,
         "slicer_api_keywords": [
           "crosshair"
@@ -252,7 +252,7 @@
     "param_signature": {
       "workflow_step": "cb_step_10"
     },
-    "description": "10. In the \"Crosshair selection\" toolbar, toggle on \"enable interaction\".",
+    "description": "10. In the \"Crosshair selection\" toolbar, toggle on \"enable interaction\" (allows dragging the crosshair to navigate slices by clicking in 2D views).",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
@@ -262,7 +262,7 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Toggle on enable interaction in the crosshair toolbar",
+        "description": "Toggle on enable interaction for the crosshair.",
         "extension_method_hint": null,
         "slicer_api_keywords": [
           "crosshair"
@@ -297,7 +297,7 @@
       "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
       "node_class": "vtkMRMLCrosshairNode",
-      "placement_instructions": "Drag the slice intersection to the desired position in the 3D view"
+      "placement_instructions": "Drag the crosshair to the desired slice intersection position in any 2D view."
     }
   },
   {
@@ -315,7 +315,7 @@
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Click Add mandibular curve button to create a curve markup and enter placement mode",
+        "description": "Add a new mandibular curve markup.",
         "extension_method_hint": "addMandibularCurve",
         "slicer_api_keywords": [],
         "interaction_type": null,
@@ -336,7 +336,7 @@
     "param_signature": {
       "workflow_step": "cb_step_13"
     },
-    "description": "13. Open the \"Markups\" module.",
+    "description": "13. In the Markups module's \"Display\" > \"Advanced\" panel, configure \"View\" to show in both \"View 1\" and \"Red\".",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
@@ -346,50 +346,12 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Open the Markups module",
+        "description": "Configure the markups display to show in both View 1 and Red views.",
         "extension_method_hint": null,
         "slicer_api_keywords": [
-          "markups",
-          "module",
-          "switch"
-        ],
-        "interaction_type": null,
-        "node_class": null,
-        "placement_instructions": null,
-        "min_control_points": 0,
-        "evidence_type": "slicer_core",
-        "evidence_id": "module_switching",
-        "confidence": "high",
-        "interaction_kind": "none",
-        "slicer_op_category": "module_switching",
-        "is_optional": false
-      }
-    ]
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "cb_step_14"
-    },
-    "description": "14. Expand the \"Display\" panel, then expand the \"Advanced\" panel, and Configure \"View\" in \"Advanced\" panel to both \"View 1\" and \"Red\" selected.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "step_type": "automated",
-    "op_type": "slicer_op",
-    "template_file": "templates/cb_step_14_slicer.py.tpl",
-    "sub_operations": [
-      {
-        "op_type": "slicer_op",
-        "description": "Configure display settings: expand Display and Advanced panels, set View to both View 1 and Red",
-        "extension_method_hint": null,
-        "slicer_api_keywords": [
-          "markups",
-          "display",
-          "advanced",
-          "view",
-          "view 1",
-          "red"
+          "Markups",
+          "DisplayNode",
+          "SetViewNodeIDs"
         ],
         "interaction_type": null,
         "node_class": null,
@@ -407,40 +369,40 @@
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_15"
+      "workflow_step": "cb_step_14"
     },
-    "description": "15. Manually click and draw on the \"Red\" view to create a curve along the mandible.",
+    "description": "14. Manually click and draw on the \"Red\" view to create a curve along the mandible.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "interactive",
     "op_type": "user_interaction",
-    "pre_template_file": "templates/cb_step_15_pre.py.tpl",
-    "post_template_file": "templates/cb_step_15_post.py.tpl",
+    "pre_template_file": "templates/cb_step_14_pre.py.tpl",
+    "post_template_file": "templates/cb_step_14_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "curve",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsCurveNode",
-      "placement_instructions": "Click and draw on the Red view to create a curve along the mandible"
+      "placement_instructions": "Click to place points along the mandibular contour in the Red slice view."
     }
   },
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_16"
+      "workflow_step": "cb_step_15"
     },
-    "description": "16. Change the layout from \"Conventional\" back to the custom layout \"BoneReconstructionPlanner\".",
+    "description": "15. Change the layout from \"Conventional\" back to the custom layout \"BoneReconstructionPlanner\" (restore the extension's dedicated layout).",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "automated",
     "op_type": "extension_op",
-    "template_file": "templates/cb_step_16.py.tpl",
+    "template_file": "templates/cb_step_15.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Change the layout from Conventional back to the custom layout BoneReconstructionPlanner",
-        "extension_method_hint": "setBackgroundVolumeFromID",
+        "description": "Change the layout to the custom BoneReconstructionPlanner layout.",
+        "extension_method_hint": null,
         "slicer_api_keywords": [],
         "interaction_type": null,
         "node_class": null,
@@ -458,19 +420,19 @@
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_17"
+      "workflow_step": "cb_step_16"
     },
-    "description": "17. For the R (red) view, toggle off \"slice visibility in 3D view\".",
+    "description": "16. For the R (red) view, toggle off \"slice visibility in 3D view\".",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "automated",
     "op_type": "slicer_op",
-    "template_file": "templates/cb_step_17_slicer.py.tpl",
+    "template_file": "templates/cb_step_16_slicer.py.tpl",
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Toggle off slice visibility in 3D view for the Red slice view",
+        "description": "Toggle off slice visibility in 3D view for the Red slice view.",
         "extension_method_hint": null,
         "slicer_api_keywords": [
           "layout_slice_view"
@@ -491,16 +453,16 @@
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_18"
+      "workflow_step": "cb_step_17"
     },
-    "description": "18. Manually set how many cut planes you want.",
+    "description": "17. Manually set how many cut planes you want.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "user_choice",
     "op_type": "user_choice",
     "choice_descriptor": {
-      "question": "How many cut planes do you want to add?",
+      "question": "How many cut planes do you want?",
       "choices": [],
       "parameter_name": "numberOfCutPlanes",
       "default_value": null
@@ -509,19 +471,19 @@
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_19"
+      "workflow_step": "cb_step_18"
     },
-    "description": "19. Click \"Add cut plane\" button.",
+    "description": "18. Click \"Add cut plane\" button.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "automated",
     "op_type": "extension_op",
-    "template_file": "templates/cb_step_19.py.tpl",
+    "template_file": "templates/cb_step_18.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Click Add cut plane button to create a plane markup and enter placement mode",
+        "description": "Add a new cut plane markup.",
         "extension_method_hint": "addCutPlane",
         "slicer_api_keywords": [],
         "interaction_type": null,
@@ -540,39 +502,39 @@
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_20"
+      "workflow_step": "cb_step_19"
     },
-    "description": "20. Click where you want the plane in \"3D View 1\" to create the first plane. Repeat this process to add as many planes as needed.",
+    "description": "19. Click where you want the plane in \"3D View 1\" to create the first plane. Repeat this process to add as many planes as needed.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "interactive",
     "op_type": "user_interaction",
-    "pre_template_file": "templates/cb_step_20_pre.py.tpl",
-    "post_template_file": "templates/cb_step_20_post.py.tpl",
+    "pre_template_file": "templates/cb_step_19_pre.py.tpl",
+    "post_template_file": "templates/cb_step_19_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "plane",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsPlaneNode",
-      "placement_instructions": "Click in 3D View 1 to place a cut plane. Repeat to place additional planes."
+      "placement_instructions": "Click in 3D View 1 to position the cut plane. Repeat for each plane."
     }
   },
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_21"
+      "workflow_step": "cb_step_20"
     },
-    "description": "21. Click \"Add fibula line\" button.",
+    "description": "20. Click \"Add fibula line\" button.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "automated",
     "op_type": "extension_op",
-    "template_file": "templates/cb_step_21.py.tpl",
+    "template_file": "templates/cb_step_20.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Click Add fibula line button to create a line markup and enter placement mode",
+        "description": "Add a new fibula line markup.",
         "extension_method_hint": "addFibulaLine",
         "slicer_api_keywords": [],
         "interaction_type": null,
@@ -591,39 +553,39 @@
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_22"
+      "workflow_step": "cb_step_21"
     },
-    "description": "22. Draw a line over the fibula in \"3D View 2\", starting with the first point distally and the last point proximally.",
+    "description": "21. Draw a line over the fibula in \"3D View 2\", starting with the first point distally and the last point proximally.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "interactive",
     "op_type": "user_interaction",
-    "pre_template_file": "templates/cb_step_22_pre.py.tpl",
-    "post_template_file": "templates/cb_step_22_post.py.tpl",
+    "pre_template_file": "templates/cb_step_21_pre.py.tpl",
+    "post_template_file": "templates/cb_step_21_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "line",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsLineNode",
-      "placement_instructions": "Draw a line over the fibula in 3D View 2. Place the first point distally and the last point proximally."
+      "placement_instructions": "Click first point at the distal end of the fibula, then click second point at the proximal end in 3D View 2."
     }
   },
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_23"
+      "workflow_step": "cb_step_22"
     },
-    "description": "23. Click \"Center fibula line using fibula model\" button to align the line with the anatomical axis of the fibula.",
+    "description": "22. Click \"Center fibula line using fibula model\" button to align the line with the anatomical axis of the fibula.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "automated",
     "op_type": "extension_op",
-    "template_file": "templates/cb_step_23.py.tpl",
+    "template_file": "templates/cb_step_22.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Click Center fibula line using fibula model button to align the line with the anatomical axis",
+        "description": "Center the fibula line using the fibula model.",
         "extension_method_hint": "centerFibulaLine",
         "slicer_api_keywords": [],
         "interaction_type": null,
@@ -642,19 +604,19 @@
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_24"
+      "workflow_step": "cb_step_23"
     },
-    "description": "24. Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to generate the reconstruction and create the fibula cut planes.",
+    "description": "23. Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to generate the reconstruction and create the fibula cut planes.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "automated",
     "op_type": "extension_op",
-    "template_file": "templates/cb_step_24.py.tpl",
+    "template_file": "templates/cb_step_23.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Click the button to generate fibula planes, fibula bone pieces and transform them to mandible",
+        "description": "Generate fibula planes, fibula bone pieces, and transform them to the mandible.",
         "extension_method_hint": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
         "slicer_api_keywords": [],
         "interaction_type": null,
