@@ -520,9 +520,25 @@ def _choice_is_closed_form(choices: List[Dict]) -> bool:
         return False
     labels = {str(c.get("label", "")).strip().lower() for c in choices}
     values = {str(c.get("value", "")).strip().lower() for c in choices}
-    yes_no = {"yes", "no"}
-    bool_values = {"true", "false"}
-    return labels <= yes_no or values <= bool_values
+    labels_and_values = labels | values
+    normalized = {
+        re.sub(r"[^a-z0-9]+", " ", item).strip()
+        for item in labels_and_values
+        if item
+    }
+    compact = {item.replace(" ", "") for item in normalized}
+    boolean_options = {"yes", "no", "true", "false"}
+    side_options = {
+        "left", "right", "left leg", "right leg",
+        "left side", "right side", "left fibula", "right fibula",
+    }
+    compact_side_options = {item.replace(" ", "") for item in side_options}
+    return (
+        normalized <= boolean_options
+        or compact <= boolean_options
+        or normalized <= side_options
+        or compact <= compact_side_options
+    )
 
 
 def _choice_is_count_question(choice_desc: Dict, step: Dict) -> bool:

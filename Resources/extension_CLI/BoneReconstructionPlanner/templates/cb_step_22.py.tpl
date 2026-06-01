@@ -1,44 +1,69 @@
 import slicer
-from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
+import BoneReconstructionPlanner
 
-# Reuse existing logic instance or create a new one
+# Reuse existing logic instance if available
 try:
-    _bonereconstructionplanner_logic
+    logic = _bonereconstructionplanner_logic
 except NameError:
-    _bonereconstructionplanner_logic = BoneReconstructionPlannerLogic()
+    logic = BoneReconstructionPlanner.BoneReconstructionPlannerLogic()
+    _bonereconstructionplanner_logic = logic
 
-logic = _bonereconstructionplanner_logic
-
-# Get the module's parameter node
+# Ensure parameter node exists
 parameterNode = logic.getParameterNode()
 
-# Ensure parameter node has references to fibulaLine and fibulaModelNode
-fibulaLine = parameterNode.GetNodeReference("fibulaLine")
-if fibulaLine is None:
-    # Find fibula line curve in scene – typically a vtkMRMLMarkupsCurveNode
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsCurveNode")
-    for i in range(nodes.GetNumberOfItems()):
-        n = nodes.GetItemAsObject(i)
-        if "fibula" in n.GetName().lower():
-            parameterNode.SetNodeReferenceID("fibulaLine", n.GetID())
-            fibulaLine = n
-            break
-    if fibulaLine is None:
-        raise RuntimeError("Could not find a fibula line curve in the scene.")
-
-fibulaModelNode = parameterNode.GetNodeReference("fibulaModelNode")
-if fibulaModelNode is None:
+# Ensure required node references are set
+# Mandible model
+mandibleNode = parameterNode.GetNodeReference("mandibleModelNode")
+if mandibleNode is None:
     nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
     for i in range(nodes.GetNumberOfItems()):
         n = nodes.GetItemAsObject(i)
-        if "fibula" in n.GetName().lower():
-            parameterNode.SetNodeReferenceID("fibulaModelNode", n.GetID())
-            fibulaModelNode = n
+        if n and "mandible" in n.GetName().lower():
+            mandibleNode = n
             break
-    if fibulaModelNode is None:
-        raise RuntimeError("Could not find a fibula model node in the scene.")
+    if mandibleNode:
+        parameterNode.SetNodeReferenceID("mandibleModelNode", mandibleNode.GetID())
 
-# Call the method (no arguments as it reads from parameter node internally)
-logic.centerFibulaLine()
+# Fibula model
+fibulaNode = parameterNode.GetNodeReference("fibulaModelNode")
+if fibulaNode is None:
+    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
+    for i in range(nodes.GetNumberOfItems()):
+        n = nodes.GetItemAsObject(i)
+        if n and "fibula" in n.GetName().lower():
+            fibulaNode = n
+            break
+    if fibulaNode:
+        parameterNode.SetNodeReferenceID("fibulaModelNode", fibulaNode.GetID())
 
-print("[BoneReconstructionPlanner] Step cb_step_22: centerFibulaLine completed.")
+# Decimated versions (optional, but needed if checked)
+decMandible = parameterNode.GetNodeReference("decimatedMandibleModelNode")
+if decMandible is None:
+    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
+    for i in range(nodes.GetNumberOfItems()):
+        n = nodes.GetItemAsObject(i)
+        if n and "decimated" in n.GetName().lower() and "mandible" in n.GetName().lower():
+            decMandible = n
+            break
+    if decMandible:
+        parameterNode.SetNodeReferenceID("decimatedMandibleModelNode", decMandible.GetID())
+
+decFibula = parameterNode.GetNodeReference("decimatedFibulaModelNode")
+if decFibula is None:
+    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
+    for i in range(nodes.GetNumberOfItems()):
+        n = nodes.GetItemAsObject(i)
+        if n and "decimated" in n.GetName().lower() and "fibula" in n.GetName().lower():
+            decFibula = n
+            break
+    if decFibula:
+        parameterNode.SetNodeReferenceID("decimatedFibulaModelNode", decFibula.GetID())
+
+# Set parameter for kindOfMandibleResection if not set
+if not parameterNode.GetParameter("kindOfMandibleResection"):
+    parameterNode.SetParameter("kindOfMandibleResection", "Hemimandibulectomy")  # default
+
+# Call the method
+logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible()
+
+print("[BoneReconstructionPlanner] Step 22 completed: fibula planes, bone pieces, and transforms generated.")

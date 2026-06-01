@@ -1,27 +1,14 @@
-"""
-Toggle slice intersection visibility (crosshair)
-"""
+# --- BoneReconstructionPlanner: 9. Toggle on slice intersection visibility (crosshair) in toolbar. ---
+import slicer
 
-# Get the crosshair singleton node
+# Get the crosshair singleton node (should exist by default)
 crosshairNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLCrosshairNode")
-if crosshairNode is None:
-    crosshairNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLCrosshairNode")
+if not crosshairNode:
+    # Create one if none exists (required for the operation)
+    crosshairNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLCrosshairNode", "Crosshair")
     crosshairNode.SetSingletonTag("default")
-    slicer.mrmlScene.AddNode(crosshairNode)
 
-# Toggle between ShowIntersection and NoCrosshair
-if crosshairNode.GetCrosshairMode() == slicer.vtkMRMLCrosshairNode.ShowIntersection:
-    crosshairNode.SetCrosshairMode(slicer.vtkMRMLCrosshairNode.NoCrosshair)
-else:
-    crosshairNode.SetCrosshairMode(slicer.vtkMRMLCrosshairNode.ShowIntersection)
+# Set crosshair mode to ShowIntersection (turns on slice intersection visibility)
+crosshairNode.SetCrosshairMode(slicer.vtkMRMLCrosshairNode.ShowIntersection)
 
-# Also toggle slice intersection lines (lines from other slice orientations)
-sliceDisplayNodes = slicer.util.getNodesByClass("vtkMRMLSliceDisplayNode")
-for sliceDisplayNode in sliceDisplayNodes:
-    currentVisibility = sliceDisplayNode.GetIntersectingSlicesVisibility()
-    sliceDisplayNode.SetIntersectingSlicesVisibility(1 - currentVisibility)
-
-# Force visual update
-sliceNodes = slicer.util.getNodesByClass("vtkMRMLSliceNode")
-for sliceNode in sliceNodes:
-    sliceNode.Modified()
+print("[BoneReconstructionPlanner] Step cb_step_9 completed: slice intersection visibility toggled ON.")

@@ -1706,7 +1706,7 @@
     },
     "cb_step_4": {
       "parameter_name": "currentScalarVolume",
-      "choice_parameter_name": "current_scalar_volume",
+      "choice_parameter_name": "mandible_volume",
       "role": "currentScalarVolume",
       "accesses": [
         "node_reference_read",
@@ -1730,7 +1730,7 @@
     }
   },
   "interaction_bindings": {
-    "cb_step_14": {
+    "cb_step_13": {
       "parameter_name": "mandibleCurve",
       "role": "mandibleCurve",
       "accesses": [
@@ -1756,7 +1756,7 @@
       ],
       "node_class": "vtkMRMLMarkupsCurveNode"
     },
-    "cb_step_19": {
+    "cb_step_18": {
       "parameter_name": "mandiblePlaneOfRotation",
       "role": "mandiblePlaneOfRotation",
       "accesses": [
@@ -1776,7 +1776,7 @@
       ],
       "node_class": "vtkMRMLMarkupsPlaneNode"
     },
-    "cb_step_21": {
+    "cb_step_20": {
       "parameter_name": "fibulaLine",
       "role": "fibulaLine",
       "accesses": [
@@ -1801,12 +1801,12 @@
     }
   },
   "repeat_groups": {
-    "repeat_cb_step_17_cb_step_18_cb_step_19": {
-      "group_id": "repeat_cb_step_17_cb_step_18_cb_step_19",
-      "count_parameter": "num_cut_planes",
-      "count_step": "cb_step_17",
-      "start_step": "cb_step_18",
-      "interaction_step": "cb_step_19"
+    "repeat_cb_step_16_cb_step_17_cb_step_18": {
+      "group_id": "repeat_cb_step_16_cb_step_17_cb_step_18",
+      "count_parameter": "number_of_cut_planes",
+      "count_step": "cb_step_16",
+      "start_step": "cb_step_17",
+      "interaction_step": "cb_step_18"
     }
   }
 }

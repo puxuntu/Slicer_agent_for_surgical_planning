@@ -1,9 +1,9 @@
-# --- BoneReconstructionPlanner: 21. Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally. (Process) ---
+# --- BoneReconstructionPlanner: 13. Manually click and draw on the "Red" view to create a curve along the mandible. (Process) ---
 import slicer
 
-node = slicer.mrmlScene.GetNodeByID(_bonereconstructionplanner_cb_step_21_id)
+node = slicer.mrmlScene.GetNodeByID(_bonereconstructionplanner_cb_step_13_id)
 if node is None:
-    raise RuntimeError("Node not found for step 'cb_step_21'")
+    raise RuntimeError("Node not found for step 'cb_step_13'")
 
 # Validate user input
 numPoints = node.GetNumberOfControlPoints()
@@ -17,11 +17,11 @@ try:
 except NameError:
     logic = BoneReconstructionPlannerLogic()
 parameterNode = logic.getParameterNode()
-parameterNode.SetNodeReferenceID("fibulaLine", node.GetID())
+parameterNode.SetNodeReferenceID("mandibleCurve", node.GetID())
 _bonereconstructionplanner_logic = logic
 
 # Exit placement mode
 interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
 interactionNode.SwitchToViewTransformMode()
 
-print("[BoneReconstructionPlanner] Step 'cb_step_21' processed with %d control points." % node.GetNumberOfControlPoints())
+print("[BoneReconstructionPlanner] Step 'cb_step_13' processed with %d control points." % node.GetNumberOfControlPoints())

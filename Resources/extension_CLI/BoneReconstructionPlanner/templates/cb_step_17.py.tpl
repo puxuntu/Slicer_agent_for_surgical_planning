@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: 18. Click "Add cut plane" button. (Setup) ---
+# --- BoneReconstructionPlanner: 17. Click "Add cut plane" button. (Setup) ---
 import slicer
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
@@ -10,4 +10,4 @@ except NameError:
 logic.addCutPlane()
 _bonereconstructionplanner_logic = logic
 
-print("[BoneReconstructionPlanner] Placement started for step 'cb_step_18'.")
+print("[BoneReconstructionPlanner] Placement started for step 'cb_step_17'.")

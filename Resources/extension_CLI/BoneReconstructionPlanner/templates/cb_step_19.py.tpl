@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: 12. Click the "Add mandibular curve" button. (Setup) ---
+# --- BoneReconstructionPlanner: 19. Click "Add fibula line" button. (Setup) ---
 import slicer
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
@@ -7,7 +7,7 @@ try:
 except NameError:
     logic = BoneReconstructionPlannerLogic()
 
-logic.addMandibularCurve()
+logic.addFibulaLine()
 _bonereconstructionplanner_logic = logic
 
-print("[BoneReconstructionPlanner] Placement started for step 'cb_step_12'.")
+print("[BoneReconstructionPlanner] Placement started for step 'cb_step_19'.")

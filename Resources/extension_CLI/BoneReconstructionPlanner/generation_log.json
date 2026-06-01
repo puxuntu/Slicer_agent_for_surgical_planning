@@ -1,7 +1,7 @@
 [
   {
     "attempt": 1,
-    "timestamp": "2026-06-01T06:57:38.915745",
+    "timestamp": "2026-06-01T23:25:55.464689",
     "stage": "initial_generation",
     "trigger": "user_request",
     "analysis_stages_completed": [
@@ -22,10 +22,15 @@
       "valid": false,
       "errors": [
         "templates/cb_step_7.py.tpl: Required template contains TODO; Required template is a stub (only pass/comments/prints)",
-        "templates/cb_step_16.py.tpl: Required template contains TODO; Required template is a stub (only pass/comments/prints)"
+        "templates/cb_step_12_slicer.py.tpl: Required template is a stub (only pass/comments/prints)",
+        "templates/cb_step_14.py.tpl: Required template contains TODO; Required template is a stub (only pass/comments/prints)",
+        "templates/cb_step_15.py.tpl: Required template contains TODO; Required template is a stub (only pass/comments/prints)",
+        "templates/cb_step_18_pre.py.tpl: Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code",
+        "templates/cb_step_18_post.py.tpl: Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code; Post-template references '_bonereconstructionplanner_cb_step_18_id' but pre-template does not assign it",
+        "templates/cb_step_9_slicer.py.tpl: Unresolved live API probe failure for 'slicer.mrmlScene.AddNewNode': API call does not exist"
       ],
       "warnings": [
-        "templates/cb_step_10_slicer.py.tpl: API chain 'slicer.mrmlScene.AddNewNode' was flagged by live probe as potentially invalid"
+        "templates/cb_step_9_slicer.py.tpl: API chain 'slicer.mrmlScene.AddNewNode' was flagged by live probe as potentially invalid"
       ],
       "per_template": {
         "templates/cb_step_5.py.tpl": {
@@ -59,111 +64,111 @@
         "templates/cb_step_9_slicer.py.tpl": {
           "valid": true,
           "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_10_slicer.py.tpl": {
-          "valid": true,
-          "reason": null,
           "warnings": [
             "API chain 'slicer.mrmlScene.AddNewNode' was flagged by live probe as potentially invalid"
           ],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_11_pre.py.tpl": {
+        "templates/cb_step_10_pre.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_11_post.py.tpl": {
+        "templates/cb_step_10_post.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_12.py.tpl": {
+        "templates/cb_step_11.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_13_slicer.py.tpl": {
+        "templates/cb_step_12_slicer.py.tpl": {
+          "valid": false,
+          "reason": "Required template is a stub (only pass/comments/prints)",
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_13_pre.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_14_pre.py.tpl": {
+        "templates/cb_step_13_post.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_14_post.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_15.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_16.py.tpl": {
+        "templates/cb_step_14.py.tpl": {
           "valid": false,
           "reason": "Required template contains TODO; Required template is a stub (only pass/comments/prints)",
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_18.py.tpl": {
+        "templates/cb_step_15.py.tpl": {
+          "valid": false,
+          "reason": "Required template contains TODO; Required template is a stub (only pass/comments/prints)",
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_17.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_19_pre.py.tpl": {
+        "templates/cb_step_18_pre.py.tpl": {
+          "valid": false,
+          "reason": "Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code",
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_18_post.py.tpl": {
+          "valid": false,
+          "reason": "Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code; Post-template references '_bonereconstructionplanner_cb_step_18_id' but pre-template does not assign it",
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_19.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_19_post.py.tpl": {
+        "templates/cb_step_20_pre.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_20.py.tpl": {
+        "templates/cb_step_20_post.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_21_pre.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_21_post.py.tpl": {
+        "templates/cb_step_21.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
@@ -176,24 +181,17 @@
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
-        },
-        "templates/cb_step_23.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
         }
       }
     }
   },
   {
     "attempt": 2,
-    "timestamp": "2026-06-01T06:58:08.014087",
+    "timestamp": "2026-06-01T23:27:02.014811",
     "stage": "revision",
     "trigger": "validation_failure",
-    "error": "templates/cb_step_7.py.tpl: Required template contains TODO; Required template is a stub (only pass/comments/prints); templates/cb_step_16.py.tpl: Required template contains TODO; Required template is a stub (only pass/comments/prints)",
-    "fix": "Replaced stub templates for cb_step_7 and cb_step_16 with proper Slicer API calls to toggle intersecting slices visibility on the Red slice display node. Step 7 enables (SetIntersectingSlicesVisibility(1)) and step 16 disables (SetIntersectingSlicesVisibility(0)). Both now fetch the Red slice node by ID 'vtkMRMLSliceNodeRed', get its display node, and set the visibility flag. Removed all TODO/pass/print-only stubs.",
+    "error": "templates/cb_step_7.py.tpl: Required template contains TODO; Required template is a stub (only pass/comments/prints); templates/cb_step_12_slicer.py.tpl: Required template is a stub (only pass/comments/prints); templates/cb_step_14.py.tpl: Required template contains TODO; Required template is a stub (only pass/comments/prints); templates/cb_step_15.py.tpl: Required template contains TODO; Required template is a stub (only pass/comments/prints); templates/cb_step_18_pre.py.tpl: Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code; templates/cb_step_18_post.py.tpl: Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code; Post-template references '_bonereconstructionplanner_cb_step_18_id' but pre-template does not assign it; templates/cb_step_9_slicer.py.tpl: Unresolved live API probe failure for 'slicer.mrmlScene.AddNewNode': API call does not exist",
+    "fix": "Fixed template errors:\n- cb_step_7.py.tpl: Replaced stub/TODO with actual Slicer API call to set slice visibility in 3D view ON for Red slice.\n- cb_step_12_slicer.py.tpl: Replaced stub with full implementation that gets the mandibular curve node, adds view node IDs for View 1 and Red slice, and switches to Markups module.\n- cb_step_14.py.tpl: Replaced stub/TODO with code that attempts to restore layout by name 'BoneReconstructionPlanner', falls back to conventional layout.\n- cb_step_15.py.tpl: Replaced stub/TODO with actual Slicer API call to set slice visibility in 3D view OFF for Red slice.\n- cb_step_18_pre.py.tpl: Fixed syntax error (improperly indented multiline comment) and improved node retrieval logic. Ensured `_bonereconstructionplanner_cb_step_18_id` is assigned.\n- cb_step_18_post.py.tpl: Fixed syntax error (similar indentation issue). Reference to `_bonereconstructionplanner_cb_step_18_id` now works because pre-template assigns it after syntax fix.\n- cb_step_9_slicer.py.tpl: Fixed API call `AddNewNode` -> `AddNewNodeByClass` and refined crosshair toggle to always set ShowIntersection (consistent with description).",
     "validation_result": {
       "valid": true,
       "errors": [],
@@ -234,49 +232,49 @@
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_10_slicer.py.tpl": {
+        "templates/cb_step_10_pre.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_11_pre.py.tpl": {
+        "templates/cb_step_10_post.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_11_post.py.tpl": {
+        "templates/cb_step_11.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_12.py.tpl": {
+        "templates/cb_step_12_slicer.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_13_slicer.py.tpl": {
+        "templates/cb_step_13_pre.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_14_pre.py.tpl": {
+        "templates/cb_step_13_post.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_14_post.py.tpl": {
+        "templates/cb_step_14.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
@@ -290,49 +288,49 @@
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_16.py.tpl": {
+        "templates/cb_step_17.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_18.py.tpl": {
+        "templates/cb_step_18_pre.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_19_pre.py.tpl": {
+        "templates/cb_step_18_post.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_19_post.py.tpl": {
+        "templates/cb_step_19.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_20.py.tpl": {
+        "templates/cb_step_20_pre.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_21_pre.py.tpl": {
+        "templates/cb_step_20_post.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_21_post.py.tpl": {
+        "templates/cb_step_21.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
@@ -340,13 +338,6 @@
           "destructive_ops": []
         },
         "templates/cb_step_22.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_23.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],

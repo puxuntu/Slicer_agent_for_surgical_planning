@@ -5079,6 +5079,7 @@ Return ONLY the JSON array, no markdown fences.""")
 
         # Revise affected templates via LLM
         revised_count = 0
+        unresolved_failures = []
         for tpl_key, tpl_failures in affected_templates.items():
             if tpl_key not in templates:
                 continue
@@ -5096,6 +5097,11 @@ Return ONLY the JSON array, no markdown fences.""")
                     "[Stage 7.5] Revised template '%s' for API failures",
                     tpl_key,
                 )
+            else:
+                for failure in tpl_failures:
+                    failure_with_template = dict(failure)
+                    failure_with_template["template"] = tpl_key
+                    unresolved_failures.append(failure_with_template)
 
         self.on_progress(
             "7.5", "Live API Probing",
@@ -5105,6 +5111,7 @@ Return ONLY the JSON array, no markdown fences.""")
             "probed": len(probes),
             "failures": failures,
             "revised": revised_count,
+            "unresolved_failures": unresolved_failures,
         }
 
     def _revise_template_for_api(
@@ -6200,6 +6207,25 @@ Return ONLY the sentence, nothing else.""")
                 results["warnings"].extend(
                     f"{tpl_name}: {w}" for w in validation.get("warnings", [])
                 )
+
+        if api_probe_result:
+            unresolved = api_probe_result.get("unresolved_failures")
+            if unresolved is None and api_probe_result.get("failures") and not api_probe_result.get("revised"):
+                unresolved = api_probe_result.get("failures", [])
+            unresolved = unresolved or []
+            if unresolved:
+                results["valid"] = False
+                for failure in unresolved:
+                    template = failure.get("template", "unknown template")
+                    chain = failure.get("chain", "unknown API")
+                    error = failure.get("error") or (
+                        "API call does not exist"
+                        if not failure.get("receiver_is_none")
+                        else "API receiver resolved to None"
+                    )
+                    results["errors"].append(
+                        f"{template}: Unresolved live API probe failure for '{chain}': {error}"
+                    )
 
         self.on_progress(
             9, "Validating templates",
@@ -7709,13 +7735,45 @@ Return ONLY the JSON, no markdown fences.""")
 
     @staticmethod
     def _choice_is_closed_form(choice: Dict) -> bool:
-        """Return True for finite non-node choices such as yes/no."""
+        """Return True for finite non-node choices such as yes/no or left/right.
+
+        Node-selector questions usually have no static choices at generation
+        time; the runtime agent discovers scene nodes.  If cookbook parsing
+        produced a finite clinical/UI option set, do not infer a scene-node
+        binding from overlapping words such as "fibula".
+        """
         choices = choice.get("choices") or []
         if not choices:
             return False
         labels = {str(c.get("label", "")).strip().lower() for c in choices}
         values = {str(c.get("value", "")).strip().lower() for c in choices}
-        return labels <= {"yes", "no"} or values <= {"true", "false"}
+        labels_and_values = labels | values
+        normalized = {
+            _re.sub(r"[^a-z0-9]+", " ", item).strip()
+            for item in labels_and_values
+            if item
+        }
+        compact = {item.replace(" ", "") for item in normalized}
+        boolean_options = {"yes", "no", "true", "false"}
+        side_options = {
+            "left", "right", "left leg", "right leg",
+            "left side", "right side", "left fibula", "right fibula",
+        }
+        compact_side_options = {item.replace(" ", "") for item in side_options}
+        if normalized <= boolean_options or compact <= boolean_options:
+            return True
+        if normalized <= side_options or compact <= compact_side_options:
+            return True
+        choice_text = " ".join([
+            _text_or_empty(choice.get("parameter_name", "")),
+            _text_or_empty(choice.get("question", "")),
+            " ".join(labels_and_values),
+        ]).lower()
+        node_selector_terms = (
+            " node", "segmentation", "volume", "model",
+            "markup", "markups", "transform",
+        )
+        return len(choices) <= 4 and not any(term in choice_text for term in node_selector_terms)
 
     def _extract_parameter_roles_from_source(self, source: str) -> Dict[str, Dict]:
         """Extract parameter-node role reads/writes from extension Python source."""
@@ -7875,11 +7933,53 @@ Return ONLY the JSON, no markdown fences.""")
                 continue
             auto_step = steps[i + 1]
             interaction_step = steps[i + 2]
-            repeat_text = interaction_step.get("description", "").lower()
+            repeat_text = " ".join([
+                interaction_step.get("description", ""),
+                interaction_step.get("placement_instructions", "") or "",
+                " ".join(
+                    _text_or_empty(so.get("description", ""))
+                    for so in interaction_step.get("sub_operations", [])
+                ),
+                " ".join(
+                    _text_or_empty(so.get("placement_instructions", ""))
+                    for so in interaction_step.get("sub_operations", [])
+                ),
+            ]).lower()
+            interaction_has_user_action = (
+                interaction_step.get("step_type") == "interactive"
+                or (
+                    interaction_step.get("step_type") == "mixed"
+                    and any(
+                        so.get("op_type") == "user_interaction"
+                        for so in interaction_step.get("sub_operations", [])
+                    )
+                )
+            )
+            interaction_node_classes = [
+                interaction_step.get("node_class", ""),
+                *[
+                    so.get("node_class", "")
+                    for so in interaction_step.get("sub_operations", [])
+                ],
+            ]
+            interaction_is_markup_placement = any(
+                self._is_markup_node_class(node_class)
+                for node_class in interaction_node_classes
+            )
             if (
                 auto_step.get("step_type") == "automated"
-                and interaction_step.get("step_type") == "interactive"
-                and any(w in repeat_text for w in ("repeat", "each", "as many", "needed"))
+                and interaction_has_user_action
+                and interaction_is_markup_placement
+                and (
+                    any(
+                        w in repeat_text
+                        for w in (
+                            "repeat", "each", "as many", "needed",
+                            "per plane", "n times", "requested",
+                        )
+                    )
+                    or self._choice_is_count_like(choice, step)
+                )
             ):
                 group_id = f"repeat_{step['step_id']}_{auto_step['step_id']}_{interaction_step['step_id']}"
                 group = {
