@@ -511,7 +511,7 @@ class LLMClient:
             "The agent is running with a minimal fallback prompt. "
             "Please check that Resources/Prompts/system_prompt.md exists.\n\n"
             "You are an expert 3D Slicer Python coding assistant. "
-            "Use SearchSymbol, Grep, and ReadFile tools to find API information, then output code."
+            "Use Grep, ReadFile, and VectorSearch tools to find API information, then output code."
         )
 
     def _buildSystemPrompt(self, context: Optional[Dict] = None) -> str:
@@ -532,7 +532,7 @@ class LLMClient:
         import platform
         base_prompt += f"\n\n## PLATFORM INFORMATION\n"
         base_prompt += f"Current Platform: {platform.system()}\n"
-        base_prompt += "The search tools (SearchSymbol, Grep, ReadFile) handle platform differences automatically.\n"
+        base_prompt += "The search tools (Grep, ReadFile, VectorSearch) handle platform differences automatically.\n"
         base_prompt += "You only need to specify the relative path within the skill directory. "
         base_prompt += "Do NOT prepend 'Resources/Skills/slicer-skill-full/' to your paths — the tool handles this automatically.\n"
 
@@ -597,7 +597,7 @@ class LLMClient:
                 ext_source_info.append(entry)
         if ext_source_info:
             base_prompt += "\n\n## EXTENSION SOURCE CODE\n"
-            base_prompt += "These extensions' source code is searchable via your tools (SearchSymbol, Grep, ReadFile). "
+            base_prompt += "These extensions' source code is searchable via your tools (Grep, ReadFile, VectorSearch). "
             base_prompt += "Use the `ext:<ExtensionName>/` path prefix to search extension source. "
             base_prompt += "Example: `ext:VoxTell/` to search VoxTell source, `ext:VoxTell/VoxTell.py` to read a file.\n\n"
             base_prompt += "\n".join(ext_source_info)
@@ -1579,7 +1579,7 @@ class LLMClient:
                             'content': (
                                 'Your previous response did not call any tools and did not produce code. '
                                 'You MUST now either:\n'
-                                '1. Call a tool (SearchSymbol, Grep, ReadFile, or VectorSearch) to gather information, OR\n'
+                                '1. Call a tool (Grep, ReadFile, or VectorSearch) to gather information, OR\n'
                                 '2. Output the final ```python code block directly.\n'
                                 'Do not just describe what you plan to do — actually do it.'
                             ),
@@ -1833,7 +1833,7 @@ class LLMClient:
         """
         Send a chat request with tool calling support.
 
-        The LLM has access to ALL tools (SearchSymbol, Grep, ReadFile, VectorSearch) from the start and autonomously
+        The LLM has access to ALL tools (Grep, ReadFile, VectorSearch) from the start and autonomously
         decides when to search, when to read, and when to generate code. The loop terminates
         when the LLM outputs a ```python code block.
 

@@ -1,12 +1,22 @@
-# --- BoneReconstructionPlanner: 15. Change the layout from "Conventional" back to the custom layout "BoneReconstructionPlanner" (restore the extension's dedicated layout). ---
 try:
-    from BoneReconstructionPlanner import setBRPLayout
-    setBRPLayout()
-except ImportError:
-    # Fallback: try to set layout by name using module's own logic
-    # The extension registers a custom layout; attempt to activate it via the module selector
-    slicer.util.selectModule("BoneReconstructionPlanner")
-    # The above may not restore the layout directly; if still fails, raise error
-    raise RuntimeError("Could not restore custom layout. The setBRPLayout function is missing.")
+    _bonereconstructionplanner_logic
+except NameError:
+    from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
+    _bonereconstructionplanner_logic = BoneReconstructionPlannerLogic()
 
-print("[BoneReconstructionPlanner] Step 'cb_step_15' completed.")
+# Find a suitable scalar volume node
+volumeNode = None
+volumes = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+for i in range(volumes.GetNumberOfItems()):
+    n = volumes.GetItemAsObject(i)
+    if n.GetName().lower().startswith("ct") or "input" in n.GetName().lower():
+        volumeNode = n
+        break
+if volumeNode is None and volumes.GetNumberOfItems() > 0:
+    volumeNode = volumes.GetItemAsObject(0)
+
+if volumeNode is None:
+    print("No scalar volume node found in scene. Cannot set background volume.")
+else:
+    _bonereconstructionplanner_logic.setBackgroundVolumeFromID(volumeNode.GetID())
+    print(f"[BoneReconstructionPlanner] Background volume set to: {volumeNode.GetName()}")

@@ -1,0 +1,1812 @@
+{
+  "extension_module_name": "BoneReconstructionPlanner",
+  "logic_class_name": "BoneReconstructionPlannerLogic",
+  "parameter_bindings": {
+    "showBiggerSawBoxesInteractionHandles": {
+      "role": "showBiggerSawBoxesInteractionHandles",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "enter",
+        "exit",
+        "createSawBoxesFromFirstAndLastMandiblePlanes",
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "setDefaultParameters"
+      ],
+      "keywords": [
+        "show",
+        "bigger",
+        "saw",
+        "boxes",
+        "interaction",
+        "handles",
+        "intera",
+        "handle"
+      ],
+      "node_class": ""
+    },
+    "currentScalarVolume": {
+      "role": "currentScalarVolume",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "addFibulaLine",
+        "setRedSliceForBoneModelsDisplayNodes",
+        "setRedSliceForBoxModelsDisplayNodes",
+        "createMiterBoxesFromFibulaPlanes",
+        "section_LoadSampleData",
+        "section_createMiterBoxesFromCorrespondingLine"
+      ],
+      "keywords": [
+        "scalar",
+        "volume"
+      ],
+      "node_class": "vtkMRMLScalarVolumeNode"
+    },
+    "fibulaSegmentsMeasurementMode": {
+      "role": "fibulaSegmentsMeasurementMode",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "createFibulaSegmentsLengthsLines",
+        "setDefaultParameters"
+      ],
+      "keywords": [
+        "fibula",
+        "segments",
+        "measurement",
+        "mode",
+        "segmen",
+        "measur"
+      ],
+      "node_class": ""
+    },
+    "kindOfMandibleResection": {
+      "role": "kindOfMandibleResection",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+        "filterOutUnconnectedModelPiecesAccordingToKindOfMandibleResection",
+        "createSawBoxesFromFirstAndLastMandiblePlanes",
+        "makeBooleanOperationsToMandibleSurgicalGuideBase",
+        "setDefaultParameters"
+      ],
+      "keywords": [
+        "kind",
+        "mandible",
+        "resection",
+        "mandib",
+        "resect"
+      ],
+      "node_class": ""
+    },
+    "fibulaLine": {
+      "role": "fibulaLine",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "onGenerateFibulaPlanesTimerTimeout",
+        "transformFibulaPlanes",
+        "tranformFibulaPiecesToMandible",
+        "createMiterBoxesFromFibulaPlanes",
+        "centerFibulaLine",
+        "section_AddFibulaLineAndCenterIt"
+      ],
+      "keywords": [
+        "fibula",
+        "line"
+      ],
+      "node_class": "vtkMRMLMarkupsLineNode"
+    },
+    "mandibleCurve": {
+      "role": "mandibleCurve",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "onPlanePointAdded",
+        "createAndUpdateDynamicModelerNodes",
+        "reorderMandiblePlanes",
+        "mandiblePlanesPositioningForMaximumBoneContact",
+        "createCylindersFromFiducialListAndNeomandiblePieces",
+        "createSawBoxesFromFirstAndLastMandiblePlanes",
+        "section_AddMandibularCurve",
+        "section_AddMandiblePlanes"
+      ],
+      "keywords": [
+        "mandible",
+        "curve",
+        "mandib"
+      ],
+      "node_class": "vtkMRMLMarkupsCurveNode"
+    },
+    "mandibularSegmentation": {
+      "role": "mandibularSegmentation",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "makeModels",
+        "section_LoadSampleData",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "mandibular",
+        "segmentation",
+        "mandib",
+        "segmen"
+      ],
+      "node_class": "vtkMRMLSegmentationNode"
+    },
+    "fibulaSegmentation": {
+      "role": "fibulaSegmentation",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "makeModels",
+        "section_LoadSampleData",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "fibula",
+        "segmentation",
+        "segmen"
+      ],
+      "node_class": "vtkMRMLSegmentationNode"
+    },
+    "fibulaFiducialList": {
+      "role": "fibulaFiducialList",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "createCylindersFromFiducialListAndFibulaSurgicalGuideBase",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "fibula",
+        "fiducial",
+        "list",
+        "fiduci"
+      ],
+      "node_class": "vtkMRMLMarkupsFiducialNode"
+    },
+    "fibulaSurgicalGuideBaseModel": {
+      "role": "fibulaSurgicalGuideBaseModel",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "createCylindersFromFiducialListAndFibulaSurgicalGuideBase",
+        "makeBooleanOperationsToFibulaSurgicalGuideBase",
+        "loadFibulaGuideBase",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "fibula",
+        "surgical",
+        "guide",
+        "base",
+        "model",
+        "surgic"
+      ],
+      "node_class": ""
+    },
+    "miterBoxDirectionLine": {
+      "role": "miterBoxDirectionLine",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "createMiterBoxesFromFibulaPlanes",
+        "section_createMiterBoxesFromCorrespondingLine",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "miter",
+        "box",
+        "direction",
+        "line",
+        "direct"
+      ],
+      "node_class": "vtkMRMLMarkupsLineNode"
+    },
+    "mandibleBridgeModel": {
+      "role": "mandibleBridgeModel",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "makeBooleanOperationsToMandibleSurgicalGuideBase",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "mandible",
+        "bridge",
+        "model",
+        "mandib"
+      ],
+      "node_class": ""
+    },
+    "mandibleSurgicalGuideBaseModel": {
+      "role": "mandibleSurgicalGuideBaseModel",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "createCylindersFromFiducialListAndMandibleSurgicalGuideBase",
+        "makeBooleanOperationsToMandibleSurgicalGuideBase",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "mandible",
+        "surgical",
+        "guide",
+        "base",
+        "model",
+        "mandib",
+        "surgic"
+      ],
+      "node_class": ""
+    },
+    "mandibleFiducialList": {
+      "role": "mandibleFiducialList",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "createCylindersFromFiducialListAndMandibleSurgicalGuideBase",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "mandible",
+        "fiducial",
+        "list",
+        "mandib",
+        "fiduci"
+      ],
+      "node_class": "vtkMRMLMarkupsFiducialNode"
+    },
+    "dentalImplantsFiducialList": {
+      "role": "dentalImplantsFiducialList",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "createCylindersFromFiducialListAndNeomandiblePieces",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "dental",
+        "implants",
+        "fiducial",
+        "list",
+        "implan",
+        "fiduci"
+      ],
+      "node_class": "vtkMRMLMarkupsFiducialNode"
+    },
+    "plateCurve": {
+      "role": "plateCurve",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "createCustomPlate",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "plate",
+        "curve"
+      ],
+      "node_class": "vtkMRMLMarkupsCurveNode"
+    },
+    "condylarBeamModel": {
+      "role": "condylarBeamModel",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "create3DModelOfTheReconstruction",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "condylar",
+        "beam",
+        "model",
+        "condyl"
+      ],
+      "node_class": ""
+    },
+    "initialSpace": {
+      "role": "initialSpace",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "transformFibulaPlanes"
+      ],
+      "keywords": [
+        "initial",
+        "space",
+        "initia"
+      ],
+      "node_class": ""
+    },
+    "additionalBetweenSpaceOfFibulaPlanes": {
+      "role": "additionalBetweenSpaceOfFibulaPlanes",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "transformFibulaPlanes"
+      ],
+      "keywords": [
+        "additional",
+        "between",
+        "space",
+        "fibula",
+        "planes",
+        "additi",
+        "betwee"
+      ],
+      "node_class": ""
+    },
+    "securityMarginOfFibulaPieces": {
+      "role": "securityMarginOfFibulaPieces",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createMiterBoxesFromFibulaPlanes"
+      ],
+      "keywords": [
+        "security",
+        "margin",
+        "fibula",
+        "pieces",
+        "securi"
+      ],
+      "node_class": ""
+    },
+    "miterBoxSlotWidth": {
+      "role": "miterBoxSlotWidth",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createMiterBoxesFromFibulaPlanes"
+      ],
+      "keywords": [
+        "miter",
+        "box",
+        "slot",
+        "width"
+      ],
+      "node_class": ""
+    },
+    "miterBoxSlotLength": {
+      "role": "miterBoxSlotLength",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createMiterBoxesFromFibulaPlanes"
+      ],
+      "keywords": [
+        "miter",
+        "box",
+        "slot",
+        "length"
+      ],
+      "node_class": ""
+    },
+    "miterBoxSlotHeight": {
+      "role": "miterBoxSlotHeight",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createMiterBoxesFromFibulaPlanes"
+      ],
+      "keywords": [
+        "miter",
+        "box",
+        "slot",
+        "height"
+      ],
+      "node_class": ""
+    },
+    "miterBoxSlotWall": {
+      "role": "miterBoxSlotWall",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createMiterBoxesFromFibulaPlanes"
+      ],
+      "keywords": [
+        "miter",
+        "box",
+        "slot",
+        "wall"
+      ],
+      "node_class": ""
+    },
+    "fibulaScrewHoleCylinderRadius": {
+      "role": "fibulaScrewHoleCylinderRadius",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createCylindersFromFiducialListAndFibulaSurgicalGuideBase"
+      ],
+      "keywords": [
+        "fibula",
+        "screw",
+        "hole",
+        "cylinder",
+        "radius",
+        "cylind"
+      ],
+      "node_class": ""
+    },
+    "clearanceFitPrintingTolerance": {
+      "role": "clearanceFitPrintingTolerance",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createMiterBoxesFromFibulaPlanes",
+        "createSawBoxesFromFirstAndLastMandiblePlanes"
+      ],
+      "keywords": [
+        "clearance",
+        "fit",
+        "printing",
+        "tolerance",
+        "cleara",
+        "printi",
+        "tolera"
+      ],
+      "node_class": ""
+    },
+    "biggerMiterBoxDistanceToFibula": {
+      "role": "biggerMiterBoxDistanceToFibula",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createMiterBoxesFromFibulaPlanes"
+      ],
+      "keywords": [
+        "bigger",
+        "miter",
+        "box",
+        "distance",
+        "fibula",
+        "distan"
+      ],
+      "node_class": ""
+    },
+    "sawBoxSlotWidth": {
+      "role": "sawBoxSlotWidth",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createSawBoxesFromFirstAndLastMandiblePlanes"
+      ],
+      "keywords": [
+        "saw",
+        "box",
+        "slot",
+        "width"
+      ],
+      "node_class": ""
+    },
+    "sawBoxSlotLength": {
+      "role": "sawBoxSlotLength",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createSawBoxesFromFirstAndLastMandiblePlanes"
+      ],
+      "keywords": [
+        "saw",
+        "box",
+        "slot",
+        "length"
+      ],
+      "node_class": ""
+    },
+    "sawBoxSlotHeight": {
+      "role": "sawBoxSlotHeight",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createSawBoxesFromFirstAndLastMandiblePlanes"
+      ],
+      "keywords": [
+        "saw",
+        "box",
+        "slot",
+        "height"
+      ],
+      "node_class": ""
+    },
+    "sawBoxSlotWall": {
+      "role": "sawBoxSlotWall",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createSawBoxesFromFirstAndLastMandiblePlanes"
+      ],
+      "keywords": [
+        "saw",
+        "box",
+        "slot",
+        "wall"
+      ],
+      "node_class": ""
+    },
+    "biggerSawBoxDistanceToMandible": {
+      "role": "biggerSawBoxDistanceToMandible",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createSawBoxesFromFirstAndLastMandiblePlanes"
+      ],
+      "keywords": [
+        "bigger",
+        "saw",
+        "box",
+        "distance",
+        "mandible",
+        "distan",
+        "mandib"
+      ],
+      "node_class": ""
+    },
+    "mandibleScrewHoleCylinderRadius": {
+      "role": "mandibleScrewHoleCylinderRadius",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createCylindersFromFiducialListAndMandibleSurgicalGuideBase"
+      ],
+      "keywords": [
+        "mandible",
+        "screw",
+        "hole",
+        "cylinder",
+        "radius",
+        "mandib",
+        "cylind"
+      ],
+      "node_class": ""
+    },
+    "dentalImplantCylinderRadius": {
+      "role": "dentalImplantCylinderRadius",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createCylindersFromFiducialListAndNeomandiblePieces"
+      ],
+      "keywords": [
+        "dental",
+        "implant",
+        "cylinder",
+        "radius",
+        "implan",
+        "cylind"
+      ],
+      "node_class": ""
+    },
+    "dentalImplantCylinderHeight": {
+      "role": "dentalImplantCylinderHeight",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createCylindersFromFiducialListAndNeomandiblePieces"
+      ],
+      "keywords": [
+        "dental",
+        "implant",
+        "cylinder",
+        "height",
+        "implan",
+        "cylind"
+      ],
+      "node_class": ""
+    },
+    "dentalImplantDrillGuideWall": {
+      "role": "dentalImplantDrillGuideWall",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createCylindersFromFiducialListAndNeomandiblePieces"
+      ],
+      "keywords": [
+        "dental",
+        "implant",
+        "drill",
+        "guide",
+        "wall",
+        "implan"
+      ],
+      "node_class": ""
+    },
+    "plateCrossSectionalWidth": {
+      "role": "plateCrossSectionalWidth",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createCustomPlate"
+      ],
+      "keywords": [
+        "plate",
+        "cross",
+        "sectional",
+        "width",
+        "sectio"
+      ],
+      "node_class": ""
+    },
+    "plateCrossSectionalLength": {
+      "role": "plateCrossSectionalLength",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createCustomPlate"
+      ],
+      "keywords": [
+        "plate",
+        "cross",
+        "sectional",
+        "length",
+        "sectio"
+      ],
+      "node_class": ""
+    },
+    "plateCrossSectionalBevelRadiusPorcentage": {
+      "role": "plateCrossSectionalBevelRadiusPorcentage",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createCustomPlate"
+      ],
+      "keywords": [
+        "plate",
+        "cross",
+        "sectional",
+        "bevel",
+        "radius",
+        "porcentage",
+        "sectio",
+        "porcen"
+      ],
+      "node_class": ""
+    },
+    "plateTipsBevelRadius": {
+      "role": "plateTipsBevelRadius",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "updateGUIFromParameterNode",
+        "createCustomPlate"
+      ],
+      "keywords": [
+        "plate",
+        "tips",
+        "bevel",
+        "radius"
+      ],
+      "node_class": ""
+    },
+    "fixCutGoesThroughTheMandibleTwiceCheckBoxChanged": {
+      "role": "fixCutGoesThroughTheMandibleTwiceCheckBoxChanged",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "onFixCutGoesThroughTheMandibleTwiceCheckBox",
+        "createAndUpdateDynamicModelerNodes"
+      ],
+      "keywords": [
+        "fix",
+        "cut",
+        "goes",
+        "through",
+        "mandible",
+        "twice",
+        "check",
+        "box",
+        "changed",
+        "throug",
+        "mandib",
+        "change"
+      ],
+      "node_class": ""
+    },
+    "mandibleModelNode": {
+      "role": "mandibleModelNode",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "setOriginalMandibleVisility",
+        "createAndUpdateDynamicModelerNodes",
+        "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+        "makeModels",
+        "createSawBoxesFromFirstAndLastMandiblePlanes",
+        "getRightAndLeftMandibleResectionPlanes",
+        "section_MakeModels"
+      ],
+      "keywords": [
+        "mandible",
+        "model",
+        "mandib"
+      ],
+      "node_class": ""
+    },
+    "decimatedMandibleModelNode": {
+      "role": "decimatedMandibleModelNode",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "setOriginalMandibleVisility",
+        "createAndUpdateDynamicModelerNodes",
+        "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+        "makeModels",
+        "section_MakeModels"
+      ],
+      "keywords": [
+        "decimated",
+        "mandible",
+        "model",
+        "decima",
+        "mandib"
+      ],
+      "node_class": ""
+    },
+    "fibulaCentroidX": {
+      "role": "fibulaCentroidX",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "addFibulaLine",
+        "setRedSliceForBoneModelsDisplayNodes",
+        "setRedSliceForBoxModelsDisplayNodes",
+        "createMiterBoxesFromFibulaPlanes",
+        "section_MakeModels",
+        "makeModels"
+      ],
+      "keywords": [
+        "fibula",
+        "centroid",
+        "centro"
+      ],
+      "node_class": ""
+    },
+    "fibulaCentroidY": {
+      "role": "fibulaCentroidY",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "addFibulaLine",
+        "setRedSliceForBoneModelsDisplayNodes",
+        "setRedSliceForBoxModelsDisplayNodes",
+        "createMiterBoxesFromFibulaPlanes",
+        "section_MakeModels",
+        "makeModels"
+      ],
+      "keywords": [
+        "fibula",
+        "centroid",
+        "centro"
+      ],
+      "node_class": ""
+    },
+    "fibulaCentroidZ": {
+      "role": "fibulaCentroidZ",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "addFibulaLine",
+        "setRedSliceForBoneModelsDisplayNodes",
+        "setRedSliceForBoxModelsDisplayNodes",
+        "createMiterBoxesFromFibulaPlanes",
+        "section_MakeModels",
+        "makeModels"
+      ],
+      "keywords": [
+        "fibula",
+        "centroid",
+        "centro"
+      ],
+      "node_class": ""
+    },
+    "mandibleCentroidX": {
+      "role": "mandibleCentroidX",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "addFibulaLine",
+        "setRedSliceForBoneModelsDisplayNodes",
+        "setRedSliceForBoxModelsDisplayNodes",
+        "createMiterBoxesFromFibulaPlanes",
+        "section_MakeModels",
+        "createAndUpdateDynamicModelerNodes",
+        "makeModels"
+      ],
+      "keywords": [
+        "mandible",
+        "centroid",
+        "mandib",
+        "centro"
+      ],
+      "node_class": ""
+    },
+    "mandibleCentroidY": {
+      "role": "mandibleCentroidY",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "addFibulaLine",
+        "setRedSliceForBoneModelsDisplayNodes",
+        "setRedSliceForBoxModelsDisplayNodes",
+        "createMiterBoxesFromFibulaPlanes",
+        "section_MakeModels",
+        "createAndUpdateDynamicModelerNodes",
+        "makeModels"
+      ],
+      "keywords": [
+        "mandible",
+        "centroid",
+        "mandib",
+        "centro"
+      ],
+      "node_class": ""
+    },
+    "mandibleCentroidZ": {
+      "role": "mandibleCentroidZ",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "addFibulaLine",
+        "setRedSliceForBoneModelsDisplayNodes",
+        "setRedSliceForBoxModelsDisplayNodes",
+        "createMiterBoxesFromFibulaPlanes",
+        "section_MakeModels",
+        "createAndUpdateDynamicModelerNodes",
+        "makeModels"
+      ],
+      "keywords": [
+        "mandible",
+        "centroid",
+        "mandib",
+        "centro"
+      ],
+      "node_class": ""
+    },
+    "colorIndex": {
+      "role": "colorIndex",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "addCutPlane"
+      ],
+      "keywords": [
+        "color",
+        "index"
+      ],
+      "node_class": ""
+    },
+    "mandiblePlaneOfRotation": {
+      "role": "mandiblePlaneOfRotation",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "onGenerateFibulaPlanesTimerTimeout",
+        "onPlaneModifiedTimer"
+      ],
+      "keywords": [
+        "mandible",
+        "plane",
+        "rotation",
+        "mandib",
+        "rotati"
+      ],
+      "node_class": "vtkMRMLMarkupsPlaneNode"
+    },
+    "fibulaModelNode": {
+      "role": "fibulaModelNode",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "transformFibulaPlanes",
+        "createFibulaSegmentsLengthsLines",
+        "createAndUpdateDynamicModelerNodes",
+        "makeModels",
+        "createMiterBoxesFromFibulaPlanes",
+        "centerFibulaLine",
+        "section_MakeModels"
+      ],
+      "keywords": [
+        "fibula",
+        "model"
+      ],
+      "node_class": ""
+    },
+    "decimatedFibulaModelNode": {
+      "role": "decimatedFibulaModelNode",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "createAndUpdateDynamicModelerNodes",
+        "makeModels",
+        "section_MakeModels"
+      ],
+      "keywords": [
+        "decimated",
+        "fibula",
+        "model",
+        "decima"
+      ],
+      "node_class": ""
+    },
+    "planeToFixCutGoesThroughTheMandibleTwice": {
+      "role": "planeToFixCutGoesThroughTheMandibleTwice",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "createAndUpdateDynamicModelerNodes"
+      ],
+      "keywords": [
+        "plane",
+        "fix",
+        "cut",
+        "goes",
+        "through",
+        "mandible",
+        "twice",
+        "throug",
+        "mandib"
+      ],
+      "node_class": "vtkMRMLMarkupsPlaneNode"
+    },
+    "lockVSP": {
+      "role": "lockVSP",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "lockVSP",
+        "enter",
+        "exit",
+        "updateGUIFromParameterNode",
+        "setDefaultParameters",
+        "onGenerateFibulaPlanesTimerTimeout"
+      ],
+      "keywords": [
+        "lock",
+        "vsp"
+      ],
+      "node_class": ""
+    },
+    "mandibleReconstructionModel": {
+      "role": "mandibleReconstructionModel",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "createCylindersFromFiducialListAndNeomandiblePieces",
+        "create3DModelOfTheReconstruction",
+        "createCustomPlate"
+      ],
+      "keywords": [
+        "mandible",
+        "reconstruction",
+        "model",
+        "mandib",
+        "recons"
+      ],
+      "node_class": ""
+    },
+    "scalarVolumeChangedThroughParameterNode": {
+      "role": "scalarVolumeChangedThroughParameterNode",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "section_LoadSampleData",
+        "section_createMiterBoxesFromCorrespondingLine",
+        "updateParameterNodeFromGUI",
+        "setDefaultParameters"
+      ],
+      "keywords": [
+        "scalar",
+        "volume",
+        "changed",
+        "through",
+        "parameter",
+        "change",
+        "throug",
+        "parame"
+      ],
+      "node_class": "vtkMRMLScalarVolumeNode"
+    },
+    "mandiblePlanesPositioningForMaximumBoneContact": {
+      "role": "mandiblePlanesPositioningForMaximumBoneContact",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "section_SimulateAndImproveMandibleReconstruction",
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "setDefaultParameters",
+        "onGenerateFibulaPlanesTimerTimeout"
+      ],
+      "keywords": [
+        "mandible",
+        "planes",
+        "positioning",
+        "maximum",
+        "bone",
+        "contact",
+        "mandib",
+        "positi",
+        "maximu",
+        "contac"
+      ],
+      "node_class": "vtkMRMLMarkupsPlaneNode"
+    },
+    "makeAllMandiblePlanesRotateTogether": {
+      "role": "makeAllMandiblePlanesRotateTogether",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "section_SimulateAndImproveMandibleReconstruction",
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "setDefaultParameters",
+        "onPlaneModifiedTimer",
+        "onGenerateFibulaPlanesTimerTimeout"
+      ],
+      "keywords": [
+        "make",
+        "all",
+        "mandible",
+        "planes",
+        "rotate",
+        "together",
+        "mandib",
+        "togeth"
+      ],
+      "node_class": "vtkMRMLMarkupsPlaneNode"
+    },
+    "checkSecurityMarginOnMiterBoxCreation": {
+      "role": "checkSecurityMarginOnMiterBoxCreation",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "section_createMiterBoxesFromCorrespondingLine",
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "createMiterBoxesFromFibulaPlanes"
+      ],
+      "keywords": [
+        "check",
+        "security",
+        "margin",
+        "miter",
+        "box",
+        "creation",
+        "securi",
+        "creati"
+      ],
+      "node_class": ""
+    },
+    "showMandiblePlanesInteractionHandles": {
+      "role": "showMandiblePlanesInteractionHandles",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "enter",
+        "exit",
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "setDefaultParameters"
+      ],
+      "keywords": [
+        "show",
+        "mandible",
+        "planes",
+        "interaction",
+        "handles",
+        "mandib",
+        "intera",
+        "handle"
+      ],
+      "node_class": ""
+    },
+    "rightSideLegFibula": {
+      "role": "rightSideLegFibula",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "transformFibulaPlanes",
+        "createMiterBoxesFromFibulaPlanes"
+      ],
+      "keywords": [
+        "right",
+        "side",
+        "leg",
+        "fibula"
+      ],
+      "node_class": ""
+    },
+    "useMoreExactVersionOfPositioningAlgorithm": {
+      "role": "useMoreExactVersionOfPositioningAlgorithm",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "transformFibulaPlanes",
+        "createMiterBoxesFromFibulaPlanes"
+      ],
+      "keywords": [
+        "use",
+        "more",
+        "exact",
+        "version",
+        "positioning",
+        "algorithm",
+        "versio",
+        "positi",
+        "algori"
+      ],
+      "node_class": ""
+    },
+    "useNonDecimatedBoneModelsForPreview": {
+      "role": "useNonDecimatedBoneModelsForPreview",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "setOriginalMandibleVisility",
+        "createAndUpdateDynamicModelerNodes",
+        "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+        "makeModels",
+        "create3DModelOfTheReconstruction"
+      ],
+      "keywords": [
+        "use",
+        "non",
+        "decimated",
+        "bone",
+        "models",
+        "preview",
+        "decima",
+        "previe"
+      ],
+      "node_class": ""
+    },
+    "mandibleSideToRemove": {
+      "role": "mandibleSideToRemove",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "setDefaultParameters",
+        "filterOutUnconnectedModelPiecesAccordingToKindOfMandibleResection",
+        "createSawBoxesFromFirstAndLastMandiblePlanes"
+      ],
+      "keywords": [
+        "mandible",
+        "side",
+        "remove",
+        "mandib"
+      ],
+      "node_class": ""
+    },
+    "dentalImplantsPlanningAndFibulaDrillGuides": {
+      "role": "dentalImplantsPlanningAndFibulaDrillGuides",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "makeBooleanOperationsToFibulaSurgicalGuideBase"
+      ],
+      "keywords": [
+        "dental",
+        "implants",
+        "planning",
+        "fibula",
+        "drill",
+        "guides",
+        "implan",
+        "planni"
+      ],
+      "node_class": ""
+    },
+    "customTitaniumPlateDesing": {
+      "role": "customTitaniumPlateDesing",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI"
+      ],
+      "keywords": [
+        "custom",
+        "titanium",
+        "plate",
+        "desing",
+        "titani"
+      ],
+      "node_class": ""
+    },
+    "makeAllDentalImplanCylindersParallel": {
+      "role": "makeAllDentalImplanCylindersParallel",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "onDentalImplantPlaneMoved"
+      ],
+      "keywords": [
+        "make",
+        "all",
+        "dental",
+        "implan",
+        "cylinders",
+        "parallel",
+        "cylind",
+        "parall"
+      ],
+      "node_class": ""
+    },
+    "showMandiblePlanes": {
+      "role": "showMandiblePlanes",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "setDefaultParameters"
+      ],
+      "keywords": [
+        "show",
+        "mandible",
+        "planes",
+        "mandib"
+      ],
+      "node_class": ""
+    },
+    "updateOnMandiblePlanesMovement": {
+      "role": "updateOnMandiblePlanesMovement",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "onPlaneModifiedTimer"
+      ],
+      "keywords": [
+        "update",
+        "mandible",
+        "planes",
+        "movement",
+        "mandib",
+        "moveme"
+      ],
+      "node_class": "vtkMRMLMarkupsPlaneNode"
+    },
+    "updateOnDentalImplantPlanesMovement": {
+      "role": "updateOnDentalImplantPlanesMovement",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "onDentalImplantPlaneMoved"
+      ],
+      "keywords": [
+        "update",
+        "dental",
+        "implant",
+        "planes",
+        "movement",
+        "implan",
+        "moveme"
+      ],
+      "node_class": "vtkMRMLMarkupsPlaneNode"
+    },
+    "showFibulaSegmentsLengths": {
+      "role": "showFibulaSegmentsLengths",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "setDefaultParameters"
+      ],
+      "keywords": [
+        "show",
+        "fibula",
+        "segments",
+        "lengths",
+        "segmen",
+        "length"
+      ],
+      "node_class": ""
+    },
+    "showOriginalMandible": {
+      "role": "showOriginalMandible",
+      "accesses": [
+        "parameter_read",
+        "parameter_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "setDefaultParameters"
+      ],
+      "keywords": [
+        "show",
+        "original",
+        "mandible",
+        "origin",
+        "mandib"
+      ],
+      "node_class": ""
+    },
+    "fixCutGoesThroughTheMandibleTwice": {
+      "role": "fixCutGoesThroughTheMandibleTwice",
+      "accesses": [
+        "parameter_write",
+        "parameter_read"
+      ],
+      "methods": [
+        "onFixCutGoesThroughTheMandibleTwiceCheckBox",
+        "createAndUpdateDynamicModelerNodes"
+      ],
+      "keywords": [
+        "fix",
+        "cut",
+        "goes",
+        "through",
+        "mandible",
+        "twice",
+        "throug",
+        "mandib"
+      ],
+      "node_class": ""
+    },
+    "PlaneCut.InputModel": {
+      "role": "PlaneCut.InputModel",
+      "accesses": [
+        "node_reference_write"
+      ],
+      "methods": [
+        "createAndUpdateDynamicModelerNodes"
+      ],
+      "keywords": [
+        "plane",
+        "cut",
+        "input",
+        "model"
+      ],
+      "node_class": ""
+    },
+    "PlaneCut.OutputPositiveModel": {
+      "role": "PlaneCut.OutputPositiveModel",
+      "accesses": [
+        "node_reference_write"
+      ],
+      "methods": [
+        "createAndUpdateDynamicModelerNodes"
+      ],
+      "keywords": [
+        "plane",
+        "cut",
+        "output",
+        "positive",
+        "model",
+        "positi"
+      ],
+      "node_class": ""
+    },
+    "PlaneCut.OutputNegativeModel": {
+      "role": "PlaneCut.OutputNegativeModel",
+      "accesses": [
+        "node_reference_write"
+      ],
+      "methods": [
+        "createAndUpdateDynamicModelerNodes"
+      ],
+      "keywords": [
+        "plane",
+        "cut",
+        "output",
+        "negative",
+        "model",
+        "negati"
+      ],
+      "node_class": ""
+    },
+    "Append.InputModel": {
+      "role": "Append.InputModel",
+      "accesses": [
+        "node_reference_write"
+      ],
+      "methods": [
+        "createAndUpdateDynamicModelerNodes"
+      ],
+      "keywords": [
+        "append",
+        "input",
+        "model"
+      ],
+      "node_class": ""
+    },
+    "Append.OutputModel": {
+      "role": "Append.OutputModel",
+      "accesses": [
+        "node_reference_write"
+      ],
+      "methods": [
+        "createAndUpdateDynamicModelerNodes"
+      ],
+      "keywords": [
+        "append",
+        "output",
+        "model"
+      ],
+      "node_class": ""
+    }
+  },
+  "choice_bindings": {
+    "cb_step_2": {
+      "parameter_name": "mandibularSegmentation",
+      "choice_parameter_name": "mandibular_segmentation",
+      "role": "mandibularSegmentation",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "makeModels",
+        "section_LoadSampleData",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "mandibular",
+        "segmentation",
+        "mandib",
+        "segmen"
+      ],
+      "node_class": "vtkMRMLSegmentationNode"
+    },
+    "cb_step_3": {
+      "parameter_name": "fibulaSegmentation",
+      "choice_parameter_name": "fibula_segmentation",
+      "role": "fibulaSegmentation",
+      "accesses": [
+        "node_reference_write",
+        "node_reference_read"
+      ],
+      "methods": [
+        "updateParameterNodeFromGUI",
+        "makeModels",
+        "section_LoadSampleData",
+        "updateGUIFromParameterNode"
+      ],
+      "keywords": [
+        "fibula",
+        "segmentation",
+        "segmen"
+      ],
+      "node_class": "vtkMRMLSegmentationNode"
+    },
+    "cb_step_4": {
+      "parameter_name": "currentScalarVolume",
+      "choice_parameter_name": "current_scalar_volume",
+      "role": "currentScalarVolume",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "addFibulaLine",
+        "setRedSliceForBoneModelsDisplayNodes",
+        "setRedSliceForBoxModelsDisplayNodes",
+        "createMiterBoxesFromFibulaPlanes",
+        "section_LoadSampleData",
+        "section_createMiterBoxesFromCorrespondingLine"
+      ],
+      "keywords": [
+        "scalar",
+        "volume"
+      ],
+      "node_class": "vtkMRMLScalarVolumeNode"
+    }
+  },
+  "interaction_bindings": {
+    "cb_step_14": {
+      "parameter_name": "mandibleCurve",
+      "role": "mandibleCurve",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "onPlanePointAdded",
+        "createAndUpdateDynamicModelerNodes",
+        "reorderMandiblePlanes",
+        "mandiblePlanesPositioningForMaximumBoneContact",
+        "createCylindersFromFiducialListAndNeomandiblePieces",
+        "createSawBoxesFromFirstAndLastMandiblePlanes",
+        "section_AddMandibularCurve",
+        "section_AddMandiblePlanes"
+      ],
+      "keywords": [
+        "mandible",
+        "curve",
+        "mandib"
+      ],
+      "node_class": "vtkMRMLMarkupsCurveNode"
+    },
+    "cb_step_19": {
+      "parameter_name": "mandiblePlaneOfRotation",
+      "role": "mandiblePlaneOfRotation",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "onGenerateFibulaPlanesTimerTimeout",
+        "onPlaneModifiedTimer"
+      ],
+      "keywords": [
+        "mandible",
+        "plane",
+        "rotation",
+        "mandib",
+        "rotati"
+      ],
+      "node_class": "vtkMRMLMarkupsPlaneNode"
+    },
+    "cb_step_21": {
+      "parameter_name": "fibulaLine",
+      "role": "fibulaLine",
+      "accesses": [
+        "node_reference_read",
+        "node_reference_write"
+      ],
+      "methods": [
+        "updateGUIFromParameterNode",
+        "updateParameterNodeFromGUI",
+        "onGenerateFibulaPlanesTimerTimeout",
+        "transformFibulaPlanes",
+        "tranformFibulaPiecesToMandible",
+        "createMiterBoxesFromFibulaPlanes",
+        "centerFibulaLine",
+        "section_AddFibulaLineAndCenterIt"
+      ],
+      "keywords": [
+        "fibula",
+        "line"
+      ],
+      "node_class": "vtkMRMLMarkupsLineNode"
+    }
+  },
+  "repeat_groups": {
+    "repeat_cb_step_17_cb_step_18_cb_step_19": {
+      "group_id": "repeat_cb_step_17_cb_step_18_cb_step_19",
+      "count_parameter": "num_cut_planes",
+      "count_step": "cb_step_17",
+      "start_step": "cb_step_18",
+      "interaction_step": "cb_step_19"
+    }
+  }
+}

@@ -8,8 +8,8 @@
 6. Change the layout to "Conventional".
 7. For the R (red) view, toggle on "slice visibility in 3D view".
 8. For the R (red) view, select "FOV, Spacing match 2D" (adjusts slice resolution to match the 2D viewport pixel spacing).
-9. In the "Crosshair selection" toolbar, toggle on "slice intersection visibility" (shows crosshair lines at slice intersections in 2D views).
-10. In the "Crosshair selection" toolbar, toggle on "enable interaction" (allows dragging the crosshair to navigate slices by clicking in 2D views).
+9. In the toolbar, toggle on "slice intersection visibility" (Note it's not "crosshair visibility").
+10. In the toolbar, toggle on "enable interaction" for "slice intersection visibility" (allows dragging the crosshair to navigate slices by clicking in 2D views).
 11. Manually adjust the slice intersection position.
 12. Click the "Add mandibular curve" button.
 13. In the Markups module's "Display" > "Advanced" panel, configure "View" to show in both "View 1" and "Red".

@@ -21,5 +21,5 @@ if interactionNode is not None:
     interactionNode.SwitchToPersistentPlaceMode()
 _bonereconstructionplanner_cb_step_19_id = node.GetID()
 
-print("[BoneReconstructionPlanner] Please Click in 3D View 1 to position the cut plane. Repeat for each plane.")
+print("[BoneReconstructionPlanner] Please Click in 3D View 1 to place each cut plane at the desired location.")
 print("When finished, press the 'Done' button in the workflow panel.")

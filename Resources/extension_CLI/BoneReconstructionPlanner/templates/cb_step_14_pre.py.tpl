@@ -7,7 +7,7 @@ displayNode = node.GetDisplayNode()
 if displayNode is not None:
     displayNode.SetVisibility(True)
 
-print("[BoneReconstructionPlanner] Please Click to place points along the mandibular contour in the Red slice view.")
+print("[BoneReconstructionPlanner] Please Click points along the mandible in the Red slice view to create a curve.")
 print("When finished, press the 'Done' button in the workflow panel.")
 
 # Enter placement mode

@@ -274,6 +274,7 @@ class ExtensionCLIAnalyzer:
         self._widget_connections: List[Dict] = []
         self._slicer_op_templates: Dict = {}     # Pre-generated slicer_op templates
         self._placement_starter_methods: Dict = {}
+        self._workflow_metadata: Dict = {}
 
     @staticmethod
     def _default_base_dir() -> str:
@@ -344,6 +345,7 @@ class ExtensionCLIAnalyzer:
         self._cookbook_def = None
         self._slicer_op_templates = {}
         self._placement_starter_methods = {}
+        self._workflow_metadata = {}
 
         # Validate extension name (prevent path traversal)
         extension_name = _validate_extension_name(extension_name)
@@ -399,6 +401,9 @@ class ExtensionCLIAnalyzer:
                 )
                 if widget_source:
                     self._widget_connections = self._extract_widget_connections(widget_source)
+            scan_result["ui_widgets"] = self._extract_ui_widget_inventory(
+                scan_result.get("ui_files", [])
+            )
 
             # ── Stage 2: Cookbook Detection & Parsing (no LLM, REQUIRED) ──
             self._current_stage_label = "2"
@@ -476,6 +481,10 @@ class ExtensionCLIAnalyzer:
             workflow_graph = self._build_workflow_from_cookbook(
                 self._cookbook_def, logic_analysis, stage_map
             )
+            self._workflow_metadata = self._build_workflow_metadata(
+                scan_result, logic_analysis, workflow_graph
+            )
+            self._enrich_workflow_with_metadata(workflow_graph, self._workflow_metadata)
             result["stages_completed"].append("5C")
             if self._cancelled:
                 result["error"] = "Cancelled during Stage 5C"
@@ -846,6 +855,50 @@ class ExtensionCLIAnalyzer:
         if name:
             return {"widget_name": name, "label": label}
         return None
+
+    def _extract_ui_widget_inventory(self, ui_files: List[str]) -> Dict[str, Dict]:
+        """Extract a lightweight widget inventory from Qt Designer .ui files.
+
+        This is intentionally generic: it records widget names, Qt classes, and
+        simple string/list properties such as qMRMLNodeComboBox nodeTypes.  Later
+        stages can use this as evidence for parameter-node bindings without the
+        cookbook author knowing API details.
+        """
+        import xml.etree.ElementTree as ET
+
+        widgets: Dict[str, Dict] = {}
+        for ui_path in ui_files or []:
+            try:
+                root = ET.parse(ui_path).getroot()
+            except Exception:
+                continue
+            for widget in root.iter("widget"):
+                name = widget.get("name", "")
+                if not name:
+                    continue
+                info = {
+                    "class": widget.get("class", ""),
+                    "properties": {},
+                    "ui_file": os.path.basename(ui_path),
+                }
+                for prop in widget.findall("property"):
+                    pname = prop.get("name", "")
+                    if not pname:
+                        continue
+                    value = None
+                    string_el = prop.find("string")
+                    if string_el is not None:
+                        value = string_el.text or ""
+                    bool_el = prop.find("bool")
+                    if bool_el is not None:
+                        value = bool_el.text or ""
+                    set_el = prop.find("set")
+                    if set_el is not None:
+                        value = set_el.text or ""
+                    if value is not None:
+                        info["properties"][pname] = value
+                widgets[name] = info
+        return widgets
 
     # ================================================================
     # Widget Signal Connection Extraction (AST)
@@ -3830,6 +3883,7 @@ Return ONLY the JSON array, no markdown fences.""")
         clean_graph = {k: v for k, v in workflow_graph.items() if k != "steps"}
         clean_graph["steps"] = [s for s in steps if s.get("step_type") in valid_types]
         templates["workflow.json"] = json.dumps(clean_graph, indent=2)
+        templates["workflow_metadata.json"] = json.dumps(self._workflow_metadata or {}, indent=2)
 
         self.on_progress(
             7, "Generating code templates",
@@ -4297,6 +4351,24 @@ Return ONLY the JSON array, no markdown fences.""")
             for chain in step["reactive_chains"]:
                 lines.append(f"# Reactive chain: {chain.get('recompute_description', '')}")
 
+        parameter_role = (
+            step.get("parameter_role")
+            or (step.get("interaction_binding") or {}).get("parameter_name", "")
+        )
+        if parameter_role:
+            lines += [
+                "# Store the placed node on the extension parameter node for later steps",
+                f"from {module_name} import {logic_class_name}",
+                "try:",
+                f"    logic = _{extension_name.lower()}_logic",
+                "except NameError:",
+                f"    logic = {logic_class_name}()",
+                "parameterNode = logic.getParameterNode()",
+                f"parameterNode.SetNodeReferenceID(\"{parameter_role}\", node.GetID())",
+                f"_{extension_name.lower()}_logic = logic",
+                "",
+            ]
+
         lines += [
             "# Exit placement mode",
             "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
@@ -4380,6 +4452,7 @@ Return ONLY the JSON array, no markdown fences.""")
             ```
 
             Context: The user just placed control points on a markup node. The node ID is stored in variable `{node_var}`.
+            Parameter-node role for this interaction, if any: `{step.get('parameter_role') or (step.get('interaction_binding') or {}).get('parameter_name', '')}`.
 
             The code must:
             1. Import the logic class from `{module_name}`
@@ -4391,6 +4464,7 @@ Return ONLY the JSON array, no markdown fences.""")
             7. Exit placement mode: `interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")` then `interactionNode.SwitchToViewTransformMode()`
             8. Store the logic instance as `_{extension_name.lower()}_logic` for subsequent steps
             9. Print a completion message with the number of control points
+            10. If a non-empty parameter-node role is listed above, call `logic.getParameterNode().SetNodeReferenceID(role, node.GetID())` before later steps need that node.
 
             IMPORTANT restrictions:
             - Do NOT use `dir()`, `eval()`, `exec()`, `globals()`, or `locals()` — these are blocked in the execution sandbox.
@@ -7574,6 +7648,263 @@ Return ONLY the JSON, no markdown fences.""")
             "source": "cookbook",
         }
 
+    @staticmethod
+    def _role_keywords(text: str) -> List[str]:
+        """Tokenize camelCase/snake/text identifiers into semantic keywords."""
+        text = _text_or_empty(text)
+        text = _re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", text)
+        words = _re.findall(r"[A-Za-z][A-Za-z0-9]+", text.lower())
+        stop = {
+            "the", "and", "for", "with", "node", "select", "choose", "current",
+            "which", "what", "option", "step", "user", "choice", "number",
+            "many", "want", "manually", "create", "add", "set",
+        }
+        tokens = [w for w in words if w not in stop and len(w) > 2]
+        variants = [w[:6] for w in tokens if len(w) >= 6]
+        return list(dict.fromkeys(tokens + variants))
+
+    @staticmethod
+    def _guess_node_class_for_role(role: str) -> str:
+        """Infer a likely MRML node class from a parameter-node role name."""
+        r = _text_or_empty(role).lower()
+        if any(
+            token in r for token in (
+                "number", "count", "checked", "enabled", "visible",
+                "show", "use", "lock", "mode", "space", "distance",
+                "radius", "height", "width", "length", "tolerance",
+            )
+        ):
+            return ""
+        if "segmentation" in r:
+            return "vtkMRMLSegmentationNode"
+        if "scalarvolume" in r or "volume" in r:
+            return "vtkMRMLScalarVolumeNode"
+        if "curve" in r:
+            return "vtkMRMLMarkupsCurveNode"
+        if "line" in r:
+            return "vtkMRMLMarkupsLineNode"
+        if "plane" in r:
+            return "vtkMRMLMarkupsPlaneNode"
+        if "fiducial" in r or "point" in r:
+            return "vtkMRMLMarkupsFiducialNode"
+        if "model" in r:
+            return "vtkMRMLModelNode"
+        if "transform" in r:
+            return "vtkMRMLTransformNode"
+        return ""
+
+    @staticmethod
+    def _choice_is_count_like(choice: Dict, step: Dict) -> bool:
+        """Return True for numeric/count questions, not scene-node selectors."""
+        text = " ".join([
+            _text_or_empty(choice.get("parameter_name", "")),
+            _text_or_empty(choice.get("question", "")),
+            _text_or_empty(step.get("description", "")),
+        ]).lower()
+        return any(
+            token in text for token in (
+                "how many", "number of", "count", "num", "amount",
+            )
+        )
+
+    @staticmethod
+    def _choice_is_closed_form(choice: Dict) -> bool:
+        """Return True for finite non-node choices such as yes/no."""
+        choices = choice.get("choices") or []
+        if not choices:
+            return False
+        labels = {str(c.get("label", "")).strip().lower() for c in choices}
+        values = {str(c.get("value", "")).strip().lower() for c in choices}
+        return labels <= {"yes", "no"} or values <= {"true", "false"}
+
+    def _extract_parameter_roles_from_source(self, source: str) -> Dict[str, Dict]:
+        """Extract parameter-node role reads/writes from extension Python source."""
+        roles: Dict[str, Dict] = {}
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return roles
+
+        def _record(role: str, access: str, method: str = ""):
+            if not role:
+                return
+            entry = roles.setdefault(role, {
+                "role": role,
+                "accesses": [],
+                "methods": [],
+                "keywords": self._role_keywords(role),
+                "node_class": self._guess_node_class_for_role(role),
+            })
+            if access not in entry["accesses"]:
+                entry["accesses"].append(access)
+            if method and method not in entry["methods"]:
+                entry["methods"].append(method)
+
+        parent_stack = []
+        for node in ast.walk(tree):
+            for child in ast.iter_child_nodes(node):
+                setattr(child, "_parent", node)
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func_name = self._get_call_name(node)
+            if not func_name:
+                continue
+            if not any(
+                suffix in func_name for suffix in (
+                    "GetNodeReference", "SetNodeReferenceID",
+                    "GetParameter", "SetParameter",
+                )
+            ):
+                continue
+            if not node.args:
+                continue
+            arg0 = node.args[0]
+            if not isinstance(arg0, ast.Constant) or not isinstance(arg0.value, str):
+                continue
+            method = ""
+            parent = getattr(node, "_parent", None)
+            while parent is not None:
+                if isinstance(parent, ast.FunctionDef):
+                    method = parent.name
+                    break
+                parent = getattr(parent, "_parent", None)
+            if "NodeReference" in func_name:
+                access = "node_reference_write" if "Set" in func_name else "node_reference_read"
+            else:
+                access = "parameter_write" if "Set" in func_name else "parameter_read"
+            _record(arg0.value, access, method)
+        return roles
+
+    def _build_workflow_metadata(
+        self, scan_result: Dict, logic_analysis: Dict, workflow_graph: Dict,
+    ) -> Dict:
+        """Build generic workflow metadata used by templates and runtime dispatch."""
+        source = ""
+        entry_module = scan_result.get("entry_module", "")
+        if entry_module and os.path.isfile(entry_module):
+            try:
+                with open(entry_module, "r", encoding="utf-8", errors="ignore") as f:
+                    source = f.read()
+            except Exception:
+                source = ""
+
+        bindings = self._extract_parameter_roles_from_source(source)
+        metadata = {
+            "extension_module_name": os.path.splitext(os.path.basename(entry_module))[0],
+            "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
+            "parameter_bindings": bindings,
+            "choice_bindings": {},
+            "interaction_bindings": {},
+            "repeat_groups": {},
+        }
+
+        for step in workflow_graph.get("steps", []):
+            choice = step.get("choice_info") or {}
+            pname = choice.get("parameter_name")
+            can_bind_choice_to_node = not (
+                self._choice_is_closed_form(choice)
+                or self._choice_is_count_like(choice, step)
+            )
+            if pname and pname in bindings and can_bind_choice_to_node:
+                metadata["choice_bindings"][step["step_id"]] = {
+                    "parameter_name": pname,
+                    **bindings[pname],
+                }
+            elif pname and can_bind_choice_to_node:
+                choice_text = " ".join([
+                    pname,
+                    choice.get("question", ""),
+                    step.get("description", ""),
+                ])
+                choice_node_class = self._guess_node_class_for_role(choice_text)
+                choice_keywords = set(self._role_keywords(choice_text))
+                best_role = None
+                best_score = 0
+                class_candidates = []
+                for role, info in bindings.items():
+                    if not info.get("node_class"):
+                        continue
+                    if choice_node_class and info.get("node_class") != choice_node_class:
+                        continue
+                    class_candidates.append(role)
+                    role_keywords = set(info.get("keywords", []))
+                    score = len(choice_keywords & role_keywords)
+                    if score > best_score:
+                        best_role = role
+                        best_score = score
+                if best_role or (choice_node_class and len(class_candidates) == 1):
+                    matched_role = best_role or class_candidates[0]
+                    metadata["choice_bindings"][step["step_id"]] = {
+                        "parameter_name": matched_role,
+                        "choice_parameter_name": pname,
+                        **bindings[matched_role],
+                    }
+
+            node_class = step.get("node_class", "")
+            if node_class:
+                desc_keywords = set(self._role_keywords(step.get("description", "")))
+                best_role = None
+                best_score = 0
+                for role, info in bindings.items():
+                    if info.get("node_class") != node_class:
+                        continue
+                    role_keywords = set(info.get("keywords", []))
+                    score = len(desc_keywords & role_keywords)
+                    if score > best_score:
+                        best_role = role
+                        best_score = score
+                if best_role:
+                    metadata["interaction_bindings"][step["step_id"]] = {
+                        "parameter_name": best_role,
+                        **bindings[best_role],
+                    }
+                    step["parameter_role"] = best_role
+
+        # Generic repeat detection for "how many" + placement starter + placement interaction.
+        steps = workflow_graph.get("steps", [])
+        for i, step in enumerate(steps[:-2]):
+            choice = step.get("choice_info") or {}
+            pname = choice.get("parameter_name", "")
+            text = f"{step.get('description', '')} {choice.get('question', '')}".lower()
+            if not (
+                step.get("step_type") == "user_choice"
+                and ("number" in pname.lower() or "count" in pname.lower() or "how many" in text)
+            ):
+                continue
+            auto_step = steps[i + 1]
+            interaction_step = steps[i + 2]
+            repeat_text = interaction_step.get("description", "").lower()
+            if (
+                auto_step.get("step_type") == "automated"
+                and interaction_step.get("step_type") == "interactive"
+                and any(w in repeat_text for w in ("repeat", "each", "as many", "needed"))
+            ):
+                group_id = f"repeat_{step['step_id']}_{auto_step['step_id']}_{interaction_step['step_id']}"
+                group = {
+                    "group_id": group_id,
+                    "count_parameter": pname,
+                    "count_step": step["step_id"],
+                    "start_step": auto_step["step_id"],
+                    "interaction_step": interaction_step["step_id"],
+                }
+                metadata["repeat_groups"][group_id] = group
+                for s in (step, auto_step, interaction_step):
+                    s["repeat_group"] = group
+
+        return metadata
+
+    @staticmethod
+    def _enrich_workflow_with_metadata(workflow_graph: Dict, metadata: Dict) -> None:
+        """Attach generated metadata directly to workflow steps."""
+        for step in workflow_graph.get("steps", []):
+            sid = step.get("step_id", "")
+            if sid in metadata.get("choice_bindings", {}):
+                step["choice_binding"] = metadata["choice_bindings"][sid]
+            if sid in metadata.get("interaction_bindings", {}):
+                step["interaction_binding"] = metadata["interaction_bindings"][sid]
+
     def _generate_slicer_op_templates(self, stage_map) -> Dict[str, str]:
         """Generate code templates for all slicer_op sub-operations via KB search.
 
@@ -7743,6 +8074,8 @@ Return ONLY the JSON, no markdown fences.""")
                     "node_class": nc or "",
                     "placement_instructions": step.get("placement_instructions", ""),
                 }
+                if step.get("interaction_binding"):
+                    gen["interaction_descriptor"]["binding"] = step["interaction_binding"]
             elif step_type == "mixed":
                 gen["pre_template_file"] = step.get("pre_template", "")
                 gen["post_template_file"] = step.get("post_template", "")
@@ -7758,6 +8091,8 @@ Return ONLY the JSON, no markdown fences.""")
                             "placement_instructions": so.get("placement_instructions", ""),
                         }
                         break
+                if step.get("interaction_binding"):
+                    interaction_desc["binding"] = step["interaction_binding"]
                 if step.get("interaction_owner"):
                     interaction_desc["interaction_owner"] = step.get("interaction_owner")
                 if step.get("placement_starter_method"):
@@ -7777,6 +8112,15 @@ Return ONLY the JSON, no markdown fences.""")
                     "parameter_name": choice_info.get("parameter_name", ""),
                     "default_value": choice_info.get("default_value"),
                 }
+                if step.get("choice_binding"):
+                    gen["choice_descriptor"]["binding"] = step["choice_binding"]
+
+            if step.get("repeat_group"):
+                gen["repeat_group"] = step["repeat_group"]
+                if gen.get("choice_descriptor") is not None:
+                    gen["choice_descriptor"]["repeat_group"] = step["repeat_group"]
+                if gen.get("interaction_descriptor") is not None:
+                    gen["interaction_descriptor"]["repeat_group"] = step["repeat_group"]
 
             generators.append(gen)
 

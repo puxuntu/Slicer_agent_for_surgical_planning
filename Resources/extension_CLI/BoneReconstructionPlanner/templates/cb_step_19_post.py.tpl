@@ -10,6 +10,16 @@ numPoints = node.GetNumberOfControlPoints()
 if numPoints < 1:
     raise RuntimeError("Need at least 1 control points, got %d. Please add more." % numPoints)
 
+# Store the placed node on the extension parameter node for later steps
+from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
+try:
+    logic = _bonereconstructionplanner_logic
+except NameError:
+    logic = BoneReconstructionPlannerLogic()
+parameterNode = logic.getParameterNode()
+parameterNode.SetNodeReferenceID("mandiblePlaneOfRotation", node.GetID())
+_bonereconstructionplanner_logic = logic
+
 # Exit placement mode
 interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
 interactionNode.SwitchToViewTransformMode()

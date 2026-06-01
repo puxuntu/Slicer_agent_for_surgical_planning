@@ -21,5 +21,5 @@ if interactionNode is not None:
     interactionNode.SwitchToPersistentPlaceMode()
 _bonereconstructionplanner_cb_step_21_id = node.GetID()
 
-print("[BoneReconstructionPlanner] Please Click first point at the distal end of the fibula, then click second point at the proximal end in 3D View 2.")
+print("[BoneReconstructionPlanner] Please Draw a line along the fibula in 3D View 2, starting with the first point distally and the last point proximally.")
 print("When finished, press the 'Done' button in the workflow panel.")

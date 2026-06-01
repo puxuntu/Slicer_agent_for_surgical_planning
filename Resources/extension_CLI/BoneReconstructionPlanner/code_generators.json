@@ -14,16 +14,16 @@
       "question": "Is the fibula from the right leg?",
       "choices": [
         {
-          "label": "Yes, right leg",
-          "value": "True"
+          "label": "Yes",
+          "value": "true"
         },
         {
-          "label": "No, left leg",
-          "value": "False"
+          "label": "No",
+          "value": "false"
         }
       ],
-      "parameter_name": "rightSideLegFibulaChecked",
-      "default_value": "False"
+      "parameter_name": "right_side_leg",
+      "default_value": "false"
     }
   },
   {
@@ -40,8 +40,30 @@
     "choice_descriptor": {
       "question": "Which segmentation node represents the mandible?",
       "choices": [],
-      "parameter_name": "mandibularSegmentationNode",
-      "default_value": null
+      "parameter_name": "mandibular_segmentation",
+      "default_value": null,
+      "binding": {
+        "parameter_name": "mandibularSegmentation",
+        "choice_parameter_name": "mandibular_segmentation",
+        "role": "mandibularSegmentation",
+        "accesses": [
+          "node_reference_write",
+          "node_reference_read"
+        ],
+        "methods": [
+          "updateParameterNodeFromGUI",
+          "makeModels",
+          "section_LoadSampleData",
+          "updateGUIFromParameterNode"
+        ],
+        "keywords": [
+          "mandibular",
+          "segmentation",
+          "mandib",
+          "segmen"
+        ],
+        "node_class": "vtkMRMLSegmentationNode"
+      }
     }
   },
   {
@@ -58,8 +80,29 @@
     "choice_descriptor": {
       "question": "Which segmentation node represents the fibula?",
       "choices": [],
-      "parameter_name": "fibulaSegmentationNode",
-      "default_value": null
+      "parameter_name": "fibula_segmentation",
+      "default_value": null,
+      "binding": {
+        "parameter_name": "fibulaSegmentation",
+        "choice_parameter_name": "fibula_segmentation",
+        "role": "fibulaSegmentation",
+        "accesses": [
+          "node_reference_write",
+          "node_reference_read"
+        ],
+        "methods": [
+          "updateParameterNodeFromGUI",
+          "makeModels",
+          "section_LoadSampleData",
+          "updateGUIFromParameterNode"
+        ],
+        "keywords": [
+          "fibula",
+          "segmentation",
+          "segmen"
+        ],
+        "node_class": "vtkMRMLSegmentationNode"
+      }
     }
   },
   {
@@ -74,10 +117,34 @@
     "step_type": "user_choice",
     "op_type": "user_choice",
     "choice_descriptor": {
-      "question": "Which scalar volume is the Mandible Volume?",
+      "question": "Which scalar volume node is the Mandible Volume?",
       "choices": [],
-      "parameter_name": "mandibleVolume",
-      "default_value": null
+      "parameter_name": "current_scalar_volume",
+      "default_value": null,
+      "binding": {
+        "parameter_name": "currentScalarVolume",
+        "choice_parameter_name": "current_scalar_volume",
+        "role": "currentScalarVolume",
+        "accesses": [
+          "node_reference_read",
+          "node_reference_write"
+        ],
+        "methods": [
+          "updateGUIFromParameterNode",
+          "updateParameterNodeFromGUI",
+          "addFibulaLine",
+          "setRedSliceForBoneModelsDisplayNodes",
+          "setRedSliceForBoxModelsDisplayNodes",
+          "createMiterBoxesFromFibulaPlanes",
+          "section_LoadSampleData",
+          "section_createMiterBoxesFromCorrespondingLine"
+        ],
+        "keywords": [
+          "scalar",
+          "volume"
+        ],
+        "node_class": "vtkMRMLScalarVolumeNode"
+      }
     }
   },
   {
@@ -95,7 +162,7 @@
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Create bone models from segmentations.",
+        "description": "Create bone models from segmentations",
         "extension_method_hint": "makeModels",
         "slicer_api_keywords": [],
         "interaction_type": null,
@@ -126,12 +193,11 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Change the layout to Conventional.",
+        "description": "Change layout to Conventional",
         "extension_method_hint": null,
         "slicer_api_keywords": [
           "layout",
-          "setLayout",
-          "Conventional"
+          "conventional"
         ],
         "interaction_type": null,
         "node_class": null,
@@ -156,23 +222,21 @@
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "automated",
-    "op_type": "slicer_op",
-    "template_file": "templates/cb_step_7_slicer.py.tpl",
+    "op_type": "extension_op",
+    "template_file": "templates/cb_step_7.py.tpl",
     "sub_operations": [
       {
-        "op_type": "slicer_op",
-        "description": "Toggle on slice visibility in 3D view for the Red slice view.",
+        "op_type": "extension_op",
+        "description": "Toggle on slice visibility in 3D view for Red view",
         "extension_method_hint": null,
-        "slicer_api_keywords": [
-          "layout_slice_view"
-        ],
+        "slicer_api_keywords": [],
         "interaction_type": null,
         "node_class": null,
         "placement_instructions": null,
         "min_control_points": 0,
-        "evidence_type": "slicer_core",
-        "evidence_id": "layout_slice_view",
-        "confidence": "high",
+        "evidence_type": "ui_control",
+        "evidence_id": "extension_ui_toggle",
+        "confidence": "medium",
         "interaction_kind": "none",
         "slicer_op_category": "layout_slice_view",
         "is_optional": false
@@ -194,12 +258,12 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Set FOV/Spacing match 2D for the Red slice view.",
+        "description": "Set Red view slice spacing mode to match 2D (FOV, Spacing match 2D)",
         "extension_method_hint": null,
         "slicer_api_keywords": [
-          "Red",
-          "SetSliceSpacingMode",
-          "SpacingModePrescribed"
+          "FOV",
+          "spacing",
+          "match 2D"
         ],
         "interaction_type": null,
         "node_class": null,
@@ -219,7 +283,7 @@
     "param_signature": {
       "workflow_step": "cb_step_9"
     },
-    "description": "9. In the \"Crosshair selection\" toolbar, toggle on \"slice intersection visibility\" (shows crosshair lines at slice intersections in 2D views).",
+    "description": "9. In the toolbar, toggle on \"slice intersection visibility\" (Note it's not \"crosshair visibility\").",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
@@ -229,7 +293,7 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Toggle on slice intersection visibility in the crosshair.",
+        "description": "Toggle on slice intersection visibility (crosshair)",
         "extension_method_hint": null,
         "slicer_api_keywords": [
           "crosshair"
@@ -252,7 +316,7 @@
     "param_signature": {
       "workflow_step": "cb_step_10"
     },
-    "description": "10. In the \"Crosshair selection\" toolbar, toggle on \"enable interaction\" (allows dragging the crosshair to navigate slices by clicking in 2D views).",
+    "description": "10. In the toolbar, toggle on \"enable interaction\" for \"slice intersection visibility\" (allows dragging the crosshair to navigate slices by clicking in 2D views).",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
@@ -262,7 +326,7 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Toggle on enable interaction for the crosshair.",
+        "description": "Toggle on enable interaction for slice intersection visibility",
         "extension_method_hint": null,
         "slicer_api_keywords": [
           "crosshair"
@@ -297,7 +361,7 @@
       "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
       "node_class": "vtkMRMLCrosshairNode",
-      "placement_instructions": "Drag the crosshair to the desired slice intersection position in any 2D view."
+      "placement_instructions": "Drag the slice intersection crosshair in the 2D view to desired position."
     }
   },
   {
@@ -315,7 +379,7 @@
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Add a new mandibular curve markup.",
+        "description": "Add mandibular curve (creates curve node and enters placement mode)",
         "extension_method_hint": "addMandibularCurve",
         "slicer_api_keywords": [],
         "interaction_type": null,
@@ -346,12 +410,13 @@
     "sub_operations": [
       {
         "op_type": "slicer_op",
-        "description": "Configure the markups display to show in both View 1 and Red views.",
+        "description": "Configure Markups Display settings: Show in both View 1 and Red view",
         "extension_method_hint": null,
         "slicer_api_keywords": [
-          "Markups",
-          "DisplayNode",
-          "SetViewNodeIDs"
+          "Markups module",
+          "Display",
+          "Advanced",
+          "View"
         ],
         "interaction_type": null,
         "node_class": null,
@@ -383,7 +448,33 @@
       "interaction_type": "curve",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsCurveNode",
-      "placement_instructions": "Click to place points along the mandibular contour in the Red slice view."
+      "placement_instructions": "Click points along the mandible in the Red slice view to create a curve.",
+      "binding": {
+        "parameter_name": "mandibleCurve",
+        "role": "mandibleCurve",
+        "accesses": [
+          "node_reference_read",
+          "node_reference_write"
+        ],
+        "methods": [
+          "updateGUIFromParameterNode",
+          "updateParameterNodeFromGUI",
+          "onPlanePointAdded",
+          "createAndUpdateDynamicModelerNodes",
+          "reorderMandiblePlanes",
+          "mandiblePlanesPositioningForMaximumBoneContact",
+          "createCylindersFromFiducialListAndNeomandiblePieces",
+          "createSawBoxesFromFirstAndLastMandiblePlanes",
+          "section_AddMandibularCurve",
+          "section_AddMandiblePlanes"
+        ],
+        "keywords": [
+          "mandible",
+          "curve",
+          "mandib"
+        ],
+        "node_class": "vtkMRMLMarkupsCurveNode"
+      }
     }
   },
   {
@@ -401,16 +492,16 @@
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Change the layout to the custom BoneReconstructionPlanner layout.",
-        "extension_method_hint": null,
+        "description": "Restore custom layout 'BoneReconstructionPlanner' (no known method or Slicer core API for dynamic layout restoration)",
+        "extension_method_hint": "setBackgroundVolumeFromID",
         "slicer_api_keywords": [],
         "interaction_type": null,
         "node_class": null,
         "placement_instructions": null,
         "min_control_points": 0,
-        "evidence_type": "ui_control",
-        "evidence_id": "BoneReconstructionPlanner",
-        "confidence": "medium",
+        "evidence_type": "logic_method",
+        "evidence_id": "setBackgroundVolumeFromID",
+        "confidence": "high",
         "interaction_kind": "none",
         "slicer_op_category": "layout_slice_view",
         "is_optional": false
@@ -427,23 +518,21 @@
       "BoneReconstructionPlanner extension must be installed"
     ],
     "step_type": "automated",
-    "op_type": "slicer_op",
-    "template_file": "templates/cb_step_16_slicer.py.tpl",
+    "op_type": "extension_op",
+    "template_file": "templates/cb_step_16.py.tpl",
     "sub_operations": [
       {
-        "op_type": "slicer_op",
-        "description": "Toggle off slice visibility in 3D view for the Red slice view.",
+        "op_type": "extension_op",
+        "description": "Toggle off slice visibility in 3D view for Red view",
         "extension_method_hint": null,
-        "slicer_api_keywords": [
-          "layout_slice_view"
-        ],
+        "slicer_api_keywords": [],
         "interaction_type": null,
         "node_class": null,
         "placement_instructions": null,
         "min_control_points": 0,
-        "evidence_type": "slicer_core",
-        "evidence_id": "layout_slice_view",
-        "confidence": "high",
+        "evidence_type": "ui_control",
+        "evidence_id": "extension_ui_toggle",
+        "confidence": "medium",
         "interaction_kind": "none",
         "slicer_op_category": "layout_slice_view",
         "is_optional": false
@@ -462,10 +551,24 @@
     "step_type": "user_choice",
     "op_type": "user_choice",
     "choice_descriptor": {
-      "question": "How many cut planes do you want?",
+      "question": "How many cut planes do you want to create?",
       "choices": [],
-      "parameter_name": "numberOfCutPlanes",
-      "default_value": null
+      "parameter_name": "num_cut_planes",
+      "default_value": "1",
+      "repeat_group": {
+        "group_id": "repeat_cb_step_17_cb_step_18_cb_step_19",
+        "count_parameter": "num_cut_planes",
+        "count_step": "cb_step_17",
+        "start_step": "cb_step_18",
+        "interaction_step": "cb_step_19"
+      }
+    },
+    "repeat_group": {
+      "group_id": "repeat_cb_step_17_cb_step_18_cb_step_19",
+      "count_parameter": "num_cut_planes",
+      "count_step": "cb_step_17",
+      "start_step": "cb_step_18",
+      "interaction_step": "cb_step_19"
     }
   },
   {
@@ -483,7 +586,7 @@
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Add a new cut plane markup.",
+        "description": "Add cut plane (creates a plane node and enters placement mode; repeat for each plane)",
         "extension_method_hint": "addCutPlane",
         "slicer_api_keywords": [],
         "interaction_type": null,
@@ -497,7 +600,14 @@
         "slicer_op_category": null,
         "is_optional": false
       }
-    ]
+    ],
+    "repeat_group": {
+      "group_id": "repeat_cb_step_17_cb_step_18_cb_step_19",
+      "count_parameter": "num_cut_planes",
+      "count_step": "cb_step_17",
+      "start_step": "cb_step_18",
+      "interaction_step": "cb_step_19"
+    }
   },
   {
     "tool_name": "BoneReconstructionPlanner",
@@ -516,7 +626,41 @@
       "interaction_type": "plane",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsPlaneNode",
-      "placement_instructions": "Click in 3D View 1 to position the cut plane. Repeat for each plane."
+      "placement_instructions": "Click in 3D View 1 to place each cut plane at the desired location.",
+      "binding": {
+        "parameter_name": "mandiblePlaneOfRotation",
+        "role": "mandiblePlaneOfRotation",
+        "accesses": [
+          "node_reference_read",
+          "node_reference_write"
+        ],
+        "methods": [
+          "onGenerateFibulaPlanesTimerTimeout",
+          "onPlaneModifiedTimer"
+        ],
+        "keywords": [
+          "mandible",
+          "plane",
+          "rotation",
+          "mandib",
+          "rotati"
+        ],
+        "node_class": "vtkMRMLMarkupsPlaneNode"
+      },
+      "repeat_group": {
+        "group_id": "repeat_cb_step_17_cb_step_18_cb_step_19",
+        "count_parameter": "num_cut_planes",
+        "count_step": "cb_step_17",
+        "start_step": "cb_step_18",
+        "interaction_step": "cb_step_19"
+      }
+    },
+    "repeat_group": {
+      "group_id": "repeat_cb_step_17_cb_step_18_cb_step_19",
+      "count_parameter": "num_cut_planes",
+      "count_step": "cb_step_17",
+      "start_step": "cb_step_18",
+      "interaction_step": "cb_step_19"
     }
   },
   {
@@ -534,7 +678,7 @@
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Add a new fibula line markup.",
+        "description": "Add fibula line (creates line node and enters placement mode)",
         "extension_method_hint": "addFibulaLine",
         "slicer_api_keywords": [],
         "interaction_type": null,
@@ -567,7 +711,30 @@
       "interaction_type": "line",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsLineNode",
-      "placement_instructions": "Click first point at the distal end of the fibula, then click second point at the proximal end in 3D View 2."
+      "placement_instructions": "Draw a line along the fibula in 3D View 2, starting with the first point distally and the last point proximally.",
+      "binding": {
+        "parameter_name": "fibulaLine",
+        "role": "fibulaLine",
+        "accesses": [
+          "node_reference_read",
+          "node_reference_write"
+        ],
+        "methods": [
+          "updateGUIFromParameterNode",
+          "updateParameterNodeFromGUI",
+          "onGenerateFibulaPlanesTimerTimeout",
+          "transformFibulaPlanes",
+          "tranformFibulaPiecesToMandible",
+          "createMiterBoxesFromFibulaPlanes",
+          "centerFibulaLine",
+          "section_AddFibulaLineAndCenterIt"
+        ],
+        "keywords": [
+          "fibula",
+          "line"
+        ],
+        "node_class": "vtkMRMLMarkupsLineNode"
+      }
     }
   },
   {
@@ -585,7 +752,7 @@
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Center the fibula line using the fibula model.",
+        "description": "Center fibula line using fibula model",
         "extension_method_hint": "centerFibulaLine",
         "slicer_api_keywords": [],
         "interaction_type": null,
@@ -616,7 +783,7 @@
     "sub_operations": [
       {
         "op_type": "extension_op",
-        "description": "Generate fibula planes, fibula bone pieces, and transform them to the mandible.",
+        "description": "Update fibula planes over fibula line, update fibula bone pieces and transform them to mandible",
         "extension_method_hint": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
         "slicer_api_keywords": [],
         "interaction_type": null,

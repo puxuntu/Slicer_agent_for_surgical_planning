@@ -1071,34 +1071,8 @@ def get_skill_tools() -> List[Dict]:
         {
             "type": "function",
             "function": {
-                "name": "SearchSymbol",
-                "description": "Search for symbol definitions (functions, classes, markdown headings) by name. Only matches actual definitions, not call sites or comments. Supports Python, C/C++, and Markdown files. Use this when you want to find where a specific function or class is defined.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "pattern": {
-                            "type": "string",
-                            "description": "Symbol name pattern (e.g., 'loadVolume', 'vtkMRML*', 'MyClass')"
-                        },
-                        "path": {
-                            "type": "string",
-                            "description": "Relative path within skill (e.g., 'slicer-source/Libs/MRML')"
-                        },
-                        "type": {
-                            "type": "string",
-                            "enum": ["all", "function", "class", "heading"],
-                            "description": "Filter by symbol type: 'all' (default), 'function', 'class', or 'heading' (markdown only)"
-                        }
-                    },
-                    "required": ["pattern", "path"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
                 "name": "Grep",
-                "description": "Full-text search across files. Returns an aggregated summary (per-file hit counts + representative matches), not line-by-line results. Use after SearchSymbol or VectorSearch to confirm specific usage patterns.",
+                "description": "Full-text search across files. Returns an aggregated summary (per-file hit counts + representative matches), not line-by-line results. Use after VectorSearch or when you know a specific API/pattern to confirm usage.",
                 "parameters": {
                     "type": "object",
                     "properties": {

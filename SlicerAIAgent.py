@@ -2405,7 +2405,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 user_content = (
                     f"CRITICAL: The previous Python code execution failed with this error:\n"
                     f"{error_detail}\n\n"
-                    "You have SearchSymbol, Grep, ReadFile, and VectorSearch tools available. "
+                    "You have Grep, ReadFile, and VectorSearch tools available. "
                     "If the error is caused by an incorrect API signature, missing parameter, or wrong module path, "
                     "use the tools to verify the correct usage before fixing. "
                     "Do NOT search unnecessarily — if you are confident in the fix, apply it directly.\n\n"
@@ -3462,7 +3462,7 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
         Execute a tool call.
         
         Args:
-            tool_name: Name of the tool (SearchSymbol, Grep, ReadFile, VectorSearch, GetNodeProperties)
+            tool_name: Name of the tool (Grep, ReadFile, VectorSearch, GetNodeProperties)
             tool_args: Tool arguments dict
             
         Returns:

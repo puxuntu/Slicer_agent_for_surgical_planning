@@ -1,61 +1,47 @@
+import slicer
+from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
+
+# Reuse existing logic instance if available, otherwise create a new one
 try:
-    _bonereconstructionplanner_logic
+    logic = _bonereconstructionplanner_logic
 except NameError:
-    from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
-    _bonereconstructionplanner_logic = BoneReconstructionPlannerLogic()
+    logic = BoneReconstructionPlannerLogic()
+    _bonereconstructionplanner_logic = logic
 
-logic = _bonereconstructionplanner_logic
-
-# Ensure parameter node and its references are set up
+# Ensure the module's parameter node is set on the logic
+# Usually the logic has a method getParameterNode() that returns or creates the parameter node
 parameterNode = logic.getParameterNode()
-if not parameterNode:
-    # Create a new parameter node if none exists
-    import json
-    node = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScriptedModuleNode")
-    node.SetModuleName("BoneReconstructionPlanner")
-    parameterNode = slicer.mrmlScene.AddNode(node)
-    logic.setParameterNode(parameterNode)
 
-# Set mandible model node references if missing
-mandibleModel = parameterNode.GetNodeReference("mandibleModelNode")
-if not mandibleModel:
+# Set up required node references on the parameter node
+# Search for mandible model nodes with fuzzy name matching
+mandibleModelNode = parameterNode.GetNodeReference("mandibleModelNode")
+if not mandibleModelNode:
     modelNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
     for i in range(modelNodes.GetNumberOfItems()):
-        node = modelNodes.GetItemAsObject(i)
-        if "mandible" in node.GetName().lower():
-            mandibleModel = node
+        n = modelNodes.GetItemAsObject(i)
+        if "mandible" in n.GetName().lower():
+            parameterNode.SetNodeReferenceID("mandibleModelNode", n.GetID())
+            mandibleModelNode = n
             break
-    if mandibleModel:
-        parameterNode.SetNodeReferenceID("mandibleModelNode", mandibleModel.GetID())
 
-decimatedMandibleModel = parameterNode.GetNodeReference("decimatedMandibleModelNode")
-if not decimatedMandibleModel:
+decimatedMandibleModelNode = parameterNode.GetNodeReference("decimatedMandibleModelNode")
+if not decimatedMandibleModelNode:
     modelNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
     for i in range(modelNodes.GetNumberOfItems()):
-        node = modelNodes.GetItemAsObject(i)
-        if "decimated" in node.GetName().lower() and "mandible" in node.GetName().lower():
-            decimatedMandibleModel = node
+        n = modelNodes.GetItemAsObject(i)
+        if "decimated" in n.GetName().lower() and "mandible" in n.GetName().lower():
+            parameterNode.SetNodeReferenceID("decimatedMandibleModelNode", n.GetID())
+            decimatedMandibleModelNode = n
             break
-    if not decimatedMandibleModel:
-        # fallback: use the same mandible model
-        decimatedMandibleModel = mandibleModel
-    if decimatedMandibleModel:
-        parameterNode.SetNodeReferenceID("decimatedMandibleModelNode", decimatedMandibleModel.GetID())
 
-# Ensure mandible planes folder exists (look for it by name in subject hierarchy)
-shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-planesFolder = shNode.GetItemByName("Mandible planes")
-if planesFolder == 0:
-    # Create a new folder under the scene
-    sceneFolder = shNode.GetSceneItemID()
-    planesFolder = shNode.CreateFolderItem(sceneFolder, "Mandible planes")
-    # Logic method getMandiblePlanesFolderItemID should find this folder
-
-# Ensure required list attribute exists on the logic instance
-if not hasattr(logic, "mandibleToFibulaRegistrationTransformMatricesList"):
-    logic.mandibleToFibulaRegistrationTransformMatricesList = []
+# Set default parameter (optional but helps avoid errors)
+if not parameterNode.GetParameter("useNonDecimatedBoneModelsForPreview"):
+    parameterNode.SetParameter("useNonDecimatedBoneModelsForPreview", "False")
 
 # Call the main method
 logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible()
 
-print("[BoneReconstructionPlanner] Step 23 complete: Generated fibula planes, bone pieces, and transformed them to mandible.")
+# Store logic instance for subsequent steps
+_bonereconstructionplanner_logic = logic
+
+print("[BoneReconstructionPlanner] generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible completed.")
