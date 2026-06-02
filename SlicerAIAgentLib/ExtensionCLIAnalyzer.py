@@ -273,8 +273,11 @@ class ExtensionCLIAnalyzer:
         self._cookbook_def = None                # Parsed CookbookDef when cookbook found
         self._widget_connections: List[Dict] = []
         self._slicer_op_templates: Dict = {}     # Pre-generated slicer_op templates
+        self._slicer_op_evidence: Dict = {}      # API evidence for pre-generated slicer_op templates
         self._placement_starter_methods: Dict = {}
         self._workflow_metadata: Dict = {}
+        self._last_logic_analysis: Optional[Dict] = None
+        self._last_api_probe_result: Optional[Dict] = None
 
     @staticmethod
     def _default_base_dir() -> str:
@@ -344,8 +347,11 @@ class ExtensionCLIAnalyzer:
         self._current_stage_label = ""
         self._cookbook_def = None
         self._slicer_op_templates = {}
+        self._slicer_op_evidence = {}
         self._placement_starter_methods = {}
         self._workflow_metadata = {}
+        self._last_logic_analysis = None
+        self._last_api_probe_result = None
 
         # Validate extension name (prevent path traversal)
         extension_name = _validate_extension_name(extension_name)
@@ -443,6 +449,8 @@ class ExtensionCLIAnalyzer:
             # ── Stage 3: Logic Class Analysis (LLM) ──
             self._current_stage_label = "3"
             logic_analysis = self._stage3_analyze_logic(scan_result)
+            self._last_logic_analysis = logic_analysis
+            result["logic_analysis"] = logic_analysis
             result["stages_completed"].append(3)
             if self._cancelled:
                 result["error"] = "Cancelled during Stage 3"
@@ -515,6 +523,9 @@ class ExtensionCLIAnalyzer:
             self._placement_starter_methods = self._classify_placement_starter_methods(
                 logic_analysis
             )
+            self._normalize_workflow_contracts(
+                workflow_graph, self._workflow_metadata, scan_result, logic_analysis
+            )
             templates = self._stage7_generate_templates(
                 extension_name, stage_map, node_lifecycle, scan_result, logic_analysis,
                 cross_stage_map=cross_stage_map,
@@ -530,6 +541,7 @@ class ExtensionCLIAnalyzer:
             # ── Stage 7.5: Live API Probing ──
             self._current_stage_label = "7.5"
             probe_result = self._stage7c_live_api_probe(templates)
+            self._last_api_probe_result = probe_result
             result["stages_completed"].append("7.5")
             result["api_probe_result"] = probe_result
             if probe_result.get("revised", 0) > 0:
@@ -544,6 +556,12 @@ class ExtensionCLIAnalyzer:
                 extension_name, scan_result, stage_map,
                 workflow_graph=workflow_graph,
             )
+            self._sync_template_contracts(
+                templates,
+                generators,
+                workflow_graph=workflow_graph,
+            )
+            result["workflow_metadata"] = self._workflow_metadata
             validation_result = self._stage9_validate(
                 templates, generators, logic_analysis=logic_analysis,
                 api_probe_result=probe_result,
@@ -553,6 +571,7 @@ class ExtensionCLIAnalyzer:
 
             if validation_result.get("valid"):
                 manifest["status"] = "validated"
+                manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
                 # ── Stage 8: Prompt Fragment Generation (LLM) ──
                 # Generate the runtime prompt only after templates are known to
                 # be valid, so prompt instructions match the final package.
@@ -566,12 +585,14 @@ class ExtensionCLIAnalyzer:
                     result["error"] = "Cancelled during Stage 8"
                     return result
             else:
-                manifest["status"] = "failed"
+                manifest["status"] = "validation_failed"
+                manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
                 prompt_fragment = (
                     f"### {extension_name}\n\n"
                     "Generation failed validation. This CLI package is saved "
                     "only for debugging/revision and is not loaded as a runtime tool.\n"
                 )
+            templates["workflow_metadata.json"] = json.dumps(self._workflow_metadata or {}, indent=2)
 
             # Save CLI package
             from .ExtensionCLILoader import save_cli_package
@@ -588,6 +609,7 @@ class ExtensionCLIAnalyzer:
                     "stage": "initial_generation",
                     "trigger": "user_request",
                     "analysis_stages_completed": result["stages_completed"],
+                    "api_probe_result": probe_result,
                     "validation_result": validation_result,
                 },
             )
@@ -1589,7 +1611,7 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
         - **Slicer core UI operations** (CRITICAL — these are slicer_op, NOT extension_op):
           The following operations use Slicer's core API, not the extension's Logic class.
           Even if described in the context of using the extension, they are slicer_op:
-          • "Slice visibility in 3D view" → slicer_op (vtkMRMLSliceNode.SetSliceVisible)
+          • "Slice visibility in 3D view" → slicer_op (use the verified Slicer slice-view API)
           • "Slice intersection visibility" / "Crosshair" → slicer_op (vtkMRMLCrosshairNode)
           • "FOV/Spacing match 2D" → slicer_op (vtkMRMLSliceNode.SetSliceSpacingMode)
           • "Open [X] module" / "Switch to [X] module" → slicer_op (slicer.util.selectModule)
@@ -2020,8 +2042,10 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                     continue
                 category = so.get("slicer_op_category", "")
                 patterns = _SLICER_CORE_PATTERNS.get(category, [])
-                if not patterns:
-                    # Also check all categories for keyword matches
+                if not patterns or not any(kw in desc_lower for kw in patterns):
+                    # Also check all categories for keyword matches.  The LLM may
+                    # provide a broad category such as layout_slice_view for a
+                    # more specific Slicer core operation such as slice visibility.
                     for cat, kws in _SLICER_CORE_PATTERNS.items():
                         if any(kw in desc_lower for kw in kws):
                             category = cat
@@ -3537,14 +3561,30 @@ Return ONLY the JSON array, no markdown fences.""")
         entry_module = scan_result.get("entry_module", "")
         module_name = os.path.splitext(os.path.basename(entry_module))[0] if entry_module else extension_name
 
-        def _matching_slicer_templates(step_id: str) -> List[str]:
+        def _matching_slicer_template_items(step_id: str) -> List[Tuple[str, str]]:
             matches = []
             prefix = f"{step_id}_"
             for tpl_key, tpl_code in self._slicer_op_templates.items():
                 if tpl_key == step_id or tpl_key.startswith(prefix):
                     matches.append((tpl_key, tpl_code))
             matches.sort(key=lambda item: item[0])
-            return [code for _, code in matches]
+            return matches
+
+        def _matching_slicer_templates(step_id: str) -> List[str]:
+            return [code for _, code in _matching_slicer_template_items(step_id)]
+
+        def _attach_slicer_evidence(step: Dict, template_file: str, source_keys: List[str]):
+            evidence_items = [
+                self._slicer_op_evidence.get(key, {})
+                for key in source_keys
+                if self._slicer_op_evidence.get(key)
+            ]
+            if not evidence_items:
+                return
+            merged = self._merge_api_evidence(evidence_items)
+            step["api_evidence"] = merged
+            if isinstance(self._workflow_metadata, dict):
+                self._workflow_metadata.setdefault("api_evidence", {})[template_file] = merged
 
         placement_starter_by_step = {}
         for step in steps:
@@ -3575,9 +3615,10 @@ Return ONLY the JSON array, no markdown fences.""")
                 # Slicer_op templates are pre-generated in Stage 5T
                 key = f"templates/{step_id}_slicer.py.tpl"
                 step["code_template"] = key
-                pregen_parts = _matching_slicer_templates(step_id)
-                if pregen_parts:
-                    templates[key] = "\n\n".join(pregen_parts)
+                pregen_items = _matching_slicer_template_items(step_id)
+                if pregen_items:
+                    templates[key] = "\n\n".join(code for _, code in pregen_items)
+                    _attach_slicer_evidence(step, key, [item_key for item_key, _ in pregen_items])
                 else:
                     # Fallback: generate via LLM with generic slicer prompt
                     templates[key] = self._generate_slicer_fallback_template(step)
@@ -3606,11 +3647,16 @@ Return ONLY the JSON array, no markdown fences.""")
                         auto_parts.append(f"# Extension op: {so['description']}\n{ext_tpl}")
                     elif so["op_type"] == "slicer_op":
                         if not consumed_5t:
-                            pregen_parts = _matching_slicer_templates(step_id)
-                            if pregen_parts:
+                            pregen_items = _matching_slicer_template_items(step_id)
+                            if pregen_items:
                                 auto_parts.append(
                                     "# Slicer ops (Stage 5T)\n"
-                                    + "\n\n".join(pregen_parts)
+                                    + "\n\n".join(code for _, code in pregen_items)
+                                )
+                                _attach_slicer_evidence(
+                                    step,
+                                    f"templates/{step_id}.py.tpl",
+                                    [item_key for item_key, _ in pregen_items],
                                 )
                             else:
                                 so_keywords = so.get("slicer_api_keywords", [])
@@ -3624,6 +3670,17 @@ Return ONLY the JSON array, no markdown fences.""")
                                     auto_parts.append(f"# Slicer op: {so_desc}\n# TODO: generate slicer code\npass")
                             consumed_5t = True
                     elif so["op_type"] in ("extension_op", "unknown_op") and not so.get("extension_method_hint"):
+                        if so.get("extension_function_hint"):
+                            ext_step = dict(step)
+                            ext_step["extension_function_name"] = so["extension_function_hint"]
+                            ext_step["description"] = so.get("description", step.get("description", ""))
+                            auto_parts.append(
+                                f"# Extension function op: {so['description']}\n"
+                                + self._generate_extension_function_template(
+                                    extension_name, ext_step, module_name,
+                                )
+                            )
+                            continue
                         # No method hint — generate targeted code for this sub-op only.
                         so_desc = so.get("description", "")
                         so_keywords = so.get("slicer_api_keywords", [])
@@ -3645,9 +3702,14 @@ Return ONLY the JSON array, no markdown fences.""")
 
             elif step_type == "automated":
                 # Single code template for automated steps
-                if step.get("method_name") in self._placement_starter_methods:
+                if step.get("extension_function_name"):
+                    tpl = self._generate_extension_function_template(
+                        extension_name, step, module_name,
+                    )
+                elif step.get("method_name") in self._placement_starter_methods:
                     step["interaction_owner"] = "extension_method"
                     step["placement_starter_method"] = step.get("method_name")
+                    step["created_node_source"] = "extension_method"
                     tpl = self._generate_placement_starter_pre_template(
                         extension_name, step, logic_class_name, module_name,
                     )
@@ -3668,6 +3730,7 @@ Return ONLY the JSON array, no markdown fences.""")
                 if prev_starter_method and self._is_markup_node_class(node_class):
                     step["interaction_owner"] = "previous_extension_method"
                     step["placement_starter_method"] = prev_starter_method
+                    step["created_node_source"] = "previous_extension_method"
 
                 # Pre-interaction template
                 if prev_starter_method and self._is_markup_node_class(node_class):
@@ -3679,6 +3742,9 @@ Return ONLY the JSON array, no markdown fences.""")
                         extension_name, step,
                     )
                 else:
+                    if self._is_markup_node_class(node_class):
+                        step["interaction_owner"] = "runtime_template"
+                        step["created_node_source"] = "template"
                     pre_tpl = self._generate_pre_interaction_template(
                         extension_name, step, logic_class_name, module_name,
                     )
@@ -3704,6 +3770,7 @@ Return ONLY the JSON array, no markdown fences.""")
                 auto_parts = []
                 placement_starter_method = None
                 slicer_templates_appended = False
+                pre_key = f"templates/{step_id}_pre.py.tpl"
                 for so in sub_ops:
                     if so["op_type"] == "extension_op" and so.get("extension_method_hint"):
                         # Generate extension_op code
@@ -3714,6 +3781,7 @@ Return ONLY the JSON array, no markdown fences.""")
                             placement_starter_method = so["extension_method_hint"]
                             step["interaction_owner"] = "extension_method"
                             step["placement_starter_method"] = placement_starter_method
+                            step["created_node_source"] = "extension_method"
                             ext_tpl = self._generate_placement_starter_pre_template(
                                 extension_name, ext_step, logic_class_name, module_name,
                             )
@@ -3723,6 +3791,16 @@ Return ONLY the JSON array, no markdown fences.""")
                                 logic_analysis,
                             )
                         auto_parts.append(f"# Extension op: {so['description']}\n{ext_tpl}")
+                    elif so["op_type"] == "extension_op" and so.get("extension_function_hint"):
+                        ext_step = dict(step)
+                        ext_step["extension_function_name"] = so["extension_function_hint"]
+                        ext_step["description"] = so.get("description", step.get("description", ""))
+                        auto_parts.append(
+                            f"# Extension function op: {so['description']}\n"
+                            + self._generate_extension_function_template(
+                                extension_name, ext_step, module_name,
+                            )
+                        )
                     elif so["op_type"] == "slicer_op":
                         # Use pre-generated slicer_op template
                         if slicer_templates_appended:
@@ -3732,6 +3810,11 @@ Return ONLY the JSON array, no markdown fences.""")
                             auto_parts.append(
                                 f"# Slicer op: {so['description']}\n"
                                 + "\n\n".join(pregen_parts)
+                            )
+                            _attach_slicer_evidence(
+                                step,
+                                pre_key,
+                                [item_key for item_key, _ in _matching_slicer_template_items(step_id)],
                             )
                             slicer_templates_appended = True
                         else:
@@ -3746,7 +3829,6 @@ Return ONLY the JSON array, no markdown fences.""")
                             else:
                                 auto_parts.append(f"# Slicer op: {so_desc}\n# TODO: generate slicer code\npass")
 
-                pre_key = f"templates/{step_id}_pre.py.tpl"
                 step["pre_template"] = pre_key
 
                 # Append node creation + ID storage for the interaction sub-op
@@ -3762,6 +3844,8 @@ Return ONLY the JSON array, no markdown fences.""")
                         and self._is_markup_node_class(node_class)
                         and not placement_starter_method
                     ):
+                        step["interaction_owner"] = "runtime_template"
+                        step["created_node_source"] = "template"
                         node_name = step_id.replace("_", " ").title()
                         node_var = f"_{extension_name.lower()}_{step_id}_id"
                         instructions = iso.get(
@@ -3890,6 +3974,25 @@ Return ONLY the JSON array, no markdown fences.""")
             f"Generated {len(templates)} workflow templates"
         )
         return templates
+
+    def _generate_extension_function_template(
+        self, extension_name: str, step: Dict, module_name: str,
+    ) -> str:
+        """Generate deterministic code for an extension-owned module function."""
+        function_name = step.get("extension_function_name", "")
+        step_id = step.get("step_id", "")
+        description = step.get("description", step_id)
+        if not function_name:
+            return self._generate_unknown_op_template(step)
+        lines = [
+            f"# --- {extension_name}: {description} ---",
+            f"from {module_name} import {function_name}",
+            "",
+            f"{function_name}()",
+            "",
+            f"print(\"[{extension_name}] Step '{step_id}' completed.\")",
+        ]
+        return "\n".join(lines) + "\n"
 
     def _generate_automated_workflow_template(
         self, extension_name, step, logic_class_name, module_name, logic_analysis,
@@ -4991,6 +5094,7 @@ Return ONLY the JSON array, no markdown fences.""")
         )
 
         all_specs_by_template = {}
+        syntax_skipped = []
         for key, code in templates.items():
             if not key.endswith(".py.tpl") or not code or not code.strip():
                 continue
@@ -4999,12 +5103,22 @@ Return ONLY the JSON array, no markdown fences.""")
                 "inputVolume = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScalarVolumeNode')"
             )
             sample_code = self._fill_remaining_placeholders(sample_code)
+            try:
+                ast.parse(sample_code)
+            except SyntaxError as exc:
+                syntax_skipped.append({"template": key, "error": str(exc)})
+                continue
             specs = self._extract_api_probe_specs(sample_code)
             if specs:
                 all_specs_by_template[key] = specs
 
         if not all_specs_by_template:
-            return {"probed": 0, "failures": [], "revised": 0}
+            return {
+                "probed": 0,
+                "failures": [],
+                "revised": 0,
+                "syntax_skipped": syntax_skipped,
+            }
 
         # Collect all unique receiver probes
         all_specs = []
@@ -5057,7 +5171,12 @@ Return ONLY the JSON array, no markdown fences.""")
                 "7.5", "Live API Probing",
                 f"All {len(probes)} API probes passed"
             )
-            return {"probed": len(probes), "failures": [], "revised": 0}
+            return {
+                "probed": len(probes),
+                "failures": [],
+                "revised": 0,
+                "syntax_skipped": syntax_skipped,
+            }
 
         # Log failures
         logger.warning(
@@ -5112,6 +5231,7 @@ Return ONLY the JSON array, no markdown fences.""")
             "failures": failures,
             "revised": revised_count,
             "unresolved_failures": unresolved_failures,
+            "syntax_skipped": syntax_skipped,
         }
 
     def _revise_template_for_api(
@@ -5180,7 +5300,7 @@ Return ONLY the JSON array, no markdown fences.""")
             for _attempt in range(2):
                 response = self._call_llm(prompt)
                 response = self._strip_markdown_fences(response) if response else None
-                if not response or "import" not in response:
+                if not response:
                     break
                 import ast as _ast
                 try:
@@ -5394,7 +5514,20 @@ If the template is correct with no issues, return:
                         tpl_name, e,
                     )
 
-        if corrections_count:
+        syntax_issues = self._syntax_check_templates(reviewed)
+        if isinstance(self._workflow_metadata, dict):
+            self._workflow_metadata.setdefault("validation_state", {})[
+                "stage7_syntax_valid"
+            ] = not bool(syntax_issues)
+            if syntax_issues:
+                self._workflow_metadata["stage7_syntax_issues"] = syntax_issues
+
+        if syntax_issues:
+            self.on_progress(
+                7, "Reviewing templates",
+                f"Found {len(syntax_issues)} syntax issue(s); validation/revision must fix them"
+            )
+        elif corrections_count:
             self.on_progress(
                 7, "Reviewing templates",
                 f"LLM corrected {corrections_count} template(s)"
@@ -6152,6 +6285,30 @@ Return ONLY the sentence, nothing else.""")
 
             # CodeValidator (security + syntax)
             validation = self.code_validator.validate(sample_code)
+            if validation.get("destructive_ops"):
+                gen = template_context.get(tpl_name, {}).get("generator", {})
+                destructive_contract = self._destructive_ops_contract(
+                    sample_code,
+                    tpl_content,
+                    gen,
+                    validation.get("destructive_ops", []) or [],
+                )
+                if destructive_contract.get("allowed"):
+                    validation["requires_confirmation"] = bool(
+                        destructive_contract.get("scope") != "display_view_scope_reset"
+                    )
+                    gen["allow_destructive_ops"] = True
+                    gen["destructive_ops_contract"] = destructive_contract
+                else:
+                    validation["valid"] = False
+                    reason = (
+                        "Template contains destructive operations without an explicit "
+                        f"allow_destructive_ops contract: {validation.get('destructive_ops')}"
+                    )
+                    validation["reason"] = (
+                        f"{validation.get('reason')}; {reason}"
+                        if validation.get("reason") else reason
+                    )
 
             if "SLICER_OP_GENERATION_FAILED" in sample_code:
                 validation["valid"] = False
@@ -6183,8 +6340,19 @@ Return ONLY the sentence, nothing else.""")
                     validation.setdefault("warnings", []).extend(semantic["warnings"])
 
             contract = self._validate_template_contract(
-                tpl_name, sample_code, template_context.get(tpl_name), templates
+                tpl_name, sample_code, template_context.get(tpl_name), templates,
+                raw_code=tpl_content,
             )
+            if isinstance(self._workflow_metadata, dict):
+                chains = self._extract_api_chains(sample_code)
+                if chains:
+                    self._workflow_metadata.setdefault("api_evidence", {})[tpl_name] = {
+                        "api_chains": chains,
+                        "probe_status": (
+                            "not_run" if api_probe_result is None
+                            else "passed" if not api_probe_result.get("unresolved_failures") else "failed"
+                        ),
+                    }
             if contract.get("errors"):
                 validation["valid"] = False
                 existing_reason = validation.get("reason") or ""
@@ -6208,6 +6376,13 @@ Return ONLY the sentence, nothing else.""")
                     f"{tpl_name}: {w}" for w in validation.get("warnings", [])
                 )
 
+        generator_contract = self._validate_generator_contracts(generators)
+        if generator_contract.get("errors"):
+            results["valid"] = False
+            results["errors"].extend(generator_contract["errors"])
+        if generator_contract.get("warnings"):
+            results["warnings"].extend(generator_contract["warnings"])
+
         if api_probe_result:
             unresolved = api_probe_result.get("unresolved_failures")
             if unresolved is None and api_probe_result.get("failures") and not api_probe_result.get("revised"):
@@ -6227,12 +6402,121 @@ Return ONLY the sentence, nothing else.""")
                         f"{template}: Unresolved live API probe failure for '{chain}': {error}"
                     )
 
+        if isinstance(self._workflow_metadata, dict):
+            static_valid = all(
+                item.get("valid", True)
+                for item in results.get("per_template", {}).values()
+            )
+            probe_failures = bool(
+                api_probe_result
+                and (
+                    api_probe_result.get("unresolved_failures")
+                    or (
+                        api_probe_result.get("failures")
+                        and not api_probe_result.get("revised")
+                    )
+                )
+            )
+            self._workflow_metadata["validation_state"] = {
+                "static_valid": static_valid,
+                "api_probe_valid": None if api_probe_result is None else not probe_failures,
+                "contract_valid": not bool(
+                    generator_contract.get("errors")
+                    or any(
+                        "Required operation" in e
+                        or "operation_model" in e
+                        or "extension_op without" in e
+                        or "Interaction is owned" in e
+                        for e in results.get("errors", [])
+                    )
+                ),
+                "overall_valid": bool(results.get("valid")),
+            }
+
         self.on_progress(
             9, "Validating templates",
             "PASS" if results["valid"] else f"FAIL: {results['errors']}"
         )
 
         return results
+
+    def _validate_generator_contracts(self, generators: List[Dict]) -> Dict:
+        """Validate workflow generator metadata that is not tied to a template."""
+        result = {"errors": [], "warnings": []}
+        by_step = {
+            (gen.get("param_signature", {}) or {}).get("workflow_step", ""): gen
+            for gen in generators or []
+        }
+        for gen in generators or []:
+            step_id = gen.get("param_signature", {}).get("workflow_step", "")
+            step_type = gen.get("step_type", "")
+            operation_model = gen.get("operation_model") or {}
+            if step_type and operation_model and operation_model.get("step_type") != step_type:
+                result["errors"].append(
+                    f"{step_id}: operation_model step_type does not match generator step_type"
+                )
+
+            if step_type == "user_choice":
+                choice_desc = gen.get("choice_descriptor", {}) or {}
+                parameter_name = choice_desc.get("parameter_name", "")
+                binding = (
+                    choice_desc.get("binding")
+                    or self._workflow_metadata.get("choice_bindings", {}).get(step_id, {})
+                )
+                is_closed_form = self._choice_is_closed_form(choice_desc)
+                is_count_like = self._choice_is_count_like(
+                    choice_desc,
+                    {"description": gen.get("description", "")},
+                )
+                if parameter_name and not binding and not is_closed_form and not is_count_like:
+                    result["warnings"].append(
+                        f"{step_id}: user choice '{parameter_name}' has no source-derived parameter binding"
+                    )
+            if step_type in ("interactive", "mixed"):
+                interaction_desc = gen.get("interaction_descriptor", {}) or {}
+                node_class = interaction_desc.get("node_class", "")
+                if node_class and self._is_markup_node_class(node_class):
+                    owner = interaction_desc.get("interaction_owner", "")
+                    starter = interaction_desc.get("placement_starter_method", "")
+                    if owner == "extension_method" and not starter:
+                        result["errors"].append(
+                            f"{step_id}: interaction owned by extension method but no placement_starter_method is recorded"
+                        )
+            repeat_group = (
+                gen.get("repeat_group")
+                or (gen.get("choice_descriptor") or {}).get("repeat_group")
+                or (gen.get("interaction_descriptor") or {}).get("repeat_group")
+            )
+            if repeat_group and repeat_group.get("interaction_step") == step_id:
+                start_gen = by_step.get(repeat_group.get("start_step", ""))
+                start_starter = self._generator_placement_starter(start_gen)
+                interaction_starter = self._generator_placement_starter(gen)
+                interaction_owner = (
+                    (gen.get("interaction_descriptor") or {}).get("interaction_owner", "")
+                )
+                if (
+                    interaction_owner != "previous_extension_method"
+                    and start_starter
+                    and interaction_starter
+                    and start_starter == interaction_starter
+                ):
+                    result["errors"].append(
+                        f"{step_id}: repeat interaction and start step both call placement starter '{interaction_starter}'"
+                    )
+        return result
+
+    @staticmethod
+    def _generator_placement_starter(gen: Optional[Dict]) -> str:
+        """Return the extension placement starter method recorded on a generator."""
+        if not gen:
+            return ""
+        desc = gen.get("interaction_descriptor") or {}
+        if desc.get("placement_starter_method"):
+            return desc.get("placement_starter_method", "")
+        for so in gen.get("sub_operations", []) or []:
+            if so.get("op_type") == "extension_op" and so.get("extension_method_hint"):
+                return so.get("extension_method_hint", "")
+        return ""
 
     @staticmethod
     def _build_template_validation_context(generators: List[Dict]) -> Dict[str, Dict]:
@@ -6248,6 +6532,380 @@ Return ONLY the sentence, nothing else.""")
                 if tpl_name:
                     context[tpl_name] = {"generator": gen, "role": role}
         return context
+
+    def _sync_template_contracts(
+        self,
+        templates: Dict[str, str],
+        generators: List[Dict],
+        workflow_graph: Optional[Dict] = None,
+    ) -> Dict[str, Dict]:
+        """Synchronize deterministic template evidence back into contracts.
+
+        Template revision can repair code, but validation consumes generator and
+        workflow metadata.  This pass keeps those representations aligned
+        without extension-specific rules.
+        """
+        context = self._build_template_validation_context(generators)
+        workflow_steps = {
+            step.get("step_id", ""): step
+            for step in (workflow_graph or {}).get("steps", [])
+            if isinstance(step, dict)
+        }
+        sync_report = {
+            "extension_functions": [],
+            "destructive_contracts": [],
+        }
+
+        for tpl_name, raw_code in templates.items():
+            if not tpl_name.endswith((".py.tpl", ".py")):
+                continue
+            ctx = context.get(tpl_name)
+            if not ctx:
+                continue
+            gen = ctx.get("generator", {})
+            step_id = (gen.get("param_signature") or {}).get("workflow_step", "")
+            workflow_step = workflow_steps.get(step_id)
+            sample_code = self._fill_remaining_placeholders(
+                raw_code.replace(
+                    "{vol_lookup}",
+                    "inputVolume = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScalarVolumeNode')",
+                )
+            )
+
+            function_name = self._detect_extension_function_call(sample_code)
+            if function_name:
+                self._record_extension_function_contract(
+                    gen, workflow_step, function_name
+                )
+                sync_report["extension_functions"].append({
+                    "template": tpl_name,
+                    "function": function_name,
+                })
+
+            destructive_ops = self._template_destructive_ops(sample_code)
+            if destructive_ops:
+                contract = self._destructive_ops_contract(
+                    sample_code, raw_code, gen, destructive_ops
+                )
+                if contract.get("allowed"):
+                    gen["allow_destructive_ops"] = True
+                    gen["destructive_ops_contract"] = contract
+                    if workflow_step is not None:
+                        workflow_step["allow_destructive_ops"] = True
+                        workflow_step["destructive_ops_contract"] = contract
+                    sync_report["destructive_contracts"].append({
+                        "template": tpl_name,
+                        "ops": destructive_ops,
+                        "scope": contract.get("scope", ""),
+                    })
+
+            if gen.get("op_type") == "slicer_op" or any(
+                so.get("op_type") == "slicer_op"
+                for so in (gen.get("sub_operations", []) or [])
+            ):
+                existing_evidence = gen.get("api_evidence") or {}
+                current_evidence = self._build_template_api_evidence(
+                    sample_code,
+                    gen,
+                    source="template_contract_sync",
+                )
+                if existing_evidence.get("accepted_footprints"):
+                    existing_evidence = self._merge_api_evidence([
+                        existing_evidence,
+                        current_evidence,
+                    ])
+                else:
+                    existing_evidence = current_evidence
+                gen["api_evidence"] = existing_evidence
+                if workflow_step is not None:
+                    workflow_step["api_evidence"] = existing_evidence
+                if isinstance(self._workflow_metadata, dict):
+                    self._workflow_metadata.setdefault("api_evidence", {})[tpl_name] = existing_evidence
+
+            self._refresh_generator_operation_model(gen, workflow_step)
+
+        if isinstance(self._workflow_metadata, dict):
+            self._workflow_metadata["template_contract_sync"] = sync_report
+            self._workflow_metadata["operation_model"] = {
+                (gen.get("param_signature") or {}).get("workflow_step", ""): gen.get("operation_model", {})
+                for gen in generators or []
+                if (gen.get("param_signature") or {}).get("workflow_step")
+            }
+        return sync_report
+
+    @staticmethod
+    def _merge_api_evidence(evidence_items: List[Dict]) -> Dict:
+        """Merge API evidence records from multiple generated sub-templates."""
+        merged = {
+            "source": "stage5T",
+            "accepted_footprints": [],
+            "api_chains": [],
+            "operation_descriptions": [],
+            "slicer_op_categories": [],
+            "slicer_api_keywords": [],
+        }
+        for evidence in evidence_items:
+            if not isinstance(evidence, dict):
+                continue
+            for key in (
+                "accepted_footprints", "api_chains", "operation_descriptions",
+                "slicer_op_categories", "slicer_api_keywords",
+            ):
+                values = evidence.get(key) or []
+                if isinstance(values, str):
+                    values = [values]
+                for value in values:
+                    if value and value not in merged[key]:
+                        merged[key].append(value)
+        return merged
+
+    def _build_template_api_evidence(
+        self,
+        code: str,
+        op_context: Optional[Any] = None,
+        source: str = "template",
+    ) -> Dict:
+        """Build per-template API evidence from generated code and op metadata."""
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            tree = None
+
+        footprints = []
+        local_chains = []
+        if tree is not None:
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                    attr = node.func.attr
+                    if attr not in footprints:
+                        footprints.append(attr)
+                    try:
+                        chain = ast.unparse(node.func)
+                    except Exception:
+                        chain = attr
+                    if chain and chain not in local_chains:
+                        local_chains.append(chain)
+                elif isinstance(node, ast.Attribute):
+                    attr = node.attr
+                    if attr and attr not in footprints:
+                        footprints.append(attr)
+                elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    value = node.value
+                    if value.startswith("vtkMRML") and value not in footprints:
+                        footprints.append(value)
+
+        api_chains = self._extract_api_chains(code)
+        for chain in local_chains:
+            if chain not in api_chains:
+                api_chains.append(chain)
+
+        def _ctx_get(name: str, default=None):
+            if isinstance(op_context, dict):
+                return op_context.get(name, default)
+            return getattr(op_context, name, default)
+
+        sub_ops = _ctx_get("sub_operations", []) or []
+        descriptions = []
+        categories = []
+        keywords = []
+        if sub_ops:
+            for so in sub_ops:
+                if not isinstance(so, dict):
+                    continue
+                desc = so.get("description")
+                category = so.get("slicer_op_category")
+                if desc and desc not in descriptions:
+                    descriptions.append(desc)
+                if category and category not in categories:
+                    categories.append(category)
+                for keyword in so.get("slicer_api_keywords", []) or []:
+                    if keyword and keyword not in keywords:
+                        keywords.append(keyword)
+        else:
+            desc = _ctx_get("description", "")
+            category = _ctx_get("slicer_op_category", "")
+            if desc:
+                descriptions.append(desc)
+            if category:
+                categories.append(category)
+            for keyword in (_ctx_get("slicer_api_keywords", []) or []):
+                if keyword and keyword not in keywords:
+                    keywords.append(keyword)
+
+        return {
+            "source": source,
+            "accepted_footprints": sorted(set(footprints)),
+            "api_chains": sorted(set(api_chains)),
+            "operation_descriptions": descriptions,
+            "slicer_op_categories": categories,
+            "slicer_api_keywords": keywords,
+        }
+
+    def _record_extension_function_contract(
+        self,
+        gen: Dict,
+        workflow_step: Optional[Dict],
+        function_name: str,
+    ) -> None:
+        """Record a top-level extension function in generator/workflow contracts."""
+        gen["extension_function_name"] = function_name
+        if workflow_step is not None:
+            workflow_step["extension_function_name"] = function_name
+
+        for target in (gen, workflow_step):
+            if not isinstance(target, dict):
+                continue
+            for so in target.get("sub_operations", []) or []:
+                if (
+                    so.get("op_type") == "extension_op"
+                    and not so.get("extension_method_hint")
+                ):
+                    so["extension_function_hint"] = function_name
+                    so["evidence_type"] = "module_function"
+                    so["evidence_id"] = function_name
+                    so["confidence"] = "high"
+
+    def _refresh_generator_operation_model(
+        self,
+        gen: Dict,
+        workflow_step: Optional[Dict],
+    ) -> None:
+        """Recompute operation models after contract synchronization."""
+        source = workflow_step if workflow_step is not None else gen
+        operation_model = self._build_step_operation_model(source)
+        gen["operation_model"] = operation_model
+        if workflow_step is not None:
+            workflow_step["operation_model"] = operation_model
+        step_id = (gen.get("param_signature") or {}).get("workflow_step", "")
+        if step_id and isinstance(self._workflow_metadata, dict):
+            self._workflow_metadata.setdefault("operation_model", {})[step_id] = operation_model
+
+    def _detect_extension_function_call(self, code: str) -> str:
+        """Return an imported extension module function that is called in code."""
+        inventory = (
+            self._workflow_metadata.get("extension_callable_inventory", {})
+            if isinstance(self._workflow_metadata, dict) else {}
+        )
+        function_names = set(inventory.get("module_functions", []) or [])
+        if not function_names:
+            return ""
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return ""
+
+        imported = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    imported_name = alias.name
+                    local_name = alias.asname or alias.name
+                    if imported_name in function_names:
+                        imported[local_name] = imported_name
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    local_name = alias.asname or alias.name
+                    if local_name in function_names:
+                        imported[local_name] = local_name
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                func = node.func
+                if isinstance(func, ast.Name) and func.id in imported:
+                    return imported[func.id]
+                if isinstance(func, ast.Attribute) and func.attr in function_names:
+                    return func.attr
+        return ""
+
+    def _template_destructive_ops(self, code: str) -> List[str]:
+        """Extract destructive operations using CodeValidator when available."""
+        if not self.code_validator:
+            from .CodeValidator import CodeValidator
+            self.code_validator = CodeValidator()
+        try:
+            validation = self.code_validator.validate(code)
+            return validation.get("destructive_ops", []) or []
+        except Exception:
+            return []
+
+    def _syntax_check_templates(self, templates: Dict[str, str]) -> List[Dict[str, str]]:
+        """Return syntax issues for Python templates after placeholder filling."""
+        issues = []
+        for tpl_name, tpl_content in templates.items():
+            if not tpl_name.endswith((".py.tpl", ".py")):
+                continue
+            sample_code = self._fill_remaining_placeholders(
+                tpl_content.replace(
+                    "{vol_lookup}",
+                    "inputVolume = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScalarVolumeNode')",
+                )
+            )
+            try:
+                ast.parse(sample_code)
+            except SyntaxError as exc:
+                issues.append({
+                    "template": tpl_name,
+                    "error": str(exc),
+                })
+        return issues
+
+    @staticmethod
+    def _template_has_destructive_allow_comment(raw_code: str) -> bool:
+        """Return True when a template declares an explicit destructive contract."""
+        for line in raw_code.splitlines()[:10]:
+            stripped = line.strip().lower()
+            if not stripped.startswith("#"):
+                continue
+            if "allow_destructive_ops" in stripped and "true" in stripped:
+                return True
+        return False
+
+    @staticmethod
+    def _is_display_view_scope_reset(code: str, destructive_ops: List[str], gen: Dict) -> bool:
+        """Return True for display-node view-list resets followed by scoped adds."""
+        if not destructive_ops:
+            return False
+        if any("RemoveAllViewNodeIDs" not in op for op in destructive_ops):
+            return False
+        if "AddViewNodeID" not in code:
+            return False
+        categories = {
+            so.get("slicer_op_category", "")
+            for so in (gen.get("sub_operations", []) or [])
+            if isinstance(so, dict)
+        }
+        if categories and not (categories & {"markups_display", "node_display", "layout_slice_view"}):
+            return False
+        return True
+
+    def _destructive_ops_contract(
+        self,
+        code: str,
+        raw_code: str,
+        gen: Dict,
+        destructive_ops: List[str],
+    ) -> Dict:
+        """Build a typed destructive-operation policy decision."""
+        explicit = bool(
+            gen.get("allow_destructive_ops")
+            or self._template_has_destructive_allow_comment(raw_code)
+        )
+        display_scope_reset = self._is_display_view_scope_reset(code, destructive_ops, gen)
+        allowed = explicit or display_scope_reset
+        scope = "display_view_scope_reset" if display_scope_reset else "destructive_operation"
+        return {
+            "allowed": allowed,
+            "explicit": explicit,
+            "scope": scope,
+            "operations": destructive_ops,
+            "reason": (
+                "Display node view restrictions are cleared before assigning explicit view IDs."
+                if display_scope_reset
+                else "Template declares allow_destructive_ops."
+                if explicit
+                else "No destructive operation contract was found."
+            ),
+        }
 
     @staticmethod
     def _template_has_meaningful_code(code: str) -> bool:
@@ -6291,12 +6949,28 @@ Return ONLY the sentence, nothing else.""")
                     return True
         return False
 
+    @staticmethod
+    def _template_matches_api_evidence(code: str, evidence: Dict) -> bool:
+        """Return True if code contains any accepted API evidence footprint."""
+        if not isinstance(evidence, dict):
+            return False
+        code_lower = code.lower()
+        footprints = evidence.get("accepted_footprints") or []
+        chains = evidence.get("api_chains") or []
+        for item in list(footprints) + list(chains):
+            if not item:
+                continue
+            if str(item).lower() in code_lower:
+                return True
+        return False
+
     def _validate_template_contract(
         self,
         tpl_name: str,
         code: str,
         context: Optional[Dict],
         templates: Dict[str, str],
+        raw_code: Optional[str] = None,
     ) -> Dict:
         """Validate workflow-level contracts that CodeValidator cannot know."""
         result = {"errors": [], "warnings": []}
@@ -6305,12 +6979,41 @@ Return ONLY the sentence, nothing else.""")
 
         gen = context.get("generator", {})
         role = context.get("role")
+        raw_code = raw_code if raw_code is not None else code
         sub_ops = gen.get("sub_operations", []) or []
+        api_chains = self._extract_api_chains(code)
+        code_has_slicer_api = bool(api_chains)
         for so in sub_ops:
             if so.get("op_type") == "unknown_op":
                 result["errors"].append("Required operation has unknown_op classification")
             if so.get("op_type") == "slicer_op" and so.get("confidence") == "low":
                 result["errors"].append("Required slicer_op has low classification confidence")
+            if (
+                so.get("op_type") == "extension_op"
+                and not so.get("extension_method_hint")
+                and not so.get("extension_function_hint")
+                and code_has_slicer_api
+            ):
+                result["errors"].append(
+                    "extension_op without an extension method contains Slicer API calls; "
+                    "classify it as slicer_op or bind it to an extension parameter role"
+                )
+
+        operation_model = gen.get("operation_model") or {}
+        if code_has_slicer_api and not (
+            operation_model.get("invokes_slicer_api")
+            or operation_model.get("implementation_uses_slicer_api")
+        ):
+            has_extension_callable = bool(
+                gen.get("method_name")
+                or gen.get("extension_function_name")
+                or any(so.get("extension_method_hint") for so in sub_ops)
+                or any(so.get("extension_function_hint") for so in sub_ops)
+            )
+            if not has_extension_callable:
+                result["errors"].append(
+                    "Template uses Slicer API calls but operation_model.invokes_slicer_api is false"
+                )
 
         # ── Sub-operation coverage check ──
         # Verify every non-optional, code-generating sub-operation has a code
@@ -6332,6 +7035,9 @@ Return ONLY the sentence, nothing else.""")
                 # Check for extension method call
                 if so_method and so_method in code:
                     found = True
+                so_function = so.get("extension_function_hint") or ""
+                if not found and so_function and so_function in code:
+                    found = True
                 # Check for comment header referencing the description
                 if not found:
                     # Extract significant words from description (>4 chars)
@@ -6346,6 +7052,12 @@ Return ONLY the sentence, nothing else.""")
                         if kw and kw in code.lower():
                             found = True
                             break
+                # Prefer per-template API evidence discovered during Stage 5T
+                # or contract synchronization over broad category fallbacks.
+                if not found and so_type == "slicer_op":
+                    evidence = gen.get("api_evidence") or {}
+                    if self._template_matches_api_evidence(code, evidence):
+                        found = True
                 # Check for slicer_op_category-specific API patterns
                 if not found and so_type == "slicer_op":
                     category = so.get("slicer_op_category", "")
@@ -6353,12 +7065,20 @@ Return ONLY the sentence, nothing else.""")
                         "layout_slice_view": ["setLayout", "SliceVisible", "SetSliceResolutionMode", "SliceResolutionMatch", "SetViewArrangement", "AddLayoutDescription", "GetLayoutByName", "layoutManager"],
                         "module_switching": ["selectModule", "moduleManager"],
                         "markups_display": ["GetDisplayNode", "SetViewNodeID", "AddViewNodeID"],
-                        "crosshair": ["Crosshair", "SetCrosshairMode", "ShowIntersection", "SetCrosshairBehavior", "OffsetJumpSlice", "NoCrosshair"],
+                        "crosshair": [
+                            "Crosshair", "SetCrosshairMode", "ShowIntersection",
+                            "SetCrosshairBehavior", "OffsetJumpSlice", "NoCrosshair",
+                            "vtkMRMLSliceDisplayNode", "SliceDisplayNode",
+                            "SetIntersectingSlicesVisibility",
+                            "GetIntersectingSlicesVisibility",
+                            "IntersectingSlicesVisibility",
+                        ],
                         "node_display": ["SetSliceVisible", "SetVisibility", "GetDisplayNode"],
                     }
                     hints = _CATEGORY_API_HINTS.get(category, [])
+                    code_lower = code.lower()
                     for hint in hints:
-                        if hint in code:
+                        if hint.lower() in code_lower:
                             found = True
                             break
                 if not found:
@@ -6374,9 +7094,37 @@ Return ONLY the sentence, nothing else.""")
 
         if "TODO" in code:
             result["errors"].append("Required template contains TODO")
+        unresolved_placeholders = [
+            p["name"] for p in self._find_template_placeholders(raw_code)
+            if p["name"] != "vol_lookup" and not p["has_default"]
+        ]
+        if unresolved_placeholders:
+            result["errors"].append(
+                "Required template contains unresolved placeholders: "
+                + ", ".join(unresolved_placeholders)
+            )
         allow_instruction_only = role == "pre" and node_class and not is_markup
         if not allow_instruction_only and not self._template_has_meaningful_code(code):
             result["errors"].append("Required template is a stub (only pass/comments/prints)")
+
+        if gen.get("step_type") == "user_choice":
+            choice_desc = gen.get("choice_descriptor", {}) or {}
+            parameter_name = choice_desc.get("parameter_name", "")
+            binding = choice_desc.get("binding")
+            metadata_binding = self._workflow_metadata.get("choice_bindings", {}).get(
+                gen.get("param_signature", {}).get("workflow_step", ""),
+                {},
+            )
+            choices = choice_desc.get("choices", [])
+            is_closed_form = self._choice_is_closed_form(choice_desc)
+            is_count_like = self._choice_is_count_like(
+                choice_desc,
+                {"description": gen.get("description", "")},
+            )
+            if parameter_name and not binding and not metadata_binding and not is_closed_form and not is_count_like:
+                result["warnings"].append(
+                    f"User choice '{parameter_name}' has no source-derived parameter binding"
+                )
 
         if "GetNumberOfControlPoints(" in code and node_class and not is_markup:
             result["errors"].append(
@@ -6400,7 +7148,92 @@ Return ONLY the sentence, nothing else.""")
                         f"Post-template references '{var_name}' but pre-template does not assign it"
                     )
 
+        interaction_desc = gen.get("interaction_descriptor", {}) or {}
+        owner = interaction_desc.get("interaction_owner", "")
+        if role == "pre" and owner in ("extension_method", "previous_extension_method"):
+            if self._template_creates_markup_node(code):
+                result["errors"].append(
+                    "Interaction is owned by an extension placement method but pre-template creates a new Markups node"
+                )
+
         return result
+
+    @staticmethod
+    def _template_creates_markup_node(code: str) -> bool:
+        """Return True when code creates a vtkMRMLMarkups* node directly."""
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return False
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func_name = ""
+            if isinstance(node.func, ast.Attribute):
+                func_name = node.func.attr
+            if func_name not in ("CreateNodeByClass", "AddNewNodeByClass"):
+                continue
+            if not node.args:
+                continue
+            arg0 = node.args[0]
+            if isinstance(arg0, ast.Constant) and isinstance(arg0.value, str):
+                if arg0.value.startswith("vtkMRMLMarkups"):
+                    return True
+        return False
+
+    @staticmethod
+    def _find_template_placeholders(template_str: str) -> List[Dict[str, Any]]:
+        """Find single-brace template placeholders outside Python strings."""
+        string_ranges = []
+        for m in _re.finditer(
+            r'(?:[fFrRbBuU]{0,2})("""|\'\'\'|"|\')(.*?)\1',
+            template_str,
+            _re.DOTALL,
+        ):
+            string_ranges.append((m.start(), m.end()))
+
+        def _in_string(pos: int) -> bool:
+            return any(start <= pos < end for start, end in string_ranges)
+
+        placeholders = []
+        i = 0
+        while i < len(template_str):
+            if template_str.startswith("{{", i):
+                i += 2
+                continue
+            if template_str[i] != "{" or _in_string(i):
+                i += 1
+                continue
+            depth = 0
+            j = i
+            found = False
+            while j < len(template_str):
+                if template_str[j] == "{":
+                    depth += 1
+                elif template_str[j] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        found = True
+                        break
+                j += 1
+            if found:
+                inner = template_str[i + 1:j]
+                has_default = ":" in inner
+                name = inner.split(":", 1)[0].strip()
+                if name.isidentifier():
+                    placeholders.append({"name": name, "has_default": has_default})
+                i = j + 1
+            else:
+                i += 1
+        deduped = {}
+        for placeholder in placeholders:
+            name = placeholder["name"]
+            deduped[name] = {
+                "name": name,
+                "has_default": deduped.get(name, {}).get("has_default", False)
+                or placeholder["has_default"],
+            }
+        return [deduped[name] for name in sorted(deduped)]
 
     def _semantic_validate(self, code: str, logic_analysis: Dict,
                            api_probe_result: Optional[Dict] = None) -> Dict:
@@ -6920,6 +7753,8 @@ Return ONLY the sentence, nothing else.""")
         errors: List[str],
         max_attempts: int = _MAX_REVISION_ATTEMPTS,
         source_path: Optional[str] = None,
+        logic_analysis: Optional[Dict] = None,
+        api_probe_result: Optional[Dict] = None,
     ) -> Dict:
         """
         Revise failed templates using LLM feedback.
@@ -6931,6 +7766,12 @@ Return ONLY the sentence, nothing else.""")
                 the logic class source code and UI file are included in the
                 revision prompt so the LLM can verify API calls against actual
                 method signatures.
+            logic_analysis: Optional in-memory logic analysis from the failed
+                generation run. When present, semantic validation remains active
+                during revision.
+            api_probe_result: Optional live API probe result from the failed
+                generation run. When present, unresolved live API failures remain
+                blocking during revision.
 
         Returns:
             Dict with 'success', 'validation_result', 'attempts' keys.
@@ -6946,15 +7787,26 @@ Return ONLY the sentence, nothing else.""")
         manifest_path = os.path.join(cli_dir, "manifest.json")
         generators_path = os.path.join(cli_dir, "code_generators.json")
         tool_schemas_path = os.path.join(cli_dir, "tool_schemas.json")
+        workflow_metadata_path = os.path.join(cli_dir, "workflow_metadata.json")
 
         with open(manifest_path, "r", encoding="utf-8") as f:
             manifest = json.load(f)
         with open(generators_path, "r", encoding="utf-8") as f:
             generators = json.load(f)
 
+        workflow_metadata = {}
+        if os.path.isfile(workflow_metadata_path):
+            try:
+                with open(workflow_metadata_path, "r", encoding="utf-8") as f:
+                    workflow_metadata = json.load(f)
+            except Exception:
+                workflow_metadata = {}
+        self._workflow_metadata = workflow_metadata
+
         # Load workflow.json to provide semantic context for revision
         workflow_path = os.path.join(cli_dir, manifest.get("workflow_graph_file", "workflow.json"))
         workflow_steps = {}
+        workflow_data = None
         if os.path.isfile(workflow_path):
             try:
                 with open(workflow_path, "r", encoding="utf-8") as f:
@@ -6973,6 +7825,34 @@ Return ONLY the sentence, nothing else.""")
         source_context = self._build_revision_source_context(
             source_path, manifest, generators
         )
+
+        # Repair deterministic workflow contracts before template-only LLM
+        # revision.  This lets revision fix stale graph/generator metadata from
+        # older failed packages without extension-specific rules.
+        if source_path and workflow_data and logic_analysis:
+            try:
+                scan_result = self._stage1_scan(source_path)
+                self._placement_starter_methods = self._classify_placement_starter_methods(
+                    logic_analysis
+                )
+                self._normalize_workflow_contracts(
+                    workflow_data, self._workflow_metadata, scan_result, logic_analysis
+                )
+                _, generators = self._build_workflow_manifest_and_generators(
+                    extension_name, scan_result, workflow_data
+                )
+                with open(workflow_path, "w", encoding="utf-8") as f:
+                    json.dump(workflow_data, f, indent=2)
+                with open(generators_path, "w", encoding="utf-8") as f:
+                    json.dump(generators, f, indent=2)
+                with open(workflow_metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(self._workflow_metadata, f, indent=2)
+                workflow_steps = {
+                    ws.get("step_id", ""): ws
+                    for ws in workflow_data.get("steps", [])
+                }
+            except Exception:
+                logger.debug("Revision workflow normalization failed", exc_info=True)
 
         result = {
             "success": False,
@@ -7097,15 +7977,54 @@ Return ONLY the JSON, no markdown fences.""")
                 from .CodeValidator import CodeValidator
                 self.code_validator = CodeValidator()
 
+            self._sync_template_contracts(
+                templates,
+                generators,
+                workflow_graph=workflow_data,
+            )
+            with open(generators_path, "w", encoding="utf-8") as f:
+                json.dump(generators, f, indent=2)
+            if workflow_data is not None:
+                with open(workflow_path, "w", encoding="utf-8") as f:
+                    json.dump(workflow_data, f, indent=2)
+            with open(workflow_metadata_path, "w", encoding="utf-8") as f:
+                json.dump(self._workflow_metadata, f, indent=2)
+
+            fresh_probe_result = self._stage7c_live_api_probe(templates)
+            for tpl_name, tpl_content in templates.items():
+                tpl_path = os.path.join(cli_dir, tpl_name)
+                if tpl_name.endswith(".py.tpl") and os.path.isfile(tpl_path):
+                    with open(tpl_path, "w", encoding="utf-8") as f:
+                        f.write(tpl_content)
+
+            self._sync_template_contracts(
+                templates,
+                generators,
+                workflow_graph=workflow_data,
+            )
+            with open(generators_path, "w", encoding="utf-8") as f:
+                json.dump(generators, f, indent=2)
+            if workflow_data is not None:
+                with open(workflow_path, "w", encoding="utf-8") as f:
+                    json.dump(workflow_data, f, indent=2)
+            with open(workflow_metadata_path, "w", encoding="utf-8") as f:
+                json.dump(self._workflow_metadata, f, indent=2)
+
             validation_result = self._stage9_validate(
-                templates, generators, logic_analysis=None, api_probe_result=None,
+                templates, generators,
+                logic_analysis=logic_analysis,
+                api_probe_result=fresh_probe_result,
             )
 
             if validation_result.get("valid"):
                 # Update manifest status
                 manifest["status"] = "validated"
+                manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
                 with open(manifest_path, "w", encoding="utf-8") as f:
                     json.dump(manifest, f, indent=2)
+                if os.path.isfile(workflow_metadata_path):
+                    with open(workflow_metadata_path, "w", encoding="utf-8") as f:
+                        json.dump(self._workflow_metadata, f, indent=2)
 
                 prompt_fragment = self._build_revision_prompt_fragment(
                     extension_name, tool_schemas, generators
@@ -7130,6 +8049,7 @@ Return ONLY the JSON, no markdown fences.""")
                     "trigger": "validation_failure",
                     "error": "; ".join(errors),
                     "fix": fixed.get("fix_description", ""),
+                    "api_probe_result": fresh_probe_result,
                     "validation_result": validation_result,
                 })
                 with open(log_path, "w", encoding="utf-8") as f:
@@ -7142,12 +8062,38 @@ Return ONLY the JSON, no markdown fences.""")
                 result["validation_result"] = validation_result
                 return result
 
-            manifest["status"] = "failed"
+            manifest["status"] = "validation_failed"
+            manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
             with open(manifest_path, "w", encoding="utf-8") as f:
                 json.dump(manifest, f, indent=2)
+            if os.path.isfile(workflow_metadata_path):
+                with open(workflow_metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(self._workflow_metadata, f, indent=2)
+            log_path = os.path.join(cli_dir, "generation_log.json")
+            log_entries = []
+            if os.path.isfile(log_path):
+                try:
+                    with open(log_path, "r", encoding="utf-8") as f:
+                        log_entries = json.load(f)
+                except Exception:
+                    log_entries = []
+            log_entries.append({
+                "attempt": len(log_entries) + 1,
+                "timestamp": datetime.now().isoformat(),
+                "stage": "revision",
+                "trigger": "validation_failure",
+                "status": "validation_failed",
+                "error": "; ".join(errors),
+                "fix": fixed.get("fix_description", ""),
+                "api_probe_result": fresh_probe_result,
+                "validation_result": validation_result,
+            })
+            with open(log_path, "w", encoding="utf-8") as f:
+                json.dump(log_entries, f, indent=2)
             errors = validation_result.get("errors", [])
 
-        manifest["status"] = "failed"
+        manifest["status"] = "validation_failed"
+        manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
         with open(
@@ -7678,6 +8624,7 @@ Return ONLY the JSON, no markdown fences.""")
     def _role_keywords(text: str) -> List[str]:
         """Tokenize camelCase/snake/text identifiers into semantic keywords."""
         text = _text_or_empty(text)
+        text = _re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", text)
         text = _re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", text)
         words = _re.findall(r"[A-Za-z][A-Za-z0-9]+", text.lower())
         stop = {
@@ -7852,24 +8799,63 @@ Return ONLY the JSON, no markdown fences.""")
         metadata = {
             "extension_module_name": os.path.splitext(os.path.basename(entry_module))[0],
             "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
+            "metadata_version": 3,
             "parameter_bindings": bindings,
             "choice_bindings": {},
             "interaction_bindings": {},
+            "operation_model": {},
+            "node_roles": {},
             "repeat_groups": {},
+            "validation_state": {
+                "static_valid": None,
+                "api_probe_valid": None,
+                "contract_valid": None,
+            },
+            "api_evidence": {},
         }
 
         for step in workflow_graph.get("steps", []):
+            step_id = step.get("step_id", "")
+            operation_model = self._build_step_operation_model(step)
+            metadata["operation_model"][step_id] = operation_model
+            step["operation_model"] = operation_model
+
             choice = step.get("choice_info") or {}
             pname = choice.get("parameter_name")
             can_bind_choice_to_node = not (
                 self._choice_is_closed_form(choice)
                 or self._choice_is_count_like(choice, step)
             )
-            if pname and pname in bindings and can_bind_choice_to_node:
-                metadata["choice_bindings"][step["step_id"]] = {
+            if pname and pname in bindings:
+                metadata["choice_bindings"][step_id] = {
                     "parameter_name": pname,
+                    "choice_parameter_name": pname,
                     **bindings[pname],
                 }
+            elif pname and self._choice_is_closed_form(choice):
+                choice_text = " ".join([
+                    pname,
+                    choice.get("question", ""),
+                    step.get("description", ""),
+                    " ".join(str(c.get("label", "")) for c in choice.get("choices", []) if isinstance(c, dict)),
+                ])
+                choice_keywords = set(self._role_keywords(choice_text))
+                best_role = None
+                best_score = 0
+                for role, info in bindings.items():
+                    if info.get("node_class"):
+                        continue
+                    role_keywords = set(info.get("keywords", []))
+                    score = len(choice_keywords & role_keywords)
+                    if score > best_score:
+                        best_role = role
+                        best_score = score
+                if best_role and best_score >= 1:
+                    metadata["choice_bindings"][step_id] = {
+                        "parameter_name": best_role,
+                        "choice_parameter_name": pname,
+                        **bindings[best_role],
+                    }
             elif pname and can_bind_choice_to_node:
                 choice_text = " ".join([
                     pname,
@@ -7894,7 +8880,7 @@ Return ONLY the JSON, no markdown fences.""")
                         best_score = score
                 if best_role or (choice_node_class and len(class_candidates) == 1):
                     matched_role = best_role or class_candidates[0]
-                    metadata["choice_bindings"][step["step_id"]] = {
+                    metadata["choice_bindings"][step_id] = {
                         "parameter_name": matched_role,
                         "choice_parameter_name": pname,
                         **bindings[matched_role],
@@ -7914,11 +8900,19 @@ Return ONLY the JSON, no markdown fences.""")
                         best_role = role
                         best_score = score
                 if best_role:
-                    metadata["interaction_bindings"][step["step_id"]] = {
+                    metadata["interaction_bindings"][step_id] = {
                         "parameter_name": best_role,
                         **bindings[best_role],
                     }
                     step["parameter_role"] = best_role
+                    if "do not store" in step.get("description", "").lower():
+                        metadata["interaction_bindings"].pop(step_id, None)
+                        step.pop("parameter_role", None)
+
+            node_roles = self._infer_step_node_roles(step, metadata)
+            if node_roles:
+                metadata["node_roles"][step_id] = node_roles
+                step["node_roles"] = node_roles
 
         # Generic repeat detection for "how many" + placement starter + placement interaction.
         steps = workflow_graph.get("steps", [])
@@ -7995,11 +8989,316 @@ Return ONLY the JSON, no markdown fences.""")
 
         return metadata
 
+    def _build_extension_callable_inventory(
+        self, scan_result: Dict, logic_analysis: Dict,
+    ) -> Dict[str, Dict]:
+        """Collect extension-owned callable targets beyond Logic methods.
+
+        Logic methods remain the preferred target.  Top-level module functions
+        are kept as a secondary extension-owned target for workflows such as
+        custom layout helpers registered by a scripted module.
+        """
+        logic_methods = {}
+        for method in logic_analysis.get("methods", []) or []:
+            if isinstance(method, dict) and method.get("name"):
+                logic_methods[method["name"]] = method
+
+        module_functions = {}
+        entry_module = scan_result.get("entry_module", "")
+        if entry_module and os.path.isfile(entry_module):
+            try:
+                with open(entry_module, "r", encoding="utf-8", errors="ignore") as f:
+                    source = f.read()
+                tree = ast.parse(source)
+            except Exception:
+                tree = None
+            if tree is not None:
+                for node in tree.body:
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        module_functions[node.name] = {
+                            "name": node.name,
+                            "line": node.lineno,
+                            "source_file": entry_module,
+                        }
+
+        return {
+            "logic_methods": logic_methods,
+            "module_functions": module_functions,
+        }
+
+    def _match_extension_function(
+        self, description: str, function_names: List[str],
+    ) -> Optional[str]:
+        """Match an extension-owned module function to a cookbook description."""
+        desc_tokens = set(self._role_keywords(description))
+        if not desc_tokens:
+            return None
+        best_name = None
+        best_score = 0.0
+        for name in function_names:
+            name_tokens = set(self._role_keywords(name))
+            if not name_tokens:
+                continue
+            overlap = desc_tokens & name_tokens
+            if not overlap:
+                continue
+            # Prefer concise function names with a direct semantic overlap.
+            score = len(overlap) / (len(name_tokens) ** 0.5)
+            if "layout" in overlap:
+                score += 1.0
+            if score > best_score:
+                best_score = score
+                best_name = name
+        if best_name and best_score >= 1.0:
+            return best_name
+
+        desc_lower = _text_or_empty(description).lower()
+        if "layout" in desc_lower and any(
+            word in desc_lower for word in ("custom", "restore", "registered", "view")
+        ):
+            layout_functions = [
+                name for name in function_names
+                if "layout" in set(self._role_keywords(name))
+            ]
+            if len(layout_functions) == 1:
+                return layout_functions[0]
+        return None
+
+    def _step_placement_starter(self, step: Dict) -> str:
+        """Return the placement-starter method a workflow step calls, if any."""
+        method = step.get("method_name")
+        if method in self._placement_starter_methods:
+            return method
+        for so in step.get("sub_operations", []) or []:
+            hint = so.get("extension_method_hint")
+            if hint in self._placement_starter_methods:
+                return hint
+        return ""
+
+    def _normalize_workflow_contracts(
+        self,
+        workflow_graph: Dict,
+        metadata: Dict,
+        scan_result: Dict,
+        logic_analysis: Dict,
+    ) -> None:
+        """Normalize workflow graph/contracts before templates are generated.
+
+        This pass is intentionally deterministic.  It repairs generic workflow
+        structure that template revision cannot safely fix, such as duplicate
+        repeat placement starters and extension-owned module-level call targets.
+        """
+        if not workflow_graph:
+            return
+
+        metadata = metadata if isinstance(metadata, dict) else {}
+        callable_inventory = self._build_extension_callable_inventory(
+            scan_result, logic_analysis
+        )
+        metadata["extension_callable_inventory"] = {
+            "logic_methods": sorted(callable_inventory.get("logic_methods", {}).keys()),
+            "module_functions": sorted(callable_inventory.get("module_functions", {}).keys()),
+        }
+
+        module_function_names = list(callable_inventory.get("module_functions", {}).keys())
+        steps = workflow_graph.get("steps", []) or []
+        by_step = {step.get("step_id", ""): step for step in steps}
+
+        # Resolve extension-owned module-level functions for extension_op steps
+        # that do not map to a Logic method.
+        for step in steps:
+            if step.get("step_type") not in ("automated", "mixed"):
+                continue
+            for so in step.get("sub_operations", []) or []:
+                if so.get("op_type") != "extension_op":
+                    continue
+                if so.get("extension_method_hint") or so.get("extension_function_hint"):
+                    continue
+                description = " ".join([
+                    _text_or_empty(step.get("description", "")),
+                    _text_or_empty(so.get("description", "")),
+                ])
+                matched = self._match_extension_function(description, module_function_names)
+                if matched:
+                    so["extension_function_hint"] = matched
+                    so["evidence_type"] = "module_function"
+                    so["evidence_id"] = matched
+                    so["confidence"] = "high"
+                    step["extension_function_name"] = matched
+
+        # Canonicalize count-driven placement repeats.  The starter call belongs
+        # to the repeat start step; the following interaction step reuses that
+        # node and must not call the same starter again.
+        for group in (metadata.get("repeat_groups") or {}).values():
+            start_step = by_step.get(group.get("start_step", ""))
+            interaction_step = by_step.get(group.get("interaction_step", ""))
+            if not start_step or not interaction_step:
+                continue
+            start_starter = self._step_placement_starter(start_step)
+            interaction_starter = self._step_placement_starter(interaction_step)
+            if not start_starter or start_starter != interaction_starter:
+                continue
+
+            interaction_sub_ops = interaction_step.get("sub_operations", []) or []
+            kept_sub_ops = []
+            removed_starter = False
+            for so in interaction_sub_ops:
+                if (
+                    so.get("op_type") == "extension_op"
+                    and so.get("extension_method_hint") == start_starter
+                ):
+                    removed_starter = True
+                    continue
+                kept_sub_ops.append(so)
+            if not removed_starter:
+                continue
+
+            interaction_step["sub_operations"] = kept_sub_ops
+            interaction_step.pop("method_name", None)
+            interaction_step["interaction_owner"] = "previous_extension_method"
+            interaction_step["placement_starter_method"] = start_starter
+            interaction_step["created_node_source"] = "previous_extension_method"
+
+            has_user_interaction = any(
+                so.get("op_type") == "user_interaction" for so in kept_sub_ops
+            )
+            has_code_op = any(
+                so.get("op_type") in ("extension_op", "slicer_op", "unknown_op")
+                for so in kept_sub_ops
+            )
+            if has_user_interaction and not has_code_op:
+                interaction_step["step_type"] = "interactive"
+                interaction_step["op_type"] = "user_interaction"
+            elif has_user_interaction:
+                interaction_step["step_type"] = "mixed"
+                interaction_step["op_type"] = "mixed"
+
+            start_step["interaction_owner"] = "extension_method"
+            start_step["placement_starter_method"] = start_starter
+            start_step["created_node_source"] = "extension_method"
+            metadata.setdefault("interaction_policies", {})[interaction_step["step_id"]] = {
+                "interaction_owner": interaction_step["interaction_owner"],
+                "placement_starter_method": start_starter,
+                "created_node_source": interaction_step["created_node_source"],
+            }
+            metadata.setdefault("interaction_policies", {})[start_step["step_id"]] = {
+                "interaction_owner": start_step["interaction_owner"],
+                "placement_starter_method": start_starter,
+                "created_node_source": start_step["created_node_source"],
+            }
+
+        # Recompute operation and node-role metadata after normalization.
+        metadata["operation_model"] = {}
+        metadata["node_roles"] = {}
+        for step in steps:
+            step_id = step.get("step_id", "")
+            operation_model = self._build_step_operation_model(step)
+            metadata["operation_model"][step_id] = operation_model
+            step["operation_model"] = operation_model
+            node_roles = self._infer_step_node_roles(step, metadata)
+            if node_roles:
+                metadata["node_roles"][step_id] = node_roles
+                step["node_roles"] = node_roles
+
+    def _build_step_operation_model(self, step: Dict) -> Dict:
+        """Describe a workflow step using generic operation semantics."""
+        step_type = step.get("step_type", "")
+        sub_ops = step.get("sub_operations", []) or []
+        op_types = [so.get("op_type", "") for so in sub_ops if so.get("op_type")]
+        if step.get("op_type"):
+            op_types.append(step.get("op_type"))
+        op_types = sorted(set(op_types))
+
+        interaction_kinds = []
+        for so in sub_ops:
+            if so.get("op_type") == "user_interaction":
+                kind = so.get("interaction_kind") or so.get("interaction_type") or "interaction"
+                interaction_kinds.append(kind)
+        if step_type == "interactive":
+            interaction_kinds.append(
+                step.get("interaction_kind")
+                or step.get("interaction_type")
+                or "interaction"
+            )
+
+        produces_interaction_state = (
+            step_type in ("interactive", "mixed")
+            or any(so.get("op_type") == "user_interaction" for so in sub_ops)
+        )
+        invokes_extension_method = bool(step.get("method_name")) or any(
+            so.get("extension_method_hint") for so in sub_ops
+        )
+        invokes_extension_function = bool(step.get("extension_function_name")) or any(
+            so.get("extension_function_hint") for so in sub_ops
+        )
+        invokes_slicer_api = (
+            step.get("op_type") == "slicer_op"
+            or any(so.get("op_type") == "slicer_op" for so in sub_ops)
+        )
+        implementation_uses_slicer_api = bool(
+            invokes_slicer_api
+            or step_type in ("interactive", "mixed")
+            or step.get("interaction_owner")
+            or step.get("placement_starter_method")
+            or step.get("extension_function_name")
+        )
+        return {
+            "step_type": step_type,
+            "op_types": op_types,
+            "invokes_extension_method": invokes_extension_method,
+            "invokes_extension_function": invokes_extension_function,
+            "invokes_slicer_api": invokes_slicer_api,
+            "implementation_uses_slicer_api": implementation_uses_slicer_api,
+            "produces_interaction_state": produces_interaction_state,
+            "interaction_kinds": sorted(set(interaction_kinds)),
+        }
+
+    def _infer_step_node_roles(self, step: Dict, metadata: Dict) -> List[Dict]:
+        """Infer generic node roles produced or consumed by a workflow step."""
+        roles = []
+        step_id = step.get("step_id", "")
+
+        def _add(role_kind: str, node_class: str, parameter_name: str = "") -> None:
+            if not node_class and not parameter_name:
+                return
+            roles.append({
+                "role_kind": role_kind,
+                "step_id": step_id,
+                "node_class": node_class or "",
+                "parameter_name": parameter_name or "",
+            })
+
+        binding = metadata.get("interaction_bindings", {}).get(step_id, {})
+        node_class = step.get("node_class", "")
+        if node_class:
+            _add("interaction_output", node_class, binding.get("parameter_name", ""))
+
+        for so in step.get("sub_operations", []) or []:
+            if so.get("op_type") == "user_interaction":
+                _add(
+                    "interaction_output",
+                    so.get("node_class", ""),
+                    binding.get("parameter_name", ""),
+                )
+
+        choice_binding = metadata.get("choice_bindings", {}).get(step_id, {})
+        if choice_binding:
+            _add(
+                "choice_input",
+                choice_binding.get("node_class", ""),
+                choice_binding.get("parameter_name", ""),
+            )
+        return roles
+
     @staticmethod
     def _enrich_workflow_with_metadata(workflow_graph: Dict, metadata: Dict) -> None:
         """Attach generated metadata directly to workflow steps."""
         for step in workflow_graph.get("steps", []):
             sid = step.get("step_id", "")
+            if sid in metadata.get("operation_model", {}):
+                step["operation_model"] = metadata["operation_model"][sid]
+            if sid in metadata.get("node_roles", {}):
+                step["node_roles"] = metadata["node_roles"][sid]
             if sid in metadata.get("choice_bindings", {}):
                 step["choice_binding"] = metadata["choice_bindings"][sid]
             if sid in metadata.get("interaction_bindings", {}):
@@ -8078,6 +9377,19 @@ Return ONLY the JSON, no markdown fences.""")
         )
 
         templates = generator.generate(slicer_ops)
+        self._slicer_op_evidence = {}
+        for idx, (step_num, sub_op) in enumerate(slicer_ops):
+            key = f"cb_step_{step_num}_{idx}"
+            code = templates.get(key, "")
+            if not code:
+                continue
+            self._slicer_op_evidence[key] = self._build_template_api_evidence(
+                code,
+                sub_op,
+                source="stage5T",
+            )
+        if isinstance(self._workflow_metadata, dict):
+            self._workflow_metadata["stage5T_api_evidence"] = self._slicer_op_evidence
 
         self.on_progress(
             "5T", "Slicer op generation",
@@ -8119,6 +9431,21 @@ Return ONLY the JSON, no markdown fences.""")
     ) -> Tuple[Dict, List[Dict]]:
         """Build manifest and generators for an interactive workflow."""
         steps = workflow_graph.get("steps", [])
+        for step in steps:
+            operation_model = self._build_step_operation_model(step)
+            step["operation_model"] = operation_model
+            if isinstance(self._workflow_metadata, dict):
+                self._workflow_metadata.setdefault("operation_model", {})[
+                    step.get("step_id", "")
+                ] = operation_model
+                if step.get("interaction_owner") or step.get("placement_starter_method"):
+                    self._workflow_metadata.setdefault("interaction_policies", {})[
+                        step.get("step_id", "")
+                    ] = {
+                        "interaction_owner": step.get("interaction_owner", ""),
+                        "placement_starter_method": step.get("placement_starter_method", ""),
+                        "created_node_source": step.get("created_node_source", ""),
+                    }
         stage_names = [s["step_id"] for s in steps]
 
         manifest = {
@@ -8129,6 +9456,7 @@ Return ONLY the JSON, no markdown fences.""")
             "status": "draft",
             "workflow_type": "interactive",
             "workflow_graph_file": "workflow.json",
+            "workflow_metadata_file": "workflow_metadata.json",
             "stages": stage_names,
         }
         # Add cookbook metadata when cookbook-driven
@@ -8159,6 +9487,20 @@ Return ONLY the JSON, no markdown fences.""")
             }
             if op_type:
                 gen["op_type"] = op_type
+            if step.get("method_name"):
+                gen["method_name"] = step["method_name"]
+            if step.get("extension_function_name"):
+                gen["extension_function_name"] = step["extension_function_name"]
+            if step.get("allow_destructive_ops"):
+                gen["allow_destructive_ops"] = bool(step.get("allow_destructive_ops"))
+            if step.get("destructive_ops_contract"):
+                gen["destructive_ops_contract"] = step["destructive_ops_contract"]
+            if step.get("api_evidence"):
+                gen["api_evidence"] = step["api_evidence"]
+            if step.get("operation_model"):
+                gen["operation_model"] = step["operation_model"]
+            if step.get("node_roles"):
+                gen["node_roles"] = step["node_roles"]
 
             if step_type == "automated" and step.get("code_template"):
                 gen["template_file"] = step["code_template"]
@@ -8174,6 +9516,16 @@ Return ONLY the JSON, no markdown fences.""")
                     "node_class": nc or "",
                     "placement_instructions": step.get("placement_instructions", ""),
                 }
+                if step.get("interaction_owner"):
+                    gen["interaction_descriptor"]["interaction_owner"] = step.get("interaction_owner")
+                if step.get("placement_starter_method"):
+                    gen["interaction_descriptor"]["placement_starter_method"] = step.get(
+                        "placement_starter_method"
+                    )
+                if step.get("created_node_source"):
+                    gen["interaction_descriptor"]["created_node_source"] = step.get(
+                        "created_node_source"
+                    )
                 if step.get("interaction_binding"):
                     gen["interaction_descriptor"]["binding"] = step["interaction_binding"]
             elif step_type == "mixed":
@@ -8199,6 +9551,10 @@ Return ONLY the JSON, no markdown fences.""")
                     interaction_desc["placement_starter_method"] = step.get(
                         "placement_starter_method"
                     )
+                if step.get("node_roles"):
+                    interaction_desc["node_roles"] = step["node_roles"]
+                if step.get("created_node_source"):
+                    interaction_desc["created_node_source"] = step.get("created_node_source")
                 gen["interaction_descriptor"] = interaction_desc
                 gen["sub_operations"] = step.get("sub_operations", [])
             elif step_type == "branch":
@@ -8214,6 +9570,8 @@ Return ONLY the JSON, no markdown fences.""")
                 }
                 if step.get("choice_binding"):
                     gen["choice_descriptor"]["binding"] = step["choice_binding"]
+                if step.get("node_roles"):
+                    gen["choice_descriptor"]["node_roles"] = step["node_roles"]
 
             if step.get("repeat_group"):
                 gen["repeat_group"] = step["repeat_group"]

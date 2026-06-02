@@ -50,6 +50,10 @@ class SlicerAIAgentTest(ScriptedLoadableModuleTest):
         self.setUp()
         self.test_CodeValidator()
         self.tearDown()
+
+        self.setUp()
+        self.test_ExtensionCLIAnalyzerContracts()
+        self.tearDown()
         
         self.setUp()
         self.test_SafeExecutor()
@@ -228,6 +232,512 @@ More text.
         self.assertTrue(len(result["destructive_ops"]) > 0)
         
         self.delayDisplay("CodeValidator tests passed")
+
+    def test_ExtensionCLIAnalyzerContracts(self):
+        """Test generic workflow-generation validation contracts."""
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+        analyzer = ExtensionCLIAnalyzer(
+            llm_client=None,
+            code_validator=CodeValidator(),
+        )
+
+        # API repair acceptance must depend on valid Python, not on imports.
+        analyzer._call_llm = lambda prompt: "node.SetVisibility(True)"
+        repaired = analyzer._revise_template_for_api(
+            "templates/step.py.tpl",
+            "node.ToggleVisibility()",
+            [{"chain": "node.ToggleVisibility", "error": "missing"}],
+        )
+        self.assertEqual(repaired, "node.SetVisibility(True)")
+
+        # Live API probe failures remain blocking through validation.
+        validation = analyzer._stage9_validate(
+            {"templates/step.py.tpl": "x = 1"},
+            [{"template_file": "templates/step.py.tpl", "step_type": "automated"}],
+            logic_analysis=None,
+            api_probe_result={
+                "unresolved_failures": [
+                    {
+                        "template": "templates/step.py.tpl",
+                        "chain": "slicer.app.badApi",
+                        "error": "API call does not exist",
+                    }
+                ]
+            },
+        )
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("Unresolved live API probe failure" in e for e in validation["errors"]))
+
+        # Placeholder scanning ignores braces inside strings/f-strings.
+        placeholders = analyzer._find_template_placeholders(
+            "print(f'{value}')\n{vol_lookup}\nnode = {node_name: None}\n"
+        )
+        self.assertEqual(
+            placeholders,
+            [
+                {"name": "node_name", "has_default": True},
+                {"name": "vol_lookup", "has_default": False},
+            ],
+        )
+
+        # Unbound open-ended user choices produce a validation warning.
+        validation = analyzer._stage9_validate(
+            {},
+            [{
+                "step_type": "user_choice",
+                "param_signature": {"workflow_step": "cb_step_1"},
+                "description": "Select the input model node",
+                "choice_descriptor": {
+                    "question": "Which model should be used?",
+                    "choices": [],
+                    "parameter_name": "inputModel",
+                },
+            }],
+        )
+        self.assertTrue(any("no source-derived parameter binding" in w for w in validation["warnings"]))
+
+        # Closed-form choices can bind to non-node extension parameters.
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fp:
+            fp.write(
+                "class GenericLogic:\n"
+                "    def updateParameterNodeFromGUI(self):\n"
+                "        parameterNode.SetParameter('rightSideLegFibula', 'True')\n"
+                "    def transform(self):\n"
+                "        parameterNode.GetParameter('rightSideLegFibula')\n"
+            )
+            source_path = fp.name
+        try:
+            metadata = analyzer._build_workflow_metadata(
+                {"entry_module": source_path, "logic_class": {"class_name": "GenericLogic"}},
+                {},
+                {
+                    "steps": [{
+                        "step_id": "cb_step_1",
+                        "step_type": "user_choice",
+                        "op_type": "user_choice",
+                        "description": "If the source side is right, choose right.",
+                        "choice_info": {
+                            "question": "Is this the right side?",
+                            "choices": [{"label": "Yes", "value": True}, {"label": "No", "value": False}],
+                            "parameter_name": "right_side",
+                        },
+                        "sub_operations": [{"op_type": "user_choice"}],
+                    }]
+                },
+            )
+            self.assertEqual(
+                metadata["choice_bindings"]["cb_step_1"]["parameter_name"],
+                "rightSideLegFibula",
+            )
+        finally:
+            os.unlink(source_path)
+
+        # Slicer API code cannot hide in an extension_op without an extension method.
+        validation = analyzer._stage9_validate(
+            {"templates/cb_step_1.py.tpl": "slicer.app.layoutManager().setLayout(1)"},
+            [{
+                "template_file": "templates/cb_step_1.py.tpl",
+                "step_type": "automated",
+                "op_type": "extension_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["extension_op"],
+                    "invokes_extension_method": False,
+                    "invokes_slicer_api": False,
+                },
+                "sub_operations": [{
+                    "op_type": "extension_op",
+                    "description": "Change a Slicer view",
+                    "extension_method_hint": None,
+                }],
+            }],
+        )
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("extension_op without an extension method" in e for e in validation["errors"]))
+
+        # Destructive operations require an explicit contract.
+        validation = analyzer._stage9_validate(
+            {"templates/cb_step_2.py.tpl": "displayNode.RemoveAllViewNodeIDs()"},
+            [{
+                "template_file": "templates/cb_step_2.py.tpl",
+                "step_type": "automated",
+                "op_type": "slicer_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["slicer_op"],
+                    "invokes_slicer_api": True,
+                },
+                "sub_operations": [{"op_type": "slicer_op", "description": "Set display views"}],
+            }],
+        )
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("destructive operations" in e for e in validation["errors"]))
+
+        # Display view-list resets are allowed only when followed by explicit scoped view IDs.
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_2b.py.tpl": (
+                    "displayNode.RemoveAllViewNodeIDs()\n"
+                    "displayNode.AddViewNodeID('vtkMRMLViewNode1')\n"
+                    "displayNode.AddViewNodeID('vtkMRMLSliceNodeRed')\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_2b.py.tpl",
+                "step_type": "automated",
+                "op_type": "slicer_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["slicer_op"],
+                    "invokes_slicer_api": True,
+                },
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Set markup display views",
+                    "slicer_op_category": "markups_display",
+                    "slicer_api_keywords": ["Display", "View"],
+                }],
+            }],
+        )
+        self.assertTrue(validation["valid"], validation.get("errors"))
+
+        # Slice intersection visibility may be implemented through slice display nodes,
+        # not only through vtkMRMLCrosshairNode.
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_2c.py.tpl": (
+                    "sliceDisplayNodes = slicer.util.getNodesByClass('vtkMRMLSliceDisplayNode')\n"
+                    "for sliceDisplayNode in sliceDisplayNodes:\n"
+                    "    sliceDisplayNode.SetIntersectingSlicesVisibility(True)\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_2c.py.tpl",
+                "step_type": "automated",
+                "op_type": "slicer_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["slicer_op"],
+                    "invokes_slicer_api": True,
+                },
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Toggle on slice intersection visibility.",
+                    "slicer_op_category": "crosshair",
+                    "slicer_api_keywords": ["crosshair"],
+                }],
+            }],
+        )
+        self.assertTrue(validation["valid"], validation.get("errors"))
+
+        # Per-template API evidence can validate new Slicer API footprints
+        # without adding category-specific validator hints.
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_2d.py.tpl": (
+                    "controller = slicer.app.applicationLogic()\n"
+                    "controller.SetNewSlicerApiVariant(True)\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_2d.py.tpl",
+                "step_type": "automated",
+                "op_type": "slicer_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["slicer_op"],
+                    "invokes_slicer_api": True,
+                },
+                "api_evidence": {
+                    "accepted_footprints": ["SetNewSlicerApiVariant"],
+                    "api_chains": ["controller.SetNewSlicerApiVariant"],
+                },
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Use a newly discovered Slicer API variant.",
+                    "slicer_op_category": "unknown_future_category",
+                    "slicer_api_keywords": ["not_in_template"],
+                }],
+            }],
+        )
+        self.assertTrue(validation["valid"], validation.get("errors"))
+
+        evidence = analyzer._build_template_api_evidence(
+            (
+                "nodes = slicer.util.getNodesByClass('vtkMRMLSliceDisplayNode')\n"
+                "for node in nodes:\n"
+                "    node.SetIntersectingSlicesVisibility(True)\n"
+            ),
+            {
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Toggle slice intersections",
+                    "slicer_op_category": "crosshair",
+                    "slicer_api_keywords": ["crosshair"],
+                }]
+            },
+        )
+        self.assertIn("SetIntersectingSlicesVisibility", evidence["accepted_footprints"])
+        self.assertIn("vtkMRMLSliceDisplayNode", evidence["accepted_footprints"])
+
+        # Extension-owned interactions must not create a second Markups node.
+        validation = analyzer._stage9_validate(
+            {"templates/cb_step_3_pre.py.tpl": "node = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLMarkupsLineNode', 'L')"},
+            [{
+                "pre_template_file": "templates/cb_step_3_pre.py.tpl",
+                "step_type": "interactive",
+                "interaction_descriptor": {
+                    "node_class": "vtkMRMLMarkupsLineNode",
+                    "interaction_owner": "previous_extension_method",
+                    "placement_starter_method": "addLine",
+                },
+            }],
+        )
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("pre-template creates a new Markups node" in e for e in validation["errors"]))
+
+        # Repeat groups cannot call the same placement starter in both start and interaction steps.
+        contract = analyzer._validate_generator_contracts([
+            {
+                "step_type": "automated",
+                "param_signature": {"workflow_step": "cb_step_4"},
+                "interaction_descriptor": {"placement_starter_method": "addPlane"},
+            },
+            {
+                "step_type": "mixed",
+                "param_signature": {"workflow_step": "cb_step_5"},
+                "repeat_group": {
+                    "group_id": "repeat_cb_step_4_cb_step_5",
+                    "start_step": "cb_step_4",
+                    "interaction_step": "cb_step_5",
+                },
+                "interaction_descriptor": {
+                    "node_class": "vtkMRMLMarkupsPlaneNode",
+                    "interaction_owner": "extension_method",
+                    "placement_starter_method": "addPlane",
+                },
+            },
+        ])
+        self.assertTrue(any("both call placement starter" in e for e in contract["errors"]))
+
+        # Normalization removes duplicate repeat starter ownership before templates are built.
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fp:
+            fp.write(
+                "def setCustomLayout():\n"
+                "    slicer.app.layoutManager().setLayout(123)\n"
+            )
+            module_source = fp.name
+        try:
+            analyzer._placement_starter_methods = {"addPlane": {"node_classes": ["vtkMRMLMarkupsPlaneNode"]}}
+            workflow_graph = {
+                "steps": [
+                    {
+                        "step_id": "cb_step_1",
+                        "step_type": "user_choice",
+                        "op_type": "user_choice",
+                        "description": "How many planes are needed?",
+                        "choice_info": {
+                            "question": "How many planes?",
+                            "parameter_name": "number_of_planes",
+                            "choices": [],
+                        },
+                        "sub_operations": [{"op_type": "user_choice"}],
+                    },
+                    {
+                        "step_id": "cb_step_2",
+                        "step_type": "automated",
+                        "op_type": "extension_op",
+                        "description": "Click Add plane.",
+                        "method_name": "addPlane",
+                        "sub_operations": [{
+                            "op_type": "extension_op",
+                            "description": "Add a plane.",
+                            "extension_method_hint": "addPlane",
+                        }],
+                    },
+                    {
+                        "step_id": "cb_step_3",
+                        "step_type": "mixed",
+                        "op_type": "mixed",
+                        "description": "Repeat adding and placing a plane for each requested plane.",
+                        "sub_operations": [
+                            {
+                                "op_type": "extension_op",
+                                "description": "Add a plane.",
+                                "extension_method_hint": "addPlane",
+                            },
+                            {
+                                "op_type": "user_interaction",
+                                "description": "Place the plane.",
+                                "node_class": "vtkMRMLMarkupsPlaneNode",
+                                "interaction_kind": "markup_placement",
+                            },
+                        ],
+                    },
+                    {
+                        "step_id": "cb_step_4",
+                        "step_type": "automated",
+                        "op_type": "extension_op",
+                        "description": "Restore the custom layout.",
+                        "sub_operations": [{
+                            "op_type": "extension_op",
+                            "description": "Restore the custom layout.",
+                            "extension_method_hint": None,
+                        }],
+                    },
+                ]
+            }
+            repeat_group = {
+                "group_id": "repeat_cb_step_1_cb_step_2_cb_step_3",
+                "count_parameter": "number_of_planes",
+                "count_step": "cb_step_1",
+                "start_step": "cb_step_2",
+                "interaction_step": "cb_step_3",
+            }
+            for step in workflow_graph["steps"][:3]:
+                step["repeat_group"] = repeat_group
+            metadata = {
+                "repeat_groups": {repeat_group["group_id"]: repeat_group},
+                "choice_bindings": {},
+                "interaction_bindings": {},
+                "parameter_bindings": {},
+            }
+            analyzer._normalize_workflow_contracts(
+                workflow_graph,
+                metadata,
+                {"entry_module": module_source, "logic_class": {"class_name": "GenericLogic"}},
+                {"methods": []},
+            )
+            interaction_step = workflow_graph["steps"][2]
+            self.assertEqual(interaction_step["step_type"], "interactive")
+            self.assertEqual(interaction_step["interaction_owner"], "previous_extension_method")
+            self.assertFalse(any(
+                so.get("extension_method_hint") == "addPlane"
+                for so in interaction_step["sub_operations"]
+            ))
+            layout_step = workflow_graph["steps"][3]
+            self.assertEqual(layout_step["extension_function_name"], "setCustomLayout")
+            self.assertEqual(
+                layout_step["sub_operations"][0]["extension_function_hint"],
+                "setCustomLayout",
+            )
+        finally:
+            os.unlink(module_source)
+
+        # Acronym-heavy extension layout helpers still match custom-layout cookbook text.
+        self.assertEqual(
+            analyzer._match_extension_function(
+                "Restore the BoneReconstructionPlanner custom layout registered by the extension.",
+                ["setBRPLayout"],
+            ),
+            "setBRPLayout",
+        )
+
+        # Template repairs synchronize extension-function evidence back to generator contracts.
+        analyzer._workflow_metadata = {
+            "extension_callable_inventory": {
+                "module_functions": ["setBRPLayout"],
+            }
+        }
+        workflow_graph = {
+            "steps": [{
+                "step_id": "cb_step_9",
+                "step_type": "automated",
+                "op_type": "extension_op",
+                "description": "Restore custom layout.",
+                "sub_operations": [{
+                    "op_type": "extension_op",
+                    "description": "Restore custom layout.",
+                    "extension_method_hint": None,
+                }],
+            }]
+        }
+        generators = [{
+            "template_file": "templates/cb_step_9.py.tpl",
+            "step_type": "automated",
+            "op_type": "extension_op",
+            "param_signature": {"workflow_step": "cb_step_9"},
+            "sub_operations": [{
+                "op_type": "extension_op",
+                "description": "Restore custom layout.",
+                "extension_method_hint": None,
+            }],
+        }]
+        analyzer._sync_template_contracts(
+            {
+                "templates/cb_step_9.py.tpl": (
+                    "from GenericExtension import setBRPLayout\n"
+                    "setBRPLayout()\n"
+                )
+            },
+            generators,
+            workflow_graph=workflow_graph,
+        )
+        self.assertEqual(generators[0]["extension_function_name"], "setBRPLayout")
+        self.assertTrue(generators[0]["operation_model"]["invokes_extension_function"])
+        self.assertEqual(
+            workflow_graph["steps"][0]["sub_operations"][0]["extension_function_hint"],
+            "setBRPLayout",
+        )
+
+        syntax_issues = analyzer._syntax_check_templates({
+            "templates/good.py.tpl": "x = {value: 1}\n",
+            "templates/bad.py.tpl": "if True print('bad')\n",
+        })
+        self.assertEqual(len(syntax_issues), 1)
+        self.assertEqual(syntax_issues[0]["template"], "templates/bad.py.tpl")
+
+        # Implementation-level Slicer scaffolding is allowed when explicitly modeled.
+        validation = analyzer._stage9_validate(
+            {"templates/cb_step_6_pre.py.tpl": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')"},
+            [{
+                "pre_template_file": "templates/cb_step_6_pre.py.tpl",
+                "step_type": "interactive",
+                "operation_model": {
+                    "step_type": "interactive",
+                    "op_types": ["user_interaction"],
+                    "invokes_slicer_api": False,
+                    "implementation_uses_slicer_api": True,
+                },
+                "interaction_descriptor": {
+                    "node_class": "vtkMRMLMarkupsPlaneNode",
+                    "interaction_owner": "previous_extension_method",
+                    "placement_starter_method": "addPlane",
+                },
+            }],
+        )
+        self.assertTrue(validation["valid"], validation.get("errors"))
+
+        # Previous-step-owned repeat interactions can reference the starter without being treated as a second call.
+        contract = analyzer._validate_generator_contracts([
+            {
+                "step_type": "automated",
+                "param_signature": {"workflow_step": "cb_step_7"},
+                "sub_operations": [{
+                    "op_type": "extension_op",
+                    "extension_method_hint": "addPlane",
+                }],
+            },
+            {
+                "step_type": "interactive",
+                "param_signature": {"workflow_step": "cb_step_8"},
+                "repeat_group": {
+                    "group_id": "repeat_cb_step_7_cb_step_8",
+                    "start_step": "cb_step_7",
+                    "interaction_step": "cb_step_8",
+                },
+                "interaction_descriptor": {
+                    "node_class": "vtkMRMLMarkupsPlaneNode",
+                    "interaction_owner": "previous_extension_method",
+                    "placement_starter_method": "addPlane",
+                },
+            },
+        ])
+        self.assertFalse(contract["errors"], contract["errors"])
+
+        self.delayDisplay("ExtensionCLIAnalyzer contract tests passed")
 
     def test_SafeExecutor(self):
         """Test SafeExecutor functionality."""
