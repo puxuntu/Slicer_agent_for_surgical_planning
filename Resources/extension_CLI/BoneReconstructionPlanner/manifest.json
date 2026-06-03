@@ -6,6 +6,7 @@
   "status": "validated",
   "workflow_type": "interactive",
   "workflow_graph_file": "workflow.json",
+  "workflow_metadata_file": "workflow_metadata.json",
   "stages": [
     "cb_step_1",
     "cb_step_2",
@@ -37,5 +38,11 @@
     "slicer_op",
     "user_choice",
     "user_interaction"
-  ]
+  ],
+  "validation_state": {
+    "static_valid": true,
+    "api_probe_valid": true,
+    "contract_valid": true,
+    "overall_valid": true
+  }
 }

@@ -54,6 +54,18 @@ class SlicerAIAgentTest(ScriptedLoadableModuleTest):
         self.setUp()
         self.test_ExtensionCLIAnalyzerContracts()
         self.tearDown()
+
+        self.setUp()
+        self.test_TurnRouterWorkflowRoutes()
+        self.tearDown()
+
+        self.setUp()
+        self.test_WorkflowRuntimeStateTransitions()
+        self.tearDown()
+
+        self.setUp()
+        self.test_NodeChoiceResolverContracts()
+        self.tearDown()
         
         self.setUp()
         self.test_SafeExecutor()
@@ -94,6 +106,9 @@ class SlicerAIAgentTest(ScriptedLoadableModuleTest):
                 SafeExecutor,
                 ConversationStore,
                 SlicerCodeTemplates,
+                TurnRouter,
+                WorkflowRuntime,
+                NodeChoiceResolver,
             )
             self.delayDisplay("All module components imported successfully")
         except Exception as e:
@@ -224,6 +239,11 @@ More text.
         result = validator.validate(blocked_func)
         self.assertFalse(result["valid"])
         self.assertIn("Blocked", result["reason"])
+
+        # Traceback is used by correction/debug wrappers and should not warn.
+        result = validator.validate("import traceback\nmessage = traceback.format_exc()\n")
+        self.assertTrue(result["valid"], result.get("reason"))
+        self.assertFalse(result["warnings"], result["warnings"])
         
         # Test destructive operation detection
         destructive_code = "slicer.mrmlScene.RemoveNode(node)"
@@ -334,6 +354,108 @@ More text.
         finally:
             os.unlink(source_path)
 
+        # Scalar parameter-node defaults are inferred from UI widgets and
+        # transitive helper-method reads before automated extension calls.
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fp:
+            fp.write(
+                "class GenericLogic:\n"
+                "    def updateParameterNodeFromGUI(self):\n"
+                "        parameterNode.SetParameter('initialSpace', str(self.ui.initialSpinBox.value))\n"
+                "    def generate(self):\n"
+                "        self.transform()\n"
+                "    def transform(self):\n"
+                "        initialSpace = float(parameterNode.GetParameter('initialSpace'))\n"
+            )
+            source_path = fp.name
+        with tempfile.NamedTemporaryFile("w", suffix=".ui", delete=False) as fp:
+            fp.write(
+                "<ui><widget class=\"ctkDoubleSpinBox\" name=\"initialSpinBox\">"
+                "<property name=\"value\"><double>1.5</double></property>"
+                "</widget></ui>"
+            )
+            ui_path = fp.name
+        try:
+            metadata = analyzer._build_workflow_metadata(
+                {
+                    "entry_module": source_path,
+                    "ui_files": [ui_path],
+                    "logic_class": {"class_name": "GenericLogic"},
+                },
+                {},
+                {"steps": []},
+            )
+            self.assertEqual(
+                metadata["parameter_defaults"]["initialSpace"]["value"],
+                "1.5",
+            )
+            self.assertEqual(
+                metadata["parameter_method_dependencies"]["generate"]["parameter_roles"],
+                ["initialSpace"],
+            )
+            analyzer._workflow_metadata = metadata
+            validation = analyzer._stage9_validate(
+                {"templates/cb_step_scalar.py.tpl": "logic.generate()\n"},
+                [{
+                    "template_file": "templates/cb_step_scalar.py.tpl",
+                    "step_type": "automated",
+                    "op_type": "extension_op",
+                    "operation_model": {
+                        "step_type": "automated",
+                        "op_types": ["extension_op"],
+                        "invokes_extension_method": True,
+                    },
+                    "sub_operations": [{
+                        "op_type": "extension_op",
+                        "description": "Generate result.",
+                        "extension_method_hint": "generate",
+                    }],
+                }],
+                logic_analysis={"methods": [{"name": "generate", "parameters": []}]},
+            )
+            self.assertTrue(validation["valid"], validation.get("errors"))
+        finally:
+            os.unlink(source_path)
+            os.unlink(ui_path)
+
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fp:
+            fp.write(
+                "class GenericLogic:\n"
+                "    def generate(self):\n"
+                "        initialSpace = float(parameterNode.GetParameter('initialSpace'))\n"
+            )
+            source_path = fp.name
+        try:
+            metadata = analyzer._build_workflow_metadata(
+                {"entry_module": source_path, "logic_class": {"class_name": "GenericLogic"}},
+                {},
+                {"steps": []},
+            )
+            metadata["parameter_defaults"].pop("initialSpace", None)
+            analyzer._workflow_metadata = metadata
+            validation = analyzer._stage9_validate(
+                {"templates/cb_step_scalar_missing.py.tpl": "logic.generate()\n"},
+                [{
+                    "template_file": "templates/cb_step_scalar_missing.py.tpl",
+                    "step_type": "automated",
+                    "op_type": "extension_op",
+                    "operation_model": {
+                        "step_type": "automated",
+                        "op_types": ["extension_op"],
+                        "invokes_extension_method": True,
+                    },
+                    "sub_operations": [{
+                        "op_type": "extension_op",
+                        "description": "Generate result.",
+                        "extension_method_hint": "generate",
+                    }],
+                }],
+                logic_analysis={"methods": [{"name": "generate", "parameters": []}]},
+            )
+            self.assertFalse(validation["valid"])
+            self.assertTrue(any("depends on scalar parameter 'initialSpace'" in e for e in validation["errors"]))
+        finally:
+            os.unlink(source_path)
+
         # Slicer API code cannot hide in an extension_op without an extension method.
         validation = analyzer._stage9_validate(
             {"templates/cb_step_1.py.tpl": "slicer.app.layoutManager().setLayout(1)"},
@@ -403,6 +525,77 @@ More text.
         )
         self.assertTrue(validation["valid"], validation.get("errors"))
 
+        # Runtime prelude is generated for defaults even when the user has not answered a choice.
+        from SlicerAIAgentLib.ExtensionCLILoader import _WorkflowContext, _build_choice_prelude
+        ctx = _WorkflowContext(
+            ext_name="Generic",
+            ext_dir="",
+            tool_name="Generic",
+            workflow_graph={},
+            target_step={"step_id": "cb_step_1"},
+            target_gen=None,
+            arguments={},
+            user_action="start",
+            done=set(),
+            metadata={
+                "extension_module_name": "GenericExtension",
+                "logic_class_name": "GenericLogic",
+                "parameter_bindings": {
+                    "initialSpace": {
+                        "role": "initialSpace",
+                        "accesses": ["parameter_read"],
+                        "value_types": ["float"],
+                    }
+                },
+                "parameter_defaults": {
+                    "initialSpace": {
+                        "value": "1.5",
+                        "value_type": "float",
+                        "source": "ui_widget_default",
+                    }
+                },
+            },
+        )
+        prelude = _build_choice_prelude(ctx)
+        self.assertIn("_workflow_defaults", prelude)
+        self.assertIn("parameterNode.SetParameter(_role", prelude)
+
+        # Fallback node resolution must not use a different Markups class than metadata expects.
+        analyzer._workflow_metadata = {
+            "parameter_bindings": {
+                "fibulaLine": {
+                    "role": "fibulaLine",
+                    "node_class": "vtkMRMLMarkupsLineNode",
+                }
+            }
+        }
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_node_class.py.tpl": (
+                    "role = 'fibulaLine'\n"
+                    "nodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsCurveNode')\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_node_class.py.tpl",
+                "step_type": "automated",
+                "op_type": "extension_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["extension_op"],
+                    "invokes_extension_method": True,
+                },
+                "sub_operations": [{
+                    "op_type": "extension_op",
+                    "description": "Resolve fibula line.",
+                    "extension_method_hint": "centerLine",
+                }],
+            }],
+            logic_analysis={"methods": [{"name": "centerLine", "parameters": []}]},
+        )
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("metadata expects vtkMRMLMarkupsLineNode" in e for e in validation["errors"]))
+
         # Slice intersection visibility may be implemented through slice display nodes,
         # not only through vtkMRMLCrosshairNode.
         validation = analyzer._stage9_validate(
@@ -431,6 +624,35 @@ More text.
             }],
         )
         self.assertTrue(validation["valid"], validation.get("errors"))
+
+        # Final-state Slicer operations must not invert current state.
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_2c_state.py.tpl": (
+                    "appLogic = slicer.app.applicationLogic()\n"
+                    "currentVisibility = appLogic.GetIntersectingSlicesEnabled(None)\n"
+                    "appLogic.SetIntersectingSlicesEnabled(None, not currentVisibility)\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_2c_state.py.tpl",
+                "step_type": "automated",
+                "op_type": "slicer_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["slicer_op"],
+                    "invokes_slicer_api": True,
+                },
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Toggle on slice intersection visibility.",
+                    "slicer_op_category": "crosshair",
+                    "slicer_api_keywords": ["visibility"],
+                }],
+            }],
+        )
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("Final-state operation requests" in e for e in validation["errors"]))
 
         # Per-template API evidence can validate new Slicer API footprints
         # without adding category-specific validator hints.
@@ -626,6 +848,71 @@ More text.
         finally:
             os.unlink(module_source)
 
+        # Placement starters remain bound across intervening Slicer configuration steps.
+        analyzer._placement_starter_methods = {
+            "addCurve": {"node_classes": ["vtkMRMLMarkupsCurveNode"]}
+        }
+        workflow_graph = {
+            "steps": [
+                {
+                    "step_id": "cb_step_10",
+                    "step_type": "automated",
+                    "op_type": "extension_op",
+                    "description": "Click Add curve.",
+                    "method_name": "addCurve",
+                    "sub_operations": [{
+                        "op_type": "extension_op",
+                        "description": "Click Add curve.",
+                        "extension_method_hint": "addCurve",
+                    }],
+                },
+                {
+                    "step_id": "cb_step_11",
+                    "step_type": "automated",
+                    "op_type": "slicer_op",
+                    "description": "Show the active curve in the desired views.",
+                    "sub_operations": [{
+                        "op_type": "slicer_op",
+                        "description": "Show the active curve in the desired views.",
+                    }],
+                },
+                {
+                    "step_id": "cb_step_12",
+                    "step_type": "interactive",
+                    "op_type": "user_interaction",
+                    "description": "Manually draw the curve.",
+                    "node_class": "vtkMRMLMarkupsCurveNode",
+                    "interaction_kind": "markup_placement",
+                    "sub_operations": [{
+                        "op_type": "user_interaction",
+                        "description": "Manually draw the curve.",
+                        "node_class": "vtkMRMLMarkupsCurveNode",
+                        "interaction_kind": "markup_placement",
+                    }],
+                },
+            ]
+        }
+        metadata = {
+            "repeat_groups": {},
+            "choice_bindings": {},
+            "interaction_bindings": {},
+            "parameter_bindings": {},
+        }
+        analyzer._normalize_workflow_contracts(
+            workflow_graph,
+            metadata,
+            {"entry_module": "", "logic_class": {"class_name": "GenericLogic"}},
+            {"methods": []},
+        )
+        interaction_step = workflow_graph["steps"][2]
+        self.assertEqual(interaction_step["interaction_owner"], "previous_extension_method")
+        self.assertEqual(interaction_step["placement_starter_method"], "addCurve")
+        self.assertEqual(interaction_step["placement_starter_step_id"], "cb_step_10")
+        self.assertEqual(
+            metadata["interaction_policies"]["cb_step_12"]["placement_binding_reason"],
+            "recent_same_node_class_placement_starter",
+        )
+
         # Acronym-heavy extension layout helpers still match custom-layout cookbook text.
         self.assertEqual(
             analyzer._match_extension_function(
@@ -738,6 +1025,103 @@ More text.
         self.assertFalse(contract["errors"], contract["errors"])
 
         self.delayDisplay("ExtensionCLIAnalyzer contract tests passed")
+
+    def test_TurnRouterWorkflowRoutes(self):
+        """Test routing split between traditional and generated CLI workflow turns."""
+        from SlicerAIAgentLib.TurnRouter import (
+            ROUTE_TRADITIONAL,
+            ROUTE_WORKFLOW_CONFLICT,
+            ROUTE_WORKFLOW_CONTROL,
+            TurnRouter,
+        )
+
+        self.assertEqual(
+            TurnRouter.classify("load a volume", {"active": False}).route_type,
+            ROUTE_TRADITIONAL,
+        )
+
+        active = {
+            "active": True,
+            "current_step": "cb_step_18",
+            "status": "waiting_for_user",
+        }
+        done_route = TurnRouter.classify("done", active)
+        self.assertEqual(done_route.route_type, ROUTE_WORKFLOW_CONTROL)
+        self.assertEqual(done_route.action, "proceed")
+        self.assertEqual(done_route.step_id, "cb_step_18")
+
+        step_route = TurnRouter.classify("Proceed with workflow step 'cb_step_12'", active)
+        self.assertEqual(step_route.route_type, ROUTE_WORKFLOW_CONTROL)
+        self.assertEqual(step_route.action, "start")
+        self.assertEqual(step_route.step_id, "cb_step_12")
+
+        choice_route = TurnRouter.classify(
+            "2",
+            {
+                "active": True,
+                "current_step": "cb_step_1",
+                "status": "waiting_for_choice",
+            },
+        )
+        self.assertEqual(choice_route.route_type, ROUTE_WORKFLOW_CONTROL)
+        self.assertEqual(choice_route.action, "choice_made")
+
+        conflict = TurnRouter.classify("segment this CT first", active)
+        self.assertEqual(conflict.route_type, ROUTE_WORKFLOW_CONFLICT)
+
+    def test_WorkflowRuntimeStateTransitions(self):
+        """Test deterministic workflow runtime state updates without Slicer execution."""
+        from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime, WorkflowSession
+
+        runtime = WorkflowRuntime()
+        runtime.session = WorkflowSession(
+            extension_name="FakeExtension",
+            tool_name="FakeExtension",
+            workflow_id="fake_1",
+            current_step="cb_step_1",
+        )
+
+        wait_result = runtime.handle_execution_result(
+            {"type": "interactive", "step_id": "cb_step_1"},
+            {"success": True},
+        )
+        self.assertEqual(wait_result["step_id"], "cb_step_1")
+        self.assertEqual(runtime.session.status, "waiting_for_user")
+        self.assertEqual(runtime.session.current_step, "cb_step_1")
+
+        count = runtime.queue_traditional_prompt("show me the loaded nodes")
+        self.assertEqual(count, 1)
+        self.assertEqual(runtime.pop_queued_prompts(), ["show me the loaded nodes"])
+
+    def test_NodeChoiceResolverContracts(self):
+        """Test narrow LLM node-choice resolver validation behavior."""
+        from SlicerAIAgentLib.NodeChoiceResolver import NodeChoiceResolver
+
+        class FakeClient:
+            api_key = "test"
+
+        resolver = NodeChoiceResolver(FakeClient())
+        step_info = {
+            "type": "user_choice",
+            "question": "Which scalar volume is the Mandible Volume?",
+            "choices": [],
+            "node_class": "vtkMRMLScalarVolumeNode",
+        }
+        candidates = [
+            {"id": "vtkMRMLScalarVolumeNode1", "name": "CTFibula"},
+            {"id": "vtkMRMLScalarVolumeNode2", "name": "CTMandible"},
+        ]
+        self.assertTrue(resolver.should_resolve(step_info, candidates))
+        parsed = resolver._extract_json(
+            "```json\n"
+            "{\"selected_node_id\":\"vtkMRMLScalarVolumeNode2\","
+            "\"selected_node_name\":\"CTMandible\",\"confidence\":0.91,"
+            "\"reason\":\"matches mandible\"}\n"
+            "```"
+        )
+        self.assertEqual(parsed["selected_node_name"], "CTMandible")
+        self.assertEqual(resolver._coerce_confidence("1.5"), 1.0)
+        self.assertEqual(resolver._coerce_confidence("bad"), 0.0)
 
     def test_SafeExecutor(self):
         """Test SafeExecutor functionality."""
@@ -1030,6 +1414,35 @@ class SlicerAIAgentLogicTest(unittest.TestCase):
         """Test conversation clearing."""
         self.logic.clearConversation()
         # Should not raise
+
+    def test_workflow_control_turn_detection(self):
+        """Test dense pre-retrieval skip detection for workflow control turns."""
+        active_context = {
+            "workflow_state": (
+                "### Active Workflow: BoneReconstructionPlanner\n"
+                "- Current step: cb_step_18\n"
+            )
+        }
+        self.assertTrue(
+            self.logic._isWorkflowControlTurn(
+                "Proceed with workflow step 'cb_step_18'",
+                active_context,
+            )
+        )
+        self.assertTrue(self.logic._isWorkflowControlTurn("done", active_context))
+        self.assertTrue(self.logic._isWorkflowControlTurn("skip", active_context))
+        self.assertFalse(
+            self.logic._isWorkflowControlTurn(
+                "Why did the cut plane placement fail?",
+                active_context,
+            )
+        )
+        self.assertFalse(
+            self.logic._isWorkflowControlTurn(
+                "Proceed with workflow step 'cb_step_18'",
+                {},
+            )
+        )
 
 
 # For running outside Slicer's test framework

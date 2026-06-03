@@ -13,14 +13,31 @@ import time
 import subprocess
 import platform
 import logging
+import shutil
+import sys
+import sysconfig
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 from .ExtensionCLILoader import get_dynamic_extension_tools, dispatch_extension_cli_tool
 
 logger = logging.getLogger(__name__)
 
-# Path to bundled ripgrep binary (Windows)
-_RG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin", "rg.exe")
+# Paths to bundled ripgrep binaries. Windows builds historically shipped rg.exe;
+# Linux/macOS may ship an executable named rg in the same folder.
+_BIN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin")
+_RG_EXE_PATH = os.path.join(_BIN_DIR, "rg.exe")
+_RG_UNIX_PATH = os.path.join(_BIN_DIR, "rg")
+_RG_PIP_PACKAGE = "ripgrep"
+
+
+def _get_project_root() -> str:
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _get_ui_analysis_docs_dir() -> str:
+    return os.path.join(
+        _get_project_root(), "Resources", "Slicer_UI_PreAnalysis", "v1", "docs"
+    )
 
 
 class SkillToolExecutor:
@@ -37,7 +54,7 @@ class SkillToolExecutor:
         self._tree_sitter_parsers = {}  # ext -> parser cache
         self._read_history = {}  # path -> {"query": str, "strategy": str}
         self._vector_retriever = self._init_vector_retriever()
-        self._rg_path_cache = self._find_rg()  # cache once at init
+        self._rg_path_cache = self._ensure_rg()  # cache once at init
     
     def _ensure_tree_sitter(self) -> bool:
         """
@@ -211,6 +228,8 @@ class SkillToolExecutor:
     def _infer_source_type(self, file_path: str) -> str:
         """Infer the role of a file based on its path within the Slicer codebase."""
         path_lower = file_path.lower().replace('\\', '/')
+        if path_lower.startswith('slicer-ui-analysis/') or '/slicer_ui_preanalysis/' in path_lower:
+            return 'ui_analysis'
         if '/testing/python/' in path_lower:
             return 'test_example'
         if '/docs/developer_guide/script_repository/' in path_lower:
@@ -236,6 +255,14 @@ class SkillToolExecutor:
         # If already relative, normalize separators only
         if not os.path.isabs(path):
             return path.replace(os.sep, '/')
+
+        ui_docs_dir = _get_ui_analysis_docs_dir()
+        try:
+            ui_rel = os.path.relpath(path, ui_docs_dir)
+            if not ui_rel.startswith('..'):
+                return f"slicer-ui-analysis/{ui_rel.replace(os.sep, '/')}"
+        except ValueError:
+            pass
 
         try:
             rel = os.path.relpath(path, self.skill_path)
@@ -276,6 +303,9 @@ class SkillToolExecutor:
         """
         if os.path.isabs(path):
             return path
+        if path == "slicer-ui-analysis" or path.startswith("slicer-ui-analysis/"):
+            sub = path[len("slicer-ui-analysis"):].lstrip("/\\")
+            return os.path.join(_get_ui_analysis_docs_dir(), sub)
         if path.startswith("ext:"):
             rest = path[4:]
             slash = rest.find('/')
@@ -418,17 +448,136 @@ class SkillToolExecutor:
                 "error": str(e),
             }
 
-    def _find_rg(self) -> Optional[str]:
-        # 1. Windows bundled binary
-        if self.platform == 'windows' and os.path.isfile(_RG_PATH):
-            return _RG_PATH
-        # 2. System-installed rg (any platform: Linux, macOS, Windows with rg in PATH)
+    @staticmethod
+    def _is_executable_file(path: str) -> bool:
+        return bool(path and os.path.isfile(path) and os.access(path, os.X_OK))
+
+    @staticmethod
+    def _run_rg_version(path: str) -> bool:
         try:
-            result = subprocess.run(["rg", "--version"], capture_output=True, timeout=2)
-            if result.returncode == 0:
-                return "rg"
+            result = subprocess.run(
+                [path, "--version"],
+                capture_output=True,
+                timeout=2,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def _candidate_rg_paths(self) -> List[str]:
+        """Return candidate rg executable paths visible to Slicer's Python."""
+        candidates = []
+
+        for env_name in ("SLICER_AGENT_RG", "SLICER_AGENT_RG_PATH", "RIPGREP_PATH"):
+            env_path = os.environ.get(env_name)
+            if env_path:
+                candidates.append(env_path)
+
+        # Bundled binaries, if present.
+        candidates.extend([_RG_UNIX_PATH, _RG_EXE_PATH])
+
+        # PATH lookup from the current Slicer process environment.
+        which_rg = shutil.which("rg")
+        if which_rg:
+            candidates.append(which_rg)
+
+        # pip-installed console scripts may not be added to PATH inside Slicer,
+        # so check Python's script directories explicitly.
+        script_dirs = []
+        try:
+            script_dirs.append(sysconfig.get_path("scripts"))
         except Exception:
             pass
+        try:
+            import site
+            script_dirs.append(os.path.join(site.getuserbase(), "bin"))
+            script_dirs.append(os.path.join(site.getuserbase(), "Scripts"))
+        except Exception:
+            pass
+        script_dirs.append(os.path.dirname(sys.executable))
+
+        for script_dir in script_dirs:
+            if not script_dir:
+                continue
+            candidates.append(os.path.join(script_dir, "rg"))
+            candidates.append(os.path.join(script_dir, "rg.exe"))
+
+        # Preserve order while removing duplicates.
+        seen = set()
+        unique = []
+        for candidate in candidates:
+            if not candidate:
+                continue
+            norm = os.path.normpath(candidate)
+            if norm not in seen:
+                unique.append(norm)
+                seen.add(norm)
+        return unique
+
+    def _find_rg(self) -> Optional[str]:
+        for candidate in self._candidate_rg_paths():
+            if candidate == "rg":
+                if self._run_rg_version(candidate):
+                    return candidate
+                continue
+            if os.path.isfile(candidate) and not os.access(candidate, os.X_OK):
+                try:
+                    os.chmod(candidate, os.stat(candidate).st_mode | 0o111)
+                except Exception:
+                    pass
+            if self._is_executable_file(candidate) and self._run_rg_version(candidate):
+                return candidate
+        return None
+
+    def _install_rg(self) -> bool:
+        """Install ripgrep into Slicer's Python environment when rg is missing."""
+        logger.info("ripgrep executable not found; attempting to install '%s'", _RG_PIP_PACKAGE)
+
+        # Prefer Slicer's pip_install so the package lands in Slicer's own
+        # Python environment, not the system or developer shell environment.
+        try:
+            import slicer
+            pip_install = getattr(getattr(slicer, "util", None), "pip_install", None)
+            if callable(pip_install):
+                pip_install(_RG_PIP_PACKAGE)
+                if self._find_rg():
+                    return True
+        except Exception as exc:
+            logger.warning("slicer.util.pip_install('%s') failed: %s", _RG_PIP_PACKAGE, exc)
+
+        # Fallback for tests or non-Slicer runs.
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", _RG_PIP_PACKAGE],
+                capture_output=True,
+                timeout=180,
+            )
+            if result.returncode != 0:
+                stderr = result.stderr.decode("utf-8", errors="ignore")[:1000]
+                logger.warning("pip install %s failed: %s", _RG_PIP_PACKAGE, stderr)
+                return False
+            return self._find_rg() is not None
+        except Exception as exc:
+            logger.warning("pip install %s raised %s", _RG_PIP_PACKAGE, exc)
+            return False
+
+    def _ensure_rg(self) -> Optional[str]:
+        """Find rg, install it if missing, and return the executable path."""
+        rg_path = self._find_rg()
+        if rg_path:
+            logger.info("ripgrep available: %s", rg_path)
+            return rg_path
+
+        if self._install_rg():
+            rg_path = self._find_rg()
+            if rg_path:
+                logger.info("ripgrep installed and available: %s", rg_path)
+                return rg_path
+
+        logger.warning(
+            "ripgrep is unavailable. Grep tool calls will fail until rg is installed "
+            "or SLICER_AGENT_RG points to an rg executable."
+        )
         return None
 
     def _grep_rg_aggregate(self, pattern: str, path: str) -> Dict:
@@ -1072,7 +1221,7 @@ def get_skill_tools() -> List[Dict]:
             "type": "function",
             "function": {
                 "name": "Grep",
-                "description": "Full-text search across files. Returns an aggregated summary (per-file hit counts + representative matches), not line-by-line results. Use after VectorSearch or when you know a specific API/pattern to confirm usage.",
+                "description": "Full-text search across files. Returns an aggregated summary (per-file hit counts + representative matches), not line-by-line results. Use after VectorSearch or when you know a specific API/pattern to confirm usage. For UI labels/actions, search slicer-ui-analysis/ when the UI pre-analysis has been built.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -1082,7 +1231,7 @@ def get_skill_tools() -> List[Dict]:
                         },
                         "path": {
                             "type": "string",
-                            "description": "Relative path within skill (e.g., 'slicer-source/Docs/developer_guide/script_repository')"
+                            "description": "Relative path within skill or virtual UI analysis root (e.g., 'slicer-source/Docs/developer_guide/script_repository', 'slicer-ui-analysis')"
                         }
                     },
                     "required": ["pattern", "path"]
@@ -1093,13 +1242,13 @@ def get_skill_tools() -> List[Dict]:
             "type": "function",
             "function": {
                 "name": "ReadFile",
-                "description": "Read the content of a file from the skill knowledge base. For files under 500 lines, returns the full content. For larger files, provide a 'query' parameter to extract only relevant sections (e.g., the function or heading matching your keyword).",
+                "description": "Read the content of a file from the skill knowledge base or generated UI analysis. For files under 500 lines, returns the full content. For larger files, provide a 'query' parameter to extract only relevant sections (e.g., the function or heading matching your keyword).",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "Relative path to file (e.g., 'slicer-source/Docs/developer_guide/script_repository/volumes.md')"
+                            "description": "Relative path to file (e.g., 'slicer-source/Docs/developer_guide/script_repository/volumes.md', 'slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLSliceControllerWidget.ui.md')"
                         },
                         "query": {
                             "type": "string",
@@ -1114,7 +1263,7 @@ def get_skill_tools() -> List[Dict]:
             "type": "function",
             "function": {
                 "name": "VectorSearch",
-                "description": "Dense vector search over the pre-indexed knowledge base. Returns the most relevant code snippets. Use this as a fast first step before using ReadFile or Grep.",
+                "description": "Dense vector search over the pre-indexed knowledge base, including generated UI-to-implementation analysis when built. Returns the most relevant code snippets. Use this as a fast first step before using ReadFile or Grep.",
                 "parameters": {
                     "type": "object",
                     "properties": {

@@ -57,6 +57,68 @@ def _derive_interaction_type(node_class, fallback="generic"):
     return _NODE_CLASS_TO_INTERACTION_TYPE.get(node_class or "", fallback)
 
 
+def _infer_final_state_intent(text: str) -> Dict[str, Any]:
+    """Infer whether an operation asks to set a final state or invert state."""
+    raw = text or ""
+    normalized = _re.sub(r"[^a-z0-9]+", " ", raw.lower()).strip()
+    padded = f" {normalized} "
+    invert_patterns = (
+        " invert current state ",
+        " invert the current state ",
+        " toggle current state ",
+        " toggle the current state ",
+        " flip current state ",
+        " flip the current state ",
+        " switch to opposite ",
+        " switch to the opposite ",
+    )
+    true_patterns = (
+        " toggle on ",
+        " turn on ",
+        " switch on ",
+        " set on ",
+        " enable ",
+        " enabled ",
+        " show ",
+        " visible ",
+        " visibility on ",
+        " select ",
+        " selected ",
+        " checked ",
+        " activate ",
+        " activated ",
+    )
+    false_patterns = (
+        " toggle off ",
+        " turn off ",
+        " switch off ",
+        " set off ",
+        " disable ",
+        " disabled ",
+        " hide ",
+        " hidden ",
+        " invisible ",
+        " visibility off ",
+        " unselect ",
+        " deselect ",
+        " unchecked ",
+        " uncheck ",
+        " deactivate ",
+        " deactivated ",
+    )
+    if any(pattern in padded for pattern in invert_patterns):
+        return {"mode": "invert", "state": None, "confidence": "high"}
+    true_hit = any(pattern in padded for pattern in true_patterns)
+    false_hit = any(pattern in padded for pattern in false_patterns)
+    if true_hit and not false_hit:
+        return {"mode": "set", "state": True, "confidence": "high"}
+    if false_hit and not true_hit:
+        return {"mode": "set", "state": False, "confidence": "high"}
+    if true_hit and false_hit:
+        return {"mode": "ambiguous", "state": None, "confidence": "low"}
+    return {"mode": "unspecified", "state": None, "confidence": "none"}
+
+
 def _collect_attr_chain(node) -> List[str]:
     """Recursively collect attribute chain from an AST node.
 
@@ -907,20 +969,37 @@ class ExtensionCLIAnalyzer:
                     pname = prop.get("name", "")
                     if not pname:
                         continue
-                    value = None
-                    string_el = prop.find("string")
-                    if string_el is not None:
-                        value = string_el.text or ""
-                    bool_el = prop.find("bool")
-                    if bool_el is not None:
-                        value = bool_el.text or ""
-                    set_el = prop.find("set")
-                    if set_el is not None:
-                        value = set_el.text or ""
+                    value = self._parse_ui_property_value(prop)
                     if value is not None:
                         info["properties"][pname] = value
                 widgets[name] = info
         return widgets
+
+    @staticmethod
+    def _parse_ui_property_value(prop) -> Optional[Any]:
+        """Return a simple Python value for common Qt Designer property tags."""
+        for tag in ("string", "cstring", "enum", "set"):
+            el = prop.find(tag)
+            if el is not None:
+                return el.text or ""
+        bool_el = prop.find("bool")
+        if bool_el is not None:
+            return str(bool_el.text or "").strip().lower() == "true"
+        for tag in ("number", "int", "uint"):
+            el = prop.find(tag)
+            if el is not None:
+                try:
+                    return int(str(el.text or "0").strip())
+                except ValueError:
+                    return el.text or ""
+        for tag in ("double", "float"):
+            el = prop.find(tag)
+            if el is not None:
+                try:
+                    return float(str(el.text or "0").strip())
+                except ValueError:
+                    return el.text or ""
+        return None
 
     # ================================================================
     # Widget Signal Connection Extraction (AST)
@@ -3586,18 +3665,6 @@ Return ONLY the JSON array, no markdown fences.""")
             if isinstance(self._workflow_metadata, dict):
                 self._workflow_metadata.setdefault("api_evidence", {})[template_file] = merged
 
-        placement_starter_by_step = {}
-        for step in steps:
-            method = step.get("method_name")
-            if method in self._placement_starter_methods:
-                placement_starter_by_step[step.get("step_id", "")] = method
-                continue
-            for so in step.get("sub_operations", []):
-                hint = so.get("extension_method_hint")
-                if hint in self._placement_starter_methods:
-                    placement_starter_by_step[step.get("step_id", "")] = hint
-                    break
-
         for step_index, step in enumerate(steps):
             step_id = step["step_id"]
             step_type = step["step_type"]
@@ -3723,14 +3790,20 @@ Return ONLY the JSON array, no markdown fences.""")
             elif step_type == "interactive":
                 node_class = step.get("node_class", "")
                 is_non_markup_interaction = bool(node_class) and not self._is_markup_node_class(node_class)
-                prev_starter_method = None
-                if step_index > 0:
-                    prev_step_id = steps[step_index - 1].get("step_id", "")
-                    prev_starter_method = placement_starter_by_step.get(prev_step_id)
+                starter_binding = self._find_recent_placement_starter_for_interaction(
+                    steps, step_index
+                )
+                prev_starter_method = (
+                    step.get("placement_starter_method")
+                    or starter_binding.get("method")
+                )
                 if prev_starter_method and self._is_markup_node_class(node_class):
                     step["interaction_owner"] = "previous_extension_method"
                     step["placement_starter_method"] = prev_starter_method
                     step["created_node_source"] = "previous_extension_method"
+                    if starter_binding:
+                        step["placement_starter_step_id"] = starter_binding.get("step_id", "")
+                        step["placement_binding_reason"] = starter_binding.get("reason", "")
 
                 # Pre-interaction template
                 if prev_starter_method and self._is_markup_node_class(node_class):
@@ -4134,6 +4207,24 @@ Return ONLY the JSON array, no markdown fences.""")
                         ui_context = f"Button label: '{s.get('button_label', '')}'\nDescription: {s.get('description', '')}"
                         break
 
+        parameter_context = ""
+        if isinstance(self._workflow_metadata, dict):
+            defaults = self._workflow_metadata.get("parameter_defaults", {}) or {}
+            deps = self._workflow_metadata.get("parameter_method_dependencies", {}).get(method_name, {})
+            roles = deps.get("parameter_roles", []) or []
+            if roles:
+                rows = []
+                for role in roles:
+                    default = defaults.get(role)
+                    if default:
+                        rows.append(
+                            f"  - {role}: default {default.get('value')!r} "
+                            f"({default.get('source')}, {default.get('confidence')} confidence)"
+                        )
+                    else:
+                        rows.append(f"  - {role}: no inferred default")
+                parameter_context = "Parameter-node dependencies:\n" + "\n".join(rows)
+
         prompt = textwrap.dedent(f"""\
             Generate a Python code snippet for a 3D Slicer extension workflow step.
 
@@ -4144,6 +4235,7 @@ Return ONLY the JSON array, no markdown fences.""")
             {ui_context}
 
             {params_desc}
+            {parameter_context}
 
             Method source code:
             ```python
@@ -4154,6 +4246,7 @@ Return ONLY the JSON array, no markdown fences.""")
             1. Import the logic class from `{module_name}`
             2. Reuse the existing logic instance `_{extension_name.lower()}_logic` if it exists, otherwise create a new `{logic_class_name}()`
             3. Set up any required state on the logic instance BEFORE calling the method (e.g., if the method reads `self.mandibleSegmentationNode`, find the node in the scene and assign it)
+               If the method or its helper methods read scalar values from `parameterNode.GetParameter(...)`, initialize missing values using the provided source-derived defaults with `parameterNode.SetParameter(...)` before calling the method. Never overwrite a non-empty parameter value.
             4. To find scene nodes, use robust fuzzy matching — NEVER rely on exact node names. Use this pattern:
                ```python
                nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
@@ -6343,6 +6436,13 @@ Return ONLY the sentence, nothing else.""")
                 tpl_name, sample_code, template_context.get(tpl_name), templates,
                 raw_code=tpl_content,
             )
+            final_state_contract = self._validate_final_state_contract(
+                tpl_name, sample_code, template_context.get(tpl_name)
+            )
+            if final_state_contract.get("intent") and isinstance(self._workflow_metadata, dict):
+                self._workflow_metadata.setdefault("final_state_intents", {})[tpl_name] = (
+                    final_state_contract["intent"]
+                )
             if isinstance(self._workflow_metadata, dict):
                 chains = self._extract_api_chains(sample_code)
                 if chains:
@@ -6363,6 +6463,16 @@ Return ONLY the sentence, nothing else.""")
                 )
             if contract.get("warnings"):
                 validation.setdefault("warnings", []).extend(contract["warnings"])
+            if final_state_contract.get("errors"):
+                validation["valid"] = False
+                existing_reason = validation.get("reason") or ""
+                new_reasons = "; ".join(final_state_contract["errors"])
+                validation["reason"] = (
+                    f"{existing_reason}; {new_reasons}" if existing_reason
+                    else new_reasons
+                )
+            if final_state_contract.get("warnings"):
+                validation.setdefault("warnings", []).extend(final_state_contract["warnings"])
 
             results["per_template"][tpl_name] = validation
 
@@ -6439,6 +6549,58 @@ Return ONLY the sentence, nothing else.""")
         )
 
         return results
+
+    def _validate_final_state_contract(
+        self,
+        tpl_name: str,
+        code: str,
+        context: Optional[Dict],
+    ) -> Dict:
+        """Reject final-state slicer operations that invert current state."""
+        result = {"errors": [], "warnings": [], "intent": None}
+        gen = (context or {}).get("generator", {}) or {}
+        if not gen:
+            return result
+        has_slicer_op = gen.get("op_type") == "slicer_op" or any(
+            so.get("op_type") == "slicer_op"
+            for so in (gen.get("sub_operations", []) or [])
+        )
+        if not has_slicer_op:
+            return result
+
+        text_parts = [_text_or_empty(gen.get("description", ""))]
+        if gen.get("op_type") == "slicer_op":
+            text_parts.append(_text_or_empty(gen.get("description", "")))
+        for so in gen.get("sub_operations", []) or []:
+            if so.get("op_type") != "slicer_op":
+                continue
+            text_parts.append(_text_or_empty(so.get("description", "")))
+            text_parts.extend(_text_or_empty(k) for k in (so.get("slicer_api_keywords") or []))
+        evidence = gen.get("api_evidence") or {}
+        text_parts.extend(
+            _text_or_empty(desc)
+            for desc in (evidence.get("operation_descriptions") or [])
+        )
+
+        intent = _infer_final_state_intent(" ".join(text_parts))
+        if intent.get("mode") == "unspecified":
+            return result
+        result["intent"] = intent
+        if intent.get("mode") != "set":
+            return result
+
+        inversion_patterns = (
+            r"=\s*not\s+current[A-Za-z0-9_]*\b",
+            r"[,(\[]\s*not\s+current[A-Za-z0-9_]*\b",
+            r"=\s*not\s+[A-Za-z0-9_]*(Visibility|Enabled|Checked|Selected)\b",
+            r"[,(\[]\s*not\s+[A-Za-z0-9_]*(Visibility|Enabled|Checked|Selected)\b",
+        )
+        if any(_re.search(pattern, code) for pattern in inversion_patterns):
+            desired = "ON/TRUE" if intent.get("state") is True else "OFF/FALSE"
+            result["errors"].append(
+                f"Final-state operation requests {desired}, but template inverts current state"
+            )
+        return result
 
     def _validate_generator_contracts(self, generators: List[Dict]) -> Dict:
         """Validate workflow generator metadata that is not tied to a template."""
@@ -6555,6 +6717,7 @@ Return ONLY the sentence, nothing else.""")
             "extension_functions": [],
             "destructive_contracts": [],
         }
+        final_api_evidence = {}
 
         for tpl_name, raw_code in templates.items():
             if not tpl_name.endswith((".py.tpl", ".py")):
@@ -6621,11 +6784,18 @@ Return ONLY the sentence, nothing else.""")
                     workflow_step["api_evidence"] = existing_evidence
                 if isinstance(self._workflow_metadata, dict):
                     self._workflow_metadata.setdefault("api_evidence", {})[tpl_name] = existing_evidence
+                final_api_evidence[tpl_name] = existing_evidence
 
             self._refresh_generator_operation_model(gen, workflow_step)
 
         if isinstance(self._workflow_metadata, dict):
             self._workflow_metadata["template_contract_sync"] = sync_report
+            if final_api_evidence:
+                self._workflow_metadata["final_api_evidence"] = final_api_evidence
+                self._workflow_metadata["stage5T_api_evidence_note"] = (
+                    "stage5T_api_evidence is pre-revision retrieval evidence; "
+                    "final_api_evidence reflects the current validated templates."
+                )
             self._workflow_metadata["operation_model"] = {
                 (gen.get("param_signature") or {}).get("workflow_step", ""): gen.get("operation_model", {})
                 for gen in generators or []
@@ -7156,6 +7326,114 @@ Return ONLY the sentence, nothing else.""")
                     "Interaction is owned by an extension placement method but pre-template creates a new Markups node"
                 )
 
+        scalar_contract = self._validate_scalar_parameter_contract(code)
+        result["errors"].extend(scalar_contract["errors"])
+        result["warnings"].extend(scalar_contract["warnings"])
+
+        node_class_contract = self._validate_node_class_contract(code)
+        result["errors"].extend(node_class_contract["errors"])
+
+        return result
+
+    @staticmethod
+    def _extension_methods_called_by_template(code: str) -> List[str]:
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return []
+        methods = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+                and func.value.id == "logic"
+            ):
+                methods.append(func.attr)
+        return sorted(set(methods))
+
+    @staticmethod
+    def _template_sets_parameter(code: str, role: str) -> bool:
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return False
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func_name = ExtensionCLIAnalyzer._get_call_name(node)
+            if not func_name.endswith("SetParameter") or not node.args:
+                continue
+            arg0 = node.args[0]
+            if isinstance(arg0, ast.Constant) and arg0.value == role:
+                return True
+        return False
+
+    def _validate_scalar_parameter_contract(self, code: str) -> Dict[str, List[str]]:
+        """Ensure automated extension method calls have scalar parameter defaults."""
+        result = {"errors": [], "warnings": []}
+        if not isinstance(self._workflow_metadata, dict):
+            return result
+        methods = self._extension_methods_called_by_template(code)
+        if not methods:
+            return result
+
+        bindings = self._workflow_metadata.get("parameter_bindings", {}) or {}
+        defaults = self._workflow_metadata.get("parameter_defaults", {}) or {}
+        dependencies = self._workflow_metadata.get("parameter_method_dependencies", {}) or {}
+        choice_bound_roles = {
+            binding.get("parameter_name")
+            for binding in (self._workflow_metadata.get("choice_bindings", {}) or {}).values()
+            if isinstance(binding, dict)
+        }
+
+        for method in methods:
+            dep = dependencies.get(method, {}) or {}
+            for role in dep.get("parameter_roles", []) or []:
+                info = bindings.get(role, {}) or {}
+                if info.get("node_class"):
+                    continue
+                value_types = set(info.get("value_types") or [])
+                if not (value_types & {"float", "int", "bool"}):
+                    continue
+                if (
+                    role in defaults
+                    or role in choice_bound_roles
+                    or self._template_sets_parameter(code, role)
+                ):
+                    default_info = defaults.get(role, {}) or {}
+                    if default_info.get("confidence") == "low":
+                        result["warnings"].append(
+                            f"Parameter '{role}' for logic.{method}() uses low-confidence "
+                            f"{default_info.get('source', 'default')} default {default_info.get('value')!r}"
+                        )
+                    continue
+                result["errors"].append(
+                    f"logic.{method}() depends on scalar parameter '{role}' "
+                    f"({', '.join(sorted(value_types))}) but no user binding, template assignment, "
+                    "or source-derived default is available"
+                )
+        return result
+
+    def _validate_node_class_contract(self, code: str) -> Dict[str, List[str]]:
+        """Detect fallback code that resolves a parameter role with the wrong MRML class."""
+        result = {"errors": []}
+        if not isinstance(self._workflow_metadata, dict):
+            return result
+        bindings = self._workflow_metadata.get("parameter_bindings", {}) or {}
+        for role, info in bindings.items():
+            expected = info.get("node_class", "")
+            if not expected or "vtkMRMLMarkups" not in expected or role not in code:
+                continue
+            classes = set(_re.findall(r"['\"](vtkMRMLMarkups[A-Za-z0-9_]+Node)['\"]", code))
+            mismatches = sorted(cls for cls in classes if cls != expected)
+            if mismatches and expected not in classes:
+                result["errors"].append(
+                    f"Template references parameter role '{role}' with node class "
+                    f"{', '.join(mismatches)} but metadata expects {expected}"
+                )
         return result
 
     @staticmethod
@@ -7344,7 +7622,7 @@ Return ONLY the sentence, nothing else.""")
             "vtkMRMLView", "vtkMRMLLayout", "vtkMRMLCamera",
             "vtkMRMLClip", "vtkMRMLColor", "vtkMRMLDisplay",
             "vtkMRMLStorage", "vtkMRMLSubjectHierarchy",
-            "vtkMRMLCrosshair",
+            "vtkMRMLCrosshair", "vtkMRMLScriptedModule",
         )
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -8017,6 +8295,16 @@ Return ONLY the JSON, no markdown fences.""")
             )
 
             if validation_result.get("valid"):
+                if isinstance(self._workflow_metadata, dict):
+                    resolved_syntax_issues = self._workflow_metadata.pop(
+                        "stage7_syntax_issues", None
+                    )
+                    if resolved_syntax_issues:
+                        self._workflow_metadata["resolved_stage7_syntax_issues"] = (
+                            resolved_syntax_issues
+                        )
+                    self._workflow_metadata["revision_validation_status"] = "passed"
+
                 # Update manifest status
                 manifest["status"] = "validated"
                 manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
@@ -8739,11 +9027,15 @@ Return ONLY the JSON, no markdown fences.""")
                 "methods": [],
                 "keywords": self._role_keywords(role),
                 "node_class": self._guess_node_class_for_role(role),
+                "value_types": [],
             })
             if access not in entry["accesses"]:
                 entry["accesses"].append(access)
             if method and method not in entry["methods"]:
                 entry["methods"].append(method)
+            value_type = self._parameter_access_value_type(node) if access == "parameter_read" else ""
+            if value_type and value_type not in entry["value_types"]:
+                entry["value_types"].append(value_type)
 
         parent_stack = []
         for node in ast.walk(tree):
@@ -8782,6 +9074,282 @@ Return ONLY the JSON, no markdown fences.""")
             _record(arg0.value, access, method)
         return roles
 
+    @staticmethod
+    def _parameter_access_value_type(get_parameter_call: ast.Call) -> str:
+        """Infer the expected scalar type around a GetParameter(...) call."""
+        parent = getattr(get_parameter_call, "_parent", None)
+        if isinstance(parent, ast.Call) and isinstance(parent.func, ast.Name):
+            if parent.func.id in ("float", "int", "bool", "str"):
+                return parent.func.id
+        if isinstance(parent, ast.Compare):
+            constants = [
+                c.value for c in parent.comparators
+                if isinstance(c, ast.Constant)
+            ]
+            if any(str(v).lower() in ("true", "false") for v in constants):
+                return "bool"
+            if any(isinstance(v, (int, float)) for v in constants):
+                return "float" if any(isinstance(v, float) for v in constants) else "int"
+        return ""
+
+    @staticmethod
+    def _parameter_default_value_type(value: Any) -> str:
+        if isinstance(value, bool):
+            return "bool"
+        if isinstance(value, int) and not isinstance(value, bool):
+            return "int"
+        if isinstance(value, float):
+            return "float"
+        text = str(value)
+        lowered = text.strip().lower()
+        if lowered in ("true", "false"):
+            return "bool"
+        try:
+            int(text)
+            return "int"
+        except Exception:
+            pass
+        try:
+            float(text)
+            return "float"
+        except Exception:
+            pass
+        return "str"
+
+    @staticmethod
+    def _parameter_default_to_string(value: Any) -> str:
+        if isinstance(value, bool):
+            return "True" if value else "False"
+        return str(value)
+
+    def _record_parameter_default(
+        self,
+        defaults: Dict[str, Dict],
+        role: str,
+        value: Any,
+        source: str,
+        method: str = "",
+        widget: str = "",
+        property_name: str = "",
+        confidence: str = "high",
+        precedence: int = 50,
+    ) -> None:
+        if not role or value is None:
+            return
+        existing = defaults.get(role)
+        if existing and existing.get("_precedence", 0) > precedence:
+            return
+        defaults[role] = {
+            "value": self._parameter_default_to_string(value),
+            "value_type": self._parameter_default_value_type(value),
+            "source": source,
+            "method": method,
+            "widget": widget,
+            "property": property_name,
+            "confidence": confidence,
+            "_precedence": precedence,
+        }
+
+    @staticmethod
+    def _literal_parameter_value(node: ast.AST) -> Optional[Any]:
+        """Extract constants commonly passed to SetParameter(...)."""
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            if node.func.id == "str" and node.args:
+                return ExtensionCLIAnalyzer._literal_parameter_value(node.args[0])
+            if node.func.id in ("float", "int", "bool") and node.args:
+                raw = ExtensionCLIAnalyzer._literal_parameter_value(node.args[0])
+                if raw is None:
+                    return None
+                try:
+                    return {"float": float, "int": int, "bool": bool}[node.func.id](raw)
+                except Exception:
+                    return None
+        return None
+
+    @staticmethod
+    def _widget_reference_from_expr(node: ast.AST) -> Tuple[str, str]:
+        """Return (widget_name, property_name) from expressions like self.ui.foo.value."""
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.args:
+            if node.func.id in ("str", "float", "int", "bool"):
+                return ExtensionCLIAnalyzer._widget_reference_from_expr(node.args[0])
+        attrs = []
+        current = node
+        while isinstance(current, ast.Attribute):
+            attrs.append(current.attr)
+            current = current.value
+        attrs = list(reversed(attrs))
+        if len(attrs) >= 2 and attrs[0] == "ui":
+            return attrs[1], attrs[-1]
+        if len(attrs) >= 3 and attrs[0] == "self" and attrs[1] == "ui":
+            return attrs[2], attrs[-1]
+        return "", ""
+
+    @staticmethod
+    def _default_property_for_widget(qt_class: str, expr_property: str) -> str:
+        prop = (expr_property or "").lower()
+        cls = qt_class or ""
+        if prop in ("checked", "ischecked"):
+            return "checked"
+        if prop in ("value", "number"):
+            return "value"
+        if prop in ("currenttext", "currentindex"):
+            return "currentIndex" if prop == "currentindex" else "currentText"
+        if "CheckBox" in cls or "Checkable" in cls or "RadioButton" in cls:
+            return "checked"
+        if "SpinBox" in cls or "Slider" in cls:
+            return "value"
+        if "ComboBox" in cls:
+            return "currentIndex"
+        return expr_property
+
+    def _extract_parameter_defaults(
+        self,
+        source: str,
+        ui_files: List[str],
+        roles: Dict[str, Dict],
+    ) -> Dict[str, Dict]:
+        """Extract source-derived scalar defaults for parameter-node roles."""
+        defaults: Dict[str, Dict] = {}
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            tree = None
+
+        widgets = self._extract_ui_widget_inventory(ui_files)
+        if tree is not None:
+            for node in ast.walk(tree):
+                for child in ast.iter_child_nodes(node):
+                    setattr(child, "_parent", node)
+
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                func_name = self._get_call_name(node)
+                if not func_name.endswith("SetParameter") or len(node.args) < 2:
+                    continue
+                role_arg = node.args[0]
+                if not isinstance(role_arg, ast.Constant) or not isinstance(role_arg.value, str):
+                    continue
+                role = role_arg.value
+                method = ""
+                parent = getattr(node, "_parent", None)
+                while parent is not None:
+                    if isinstance(parent, ast.FunctionDef):
+                        method = parent.name
+                        break
+                    parent = getattr(parent, "_parent", None)
+
+                literal = self._literal_parameter_value(node.args[1])
+                if literal is not None:
+                    self._record_parameter_default(
+                        defaults, role, literal,
+                        source="python_setparameter_literal",
+                        method=method, confidence="high", precedence=90,
+                    )
+                    continue
+
+                widget_name, expr_property = self._widget_reference_from_expr(node.args[1])
+                widget_info = widgets.get(widget_name, {})
+                prop_name = self._default_property_for_widget(
+                    widget_info.get("class", ""), expr_property
+                )
+                if widget_info and prop_name in widget_info.get("properties", {}):
+                    self._record_parameter_default(
+                        defaults, role, widget_info["properties"][prop_name],
+                        source="ui_widget_default",
+                        method=method, widget=widget_name,
+                        property_name=prop_name, confidence="high", precedence=80,
+                    )
+
+        for role, info in (roles or {}).items():
+            if info.get("node_class") or role in defaults:
+                continue
+            value_types = set(info.get("value_types") or [])
+            if "float" in value_types:
+                self._record_parameter_default(
+                    defaults, role, "0.0", source="typed_read_safe_fallback",
+                    confidence="low", precedence=10,
+                )
+            elif "int" in value_types:
+                self._record_parameter_default(
+                    defaults, role, "0", source="typed_read_safe_fallback",
+                    confidence="low", precedence=10,
+                )
+            elif "bool" in value_types:
+                self._record_parameter_default(
+                    defaults, role, "False", source="typed_read_safe_fallback",
+                    confidence="low", precedence=10,
+                )
+
+        for entry in defaults.values():
+            entry.pop("_precedence", None)
+        return defaults
+
+    def _extract_parameter_method_dependencies(
+        self,
+        source: str,
+        roles: Dict[str, Dict],
+    ) -> Dict[str, Dict]:
+        """Map logic methods to direct/transitive parameter-node roles they read."""
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return {}
+
+        direct_roles: Dict[str, set] = {}
+        calls: Dict[str, set] = {}
+        method_names = {
+            node.name for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+        }
+
+        for role, info in (roles or {}).items():
+            if "parameter_read" not in (info.get("accesses") or []):
+                continue
+            for method in info.get("methods") or []:
+                direct_roles.setdefault(method, set()).add(role)
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            for child in ast.walk(node):
+                if not isinstance(child, ast.Call):
+                    continue
+                func = child.func
+                if (
+                    isinstance(func, ast.Attribute)
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id == "self"
+                    and func.attr in method_names
+                ):
+                    calls.setdefault(node.name, set()).add(func.attr)
+
+        dependencies: Dict[str, Dict] = {}
+        for method in method_names:
+            seen = set()
+            stack = [method]
+            roles_for_method = set()
+            callees = set()
+            while stack:
+                current = stack.pop()
+                if current in seen:
+                    continue
+                seen.add(current)
+                if current != method:
+                    callees.add(current)
+                roles_for_method.update(direct_roles.get(current, set()))
+                for callee in calls.get(current, set()):
+                    if callee not in seen:
+                        stack.append(callee)
+            if roles_for_method:
+                dependencies[method] = {
+                    "parameter_roles": sorted(roles_for_method),
+                    "transitive_methods": sorted(callees),
+                }
+        return dependencies
+
     def _build_workflow_metadata(
         self, scan_result: Dict, logic_analysis: Dict, workflow_graph: Dict,
     ) -> Dict:
@@ -8796,11 +9364,22 @@ Return ONLY the JSON, no markdown fences.""")
                 source = ""
 
         bindings = self._extract_parameter_roles_from_source(source)
+        parameter_defaults = self._extract_parameter_defaults(
+            source, scan_result.get("ui_files", []) or [], bindings
+        )
+        for role, default in parameter_defaults.items():
+            if role in bindings:
+                bindings[role]["default"] = default
+        parameter_dependencies = self._extract_parameter_method_dependencies(
+            source, bindings
+        )
         metadata = {
             "extension_module_name": os.path.splitext(os.path.basename(entry_module))[0],
             "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
-            "metadata_version": 3,
+            "metadata_version": 4,
             "parameter_bindings": bindings,
+            "parameter_defaults": parameter_defaults,
+            "parameter_method_dependencies": parameter_dependencies,
             "choice_bindings": {},
             "interaction_bindings": {},
             "operation_model": {},
@@ -9075,6 +9654,78 @@ Return ONLY the JSON, no markdown fences.""")
                 return hint
         return ""
 
+    def _step_interaction_node_class(self, step: Dict) -> str:
+        """Return the node class requested by a user interaction step."""
+        if step.get("node_class"):
+            return step.get("node_class", "")
+        for so in step.get("sub_operations", []) or []:
+            if so.get("op_type") == "user_interaction" and so.get("node_class"):
+                return so.get("node_class", "")
+        return ""
+
+    def _step_has_user_interaction_for_node_class(self, step: Dict, node_class: str) -> bool:
+        """Return True if a step already contains an interaction for node_class."""
+        if not node_class:
+            return False
+        if step.get("step_type") in ("interactive", "mixed"):
+            if self._step_interaction_node_class(step) == node_class:
+                return True
+            for so in step.get("sub_operations", []) or []:
+                if (
+                    so.get("op_type") == "user_interaction"
+                    and so.get("node_class") == node_class
+                ):
+                    return True
+        return False
+
+    def _placement_starter_supports_node_class(self, method_name: str, node_class: str) -> bool:
+        """Return True when a placement-starter method can create node_class."""
+        if not method_name or not node_class:
+            return False
+        info = self._placement_starter_methods.get(method_name) or {}
+        node_classes = info.get("node_classes") or []
+        if not node_classes:
+            return True
+        return node_class in node_classes
+
+    def _find_recent_placement_starter_for_interaction(
+        self,
+        steps: List[Dict],
+        step_index: int,
+        max_lookback: int = 5,
+    ) -> Dict[str, Any]:
+        """Find a recent extension placement starter for an interaction step.
+
+        Cookbook steps are user-facing, so display/layout/module configuration
+        may sit between "click Add markup" and "draw/place it".  This helper
+        keeps that continuity without relying on extension-specific wording.
+        """
+        if step_index <= 0 or step_index >= len(steps):
+            return {}
+        interaction_step = steps[step_index]
+        node_class = self._step_interaction_node_class(interaction_step)
+        if not self._is_markup_node_class(node_class):
+            return {}
+
+        start_index = max(0, step_index - max_lookback)
+        for previous_index in range(step_index - 1, start_index - 1, -1):
+            previous_step = steps[previous_index]
+            if self._step_has_user_interaction_for_node_class(previous_step, node_class):
+                return {}
+            starter = self._step_placement_starter(previous_step)
+            if not starter:
+                continue
+            if not self._placement_starter_supports_node_class(starter, node_class):
+                continue
+            return {
+                "method": starter,
+                "step_id": previous_step.get("step_id", ""),
+                "node_class": node_class,
+                "lookback_steps": step_index - previous_index,
+                "reason": "recent_same_node_class_placement_starter",
+            }
+        return {}
+
     def _normalize_workflow_contracts(
         self,
         workflow_graph: Dict,
@@ -9186,6 +9837,41 @@ Return ONLY the JSON, no markdown fences.""")
                 "placement_starter_method": start_starter,
                 "created_node_source": start_step["created_node_source"],
             }
+
+        # Bind user interactions to recent extension placement starters even
+        # when Slicer-core display/layout configuration steps intervene.
+        for step_index, step in enumerate(steps):
+            if step.get("step_type") != "interactive":
+                continue
+            if step.get("placement_starter_method"):
+                continue
+            binding = self._find_recent_placement_starter_for_interaction(
+                steps, step_index
+            )
+            if not binding:
+                continue
+            starter = binding.get("method", "")
+            if not starter:
+                continue
+            step["interaction_owner"] = "previous_extension_method"
+            step["placement_starter_method"] = starter
+            step["created_node_source"] = "previous_extension_method"
+            step["placement_starter_step_id"] = binding.get("step_id", "")
+            step["placement_binding_reason"] = binding.get("reason", "")
+            metadata.setdefault("interaction_policies", {})[step["step_id"]] = {
+                "interaction_owner": step["interaction_owner"],
+                "placement_starter_method": starter,
+                "created_node_source": step["created_node_source"],
+                "placement_starter_step_id": binding.get("step_id", ""),
+                "placement_binding_reason": binding.get("reason", ""),
+                "node_class": binding.get("node_class", ""),
+                "lookback_steps": binding.get("lookback_steps"),
+            }
+            starter_step = by_step.get(binding.get("step_id", ""))
+            if starter_step:
+                starter_step["interaction_owner"] = "extension_method"
+                starter_step["placement_starter_method"] = starter
+                starter_step["created_node_source"] = "extension_method"
 
         # Recompute operation and node-role metadata after normalization.
         metadata["operation_model"] = {}
@@ -9525,6 +10211,14 @@ Return ONLY the JSON, no markdown fences.""")
                 if step.get("created_node_source"):
                     gen["interaction_descriptor"]["created_node_source"] = step.get(
                         "created_node_source"
+                    )
+                if step.get("placement_starter_step_id"):
+                    gen["interaction_descriptor"]["placement_starter_step_id"] = step.get(
+                        "placement_starter_step_id"
+                    )
+                if step.get("placement_binding_reason"):
+                    gen["interaction_descriptor"]["placement_binding_reason"] = step.get(
+                        "placement_binding_reason"
                     )
                 if step.get("interaction_binding"):
                     gen["interaction_descriptor"]["binding"] = step["interaction_binding"]

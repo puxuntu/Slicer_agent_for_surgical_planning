@@ -26,6 +26,9 @@ __all__ = [
     'ExtensionCLIAnalyzer',
     'InteractionManager',
     'WorkflowOrchestrator',
+    'TurnRouter',
+    'WorkflowRuntime',
+    'NodeChoiceResolver',
 ]
 
 # Import main classes for convenient access
@@ -47,3 +50,6 @@ from .SceneTools import buildSceneSummary, getNodeProperties, get_scene_tools
 from .ExtensionCLILoader import get_dynamic_extension_tools, dispatch_extension_cli_tool, get_validated_extensions
 from .InteractionManager import InteractionManager
 from .WorkflowOrchestrator import WorkflowOrchestrator
+from .TurnRouter import TurnRouter, TurnRoute
+from .WorkflowRuntime import WorkflowRuntime
+from .NodeChoiceResolver import NodeChoiceResolver

@@ -1,6 +1,7 @@
 import json
 import os
 import queue
+import re
 import threading
 import unittest
 import logging
@@ -87,11 +88,13 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._lastOutputHasErrors = False
         # Interactive workflow state
         self._workflowOrchestrator = None
+        self._workflowRuntime = None
         self._activeWorkflowId = None
         self._waitingForUser = False
         self._workflowBannerLabel = None
         self._autoAdvanceWorkflowStep = None
         self._workflowInstructionsLabel = None
+        self._nodeChoiceResolver = None
 
 
     def setup(self):
@@ -734,7 +737,13 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     on_error=lambda e: self._streamQueue.put(('cli_error', e)),
                 )
 
-                result = analyzer.revise(ext_name, errors, source_path=source_path)
+                result = analyzer.revise(
+                    ext_name,
+                    errors,
+                    source_path=source_path,
+                    logic_analysis=generation_result.get("logic_analysis"),
+                    api_probe_result=generation_result.get("api_probe_result"),
+                )
                 self._streamQueue.put(('cli_revision_complete', result))
 
             except Exception as e:
@@ -782,7 +791,13 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     on_error=lambda e: self._streamQueue.put(('cli_error', e)),
                 )
 
-                result = analyzer.revise(ext_name, errors, source_path=source_path)
+                result = analyzer.revise(
+                    ext_name,
+                    errors,
+                    source_path=source_path,
+                    logic_analysis=generation_result.get("logic_analysis"),
+                    api_probe_result=generation_result.get("api_probe_result"),
+                )
                 self._streamQueue.put(('cli_revision_complete', result))
 
             except Exception as e:
@@ -805,11 +820,13 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Set up UI components for guided interactive workflows."""
         from SlicerAIAgentLib.WorkflowOrchestrator import WorkflowOrchestrator
         from SlicerAIAgentLib.InteractionManager import InteractionManager
+        from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime
 
         self._interactionManager = InteractionManager()
         self._workflowOrchestrator = WorkflowOrchestrator(
             interaction_manager=self._interactionManager,
         )
+        self._workflowRuntime = WorkflowRuntime()
 
         # Workflow wait banner (hidden by default)
         self._workflowFrame = qt.QFrame()
@@ -1285,11 +1302,331 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 f"Type 'proceed' to continue or 'skip' to skip.")
             self._setReadyStatus()
             return
-        # For required steps, put the prompt into the input and send
-        self.promptInput.setPlainText(
-            f"Proceed with workflow step '{step_id}'"
+        self._runWorkflowStepDirect(step_id, "start")
+
+    def _workflowRuntimeState(self):
+        """Return compact workflow state for turn routing."""
+        if self._workflowRuntime:
+            return self._workflowRuntime.state_for_router()
+        return {"active": False}
+
+    def _registerWorkflowRuntimeResult(self, step_info):
+        """Ensure generated CLI workflow results are tracked by the runtime."""
+        if not isinstance(step_info, dict) or not step_info.get("tool"):
+            return
+        try:
+            if not self._workflowRuntime:
+                from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime
+                self._workflowRuntime = WorkflowRuntime(log_dir=self._getCurrentLogDir())
+            self._workflowRuntime.log_dir = self._getCurrentLogDir()
+            session = self._workflowRuntime.start_from_result(step_info)
+            if session:
+                self._activeWorkflowId = session.workflow_id
+        except Exception as exc:
+            logger.warning(f"Failed to register workflow runtime result: {exc}")
+
+    def _beginWorkflowRuntimeTurn(self, prompt, route):
+        """Initialize compact per-turn state for a deterministic CLI step."""
+        import time
+        self._currentLogDir = self._createRunLogDir(getattr(self, "_currentTurn", 1))
+        if self.logic and self.logic.llmClient:
+            self.logic.llmClient.setDebugOutputDir(self._currentLogDir)
+        if self._workflowRuntime:
+            self._workflowRuntime.log_dir = self._currentLogDir
+        self._roleTrace = []
+        self._timing = {
+            "turn_start": time.time(),
+            "prompt": prompt,
+            "mode": "generated_cli_workflow",
+            "route": getattr(route, "route_type", ""),
+            "route_reason": getattr(route, "reason", ""),
+            "retrieval_timing": {
+                "skipped": True,
+                "skip_reason": "deterministic_generated_cli_workflow",
+            },
+        }
+        self._recordRoleEvent("Observer", "received_workflow_control_prompt", {
+            "prompt_length": len(prompt),
+            "route": getattr(route, "route_type", ""),
+            "action": getattr(route, "action", None),
+            "step_id": getattr(route, "step_id", None),
+        })
+
+    def _handleDirectWorkflowTurnIfNeeded(self, prompt):
+        """Route active generated-CLI workflow control turns around the LLM."""
+        from SlicerAIAgentLib.TurnRouter import (
+            ROUTE_WORKFLOW_CONFLICT,
+            ROUTE_WORKFLOW_CONTROL,
+            TurnRouter,
         )
-        self.onSendButtonClicked()
+
+        route = TurnRouter.classify(prompt, self._workflowRuntimeState())
+        if route.route_type == ROUTE_WORKFLOW_CONFLICT:
+            count = 0
+            if self._workflowRuntime:
+                count = self._workflowRuntime.queue_traditional_prompt(prompt)
+            self.appendToChat(
+                "System",
+                "A generated CLI workflow is active, so I queued this request "
+                f"until the workflow finishes. Queued requests: {count}. "
+                "Type 'done', 'proceed', 'skip', or 'cancel' to control the workflow.",
+            )
+            self._setReadyStatus()
+            self.sendButton.setEnabled(True)
+            return True
+
+        if route.route_type != ROUTE_WORKFLOW_CONTROL:
+            return False
+
+        self.sendButton.setEnabled(False)
+        self._beginWorkflowRuntimeTurn(prompt, route)
+        state = self._workflowRuntimeState()
+        action = route.action or "start"
+        args = {}
+        if action == "choice_made":
+            args["choice_value"] = self._resolveWorkflowChoiceValue(prompt)
+        elif action == "proceed" and state.get("status") != "waiting_for_user":
+            action = "start"
+        self._runWorkflowStepDirect(route.step_id, action, args=args)
+        return True
+
+    def _resolveWorkflowChoiceValue(self, prompt):
+        """Map option number/label replies to generated CLI choice values."""
+        text = str(prompt or "").strip()
+        step_info = getattr(self, "_currentWorkflowStepInfo", None) or {}
+        choices = step_info.get("choices") or []
+        if not choices:
+            return text
+        if text.isdigit():
+            index = int(text) - 1
+            if 0 <= index < len(choices):
+                return choices[index].get("value", choices[index].get("label", text))
+        lowered = text.lower()
+        for choice in choices:
+            label = str(choice.get("label", "")).strip()
+            value = str(choice.get("value", "")).strip()
+            if lowered in {label.lower(), value.lower()}:
+                return value or label or text
+        return text
+
+    def _buildWorkflowAgentPlan(self, result):
+        """Create a valid lightweight plan for deterministic generated code."""
+        step_id = result.get("step_id", "workflow_step")
+        action = result.get("explanation") or result.get("instruction") or f"Run generated CLI workflow step {step_id}"
+        return {
+            "summary": f"Execute generated CLI workflow step {step_id}.",
+            "steps": [
+                {
+                    "action": action,
+                    "confidence": "high",
+                    "evidence": "Validated generated extension CLI template.",
+                    "expected_scene_change": {"type": "not_checked"},
+                }
+            ],
+            "risk_level": "low",
+            "requires_confirmation": False,
+            "unverified_assumptions": [],
+        }
+
+    def _runWorkflowStepDirect(self, step_id, action="start", args=None):
+        """Dispatch a generated CLI workflow step directly and execute its code."""
+        if not self._workflowRuntime:
+            self.appendToChat("Error", "No active generated CLI workflow runtime.")
+            self._setReadyStatus()
+            self.sendButton.setEnabled(True)
+            return
+
+        self._setAgentStatus("Workflow", f"Running {step_id or 'current step'}...")
+        self._recordRoleEvent("Workflow", "dispatch_step_direct", {
+            "step_id": step_id,
+            "action": action,
+        })
+        result = self._workflowRuntime.run_step(step_id, action, args=args)
+        self._handleWorkflowRuntimeResult(result)
+
+    def _handleWorkflowRuntimeResult(self, result):
+        """Handle a deterministic generated CLI dispatcher result."""
+        if not isinstance(result, dict):
+            self.appendToChat("Error", "Generated CLI workflow returned an invalid result.")
+            self._setReadyStatus()
+            self.sendButton.setEnabled(True)
+            return
+        if result.get("error"):
+            self.appendToChat("Error", result["error"])
+            self._recordRoleEvent("Workflow", "dispatch_failed", {"error": result["error"]})
+            self._saveRoleTraceToFile()
+            self._setReadyStatus()
+            self.sendButton.setEnabled(True)
+            return
+
+        self._registerWorkflowRuntimeResult(result)
+        self._currentWorkflowStepInfo = result
+        result_type = result.get("type")
+
+        if result_type == "cancelled":
+            self.appendToChat("System", result.get("message", "Workflow cancelled."))
+            self._recordRoleEvent("Workflow", "cancelled", {})
+            self._saveRoleTraceToFile()
+            self._setReadyStatus()
+            self.sendButton.setEnabled(True)
+            return
+
+        if result_type == "user_choice":
+            resolved = self._tryResolveWorkflowNodeChoice(result)
+            if resolved.get("selected"):
+                self.appendToChat(
+                    "System",
+                    "Automatically selected "
+                    f"'{resolved.get('selected_node_name')}' for workflow step "
+                    f"{result.get('step_id')} using LLM name matching "
+                    f"(confidence {resolved.get('confidence', 0):.2f}).",
+                )
+                self._recordRoleEvent("Workflow", "llm_node_choice_resolved", {
+                    "step_id": result.get("step_id"),
+                    "selected_node_id": resolved.get("selected_node_id"),
+                    "selected_node_name": resolved.get("selected_node_name"),
+                    "confidence": resolved.get("confidence"),
+                    "reason": resolved.get("reason"),
+                })
+                self._runWorkflowStepDirect(
+                    result.get("step_id"),
+                    "choice_made",
+                    args={"choice_value": resolved.get("choice_value")},
+                )
+                return
+            if resolved.get("attempted"):
+                self._recordRoleEvent("Workflow", "llm_node_choice_unresolved", {
+                    "step_id": result.get("step_id"),
+                    "reason": resolved.get("reason"),
+                    "confidence": resolved.get("confidence"),
+                })
+            self._displayWorkflowChoice(result)
+            self._recordRoleEvent("Workflow", "waiting_for_choice", {
+                "step_id": result.get("step_id"),
+            })
+            self._saveRoleTraceToFile()
+            self._setReadyStatus()
+            self.sendButton.setEnabled(True)
+            return
+
+        code = result.get("code") or result.get("pre_code") or result.get("post_code")
+        if code:
+            self.currentCode = code
+            self.currentAgentPlan = self._buildWorkflowAgentPlan(result)
+            self.codeDisplay.setPlainText(code)
+            self._displayAgentPlanSummary(self.currentAgentPlan)
+            self._saveAgentPlanToFile(self.currentAgentPlan)
+            self._saveGeneratedCodeToFile(code, suffix=f"_{result.get('step_id', 'workflow')}")
+            self._recordRoleEvent("Programmer", "workflow_template_received", {
+                "step_id": result.get("step_id"),
+                "type": result_type,
+                "code_chars": len(code),
+            })
+            self._autoExecuteCode()
+            return
+
+        # Pure control result, such as skip with no executable code.
+        self._completeWorkflowResultWithoutCode(result)
+
+    def _displayWorkflowChoice(self, step_info):
+        """Show a generated CLI user-choice question without asking the LLM."""
+        question = step_info.get("question", "")
+        choices = step_info.get("choices", [])
+        lines = [f"[Workflow Question] {question or 'Please make a selection.'}"]
+        if choices:
+            lines.append("Options:")
+            for index, choice in enumerate(choices, 1):
+                label = choice.get("label", choice.get("value", ""))
+                lines.append(f"  {index}. {label}")
+        default = step_info.get("default_value")
+        if default is not None:
+            lines.append(f"(Default: {default})")
+        lines.append("Reply with the selected value or option number.")
+        self.appendToChat("System", "\n".join(lines))
+
+    def _tryResolveWorkflowNodeChoice(self, step_info):
+        """Use a narrow LLM call to resolve ambiguous scene-node choices."""
+        node_class = step_info.get("node_class") or (step_info.get("binding") or {}).get("node_class")
+        if not node_class or step_info.get("choices"):
+            return {"selected": False, "attempted": False, "reason": "not_open_scene_node_choice"}
+        candidates = self._collectWorkflowNodeCandidates(node_class)
+        if len(candidates) <= 1:
+            return {"selected": False, "attempted": False, "reason": "not_ambiguous_candidate_set"}
+        if not self.logic or not self.logic.llmClient:
+            return {"selected": False, "attempted": False, "reason": "llm_unavailable"}
+        try:
+            if self._nodeChoiceResolver is None:
+                from SlicerAIAgentLib.NodeChoiceResolver import NodeChoiceResolver
+                self._nodeChoiceResolver = NodeChoiceResolver(self.logic.llmClient)
+            self._setAgentStatus("Workflow", "Resolving node choice...")
+            resolved = self._nodeChoiceResolver.resolve(step_info, candidates)
+            resolved["attempted"] = True
+            return resolved
+        except Exception as exc:
+            logger.warning(f"Workflow node-choice resolver failed: {exc}")
+            return {"selected": False, "attempted": True, "reason": str(exc)}
+
+    def _collectWorkflowNodeCandidates(self, node_class):
+        """Collect existing MRML nodes for LLM name-only matching."""
+        candidates = []
+        try:
+            nodes = slicer.mrmlScene.GetNodesByClass(node_class)
+            for index in range(nodes.GetNumberOfItems()):
+                node = nodes.GetItemAsObject(index)
+                if node is None:
+                    continue
+                item = {
+                    "id": node.GetID() or "",
+                    "name": node.GetName() or "",
+                    "class": node.GetClassName() if hasattr(node, "GetClassName") else node_class,
+                }
+                try:
+                    storage = node.GetStorageNode()
+                    if storage and storage.GetFileName():
+                        item["storageFileName"] = os.path.basename(storage.GetFileName())
+                except Exception:
+                    pass
+                candidates.append(item)
+        except Exception as exc:
+            logger.warning(f"Failed to collect workflow node candidates for {node_class}: {exc}")
+        return candidates
+
+    def _completeWorkflowResultWithoutCode(self, result):
+        """Advance deterministic workflow state for a no-code control result."""
+        if self._workflowRuntime:
+            result = self._workflowRuntime.handle_execution_result(
+                result,
+                {"success": True, "execution_time": 0.0, "output": ""},
+            )
+        next_step = result.get("next_step")
+        if result.get("workflow_completed"):
+            self.appendToChat("System", "Generated CLI workflow complete.")
+            self._flushQueuedWorkflowPrompts()
+            self._setReadyStatus()
+            self.sendButton.setEnabled(True)
+            return
+        if next_step:
+            self.appendToChat("System", f"Proceeding to next workflow step: {next_step.get('step_id', '')}")
+            self._autoAdvanceWorkflowStep = next_step
+            qt.QTimer.singleShot(100, lambda: self._autoAdvanceNextStep(next_step))
+        else:
+            self._setReadyStatus()
+            self.sendButton.setEnabled(True)
+
+    def _flushQueuedWorkflowPrompts(self):
+        """Replay queued traditional prompts after a generated CLI workflow ends."""
+        if not self._workflowRuntime:
+            return
+        queued = self._workflowRuntime.pop_queued_prompts()
+        if not queued:
+            return
+        prompt = "\n\n".join(queued)
+        self.appendToChat(
+            "System",
+            f"Workflow finished. Running {len(queued)} queued traditional request(s).",
+        )
+        self.promptInput.setPlainText(prompt)
+        qt.QTimer.singleShot(100, self.onSendButtonClicked)
 
     def _roleForStatus(self, status_text):
         """Map low-level API status messages to the composed role shown in the UI."""
@@ -1468,6 +1805,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._currentWorkflowStepInfo = step_info
             self.logic._lastInteractiveStep = None
             _stepInfoFromInteractive = True
+            self._registerWorkflowRuntimeResult(step_info)
 
             # Start or update the workflow if needed
             if self._workflowOrchestrator and step_info.get("step_id"):
@@ -1502,6 +1840,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             step_info = self.logic._lastWorkflowStep
             self._currentWorkflowStepInfo = step_info
             self.logic._lastWorkflowStep = None
+            self._registerWorkflowRuntimeResult(step_info)
 
             if step_info.get("step_id"):
                 if not self._activeWorkflowId:
@@ -1616,6 +1955,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._currentTurnTokens = 0
         self._currentTurnCost = 0.0
 
+        if self._handleDirectWorkflowTurnIfNeeded(prompt):
+            return
+
         self.sendButton.setEnabled(False)
         slicer.app.processEvents()
 
@@ -1653,7 +1995,11 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         context = {"scene": self.logic._buildSceneContext()} if self.logic else None
 
         # Inject active workflow state into context
-        if self._workflowOrchestrator and self._activeWorkflowId:
+        if self._workflowRuntime and self._workflowRuntime.has_active_workflow():
+            wf_fragment = self._workflowRuntime.get_prompt_fragment()
+            if wf_fragment and context:
+                context["workflow_state"] = wf_fragment
+        elif self._workflowOrchestrator and self._activeWorkflowId:
             wf_fragment = self._workflowOrchestrator.get_active_workflow_prompt_fragment()
             if wf_fragment and context:
                 context["workflow_state"] = wf_fragment
@@ -2196,12 +2542,43 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self._timing['executor_actual_start'] = result['executor_actual_start']
                 self._writeTimingReport()
 
+            step_info = getattr(self, '_currentWorkflowStepInfo', None)
+            runtime_managed = bool(self._workflowRuntime and self._workflowRuntime.session and step_info)
+            if result.get("success") and runtime_managed:
+                updated_step = self._workflowRuntime.handle_execution_result(step_info, result)
+                self._currentWorkflowStepInfo = updated_step
+                self._applyWorkflowDisplayProperties(updated_step)
+                if updated_step.get("type") in ("interactive", "mixed"):
+                    self._recordRoleEvent("Workflow", "entering_wait", {
+                        "step_id": updated_step.get("step_id"),
+                    })
+                    self._streamQueue.put(('workflow_wait', updated_step))
+                    return
+                if updated_step.get("type") == "user_choice":
+                    self._displayWorkflowChoice(updated_step)
+                    self._setReadyStatus()
+                    self.sendButton.setEnabled(True)
+                    return
+                next_step = updated_step.get("next_step")
+                if next_step:
+                    completed_step_id = updated_step.get("step_id", "")
+                    self.appendToChat(
+                        "System",
+                        f"Step '{completed_step_id}' completed. "
+                        f"Proceeding to next step: '{next_step.get('step_id', '')}'...",
+                    )
+                    self._autoAdvanceWorkflowStep = next_step
+                elif updated_step.get("workflow_completed"):
+                    self.appendToChat("System", "Generated CLI workflow complete.")
+                    self._flushQueuedWorkflowPrompts()
+
             # Interactive workflow detection: if an interactive step just executed,
             # transition to waiting_for_user and enter wait mode.
             if (result.get("success")
                 and self._workflowOrchestrator
                 and self._activeWorkflowId
-                and self._workflowOrchestrator.is_workflow_active()):
+                and self._workflowOrchestrator.is_workflow_active()
+                and not runtime_managed):
                 wf_state = self._workflowOrchestrator._get_state(self._activeWorkflowId)
                 if wf_state and wf_state.status == "running":
                     step_info = getattr(self, '_currentWorkflowStepInfo', None)
@@ -2223,7 +2600,16 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         })
                         pass  # chat stays enabled, LLM will relay question
                     # Automated step completed — auto-advance to next step
-                    if step_info and step_info.get("type") in (
+                    if step_info and step_info.get("type") == "repeat_next":
+                        next_step = step_info.get("next_step")
+                        if next_step:
+                            self.appendToChat(
+                                "System",
+                                step_info.get("message")
+                                or f"Continuing repeat workflow at step: '{next_step.get('step_id', '')}'..."
+                            )
+                            self._autoAdvanceWorkflowStep = next_step
+                    elif step_info and step_info.get("type") in (
                         "automated", "skipped", "choice_made",
                         "interactive_done", "mixed_done",
                     ):
@@ -2277,9 +2663,15 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # Skip self-correction during active workflow steps that succeeded —
             # VTK noise should not derail the workflow sequence.
             workflow_active = (
-                self._workflowOrchestrator
-                and self._activeWorkflowId
-                and self._workflowOrchestrator.is_workflow_active()
+                (
+                    self._workflowRuntime
+                    and self._workflowRuntime.has_active_workflow()
+                )
+                or (
+                    self._workflowOrchestrator
+                    and self._activeWorkflowId
+                    and self._workflowOrchestrator.is_workflow_active()
+                )
             )
             if not result.get("timed_out", False) and (not result["success"] or (output_has_errors and not workflow_active)):
                 if attempt < max_attempts:
@@ -2411,6 +2803,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     "Do NOT search unnecessarily — if you are confident in the fix, apply it directly.\n\n"
                     "Your task is to fix the error and output the COMPLETE corrected Python code in ONE ```python block."
                     " Also output a corrected ```agent_plan JSON block before the Python block."
+                    " Do not emit tool-call markup, DSML, XML, or file-read instructions in the final response."
                 )
 
                 isolated_messages.append({
@@ -2545,8 +2938,20 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             raw_msg = response.get('message', '')[:300]
             self.appendToChat("System", f"Correction response contained no code block. Raw response preview:\n{raw_msg}")
-            self._stopThinkingTimer("Failed")
-            self._setReadyStatus()
+            self._recordRoleEvent("Repairer", "correction_missing_code", {
+                "attempt": attempt + 1,
+                "raw_preview": raw_msg,
+            })
+            if attempt + 1 < max_attempts:
+                retry_error = (
+                    f"{error_detail}\n\n"
+                    "The previous correction response contained no executable ```python block. "
+                    f"Raw preview: {raw_msg}"
+                )
+                self._selfCorrectCode(retry_error, attempt + 1, max_attempts)
+            else:
+                self._stopThinkingTimer("Failed")
+                self._setReadyStatus()
     
     def _appendThinkingToFile(self, reasoning_content: str, turn: int = 1):
         """Append LLM thinking/reasoning content to a local text file."""
@@ -3124,6 +3529,7 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
         self.conversationStore = None
         self._processing = False
         self._lastInteractiveStep = None
+        self._lastWorkflowStep = None
         self._initializeComponents()
 
     def _initializeComponents(self):
@@ -3334,6 +3740,28 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
             logger.warning(f"Dense pre-retrieval failed: {e}")
             return ""
 
+    @staticmethod
+    def _isWorkflowControlTurn(prompt: str, context: Optional[Dict] = None) -> bool:
+        """Return True for active-workflow turns that should not pre-retrieve.
+
+        Generated extension CLI workflows already carry validated templates and
+        metadata.  For simple control turns, dense pre-retrieval adds latency
+        without improving the next action.  Tool access remains enabled later in
+        the turn for correction or unexpected error handling.
+        """
+        if not context or not context.get("workflow_state"):
+            return False
+        from SlicerAIAgentLib.TurnRouter import is_workflow_control_turn
+        workflow_state = {
+            "active": True,
+            "current_step": None,
+            "status": "running",
+        }
+        match = re.search(r"Current step:\s*(cb_step_\d+)", str(context.get("workflow_state", "")))
+        if match:
+            workflow_state["current_step"] = match.group(1)
+        return is_workflow_control_turn(prompt, workflow_state)
+
     def generateResponse(self, prompt):
         """
         Generate AI response (non-streaming).
@@ -3386,12 +3814,18 @@ class SlicerAIAgentLogic(ScriptedLoadableModuleLogic):
 
         # Inject dense vector retrieval results if not already present
         retrieval_timing = {}
-        if "retrieval_results" not in context:
+        if (
+            "retrieval_results" not in context
+            and not self._isWorkflowControlTurn(prompt, context)
+        ):
             if on_status:
                 on_status("Retrieving...")
             retrieval = self._buildRetrievalContext(prompt, retrieval_timing)
             if retrieval:
                 context["retrieval_results"] = retrieval
+        elif "retrieval_results" not in context:
+            retrieval_timing["skipped"] = True
+            retrieval_timing["skip_reason"] = "active_workflow_control_turn"
         retrieval_timing["used_tool_loop"] = bool(use_tools and self.toolExecutor and self.skillTools)
 
         if use_tools and self.toolExecutor and self.skillTools:

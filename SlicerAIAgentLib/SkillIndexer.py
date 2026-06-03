@@ -43,6 +43,13 @@ def _get_model_cache_dir() -> str:
     return d
 
 
+def _get_ui_analysis_docs_dir() -> str:
+    """Return generated Slicer UI pre-analysis docs directory."""
+    return os.path.join(
+        _get_project_root(), "Resources", "Slicer_UI_PreAnalysis", "v1", "docs"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------------
@@ -208,6 +215,9 @@ class Chunker:
 
         # ── MRML node definitions (maps to Python MRML API) ──
         "slicer-source/Libs/MRML/Core/",
+
+        # ── Generated Slicer core UI-to-implementation analysis ──
+        "slicer-ui-analysis/",
     )
 
     # Extensions we know how to chunk
@@ -273,6 +283,8 @@ class Chunker:
     def _infer_source_type(self, rel_path: str) -> str:
         """Mirror of SkillTools._infer_source_type."""
         path_lower = rel_path.lower().replace('\\', '/')
+        if path_lower.startswith('slicer-ui-analysis/'):
+            return 'ui_analysis'
         if '/testing/python/' in path_lower:
             return 'test_example'
         if '/docs/developer_guide/script_repository/' in path_lower:
@@ -824,6 +836,7 @@ class VectorIndex:
 _SOURCE_TYPE_WEIGHTS = {
     'doc_example': 1.3,
     'python_api': 1.2,
+    'ui_analysis': 1.15,
     'effect_implementation': 1.1,
     'scripted_module': 1.1,
     'test_example': 1.05,
@@ -978,6 +991,15 @@ class IndexBuilder:
                 rel_path = os.path.relpath(abs_path, self.skill_path).replace('\\', '/')
                 if chunker.should_index_file(rel_path):
                     files.append((abs_path, rel_path))
+        ui_docs_dir = _get_ui_analysis_docs_dir()
+        if os.path.isdir(ui_docs_dir):
+            for root, _, filenames in os.walk(ui_docs_dir):
+                for filename in filenames:
+                    abs_path = os.path.join(root, filename)
+                    rel_sub = os.path.relpath(abs_path, ui_docs_dir).replace('\\', '/')
+                    rel_path = f"slicer-ui-analysis/{rel_sub}"
+                    if chunker.should_index_file(rel_path):
+                        files.append((abs_path, rel_path))
         return files
 
     def build_or_update(self) -> bool:

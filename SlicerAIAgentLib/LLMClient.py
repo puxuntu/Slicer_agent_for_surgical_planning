@@ -1767,7 +1767,8 @@ class LLMClient:
                 "You MUST output exactly two fenced blocks in this order:\n"
                 "1. ```agent_plan with valid JSON using the required schema.\n"
                 "2. ```python with the complete executable code.\n"
-                "Do not output Python without an agent_plan."
+                "Do not output Python without an agent_plan. "
+                "Do not emit tool calls, DSML, XML, or search instructions."
             ),
         })
         intermediate_messages.append(messages[-1])

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "source_root": "/media/ps/85D96EED9527D342/PuxunTu_workspace/Slicer_SKill/Slicer_agent/Resources/Skills/slicer-skill-full/slicer-source",
+  "ui_file_count": 138,
+  "qrc_file_count": 44,
+  "control_count": 2368,
+  "confidence_counts": {
+    "linked_to_code": 403,
+    "ui_only": 780,
+    "linked_to_slot": 196,
+    "linked_to_api": 989
+  },
+  "docs_path": "/media/ps/85D96EED9527D342/PuxunTu_workspace/Slicer_SKill/Slicer_agent/Resources/Slicer_UI_PreAnalysis/v1/docs",
+  "virtual_search_prefix": "slicer-ui-analysis/"
+}

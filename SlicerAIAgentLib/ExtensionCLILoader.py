@@ -332,6 +332,47 @@ def reset_workflow_state(extension_name: Optional[str] = None) -> None:
         _workflow_repeat_state.clear()
 
 
+def reset_workflow_session(extension_name: Optional[str] = None) -> None:
+    """Public alias used by deterministic generated-CLI workflow runtime."""
+    reset_workflow_state(extension_name)
+
+
+def get_workflow_graph(extension_name: str) -> Dict:
+    """Return the parsed workflow graph for a validated generated extension."""
+    _ensure_cache()
+    ext_data = _cli_cache.get(extension_name)
+    if not ext_data:
+        return {}
+    workflow_path = os.path.join(ext_data["dir"], "workflow.json")
+    if not os.path.isfile(workflow_path):
+        return {}
+    with open(workflow_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def find_next_workflow_step(
+    extension_name: str,
+    completed_steps: Optional[set] = None,
+) -> Optional[Dict]:
+    """Return the next workflow step whose dependencies are satisfied."""
+    graph = get_workflow_graph(extension_name)
+    if not graph:
+        return None
+    completed = (
+        set(completed_steps)
+        if completed_steps is not None
+        else set(_workflow_completed_steps.get(extension_name, set()))
+    )
+    return _find_next_step_local(graph, completed)
+
+
+def mark_workflow_step_completed(extension_name: str, step_id: str) -> None:
+    """Record a generated CLI workflow step as completed."""
+    if not extension_name or not step_id:
+        return
+    _workflow_completed_steps.setdefault(extension_name, set()).add(step_id)
+
+
 def _find_next_step_local(
     workflow_graph: Dict, completed: set
 ) -> Optional[Dict]:
@@ -670,19 +711,21 @@ def _try_auto_select_choice(ctx: _WorkflowContext, choice_desc: Dict) -> Optiona
 
 
 def _build_choice_prelude(ctx: _WorkflowContext) -> str:
-    """Build code that applies stored user choices to the extension parameter node."""
+    """Build code that applies metadata defaults and stored user choices."""
     choices = _workflow_choices.get(ctx.ext_name, {})
     bindings = ctx.metadata.get("parameter_bindings", {}) or {}
+    defaults = ctx.metadata.get("parameter_defaults", {}) or {}
     module_name = ctx.metadata.get("extension_module_name", "")
     logic_class_name = ctx.metadata.get("logic_class_name", "")
-    if not choices or not bindings or not module_name or not logic_class_name:
+    if (not choices and not defaults) or not bindings or not module_name or not logic_class_name:
         return ""
 
     logic_var = f"_{ctx.ext_name.lower()}_logic"
     choices_json = json.dumps(choices)
     bindings_json = json.dumps(bindings)
+    defaults_json = json.dumps(defaults)
     return (
-        "# [Workflow metadata] Apply stored user choices to the extension parameter node\n"
+        "# [Workflow metadata] Apply source-derived defaults and stored user choices\n"
         "import slicer\n"
         f"from {module_name} import {logic_class_name}\n"
         "try:\n"
@@ -692,6 +735,7 @@ def _build_choice_prelude(ctx: _WorkflowContext) -> str:
         "parameterNode = logic.getParameterNode()\n"
         f"_workflow_choices = {choices_json}\n"
         f"_workflow_bindings = {bindings_json}\n"
+        f"_workflow_defaults = {defaults_json}\n"
         "def _workflow_tokens(text):\n"
         "    import re\n"
         "    text = re.sub(r'([a-z0-9])([A-Z])', r'\\1 \\2', str(text or ''))\n"
@@ -721,6 +765,16 @@ def _build_choice_prelude(ctx: _WorkflowContext) -> str:
         "            best_score = score\n"
         "            best_node = candidate\n"
         "    return best_node if best_score > 0 else None\n"
+        "for _role, _default in _workflow_defaults.items():\n"
+        "    _binding = _workflow_bindings.get(_role, {})\n"
+        "    if _binding.get('node_class', ''):\n"
+        "        continue\n"
+        "    try:\n"
+        "        _current = parameterNode.GetParameter(_role)\n"
+        "    except Exception:\n"
+        "        _current = ''\n"
+        "    if _current in (None, ''):\n"
+        "        parameterNode.SetParameter(_role, str(_default.get('value', '')))\n"
         "for _role, _binding in _workflow_bindings.items():\n"
         "    _value = _workflow_choices.get(_role)\n"
         "    if _value is None:\n"
@@ -1097,6 +1151,18 @@ def _handle_user_choice_step(ctx: _WorkflowContext) -> Dict:
         "choices": choices,
         "parameter_name": param_name,
         "default_value": default,
+        "binding": (
+            choice_desc.get("binding")
+            or ctx.target_step.get("choice_binding")
+            or ctx.metadata.get("choice_bindings", {}).get(ctx.workflow_step, {})
+        ),
+        "node_class": (
+            (
+                choice_desc.get("binding")
+                or ctx.target_step.get("choice_binding")
+                or ctx.metadata.get("choice_bindings", {}).get(ctx.workflow_step, {})
+            ) or {}
+        ).get("node_class", ""),
         "instruction": (
             f"Ask the user: '{question}'\n"
             f"Options:\n{options_text}\n"

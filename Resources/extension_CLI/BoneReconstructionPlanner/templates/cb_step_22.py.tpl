@@ -1,69 +1,42 @@
 import slicer
-import BoneReconstructionPlanner
+from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
-# Reuse existing logic instance if available
+# Reuse existing logic instance if available, otherwise create new
 try:
     logic = _bonereconstructionplanner_logic
 except NameError:
-    logic = BoneReconstructionPlanner.BoneReconstructionPlannerLogic()
-    _bonereconstructionplanner_logic = logic
+    logic = BoneReconstructionPlannerLogic()
 
 # Ensure parameter node exists
 parameterNode = logic.getParameterNode()
 
-# Ensure required node references are set
-# Mandible model
-mandibleNode = parameterNode.GetNodeReference("mandibleModelNode")
-if mandibleNode is None:
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
-    for i in range(nodes.GetNumberOfItems()):
-        n = nodes.GetItemAsObject(i)
-        if n and "mandible" in n.GetName().lower():
-            mandibleNode = n
-            break
-    if mandibleNode:
-        parameterNode.SetNodeReferenceID("mandibleModelNode", mandibleNode.GetID())
+# Use the logic's built-in default parameter initialization
+logic.setDefaultParameters(parameterNode)
 
-# Fibula model
-fibulaNode = parameterNode.GetNodeReference("fibulaModelNode")
-if fibulaNode is None:
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
-    for i in range(nodes.GetNumberOfItems()):
-        n = nodes.GetItemAsObject(i)
-        if n and "fibula" in n.GetName().lower():
-            fibulaNode = n
-            break
-    if fibulaNode:
-        parameterNode.SetNodeReferenceID("fibulaModelNode", fibulaNode.GetID())
+# Resolve node references for mandible model nodes
+# Look for nodes by class and name substring
+mandibleNodeSearch = None
+decimatedMandibleNodeSearch = None
 
-# Decimated versions (optional, but needed if checked)
-decMandible = parameterNode.GetNodeReference("decimatedMandibleModelNode")
-if decMandible is None:
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
-    for i in range(nodes.GetNumberOfItems()):
-        n = nodes.GetItemAsObject(i)
-        if n and "decimated" in n.GetName().lower() and "mandible" in n.GetName().lower():
-            decMandible = n
-            break
-    if decMandible:
-        parameterNode.SetNodeReferenceID("decimatedMandibleModelNode", decMandible.GetID())
+modelNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
+for i in range(modelNodes.GetNumberOfItems()):
+    node = modelNodes.GetItemAsObject(i)
+    name = node.GetName().lower()
+    if "mandible" in name and "decimated" not in name and "nonDecimated" not in name:
+        mandibleNodeSearch = node
+    if "mandible" in name and "decimated" in name:
+        decimatedMandibleNodeSearch = node
 
-decFibula = parameterNode.GetNodeReference("decimatedFibulaModelNode")
-if decFibula is None:
-    nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
-    for i in range(nodes.GetNumberOfItems()):
-        n = nodes.GetItemAsObject(i)
-        if n and "decimated" in n.GetName().lower() and "fibula" in n.GetName().lower():
-            decFibula = n
-            break
-    if decFibula:
-        parameterNode.SetNodeReferenceID("decimatedFibulaModelNode", decFibula.GetID())
+if mandibleNodeSearch and not parameterNode.GetNodeReference("mandibleModelNode"):
+    parameterNode.SetNodeReferenceID("mandibleModelNode", mandibleNodeSearch.GetID())
 
-# Set parameter for kindOfMandibleResection if not set
-if not parameterNode.GetParameter("kindOfMandibleResection"):
-    parameterNode.SetParameter("kindOfMandibleResection", "Hemimandibulectomy")  # default
+if decimatedMandibleNodeSearch and not parameterNode.GetNodeReference("decimatedMandibleModelNode"):
+    parameterNode.SetNodeReferenceID("decimatedMandibleModelNode", decimatedMandibleNodeSearch.GetID())
 
 # Call the method
 logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible()
 
-print("[BoneReconstructionPlanner] Step 22 completed: fibula planes, bone pieces, and transforms generated.")
+# Store logic instance for subsequent steps
+_bonereconstructionplanner_logic = logic
+
+print("[BoneReconstructionPlanner] Step 22 complete: Fibula planes, bone pieces, and transforms generated.")

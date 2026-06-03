@@ -15,7 +15,7 @@ Workflow steps:
 - `cb_step_6` [automated]: 6. Change the layout to "Conventional".
 - `cb_step_7` [automated]: 7. For the R (red) view, toggle on "slice visibility in 3D view".
 - `cb_step_8` [automated]: 8. For the R (red) view, toggle on "FOV, Spacing match 2D" (adjusts slice resolution to match the 2D viewport pixel spacing).
-- `cb_step_9` [automated]: 9. In the toolbar, toggle on "slice intersection visibility. Hold Shift key and move mouse in a view to set slice intersection position." (Note it's not "crosshair visibility"), and set "slice intersection visibility" selected.
+- `cb_step_9` [automated]: 9. In the toolbar, toggle on "slice intersection visibility. Hold Shift key and move mouse in a view to set slice intersection position." (Note it's not "crosshair visibility"), and "set interaction" selected, and set "Translate" and "Rotate" selected.
 - `cb_step_10` [interactive]: 10. Manually adjust the slice intersection position.
 - `cb_step_11` [automated]: 11. Click the "Add mandibular curve" button.
 - `cb_step_12` [automated]: 12. In the Markups module's "Display" > "Advanced" panel, configure "View" to show in both "View 1" and "Red".

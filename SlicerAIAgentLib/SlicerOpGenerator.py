@@ -12,8 +12,9 @@ for interactive queries.
 import ast
 import logging
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -32,14 +33,19 @@ All search paths are relative to the skill root. Do NOT prepend absolute paths.
 
 Search roots:
 - `slicer-source/` — Slicer source code and script repository
+- `slicer-ui-analysis/` — generated Slicer core UI label/action to implementation/API evidence
 - `slicer-extensions/` — Extension repositories
 - `slicer-dependencies/` — VTK, ITK, CTK, etc.
 
 You have three search tools: VectorSearch, Grep, ReadFile.
 
 ### When to search vs. skip
-- If you already know the Slicer API from training (e.g. setLayout, SetSliceVisible, \
-SetSliceResolutionMode), skip search entirely and generate code directly.
+- If you already know a simple, verified Slicer API (for example layoutManager().setLayout), \
+you may generate code directly. For view-controller, display-node, markups, or MRML-node APIs, \
+confirm the exact receiver and method with VectorSearch, Grep, or ReadFile before writing code.
+- If the operation is described as a UI control, toolbar action, menu action, checkbox, or panel setting, \
+search `slicer-ui-analysis/` for the user-facing label/action first. Use UI evidence to identify the \
+receiver/slot/control intent, then verify the executable API against implementation or MRML/API evidence.
 - If unsure about an API signature, do **one** VectorSearch or Grep to confirm, \
 then generate code immediately.
 - You have up to 15 tool rounds total. Prefer fewer rounds — generate code as soon \
@@ -47,12 +53,13 @@ as you have enough evidence.
 
 ### Efficient search order
 If you need to search, prefer these sources in order:
-1. `slicer-source/Docs/developer_guide/script_repository/` — official cookbook examples
-2. `slicer-source/Base/Python/slicer/util.py` — core Python API
-3. `slicer-source/Modules/CLI/` — ready-made CLI operations
-4. `slicer-source/Modules/Scripted/<relevant-module>/` — Python modules
-5. `slicer-source/Modules/Loadable/<relevant-module>/` — C++ modules with Python wrappers
-6. `slicer-source/Libs/MRML/Core/` — MRML node definitions
+1. `slicer-ui-analysis/` — UI labels/actions mapped to nearby implementation/API evidence
+2. `slicer-source/Docs/developer_guide/script_repository/` — official cookbook examples
+3. `slicer-source/Base/Python/slicer/util.py` — core Python API
+4. `slicer-source/Modules/CLI/` — ready-made CLI operations
+5. `slicer-source/Modules/Scripted/<relevant-module>/` — Python modules
+6. `slicer-source/Modules/Loadable/<relevant-module>/` — C++ modules with Python wrappers
+7. `slicer-source/Libs/MRML/Core/` — MRML node definitions
 
 **Grep** returns an aggregated summary (per-file hit counts + representative matches), \
 not line-by-line results. Use the `files` list to find relevant files, then ReadFile for context.
@@ -72,6 +79,10 @@ Once you have seen the target function's parameter list and at least one usage e
 - Use `{placeholder}` syntax for runtime values, e.g. `{volume_name: Mandible}`.
 - Do NOT use f-strings (single braces are template placeholders). Use %-formatting.
   If you need literal braces, double them: `{{expr}}`.
+- Generate final-state code. If the requested operation says enable/on/show/visible,
+  call an API that sets the state to true/visible; if it says disable/off/hide,
+  set the state to false/hidden. Do not use toggle APIs unless the request
+  explicitly asks to invert the current state.
 - Keep code short and focused on the single operation.
 - Do NOT import os, subprocess, sys, socket, or use eval/exec/open.
 - Do NOT use destructive operations.
@@ -87,6 +98,96 @@ _NO_EVIDENCE_TEXT = "(No relevant snippets found in knowledge base)"
 _GENERATION_FAILED_SENTINEL = "SLICER_OP_GENERATION_FAILED"
 _MAX_TOOL_ROUNDS = 15
 _PER_OP_TIMEOUT_S = 600  # Max seconds per slicer_op (tool loop can be slow)
+_UI_ANALYSIS_PREFIX = "slicer-ui-analysis/"
+
+
+def infer_final_state_intent(text: str) -> Dict[str, Any]:
+    """Infer whether a UI-style operation asks for a final state or inversion."""
+    raw = text or ""
+    normalized = re.sub(r"[^a-z0-9]+", " ", raw.lower()).strip()
+    padded = f" {normalized} "
+
+    invert_patterns = (
+        " invert current state ",
+        " invert the current state ",
+        " toggle current state ",
+        " toggle the current state ",
+        " flip current state ",
+        " flip the current state ",
+        " switch to opposite ",
+        " switch to the opposite ",
+    )
+    true_patterns = (
+        " toggle on ",
+        " turn on ",
+        " switch on ",
+        " set on ",
+        " enable ",
+        " enabled ",
+        " show ",
+        " visible ",
+        " visibility on ",
+        " select ",
+        " selected ",
+        " checked ",
+        " activate ",
+        " activated ",
+    )
+    false_patterns = (
+        " toggle off ",
+        " turn off ",
+        " switch off ",
+        " set off ",
+        " disable ",
+        " disabled ",
+        " hide ",
+        " hidden ",
+        " invisible ",
+        " visibility off ",
+        " unselect ",
+        " deselect ",
+        " unchecked ",
+        " uncheck ",
+        " deactivate ",
+        " deactivated ",
+    )
+
+    if any(pattern in padded for pattern in invert_patterns):
+        return {
+            "mode": "invert",
+            "state": None,
+            "confidence": "high",
+            "source": "explicit_invert_language",
+        }
+    true_hit = next((pattern.strip() for pattern in true_patterns if pattern in padded), "")
+    false_hit = next((pattern.strip() for pattern in false_patterns if pattern in padded), "")
+    if true_hit and not false_hit:
+        return {
+            "mode": "set",
+            "state": True,
+            "confidence": "high",
+            "source": true_hit,
+        }
+    if false_hit and not true_hit:
+        return {
+            "mode": "set",
+            "state": False,
+            "confidence": "high",
+            "source": false_hit,
+        }
+    if true_hit and false_hit:
+        return {
+            "mode": "ambiguous",
+            "state": None,
+            "confidence": "low",
+            "source": f"{true_hit}; {false_hit}",
+        }
+    return {
+        "mode": "unspecified",
+        "state": None,
+        "confidence": "none",
+        "source": "",
+    }
 
 
 def _get_allowed_tool_defs() -> List[Dict]:
@@ -104,8 +205,9 @@ def _get_allowed_tool_defs() -> List[Dict]:
 
 _CATEGORY_SEARCH_HINTS = {
     "layout_slice_view": [
+        "slicer-ui-analysis", "qMRMLSliceControllerWidget", "actionShow_in_3D",
         "layoutManager", "vtkMRMLLayoutNode", "sliceWidget",
-        "mrmlSliceNode", "SetSliceVisible", "SetSliceResolutionMode",
+        "mrmlSliceNode", "sliceController", "setSliceVisible", "SetSliceResolutionMode",
         "SliceResolutionMatch2DView", "SliceResolutionMatchVolumes",
         "SetViewArrangement", "SlicerLayoutConventionalView", "SetLayout",
         "AddLayoutDescription", "GetLayoutByName",
@@ -115,11 +217,13 @@ _CATEGORY_SEARCH_HINTS = {
         "selectModule",
     ],
     "markups_display": [
+        "slicer-ui-analysis", "qSlicerMarkupsModule.ui", "qMRMLDisplayNodeViewComboBox",
         "vtkMRMLMarkupsDisplayNode", "AddViewNodeID", "SetActiveListID",
         "Markups display advanced view",
     ],
     "crosshair": [
-        "vtkMRMLCrosshairNode", "SetCrosshairMode", "ShowIntersection",
+        "slicer-ui-analysis", "sliceIntersectionsVisibilityCheckBox",
+        "SetIntersectingSlicesEnabled", "vtkMRMLCrosshairNode", "SetCrosshairMode", "ShowIntersection",
         "NoCrosshair", "CrosshairBehavior", "OffsetJumpSlice",
         "CenteredJumpSlice", "SetCrosshairBehavior", "slice intersection",
     ],
@@ -147,13 +251,229 @@ def _truncate_result(result, max_chars: int = 2000) -> str:
     if not isinstance(result, dict):
         s = str(result)
         return s[:max_chars] + "..." if len(s) > max_chars else s
-    # For search results, show summary counts instead of full content
     if "error" in result:
         return f"ERROR: {str(result['error'])[:max_chars]}"
+
+    if result.get("tool") == "VectorSearch":
+        results = result.get("results") or []
+        formatted = result.get("formatted_context") or ""
+        if formatted:
+            preview = formatted[:max_chars]
+            suffix = "..." if len(formatted) > max_chars else ""
+            return f"VectorSearch: {len(results)} result(s)\n{preview}{suffix}"
+        return f"VectorSearch: {len(results)} result(s)"
+
+    if result.get("tool") == "Grep":
+        total_hits = result.get("total_hits", 0)
+        total_files = result.get("total_files", 0)
+        files = result.get("files") or []
+        file_preview = ", ".join(
+            f"{item.get('file')} ({item.get('hits', 0)})"
+            for item in files[:5]
+        )
+        return f"Grep: {total_hits} hit(s) in {total_files} file(s): {file_preview}"
+
     content = result.get("content", "")
     if isinstance(content, str):
         return content[:max_chars] + "..." if len(content) > max_chars else content
     return str(result)[:max_chars]
+
+
+def _dedupe_keep_order(values: List[str], limit: Optional[int] = None) -> List[str]:
+    """Return non-empty strings in first-seen order."""
+    seen = set()
+    out = []
+    for value in values:
+        if not value:
+            continue
+        if value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+        if limit is not None and len(out) >= limit:
+            break
+    return out
+
+
+def _is_ui_analysis_path(path: Any) -> bool:
+    if not isinstance(path, str):
+        return False
+    normalized = path.replace("\\", "/").lower()
+    return (
+        normalized == "slicer-ui-analysis"
+        or normalized.startswith(_UI_ANALYSIS_PREFIX)
+        or "/slicer_ui_preanalysis/" in normalized
+    )
+
+
+def _collect_tool_result_files(result: Any) -> Tuple[List[str], List[str]]:
+    """Collect UI-analysis and non-UI file paths mentioned in a tool result."""
+    ui_files: List[str] = []
+    other_files: List[str] = []
+
+    def _add(path: Any, source_type: str = "") -> None:
+        if not isinstance(path, str) or not path:
+            return
+        if _is_ui_analysis_path(path) or source_type == "ui_analysis":
+            ui_files.append(path)
+        else:
+            other_files.append(path)
+
+    if not isinstance(result, dict):
+        return [], []
+
+    if result.get("source_type") == "ui_analysis":
+        _add(result.get("path") or result.get("file"), "ui_analysis")
+    else:
+        _add(result.get("path") or result.get("file"), result.get("source_type", ""))
+
+    for item in result.get("results") or []:
+        if isinstance(item, dict):
+            _add(item.get("file_path") or item.get("file"), item.get("source_type", ""))
+
+    for item in result.get("files") or []:
+        if isinstance(item, dict):
+            _add(item.get("file"), item.get("source_type", ""))
+
+    for item in result.get("representative_matches") or []:
+        if isinstance(item, dict):
+            _add(item.get("file"), item.get("source_type", ""))
+
+    formatted = result.get("formatted_context")
+    if isinstance(formatted, str):
+        for match in re.finditer(r"slicer-ui-analysis/[^\s`'\"),]+", formatted):
+            ui_files.append(match.group(0))
+
+    return _dedupe_keep_order(ui_files, 20), _dedupe_keep_order(other_files, 20)
+
+
+def _extract_ui_lines(text: str, limit: int = 20) -> List[str]:
+    """Extract audit-relevant lines from UI-analysis markdown/tool output."""
+    if not isinstance(text, str) or not text:
+        return []
+    interesting = []
+    prefixes = (
+        "## widget:",
+        "## action:",
+        "- Confidence:",
+        "- Search text:",
+        "- Text:",
+        "- Tooltip:",
+        "- Implementation candidates:",
+        "- Matched implementation lines:",
+        "- Connected slots/functions:",
+        "- API footprints:",
+        "- Key UI properties:",
+    )
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line.startswith(prefixes):
+            interesting.append(line)
+        elif (
+            line.startswith("- `")
+            and any(marker in line for marker in (".cxx:", ".cpp:", ".h:", ".py:"))
+        ):
+            interesting.append(line)
+    return _dedupe_keep_order(interesting, limit)
+
+
+def _extract_backticked_values(lines: List[str], label: str, limit: int = 30) -> List[str]:
+    values: List[str] = []
+    for line in lines:
+        if label not in line:
+            continue
+        values.extend(re.findall(r"`([^`]+)`", line))
+    return _dedupe_keep_order(values, limit)
+
+
+def _summarize_tool_evidence(tool_calls_history: List[Dict]) -> Dict[str, Any]:
+    """Summarize whether/how Stage 5T used generated Slicer UI pre-analysis."""
+    ui_query_paths: List[str] = []
+    ui_result_files: List[str] = []
+    non_ui_result_files: List[str] = []
+    vector_queries: List[str] = []
+    grep_patterns: List[str] = []
+    read_paths: List[str] = []
+    ui_lines: List[str] = []
+    source_type_counts: Dict[str, int] = {}
+
+    for call in tool_calls_history or []:
+        if not isinstance(call, dict):
+            continue
+        tool = call.get("tool", "")
+        args = call.get("args") or {}
+        result = call.get("result") or {}
+
+        if tool == "VectorSearch":
+            vector_queries.append(str(args.get("query", "")))
+        elif tool == "Grep":
+            grep_patterns.append(str(args.get("pattern", "")))
+        elif tool == "ReadFile":
+            read_paths.append(str(args.get("path", "")))
+
+        path_arg = args.get("path")
+        if _is_ui_analysis_path(path_arg):
+            ui_query_paths.append(path_arg)
+
+        for item in result.get("results") or []:
+            if isinstance(item, dict):
+                st = item.get("source_type", "")
+                if st:
+                    source_type_counts[st] = source_type_counts.get(st, 0) + 1
+        for item in result.get("files") or []:
+            if isinstance(item, dict):
+                st = item.get("source_type", "")
+                if st:
+                    source_type_counts[st] = source_type_counts.get(st, 0) + 1
+        result_source_type = result.get("source_type")
+        if result_source_type:
+            source_type_counts[result_source_type] = source_type_counts.get(result_source_type, 0) + 1
+
+        ui_files, other_files = _collect_tool_result_files(result)
+        ui_result_files.extend(ui_files)
+        non_ui_result_files.extend(other_files)
+
+        formatted = result.get("formatted_context")
+        if isinstance(formatted, str) and "slicer-ui-analysis/" in formatted:
+            ui_lines.extend(_extract_ui_lines(formatted))
+
+        content = result.get("content")
+        if result.get("source_type") == "ui_analysis" and isinstance(content, str):
+            ui_lines.extend(_extract_ui_lines(content))
+
+        for item in result.get("representative_matches") or []:
+            if not isinstance(item, dict):
+                continue
+            if _is_ui_analysis_path(item.get("file")):
+                ui_lines.extend(_extract_ui_lines(item.get("context", "")))
+                content_line = item.get("content")
+                if isinstance(content_line, str):
+                    ui_lines.extend(_extract_ui_lines(content_line))
+
+    ui_lines = _dedupe_keep_order(ui_lines, 25)
+    ui_result_files = _dedupe_keep_order(ui_result_files, 20)
+    non_ui_result_files = _dedupe_keep_order(non_ui_result_files, 20)
+
+    return {
+        "ui_analysis": {
+            "used": bool(ui_query_paths or ui_result_files or source_type_counts.get("ui_analysis")),
+            "query_paths": _dedupe_keep_order(ui_query_paths, 10),
+            "result_files": ui_result_files,
+            "matched_lines_preview": ui_lines,
+            "connected_slots": _extract_backticked_values(ui_lines, "Connected slots/functions"),
+            "api_footprints": _extract_backticked_values(ui_lines, "API footprints"),
+            "implementation_candidates": _extract_backticked_values(ui_lines, "Implementation candidates"),
+        },
+        "source_verification": {
+            "non_ui_result_files": non_ui_result_files,
+            "source_type_counts": source_type_counts,
+        },
+        "searches": {
+            "vector_queries": _dedupe_keep_order(vector_queries, 10),
+            "grep_patterns": _dedupe_keep_order(grep_patterns, 10),
+            "read_paths": _dedupe_keep_order(read_paths, 10),
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +565,12 @@ class SlicerOpGenerator:
         """Build the user prompt for a single slicer_op sub-operation."""
         parts = [f"Generate a Python code template for this 3D Slicer operation:\n"]
         parts.append(sub_op.description)
+        state_intent = infer_final_state_intent(
+            " ".join([
+                getattr(sub_op, "description", "") or "",
+                " ".join(getattr(sub_op, "slicer_api_keywords", []) or []),
+            ])
+        )
 
         hints = _CATEGORY_SEARCH_HINTS.get(category, [])
         if hints:
@@ -254,9 +580,21 @@ class SlicerOpGenerator:
         if keywords:
             parts.append(f"\nAPI keyword hints: {', '.join(keywords[:8])}")
 
+        if state_intent.get("mode") == "set":
+            parts.append(
+                "\nInterpreted state intent: set the requested UI/API state to "
+                f"{state_intent.get('state')}. Do not invert the current state."
+            )
+        elif state_intent.get("mode") == "invert":
+            parts.append(
+                "\nInterpreted state intent: explicitly invert the current state."
+            )
+
         parts.append(
             "\n\nSearch the knowledge base for relevant examples first, "
-            "then output ONLY the ```python code block."
+            "using slicer-ui-analysis first for UI-labeled controls/actions, "
+            "then output ONLY the ```python code block. Generate a final-state "
+            "operation, not a toggle, unless the description explicitly requests toggling."
         )
         return "".join(parts)
 
@@ -280,12 +618,15 @@ class SlicerOpGenerator:
         _write_debug()
         t_prompt_start = _time.monotonic()
 
+        user_message = self._build_user_message(sub_op, category)
         messages = [
             {"role": "system", "content": _SLICER_OP_SYSTEM_PROMPT},
-            {"role": "user", "content": self._build_user_message(sub_op, category)},
+            {"role": "user", "content": user_message},
         ]
 
         op_record["prompt_build_s"] = round(_time.monotonic() - t_prompt_start, 3)
+        op_record["prompt_user_preview"] = user_message[:1500]
+        op_record["prompt_includes_ui_analysis"] = "slicer-ui-analysis" in user_message
         logger.info("[5T] '%s' prompt built", desc_short)
 
         # Step 2: Prepare tools and executor
@@ -399,6 +740,7 @@ class SlicerOpGenerator:
             }
             for tc in tool_calls_history
         ]
+        op_record["evidence_audit"] = _summarize_tool_evidence(tool_calls_history)
 
         # LLM reasoning content (truncated)
         reasoning = response.get("reasoning_content", "")
@@ -447,6 +789,7 @@ class SlicerOpGenerator:
         _write_debug()
 
         code = code.replace("\x00", "").replace("\r\n", "\n").replace("\r", "\n")
+        op_record["generated_code_preview"] = code[:2000]
 
         try:
             ast.parse(code)
@@ -519,6 +862,14 @@ class SlicerOpGenerator:
                 with open(self._debug_path, "w", encoding="utf-8") as f:
                     _json.dump({
                         "stage": "5T",
+                        "debug_schema_version": 2,
+                        "debug_features": [
+                            "slicer_op_classification",
+                            "slicer_ui_analysis_evidence_audit",
+                            "source_verification_summary",
+                            "generated_code_preview",
+                            "final_state_intent",
+                        ],
                         "total_operations": total,
                         "started": started[0],
                         "finished": finished[0],
@@ -552,6 +903,26 @@ class SlicerOpGenerator:
                 "description": sub_op.description[:200],
                 "keywords": sub_op.slicer_api_keywords[:10],
                 "category": category,
+                "final_state_intent": infer_final_state_intent(
+                    " ".join([
+                        getattr(sub_op, "description", "") or "",
+                        " ".join(getattr(sub_op, "slicer_api_keywords", []) or []),
+                    ])
+                ),
+                "classification": {
+                    "op_type": getattr(sub_op, "op_type", "slicer_op"),
+                    "evidence_type": getattr(sub_op, "evidence_type", None),
+                    "evidence_id": getattr(sub_op, "evidence_id", None),
+                    "confidence": getattr(sub_op, "confidence", None),
+                    "interaction_kind": getattr(sub_op, "interaction_kind", None),
+                    "node_class": getattr(sub_op, "node_class", None),
+                    "slicer_op_category": getattr(sub_op, "slicer_op_category", None),
+                },
+                "search_policy": {
+                    "preferred_root": "slicer-ui-analysis",
+                    "requires_ui_first_when_ui_labeled": True,
+                    "category_hints": _CATEGORY_SEARCH_HINTS.get(category, [])[:10],
+                },
                 "status": "started",
                 "total_time_s": None,
                 "code_chars": 0,
