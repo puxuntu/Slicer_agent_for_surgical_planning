@@ -13,9 +13,9 @@ SlicerAIAgent operates in two complementary modes:
 
 ### Demo 1 — Pelvic fracture reduction
 
-**Turn 1:** load the CT volume  
-**Turn 2:** segment the pelvic fracture
-**Turn 3:** implement the screw placement planning
+1. load the CT volume  
+2. segment the pelvic fracture
+3. implement the screw placement planning
 
 https://github.com/user-attachments/assets/ea27d290-b2c5-4be0-9954-8051650bda90
 
@@ -23,11 +23,11 @@ https://github.com/user-attachments/assets/ea27d290-b2c5-4be0-9954-8051650bda90
 
 ### Demo 2 — Voxtell Segmentation
 
-**Turn 1:** load an example CT chest volume
-**Turn 2:** segment the Spine  
-**Turn 3:** segment the left lung with the red color
-**Turn 4:** segment the right lung with the green color
-**Turn 5:** segment the rib with the yellow color
+1. load an example CT chest volume
+2. segment the Spine  
+3. segment the left lung with the red color
+4. segment the right lung with the green color
+5. segment the rib with the yellow color
 
 https://github.com/user-attachments/assets/59d5265e-e488-413f-84b5-55eb2f8a2da9
 
