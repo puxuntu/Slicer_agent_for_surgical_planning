@@ -302,6 +302,53 @@ More text.
             ],
         )
 
+        # Module/panel phrases in user-facing cookbooks are UI-location context,
+        # not instructions to leave the SlicerAIAgent module.
+        from SlicerAIAgentLib.CookbookParser import CookbookDef, CookbookStep
+        cookbook = CookbookDef(
+            extension_name="GenericExtension",
+            source_file="cookbook.md",
+            steps=[CookbookStep(
+                step_number=1,
+                title="Display",
+                description=(
+                    "In the Markups module's Display > Advanced panel, configure "
+                    "View to show in both View 1 and Red."
+                ),
+            )],
+        )
+        stage_map = analyzer._build_stage_map_from_decomposition(
+            {
+                "steps": [{
+                    "step_number": 1,
+                    "sub_operations": [
+                        {
+                            "op_type": "slicer_op",
+                            "description": "Switch to Markups module",
+                            "slicer_op_category": "module_switching",
+                            "slicer_api_keywords": ["selectModule", "Markups"],
+                            "evidence_type": "slicer_core",
+                            "confidence": "high",
+                        },
+                        {
+                            "op_type": "slicer_op",
+                            "description": "Configure display View to show in View 1 and Red",
+                            "slicer_op_category": "markups_display",
+                            "slicer_api_keywords": ["AddViewNodeID", "View"],
+                            "evidence_type": "slicer_core",
+                            "confidence": "high",
+                        },
+                    ],
+                }]
+            },
+            cookbook,
+            {"methods": []},
+        )
+        sub_ops = stage_map["stages"][0]["sub_operations"]
+        self.assertEqual(len(sub_ops), 1)
+        self.assertEqual(sub_ops[0]["slicer_op_category"], "markups_display")
+        self.assertFalse(any(so.get("slicer_op_category") == "module_switching" for so in sub_ops))
+
         # Unbound open-ended user choices produce a validation warning.
         validation = analyzer._stage9_validate(
             {},
@@ -520,6 +567,59 @@ More text.
                     "description": "Set markup display views",
                     "slicer_op_category": "markups_display",
                     "slicer_api_keywords": ["Display", "View"],
+                }],
+            }],
+        )
+        self.assertTrue(validation["valid"], validation.get("errors"))
+
+        # Automated display-view operations must not switch the active Slicer module.
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_2b_module.py.tpl": (
+                    "slicer.util.selectModule('Markups')\n"
+                    "displayNode.AddViewNodeID('vtkMRMLViewNode1')\n"
+                    "displayNode.AddViewNodeID('vtkMRMLSliceNodeRed')\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_2b_module.py.tpl",
+                "step_type": "automated",
+                "op_type": "slicer_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["slicer_op"],
+                    "invokes_slicer_api": True,
+                    "allow_module_switch": False,
+                },
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Configure Markups display View to show in View 1 and Red",
+                    "slicer_op_category": "markups_display",
+                    "slicer_api_keywords": ["Display", "View"],
+                }],
+            }],
+        )
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("switches the active Slicer module" in e for e in validation["errors"]))
+
+        # Explicit module-switch steps may still use selectModule.
+        validation = analyzer._stage9_validate(
+            {"templates/cb_step_2b_explicit_module.py.tpl": "slicer.util.selectModule('Markups')\n"},
+            [{
+                "template_file": "templates/cb_step_2b_explicit_module.py.tpl",
+                "step_type": "automated",
+                "op_type": "slicer_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["slicer_op"],
+                    "invokes_slicer_api": True,
+                    "allow_module_switch": True,
+                },
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Switch to the Markups module",
+                    "slicer_op_category": "module_switching",
+                    "slicer_api_keywords": ["selectModule"],
                 }],
             }],
         )

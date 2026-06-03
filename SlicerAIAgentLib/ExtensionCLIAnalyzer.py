@@ -1415,8 +1415,8 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
 
         slicer_concepts = [
             ("layout_slice_view", ("layout", "conventional", "slice visibility", "red view", "fov", "spacing")),
-            ("module_switching", ("open the markups module", "markups module", "module")),
             ("markups_display", ("display panel", "advanced panel", "view 1", "markups")),
+            ("module_switching", ("switch to", "open module", "open the markups module", "select module", "activate module")),
             ("crosshair", ("crosshair", "slice intersection", "enable interaction")),
             ("subject_hierarchy", ("subject hierarchy", "folder")),
             ("node_display", ("display node", "visibility", "view node")),
@@ -1465,21 +1465,56 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
         desc = _text_or_empty(text).lower()
         if evidence:
             cats = evidence.get("slicer_core_candidates", []) or []
+            if self._is_ui_location_context_text(desc) and not self._is_explicit_module_switch_text(desc):
+                for cat in cats:
+                    if isinstance(cat, dict) and cat.get("category") == "markups_display":
+                        return "markups_display"
             if cats and isinstance(cats[0], dict) and cats[0].get("category"):
                 return cats[0]["category"]
         if any(t in desc for t in ("layout", "red view", "slice visibility", "fov", "spacing")):
             return "layout_slice_view"
         if "crosshair" in desc or "slice intersection" in desc:
             return "crosshair"
-        if "markups module" in desc or "open the markups" in desc:
+        if self._is_explicit_module_switch_text(desc):
             return "module_switching"
-        if "display panel" in desc or "advanced panel" in desc:
+        if "display panel" in desc or "advanced panel" in desc or (
+            "markups module" in desc and any(t in desc for t in ("display", "view", "advanced", "configure", "set", "show"))
+        ):
             return "markups_display"
         if "subject hierarchy" in desc or "folder" in desc:
             return "subject_hierarchy"
         if "display" in desc or "visibility" in desc:
             return "node_display"
         return None
+
+    @staticmethod
+    def _is_explicit_module_switch_text(text: str) -> bool:
+        """Return true only when switching modules is the requested action."""
+        desc = _text_or_empty(text).lower()
+        if not desc or "module" not in desc:
+            return False
+        explicit_patterns = (
+            r"\b(switch|change|go|navigate|open|select|activate|enter)\s+(?:to\s+|the\s+)?[a-z0-9 _-]*\bmodule\b",
+            r"\bmodule\s+selector\b",
+            r"\bselectmodule\b",
+        )
+        return any(_re.search(pattern, desc) for pattern in explicit_patterns)
+
+    @staticmethod
+    def _is_ui_location_context_text(text: str) -> bool:
+        """Return true when a module/panel phrase describes UI location context."""
+        desc = _text_or_empty(text).lower()
+        if not desc:
+            return False
+        has_location = bool(_re.search(r"\b(in|under|inside|from)\s+(?:the\s+)?[a-z0-9 _'-]*\b(module|panel|tab|section)\b", desc))
+        has_setting_action = any(
+            term in desc
+            for term in (
+                "configure", "set ", "show ", "display", "view", "advanced",
+                "turn on", "turn off", "enable", "disable", "select "
+            )
+        )
+        return has_location and has_setting_action
 
     def _stage4_cookbook_decomposition(
         self, cookbook_def, logic_analysis: Dict
@@ -1583,11 +1618,12 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
 
         2. **slicer_op** — The operation uses Slicer CORE APIs that are NOT part of
            this extension. Code generation requires searching the Slicer knowledge base
-           for the correct API calls (layout changes, view toggles, module switching,
+           for the correct API calls (layout changes, view toggles, explicit module switching,
            node selection from Slicer's core modules).
            Specify `slicer_api_keywords` (e.g., ["layout", "red view", "set layout"]).
            Examples: slicer.app.layoutManager().setLayout(),
-           slicer.util.getNode(), switching to Markups module, toggling slice visibility.
+           slicer.util.getNode(), explicitly switching to a target module,
+           toggling slice visibility.
            IMPORTANT: Checkbox ticks, dropdown selections, or button clicks in THIS
            extension's own UI panel are NOT slicer_op — they are either extension_op
            (if a Logic method exists) or user_choice (if the agent cannot determine
@@ -1687,13 +1723,22 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
           name is not in the catalog. Extension buttons call extension Logic methods.
           Only classify as slicer_op when the step explicitly references Slicer core
           features (layout changes, module switching, slicer.app, slicer.util).
+        - **Module/panel location phrases**: Cookbook steps are user-facing UI records.
+          Phrases like "In the Markups module's Display > Advanced panel, configure View..."
+          identify where the user found a control. They are NOT a request to switch the
+          active module. Do not create a separate `module_switching` sub-operation and do
+          not use `slicer.util.selectModule` for such location context. Classify the
+          actual setting change (for example Markups display View restrictions) as the
+          operation. Use `module_switching` only when the cookbook explicitly asks to make
+          the active module change the final state, such as "Switch to Markups module",
+          "Open the Markups module", or "Select the Markups module".
         - **Slicer core UI operations** (CRITICAL — these are slicer_op, NOT extension_op):
           The following operations use Slicer's core API, not the extension's Logic class.
           Even if described in the context of using the extension, they are slicer_op:
           • "Slice visibility in 3D view" → slicer_op (use the verified Slicer slice-view API)
           • "Slice intersection visibility" / "Crosshair" → slicer_op (vtkMRMLCrosshairNode)
           • "FOV/Spacing match 2D" → slicer_op (vtkMRMLSliceNode.SetSliceSpacingMode)
-          • "Open [X] module" / "Switch to [X] module" → slicer_op (slicer.util.selectModule)
+          • Explicit "Open [X] module" / "Switch to [X] module" → slicer_op (slicer.util.selectModule)
           • Layout changes (Conventional, Four-Up, etc.) → slicer_op (layoutManager.setLayout)
           • "Display" panel / "View" settings on markup nodes → slicer_op (display node API)
           Extension UI toggles (checkboxes in the extension's own panel) are still
@@ -1837,6 +1882,53 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                     )
                     normalized["default_value"] = so.get("default_value")
                 sub_ops.append(normalized)
+
+            original_step_text = _text_or_empty(cb_step.description)
+            is_location_context = (
+                self._is_ui_location_context_text(original_step_text)
+                and not self._is_explicit_module_switch_text(original_step_text)
+            )
+            if is_location_context:
+                kept_sub_ops = []
+                removed_module_switch = False
+                for so in sub_ops:
+                    is_module_switch = (
+                        so.get("op_type") == "slicer_op"
+                        and so.get("slicer_op_category") == "module_switching"
+                    )
+                    if is_module_switch:
+                        removed_module_switch = True
+                        continue
+                    kept_sub_ops.append(so)
+                if removed_module_switch and kept_sub_ops:
+                    sub_ops = kept_sub_ops
+                    logger.info(
+                        "[Stage 4] Removed invented module_switching sub-operation "
+                        "from step %d because the cookbook text is UI-location context",
+                        step_num,
+                    )
+                elif removed_module_switch and not kept_sub_ops:
+                    sub_ops = [{
+                        "op_type": "slicer_op",
+                        "description": original_step_text[:300],
+                        "extension_method_hint": None,
+                        "slicer_api_keywords": ["display", "view"],
+                        "interaction_type": None,
+                        "node_class": None,
+                        "placement_instructions": None,
+                        "min_control_points": 0,
+                        "evidence_type": "slicer_core",
+                        "evidence_id": "markups_display",
+                        "confidence": "medium",
+                        "interaction_kind": "none",
+                        "slicer_op_category": "markups_display",
+                        "is_optional": False,
+                    }]
+                    logger.info(
+                        "[Stage 4] Reinterpreted module location context as markups_display "
+                        "for step %d",
+                        step_num,
+                    )
 
             # Resolve extension_method_hint to actual method names
             for so in sub_ops:
@@ -2089,8 +2181,8 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                     "fov", "spacing match", "field of view",
                 ],
                 "module_switching": [
-                    "module", "switch to", "open module",
-                    "select module", "markups module",
+                    "switch to", "open module", "open the",
+                    "select module", "activate module", "go to module",
                 ],
                 "crosshair": [
                     "crosshair", "slice intersection",
@@ -2130,6 +2222,8 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                             category = cat
                             patterns = kws
                             break
+                if category == "module_switching" and not self._is_explicit_module_switch_text(desc_lower):
+                    continue
                 if patterns and any(kw in desc_lower for kw in patterns):
                     so["op_type"] = "slicer_op"
                     so["slicer_op_category"] = category
@@ -7185,6 +7279,13 @@ Return ONLY the sentence, nothing else.""")
                     "Template uses Slicer API calls but operation_model.invokes_slicer_api is false"
                 )
 
+        if self._template_calls_select_module(code) and not self._module_switch_allowed_by_contract(gen):
+            result["errors"].append(
+                "Template switches the active Slicer module without an explicit module_switching contract; "
+                "module/panel phrases in cookbook steps are UI-location context and should be implemented "
+                "without slicer.util.selectModule"
+            )
+
         # ── Sub-operation coverage check ──
         # Verify every non-optional, code-generating sub-operation has a code
         # footprint in the template.  user_interaction and user_choice don't
@@ -7334,6 +7435,22 @@ Return ONLY the sentence, nothing else.""")
         result["errors"].extend(node_class_contract["errors"])
 
         return result
+
+    @staticmethod
+    def _template_calls_select_module(code: str) -> bool:
+        return bool(_re.search(r"\bslicer\s*\.\s*util\s*\.\s*selectModule\s*\(", code))
+
+    def _module_switch_allowed_by_contract(self, gen: Dict) -> bool:
+        operation_model = gen.get("operation_model") or {}
+        if operation_model.get("allow_module_switch"):
+            return True
+        texts = [_text_or_empty(gen.get("description"))]
+        for so in gen.get("sub_operations", []) or []:
+            if so.get("op_type") != "slicer_op" or so.get("slicer_op_category") != "module_switching":
+                continue
+            texts.append(_text_or_empty(so.get("description")))
+            texts.extend(_text_list(so.get("slicer_api_keywords", [])))
+        return self._is_explicit_module_switch_text(" ".join(texts))
 
     @staticmethod
     def _extension_methods_called_by_template(code: str) -> List[str]:
@@ -9921,6 +10038,21 @@ Return ONLY the JSON, no markdown fences.""")
             step.get("op_type") == "slicer_op"
             or any(so.get("op_type") == "slicer_op" for so in sub_ops)
         )
+        allow_module_switch = any(
+            so.get("op_type") == "slicer_op"
+            and so.get("slicer_op_category") == "module_switching"
+            and self._is_explicit_module_switch_text(
+                " ".join([
+                    _text_or_empty(step.get("description")),
+                    _text_or_empty(so.get("description")),
+                    " ".join(_text_list(so.get("slicer_api_keywords", []))),
+                ])
+            )
+            for so in sub_ops
+        ) or (
+            step.get("op_type") == "slicer_op"
+            and self._is_explicit_module_switch_text(_text_or_empty(step.get("description")))
+        )
         implementation_uses_slicer_api = bool(
             invokes_slicer_api
             or step_type in ("interactive", "mixed")
@@ -9935,6 +10067,7 @@ Return ONLY the JSON, no markdown fences.""")
             "invokes_extension_function": invokes_extension_function,
             "invokes_slicer_api": invokes_slicer_api,
             "implementation_uses_slicer_api": implementation_uses_slicer_api,
+            "allow_module_switch": allow_module_switch,
             "produces_interaction_state": produces_interaction_state,
             "interaction_kinds": sorted(set(interaction_kinds)),
         }

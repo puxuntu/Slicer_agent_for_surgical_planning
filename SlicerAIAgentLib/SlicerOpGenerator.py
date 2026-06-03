@@ -83,6 +83,11 @@ Once you have seen the target function's parameter list and at least one usage e
   call an API that sets the state to true/visible; if it says disable/off/hide,
   set the state to false/hidden. Do not use toggle APIs unless the request
   explicitly asks to invert the current state.
+- Do NOT call `slicer.util.selectModule(...)` for module/panel location context
+  such as "In the Markups module Display > Advanced panel, configure View...".
+  Those phrases describe where a user found a control; implement the requested
+  state directly. Use `selectModule` only when the operation explicitly asks to
+  switch/open/select/activate a module as the final state.
 - Keep code short and focused on the single operation.
 - Do NOT import os, subprocess, sys, socket, or use eval/exec/open.
 - Do NOT use destructive operations.
@@ -534,7 +539,13 @@ class SlicerOpGenerator:
             return "layout_slice_view"
         if "crosshair" in text or "slice intersection" in text:
             return "crosshair"
-        if "markups module" in text or "open the markups" in text:
+        if (
+            "markups module" in text
+            and any(t in text for t in ("display", "view", "advanced", "configure", "set", "show"))
+            and not any(t in text for t in ("switch to", "open the", "select module", "activate module"))
+        ):
+            return "markups_display"
+        if any(t in text for t in ("switch to", "open module", "open the markups", "select module", "activate module")):
             return "module_switching"
         if "display panel" in text or "advanced panel" in text:
             return "markups_display"
@@ -594,7 +605,9 @@ class SlicerOpGenerator:
             "\n\nSearch the knowledge base for relevant examples first, "
             "using slicer-ui-analysis first for UI-labeled controls/actions, "
             "then output ONLY the ```python code block. Generate a final-state "
-            "operation, not a toggle, unless the description explicitly requests toggling."
+            "operation, not a toggle, unless the description explicitly requests toggling. "
+            "Do not switch the active Slicer module for UI-location context; only use "
+            "slicer.util.selectModule when the operation explicitly asks to switch/open/select a module."
         )
         return "".join(parts)
 

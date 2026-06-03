@@ -8,12 +8,12 @@
 6. Change the layout to "Conventional".
 7. For the R (red) view, toggle on "slice visibility in 3D view".
 8. For the R (red) view, toggle on "FOV, Spacing match 2D" (adjusts slice resolution to match the 2D viewport pixel spacing).
-9. In the toolbar, toggle on "slice intersection visibility. Hold Shift key and move mouse in a view to set slice intersection position." (Note it's not "crosshair visibility"), and "set interaction" selected, and set "Translate" and "Rotate" selected.
-10. Manually adjust the slice intersection position.
+9. In the toolbar, turn on "slice intersection visibility". In the slice intersection interaction options, turn on "set interaction", then enable both "Translate" and "Rotate".
+10. Manually adjust the slice intersection position by holding Shift and moving the mouse in a view.
 11. Click the "Add mandibular curve" button.
-12. In the Markups module's "Display" > "Advanced" panel, configure "View" to show in both "View 1" and "Red".
+12. Configure the display settings of the mandibular curve created by the "Add mandibular curve" button so it is shown in both "View 1" and "Red".
 13. Manually click and draw on the "Red" view to create a curve along the mandible.
-14. Restore the BoneReconstructionPlanner custom layout registered by the extension. This is a layout/view operation.
+14. Change the layout to "BoneReconstructionPlanner".
 15. For the R (red) view, toggle off "slice visibility in 3D view".
 16. Manually set how many cut planes you want.
 17. Click "Add cut plane" button.
