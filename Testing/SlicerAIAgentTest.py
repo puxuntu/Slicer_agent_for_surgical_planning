@@ -13,6 +13,7 @@ import sys
 import unittest
 import tempfile
 import shutil
+import ast
 
 import vtk
 import qt
@@ -696,8 +697,8 @@ More text.
         self.assertFalse(validation["valid"])
         self.assertTrue(any("metadata expects vtkMRMLMarkupsLineNode" in e for e in validation["errors"]))
 
-        # Slice intersection visibility may be implemented through slice display nodes,
-        # not only through vtkMRMLCrosshairNode.
+        # Slice intersection visibility must visibly refresh slice views when
+        # implemented through direct slice display-node setters.
         validation = analyzer._stage9_validate(
             {
                 "templates/cb_step_2c.py.tpl": (
@@ -714,6 +715,7 @@ More text.
                     "step_type": "automated",
                     "op_types": ["slicer_op"],
                     "invokes_slicer_api": True,
+                    "operation_intents": ["slice_intersection_visibility"],
                 },
                 "sub_operations": [{
                     "op_type": "slicer_op",
@@ -723,7 +725,95 @@ More text.
                 }],
             }],
         )
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("Slice intersection visibility step must use" in e for e in validation["errors"]))
+
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_2c_refresh.py.tpl": (
+                    "sliceDisplayNodes = slicer.util.getNodesByClass('vtkMRMLSliceDisplayNode')\n"
+                    "for sliceDisplayNode in sliceDisplayNodes:\n"
+                    "    sliceDisplayNode.SetIntersectingSlicesVisibility(True)\n"
+                    "sliceNodes = slicer.util.getNodesByClass('vtkMRMLSliceNode')\n"
+                    "for sliceNode in sliceNodes:\n"
+                    "    sliceNode.Modified()\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_2c_refresh.py.tpl",
+                "step_type": "automated",
+                "op_type": "slicer_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["slicer_op"],
+                    "invokes_slicer_api": True,
+                    "operation_intents": ["slice_intersection_visibility"],
+                },
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Toggle on slice intersection visibility.",
+                    "slicer_op_category": "crosshair",
+                    "slicer_api_keywords": ["slice intersection visibility"],
+                }],
+            }],
+        )
         self.assertTrue(validation["valid"], validation.get("errors"))
+
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_2c_app_logic.py.tpl": (
+                    "appLogic = slicer.app.applicationLogic()\n"
+                    "appLogic.SetIntersectingSlicesEnabled("
+                    "appLogic.IntersectingSlicesVisibility, True)\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_2c_app_logic.py.tpl",
+                "step_type": "automated",
+                "op_type": "slicer_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["slicer_op"],
+                    "invokes_slicer_api": True,
+                    "operation_intents": ["slice_intersection_visibility"],
+                },
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Turn on slice intersection visibility.",
+                    "slicer_op_category": "crosshair",
+                    "slicer_api_keywords": ["slice intersection visibility"],
+                }],
+            }],
+        )
+        self.assertTrue(validation["valid"], validation.get("errors"))
+
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_2c_crosshair.py.tpl": (
+                    "crosshairNode = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLCrosshairNode')\n"
+                    "crosshairNode.SetCrosshairMode(slicer.vtkMRMLCrosshairNode.ShowBasic)\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_2c_crosshair.py.tpl",
+                "step_type": "automated",
+                "op_type": "slicer_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["slicer_op"],
+                    "invokes_slicer_api": True,
+                    "operation_intents": ["slice_intersection_visibility"],
+                },
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Turn on slice intersection visibility.",
+                    "slicer_op_category": "crosshair",
+                    "slicer_api_keywords": ["slice intersection visibility"],
+                }],
+            }],
+        )
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("crosshair visibility APIs" in e for e in validation["errors"]))
 
         # Final-state Slicer operations must not invert current state.
         validation = analyzer._stage9_validate(
@@ -1014,6 +1104,28 @@ More text.
         )
 
         # Acronym-heavy extension layout helpers still match custom-layout cookbook text.
+        layout_source = """
+def addBRPLayout():
+    layoutNode = slicer.mrmlScene.GetSingletonNode('vtkMRMLLayoutNodeSingleton', 'vtkMRMLLayoutNode')
+    layoutNode.AddLayoutDescription(slicer.BRPLayoutId, '<layout/>')
+
+def setBRPLayout():
+    layoutManager = slicer.app.layoutManager()
+    layoutManager.setLayout(slicer.BRPLayoutId)
+"""
+        layout_tree = ast.parse(layout_source)
+        layout_inventory = {}
+        for node in layout_tree.body:
+            if isinstance(node, ast.FunctionDef):
+                layout_inventory[node.name] = {
+                    "name": node.name,
+                    "effects": analyzer._infer_callable_effects(
+                        node,
+                        ast.get_source_segment(layout_source, node) or "",
+                    ),
+                }
+        self.assertEqual(layout_inventory["addBRPLayout"]["effects"], ["layout_register"])
+        self.assertEqual(layout_inventory["setBRPLayout"]["effects"], ["layout_activate"])
         self.assertEqual(
             analyzer._match_extension_function(
                 "Restore the BoneReconstructionPlanner custom layout registered by the extension.",
@@ -1021,6 +1133,84 @@ More text.
             ),
             "setBRPLayout",
         )
+        self.assertEqual(
+            analyzer._match_extension_function(
+                "Change the layout to BoneReconstructionPlanner.",
+                ["addBRPLayout", "setBRPLayout"],
+                layout_inventory,
+            ),
+            "setBRPLayout",
+        )
+        self.assertIsNone(
+            analyzer._match_extension_function(
+                "Restore the BoneReconstructionPlanner custom layout registered by the extension.",
+                ["addBRPLayout"],
+                layout_inventory,
+            )
+        )
+
+        analyzer._workflow_metadata = {
+            "extension_callable_inventory": {
+                "module_functions": ["addBRPLayout", "setBRPLayout"],
+                "module_function_effects": {
+                    "addBRPLayout": ["layout_register"],
+                    "setBRPLayout": ["layout_activate"],
+                },
+            }
+        }
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_layout_bad.py.tpl": (
+                    "from BoneReconstructionPlanner import addBRPLayout\n"
+                    "addBRPLayout()\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_layout_bad.py.tpl",
+                "step_type": "automated",
+                "op_type": "extension_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["extension_op"],
+                    "invokes_extension_function": True,
+                    "operation_intents": ["layout_activate"],
+                },
+                "sub_operations": [{
+                    "op_type": "extension_op",
+                    "description": "Change the layout to BoneReconstructionPlanner.",
+                    "extension_function_hint": "addBRPLayout",
+                }],
+            }],
+        )
+        self.assertFalse(validation["valid"])
+        self.assertTrue(any("Layout activation step" in e for e in validation["errors"]))
+
+        validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_layout_good.py.tpl": (
+                    "from BoneReconstructionPlanner import setBRPLayout\n"
+                    "setBRPLayout()\n"
+                )
+            },
+            [{
+                "template_file": "templates/cb_step_layout_good.py.tpl",
+                "step_type": "automated",
+                "op_type": "extension_op",
+                "operation_model": {
+                    "step_type": "automated",
+                    "op_types": ["extension_op"],
+                    "invokes_extension_function": True,
+                    "operation_intents": ["layout_activate"],
+                },
+                "sub_operations": [{
+                    "op_type": "extension_op",
+                    "description": "Change the layout to BoneReconstructionPlanner.",
+                    "extension_function_hint": "setBRPLayout",
+                }],
+            }],
+        )
+        self.assertTrue(validation["valid"], validation.get("errors"))
+        analyzer._workflow_metadata = {}
 
         # Template repairs synchronize extension-function evidence back to generator contracts.
         analyzer._workflow_metadata = {

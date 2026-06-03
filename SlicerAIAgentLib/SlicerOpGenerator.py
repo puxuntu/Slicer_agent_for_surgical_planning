@@ -83,6 +83,17 @@ Once you have seen the target function's parameter list and at least one usage e
   call an API that sets the state to true/visible; if it says disable/off/hide,
   set the state to false/hidden. Do not use toggle APIs unless the request
   explicitly asks to invert the current state.
+- For slice intersection visibility/interactions, prefer
+  `slicer.app.applicationLogic().SetIntersectingSlicesEnabled(...)` with the
+  appropriate `vtkMRMLApplicationLogic` operation enum. Direct
+  `vtkMRMLSliceDisplayNode` setters are acceptable only when followed by
+  `vtkMRMLSliceNode.Modified()` refresh for all slice nodes. Do not implement
+  slice intersection visibility with `vtkMRMLCrosshairNode`/`SetCrosshairMode`
+  unless the operation explicitly asks for crosshair visibility.
+- For custom layout operations, distinguish registering a layout from activating
+  it. A "change/switch/restore layout" operation must call
+  `layoutManager.setLayout(...)` or an extension helper that does so; a helper
+  that only calls `AddLayoutDescription(...)` is not sufficient.
 - Do NOT call `slicer.util.selectModule(...)` for module/panel location context
   such as "In the Markups module Display > Advanced panel, configure View...".
   Those phrases describe where a user found a control; implement the requested
@@ -214,8 +225,8 @@ _CATEGORY_SEARCH_HINTS = {
         "layoutManager", "vtkMRMLLayoutNode", "sliceWidget",
         "mrmlSliceNode", "sliceController", "setSliceVisible", "SetSliceResolutionMode",
         "SliceResolutionMatch2DView", "SliceResolutionMatchVolumes",
-        "SetViewArrangement", "SlicerLayoutConventionalView", "SetLayout",
-        "AddLayoutDescription", "GetLayoutByName",
+        "SetViewArrangement", "SlicerLayoutConventionalView", "setLayout active layout",
+        "layoutManager setLayout", "AddLayoutDescription registers layout only", "GetLayoutByName",
     ],
     "module_switching": [
         "slicer.util.selectModule", "moduleSelector", "markups module",
@@ -228,9 +239,11 @@ _CATEGORY_SEARCH_HINTS = {
     ],
     "crosshair": [
         "slicer-ui-analysis", "sliceIntersectionsVisibilityCheckBox",
-        "SetIntersectingSlicesEnabled", "vtkMRMLCrosshairNode", "SetCrosshairMode", "ShowIntersection",
-        "NoCrosshair", "CrosshairBehavior", "OffsetJumpSlice",
-        "CenteredJumpSlice", "SetCrosshairBehavior", "slice intersection",
+        "SetIntersectingSlicesEnabled", "vtkMRMLApplicationLogic",
+        "IntersectingSlicesVisibility", "IntersectingSlicesInteractive",
+        "IntersectingSlicesTranslation", "IntersectingSlicesRotation",
+        "qSlicerViewersToolBar", "vtkMRMLSliceDisplayNode",
+        "vtkMRMLSliceNode Modified", "slice intersection",
     ],
     "subject_hierarchy": [
         "GetSubjectHierarchyNode", "CreateFolderItem", "SetItemParent",

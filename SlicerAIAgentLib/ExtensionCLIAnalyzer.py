@@ -6530,6 +6530,13 @@ Return ONLY the sentence, nothing else.""")
                 tpl_name, sample_code, template_context.get(tpl_name), templates,
                 raw_code=tpl_content,
             )
+            if isinstance(self._workflow_metadata, dict):
+                gen_for_debug = template_context.get(tpl_name, {}).get("generator", {})
+                self._workflow_metadata.setdefault("semantic_contracts", {})[tpl_name] = {
+                    "operation_intents": self._operation_intents_for_generator(gen_for_debug),
+                    "errors": list(contract.get("errors") or []),
+                    "warnings": list(contract.get("warnings") or []),
+                }
             final_state_contract = self._validate_final_state_contract(
                 tpl_name, sample_code, template_context.get(tpl_name)
             )
@@ -7286,6 +7293,10 @@ Return ONLY the sentence, nothing else.""")
                 "without slicer.util.selectModule"
             )
 
+        semantic_contract = self._validate_slicer_operation_semantics(code, gen)
+        result["errors"].extend(semantic_contract["errors"])
+        result["warnings"].extend(semantic_contract["warnings"])
+
         # ── Sub-operation coverage check ──
         # Verify every non-optional, code-generating sub-operation has a code
         # footprint in the template.  user_interaction and user_choice don't
@@ -7439,6 +7450,95 @@ Return ONLY the sentence, nothing else.""")
     @staticmethod
     def _template_calls_select_module(code: str) -> bool:
         return bool(_re.search(r"\bslicer\s*\.\s*util\s*\.\s*selectModule\s*\(", code))
+
+    def _operation_intents_for_generator(self, gen: Dict) -> List[str]:
+        operation_model = gen.get("operation_model") or {}
+        intents = list(operation_model.get("operation_intents") or [])
+        if intents:
+            return sorted(set(intents))
+        return self._infer_step_operation_intents(gen)
+
+    def _extension_function_effects(self, function_name: str) -> List[str]:
+        if not function_name or not isinstance(self._workflow_metadata, dict):
+            return []
+        inventory = self._workflow_metadata.get("extension_callable_inventory", {}) or {}
+        effects_by_name = inventory.get("module_function_effects", {}) or {}
+        return list(effects_by_name.get(function_name, []) or [])
+
+    @staticmethod
+    def _function_name_suggests_layout_activation(function_name: str) -> bool:
+        name_l = _text_or_empty(function_name).lower()
+        return (
+            "layout" in name_l
+            and name_l.startswith(("set", "switch", "activate", "restore", "show"))
+        )
+
+    def _validate_slicer_operation_semantics(self, code: str, gen: Dict) -> Dict:
+        """Validate generic Slicer UI-operation effects beyond API existence."""
+        result = {"errors": [], "warnings": []}
+        intents = set(self._operation_intents_for_generator(gen))
+        if not intents:
+            return result
+
+        if "layout_activate" in intents:
+            called_function = self._detect_extension_function_call(code)
+            called_effects = set(self._extension_function_effects(called_function))
+            code_activates_layout = bool(
+                _re.search(r"\.\s*setLayout\s*\(", code)
+                or _re.search(r"\blayoutManager\s*\([^)]*\)\s*\.\s*setLayout\s*\(", code)
+                or "layout_activate" in called_effects
+                or (
+                    called_function
+                    and not called_effects
+                    and self._function_name_suggests_layout_activation(called_function)
+                )
+            )
+            code_only_registers_layout = bool(
+                "AddLayoutDescription" in code
+                or "layout_register" in called_effects
+                or (
+                    called_function
+                    and "layout" in called_function.lower()
+                    and called_function.lower().startswith("add")
+                    and "layout_activate" not in called_effects
+                )
+            )
+            if not code_activates_layout:
+                result["errors"].append(
+                    "Layout activation step does not switch the active layout; expected "
+                    "layoutManager.setLayout(...) or an extension function with layout_activate effect"
+                )
+            elif (
+                code_only_registers_layout
+                and "layout_activate" not in called_effects
+                and not _re.search(r"\.\s*setLayout\s*\(", code)
+            ):
+                result["errors"].append(
+                    "Layout activation step only registers a layout; expected active layout switch"
+                )
+
+        if "slice_intersection_visibility" in intents:
+            uses_app_logic = "SetIntersectingSlicesEnabled" in code
+            uses_display_setter = "SetIntersectingSlicesVisibility" in code
+            refreshes_slice_nodes = bool("Modified(" in code and "vtkMRMLSliceNode" in code)
+            uses_crosshair_only = bool(
+                ("vtkMRMLCrosshairNode" in code or "SetCrosshairMode" in code)
+                and not uses_app_logic
+                and not uses_display_setter
+            )
+            if uses_crosshair_only:
+                result["errors"].append(
+                    "Slice intersection visibility step uses crosshair visibility APIs; "
+                    "expected slice-intersection state APIs"
+                )
+            elif not uses_app_logic and not (uses_display_setter and refreshes_slice_nodes):
+                result["errors"].append(
+                    "Slice intersection visibility step must use applicationLogic()."
+                    "SetIntersectingSlicesEnabled(...) or refresh vtkMRMLSliceNode.Modified() "
+                    "after direct slice display-node setters"
+                )
+
+        return result
 
     def _module_switch_allowed_by_contract(self, gen: Dict) -> bool:
         operation_model = gen.get("operation_model") or {}
@@ -9711,10 +9811,12 @@ Return ONLY the JSON, no markdown fences.""")
             if tree is not None:
                 for node in tree.body:
                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        source_segment = ast.get_source_segment(source, node) or ""
                         module_functions[node.name] = {
                             "name": node.name,
                             "line": node.lineno,
                             "source_file": entry_module,
+                            "effects": self._infer_callable_effects(node, source_segment),
                         }
 
         return {
@@ -9722,13 +9824,89 @@ Return ONLY the JSON, no markdown fences.""")
             "module_functions": module_functions,
         }
 
+    @staticmethod
+    def _infer_callable_effects(node: Optional[ast.AST], source: str = "") -> List[str]:
+        """Infer coarse side effects of an extension-owned callable."""
+        effects = set()
+        source_text = _text_or_empty(source)
+        if node is not None:
+            for child in ast.walk(node):
+                if isinstance(child, ast.Call):
+                    func = child.func
+                    attr = func.attr if isinstance(func, ast.Attribute) else ""
+                    name = func.id if isinstance(func, ast.Name) else ""
+                    callee = attr or name
+                    if callee == "AddLayoutDescription":
+                        effects.add("layout_register")
+                    elif callee == "setLayout":
+                        effects.add("layout_activate")
+                    elif callee == "SetIntersectingSlicesEnabled":
+                        effects.add("slice_intersection_global")
+                    elif callee == "SetIntersectingSlicesVisibility":
+                        effects.add("slice_intersection_display_node")
+                    elif callee == "Modified":
+                        effects.add("slice_view_refresh")
+        # Lightweight fallback for source snippets that AST traversal could not
+        # classify because wrappers/aliases obscure the direct receiver.
+        if "AddLayoutDescription" in source_text:
+            effects.add("layout_register")
+        if ".setLayout(" in source_text or "setLayout(" in source_text:
+            effects.add("layout_activate")
+        if "SetIntersectingSlicesEnabled" in source_text:
+            effects.add("slice_intersection_global")
+        if "SetIntersectingSlicesVisibility" in source_text:
+            effects.add("slice_intersection_display_node")
+        if ".Modified(" in source_text or "Modified(" in source_text:
+            effects.add("slice_view_refresh")
+        return sorted(effects)
+
+    @staticmethod
+    def _infer_operation_intents_from_text(text: str, categories: Optional[List[str]] = None) -> List[str]:
+        """Infer generic operation intents from cookbook/user-facing text."""
+        text_l = _text_or_empty(text).lower()
+        categories = categories or []
+        intents = set()
+        if "layout" in text_l:
+            if any(word in text_l for word in ("change", "switch", "activate", "restore", "set")):
+                intents.add("layout_activate")
+            if any(word in text_l for word in ("register", "add layout", "create layout")):
+                intents.add("layout_register")
+        if "slice intersection" in text_l or "slice intersections" in text_l:
+            if any(word in text_l for word in ("visibility", "visible", "show", "turn on", "toggle on")):
+                intents.add("slice_intersection_visibility")
+            if any(word in text_l for word in ("interaction", "translate", "rotate")):
+                intents.add("slice_intersection_interaction")
+        if any(cat == "markups_display" for cat in categories) or (
+            "display" in text_l and "view" in text_l
+        ):
+            intents.add("view_display_scope")
+        if any(cat == "module_switching" for cat in categories):
+            intents.add("module_switch")
+        return sorted(intents)
+
+    def _infer_step_operation_intents(self, step: Dict) -> List[str]:
+        categories = []
+        text_parts = [_text_or_empty(step.get("description", ""))]
+        for so in step.get("sub_operations", []) or []:
+            text_parts.append(_text_or_empty(so.get("description", "")))
+            category = so.get("slicer_op_category")
+            if category:
+                categories.append(category)
+            text_parts.extend(_text_list(so.get("slicer_api_keywords", [])))
+        if step.get("slicer_op_category"):
+            categories.append(step.get("slicer_op_category"))
+        return self._infer_operation_intents_from_text(" ".join(text_parts), categories)
+
     def _match_extension_function(
         self, description: str, function_names: List[str],
+        function_inventory: Optional[Dict[str, Dict]] = None,
     ) -> Optional[str]:
         """Match an extension-owned module function to a cookbook description."""
         desc_tokens = set(self._role_keywords(description))
         if not desc_tokens:
             return None
+        operation_intents = set(self._infer_operation_intents_from_text(description))
+        function_inventory = function_inventory or {}
         best_name = None
         best_score = 0.0
         for name in function_names:
@@ -9742,6 +9920,12 @@ Return ONLY the JSON, no markdown fences.""")
             score = len(overlap) / (len(name_tokens) ** 0.5)
             if "layout" in overlap:
                 score += 1.0
+            effects = set((function_inventory.get(name) or {}).get("effects") or [])
+            if "layout_activate" in operation_intents:
+                if "layout_activate" in effects:
+                    score += 3.0
+                if "layout_register" in effects and "layout_activate" not in effects:
+                    score -= 2.0
             if score > best_score:
                 best_score = score
                 best_name = name
@@ -9757,6 +9941,14 @@ Return ONLY the JSON, no markdown fences.""")
                 if "layout" in set(self._role_keywords(name))
             ]
             if len(layout_functions) == 1:
+                only_name = layout_functions[0]
+                effects = set((function_inventory.get(only_name) or {}).get("effects") or [])
+                if (
+                    "layout_activate" in operation_intents
+                    and "layout_register" in effects
+                    and "layout_activate" not in effects
+                ):
+                    return None
                 return layout_functions[0]
         return None
 
@@ -9866,6 +10058,12 @@ Return ONLY the JSON, no markdown fences.""")
         metadata["extension_callable_inventory"] = {
             "logic_methods": sorted(callable_inventory.get("logic_methods", {}).keys()),
             "module_functions": sorted(callable_inventory.get("module_functions", {}).keys()),
+            "module_function_effects": {
+                name: info.get("effects", [])
+                for name, info in sorted(
+                    callable_inventory.get("module_functions", {}).items()
+                )
+            },
         }
 
         module_function_names = list(callable_inventory.get("module_functions", {}).keys())
@@ -9886,7 +10084,11 @@ Return ONLY the JSON, no markdown fences.""")
                     _text_or_empty(step.get("description", "")),
                     _text_or_empty(so.get("description", "")),
                 ])
-                matched = self._match_extension_function(description, module_function_names)
+                matched = self._match_extension_function(
+                    description,
+                    module_function_names,
+                    callable_inventory.get("module_functions", {}),
+                )
                 if matched:
                     so["extension_function_hint"] = matched
                     so["evidence_type"] = "module_function"
@@ -10060,9 +10262,11 @@ Return ONLY the JSON, no markdown fences.""")
             or step.get("placement_starter_method")
             or step.get("extension_function_name")
         )
+        operation_intents = self._infer_step_operation_intents(step)
         return {
             "step_type": step_type,
             "op_types": op_types,
+            "operation_intents": operation_intents,
             "invokes_extension_method": invokes_extension_method,
             "invokes_extension_function": invokes_extension_function,
             "invokes_slicer_api": invokes_slicer_api,
