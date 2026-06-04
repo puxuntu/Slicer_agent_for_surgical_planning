@@ -87,7 +87,7 @@ The final folder should contain the full Slicer skill files, not an extra nested
 
 ### 3. Add the pre-processed RAG knowledge
 
-Download the pre-processed RAG knowledge package and place or extract it under:
+Download the pre-processed RAG knowledge package from [this Google Drive link](https://drive.google.com/file/d/1S5uCNG4J2rlQSO-8e3no2ZMJb_BZDE0q/view?usp=sharing), then place or extract it under:
 
 ```text
 Resources/Code_RAG/
@@ -117,9 +117,9 @@ Do not start a workflow until the connection test succeeds.
 
 Bone reconstruction planning is a representative Guided Workflow Mode example:
 
-1. Install or enable [SlicerBoneReconstructionPlanner](https://github.com/SlicerIGT/SlicerBoneReconstructionPlanner).
-2. Download its sample data from the repository's **Sample Data** section.
-3. Load the four `.nrrd` volume files into Slicer.
+1. In Slicer, open the **Extension Manager** and install **BoneReconstructionPlanner**. Restart Slicer if prompted.
+2. Download the sample data from the **Sample Data** section of [SlicerBoneReconstructionPlanner](https://github.com/SlicerIGT/SlicerBoneReconstructionPlanner).
+3. Load the four `.nrrd` volume files from the sample data into Slicer.
 4. Open **SlicerAIAgent**.
 5. Send a prompt such as:
 
