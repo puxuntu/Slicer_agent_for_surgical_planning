@@ -63,6 +63,74 @@ https://github.com/user-attachments/assets/9b92f27d-2393-41b0-8216-6fc3dcd95a02
 
 ---
 
+## Setup and First Run
+
+Follow these steps to install SlicerAIAgent locally and run a guided workflow inside 3D Slicer.
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/puxuntu/Slicer_agent.git
+```
+
+Open the cloned `Slicer_agent` folder for the remaining setup steps.
+
+### 2. Add the Slicer skill knowledge base
+
+Download the full version of [slicer-skill](https://github.com/pieper/slicer-skill), then place its contents under:
+
+```text
+Resources/Skills/slicer-skill-full/
+```
+
+The final folder should contain the full Slicer skill files, not an extra nested wrapper directory.
+
+### 3. Add the pre-processed RAG knowledge
+
+Download the pre-processed RAG knowledge package and place or extract it under:
+
+```text
+Resources/Code_RAG/
+```
+
+This directory is used by the agent for fast local retrieval over Slicer APIs and examples.
+
+### 4. Load the extension in 3D Slicer
+
+Start 3D Slicer, then load this project as a scripted extension. The simplest path is to drag the entire `Slicer_agent` project folder into the Slicer application window and confirm loading when prompted.
+
+Open the **SlicerAIAgent** module. The first launch may take several minutes while Slicer installs Python dependencies into its own Python environment.
+
+### 5. Configure the LLM provider
+
+In **SlicerAIAgent > Settings**:
+
+1. Select the provider.
+2. Select the model.
+3. Confirm that the Base URL is filled automatically, or edit it if you use a custom endpoint.
+4. Enter your API key.
+5. Click **Test** to verify the connection.
+
+Do not start a workflow until the connection test succeeds.
+
+### 6. Run an example guided workflow
+
+Bone reconstruction planning is a representative Guided Workflow Mode example:
+
+1. Install or enable [SlicerBoneReconstructionPlanner](https://github.com/SlicerIGT/SlicerBoneReconstructionPlanner).
+2. Download its sample data from the repository's **Sample Data** section.
+3. Load the four `.nrrd` volume files into Slicer.
+4. Open **SlicerAIAgent**.
+5. Send a prompt such as:
+
+```text
+plan a mandible reconstruction with a fibula graft
+```
+
+SlicerAIAgent will enter the Bone Reconstruction Planner workflow and guide the procedure step by step. Automated steps run directly in Slicer; interactive steps pause for you to place curves, points, or cutting planes in the scene, then continue when you click **Done** in the workflow panel.
+
+---
+
 ## Technique Points
 
 SlicerAIAgent is not a simple prompt-to-code wrapper. It is built around a clear separation between **Offline Stage** (everything that happens before the user types a prompt) and **Online Stage** (everything that happens during the conversation). This split is the key reason the system can remain responsive, deterministic, and safe even when driving complex clinical workflows.
