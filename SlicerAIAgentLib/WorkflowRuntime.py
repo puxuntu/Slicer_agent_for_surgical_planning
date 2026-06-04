@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -69,6 +70,85 @@ class WorkflowRuntime:
             "current_step": self.session.current_step,
             "status": self.session.status,
             "completed_steps": list(self.session.completed_steps),
+        }
+
+    def state_for_ui(self, result: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Return a compact, user-facing state for workflow progress UI."""
+        if not self.session:
+            return {"active": False}
+
+        graph = get_workflow_graph(self.session.extension_name) or {}
+        steps = graph.get("steps", []) if isinstance(graph, dict) else []
+        step_ids = [step.get("step_id") for step in steps if step.get("step_id")]
+        step_map = {step.get("step_id"): step for step in steps if step.get("step_id")}
+        total_steps = graph.get("step_count") or len(steps)
+
+        source = result if isinstance(result, dict) else self.session.last_result or {}
+        next_step = source.get("next_step") or {}
+        current_step = (
+            source.get("step_id")
+            or self.session.current_step
+            or next_step.get("step_id")
+        )
+        current_meta = step_map.get(current_step, {})
+        current_index = 0
+        if current_step in step_ids:
+            current_index = step_ids.index(current_step) + 1
+        elif self.session.status == "completed" and total_steps:
+            current_index = int(total_steps)
+
+        completed_count = len(set(self.session.completed_steps))
+        if self.session.status == "completed" and total_steps:
+            completed_count = int(total_steps)
+
+        result_type = source.get("type", "")
+        status = self._ui_status_label(self.session.status, result_type)
+        if result_type == "user_choice":
+            description = (
+                source.get("question")
+                or source.get("explanation")
+                or current_meta.get("description")
+                or ""
+            )
+        else:
+            description = (
+                source.get("explanation")
+                or source.get("instruction")
+                or current_meta.get("description")
+                or ""
+            )
+        instructions = self._instructions_from_result(source)
+        choices = self._choices_from_result(source, current_meta)
+        is_optional = bool(source.get("is_optional") or current_meta.get("is_optional"))
+        choice_info = current_meta.get("choice_info", {}) if isinstance(current_meta, dict) else {}
+        default_value = source.get("default_value")
+        if default_value is None:
+            default_value = choice_info.get("default_value")
+        parameter_name = source.get("parameter_name") or choice_info.get("parameter_name") or ""
+        active = self.session.active or self.session.status in {"completed", "cancelled"}
+
+        return {
+            "active": active,
+            "extension_name": self.session.extension_name,
+            "workflow_title": self._display_name(self.session.extension_name),
+            "tool_name": self.session.tool_name,
+            "workflow_id": self.session.workflow_id,
+            "current_step": current_step,
+            "current_index": current_index,
+            "completed_steps": completed_count,
+            "total_steps": int(total_steps or 0),
+            "status": status,
+            "raw_status": self.session.status,
+            "result_type": result_type,
+            "description": description,
+            "instructions": instructions,
+            "choices": choices,
+            "default_value": default_value,
+            "parameter_name": parameter_name,
+            "needs_choice_input": result_type == "user_choice" and not choices,
+            "can_done": self.session.status == "waiting_for_user",
+            "can_skip": self.session.active and is_optional,
+            "can_cancel": self.session.active,
         }
 
     def start_from_result(self, result: Dict[str, Any]) -> Optional[WorkflowSession]:
@@ -269,6 +349,79 @@ class WorkflowRuntime:
         )
 
     @staticmethod
+    def _instructions_from_result(result: Dict[str, Any]) -> str:
+        if not isinstance(result, dict):
+            return ""
+        if result.get("type") == "user_choice":
+            return ""
+        interaction = result.get("interaction") or {}
+        return (
+            interaction.get("placement_instructions")
+            or result.get("interaction_instructions")
+            or ""
+        )
+
+    @staticmethod
+    def _choices_from_result(result: Dict[str, Any], step_meta: Dict[str, Any]) -> List[Dict[str, Any]]:
+        source_choices = []
+        if isinstance(result, dict):
+            source_choices = result.get("choices") or []
+        if not source_choices and isinstance(step_meta, dict):
+            source_choices = (step_meta.get("choice_info") or {}).get("choices") or []
+        if not source_choices and isinstance(result, dict):
+            source_choices = WorkflowRuntime._choices_from_instruction(result.get("instruction", ""))
+        choices = []
+        for choice in source_choices:
+            if not isinstance(choice, dict):
+                continue
+            label = str(choice.get("label", choice.get("value", ""))).strip()
+            value = str(choice.get("value", label)).strip()
+            if label or value:
+                choices.append({"label": label or value, "value": value or label})
+        return choices
+
+    @staticmethod
+    def _choices_from_instruction(instruction: str) -> List[Dict[str, Any]]:
+        """Best-effort fallback for compact user_choice results."""
+        choices = []
+        for line in str(instruction or "").splitlines():
+            match = re.match(r"\s*\d+[.)]\s+(.+?)\s*$", line)
+            if not match:
+                continue
+            label = match.group(1).strip()
+            if label:
+                lowered = label.lower()
+                if lowered == "yes":
+                    value = "true"
+                elif lowered == "no":
+                    value = "false"
+                else:
+                    value = label
+                choices.append({"label": label, "value": value})
+        return choices
+
+    @staticmethod
+    def _ui_status_label(status: str, result_type: str = "") -> str:
+        if status == "waiting_for_user":
+            return "Waiting for your interaction"
+        if status == "waiting_for_choice":
+            return "Waiting for your choice"
+        if status == "completed":
+            return "Completed"
+        if status == "cancelled":
+            return "Cancelled"
+        if result_type == "user_choice":
+            return "Waiting for your choice"
+        return "Running"
+
+    @staticmethod
+    def _display_name(name: str) -> str:
+        text = str(name or "").replace("_", " ").replace("-", " ").strip()
+        if not text:
+            return "Workflow"
+        return re.sub(r"(?<!^)(?=[A-Z])", " ", text).strip()
+
+    @staticmethod
     def _tool_name_for_extension(ext_data: Dict[str, Any]) -> Optional[str]:
         for schema in ext_data.get("schemas", []):
             func = schema.get("function", {})
@@ -293,6 +446,9 @@ class WorkflowRuntime:
             "instruction",
             "explanation",
             "interaction_instructions",
+            "question",
+            "choices",
+            "default_value",
             "next_step",
             "workflow_completed",
             "error",

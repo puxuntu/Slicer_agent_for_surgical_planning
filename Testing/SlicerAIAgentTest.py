@@ -65,6 +65,14 @@ class SlicerAIAgentTest(ScriptedLoadableModuleTest):
         self.tearDown()
 
         self.setUp()
+        self.test_WorkflowRuntimeUiStateMapping()
+        self.tearDown()
+
+        self.setUp()
+        self.test_WorkflowWidgetClearsStaleMarkers()
+        self.tearDown()
+
+        self.setUp()
         self.test_NodeChoiceResolverContracts()
         self.tearDown()
         
@@ -1340,6 +1348,16 @@ def setBRPLayout():
         self.assertEqual(done_route.action, "proceed")
         self.assertEqual(done_route.step_id, "cb_step_18")
 
+        skip_route = TurnRouter.classify("skip", active)
+        self.assertEqual(skip_route.route_type, ROUTE_WORKFLOW_CONTROL)
+        self.assertEqual(skip_route.action, "skip")
+        self.assertEqual(skip_route.step_id, "cb_step_18")
+
+        cancel_route = TurnRouter.classify("cancel", active)
+        self.assertEqual(cancel_route.route_type, ROUTE_WORKFLOW_CONTROL)
+        self.assertEqual(cancel_route.action, "cancel")
+        self.assertEqual(cancel_route.step_id, "cb_step_18")
+
         step_route = TurnRouter.classify("Proceed with workflow step 'cb_step_12'", active)
         self.assertEqual(step_route.route_type, ROUTE_WORKFLOW_CONTROL)
         self.assertEqual(step_route.action, "start")
@@ -1382,6 +1400,168 @@ def setBRPLayout():
         count = runtime.queue_traditional_prompt("show me the loaded nodes")
         self.assertEqual(count, 1)
         self.assertEqual(runtime.pop_queued_prompts(), ["show me the loaded nodes"])
+
+    def test_WorkflowRuntimeUiStateMapping(self):
+        """Test compact workflow UI state for progress and controls."""
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+
+        graph = {
+            "step_count": 4,
+            "steps": [
+                {"step_id": "cb_step_1", "step_type": "automated", "description": "Load data"},
+                {
+                    "step_id": "cb_step_2",
+                    "step_type": "interactive",
+                    "description": "Place plane",
+                    "is_optional": True,
+                },
+                {
+                    "step_id": "cb_step_3",
+                    "step_type": "user_choice",
+                    "description": "Choose count",
+                    "choice_info": {
+                        "choices": [
+                            {"label": "One", "value": "1"},
+                            {"label": "Two", "value": "2"},
+                        ],
+                    },
+                },
+                {
+                    "step_id": "cb_step_16",
+                    "step_type": "user_choice",
+                    "description": "Choose cut plane count",
+                    "choice_info": {
+                        "question": "How many mandibular cut planes would you like to create?",
+                        "choices": [],
+                        "parameter_name": "numberOfCutPlanes",
+                        "default_value": "1",
+                    },
+                },
+            ],
+        }
+        original_get_workflow_graph = wf_mod.get_workflow_graph
+        wf_mod.get_workflow_graph = lambda extension_name: graph
+        try:
+            runtime = WorkflowRuntime()
+            runtime.session = WorkflowSession(
+                extension_name="FakeExtension",
+                tool_name="FakeExtension",
+                workflow_id="fake_ui_1",
+                current_step="cb_step_1",
+            )
+
+            automated = runtime.state_for_ui({"type": "automated", "step_id": "cb_step_1"})
+            self.assertEqual(automated["total_steps"], 4)
+            self.assertEqual(automated["current_index"], 1)
+            self.assertFalse(automated["can_done"])
+
+            runtime.session.status = "waiting_for_user"
+            runtime.session.current_step = "cb_step_2"
+            interactive = runtime.state_for_ui({
+                "type": "interactive",
+                "step_id": "cb_step_2",
+                "interaction_instructions": "Hold Shift and move mouse in a view.",
+            })
+            self.assertEqual(interactive["status"], "Waiting for your interaction")
+            self.assertTrue(interactive["can_done"])
+            self.assertTrue(interactive["can_skip"])
+            self.assertIn("Hold Shift", interactive["instructions"])
+
+            runtime.session.status = "waiting_for_choice"
+            runtime.session.current_step = "cb_step_3"
+            choice = runtime.state_for_ui({
+                "type": "user_choice",
+                "step_id": "cb_step_3",
+                "question": "How many planes?",
+                "instruction": "Ask the user, then call FakeExtension with user_action='choice_made'.",
+            })
+            self.assertEqual(choice["status"], "Waiting for your choice")
+            self.assertEqual(choice["description"], "How many planes?")
+            self.assertEqual(choice["instructions"], "")
+            self.assertFalse(choice["can_done"])
+            self.assertEqual(choice["choices"][1]["value"], "2")
+
+            compact_choice = runtime.state_for_ui({
+                "type": "user_choice",
+                "step_id": "cb_step_99",
+                "question": "Use right side leg?",
+                "instruction": (
+                    "Ask the user: 'Use right side leg?'\n"
+                    "Options:\n"
+                    "  1. Yes\n"
+                    "  2. No\n"
+                    "Wait for the user's response."
+                ),
+            })
+            self.assertEqual(compact_choice["choices"][0]["label"], "Yes")
+            self.assertEqual(compact_choice["choices"][0]["value"], "true")
+            self.assertEqual(compact_choice["choices"][1]["value"], "false")
+
+            runtime.session.current_step = "cb_step_16"
+            count_choice = runtime.state_for_ui({
+                "type": "user_choice",
+                "step_id": "cb_step_16",
+                "question": "How many mandibular cut planes would you like to create?",
+                "default_value": "1",
+                "parameter_name": "numberOfCutPlanes",
+            })
+            self.assertEqual(count_choice["choices"], [])
+            self.assertTrue(count_choice["needs_choice_input"])
+            self.assertEqual(count_choice["default_value"], "1")
+
+            runtime.session.status = "completed"
+            runtime.session.current_step = None
+            runtime.session.completed_steps = ["cb_step_1", "cb_step_2", "cb_step_3"]
+            completed = runtime.state_for_ui({"workflow_completed": True})
+            self.assertEqual(completed["status"], "Completed")
+            self.assertEqual(completed["completed_steps"], 3)
+            self.assertFalse(completed["can_cancel"])
+        finally:
+            wf_mod.get_workflow_graph = original_get_workflow_graph
+
+    def test_WorkflowWidgetClearsStaleMarkers(self):
+        """Test stale workflow tool results are cleared after a workflow turn."""
+        from SlicerAIAgent import SlicerAIAgentWidget
+
+        class FakeLogic:
+            pass
+
+        interactive_step = {
+            "tool": "BoneReconstructionPlanner",
+            "step_id": "cb_step_10",
+            "type": "interactive",
+        }
+        same_cached_step = dict(interactive_step)
+
+        widget = object.__new__(SlicerAIAgentWidget)
+        widget.logic = FakeLogic()
+        widget.logic._lastInteractiveStep = interactive_step
+        widget.logic._lastWorkflowStep = same_cached_step
+        widget._currentWorkflowStepInfo = interactive_step
+        widget._waitingForUser = True
+        widget._autoAdvanceWorkflowStep = {"step_id": "cb_step_11"}
+        widget._activeWorkflowId = "BoneReconstructionPlanner_1"
+        widget._taskWorkflowPanelActive = True
+
+        self.assertTrue(widget._sameWorkflowStepMarker(interactive_step, same_cached_step))
+
+        widget._clearWorkflowResultMarkers()
+        self.assertIsNone(widget.logic._lastInteractiveStep)
+        self.assertIsNone(widget.logic._lastWorkflowStep)
+
+        widget.logic._lastInteractiveStep = interactive_step
+        widget.logic._lastWorkflowStep = same_cached_step
+        widget._clearCompletedWorkflowState()
+        self.assertIsNone(widget.logic._lastInteractiveStep)
+        self.assertIsNone(widget.logic._lastWorkflowStep)
+        self.assertIsNone(widget._currentWorkflowStepInfo)
+        self.assertFalse(widget._waitingForUser)
+        self.assertIsNone(widget._autoAdvanceWorkflowStep)
+        self.assertIsNone(widget._activeWorkflowId)
+        self.assertFalse(widget._taskWorkflowPanelActive)
 
     def test_NodeChoiceResolverContracts(self):
         """Test narrow LLM node-choice resolver validation behavior."""

@@ -95,6 +95,13 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._autoAdvanceWorkflowStep = None
         self._workflowInstructionsLabel = None
         self._nodeChoiceResolver = None
+        self._workflowChoiceButtons = []
+        self._workflowChoiceInput = None
+        self._workflowChoiceSubmitButton = None
+        self._currentWorkflowUiState = {"active": False}
+        self._taskWorkflowPanelActive = False
+        self._announcedWorkflowIds = set()
+        self._currentWorkflowStepInfo = None
 
 
     def setup(self):
@@ -141,6 +148,22 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.testConnectionButton = self.ui.findChild(qt.QPushButton, "testConnectionButton")
         self.chatHistory = self.ui.findChild(qt.QTextEdit, "chatHistory")
         self.codeDisplay = self.ui.findChild(qt.QTextEdit, "codeDisplay")
+        self._workflowUserFrame = self.ui.findChild(qt.QFrame, "workflowUserFrame")
+        self._workflowTitleLabel = self.ui.findChild(qt.QLabel, "workflowTitleLabel")
+        self._workflowStatusLabel = self.ui.findChild(qt.QLabel, "workflowStatusLabel")
+        self._workflowProgressBar = self.ui.findChild(qt.QProgressBar, "workflowProgressBar")
+        self._workflowStepLabel = self.ui.findChild(qt.QLabel, "workflowStepLabel")
+        self._workflowActionLabel = self.ui.findChild(qt.QLabel, "workflowActionLabel")
+        self._workflowInstructionLabel = self.ui.findChild(qt.QLabel, "workflowInstructionLabel")
+        self._workflowDoneButton = self.ui.findChild(qt.QPushButton, "workflowDoneButton")
+        self._workflowSkipButton = self.ui.findChild(qt.QPushButton, "workflowSkipButton")
+        self._workflowCancelButton = self.ui.findChild(qt.QPushButton, "workflowCancelButton")
+        self._workflowChoiceContainer = self.ui.findChild(qt.QWidget, "workflowChoiceContainer")
+        self._workflowChoiceLayout = (
+            self._workflowChoiceContainer.layout()
+            if self._workflowChoiceContainer is not None
+            else self.ui.findChild(qt.QHBoxLayout, "workflowChoiceLayout")
+        )
         # Note: executeButton and copyButton removed - code is auto-executed
         self.clearChatButton = self.ui.findChild(qt.QPushButton, "clearChatButton")
         self.promptInput = self.ui.findChild(qt.QTextEdit, "promptInput")
@@ -828,68 +851,334 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         )
         self._workflowRuntime = WorkflowRuntime()
 
-        # Workflow wait banner (hidden by default)
-        self._workflowFrame = qt.QFrame()
-        self._workflowFrame.setStyleSheet(
-            "QFrame { background-color: #FFF3E0; border: 1px solid #FF9800; "
-            "border-radius: 4px; padding: 4px; }"
+        self._setupWorkflowUserPanel()
+
+    def _setupWorkflowUserPanel(self):
+        """Create or connect the user-facing workflow panel controls."""
+        if not getattr(self, "_workflowUserFrame", None):
+            self._workflowUserFrame = qt.QFrame()
+            self._workflowUserFrame.setObjectName("workflowUserFrame")
+            self._workflowUserFrame.setStyleSheet(
+                "QFrame#workflowUserFrame { background-color: #f7fbff; "
+                "border: 1px solid #b8d7f2; border-radius: 4px; }"
+            )
+            layout = qt.QVBoxLayout(self._workflowUserFrame)
+            layout.setContentsMargins(10, 8, 10, 8)
+
+            header = qt.QHBoxLayout()
+            self._workflowTitleLabel = qt.QLabel("Workflow")
+            self._workflowTitleLabel.setStyleSheet("font-weight: bold; font-size: 14px; color: #1f3b57;")
+            self._workflowStatusLabel = qt.QLabel("Idle")
+            self._workflowStatusLabel.setStyleSheet("font-weight: bold; color: #3b6f9e;")
+            header.addWidget(self._workflowTitleLabel, 1)
+            header.addWidget(self._workflowStatusLabel)
+            layout.addLayout(header)
+
+            self._workflowProgressBar = qt.QProgressBar()
+            self._workflowProgressBar.setMinimum(0)
+            self._workflowProgressBar.setMaximum(1)
+            self._workflowProgressBar.setValue(0)
+            layout.addWidget(self._workflowProgressBar)
+
+            self._workflowStepLabel = qt.QLabel("Step 0 of 0")
+            self._workflowActionLabel = qt.QLabel("")
+            self._workflowActionLabel.setWordWrap(True)
+            self._workflowActionLabel.setStyleSheet("font-weight: bold; color: #222;")
+            self._workflowInstructionLabel = qt.QLabel("")
+            self._workflowInstructionLabel.setWordWrap(True)
+            layout.addWidget(self._workflowStepLabel)
+            layout.addWidget(self._workflowActionLabel)
+            layout.addWidget(self._workflowInstructionLabel)
+
+            self._workflowChoiceContainer = qt.QWidget()
+            self._workflowChoiceLayout = qt.QHBoxLayout(self._workflowChoiceContainer)
+            self._workflowChoiceLayout.setContentsMargins(0, 0, 0, 0)
+            layout.addWidget(self._workflowChoiceContainer)
+
+            controls = qt.QHBoxLayout()
+            self._workflowDoneButton = qt.QPushButton("Done")
+            self._workflowSkipButton = qt.QPushButton("Skip")
+            self._workflowCancelButton = qt.QPushButton("Cancel")
+            controls.addWidget(self._workflowDoneButton)
+            controls.addWidget(self._workflowSkipButton)
+            controls.addWidget(self._workflowCancelButton)
+            controls.addStretch(1)
+            layout.addLayout(controls)
+            self.layout.addWidget(self._workflowUserFrame)
+
+        self._workflowBannerLabel = self._workflowTitleLabel
+        self._workflowInstructionsLabel = self._workflowInstructionLabel
+        self._workflowChoiceButtons = []
+        self._workflowChoiceInput = None
+        self._workflowChoiceSubmitButton = None
+
+        if getattr(self, "_workflowDoneButton", None):
+            self._workflowDoneButton.clicked.connect(self._onWorkflowDoneClicked)
+        if getattr(self, "_workflowSkipButton", None):
+            self._workflowSkipButton.clicked.connect(self._onWorkflowSkipClicked)
+        if getattr(self, "_workflowCancelButton", None):
+            self._workflowCancelButton.clicked.connect(self._onWorkflowCancelClicked)
+
+        self._positionWorkflowUserPanel()
+        self._clearWorkflowPanel()
+
+    def _positionWorkflowUserPanel(self):
+        """Place the workflow panel below Debug and above the prompt input area."""
+        if not getattr(self, "_workflowUserFrame", None):
+            return
+        debug_group = self.ui.findChild(ctk.ctkCollapsibleGroupBox, "debugGroupBox") if getattr(self, "ui", None) else None
+        if not debug_group:
+            return
+        parent = debug_group.parent()
+        parent_layout = parent.layout() if parent else None
+        if not parent_layout:
+            return
+        workflow_index = parent_layout.indexOf(self._workflowUserFrame)
+        debug_index = parent_layout.indexOf(debug_group)
+        if debug_index < 0:
+            return
+        if workflow_index >= 0:
+            parent_layout.removeWidget(self._workflowUserFrame)
+            if workflow_index < debug_index:
+                debug_index -= 1
+        parent_layout.insertWidget(debug_index + 1, self._workflowUserFrame)
+
+    def _updateWorkflowPanel(self, result_or_state=None):
+        """Render generated-CLI or traditional task state into the workflow panel."""
+        state = result_or_state if isinstance(result_or_state, dict) else {}
+        should_map_runtime_result = (
+            not state
+            or any(key in state for key in ("type", "step_id", "tool", "next_step"))
         )
-        workflowLayout = qt.QVBoxLayout(self._workflowFrame)
-        workflowLayout.setContentsMargins(8, 4, 8, 4)
+        if self._workflowRuntime and self._workflowRuntime.session and should_map_runtime_result:
+            state = self._workflowRuntime.state_for_ui(state)
+        elif should_map_runtime_result and not state.get("active"):
+            state = self._workflowUiStateFromStepResult(state)
 
-        self._workflowBannerLabel = qt.QLabel()
-        self._workflowBannerLabel.setStyleSheet("font-weight: bold; color: #E65100;")
-        workflowLayout.addWidget(self._workflowBannerLabel)
+        self._currentWorkflowUiState = dict(state or {"active": False})
+        if not getattr(self, "_workflowUserFrame", None):
+            return
 
-        self._workflowInstructionsLabel = qt.QLabel()
-        self._workflowInstructionsLabel.setWordWrap(True)
-        self._workflowInstructionsLabel.setStyleSheet("color: #333;")
-        workflowLayout.addWidget(self._workflowInstructionsLabel)
+        if not self._currentWorkflowUiState.get("active"):
+            self._workflowUserFrame.setVisible(False)
+            return
 
-        self._workflowFrame.setVisible(False)
+        self._workflowUserFrame.setVisible(True)
+        title = (
+            self._currentWorkflowUiState.get("workflow_title")
+            or self._currentWorkflowUiState.get("extension_name")
+            or "Task"
+        )
+        status = self._currentWorkflowUiState.get("status") or "Running"
+        total = int(self._currentWorkflowUiState.get("total_steps") or 0)
+        completed = int(self._currentWorkflowUiState.get("completed_steps") or 0)
+        current_index = int(self._currentWorkflowUiState.get("current_index") or 0)
 
-        # Insert after Extension CLI Generator panel, before stream poll timer setup
-        self.layout.addWidget(self._workflowFrame)
+        self._workflowTitleLabel.setText(str(title))
+        self._workflowStatusLabel.setText(str(status))
+        if total > 0:
+            self._workflowProgressBar.setRange(0, total)
+            self._workflowProgressBar.setValue(max(0, min(completed, total)))
+            self._workflowProgressBar.setFormat(f"{completed}/{total}")
+            self._workflowStepLabel.setText(f"Step {current_index or completed} of {total}")
+            self._workflowStepLabel.setVisible(True)
+        else:
+            self._workflowProgressBar.setRange(0, 1)
+            self._workflowProgressBar.setValue(0)
+            self._workflowProgressBar.setFormat("")
+            self._workflowStepLabel.setVisible(False)
+
+        description = self._currentWorkflowUiState.get("description") or ""
+        instructions = self._currentWorkflowUiState.get("instructions") or ""
+        self._workflowActionLabel.setText(str(description))
+        self._workflowActionLabel.setVisible(bool(description))
+        self._workflowInstructionLabel.setText(str(instructions))
+        self._workflowInstructionLabel.setVisible(bool(instructions))
+
+        self._renderWorkflowChoices(self._currentWorkflowUiState)
+
+        self._workflowDoneButton.setVisible(bool(self._currentWorkflowUiState.get("can_done")))
+        self._workflowSkipButton.setVisible(bool(self._currentWorkflowUiState.get("can_skip")))
+        self._workflowCancelButton.setVisible(bool(self._currentWorkflowUiState.get("can_cancel")))
+        self._workflowDoneButton.setEnabled(bool(self._currentWorkflowUiState.get("can_done")))
+        self._workflowSkipButton.setEnabled(bool(self._currentWorkflowUiState.get("can_skip")))
+        self._workflowCancelButton.setEnabled(bool(self._currentWorkflowUiState.get("can_cancel")))
+
+    def _workflowUiStateFromStepResult(self, result):
+        """Fallback panel state for workflow results not tracked by WorkflowRuntime."""
+        if not isinstance(result, dict) or not result:
+            return {"active": False}
+        result_type = result.get("type", "")
+        choices = []
+        for choice in result.get("choices") or []:
+            if isinstance(choice, dict):
+                label = choice.get("label") or choice.get("value") or "Choice"
+                value = choice.get("value", label)
+                choices.append({"label": label, "value": value})
+        status = "Running"
+        if result_type in ("interactive", "mixed"):
+            status = "Waiting for your interaction"
+        elif result_type == "user_choice":
+            status = "Waiting for your choice"
+        elif result.get("workflow_completed"):
+            status = "Completed"
+        return {
+            "active": True,
+            "workflow_title": result.get("tool", "Workflow"),
+            "current_step": result.get("step_id"),
+            "current_index": 0,
+            "completed_steps": 0,
+            "total_steps": 0,
+            "status": status,
+            "description": (
+                result.get("question")
+                if result_type == "user_choice"
+                else None
+            ) or result.get("explanation") or result.get("instruction") or "",
+            "instructions": (
+                (result.get("interaction") or {}).get("placement_instructions")
+                or result.get("interaction_instructions")
+                or ""
+            ),
+            "choices": choices,
+            "default_value": result.get("default_value"),
+            "parameter_name": result.get("parameter_name", ""),
+            "needs_choice_input": result_type == "user_choice" and not choices,
+            "can_done": result_type in ("interactive", "mixed"),
+            "can_skip": bool(result.get("is_optional")),
+            "can_cancel": not result.get("workflow_completed"),
+        }
+
+    def _renderWorkflowChoices(self, state):
+        """Render choice buttons for generated CLI user_choice steps."""
+        if getattr(self, "_workflowChoiceInput", None) is not None:
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowChoiceInput)
+            self._workflowChoiceInput.setParent(None)
+            self._workflowChoiceInput = None
+        if getattr(self, "_workflowChoiceSubmitButton", None) is not None:
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowChoiceSubmitButton)
+            self._workflowChoiceSubmitButton.setParent(None)
+            self._workflowChoiceSubmitButton = None
+        for button in getattr(self, "_workflowChoiceButtons", []):
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(button)
+            button.setParent(None)
+        self._workflowChoiceButtons = []
+
+        choices = state.get("choices") or []
+        step_id = state.get("current_step")
+        needs_input = bool(state.get("needs_choice_input"))
+        if self._workflowChoiceContainer is not None:
+            self._workflowChoiceContainer.setVisible(bool(choices) or needs_input)
+        if self._workflowChoiceLayout is None:
+            return
+        if not choices and needs_input:
+            default_value = state.get("default_value")
+            self._workflowChoiceInput = qt.QLineEdit()
+            self._workflowChoiceInput.setPlaceholderText("Enter value")
+            if default_value is not None:
+                self._workflowChoiceInput.setText(str(default_value))
+            self._workflowChoiceInput.returnPressed.connect(self._onWorkflowChoiceInputSubmitted)
+
+            self._workflowChoiceSubmitButton = qt.QPushButton("Set")
+            self._workflowChoiceSubmitButton.setToolTip("Use this value")
+            self._workflowChoiceSubmitButton.clicked.connect(self._onWorkflowChoiceInputSubmitted)
+
+            self._workflowChoiceLayout.addWidget(self._workflowChoiceInput, 1)
+            self._workflowChoiceLayout.addWidget(self._workflowChoiceSubmitButton)
+            self._workflowChoiceInput.setVisible(True)
+            self._workflowChoiceSubmitButton.setVisible(True)
+            return
+        if not choices:
+            return
+
+        for choice in choices:
+            label = str(choice.get("label") or choice.get("value") or "Choice")
+            value = choice.get("value", label)
+            button = qt.QPushButton(label)
+            button.setToolTip(f"Select {label}")
+            button.clicked.connect(lambda checked=False, sid=step_id, val=value: self._onWorkflowChoiceClicked(sid, val))
+            self._workflowChoiceLayout.addWidget(button)
+            button.setVisible(True)
+            self._workflowChoiceButtons.append(button)
+
+    def _showWorkflowInteraction(self, result):
+        """Show an interactive or mixed workflow wait state."""
+        self._updateWorkflowPanel(result)
+
+    def _showWorkflowChoice(self, result):
+        """Show a user-choice workflow step as buttons when choices are known."""
+        self._updateWorkflowPanel(result)
+
+    def _clearWorkflowPanel(self):
+        """Hide and reset the user-facing workflow panel."""
+        self._currentWorkflowUiState = {"active": False}
+        self._taskWorkflowPanelActive = False
+        if not getattr(self, "_workflowUserFrame", None):
+            return
+        self._workflowUserFrame.setVisible(False)
+        self._workflowTitleLabel.setText("Workflow")
+        self._workflowStatusLabel.setText("Idle")
+        self._workflowProgressBar.setRange(0, 1)
+        self._workflowProgressBar.setValue(0)
+        self._workflowStepLabel.setText("Step 0 of 0")
+        self._workflowActionLabel.setText("")
+        self._workflowInstructionLabel.setText("")
+        self._renderWorkflowChoices({})
+        self._workflowDoneButton.setVisible(False)
+        self._workflowSkipButton.setVisible(False)
+        self._workflowCancelButton.setVisible(False)
+
+    def _onWorkflowDoneClicked(self):
+        current_step = self._currentWorkflowUiState.get("current_step")
+        if current_step:
+            self.sendButton.setEnabled(False)
+            self._runWorkflowStepDirect(current_step, "proceed")
+
+    def _onWorkflowSkipClicked(self):
+        current_step = self._currentWorkflowUiState.get("current_step")
+        if current_step:
+            self.sendButton.setEnabled(False)
+            self._runWorkflowStepDirect(current_step, "skip")
+
+    def _onWorkflowCancelClicked(self):
+        current_step = self._currentWorkflowUiState.get("current_step")
+        self.sendButton.setEnabled(False)
+        self._runWorkflowStepDirect(current_step, "cancel")
+
+    def _onWorkflowChoiceClicked(self, step_id, value):
+        if step_id:
+            self.sendButton.setEnabled(False)
+            self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": value})
+
+    def _onWorkflowChoiceInputSubmitted(self):
+        step_id = self._currentWorkflowUiState.get("current_step")
+        if not step_id or self._workflowChoiceInput is None:
+            return
+        value = self._workflowChoiceInput.text.strip()
+        if not value:
+            value = str(self._currentWorkflowUiState.get("default_value") or "").strip()
+        if not value:
+            return
+        self.sendButton.setEnabled(False)
+        self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": value})
 
     def _enterWorkflowWait(self, step_info):
         """
         Enter wait state for an interactive workflow step.
-        Shows instructions in chat (no UI banner). User types 'done' in chat when finished.
+        Shows user instructions in the Workflow panel. Text commands remain a fallback.
         """
-        interaction = step_info.get("interaction", {})
         step_desc = (
             step_info.get("explanation")
             or step_info.get("step_info", {}).get("description")
             or "Interactive step"
         )
-        instructions = (
-            interaction.get("placement_instructions", "")
-            or step_info.get("interaction_instructions", "")
-        )
-        interaction_type = (
-            interaction.get("interaction_type", "")
-            or step_info.get("interaction_type", "")
-        )
 
         self._waitingForUser = True
         self._currentWorkflowStepInfo = step_info
-
-        # Show instructions in chat instead of UI banner
-        step_type = step_info.get("type", "interactive")
-        sub_ops = step_info.get("sub_operations", [])
-
-        msg_parts = [f"[Interaction Required] {step_desc}"]
-        if interaction_type:
-            msg_parts.append(f"Interaction type: {interaction_type}")
-        if instructions:
-            msg_parts.append(instructions)
-        if step_type == "mixed" and sub_ops:
-            auto_ops = [so for so in sub_ops if so.get("op_type") in ("extension_op", "slicer_op")]
-            if auto_ops:
-                msg_parts.append("(Automated setup steps have been executed)")
-        msg_parts.append("When finished, type 'done' in the chat and send it.")
-
-        self.appendToChat("System", "\n".join(msg_parts))
+        self._showWorkflowInteraction(step_info)
 
         self._setAgentStatus("Workflow", f"Waiting: {step_desc}")
         logger.info(f"[Workflow] Entered wait state for step: {step_desc}")
@@ -908,16 +1197,24 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if step_type == "branch":
             # Ask the user about the branch decision
-            self.appendToChat(
-                "System",
-                f"Next step is optional: {description}. "
-                f"Would you like to proceed with this step?"
-            )
+            self._updateWorkflowPanel({
+                "active": True,
+                "workflow_title": self._currentWorkflowUiState.get("workflow_title", "Workflow"),
+                "status": "Waiting for your choice",
+                "current_step": step_id,
+                "current_index": self._currentWorkflowUiState.get("current_index", 0),
+                "completed_steps": self._currentWorkflowUiState.get("completed_steps", 0),
+                "total_steps": self._currentWorkflowUiState.get("total_steps", 0),
+                "description": description,
+                "instructions": "This step is optional.",
+                "can_done": True,
+                "can_skip": True,
+                "can_cancel": True,
+            })
             self.sendButton.setEnabled(True)
             return
 
         # Auto-send a prompt to proceed with the next step
-        self.appendToChat("System", f"Proceeding to next step: {description}")
         self.promptInput.setPlainText(f"Proceed with step '{step_id}': {description}")
         self.onSendButtonClicked()
 
@@ -1284,12 +1581,59 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # Truncate very long status text so the QLabel doesn't force the panel wide
             truncated = status[:80] + "..." if len(status) > 80 else status
             self.statusLabel.text = f"{self._currentAgentRole}: {truncated}"
+        if (
+            getattr(self, "_taskWorkflowPanelActive", False)
+            and str(role or "") != "Workflow"
+            and not (self._workflowRuntime and self._workflowRuntime.has_active_workflow())
+        ):
+            self._updateTraditionalTaskPanel(role, status)
 
     def _setReadyStatus(self):
         """Reset status label after a turn finishes or is cancelled."""
         self._currentAgentRole = "Idle"
         if hasattr(self, 'statusLabel') and self.statusLabel is not None:
             self.statusLabel.text = "Ready"
+        if (
+            getattr(self, "_taskWorkflowPanelActive", False)
+            and not (self._workflowRuntime and self._workflowRuntime.has_active_workflow())
+        ):
+            self._updateWorkflowPanel({
+                "active": True,
+                "mode": "task",
+                "workflow_title": "Task",
+                "status": "Done",
+                "description": "Task completed.",
+                "instructions": "Generated code and execution details are available in Debug.",
+                "total_steps": 0,
+                "can_done": False,
+                "can_skip": False,
+                "can_cancel": False,
+            })
+            self._taskWorkflowPanelActive = False
+
+    def _updateTraditionalTaskPanel(self, role, status):
+        """Show compact progress for traditional one-shot tasks."""
+        role_text = str(role or "")
+        status_text = str(status or "")
+        phase = "Planning"
+        if "fail" in status_text.lower() or "error" in status_text.lower():
+            phase = "Failed"
+        elif role_text == "Retriever":
+            phase = "Searching"
+        elif role_text in ("Executor", "Safety Critic", "Verifier", "Repairer"):
+            phase = "Executing"
+        self._updateWorkflowPanel({
+            "active": True,
+            "mode": "task",
+            "workflow_title": "Task",
+            "status": phase,
+            "description": status_text,
+            "instructions": "",
+            "total_steps": 0,
+            "can_done": False,
+            "can_skip": False,
+            "can_cancel": False,
+        })
 
     def _autoAdvanceNextStep(self, next_step):
         """Auto-advance to the next workflow step after an automated step completes."""
@@ -1297,9 +1641,20 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         is_optional = next_step.get("is_optional", False)
         if is_optional:
             # For optional steps, just ask the user
-            self.appendToChat("System",
-                f"Optional step available: '{step_id}' — {next_step.get('description', '')}. "
-                f"Type 'proceed' to continue or 'skip' to skip.")
+            self._updateWorkflowPanel({
+                "active": True,
+                "workflow_title": self._currentWorkflowUiState.get("workflow_title", "Workflow"),
+                "status": "Waiting for your choice",
+                "current_step": step_id,
+                "current_index": self._currentWorkflowUiState.get("current_index", 0),
+                "completed_steps": self._currentWorkflowUiState.get("completed_steps", 0),
+                "total_steps": self._currentWorkflowUiState.get("total_steps", 0),
+                "description": next_step.get("description", ""),
+                "instructions": "This step is optional.",
+                "can_done": True,
+                "can_skip": True,
+                "can_cancel": True,
+            })
             self._setReadyStatus()
             return
         self._runWorkflowStepDirect(step_id, "start")
@@ -1309,6 +1664,40 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._workflowRuntime:
             return self._workflowRuntime.state_for_router()
         return {"active": False}
+
+    def _workflowStepMarkerKey(self, step_info):
+        """Return a stable key for comparing cached workflow dispatch results."""
+        if not isinstance(step_info, dict):
+            return None
+        return (
+            step_info.get("tool"),
+            step_info.get("step_id"),
+            step_info.get("type"),
+        )
+
+    def _sameWorkflowStepMarker(self, first, second):
+        """Return True when two cached workflow results represent the same step."""
+        first_key = self._workflowStepMarkerKey(first)
+        second_key = self._workflowStepMarkerKey(second)
+        return bool(first_key and first_key == second_key)
+
+    def _clearWorkflowResultMarkers(self):
+        """Clear cached CLI tool results that are only valid for the current turn."""
+        if not self.logic:
+            return
+        if hasattr(self.logic, "_lastInteractiveStep"):
+            self.logic._lastInteractiveStep = None
+        if hasattr(self.logic, "_lastWorkflowStep"):
+            self.logic._lastWorkflowStep = None
+
+    def _clearCompletedWorkflowState(self):
+        """Drop transient generated-CLI workflow state after completion or cancel."""
+        self._clearWorkflowResultMarkers()
+        self._currentWorkflowStepInfo = None
+        self._waitingForUser = False
+        self._autoAdvanceWorkflowStep = None
+        self._activeWorkflowId = None
+        self._taskWorkflowPanelActive = False
 
     def _registerWorkflowRuntimeResult(self, step_info):
         """Ensure generated CLI workflow results are tracked by the runtime."""
@@ -1321,7 +1710,12 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self._workflowRuntime.log_dir = self._getCurrentLogDir()
             session = self._workflowRuntime.start_from_result(step_info)
             if session:
+                self._taskWorkflowPanelActive = False
+                if session.workflow_id not in self._announcedWorkflowIds:
+                    self._announcedWorkflowIds.add(session.workflow_id)
+                    self.appendToChat("System", f"Workflow started: {session.extension_name}.")
                 self._activeWorkflowId = session.workflow_id
+                self._updateWorkflowPanel(step_info)
         except Exception as exc:
             logger.warning(f"Failed to register workflow runtime result: {exc}")
 
@@ -1368,9 +1762,12 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.appendToChat(
                 "System",
                 "A generated CLI workflow is active, so I queued this request "
-                f"until the workflow finishes. Queued requests: {count}. "
-                "Type 'done', 'proceed', 'skip', or 'cancel' to control the workflow.",
+                f"until the workflow finishes. Queued requests: {count}.",
             )
+            queued_state = self._workflowRuntime.state_for_ui() if self._workflowRuntime else {}
+            if queued_state:
+                queued_state["status"] = "Queued request"
+                self._updateWorkflowPanel(queued_state)
             self._setReadyStatus()
             self.sendButton.setEnabled(True)
             return True
@@ -1437,6 +1834,10 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
 
         self._setAgentStatus("Workflow", f"Running {step_id or 'current step'}...")
+        if self._workflowRuntime and self._workflowRuntime.session:
+            state = self._workflowRuntime.state_for_ui()
+            state["status"] = "Running"
+            self._updateWorkflowPanel(state)
         self._recordRoleEvent("Workflow", "dispatch_step_direct", {
             "step_id": step_id,
             "action": action,
@@ -1453,6 +1854,16 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
         if result.get("error"):
             self.appendToChat("Error", result["error"])
+            self._updateWorkflowPanel({
+                "active": True,
+                "workflow_title": "Workflow",
+                "status": "Failed",
+                "description": result["error"],
+                "total_steps": 0,
+                "can_done": False,
+                "can_skip": False,
+                "can_cancel": bool(self._workflowRuntime and self._workflowRuntime.has_active_workflow()),
+            })
             self._recordRoleEvent("Workflow", "dispatch_failed", {"error": result["error"]})
             self._saveRoleTraceToFile()
             self._setReadyStatus()
@@ -1465,6 +1876,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         if result_type == "cancelled":
             self.appendToChat("System", result.get("message", "Workflow cancelled."))
+            self._updateWorkflowPanel(result)
+            self._clearCompletedWorkflowState()
             self._recordRoleEvent("Workflow", "cancelled", {})
             self._saveRoleTraceToFile()
             self._setReadyStatus()
@@ -1514,7 +1927,6 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.currentCode = code
             self.currentAgentPlan = self._buildWorkflowAgentPlan(result)
             self.codeDisplay.setPlainText(code)
-            self._displayAgentPlanSummary(self.currentAgentPlan)
             self._saveAgentPlanToFile(self.currentAgentPlan)
             self._saveGeneratedCodeToFile(code, suffix=f"_{result.get('step_id', 'workflow')}")
             self._recordRoleEvent("Programmer", "workflow_template_received", {
@@ -1530,19 +1942,7 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def _displayWorkflowChoice(self, step_info):
         """Show a generated CLI user-choice question without asking the LLM."""
-        question = step_info.get("question", "")
-        choices = step_info.get("choices", [])
-        lines = [f"[Workflow Question] {question or 'Please make a selection.'}"]
-        if choices:
-            lines.append("Options:")
-            for index, choice in enumerate(choices, 1):
-                label = choice.get("label", choice.get("value", ""))
-                lines.append(f"  {index}. {label}")
-        default = step_info.get("default_value")
-        if default is not None:
-            lines.append(f"(Default: {default})")
-        lines.append("Reply with the selected value or option number.")
-        self.appendToChat("System", "\n".join(lines))
+        self._showWorkflowChoice(step_info)
 
     def _tryResolveWorkflowNodeChoice(self, step_info):
         """Use a narrow LLM call to resolve ambiguous scene-node choices."""
@@ -1600,13 +2000,15 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             )
         next_step = result.get("next_step")
         if result.get("workflow_completed"):
+            self._updateWorkflowPanel(result)
             self.appendToChat("System", "Generated CLI workflow complete.")
+            self._clearCompletedWorkflowState()
             self._flushQueuedWorkflowPrompts()
             self._setReadyStatus()
             self.sendButton.setEnabled(True)
             return
         if next_step:
-            self.appendToChat("System", f"Proceeding to next workflow step: {next_step.get('step_id', '')}")
+            self._updateWorkflowPanel(result)
             self._autoAdvanceWorkflowStep = next_step
             qt.QTimer.singleShot(100, lambda: self._autoAdvanceNextStep(next_step))
         else:
@@ -1804,6 +2206,9 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             step_info = self.logic._lastInteractiveStep
             self._currentWorkflowStepInfo = step_info
             self.logic._lastInteractiveStep = None
+            if (hasattr(self.logic, '_lastWorkflowStep')
+                and self._sameWorkflowStepMarker(step_info, self.logic._lastWorkflowStep)):
+                self.logic._lastWorkflowStep = None
             _stepInfoFromInteractive = True
             self._registerWorkflowRuntimeResult(step_info)
 
@@ -1889,21 +2294,10 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         elif response.get("workflow_wait"):
             # Workflow step is waiting for user input (e.g., user_choice)
-            if response.get("message"):
-                self.appendToChat("Assistant", response["message"])
             if self._currentWorkflowStepInfo and self._currentWorkflowStepInfo.get("type") == "user_choice":
-                question = self._currentWorkflowStepInfo.get("question", "")
-                choices = self._currentWorkflowStepInfo.get("choices", [])
-                if question:
-                    lines = [f"[Workflow Question] {question}"]
-                    if choices:
-                        lines.append("Options:")
-                        for i, c in enumerate(choices, 1):
-                            lines.append(f"  {i}. {c.get('label', '')}")
-                    default = self._currentWorkflowStepInfo.get("default_value")
-                    if default is not None:
-                        lines.append(f"(Default: {default})")
-                    self.appendToChat("System", "\n".join(lines))
+                self._displayWorkflowChoice(self._currentWorkflowStepInfo)
+            elif self._currentWorkflowStepInfo:
+                self._showWorkflowInteraction(self._currentWorkflowStepInfo)
 
         # Update per-turn cumulative token usage
         if response.get("tokens"):
@@ -1932,6 +2326,20 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             self.appendToChat("Error", f"Failed to generate response: {error_msg}")
 
+        if getattr(self, "_taskWorkflowPanelActive", False):
+            self._updateWorkflowPanel({
+                "active": True,
+                "mode": "task",
+                "workflow_title": "Task",
+                "status": "Failed",
+                "description": str(error_msg),
+                "instructions": "",
+                "total_steps": 0,
+                "can_done": False,
+                "can_skip": False,
+                "can_cancel": False,
+            })
+            self._taskWorkflowPanelActive = False
         self._stopThinkingTimer("Error")
         self._setReadyStatus()
         self.sendButton.setEnabled(True)
@@ -1958,7 +2366,23 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         if self._handleDirectWorkflowTurnIfNeeded(prompt):
             return
 
+        if not (self._workflowRuntime and self._workflowRuntime.has_active_workflow()):
+            self._clearWorkflowResultMarkers()
+
         self.sendButton.setEnabled(False)
+        self._taskWorkflowPanelActive = True
+        self._updateWorkflowPanel({
+            "active": True,
+            "mode": "task",
+            "workflow_title": "Task",
+            "status": "Planning",
+            "description": prompt,
+            "instructions": "",
+            "total_steps": 0,
+            "can_done": False,
+            "can_skip": False,
+            "can_cancel": False,
+        })
         slicer.app.processEvents()
 
         # Reset streaming accumulators
@@ -2455,6 +2879,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self._timing['execution_callback_start'] = time.time()
             feedback_lines = []
             output_has_errors = False
+            step_info = getattr(self, '_currentWorkflowStepInfo', None)
+            runtime_managed = bool(self._workflowRuntime and self._workflowRuntime.session and step_info)
             self._recordRoleEvent("Executor", "execution_completed", {
                 "success": result.get("success"),
                 "timed_out": result.get("timed_out", False),
@@ -2469,6 +2895,17 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 if output:
                     msg += f"\nOutput: {output}"
                 self.appendToChat("Warning", msg)
+                if runtime_managed:
+                    self._updateWorkflowPanel({
+                        "active": True,
+                        "workflow_title": self._currentWorkflowUiState.get("workflow_title", "Workflow"),
+                        "status": "Failed",
+                        "description": msg,
+                        "total_steps": self._currentWorkflowUiState.get("total_steps", 0),
+                        "completed_steps": self._currentWorkflowUiState.get("completed_steps", 0),
+                        "current_index": self._currentWorkflowUiState.get("current_index", 0),
+                        "can_cancel": True,
+                    })
                 feedback_lines.append(f"Status: timed_out\nExecution time: {exec_time:.1f}s\nOutput: {output}")
             elif result["success"]:
                 output = result.get('output', 'No output')
@@ -2476,7 +2913,8 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 msg = f"Code executed successfully in {execution_time:.2f}s."
                 if output:
                     msg += f"\nOutput: {output}"
-                self.appendToChat("System", msg)
+                if not runtime_managed:
+                    self.appendToChat("System", msg)
                 feedback_lines.append(f"Status: success\nExecution time: {execution_time:.2f}s\nOutput: {output}")
                 # Detect actual errors (excluding VTK warnings which are often benign)
                 lower_output = output.lower()
@@ -2542,12 +2980,11 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     self._timing['executor_actual_start'] = result['executor_actual_start']
                 self._writeTimingReport()
 
-            step_info = getattr(self, '_currentWorkflowStepInfo', None)
-            runtime_managed = bool(self._workflowRuntime and self._workflowRuntime.session and step_info)
             if result.get("success") and runtime_managed:
                 updated_step = self._workflowRuntime.handle_execution_result(step_info, result)
                 self._currentWorkflowStepInfo = updated_step
                 self._applyWorkflowDisplayProperties(updated_step)
+                self._updateWorkflowPanel(updated_step)
                 if updated_step.get("type") in ("interactive", "mixed"):
                     self._recordRoleEvent("Workflow", "entering_wait", {
                         "step_id": updated_step.get("step_id"),
@@ -2562,14 +2999,12 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 next_step = updated_step.get("next_step")
                 if next_step:
                     completed_step_id = updated_step.get("step_id", "")
-                    self.appendToChat(
-                        "System",
-                        f"Step '{completed_step_id}' completed. "
-                        f"Proceeding to next step: '{next_step.get('step_id', '')}'...",
-                    )
+                    self._updateWorkflowPanel(self._workflowRuntime.state_for_ui(updated_step))
                     self._autoAdvanceWorkflowStep = next_step
                 elif updated_step.get("workflow_completed"):
+                    self._updateWorkflowPanel(updated_step)
                     self.appendToChat("System", "Generated CLI workflow complete.")
+                    self._clearCompletedWorkflowState()
                     self._flushQueuedWorkflowPrompts()
 
             # Interactive workflow detection: if an interactive step just executed,
@@ -2598,16 +3033,12 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                         self._recordRoleEvent("Workflow", "waiting_for_choice", {
                             "step_id": wf_state.current_step,
                         })
-                        pass  # chat stays enabled, LLM will relay question
+                        self._displayWorkflowChoice(step_info)
                     # Automated step completed — auto-advance to next step
                     if step_info and step_info.get("type") == "repeat_next":
                         next_step = step_info.get("next_step")
                         if next_step:
-                            self.appendToChat(
-                                "System",
-                                step_info.get("message")
-                                or f"Continuing repeat workflow at step: '{next_step.get('step_id', '')}'..."
-                            )
+                            self._updateWorkflowPanel(step_info)
                             self._autoAdvanceWorkflowStep = next_step
                     elif step_info and step_info.get("type") in (
                         "automated", "skipped", "choice_made",
@@ -2640,22 +3071,23 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                                     wf_graph = json.load(wf_f)
                                 next_step = _find_next_step_local(wf_graph, done)
                                 if next_step:
-                                    if step_info.get("type") == "skipped":
-                                        self.appendToChat("System",
-                                            f"Step '{completed_step_id}' skipped. "
-                                            f"Proceeding to next step: '{next_step['step_id']}'...")
-                                    else:
-                                        self.appendToChat("System",
-                                            f"Step '{completed_step_id}' completed. "
-                                            f"Proceeding to next step: '{next_step['step_id']}'...")
+                                    self._updateWorkflowPanel(step_info)
                                     # Trigger a new turn with the next step
                                     self._autoAdvanceWorkflowStep = next_step
                                 elif step_info.get("type") == "skipped":
                                     # No more steps after the skipped one — end the workflow
-                                    self.appendToChat("System",
-                                        f"Step '{completed_step_id}' skipped. No more steps available.")
                                     if wf_st:
                                         wf_st.status = "completed"
+                                    self._updateWorkflowPanel({
+                                        "active": True,
+                                        "workflow_title": step_info.get("tool", "Workflow"),
+                                        "status": "Completed",
+                                        "description": "Workflow complete.",
+                                        "can_done": False,
+                                        "can_skip": False,
+                                        "can_cancel": False,
+                                    })
+                                    self._clearCompletedWorkflowState()
                         except Exception as e:
                             logger.warning(f"Workflow auto-advance failed: {e}")
 
@@ -2686,8 +3118,22 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     })
                     self._selfCorrectCode(error_for_correction, attempt, max_attempts)
                 else:
-                    self._setReadyStatus()
                     final_error = result.get('error', 'Unknown error') if not result["success"] else "Output contains errors"
+                    if getattr(self, "_taskWorkflowPanelActive", False):
+                        self._updateWorkflowPanel({
+                            "active": True,
+                            "mode": "task",
+                            "workflow_title": "Task",
+                            "status": "Failed",
+                            "description": str(final_error),
+                            "instructions": "Generated code and execution details are available in Debug.",
+                            "total_steps": 0,
+                            "can_done": False,
+                            "can_skip": False,
+                            "can_cancel": False,
+                        })
+                        self._taskWorkflowPanelActive = False
+                    self._setReadyStatus()
                     self.appendToChat("Error", 
                         f"Execution failed after {max_attempts} attempts.\n"
                         f"Final error: {final_error}")
@@ -2710,8 +3156,6 @@ class SlicerAIAgentWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     tool_name = next_step.get("step_id", "")
                     # Use a timer to schedule the next step as a new user-like turn
                     step_id = next_step["step_id"]
-                    self.appendToChat("System",
-                        f"Auto-advancing to workflow step: {step_id}")
                     # Schedule the auto-advance on the Qt main thread
                     qt.QTimer.singleShot(100, lambda: self._autoAdvanceNextStep(next_step))
                 else:

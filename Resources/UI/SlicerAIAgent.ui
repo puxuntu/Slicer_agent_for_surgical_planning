@@ -254,34 +254,247 @@
     </widget>
    </item>
    
-   <!-- Conversation History (Collapsible) -->
+   <!-- Workflow Panel -->
    <item>
-    <widget class="ctkCollapsibleGroupBox" name="chatHistoryGroupBox">
+    <widget class="QFrame" name="workflowUserFrame">
+     <property name="visible">
+      <bool>false</bool>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QFrame#workflowUserFrame {
+    background-color: #f7fbff;
+    border: 1px solid #b8d7f2;
+    border-radius: 4px;
+}
+QLabel#workflowTitleLabel {
+    font-weight: bold;
+    font-size: 14px;
+    color: #1f3b57;
+}
+QLabel#workflowStatusLabel {
+    color: #3b6f9e;
+    font-weight: bold;
+}
+QLabel#workflowStepLabel {
+    color: #666666;
+}
+QLabel#workflowActionLabel {
+    font-weight: bold;
+    color: #222222;
+}
+QLabel#workflowInstructionLabel {
+    color: #333333;
+}</string>
+     </property>
+     <layout class="QVBoxLayout" name="workflowUserLayout">
+      <property name="leftMargin">
+       <number>10</number>
+      </property>
+      <property name="topMargin">
+       <number>8</number>
+      </property>
+      <property name="rightMargin">
+       <number>10</number>
+      </property>
+      <property name="bottomMargin">
+       <number>8</number>
+      </property>
+      <item>
+       <layout class="QHBoxLayout" name="workflowHeaderLayout">
+        <item>
+         <widget class="QLabel" name="workflowTitleLabel">
+          <property name="text">
+           <string>Workflow</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="workflowHeaderSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="workflowStatusLabel">
+          <property name="text">
+           <string>Idle</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QProgressBar" name="workflowProgressBar">
+        <property name="minimum">
+         <number>0</number>
+        </property>
+        <property name="maximum">
+         <number>1</number>
+        </property>
+        <property name="value">
+         <number>0</number>
+        </property>
+        <property name="textVisible">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="workflowStepLabel">
+        <property name="text">
+         <string>Step 0 of 0</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="workflowActionLabel">
+        <property name="text">
+         <string></string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="workflowInstructionLabel">
+        <property name="text">
+         <string></string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="workflowChoiceContainer">
+        <layout class="QHBoxLayout" name="workflowChoiceLayout"/>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="workflowControlLayout">
+        <item>
+         <widget class="QPushButton" name="workflowDoneButton">
+          <property name="text">
+           <string>Done</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="workflowSkipButton">
+          <property name="text">
+           <string>Skip</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="workflowCancelButton">
+          <property name="text">
+           <string>Cancel</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="workflowControlSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- Debug (Collapsible) -->
+   <item>
+    <widget class="ctkCollapsibleGroupBox" name="debugGroupBox">
      <property name="title">
-      <string>Conversation History</string>
+      <string>Debug</string>
      </property>
      <property name="collapsed">
       <bool>true</bool>
      </property>
-     <layout class="QVBoxLayout" name="chatHistoryLayout">
+     <layout class="QVBoxLayout" name="debugLayout">
       <item>
-       <widget class="QTextEdit" name="chatHistory">
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>200</height>
-         </size>
+       <widget class="QTabWidget" name="debugTabs">
+        <property name="currentIndex">
+         <number>0</number>
         </property>
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QTextEdit {
+        <widget class="QWidget" name="conversationDebugTab">
+         <attribute name="title">
+          <string>Conversation</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="conversationDebugLayout">
+          <item>
+           <widget class="QTextEdit" name="chatHistory">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>200</height>
+             </size>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QTextEdit {
     background-color: #f5f5f5;
     border: 1px solid #cccccc;
     border-radius: 4px;
 }</string>
-        </property>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="generatedCodeDebugTab">
+         <attribute name="title">
+          <string>Generated Code</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="generatedCodeDebugLayout">
+          <item>
+           <widget class="QTextEdit" name="codeDisplay">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>100</height>
+             </size>
+            </property>
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+            <property name="styleSheet">
+             <string notr="true">QTextEdit {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 12px;
+    border: 1px solid #333333;
+    border-radius: 4px;
+}</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
        </widget>
       </item>
       <item>
@@ -290,44 +503,7 @@
          <string>Clear Chat</string>
         </property>
         <property name="toolTip">
-         <string>Clear conversation history</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   
-   <!-- Generated Code (Collapsible) -->
-   <item>
-    <widget class="ctkCollapsibleGroupBox" name="codeDisplayGroupBox">
-     <property name="title">
-      <string>Generated Code (Auto-executed)</string>
-     </property>
-     <property name="collapsed">
-      <bool>true</bool>
-     </property>
-     <layout class="QVBoxLayout" name="codeDisplayLayout">
-      <item>
-       <widget class="QTextEdit" name="codeDisplay">
-        <property name="minimumSize">
-         <size>
-          <width>0</width>
-          <height>100</height>
-         </size>
-        </property>
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QTextEdit {
-    background-color: #1e1e1e;
-    color: #d4d4d4;
-    font-family: Consolas, Monaco, monospace;
-    font-size: 12px;
-    border: 1px solid #333333;
-    border-radius: 4px;
-}</string>
+         <string>Clear conversation history and generated code</string>
         </property>
        </widget>
       </item>
