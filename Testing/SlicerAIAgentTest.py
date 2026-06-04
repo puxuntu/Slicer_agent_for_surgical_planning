@@ -1048,7 +1048,11 @@ More text.
 
         # Placement starters remain bound across intervening Slicer configuration steps.
         analyzer._placement_starter_methods = {
-            "addCurve": {"node_classes": ["vtkMRMLMarkupsCurveNode"]}
+            "addCurve": {
+                "node_classes": ["vtkMRMLMarkupsCurveNode"],
+                "starts_markup_placement": True,
+                "placement_mode": "single",
+            }
         }
         workflow_graph = {
             "steps": [
@@ -1110,6 +1114,153 @@ More text.
             metadata["interaction_policies"]["cb_step_12"]["placement_binding_reason"],
             "recent_same_node_class_placement_starter",
         )
+
+        # Placement-starter classification records source-derived placement mode.
+        placement_source = """
+class GenericLogic:
+    def addPlane(self):
+        node = slicer.mrmlScene.CreateNodeByClass("vtkMRMLMarkupsPlaneNode")
+        slicer.mrmlScene.AddNode(node)
+        slicer.modules.markups.logic().SetActiveListID(node)
+        interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+        interactionNode.SwitchToSinglePlaceMode()
+
+    def addPoint(self):
+        node = slicer.mrmlScene.CreateNodeByClass("vtkMRMLMarkupsFiducialNode")
+        slicer.mrmlScene.AddNode(node)
+        slicer.modules.markups.logic().SetActiveListID(node)
+        interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+        interactionNode.SwitchToPersistentPlaceMode()
+"""
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fp:
+            fp.write(placement_source)
+            placement_file = fp.name
+        try:
+            starters = analyzer._classify_placement_starter_methods({
+                "_logic_file": placement_file,
+                "methods": [{"name": "addPlane"}, {"name": "addPoint"}],
+            })
+            self.assertEqual(starters["addPlane"]["placement_mode"], "single")
+            self.assertEqual(starters["addPoint"]["placement_mode"], "persistent")
+            self.assertTrue(starters["addPlane"]["starts_markup_placement"])
+        finally:
+            os.unlink(placement_file)
+
+        # Extension-owned repeated interactions preserve the starter's placement mode.
+        analyzer._placement_starter_methods = {
+            "addPlane": {
+                "node_classes": ["vtkMRMLMarkupsPlaneNode"],
+                "starts_markup_placement": True,
+                "placement_mode": "single",
+            }
+        }
+        repeat_group = {
+            "group_id": "repeat_count_add_place",
+            "count_step": "cb_step_1",
+            "start_step": "cb_step_2",
+            "interaction_step": "cb_step_3",
+        }
+        repeated_step = {
+            "step_id": "cb_step_3",
+            "description": "Place a plane. Repeat for each requested plane.",
+            "node_class": "vtkMRMLMarkupsPlaneNode",
+            "interaction_type": "plane",
+            "interaction_owner": "previous_extension_method",
+            "placement_starter_method": "addPlane",
+            "repeat_group": repeat_group,
+            "sub_operations": [{
+                "op_type": "user_interaction",
+                "node_class": "vtkMRMLMarkupsPlaneNode",
+                "placement_instructions": "Place a plane. Repeat for each requested plane.",
+            }],
+        }
+        analyzer._normalize_repeat_interaction_instructions(repeated_step)
+        pre_tpl = analyzer._generate_existing_placement_pre_template(
+            "GenericExtension",
+            repeated_step,
+            "addPlane",
+        )
+        self.assertNotIn("SwitchToPersistentPlaceMode", pre_tpl)
+        self.assertNotIn("SwitchToSinglePlaceMode", pre_tpl)
+        self.assertNotIn("SetActiveListID", pre_tpl)
+        self.assertIn("Place this plane, then click Done.", pre_tpl)
+
+        validation = analyzer._stage9_validate(
+            {"templates/cb_step_3_pre.py.tpl": pre_tpl},
+            [{
+                "pre_template_file": "templates/cb_step_3_pre.py.tpl",
+                "step_type": "interactive",
+                "param_signature": {"workflow_step": "cb_step_3"},
+                "repeat_group": repeat_group,
+                "interaction_descriptor": {
+                    "node_class": "vtkMRMLMarkupsPlaneNode",
+                    "interaction_owner": "previous_extension_method",
+                    "placement_starter_method": "addPlane",
+                    "repeat_group": repeat_group,
+                },
+            }],
+        )
+        self.assertTrue(validation["valid"], validation["errors"])
+
+        bad_validation = analyzer._stage9_validate(
+            {
+                "templates/cb_step_3_pre.py.tpl": (
+                    "interactionNode = slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')\n"
+                    "interactionNode.SwitchToPersistentPlaceMode()\n"
+                    "print('Repeat for each requested plane')\n"
+                )
+            },
+            [{
+                "pre_template_file": "templates/cb_step_3_pre.py.tpl",
+                "step_type": "interactive",
+                "param_signature": {"workflow_step": "cb_step_3"},
+                "repeat_group": repeat_group,
+                "interaction_descriptor": {
+                    "node_class": "vtkMRMLMarkupsPlaneNode",
+                    "interaction_owner": "previous_extension_method",
+                    "placement_starter_method": "addPlane",
+                    "repeat_group": repeat_group,
+                },
+            }],
+        )
+        self.assertFalse(bad_validation["valid"])
+        self.assertTrue(any("enters Markups placement mode" in e for e in bad_validation["errors"]))
+        self.assertTrue(any("persistent placement mode" in e for e in bad_validation["errors"]))
+
+        # Runtime-created repeated markup placement uses one item per Done.
+        runtime_step = {
+            "step_id": "cb_step_6",
+            "description": "Place one point for each requested item.",
+            "node_class": "vtkMRMLMarkupsFiducialNode",
+            "interaction_type": "fiducial",
+            "interaction_owner": "runtime_template",
+            "repeat_group": {
+                "group_id": "repeat_count_place",
+                "count_step": "cb_step_4",
+                "start_step": "cb_step_6",
+                "interaction_step": "cb_step_6",
+            },
+        }
+        runtime_tpl = analyzer._generate_pre_interaction_template(
+            "GenericExtension",
+            runtime_step,
+            "GenericLogic",
+            "GenericExtension",
+        )
+        self.assertIn("SwitchToSinglePlaceMode", runtime_tpl)
+        self.assertNotIn("SwitchToPersistentPlaceMode", runtime_tpl)
+
+        contract = analyzer._validate_generator_contracts([{
+            "step_type": "interactive",
+            "param_signature": {"workflow_step": "cb_step_6"},
+            "repeat_group": runtime_step["repeat_group"],
+            "interaction_descriptor": {
+                "node_class": "vtkMRMLMarkupsFiducialNode",
+                "placement_instructions": "Repeat for each requested point.",
+                "repeat_group": runtime_step["repeat_group"],
+            },
+        }])
+        self.assertTrue(any("one item per Done" in e for e in contract["errors"]))
 
         # Acronym-heavy extension layout helpers still match custom-layout cookbook text.
         layout_source = """
@@ -1321,6 +1472,53 @@ def setBRPLayout():
             },
         ])
         self.assertFalse(contract["errors"], contract["errors"])
+
+        # Multi-line cookbook descriptions must not create bare indented Python text.
+        multiline_step = dict(repeated_step)
+        multiline_step["description"] = (
+            "Place the fibular cut plane.\n"
+            "This can be translated and rotated in slice views."
+        )
+        multiline_tpl = analyzer._generate_existing_placement_pre_template(
+            "GenericExtension",
+            multiline_step,
+            "addPlane",
+        )
+        ast.parse(analyzer._fill_remaining_placeholders(multiline_tpl))
+        self.assertIn("# This can be translated", multiline_tpl)
+
+        # Sanitization repairs LLM-revised templates with split raw headers.
+        sanitized = analyzer._sanitize_templates({
+            "templates/cb_step_18_pre.py.tpl": (
+                "# --- GenericExtension: Place the fibular cut plane.\n"
+                "  This can be translated and rotated in slice views. (Setup) ---\n"
+                "import slicer\n"
+            )
+        })
+        ast.parse(sanitized["templates/cb_step_18_pre.py.tpl"])
+        self.assertIn(
+            "# This can be translated and rotated",
+            sanitized["templates/cb_step_18_pre.py.tpl"],
+        )
+
+        # Placeholder filling for validation preserves braces inside Python strings/f-strings.
+        filled = analyzer._fill_remaining_placeholders(
+            "for ref_name in ['Mandible']:\n"
+            "    print(f'Missing {ref_name}')\n"
+            "threshold = {threshold: 1.0}\n"
+        )
+        self.assertIn("{ref_name}", filled)
+        self.assertIn("threshold = 1.0", filled)
+        ast.parse(filled)
+
+        # Semantic validation recognizes tuple-unpacked loop variables.
+        semantic = analyzer._semantic_validate(
+            "required_refs = [('a', 'b', 1)]\n"
+            "for ref_name, param_name, default_value in required_refs:\n"
+            "    print(f'{ref_name}: {param_name}={default_value}')\n",
+            {"methods": []},
+        )
+        self.assertFalse(semantic["errors"], semantic["errors"])
 
         self.delayDisplay("ExtensionCLIAnalyzer contract tests passed")
 

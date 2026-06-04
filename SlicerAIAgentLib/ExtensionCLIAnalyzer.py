@@ -595,6 +595,7 @@ class ExtensionCLIAnalyzer:
             )
             # Internal LLM review (not a separate numbered stage)
             templates = self._review_templates(templates, logic_analysis, node_lifecycle)  # internal LLM review
+            templates = self._sanitize_templates(templates)
             result["stages_completed"].append(7)
             if self._cancelled:
                 result["error"] = "Cancelled during Stage 7"
@@ -2478,9 +2479,9 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
                 "CreateNodeByClass" in source or "AddNewNodeByClass" in source
             )
             sets_active_markup = "SetActiveListID" in source
+            placement_mode = self._placement_mode_from_source(source)
             enters_place_mode = (
-                "SwitchToSinglePlaceMode" in source
-                or "SwitchToPersistentPlaceMode" in source
+                placement_mode != "none"
                 or "SetCurrentInteractionMode" in source
             )
             has_placement_observer = "PointPositionDefinedEvent" in source
@@ -2488,6 +2489,10 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
             if creates_markup and sets_active_markup and enters_place_mode:
                 starters[method_name] = {
                     "node_classes": markup_classes,
+                    "starts_markup_placement": True,
+                    "placement_mode": placement_mode,
+                    "creates_node": creates_markup,
+                    "sets_active_list": sets_active_markup,
                     "has_placement_observer": has_placement_observer,
                     "reason": "creates a Markups node, activates it, and enters placement mode",
                 }
@@ -4015,25 +4020,31 @@ Return ONLY the JSON array, no markdown fences.""")
                         step["created_node_source"] = "template"
                         node_name = step_id.replace("_", " ").title()
                         node_var = f"_{extension_name.lower()}_{step_id}_id"
-                        instructions = iso.get(
-                            "placement_instructions",
-                            step.get("description", ""),
-                        )
-                        interaction_block = (
-                            f"\n\n# --- Setup interaction node ---\n"
-                            f"import slicer\n"
-                            f"node = slicer.mrmlScene.AddNewNodeByClass"
-                            f"(\"{node_class}\", \"{node_name}\")\n"
-                            f"displayNode = node.GetDisplayNode()\n"
-                            f"if displayNode is not None:\n"
-                            f"    displayNode.SetVisibility(True)\n"
-                            f"slicer.modules.markups.logic().SetActiveListID(node)\n"
-                            f"interactionNode = slicer.mrmlScene.GetNodeByID"
-                            f"(\"vtkMRMLInteractionNodeSingleton\")\n"
-                            f"interactionNode.SwitchToPersistentPlaceMode()\n"
-                            f"{node_var} = node.GetID()\n"
-                            f"print(\"[{extension_name}] Please {instructions}\")\n"
-                        )
+                        instructions = self._interaction_instructions_for_template(step)
+                        policy = self._placement_mode_policy(step)
+                        block_lines = [
+                            "",
+                            "",
+                            "# --- Setup interaction node ---",
+                            "import slicer",
+                            f"node = slicer.mrmlScene.AddNewNodeByClass(\"{node_class}\", \"{node_name}\")",
+                            "displayNode = node.GetDisplayNode()",
+                            "if displayNode is not None:",
+                            "    displayNode.SetVisibility(True)",
+                        ]
+                        if policy.get("should_set_active_list"):
+                            block_lines.append("slicer.modules.markups.logic().SetActiveListID(node)")
+                        if policy.get("should_enter_placement_mode"):
+                            block_lines.extend([
+                                "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
+                                "if interactionNode is not None:",
+                                *self._placement_mode_code(policy),
+                            ])
+                        block_lines.extend([
+                            f"{node_var} = node.GetID()",
+                            f"print(\"[{extension_name}] Please {instructions}\")",
+                        ])
+                        interaction_block = "\n".join(block_lines)
                         auto_parts.append(interaction_block)
                     elif node_class and not self._is_markup_node_class(node_class):
                         step["interaction_kind"] = "view_adjustment"
@@ -4148,11 +4159,10 @@ Return ONLY the JSON array, no markdown fences.""")
         """Generate deterministic code for an extension-owned module function."""
         function_name = step.get("extension_function_name", "")
         step_id = step.get("step_id", "")
-        description = step.get("description", step_id)
         if not function_name:
             return self._generate_unknown_op_template(step)
         lines = [
-            f"# --- {extension_name}: {description} ---",
+            *self._template_header_lines(extension_name, step, ""),
             f"from {module_name} import {function_name}",
             "",
             f"{function_name}()",
@@ -4218,9 +4228,7 @@ Return ONLY the JSON array, no markdown fences.""")
                     "pass",
                 ]
 
-        lines = [
-            f"# --- {extension_name}: {description} ---",
-        ]
+        lines = self._template_header_lines(extension_name, step, "")
         # Only include extension import boilerplate if we actually call an extension method
         if method_name or any(
             so.get("op_type") == "extension_op" and so.get("extension_method_hint")
@@ -4457,10 +4465,9 @@ Return ONLY the JSON array, no markdown fences.""")
         """
         method_name = step.get("method_name", "")
         step_id = step.get("step_id", "")
-        description = step.get("description", step_id)
 
         lines = [
-            f"# --- {extension_name}: {description} (Setup) ---",
+            *self._template_header_lines(extension_name, step, "Setup"),
             "import slicer",
             f"from {module_name} import {logic_class_name}",
             "",
@@ -4487,7 +4494,7 @@ Return ONLY the JSON array, no markdown fences.""")
         """
         step_id = step.get("step_id", "")
         lines = [
-            f"# --- {extension_name}: {step.get('description', step_id)} (Done) ---",
+            *self._template_header_lines(extension_name, step, "Done"),
             "import slicer",
             "",
             "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
@@ -4503,17 +4510,168 @@ Return ONLY the JSON array, no markdown fences.""")
         """Return True for MRML Markups nodes that support placement/control points."""
         return _text_or_empty(node_class).startswith("vtkMRMLMarkups")
 
+    @staticmethod
+    def _python_comment_block(text: str, prefix: str = "# ") -> List[str]:
+        """Convert arbitrary multi-line text into valid Python comment lines."""
+        lines = []
+        for raw_line in _text_or_empty(text).splitlines() or [""]:
+            line = raw_line.strip()
+            lines.append(f"{prefix}{line}" if line else prefix.rstrip())
+        return lines
+
+    def _template_header_lines(self, extension_name: str, step: Dict, phase: str = "") -> List[str]:
+        """Return a Python-safe multi-line template header for a workflow step."""
+        step_id = step.get("step_id", "")
+        description = step.get("description", step_id)
+        suffix = f" ({phase})" if phase else ""
+        header_text = f"--- {extension_name}: {description}{suffix} ---"
+        return self._python_comment_block(header_text)
+
+    @staticmethod
+    def _repair_multiline_comment_headers(code: str) -> str:
+        """Prefix accidentally split template-header continuation lines as comments."""
+        repaired = []
+        in_header = False
+        for line in _text_or_empty(code).splitlines():
+            stripped = line.strip()
+            if stripped.startswith("# ---") and not stripped.endswith("---"):
+                in_header = True
+                repaired.append(line)
+                continue
+            if in_header:
+                if stripped and not stripped.startswith("#"):
+                    indent = line[:len(line) - len(line.lstrip())]
+                    repaired.append(f"{indent}# {stripped}")
+                else:
+                    repaired.append(line)
+                if stripped.endswith("---"):
+                    in_header = False
+                continue
+            repaired.append(line)
+        if code.endswith("\n"):
+            return "\n".join(repaired) + "\n"
+        return "\n".join(repaired)
+
+    @staticmethod
+    def _placement_mode_from_source(source: str) -> str:
+        """Infer the placement mode a source snippet explicitly enters."""
+        source = source or ""
+        if "SwitchToSinglePlaceMode" in source:
+            return "single"
+        if "SwitchToPersistentPlaceMode" in source:
+            return "persistent"
+        if "StartPlaceMode" in source or "SetPlaceModeEnabled" in source:
+            return "unknown"
+        return "none"
+
+    def _placement_starter_info(self, method_name: str) -> Dict:
+        """Return source-derived placement-starter metadata for a method."""
+        if not method_name:
+            return {}
+        return self._placement_starter_methods.get(method_name) or {}
+
+    @staticmethod
+    def _is_repeat_interaction_step(step: Dict) -> bool:
+        """Return True when this interaction step is controlled by a repeat group."""
+        repeat_group = step.get("repeat_group") or {}
+        return bool(
+            repeat_group
+            and repeat_group.get("interaction_step")
+            and repeat_group.get("interaction_step") == step.get("step_id")
+        )
+
+    def _interaction_object_name(self, step: Dict) -> str:
+        """Return a short generic object name for user-facing placement text."""
+        interaction_type = _text_or_empty(step.get("interaction_type", "")).lower()
+        if interaction_type and interaction_type != "unknown":
+            return interaction_type
+        node_class = self._step_interaction_node_class(step)
+        mapping = {
+            "vtkMRMLMarkupsPlaneNode": "plane",
+            "vtkMRMLMarkupsCurveNode": "curve",
+            "vtkMRMLMarkupsLineNode": "line",
+            "vtkMRMLMarkupsFiducialNode": "point",
+        }
+        return mapping.get(node_class, "placement")
+
+    def _normalize_repeat_interaction_instructions(self, step: Dict) -> None:
+        """Make repeated interaction steps describe one runtime iteration only."""
+        if not self._is_repeat_interaction_step(step):
+            return
+        object_name = self._interaction_object_name(step)
+        if object_name == "placement":
+            instruction = "Complete this placement, then click Done."
+        else:
+            instruction = f"Place this {object_name}, then click Done."
+        step["placement_instructions"] = instruction
+        for so in step.get("sub_operations", []) or []:
+            if so.get("op_type") == "user_interaction":
+                so["placement_instructions"] = instruction
+
+    def _interaction_instructions_for_template(self, step: Dict) -> str:
+        """Return user-facing instructions with repeat semantics applied."""
+        if self._is_repeat_interaction_step(step):
+            object_name = self._interaction_object_name(step)
+            if object_name == "placement":
+                return "Complete this placement, then click Done."
+            return f"Place this {object_name}, then click Done."
+        return step.get("placement_instructions", step.get("description", ""))
+
+    def _placement_mode_policy(self, step: Dict, starter_info: Optional[Dict] = None) -> Dict:
+        """Decide how generated code should enter Markups placement mode."""
+        owner = step.get("interaction_owner", "")
+        starter_info = starter_info or {}
+        if owner in ("extension_method", "previous_extension_method"):
+            if starter_info.get("starts_markup_placement"):
+                return {
+                    "should_set_active_list": False,
+                    "should_enter_placement_mode": False,
+                    "placement_mode": None,
+                    "reason": "extension_starter_already_controls_placement",
+                }
+            return {
+                "should_set_active_list": True,
+                "should_enter_placement_mode": True,
+                "placement_mode": "single" if self._is_repeat_interaction_step(step) else "persistent",
+                "reason": "extension_starter_did_not_enter_placement",
+            }
+        if self._is_repeat_interaction_step(step):
+            return {
+                "should_set_active_list": True,
+                "should_enter_placement_mode": True,
+                "placement_mode": "single",
+                "reason": "repeat_group_one_item_per_runtime_iteration",
+            }
+        return {
+            "should_set_active_list": True,
+            "should_enter_placement_mode": True,
+            "placement_mode": "persistent",
+            "reason": "runtime_template_controls_placement",
+        }
+
+    @staticmethod
+    def _placement_mode_code(policy: Dict) -> List[str]:
+        """Return Python lines that enter the policy-selected placement mode."""
+        if not policy.get("should_enter_placement_mode"):
+            return []
+        mode = policy.get("placement_mode")
+        if mode == "single":
+            return ["    interactionNode.SwitchToSinglePlaceMode()"]
+        return ["    interactionNode.SwitchToPersistentPlaceMode()"]
+
     def _generate_existing_placement_pre_template(
         self, extension_name, step, starter_method,
     ) -> str:
         """Reuse the markup node created by the previous placement-starter step."""
         step_id = step.get("step_id", "")
         node_class = step.get("node_class", "vtkMRMLMarkupsFiducialNode")
-        instructions = step.get("placement_instructions", step.get("description", ""))
+        instructions = self._interaction_instructions_for_template(step)
         node_var = f"_{extension_name.lower()}_{step_id}_id"
+        starter_info = self._placement_starter_info(starter_method)
+        policy = self._placement_mode_policy(step, starter_info)
 
         lines = [
-            f"# --- {extension_name}: {step.get('description', step_id)} (Setup) ---",
+            *self._template_header_lines(extension_name, step, "Setup"),
             "import slicer",
             "",
             f"# Reuse the markup node created by {starter_method}() in the previous step.",
@@ -4530,15 +4688,21 @@ Return ONLY the JSON array, no markdown fences.""")
             "displayNode = node.GetDisplayNode()",
             "if displayNode is not None:",
             "    displayNode.SetVisibility(True)",
-            "slicer.modules.markups.logic().SetActiveListID(node)",
-            "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
-            "if interactionNode is not None:",
-            "    interactionNode.SwitchToPersistentPlaceMode()",
+        ]
+        if policy.get("should_set_active_list"):
+            lines.append("slicer.modules.markups.logic().SetActiveListID(node)")
+        if policy.get("should_enter_placement_mode"):
+            lines.extend([
+                "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
+                "if interactionNode is not None:",
+                *self._placement_mode_code(policy),
+            ])
+        lines.extend([
             f"{node_var} = node.GetID()",
             "",
             f"print(\"[{extension_name}] Please {instructions}\")",
             "print(\"When finished, press the 'Done' button in the workflow panel.\")",
-        ]
+        ])
         return "\n".join(lines) + "\n"
 
     def _generate_view_adjustment_pre_template(self, extension_name, step) -> str:
@@ -4546,7 +4710,7 @@ Return ONLY the JSON array, no markdown fences.""")
         step_id = step.get("step_id", "")
         instructions = step.get("placement_instructions", step.get("description", ""))
         lines = [
-            f"# --- {extension_name}: {step.get('description', step_id)} (Setup) ---",
+            *self._template_header_lines(extension_name, step, "Setup"),
             "import slicer",
             "",
             "# This step is a view adjustment, not a Markups placement.",
@@ -4559,7 +4723,7 @@ Return ONLY the JSON array, no markdown fences.""")
         """Generate completion code for non-markup interactions."""
         step_id = step.get("step_id", "")
         lines = [
-            f"# --- {extension_name}: {step.get('description', step_id)} (Done) ---",
+            *self._template_header_lines(extension_name, step, "Done"),
             "import slicer",
             "",
             "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
@@ -4576,12 +4740,13 @@ Return ONLY the JSON array, no markdown fences.""")
         """Generate the pre-interaction template for an interactive step."""
         interaction_type = step.get("interaction_type", "unknown")
         node_class = step.get("node_class", "vtkMRMLMarkupsFiducialNode")
-        instructions = step.get("placement_instructions", step.get("description", ""))
+        instructions = self._interaction_instructions_for_template(step)
         node_name = step["step_id"].replace("_", " ").title()
         min_points = step.get("min_control_points", 0)
+        policy = self._placement_mode_policy(step)
 
         lines = [
-            f"# --- {extension_name}: {step.get('description', step['step_id'])} (Setup) ---",
+            *self._template_header_lines(extension_name, step, "Setup"),
             "import slicer",
             "",
             "# Create the markup node for user interaction",
@@ -4594,12 +4759,19 @@ Return ONLY the JSON array, no markdown fences.""")
             "print(\"When finished, press the 'Done' button in the workflow panel.\")",
             "",
             "# Enter placement mode",
-            "slicer.modules.markups.logic().SetActiveListID(node)",
-            "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
-            "interactionNode.SwitchToPersistentPlaceMode()",
+        ]
+        if policy.get("should_set_active_list"):
+            lines.append("slicer.modules.markups.logic().SetActiveListID(node)")
+        if policy.get("should_enter_placement_mode"):
+            lines.extend([
+                "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
+                "if interactionNode is not None:",
+                *self._placement_mode_code(policy),
+            ])
+        lines.extend([
             "",
             f"_{extension_name.lower()}_{step['step_id']}_id = node.GetID()",
-        ]
+        ])
 
         return "\n".join(lines) + "\n"
 
@@ -4619,7 +4791,7 @@ Return ONLY the JSON array, no markdown fences.""")
         node_var = f"_{extension_name.lower()}_{step['step_id']}_id"
 
         lines = [
-            f"# --- {extension_name}: {step.get('description', step['step_id'])} (Process) ---",
+            *self._template_header_lines(extension_name, step, "Process"),
             "import slicer",
             "",
             f"node = slicer.mrmlScene.GetNodeByID({node_var})",
@@ -4805,10 +4977,11 @@ Return ONLY the JSON array, no markdown fences.""")
         3. Trailing whitespace / mixed line endings
         4. Unexpected indentation (LLM returns indented blocks)
         5. Empty method calls like ``logic.()`` from null method hints
+        6. Multi-line Python comment headers accidentally split by raw descriptions
 
-        This runs BEFORE Stage 9 validation and BEFORE the internal LLM
-        review, so it catches the most basic issues cheaply without needing
-        an LLM revision pass.
+        This runs before Stage 9 validation and is also applied to LLM review
+        and revision outputs, so cheap syntax repairs do not require another
+        LLM pass.
         """
         import ast as _ast
         import textwrap as _textwrap
@@ -4851,7 +5024,10 @@ Return ONLY the JSON array, no markdown fences.""")
             # 2. Normalize line endings
             code = code.replace("\r\n", "\n").replace("\r", "\n")
 
-            # 3. Remove blocked module imports
+            # 3. Repair comment headers split by multi-line descriptions
+            code = ExtensionCLIAnalyzer._repair_multiline_comment_headers(code)
+
+            # 4. Remove blocked module imports
             code = _BLOCKED_FROM_IMPORT_RE.sub(
                 lambda m: f"{m.group(1)}# [removed blocked import: {m.group(0).strip()}]",
                 code,
@@ -4861,7 +5037,7 @@ Return ONLY the JSON array, no markdown fences.""")
                 code,
             )
 
-            # 4. Fix indentation: try ast.parse, on failure try dedent
+            # 5. Fix indentation: try ast.parse, on failure try dedent
             try:
                 _ast.parse(code)
             except (SyntaxError, IndentationError) as e:
@@ -4878,7 +5054,7 @@ Return ONLY the JSON array, no markdown fences.""")
                         # dedent didn't help — leave for revision
                         pass
 
-            # 5. Fix empty method calls: logic.() → # logic.<no method available>()
+            # 6. Fix empty method calls: logic.() → # logic.<no method available>()
             if _EMPTY_METHOD_CALL_RE.search(code):
                 def _fix_empty_call(m):
                     var = m.group(1)
@@ -4888,7 +5064,7 @@ Return ONLY the JSON array, no markdown fences.""")
                     return m.group(0)
                 code = _EMPTY_METHOD_CALL_RE.sub(_fix_empty_call, code)
 
-            # 6. Detect stub templates (only pass + comments/print)
+            # 7. Detect stub templates (only pass + comments/print)
             _stripped = [
                 l.strip() for l in code.split('\n')
                 if l.strip() and not l.strip().startswith('#')
@@ -5678,6 +5854,8 @@ If the template is correct with no issues, return:
 
             if corrected and isinstance(corrected, str) and corrected.strip():
                 # Validate the corrected template: fill placeholders then parse
+                corrected_templates = self._sanitize_templates({tpl_name: corrected})
+                corrected = corrected_templates.get(tpl_name, corrected)
                 sample = corrected.replace(
                     "{vol_lookup}",
                     "inputVolume = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScalarVolumeNode')"
@@ -5701,6 +5879,7 @@ If the template is correct with no issues, return:
                         tpl_name, e,
                     )
 
+        reviewed = self._sanitize_templates(reviewed)
         syntax_issues = self._syntax_check_templates(reviewed)
         if isinstance(self._workflow_metadata, dict):
             self._workflow_metadata.setdefault("validation_state", {})[
@@ -6766,6 +6945,14 @@ Return ONLY the sentence, nothing else.""")
                     result["errors"].append(
                         f"{step_id}: repeat interaction and start step both call placement starter '{interaction_starter}'"
                     )
+                instruction_text = " ".join([
+                    _text_or_empty(interaction_desc.get("placement_instructions", "")),
+                    _text_or_empty(gen.get("placement_instructions", "")),
+                ]).lower()
+                if _re.search(r"\b(repeat|for each|each requested|continue placing)\b", instruction_text):
+                    result["errors"].append(
+                        f"{step_id}: repeat interaction instructions must describe one item per Done"
+                    )
         return result
 
     @staticmethod
@@ -7437,6 +7624,30 @@ Return ONLY the sentence, nothing else.""")
                 result["errors"].append(
                     "Interaction is owned by an extension placement method but pre-template creates a new Markups node"
                 )
+            if self._template_enters_markup_placement_mode(code):
+                result["errors"].append(
+                    "Interaction is owned by an extension placement method but pre-template enters Markups placement mode"
+                )
+
+        repeat_group = (
+            gen.get("repeat_group")
+            or interaction_desc.get("repeat_group")
+            or (gen.get("choice_descriptor") or {}).get("repeat_group")
+            or {}
+        )
+        step_id = (
+            gen.get("param_signature", {}).get("workflow_step", "")
+            or gen.get("step_id", "")
+        )
+        if role == "pre" and repeat_group.get("interaction_step") == step_id:
+            if "SwitchToPersistentPlaceMode" in code:
+                result["errors"].append(
+                    "Repeated interaction pre-template uses persistent placement mode; repeat groups must advance one item per Done"
+                )
+            if self._template_print_text_has_repeat_instruction(code):
+                result["errors"].append(
+                    "Repeated interaction pre-template tells the user to repeat inside one wait step"
+                )
 
         scalar_contract = self._validate_scalar_parameter_contract(code)
         result["errors"].extend(scalar_contract["errors"])
@@ -7450,6 +7661,24 @@ Return ONLY the sentence, nothing else.""")
     @staticmethod
     def _template_calls_select_module(code: str) -> bool:
         return bool(_re.search(r"\bslicer\s*\.\s*util\s*\.\s*selectModule\s*\(", code))
+
+    @staticmethod
+    def _template_enters_markup_placement_mode(code: str) -> bool:
+        return bool(_re.search(
+            r"\b(SwitchToSinglePlaceMode|SwitchToPersistentPlaceMode|StartPlaceMode|SetPlaceModeEnabled)\s*\(",
+            code or "",
+        ))
+
+    @staticmethod
+    def _template_print_text_has_repeat_instruction(code: str) -> bool:
+        printed = []
+        for match in _re.finditer(r"\bprint\s*\(\s*([rubfRUBF]*)(['\"])(.*?)\2\s*\)", code or "", _re.DOTALL):
+            printed.append(match.group(3))
+        text = "\n".join(printed).lower()
+        return bool(_re.search(
+            r"\b(repeat|for each|each requested|requested .* times|continue placing)\b",
+            text,
+        ))
 
     def _operation_intents_for_generator(self, gen: Dict) -> List[str]:
         operation_model = gen.get("operation_model") or {}
@@ -7782,6 +8011,10 @@ Return ONLY the sentence, nothing else.""")
             elif isinstance(node, ast.For):
                 if isinstance(node.target, ast.Name):
                     defined.add(node.target.id)
+                elif isinstance(node.target, (ast.Tuple, ast.List)):
+                    for elt in node.target.elts:
+                        if isinstance(elt, ast.Name):
+                            defined.add(elt.id)
             elif isinstance(node, ast.comprehension):
                 if isinstance(node.target, ast.Name):
                     defined.add(node.target.id)
@@ -7871,38 +8104,84 @@ Return ONLY the sentence, nothing else.""")
 
     @staticmethod
     def _fill_remaining_placeholders(code: str) -> str:
-        """Fill any remaining {placeholder} or {placeholder: default} patterns with safe defaults."""
-        import re
-        def _replace(match):
-            full = match.group(0)
-            name = match.group(1)
-            default = match.group(3)  # group 3 = default value (after optional ': ')
-            # If the placeholder has an inline default (e.g. {text_prompts: ["seg"]}), use it
-            if default is not None:
-                return default
-            # Common placeholders
-            if "name" in name.lower():
+        """Fill remaining template placeholders outside Python strings."""
+        string_ranges = []
+        for match in _re.finditer(
+            r'(?:[fFrRbBuU]{0,2})("""|\'\'\'|"|\')(.*?)\1',
+            code,
+            _re.DOTALL,
+        ):
+            string_ranges.append((match.start(), match.end()))
+
+        def _string_end_at(pos: int) -> Optional[int]:
+            for start, end in string_ranges:
+                if start <= pos < end:
+                    return end
+            return None
+
+        def _sample_value(name: str) -> str:
+            lower = name.lower()
+            if "name" in lower:
                 return '"SampleNode"'
-            if "radius" in name.lower() or "size" in name.lower():
+            if "radius" in lower or "size" in lower:
                 return "1.5"
-            if "path" in name.lower():
+            if "path" in lower:
                 return '"/tmp/sample"'
             return '""'
-        # Replace single-brace placeholders that aren't double-brace escapes.
-        # Strategy: use a UUID-based sentinel that cannot collide with regex output.
-        # The sentinel must NOT contain { or } so the regex never partially consumes it.
-        import uuid
-        _L = f"__DBLBRACE_L_{uuid.uuid4().hex}__"
-        _R = f"__DBLBRACE_R_{uuid.uuid4().hex}__"
-        code = code.replace("{{", _L)
-        code = code.replace("}}", _R)
-        # Match {name} or {name:default} or {name: default}
-        # The colon-space is optional: both {name:val} and {name: val} are accepted.
-        code = re.sub(r'\{(\w+)(: *(.*?))?\}', _replace, code)
-        # Restore literal braces
-        code = code.replace(_L, "{{")
-        code = code.replace(_R, "}}")
-        return code
+
+        result = []
+        i = 0
+        n = len(code)
+        while i < n:
+            string_end = _string_end_at(i)
+            if string_end is not None:
+                result.append(code[i:string_end])
+                i = string_end
+                continue
+
+            if code.startswith("{{", i) or code.startswith("}}", i):
+                result.append(code[i:i + 2])
+                i += 2
+                continue
+
+            if code[i] != "{":
+                result.append(code[i])
+                i += 1
+                continue
+
+            depth = 0
+            j = i
+            found = False
+            while j < n:
+                if code[j] == "{":
+                    depth += 1
+                elif code[j] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        found = True
+                        break
+                j += 1
+
+            if not found:
+                result.append(code[i])
+                i += 1
+                continue
+
+            inner = code[i + 1:j]
+            colon_pos = inner.find(":")
+            if colon_pos >= 0 and inner[:colon_pos].strip().isidentifier():
+                name = inner[:colon_pos].strip()
+                default = inner[colon_pos + 1:]
+                if default.startswith(" "):
+                    default = default[1:]
+                result.append(default)
+            elif inner.strip().isidentifier():
+                result.append(_sample_value(inner.strip()))
+            else:
+                result.append(code[i:j + 1])
+            i = j + 1
+
+        return "".join(result)
 
     # ================================================================
     # Live Execution Validation (runs on Qt main thread)
@@ -8463,9 +8742,16 @@ Return ONLY the JSON, no markdown fences.""")
                     tpl_name = f"templates/{tpl_name}"
                 tpl_path = os.path.join(cli_dir, tpl_name)
                 os.makedirs(os.path.dirname(tpl_path), exist_ok=True)
+                templates[tpl_name] = tpl_content
+
+            templates = self._sanitize_templates(templates)
+            for tpl_name, tpl_content in templates.items():
+                if not tpl_name.endswith(".py.tpl"):
+                    continue
+                tpl_path = os.path.join(cli_dir, tpl_name)
+                os.makedirs(os.path.dirname(tpl_path), exist_ok=True)
                 with open(tpl_path, "w", encoding="utf-8") as f:
                     f.write(tpl_content)
-                templates[tpl_name] = tpl_content
 
             # Re-validate
             if not self.code_validator:
@@ -10104,6 +10390,7 @@ Return ONLY the JSON, no markdown fences.""")
             interaction_step = by_step.get(group.get("interaction_step", ""))
             if not start_step or not interaction_step:
                 continue
+            self._normalize_repeat_interaction_instructions(interaction_step)
             start_starter = self._step_placement_starter(start_step)
             interaction_starter = self._step_placement_starter(interaction_step)
             if not start_starter or start_starter != interaction_starter:
@@ -10146,15 +10433,20 @@ Return ONLY the JSON, no markdown fences.""")
             start_step["interaction_owner"] = "extension_method"
             start_step["placement_starter_method"] = start_starter
             start_step["created_node_source"] = "extension_method"
+            starter_info = self._placement_starter_info(start_starter)
+            interaction_policy = self._placement_mode_policy(interaction_step, starter_info)
             metadata.setdefault("interaction_policies", {})[interaction_step["step_id"]] = {
                 "interaction_owner": interaction_step["interaction_owner"],
                 "placement_starter_method": start_starter,
                 "created_node_source": interaction_step["created_node_source"],
+                "placement_mode": starter_info.get("placement_mode", ""),
+                "generated_placement_policy": interaction_policy,
             }
             metadata.setdefault("interaction_policies", {})[start_step["step_id"]] = {
                 "interaction_owner": start_step["interaction_owner"],
                 "placement_starter_method": start_starter,
                 "created_node_source": start_step["created_node_source"],
+                "placement_mode": starter_info.get("placement_mode", ""),
             }
 
         # Bind user interactions to recent extension placement starters even
@@ -10177,6 +10469,8 @@ Return ONLY the JSON, no markdown fences.""")
             step["created_node_source"] = "previous_extension_method"
             step["placement_starter_step_id"] = binding.get("step_id", "")
             step["placement_binding_reason"] = binding.get("reason", "")
+            starter_info = self._placement_starter_info(starter)
+            interaction_policy = self._placement_mode_policy(step, starter_info)
             metadata.setdefault("interaction_policies", {})[step["step_id"]] = {
                 "interaction_owner": step["interaction_owner"],
                 "placement_starter_method": starter,
@@ -10185,6 +10479,8 @@ Return ONLY the JSON, no markdown fences.""")
                 "placement_binding_reason": binding.get("reason", ""),
                 "node_class": binding.get("node_class", ""),
                 "lookback_steps": binding.get("lookback_steps"),
+                "placement_mode": starter_info.get("placement_mode", ""),
+                "generated_placement_policy": interaction_policy,
             }
             starter_step = by_step.get(binding.get("step_id", ""))
             if starter_step:
@@ -10559,6 +10855,10 @@ Return ONLY the JSON, no markdown fences.""")
                     )
                 if step.get("interaction_binding"):
                     gen["interaction_descriptor"]["binding"] = step["interaction_binding"]
+                workflow_metadata = self._workflow_metadata if isinstance(self._workflow_metadata, dict) else {}
+                policy = (workflow_metadata.get("interaction_policies", {}) or {}).get(step_id, {})
+                if policy:
+                    gen["interaction_descriptor"]["placement_policy"] = policy
             elif step_type == "mixed":
                 gen["pre_template_file"] = step.get("pre_template", "")
                 gen["post_template_file"] = step.get("post_template", "")
@@ -10586,6 +10886,10 @@ Return ONLY the JSON, no markdown fences.""")
                     interaction_desc["node_roles"] = step["node_roles"]
                 if step.get("created_node_source"):
                     interaction_desc["created_node_source"] = step.get("created_node_source")
+                workflow_metadata = self._workflow_metadata if isinstance(self._workflow_metadata, dict) else {}
+                policy = (workflow_metadata.get("interaction_policies", {}) or {}).get(step_id, {})
+                if policy:
+                    interaction_desc["placement_policy"] = policy
                 gen["interaction_descriptor"] = interaction_desc
                 gen["sub_operations"] = step.get("sub_operations", [])
             elif step_type == "branch":
