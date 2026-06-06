@@ -1,0 +1,241 @@
+from .common import *
+from .analyzer_contracts import AnalyzerContractsMixin
+from .workflow_tests import WorkflowTestsMixin
+
+
+class SlicerAIAgentTest(AnalyzerContractsMixin, WorkflowTestsMixin, ScriptedLoadableModuleTest):
+    """
+    Comprehensive test suite for SlicerAIAgent.
+    """
+
+    def setUp(self):
+        """Setup for each test - clear the scene."""
+        slicer.mrmlScene.Clear(0)
+
+    def tearDown(self):
+        """Cleanup after each test."""
+        pass
+
+    def runTest(self):
+        """Run all tests."""
+        self.setUp()
+        self.test_ModuleImport()
+        self.tearDown()
+
+        self.setUp()
+        self.test_LLMClient()
+        self.tearDown()
+
+        self.setUp()
+        self.test_CodeValidator()
+        self.tearDown()
+
+        self.setUp()
+        self.test_ExtensionCLIAnalyzerContracts()
+        self.tearDown()
+
+        self.setUp()
+        self.test_TurnRouterWorkflowRoutes()
+        self.tearDown()
+
+        self.setUp()
+        self.test_WorkflowRuntimeStateTransitions()
+        self.tearDown()
+
+        self.setUp()
+        self.test_WorkflowRuntimeUiStateMapping()
+        self.tearDown()
+
+        self.setUp()
+        self.test_WorkflowWidgetClearsStaleMarkers()
+        self.tearDown()
+
+        self.setUp()
+        self.test_NodeChoiceResolverContracts()
+        self.tearDown()
+
+        self.setUp()
+        self.test_SafeExecutor()
+        self.tearDown()
+
+        self.setUp()
+        self.test_SkillPath()
+        self.tearDown()
+
+        self.setUp()
+        self.test_ConversationStore()
+        self.tearDown()
+
+        self.setUp()
+        self.test_SlicerCodeTemplates()
+        self.tearDown()
+
+        self.setUp()
+        self.test_SkillIndexer()
+        self.tearDown()
+
+        self.setUp()
+        self.test_Integration()
+        self.tearDown()
+
+        self.setUp()
+        self.test_GenerateSegmentationCode()
+        self.tearDown()
+
+    def test_ModuleImport(self):
+        """Test that all module components can be imported."""
+        try:
+            from SlicerAIAgentLib import (
+                LLMClient,
+                SkillTools,
+                SkillIndexer,
+                CodeValidator,
+                SafeExecutor,
+                ConversationStore,
+                SlicerCodeTemplates,
+                TurnRouter,
+                WorkflowRuntime,
+                NodeChoiceResolver,
+            )
+            self.delayDisplay("All module components imported successfully")
+        except Exception as e:
+            self.delayDisplay(f"Module import failed: {e}")
+            raise
+
+    def test_LLMClient(self):
+        """Test LLMClient functionality."""
+        from SlicerAIAgentLib import LLMClient
+
+        client = LLMClient()
+
+        # Test defaults
+        self.assertEqual(client.model, "kimi-k2.5")
+        self.assertIsNone(client.timeout)
+
+        # Test API key management
+        client.setApiKey("test_key")
+        self.assertEqual(client.api_key, "test_key")
+
+        # Test model selection and legacy normalization
+        client.setModel("moonshot-v1-8k")
+        self.assertEqual(client.model, "moonshot-v1-8k")
+        client.setModel("kimi-latest")
+        self.assertEqual(client.model, "kimi-k2.5")
+
+        # Test DeepSeek model support
+        client.setModel("deepseek-v4-pro")
+        self.assertEqual(client.model, "deepseek-v4-pro")
+        self.assertTrue(client._supportsThinking())
+        client.setModel("deepseek-v4-flash")
+        self.assertEqual(client.model, "deepseek-v4-flash")
+        self.assertTrue(client._supportsThinking())
+
+        # Test conversation history
+        client.clearHistory()
+        self.assertEqual(len(client.conversation_history), 0)
+
+        # Test history management
+        client.conversation_history = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there", "reasoning_content": "Thinking..."},
+        ]
+        self.assertEqual(len(client.getHistory()), 2)
+
+        client.clearHistory()
+        self.assertEqual(len(client.getHistory()), 0)
+
+        # Test code extraction
+        message_with_code = """
+Here's some code:
+```python
+x = 1 + 1
+print(x)
+```
+More text.
+"""
+        code = client._extractCode(message_with_code)
+        self.assertIsNotNone(code)
+        self.assertIn("x = 1 + 1", code)
+
+        # Test SSE parsing helpers
+        done_chunk = client._parseStreamChunk("[DONE]")
+        self.assertTrue(done_chunk["done"])
+
+        reasoning_chunk = client._parseStreamChunk('{\"choices\":[{\"delta\":{\"reasoning_content\":\"step 1\"}}]}')
+        self.assertEqual(reasoning_chunk["reasoning_content"], "step 1")
+        self.assertEqual(reasoning_chunk["content"], "")
+
+        content_chunk = client._parseStreamChunk('{\"choices\":[{\"delta\":{\"content\":\"final answer\"}},\"usage\":{\"total_tokens\":12}}]')
+        self.assertEqual(content_chunk["content"], "final answer")
+
+        # Test response assembly
+        response = client._buildResponse("answer", "reasoning", {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}, {})
+        self.assertEqual(response["message"], "answer")
+        self.assertEqual(response["reasoning_content"], "reasoning")
+        self.assertEqual(response["tokens"], 15)
+
+        # Test stats
+        stats = client.getStats()
+        self.assertIn("total_tokens", stats)
+        self.assertIn("total_cost", stats)
+
+        # Test system prompt building with context
+        context = {
+            "skill_path": "C:/test/skill",
+            "skill_mode": "full",
+            "api_hints": ["Use slicer.util.loadVolume() for loading", "Use SampleData for examples"],
+            "scene": {"node_counts": {"Volume": 1}, "sample_node_names": ["MRHead"]}
+        }
+        prompt = client._buildSystemPrompt(context)
+        self.assertIn("CURRENT SLICER SCENE", prompt)
+        self.assertIn("SKILL LOCATION", prompt)
+        self.assertIn("loadVolume", prompt)
+
+        self.delayDisplay("LLMClient tests passed")
+
+    def test_CodeValidator(self):
+        """Test CodeValidator functionality."""
+        from SlicerAIAgentLib import CodeValidator
+
+        validator = CodeValidator()
+
+        # Test safe code
+        safe_code = "volume = slicer.util.loadVolume('test.nrrd')"
+        result = validator.validate(safe_code)
+        self.assertTrue(result["valid"], f"Safe code should pass: {result.get('reason')}")
+
+        # Test empty code
+        result = validator.validate("")
+        self.assertFalse(result["valid"])
+        self.assertIn("Empty", result["reason"])
+
+        # Test syntax error
+        bad_syntax = "def broken("
+        result = validator.validate(bad_syntax)
+        self.assertFalse(result["valid"])
+        self.assertIn("Syntax", result["reason"])
+
+        # Test blocked import
+        blocked_import = "import os"
+        result = validator.validate(blocked_import)
+        self.assertFalse(result["valid"])
+        self.assertIn("Blocked", result["reason"])
+
+        # Test blocked function
+        blocked_func = "eval('1+1')"
+        result = validator.validate(blocked_func)
+        self.assertFalse(result["valid"])
+        self.assertIn("Blocked", result["reason"])
+
+        # Traceback is used by correction/debug wrappers and should not warn.
+        result = validator.validate("import traceback\nmessage = traceback.format_exc()\n")
+        self.assertTrue(result["valid"], result.get("reason"))
+        self.assertFalse(result["warnings"], result["warnings"])
+
+        # Test destructive operation detection
+        destructive_code = "slicer.mrmlScene.RemoveNode(node)"
+        result = validator.validate(destructive_code)
+        self.assertTrue(result["requires_confirmation"])
+        self.assertTrue(len(result["destructive_ops"]) > 0)
+
+        self.delayDisplay("CodeValidator tests passed")

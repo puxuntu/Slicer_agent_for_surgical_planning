@@ -103,21 +103,26 @@ class WorkflowRuntime:
 
         result_type = source.get("type", "")
         status = self._ui_status_label(self.session.status, result_type)
+        ui_guidance = self._ui_guidance_from_result(source, current_meta)
+        guidance_title = str(ui_guidance.get("title", "") or "").strip()
+        guidance_instruction = str(ui_guidance.get("instruction", "") or "").strip()
         if result_type == "user_choice":
             description = (
-                source.get("question")
+                guidance_title
+                or source.get("question")
                 or source.get("explanation")
                 or current_meta.get("description")
                 or ""
             )
         else:
             description = (
-                source.get("explanation")
+                guidance_title
+                or source.get("explanation")
                 or source.get("instruction")
                 or current_meta.get("description")
                 or ""
             )
-        instructions = self._instructions_from_result(source)
+        instructions = guidance_instruction or self._instructions_from_result(source)
         choices = self._choices_from_result(source, current_meta)
         is_optional = bool(source.get("is_optional") or current_meta.get("is_optional"))
         choice_info = current_meta.get("choice_info", {}) if isinstance(current_meta, dict) else {}
@@ -125,6 +130,7 @@ class WorkflowRuntime:
         if default_value is None:
             default_value = choice_info.get("default_value")
         parameter_name = source.get("parameter_name") or choice_info.get("parameter_name") or ""
+        repeat_progress = source.get("repeat_progress") or {}
         active = self.session.active or self.session.status in {"completed", "cancelled"}
 
         return {
@@ -145,6 +151,11 @@ class WorkflowRuntime:
             "choices": choices,
             "default_value": default_value,
             "parameter_name": parameter_name,
+            "choice_label": ui_guidance.get("choice_label", ""),
+            "input_label": ui_guidance.get("input_label", ""),
+            "done_label": ui_guidance.get("done_label", "Done") or "Done",
+            "object_label": ui_guidance.get("object_label", ""),
+            "repeat_progress": repeat_progress,
             "needs_choice_input": result_type == "user_choice" and not choices,
             "can_done": self.session.status == "waiting_for_user",
             "can_skip": self.session.active and is_optional,
@@ -212,6 +223,7 @@ class WorkflowRuntime:
         call_args = dict(args or {})
         call_args.setdefault("workflow_step", target_step)
         call_args.setdefault("user_action", action)
+        call_args.setdefault("_workflow_id", self.session.workflow_id)
 
         self.session.current_step = target_step
         self.session.status = "running"
@@ -362,6 +374,20 @@ class WorkflowRuntime:
         )
 
     @staticmethod
+    def _ui_guidance_from_result(result: Dict[str, Any], step_meta: Dict[str, Any]) -> Dict[str, Any]:
+        """Return generated UI guidance from result or workflow metadata."""
+        guidance = {}
+        if isinstance(step_meta, dict) and isinstance(step_meta.get("ui_guidance"), dict):
+            guidance.update(step_meta["ui_guidance"])
+        if isinstance(result, dict) and isinstance(result.get("ui_guidance"), dict):
+            guidance.update(result["ui_guidance"])
+        if isinstance(result, dict):
+            interaction = result.get("interaction") or {}
+            if isinstance(interaction, dict) and isinstance(interaction.get("ui_guidance"), dict):
+                guidance.update(interaction["ui_guidance"])
+        return guidance
+
+    @staticmethod
     def _choices_from_result(result: Dict[str, Any], step_meta: Dict[str, Any]) -> List[Dict[str, Any]]:
         source_choices = []
         if isinstance(result, dict):
@@ -449,6 +475,8 @@ class WorkflowRuntime:
             "question",
             "choices",
             "default_value",
+            "ui_guidance",
+            "repeat_progress",
             "next_step",
             "workflow_completed",
             "error",

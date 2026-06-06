@@ -1,5 +1,6 @@
 # --- BoneReconstructionPlanner: 13. Manually click and draw on the "Red" view to create a curve along the mandible. (Setup) ---
 import slicer
+from SlicerAIAgentLib.workflow_state import remember_interaction_node
 
 # Reuse the markup node created by addMandibularCurve() in the previous step.
 nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsCurveNode")
@@ -15,11 +16,8 @@ if node is None:
 displayNode = node.GetDisplayNode()
 if displayNode is not None:
     displayNode.SetVisibility(True)
-slicer.modules.markups.logic().SetActiveListID(node)
-interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-if interactionNode is not None:
-    interactionNode.SwitchToPersistentPlaceMode()
 _bonereconstructionplanner_cb_step_13_id = node.GetID()
+remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_13", _bonereconstructionplanner_cb_step_13_id, _workflow_runtime_repeat_index)
 
-print("[BoneReconstructionPlanner] Please Click and draw on the Red view to create a curve along the mandible")
+print("[BoneReconstructionPlanner] Please Click points along the mandible in the Red 2D view to create a curve. The curve should follow the mandibular shape.")
 print("When finished, press the 'Done' button in the workflow panel.")

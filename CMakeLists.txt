@@ -45,10 +45,15 @@ set(modules
   SlicerAIAgent
   )
 
+file(GLOB_RECURSE SLICER_AI_AGENT_LIBRARY_PYTHON_FILES
+  CONFIGURE_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/SlicerAIAgentLib/*.py
+  )
+
 foreach(module ${modules})
   slicerMacroBuildScriptedModule(
     NAME ${module}
-    SCRIPTS ${module}.py
+    SCRIPTS ${module}.py ${SLICER_AI_AGENT_LIBRARY_PYTHON_FILES}
     RESOURCES Resources
     )
 endforeach()
@@ -57,9 +62,13 @@ endforeach()
 # Testing
 #------------------------------------------------------------------
 if(BUILD_TESTING)
+  file(GLOB_RECURSE SLICER_AI_AGENT_TEST_PYTHON_FILES
+    CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/Testing/*.py
+    )
   slicerMacroBuildScriptedModule(
     NAME SlicerAIAgentTest
-    SCRIPTS Testing/SlicerAIAgentTest.py
+    SCRIPTS ${SLICER_AI_AGENT_TEST_PYTHON_FILES}
     )
 endif()
 

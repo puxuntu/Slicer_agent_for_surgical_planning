@@ -1,14 +1,17 @@
 # --- BoneReconstructionPlanner: 13. Manually click and draw on the "Red" view to create a curve along the mandible. (Process) ---
 import slicer
+from SlicerAIAgentLib.workflow_state import resolve_interaction_node
 
-node = slicer.mrmlScene.GetNodeByID(_bonereconstructionplanner_cb_step_13_id)
+node = resolve_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_13", "vtkMRMLMarkupsCurveNode", _workflow_runtime_repeat_index)
+if node is None:
+    node = slicer.mrmlScene.GetNodeByID(_bonereconstructionplanner_cb_step_13_id)
 if node is None:
     raise RuntimeError("Node not found for step 'cb_step_13'")
 
 # Validate user input
 numPoints = node.GetNumberOfControlPoints()
-if numPoints < 2:
-    raise RuntimeError("Need at least 2 control points, got %d. Please add more." % numPoints)
+if numPoints < 3:
+    raise RuntimeError("Need at least 3 control points, got %d. Please add more." % numPoints)
 
 # Store the placed node on the extension parameter node for later steps
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic

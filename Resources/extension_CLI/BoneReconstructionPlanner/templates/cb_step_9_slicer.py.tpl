@@ -1,19 +1,7 @@
-# Turn on slice intersection visibility, interaction mode, Translate, and Rotate
-
+# Turn on slice intersection visibility and enable Translate + Rotate interaction
 appLogic = slicer.app.applicationLogic()
-
-# Enable slice intersection visibility
-appLogic.SetIntersectingSlicesEnabled(
-    slicer.vtkMRMLApplicationLogic.IntersectingSlicesVisibility, True)
-
-# Enable slice intersection interaction mode
-appLogic.SetIntersectingSlicesEnabled(
-    slicer.vtkMRMLApplicationLogic.IntersectingSlicesInteractive, True)
-
-# Enable Translate handles
-appLogic.SetIntersectingSlicesEnabled(
-    slicer.vtkMRMLApplicationLogic.IntersectingSlicesTranslation, True)
-
-# Enable Rotate handles
-appLogic.SetIntersectingSlicesEnabled(
-    slicer.vtkMRMLApplicationLogic.IntersectingSlicesRotation, True)
+if appLogic:
+    appLogic.SetIntersectingSlicesEnabled(appLogic.IntersectingSlicesVisibility, True)
+    appLogic.SetIntersectingSlicesEnabled(appLogic.IntersectingSlicesInteractive, True)
+    appLogic.SetIntersectingSlicesEnabled(appLogic.IntersectingSlicesTranslation, True)
+    appLogic.SetIntersectingSlicesEnabled(appLogic.IntersectingSlicesRotation, True)

@@ -1,5 +1,7 @@
-# --- BoneReconstructionPlanner: 18. Place one mandibular cut plane using the extension's Add cut plane workflow. If the user requested N cut planes, repeat the Add cut plane + place plane interaction N times. Do not store these planes as a rotation plane; they are mandibular cut planes managed by the extension. (Setup) ---
+# --- BoneReconstructionPlanner: 18. Place one mandibular cut plane using the extension's Add cut plane workflow. If the user requested N cut planes, repeat the Add cut plane + place plane
+# interaction N times. Do not store these planes as a rotation plane; they are mandibular cut planes managed by the extension. (Setup) ---
 import slicer
+from SlicerAIAgentLib.workflow_state import remember_interaction_node
 
 # Reuse the markup node created by addCutPlane() in the previous step.
 nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsPlaneNode")
@@ -15,11 +17,8 @@ if node is None:
 displayNode = node.GetDisplayNode()
 if displayNode is not None:
     displayNode.SetVisibility(True)
-slicer.modules.markups.logic().SetActiveListID(node)
-interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
-if interactionNode is not None:
-    interactionNode.SwitchToPersistentPlaceMode()
 _bonereconstructionplanner_cb_step_18_id = node.GetID()
+remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_18", _bonereconstructionplanner_cb_step_18_id, _workflow_runtime_repeat_index)
 
-print("[BoneReconstructionPlanner] Please Position the cutting plane by dragging in the 3D view. Repeat for each requested cut plane.")
+print("[BoneReconstructionPlanner] Please Place this plane, then click Done.")
 print("When finished, press the 'Done' button in the workflow panel.")

@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: 10. Manually adjust the slice intersection position by holding Shift and moving the mouse in a view. (Done) ---
+# --- BoneReconstructionPlanner: 10. Manually adjust the slice intersection position by translate and rotate of the cross lines in each view. (Done) ---
 import slicer
 
 interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")

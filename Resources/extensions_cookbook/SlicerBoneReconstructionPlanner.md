@@ -9,7 +9,7 @@
 7. For the R (red) view, toggle on "slice visibility in 3D view".
 8. For the R (red) view, toggle on "FOV, Spacing match 2D" (adjusts slice resolution to match the 2D viewport pixel spacing).
 9. In the toolbar, turn on "slice intersection visibility". In the slice intersection interaction options, turn on "set interaction", then enable both "Translate" and "Rotate".
-10. Manually adjust the slice intersection position by holding Shift and moving the mouse in a view.
+10. Manually adjust the slice intersection position by translate and rotate of the cross lines in each view.
 11. Click the "Add mandibular curve" button.
 12. Configure the display settings of the mandibular curve created by the "Add mandibular curve" button so it is shown in both "View 1" and "Red".
 13. Manually click and draw on the "Red" view to create a curve along the mandible.

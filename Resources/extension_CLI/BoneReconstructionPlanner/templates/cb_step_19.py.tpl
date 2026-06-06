@@ -1,5 +1,6 @@
 # --- BoneReconstructionPlanner: 19. Click "Add fibula line" button. (Setup) ---
 import slicer
+from SlicerAIAgentLib.workflow_state import remember_interaction_node
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
 try:
@@ -7,7 +8,25 @@ try:
 except NameError:
     logic = BoneReconstructionPlannerLogic()
 
+_workflow_before_ids = set()
+_workflow_nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsLineNode")
+_workflow_before_count = _workflow_nodes.GetNumberOfItems()
+for _workflow_i in range(_workflow_before_count):
+    _workflow_n = _workflow_nodes.GetItemAsObject(_workflow_i)
+    if _workflow_n is not None:
+        _workflow_before_ids.add(_workflow_n.GetID())
+
 logic.addFibulaLine()
+
+_workflow_created_node = None
+_workflow_nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsLineNode")
+for _workflow_i in range(_workflow_nodes.GetNumberOfItems() - 1, -1, -1):
+    _workflow_n = _workflow_nodes.GetItemAsObject(_workflow_i)
+    if _workflow_n is not None and _workflow_n.GetID() not in _workflow_before_ids:
+        _workflow_created_node = _workflow_n
+        break
+if _workflow_created_node is not None:
+    remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_19", _workflow_created_node.GetID(), _workflow_runtime_repeat_index)
 _bonereconstructionplanner_logic = logic
 
 print("[BoneReconstructionPlanner] Placement started for step 'cb_step_19'.")

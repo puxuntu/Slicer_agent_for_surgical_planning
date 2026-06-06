@@ -1,4 +1,4 @@
-# Toggle on FOV/Spacing match 2D for the Red view
-redSliceNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSliceNodeRed")
-if redSliceNode:
-    redSliceNode.SetSliceResolutionMode(slicer.vtkMRMLSliceNode.SliceResolutionMatch2DView)
+# Enable FOV/Spacing match 2D for the Red slice view
+layoutManager = slicer.app.layoutManager()
+redSliceNode = layoutManager.sliceWidget("Red").mrmlSliceNode()
+redSliceNode.SetSliceResolutionMode(slicer.vtkMRMLSliceNode.SliceFOVMatchVolumesSpacingMatch2DView)

@@ -1,0 +1,556 @@
+from __future__ import annotations
+
+from .cache import *
+
+
+def _build_format_kwargs(arguments: Dict) -> Dict[str, str]:
+    """Convert tool arguments to template format kwargs (repr-wrapped)."""
+    format_kwargs = {}
+    for key, value in arguments.items():
+        if isinstance(value, str):
+            format_kwargs[key] = repr(value)
+        elif value is None:
+            format_kwargs[key] = "None"
+        else:
+            format_kwargs[key] = repr(value)
+    return format_kwargs
+
+
+def _build_next_step_instruction(tool_name: str, next_step: Optional[Dict], prefix: str = "") -> str:
+    """Build the standard 'next step' instruction string."""
+    if not next_step:
+        return f"{prefix}All steps complete. Workflow is done." if prefix else "All steps complete. Workflow is done."
+    is_opt = next_step.get("is_optional", False)
+    if is_opt:
+        return (
+            f"{prefix}"
+            f"Next step '{next_step['step_id']}' is optional: "
+            f"{next_step['description']} "
+            f"Ask the user if they want to proceed. "
+            f"If yes, call {tool_name} with workflow_step='{next_step['step_id']}' user_action='start'. "
+            f"If no, call with workflow_step='{next_step['step_id']}' user_action='skip'."
+        )
+    return (
+        f"{prefix}"
+        f"Proceed by calling {tool_name} with "
+        f"workflow_step='{next_step['step_id']}' user_action='start'."
+    )
+
+
+def _semantic_tokens(text: str) -> set:
+    """Tokenize names/questions for generic confidence matching."""
+    text = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", str(text or ""))
+    words = re.findall(r"[A-Za-z][A-Za-z0-9]+", text.lower())
+    stop = {
+        "the", "and", "for", "with", "node", "select", "choose", "current",
+        "which", "what", "option", "step", "user", "choice", "number",
+        "many", "want", "volume", "segmentation", "model", "markup",
+    }
+    tokens = {w for w in words if w not in stop and len(w) > 2}
+    tokens.update(w[:6] for w in list(tokens) if len(w) >= 6)
+    return tokens
+
+
+def _choice_is_closed_form(choices: List[Dict]) -> bool:
+    """Return True for non-scene choices that should be asked explicitly."""
+    if not choices:
+        return False
+    labels = {str(c.get("label", "")).strip().lower() for c in choices}
+    values = {str(c.get("value", "")).strip().lower() for c in choices}
+    labels_and_values = labels | values
+    normalized = {
+        re.sub(r"[^a-z0-9]+", " ", item).strip()
+        for item in labels_and_values
+        if item
+    }
+    compact = {item.replace(" ", "") for item in normalized}
+    boolean_options = {"yes", "no", "true", "false"}
+    side_options = {
+        "left", "right", "left leg", "right leg",
+        "left side", "right side", "left fibula", "right fibula",
+    }
+    compact_side_options = {item.replace(" ", "") for item in side_options}
+    return (
+        normalized <= boolean_options
+        or compact <= boolean_options
+        or normalized <= side_options
+        or compact <= compact_side_options
+    )
+
+
+def _choice_is_count_question(choice_desc: Dict, step: Dict) -> bool:
+    """Return True for numeric/count choices that should not auto-select nodes."""
+    text = " ".join([
+        str(choice_desc.get("parameter_name", "")),
+        str(choice_desc.get("question", "")),
+        str(step.get("description", "")),
+    ]).lower()
+    return any(token in text for token in ("how many", "number of", "count", "num", "amount"))
+
+
+def _ui_guidance_for_context(ctx: _WorkflowContext, descriptor: Optional[Dict] = None) -> Dict:
+    """Return the best available generated UI guidance for this step."""
+    descriptor = descriptor or {}
+    guidance = {}
+    for source in (
+        ctx.target_step.get("ui_guidance", {}),
+        (ctx.target_gen or {}).get("ui_guidance", {}),
+        descriptor.get("ui_guidance", {}),
+    ):
+        if isinstance(source, dict):
+            guidance.update({k: v for k, v in source.items() if v not in (None, "")})
+    return guidance
+
+
+def _repeat_progress_for_context(ctx: _WorkflowContext) -> Dict:
+    """Return repeat progress for one-item-at-a-time interaction UI."""
+    repeat_group = (
+        (ctx.target_gen or {}).get("repeat_group")
+        or (ctx.target_gen or {}).get("interaction_descriptor", {}).get("repeat_group")
+        or (ctx.target_gen or {}).get("choice_descriptor", {}).get("repeat_group")
+        or ctx.target_step.get("repeat_group")
+    )
+    if not repeat_group:
+        return {}
+    group_id = repeat_group.get("group_id") or ctx.workflow_step
+    state = _workflow_repeat_state.get(ctx.ext_name, {}).get(group_id, {})
+    target = int(state.get("target", 0) or 0)
+    completed = int(state.get("completed", 0) or 0)
+    if target <= 0:
+        return {"group_id": group_id, "completed": completed, "total": 0}
+    current = min(completed + 1, target)
+    return {
+        "group_id": group_id,
+        "current": current,
+        "completed": completed,
+        "total": target,
+    }
+
+
+def _record_choice_and_advance(
+    ctx: _WorkflowContext,
+    param_name: str,
+    choice_value: Any,
+    auto_selected: bool = False,
+) -> Dict:
+    """Store a choice, initialize repeat state when needed, and advance."""
+    ext_choices = _workflow_choices.setdefault(ctx.ext_name, {})
+    if param_name:
+        ext_choices[param_name] = choice_value
+
+    repeat_group = (
+        (ctx.target_gen or {}).get("repeat_group")
+        or (ctx.target_gen or {}).get("choice_descriptor", {}).get("repeat_group")
+        or ctx.target_step.get("repeat_group")
+    )
+    if repeat_group:
+        try:
+            target = int(choice_value)
+        except (TypeError, ValueError):
+            target = 0
+        if target > 0:
+            group_id = repeat_group.get("group_id") or ctx.workflow_step
+            _workflow_repeat_state.setdefault(ctx.ext_name, {})[group_id] = {
+                "target": target,
+                "completed": 0,
+            }
+
+    ctx.done.add(ctx.workflow_step)
+    next_step = _find_next_step_local(ctx.workflow_graph, ctx.done)
+    result = {
+        "tool": ctx.tool_name,
+        "type": "choice_made",
+        "step_id": ctx.workflow_step,
+        "parameter_name": param_name,
+        "choice_value": choice_value,
+        "message": f"Selected '{choice_value}' for '{param_name}'.",
+    }
+    if auto_selected:
+        result["auto_selected"] = True
+        result["message"] = (
+            f"Automatically selected '{choice_value}' for '{param_name}' "
+            "from the loaded scene."
+        )
+    result["instruction"] = _build_next_step_instruction(ctx.tool_name, next_step)
+    if next_step:
+        result["next_step"] = next_step
+    return result
+
+
+def _try_auto_select_choice(ctx: _WorkflowContext, choice_desc: Dict) -> Optional[Dict]:
+    """Auto-select a scene node for high-confidence node-binding choices."""
+    if slicer is None or ctx.user_action != "start":
+        return None
+
+    choices = choice_desc.get("choices", [])
+    if _choice_is_closed_form(choices) or _choice_is_count_question(choice_desc, ctx.target_step):
+        return None
+
+    binding = (
+        choice_desc.get("binding")
+        or ctx.target_step.get("choice_binding")
+        or ctx.metadata.get("choice_bindings", {}).get(ctx.workflow_step, {})
+    )
+    node_class = binding.get("node_class", "") if binding else ""
+    if not node_class:
+        return None
+
+    param_name = (
+        binding.get("choice_parameter_name")
+        or choice_desc.get("parameter_name")
+        or binding.get("parameter_name", "")
+    )
+    binding_param = binding.get("parameter_name", param_name)
+    keywords = set(binding.get("keywords", []))
+    question_tokens = _semantic_tokens(
+        " ".join([
+            param_name,
+            choice_desc.get("question", ""),
+            ctx.target_step.get("description", ""),
+        ])
+    )
+    target_tokens = keywords | question_tokens
+
+    nodes = slicer.mrmlScene.GetNodesByClass(node_class)
+    candidates = []
+    for i in range(nodes.GetNumberOfItems()):
+        node = nodes.GetItemAsObject(i)
+        if node is None:
+            continue
+        name = node.GetName() or ""
+        node_tokens = _semantic_tokens(name)
+        score = len(target_tokens & node_tokens)
+        if str(name).lower() == str(param_name).lower():
+            score += 5
+        if keywords and keywords <= node_tokens:
+            score += 2
+        candidates.append((score, name, node))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (item[0], len(item[1])), reverse=True)
+    best = candidates[0]
+    second_score = candidates[1][0] if len(candidates) > 1 else -1
+
+    # High confidence means either there is only one class-compatible node, or
+    # the best semantic name match is clearly separated from the next candidate.
+    if not (len(candidates) == 1 or (best[0] >= 1 and best[0] >= second_score + 1)):
+        return None
+
+    # Store both the user-facing cookbook parameter and the actual parameter-node
+    # role when they differ, so template prelude can bind the Slicer parameter node.
+    ext_choices = _workflow_choices.setdefault(ctx.ext_name, {})
+    if binding_param and binding_param != param_name:
+        ext_choices[binding_param] = best[1]
+    return _record_choice_and_advance(ctx, param_name, best[1], auto_selected=True)
+
+
+def _build_choice_prelude(ctx: _WorkflowContext) -> str:
+    """Build code that applies metadata defaults and stored user choices."""
+    choices = _workflow_choices.get(ctx.ext_name, {})
+    bindings = ctx.metadata.get("parameter_bindings", {}) or {}
+    defaults = ctx.metadata.get("parameter_defaults", {}) or {}
+    module_name = ctx.metadata.get("extension_module_name", "")
+    logic_class_name = ctx.metadata.get("logic_class_name", "")
+    if (not choices and not defaults) or not bindings or not module_name or not logic_class_name:
+        return ""
+
+    logic_var = f"_{ctx.ext_name.lower()}_logic"
+    choices_json = json.dumps(choices)
+    bindings_json = json.dumps(bindings)
+    defaults_json = json.dumps(defaults)
+    return (
+        "# [Workflow metadata] Apply source-derived defaults and stored user choices\n"
+        "import slicer\n"
+        f"from {module_name} import {logic_class_name}\n"
+        "try:\n"
+        f"    logic = {logic_var}\n"
+        "except NameError:\n"
+        f"    logic = {logic_class_name}()\n"
+        "parameterNode = logic.getParameterNode()\n"
+        f"_workflow_choices = {choices_json}\n"
+        f"_workflow_bindings = {bindings_json}\n"
+        f"_workflow_defaults = {defaults_json}\n"
+        "def _workflow_tokens(text):\n"
+        "    import re\n"
+        "    text = re.sub(r'([a-z0-9])([A-Z])', r'\\1 \\2', str(text or ''))\n"
+        "    return set(re.findall(r'[A-Za-z][A-Za-z0-9]+', text.lower()))\n"
+        "def _workflow_find_node(value, node_class, keywords):\n"
+        "    if not node_class:\n"
+        "        return None\n"
+        "    value = str(value or '')\n"
+        "    try:\n"
+        "        node = slicer.util.getNode(value)\n"
+        "        if node and node.IsA(node_class):\n"
+        "            return node\n"
+        "    except Exception:\n"
+        "        pass\n"
+        "    target_tokens = _workflow_tokens(value) | set(keywords or [])\n"
+        "    nodes = slicer.mrmlScene.GetNodesByClass(node_class)\n"
+        "    best_node = None\n"
+        "    best_score = -1\n"
+        "    for _i in range(nodes.GetNumberOfItems()):\n"
+        "        candidate = nodes.GetItemAsObject(_i)\n"
+        "        if candidate is None:\n"
+        "            continue\n"
+        "        score = len(target_tokens & _workflow_tokens(candidate.GetName()))\n"
+        "        if candidate.GetName() == value:\n"
+        "            score += 10\n"
+        "        if score > best_score:\n"
+        "            best_score = score\n"
+        "            best_node = candidate\n"
+        "    return best_node if best_score > 0 else None\n"
+        "for _role, _default in _workflow_defaults.items():\n"
+        "    _binding = _workflow_bindings.get(_role, {})\n"
+        "    if _binding.get('node_class', ''):\n"
+        "        continue\n"
+        "    try:\n"
+        "        _current = parameterNode.GetParameter(_role)\n"
+        "    except Exception:\n"
+        "        _current = ''\n"
+        "    if _current in (None, ''):\n"
+        "        parameterNode.SetParameter(_role, str(_default.get('value', '')))\n"
+        "for _role, _binding in _workflow_bindings.items():\n"
+        "    _value = _workflow_choices.get(_role)\n"
+        "    if _value is None:\n"
+        "        continue\n"
+        "    _node_class = _binding.get('node_class', '')\n"
+        "    if _node_class:\n"
+        "        _node = _workflow_find_node(_value, _node_class, _binding.get('keywords', []))\n"
+        "        if _node is not None:\n"
+        "            parameterNode.SetNodeReferenceID(_role, _node.GetID())\n"
+        "    else:\n"
+        "        parameterNode.SetParameter(_role, 'True' if _value is True else 'False' if _value is False else str(_value))\n"
+        f"{logic_var} = logic\n\n"
+    )
+
+
+def _repeat_index_for_context(ctx: _WorkflowContext) -> int:
+    repeat_group = (
+        (ctx.target_gen or {}).get("repeat_group")
+        or (ctx.target_gen or {}).get("interaction_descriptor", {}).get("repeat_group")
+        or (ctx.target_gen or {}).get("choice_descriptor", {}).get("repeat_group")
+        or ctx.target_step.get("repeat_group")
+        or {}
+    )
+    group_id = repeat_group.get("group_id", "")
+    if not group_id:
+        return 0
+    state = _workflow_repeat_state.get(ctx.ext_name, {}).get(group_id, {})
+    return int(state.get("completed", 0)) + 1
+
+
+def _method_name_for_context(ctx: _WorkflowContext) -> str:
+    method_name = (ctx.target_gen or {}).get("method_name") or ctx.target_step.get("method_name") or ""
+    if method_name:
+        return method_name
+    for so in (ctx.target_gen or {}).get("sub_operations", []) or ctx.target_step.get("sub_operations", []) or []:
+        if so.get("op_type") == "extension_op" and so.get("extension_method_hint"):
+            return so.get("extension_method_hint", "")
+    return ""
+
+
+def _build_runtime_prelude(ctx: _WorkflowContext) -> str:
+    """Build hidden runtime context and generic method precondition checks."""
+    workflow_id = str(ctx.arguments.get("_workflow_id") or ctx.arguments.get("workflow_id") or "")
+    repeat_index = _repeat_index_for_context(ctx)
+    step_id = ctx.workflow_step
+    method_name = _method_name_for_context(ctx)
+    metadata = ctx.metadata or {}
+    bindings = metadata.get("parameter_bindings", {}) or {}
+    deps = (metadata.get("parameter_method_dependencies", {}) or {}).get(method_name, {}) if method_name else {}
+    role_names = sorted(set((deps.get("parameter_roles") or []) + (deps.get("node_roles") or [])))
+    node_requirements = deps.get("node_requirements") or {}
+    required_bindings = {
+        role: {
+            **bindings.get(role, {}),
+            "_workflow_requirement": node_requirements.get(
+                role, {
+                    "requirement": "optional_unknown",
+                    "conditions": [],
+                    "condition_groups": [],
+                }
+            ),
+        }
+        for role in role_names
+        if isinstance(bindings.get(role), dict)
+    }
+    module_name = metadata.get("extension_module_name", "")
+    logic_class_name = metadata.get("logic_class_name", "")
+
+    lines = [
+        "# [Workflow runtime] Hidden generated-CLI workflow context",
+        f"_workflow_runtime_extension = {ctx.ext_name!r}",
+        f"_workflow_runtime_id = {workflow_id!r}",
+        f"_workflow_runtime_step = {step_id!r}",
+        f"_workflow_runtime_repeat_index = {repeat_index}",
+        "from SlicerAIAgentLib.workflow_state import remember_interaction_node, resolve_interaction_node",
+        "",
+    ]
+    if not (method_name and module_name and logic_class_name and required_bindings):
+        return "\n".join(lines) + "\n"
+
+    lines.extend([
+        "# [Workflow preconditions] Validate source-derived node references before extension logic calls",
+        f"_workflow_method_name = {method_name!r}",
+        f"_workflow_required_bindings = {repr(required_bindings)}",
+        "def _workflow_validate_polydata(_node, _role):",
+        "    if not hasattr(_node, 'GetPolyData'):",
+        "        return",
+        "    _poly = _node.GetPolyData()",
+        "    if _poly is None:",
+        "        raise RuntimeError(\"Model node has no polydata: %s\" % _role)",
+        "    try:",
+        "        if _poly.GetNumberOfPoints() <= 0:",
+        "            raise RuntimeError(\"Model node has empty polydata: %s\" % _role)",
+        "    except AttributeError:",
+        "        pass",
+        "def _workflow_validate_markups(_node, _role, _min_points):",
+        "    if _min_points <= 0 or not hasattr(_node, 'GetNumberOfControlPoints'):",
+        "        return",
+        "    _count = _node.GetNumberOfControlPoints()",
+        "    if _count < _min_points:",
+        "        raise RuntimeError(\"Markup node %s needs at least %d control points, got %d\" % (_role, _min_points, _count))",
+        "def _workflow_condition_is_active(_parameter_node, _condition):",
+        "    _parameter = _condition.get('parameter', '')",
+        "    if not _parameter:",
+        "        return False",
+        "    _actual = _parameter_node.GetParameter(_parameter)",
+        "    _expected = str(_condition.get('value', ''))",
+        "    if _condition.get('operator') == 'not_equals':",
+        "        return str(_actual) != _expected",
+        "    return str(_actual) == _expected",
+        "def _workflow_node_is_required(_parameter_node, _binding):",
+        "    _requirement = _binding.get('_workflow_requirement') or {'requirement': 'optional_unknown'}",
+        "    _kind = _requirement.get('requirement', 'optional_unknown')",
+        "    if _kind == 'required':",
+        "        return True",
+        "    if _kind == 'conditional':",
+        "        _groups = _requirement.get('condition_groups') or []",
+        "        if _groups:",
+        "            return any(all(_workflow_condition_is_active(_parameter_node, _c) for _c in _group) for _group in _groups)",
+        "        return any(_workflow_condition_is_active(_parameter_node, _c) for _c in (_requirement.get('conditions') or []))",
+        "    return False",
+        f"try:\n    _workflow_logic = _{ctx.ext_name.lower()}_logic\nexcept NameError:\n    from {module_name} import {logic_class_name}\n    _workflow_logic = {logic_class_name}()",
+        "def _workflow_validate_method_preconditions():",
+        "    _workflow_parameter_node = _workflow_logic.getParameterNode()",
+        "    for _role, _binding in _workflow_required_bindings.items():",
+        "        _node_class = _binding.get('node_class', '')",
+        "        if not _node_class:",
+        "            continue",
+        "        _accesses = set(_binding.get('accesses') or [])",
+        "        if 'node_reference_read' not in _accesses:",
+        "            continue",
+        "        _node = _workflow_parameter_node.GetNodeReference(_role)",
+        "        if _node is None:",
+        "            if _workflow_node_is_required(_workflow_parameter_node, _binding):",
+        "                _requirement = _binding.get('_workflow_requirement') or {}",
+        "                _conditions = _requirement.get('conditions') or []",
+        "                if _conditions:",
+        "                    raise RuntimeError(\"[GeneratedWorkflowPrecondition] Missing conditional node reference: %s; active condition: %s\" % (_role, _conditions))",
+        "                raise RuntimeError(\"[GeneratedWorkflowPrecondition] Missing required node reference: %s\" % _role)",
+        "            continue",
+        "        if hasattr(_node, 'IsA') and not _node.IsA(_node_class):",
+        "            raise RuntimeError(\"Node reference %s has wrong type: expected %s\" % (_role, _node_class))",
+        "        if _node_class == 'vtkMRMLModelNode':",
+        "            _workflow_validate_polydata(_node, _role)",
+        "        if 'Markups' in _node_class:",
+        "            _workflow_validate_markups(_node, _role, int(_binding.get('min_control_points', 0) or 0))",
+        f"_{ctx.ext_name.lower()}_logic = _workflow_logic",
+        "",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def _inject_method_precondition_call(ctx: _WorkflowContext, code: str) -> str:
+    method_name = _method_name_for_context(ctx)
+    if not method_name or "_workflow_validate_method_preconditions" not in _build_runtime_prelude(ctx):
+        return code
+    pattern = re.compile(
+        rf"^(?P<indent>[ \t]*)logic\.{re.escape(method_name)}\s*\(",
+        re.MULTILINE,
+    )
+    match = pattern.search(code)
+    if not match:
+        return code
+    insertion = f"{match.group('indent')}_workflow_validate_method_preconditions()\n"
+    return code[:match.start()] + insertion + code[match.start():]
+
+
+def _prepend_choice_prelude(ctx: _WorkflowContext, code: Optional[str]) -> Optional[str]:
+    if not code:
+        return code
+    runtime_prelude = _build_runtime_prelude(ctx)
+    prelude = _build_choice_prelude(ctx)
+    code = _inject_method_precondition_call(ctx, code)
+    return (prelude or "") + runtime_prelude + code
+
+
+def _store_generated_interaction_node_code(
+    extension_name: str,
+    step_id: str,
+    node_expr: str = "node",
+) -> str:
+    node_var = f"_{extension_name.lower()}_{step_id}_id"
+    return "\n".join([
+        f"{node_var} = {node_expr}.GetID()",
+        (
+            "remember_interaction_node("
+            f"_workflow_runtime_extension, _workflow_runtime_id, {step_id!r}, "
+            f"{node_var}, _workflow_runtime_repeat_index)"
+        ),
+    ])
+
+
+def _handle_repeat_after_interaction(ctx: _WorkflowContext) -> Optional[Dict]:
+    """Return a repeat-next response when an interaction should loop."""
+    repeat_group = (
+        (ctx.target_gen or {}).get("repeat_group")
+        or (ctx.target_gen or {}).get("interaction_descriptor", {}).get("repeat_group")
+        or ctx.target_step.get("repeat_group")
+    )
+    if not repeat_group:
+        return None
+    if repeat_group.get("interaction_step") != ctx.workflow_step:
+        return None
+
+    group_id = repeat_group.get("group_id") or ctx.workflow_step
+    state = _workflow_repeat_state.setdefault(ctx.ext_name, {}).setdefault(
+        group_id, {"target": 0, "completed": 0}
+    )
+    state["completed"] = int(state.get("completed", 0)) + 1
+    target = int(state.get("target", 0))
+    if target <= 0 or state["completed"] >= target:
+        return None
+
+    start_step_id = repeat_group.get("start_step")
+    if start_step_id:
+        ctx.done.discard(start_step_id)
+    ctx.done.discard(ctx.workflow_step)
+    next_step = {
+        "step_id": start_step_id or ctx.workflow_step,
+        "step_type": "automated",
+        "description": (
+            f"Repeat placement {state['completed'] + 1} of {target}"
+        ),
+        "is_optional": False,
+    }
+    return {
+        "tool": ctx.tool_name,
+        "type": "repeat_next",
+        "step_id": ctx.workflow_step,
+        "repeat_group": repeat_group,
+        "repeat_progress": {
+            "group_id": group_id,
+            "completed": state["completed"],
+            "current": state["completed"] + 1,
+            "total": target,
+        },
+        "ui_guidance": _ui_guidance_for_context(ctx, (ctx.target_gen or {}).get("interaction_descriptor", {})),
+        "message": (
+            f"Repeat item {state['completed']} of {target} completed. "
+            f"Continue with item {state['completed'] + 1}."
+        ),
+        "next_step": next_step,
+        "instruction": _build_next_step_instruction(ctx.tool_name, next_step),
+    }
