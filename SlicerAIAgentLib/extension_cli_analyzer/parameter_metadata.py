@@ -154,9 +154,9 @@ class AnalyzerParameterMetadataMixin:
             return node.value
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             if node.func.id == "str" and node.args:
-                return ExtensionCLIAnalyzer._literal_parameter_value(node.args[0])
+                return AnalyzerParameterMetadataMixin._literal_parameter_value(node.args[0])
             if node.func.id in ("float", "int", "bool") and node.args:
-                raw = ExtensionCLIAnalyzer._literal_parameter_value(node.args[0])
+                raw = AnalyzerParameterMetadataMixin._literal_parameter_value(node.args[0])
                 if raw is None:
                     return None
                 try:
@@ -170,7 +170,7 @@ class AnalyzerParameterMetadataMixin:
         """Return (widget_name, property_name) from expressions like self.ui.foo.value."""
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.args:
             if node.func.id in ("str", "float", "int", "bool"):
-                return ExtensionCLIAnalyzer._widget_reference_from_expr(node.args[0])
+                return AnalyzerParameterMetadataMixin._widget_reference_from_expr(node.args[0])
         attrs = []
         current = node
         while isinstance(current, ast.Attribute):
@@ -283,6 +283,163 @@ class AnalyzerParameterMetadataMixin:
         for entry in defaults.values():
             entry.pop("_precedence", None)
         return defaults
+
+    def _extract_ui_parameter_bindings(
+        self,
+        source: str,
+        ui_files: List[str],
+        widget_connections: Optional[List[Dict]] = None,
+    ) -> Dict[str, Dict]:
+        """Map extension UI widgets to parameter-node roles using source AST.
+
+        The mapping is generic and source-derived.  It recognizes common
+        scripted-extension patterns such as:
+
+        - parameterNode.SetParameter("role", str(self.ui.spinBox.value))
+        - parameterNode.SetNodeReferenceID("role", self.ui.selector.currentNodeID)
+        - if self.ui.checkBox.checked:
+              parameterNode.SetParameter("role", "True")
+          else:
+              parameterNode.SetParameter("role", "False")
+
+        The result is keyed by widget object name, with enough metadata for
+        Stage 4 to classify cookbook UI-control steps and Stage 7 to generate
+        deterministic parameter-update templates.
+        """
+        if not source:
+            return {}
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return {}
+
+        widgets = self._extract_ui_widget_inventory(ui_files)
+        for node in ast.walk(tree):
+            for child in ast.iter_child_nodes(node):
+                setattr(child, "_parent", node)
+
+        connections_by_widget: Dict[str, List[Dict]] = {}
+        for conn in widget_connections or []:
+            raw_name = _text_or_empty(conn.get("button_widget_name", ""))
+            widget_name = raw_name.split(".")[-1] if raw_name else ""
+            if widget_name:
+                connections_by_widget.setdefault(widget_name, []).append(conn)
+
+        bindings: Dict[str, Dict] = {}
+
+        def _record(
+            widget_name: str,
+            role: str,
+            access: str,
+            value_property: str = "",
+            true_value: Any = None,
+            false_value: Any = None,
+        ) -> None:
+            if not widget_name or not role:
+                return
+            widget_info = widgets.get(widget_name, {})
+            entry = bindings.setdefault(widget_name, {
+                "widget_name": widget_name,
+                "widget_class": widget_info.get("class", ""),
+                "ui_text": _text_or_empty(
+                    (widget_info.get("properties") or {}).get("text", "")
+                ),
+                "properties": widget_info.get("properties", {}),
+                "roles": [],
+                "connections": connections_by_widget.get(widget_name, []),
+                "keywords": sorted(set(
+                    self._role_keywords(widget_name)
+                    + self._role_keywords(role)
+                    + self._role_keywords(
+                        _text_or_empty((widget_info.get("properties") or {}).get("text", ""))
+                    )
+                )),
+            })
+            role_entry = {
+                "parameter_name": role,
+                "access": access,
+                "value_property": value_property,
+            }
+            if true_value is not None or false_value is not None:
+                role_entry["true_value"] = true_value
+                role_entry["false_value"] = false_value
+            if role_entry not in entry["roles"]:
+                entry["roles"].append(role_entry)
+            entry["keywords"] = sorted(set(
+                entry.get("keywords", [])
+                + self._role_keywords(role)
+                + self._role_keywords(widget_name)
+            ))
+
+        def _literal(node: ast.AST) -> Optional[Any]:
+            if isinstance(node, ast.Constant):
+                return node.value
+            return self._literal_parameter_value(node)
+
+        def _find_if_widget_test(node: ast.AST) -> Tuple[str, str]:
+            parent = getattr(node, "_parent", None)
+            while parent is not None:
+                if isinstance(parent, ast.If):
+                    widget_name, prop = self._widget_reference_from_expr(parent.test)
+                    if widget_name:
+                        return widget_name, prop
+                parent = getattr(parent, "_parent", None)
+            return "", ""
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func_name = self._get_call_name(node)
+            if not func_name or len(node.args) < 2:
+                continue
+            if not (func_name.endswith("SetParameter") or func_name.endswith("SetNodeReferenceID")):
+                continue
+            role_arg = node.args[0]
+            if not isinstance(role_arg, ast.Constant) or not isinstance(role_arg.value, str):
+                continue
+            role = role_arg.value
+            access = "parameter_write" if func_name.endswith("SetParameter") else "node_reference_write"
+
+            widget_name, prop = self._widget_reference_from_expr(node.args[1])
+            if widget_name:
+                _record(widget_name, role, access, prop)
+                continue
+
+            # Checkbox/toolbutton boolean pattern: the value argument is a
+            # literal, while the widget is in the surrounding if condition.
+            literal_value = _literal(node.args[1])
+            if literal_value is not None:
+                test_widget, test_prop = _find_if_widget_test(node)
+                if test_widget:
+                    parent_if = getattr(node, "_parent", None)
+                    while parent_if is not None and not isinstance(parent_if, ast.If):
+                        parent_if = getattr(parent_if, "_parent", None)
+                    true_value = literal_value
+                    false_value = None
+                    if parent_if is not None:
+                        current_stmt = getattr(node, "_parent", None)
+                        while current_stmt is not None and getattr(current_stmt, "_parent", None) is not parent_if:
+                            current_stmt = getattr(current_stmt, "_parent", None)
+                        if current_stmt in getattr(parent_if, "orelse", []):
+                            false_value = literal_value
+                            true_value = None
+                    _record(
+                        test_widget, role, access, test_prop,
+                        true_value=true_value,
+                        false_value=false_value,
+                    )
+
+        return bindings
+
+    def _read_entry_source(self, scan_result: Dict) -> str:
+        entry_module = scan_result.get("entry_module", "") if scan_result else ""
+        if entry_module and os.path.isfile(entry_module):
+            try:
+                with open(entry_module, "r", encoding="utf-8", errors="ignore") as f:
+                    return f.read()
+            except Exception:
+                return ""
+        return ""
 
     def _extract_parameter_method_dependencies(
         self,
@@ -637,18 +794,29 @@ class AnalyzerParameterMetadataMixin:
         parameter_dependencies = self._extract_parameter_method_dependencies(
             source, bindings
         )
+        ui_parameter_bindings = (
+            getattr(self, "_ui_parameter_bindings", None)
+            or scan_result.get("ui_parameter_bindings", {})
+            or self._extract_ui_parameter_bindings(
+                source,
+                scan_result.get("ui_files", []) or [],
+                getattr(self, "_widget_connections", []),
+            )
+        )
         metadata = {
             "extension_module_name": os.path.splitext(os.path.basename(entry_module))[0],
             "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
             "metadata_version": 5,
             "parameter_bindings": bindings,
             "parameter_defaults": parameter_defaults,
+            "ui_parameter_bindings": ui_parameter_bindings,
             "parameter_method_dependencies": parameter_dependencies,
             "choice_bindings": {},
             "interaction_bindings": {},
             "operation_model": {},
             "node_roles": {},
             "repeat_groups": {},
+            "repeat_blocks": {},
             "validation_state": {
                 "static_valid": None,
                 "api_probe_valid": None,
@@ -665,169 +833,71 @@ class AnalyzerParameterMetadataMixin:
 
             choice = step.get("choice_info") or {}
             pname = choice.get("parameter_name")
-            can_bind_choice_to_node = not (
-                self._choice_is_closed_form(choice)
-                or self._choice_is_count_like(choice, step)
-            )
             if pname and pname in bindings:
                 metadata["choice_bindings"][step_id] = {
                     "parameter_name": pname,
                     "choice_parameter_name": pname,
                     **bindings[pname],
                 }
-            elif pname and self._choice_is_closed_form(choice):
-                choice_text = " ".join([
-                    pname,
-                    choice.get("question", ""),
-                    step.get("description", ""),
-                    " ".join(str(c.get("label", "")) for c in choice.get("choices", []) if isinstance(c, dict)),
-                ])
-                choice_keywords = set(self._role_keywords(choice_text))
-                best_role = None
-                best_score = 0
-                for role, info in bindings.items():
-                    if info.get("node_class"):
-                        continue
-                    role_keywords = set(info.get("keywords", []))
-                    score = len(choice_keywords & role_keywords)
-                    if score > best_score:
-                        best_role = role
-                        best_score = score
-                if best_role and best_score >= 1:
-                    metadata["choice_bindings"][step_id] = {
-                        "parameter_name": best_role,
-                        "choice_parameter_name": pname,
-                        **bindings[best_role],
-                    }
-            elif pname and can_bind_choice_to_node:
-                choice_text = " ".join([
-                    pname,
-                    choice.get("question", ""),
-                    step.get("description", ""),
-                ])
-                choice_node_class = self._guess_node_class_for_role(choice_text)
-                choice_keywords = set(self._role_keywords(choice_text))
-                best_role = None
-                best_score = 0
-                class_candidates = []
-                for role, info in bindings.items():
-                    if not info.get("node_class"):
-                        continue
-                    if choice_node_class and info.get("node_class") != choice_node_class:
-                        continue
-                    class_candidates.append(role)
-                    role_keywords = set(info.get("keywords", []))
-                    score = len(choice_keywords & role_keywords)
-                    if score > best_score:
-                        best_role = role
-                        best_score = score
-                if best_role or (choice_node_class and len(class_candidates) == 1):
-                    matched_role = best_role or class_candidates[0]
-                    metadata["choice_bindings"][step_id] = {
-                        "parameter_name": matched_role,
-                        "choice_parameter_name": pname,
-                        **bindings[matched_role],
-                    }
-
-            node_class = step.get("node_class", "")
-            if node_class:
-                desc_keywords = set(self._role_keywords(step.get("description", "")))
-                best_role = None
-                best_score = 0
-                for role, info in bindings.items():
-                    if info.get("node_class") != node_class:
-                        continue
-                    role_keywords = set(info.get("keywords", []))
-                    score = len(desc_keywords & role_keywords)
-                    if score > best_score:
-                        best_role = role
-                        best_score = score
-                if best_role:
-                    metadata["interaction_bindings"][step_id] = {
-                        "parameter_name": best_role,
-                        **bindings[best_role],
-                    }
-                    step["parameter_role"] = best_role
-                    if "do not store" in step.get("description", "").lower():
-                        metadata["interaction_bindings"].pop(step_id, None)
-                        step.pop("parameter_role", None)
 
             node_roles = self._infer_step_node_roles(step, metadata)
             if node_roles:
                 metadata["node_roles"][step_id] = node_roles
                 step["node_roles"] = node_roles
+                interaction_role = next((
+                    role for role in node_roles
+                    if role.get("role_kind") == "interaction_output"
+                    and role.get("parameter_name") in bindings
+                ), None)
+                if interaction_role:
+                    parameter_name = interaction_role["parameter_name"]
+                    metadata["interaction_bindings"][step_id] = {
+                        "parameter_name": parameter_name,
+                        **bindings[parameter_name],
+                    }
+                    step["parameter_role"] = parameter_name
 
-        # Generic repeat detection for "how many" + placement starter + placement interaction.
-        steps = workflow_graph.get("steps", [])
-        for i, step in enumerate(steps[:-2]):
-            choice = step.get("choice_info") or {}
-            pname = choice.get("parameter_name", "")
-            text = f"{step.get('description', '')} {choice.get('question', '')}".lower()
-            if not (
-                step.get("step_type") == "user_choice"
-                and ("number" in pname.lower() or "count" in pname.lower() or "how many" in text)
-            ):
+        # Attach extension-agnostic repeat blocks identified by Stage 4.
+        for block in workflow_graph.get("repeat_blocks", []) or []:
+            repeat_id = block.get("repeat_id", "")
+            body_steps = block.get("body_steps", []) or []
+            if not repeat_id or not body_steps:
                 continue
-            auto_step = steps[i + 1]
-            interaction_step = steps[i + 2]
-            repeat_text = " ".join([
-                interaction_step.get("description", ""),
-                interaction_step.get("placement_instructions", "") or "",
-                " ".join(
-                    _text_or_empty(so.get("description", ""))
-                    for so in interaction_step.get("sub_operations", [])
-                ),
-                " ".join(
-                    _text_or_empty(so.get("placement_instructions", ""))
-                    for so in interaction_step.get("sub_operations", [])
-                ),
-            ]).lower()
-            interaction_has_user_action = (
-                interaction_step.get("step_type") == "interactive"
-                or (
-                    interaction_step.get("step_type") == "mixed"
-                    and any(
-                        so.get("op_type") == "user_interaction"
-                        for so in interaction_step.get("sub_operations", [])
-                    )
-                )
-            )
-            interaction_node_classes = [
-                interaction_step.get("node_class", ""),
-                *[
-                    so.get("node_class", "")
-                    for so in interaction_step.get("sub_operations", [])
-                ],
+            metadata["repeat_blocks"][repeat_id] = block
+            for step in workflow_graph.get("steps", []):
+                if step.get("step_id") in body_steps:
+                    step["repeat_block"] = block
+
+            # Preserve the established count-placement template contract while
+            # runtime control moves to generic repeat_blocks.
+            controller = block.get("controller", {}) or {}
+            body = [
+                step for step in workflow_graph.get("steps", [])
+                if step.get("step_id") in body_steps
             ]
-            interaction_is_markup_placement = any(
-                self._is_markup_node_class(node_class)
-                for node_class in interaction_node_classes
-            )
             if (
-                auto_step.get("step_type") == "automated"
-                and interaction_has_user_action
-                and interaction_is_markup_placement
-                and (
-                    any(
-                        w in repeat_text
-                        for w in (
-                            "repeat", "each", "as many", "needed",
-                            "per plane", "n times", "requested",
-                        )
-                    )
-                    or self._choice_is_count_like(choice, step)
-                )
+                controller.get("kind") == "count"
+                and len(body) == 2
+                and _operation_type_for_step(body[0]) in ("extension_op", "slicer_op")
+                and _operation_type_for_step(body[1]) == "user_interaction"
             ):
-                group_id = f"repeat_{step['step_id']}_{auto_step['step_id']}_{interaction_step['step_id']}"
+                source_step = controller.get("source_step", "")
+                source = next(
+                    (step for step in workflow_graph.get("steps", [])
+                     if step.get("step_id") == source_step),
+                    {},
+                )
+                count_parameter = (source.get("choice_info") or {}).get("parameter_name", "")
                 group = {
-                    "group_id": group_id,
-                    "count_parameter": pname,
-                    "count_step": step["step_id"],
-                    "start_step": auto_step["step_id"],
-                    "interaction_step": interaction_step["step_id"],
+                    "group_id": repeat_id,
+                    "count_parameter": count_parameter,
+                    "count_step": source_step,
+                    "start_step": body_steps[0],
+                    "interaction_step": body_steps[-1],
                 }
-                metadata["repeat_groups"][group_id] = group
-                for s in (step, auto_step, interaction_step):
-                    s["repeat_group"] = group
+                metadata["repeat_groups"][repeat_id] = group
+                source["repeat_group"] = group
+                for step in body:
+                    step["repeat_group"] = group
 
         return metadata

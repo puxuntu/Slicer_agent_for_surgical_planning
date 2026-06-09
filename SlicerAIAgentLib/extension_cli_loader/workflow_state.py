@@ -66,6 +66,26 @@ def mark_workflow_step_completed(extension_name: str, step_id: str) -> None:
     _workflow_completed_steps.setdefault(extension_name, set()).add(step_id)
 
 
+def clear_workflow_step_completions(
+    extension_name: str,
+    step_ids: List[str],
+) -> None:
+    """Clear atomic step completion markers before a repeat iteration."""
+    completed = _workflow_completed_steps.setdefault(extension_name, set())
+    completed.difference_update(step_ids or [])
+
+
+def set_workflow_repeat_state(
+    extension_name: str,
+    repeat_id: str,
+    state: Dict[str, Any],
+) -> None:
+    """Publish generic runtime repeat state for generated template context."""
+    if not extension_name or not repeat_id:
+        return
+    _workflow_repeat_state.setdefault(extension_name, {})[repeat_id] = dict(state or {})
+
+
 def _find_next_step_local(
     workflow_graph: Dict, completed: set
 ) -> Optional[Dict]:
@@ -76,13 +96,11 @@ def _find_next_step_local(
             continue
         deps = step.get("depends_on", [])
         if all(d in completed for d in deps):
-            is_optional = (
-                step.get("step_type") == "branch"
-                or step.get("is_optional", False)
-            )
+            is_optional = bool(step.get("is_optional", False))
             return {
                 "step_id": sid,
-                "step_type": step.get("step_type", "automated"),
+                "operation_type": step.get("operation_type") or step.get("op_type") or step.get("step_type", "extension_op"),
+                "step_type": step.get("step_type", step.get("operation_type", "extension_op")),
                 "description": step.get("description", ""),
                 "is_optional": is_optional,
                 "ui_guidance": step.get("ui_guidance", {}),
@@ -104,10 +122,10 @@ def dispatch_workflow_step(
 
     Returns:
         Dict with type-specific fields:
-        - type: "interactive" | "automated" | "branch" | "error"
-        - For interactive: pre_code, interaction descriptor, instructions
-        - For automated: code, instruction
-        - For branch: condition, branches
+        - type: runtime result status such as "automated", "interactive",
+          "user_choice", or "error"
+        - For user_interaction: pre_code, interaction descriptor, instructions
+        - For extension_op/slicer_op: code, instruction
     """
     ext_dir = ext_data["dir"]
     generators = ext_data["generators"]
@@ -145,7 +163,17 @@ def dispatch_workflow_step(
             "error": f"Unknown workflow step '{workflow_step}'. Available: {available}",
         }
 
-    step_type = target_step.get("step_type", "automated")
+    operation_type = (
+        target_step.get("operation_type")
+        or target_step.get("op_type")
+        or target_step.get("step_type", "extension_op")
+    )
+    legacy_step_type = {
+        "extension_op": "automated",
+        "slicer_op": "automated",
+        "user_interaction": "interactive",
+        "user_choice": "user_choice",
+    }.get(operation_type, operation_type)
 
     # Track step completion for the local next-step resolver.
     # When start/proceed is called, the current step's depends_on are all done.
@@ -184,17 +212,20 @@ def dispatch_workflow_step(
     )
 
     handlers = {
+        "extension_op": _handle_automated_step,
+        "slicer_op": _handle_automated_step,
+        "user_interaction": _handle_interactive_step,
+        "user_choice": _handle_user_choice_step,
+        # Legacy generated packages are mapped only when no canonical
+        # operation_type/op_type exists.
         "automated": _handle_automated_step,
         "interactive": _handle_interactive_step,
-        "branch": _handle_branch_step,
-        "user_choice": _handle_user_choice_step,
-        "mixed": _handle_mixed_step,
     }
-    handler = handlers.get(step_type)
+    handler = handlers.get(operation_type) or handlers.get(legacy_step_type)
     if handler:
         return handler(ctx)
 
-    return {"error": f"Unknown step type: {step_type}"}
+    return {"error": f"Unknown operation type: {operation_type}"}
 
 
 # =====================================================================

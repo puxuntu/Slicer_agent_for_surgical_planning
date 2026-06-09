@@ -1,4 +1,5 @@
 from .common import *
+import json
 
 
 class AnalyzerContractsMixin:
@@ -11,6 +12,119 @@ class AnalyzerContractsMixin:
             llm_client=None,
             code_validator=CodeValidator(),
         )
+
+        # Stage 4 uses LLM semantics for repeat intent while preserving the
+        # authoritative one-operation-per-step cookbook contract.
+        from SlicerAIAgentLib.CookbookParser import CookbookParser
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fp:
+            fp.write(
+                "1. [op=user_choice] How many items?\n"
+                "2. [op=extension_op] Create one item.\n"
+                "3. [op=user_interaction] Place one item, repeating the create "
+                "and place actions N times.\n"
+                "4. [op=user_interaction] Adjust the existing result.\n"
+                "5. [op=extension_op] Recompute the result; repeat steps 4-5 "
+                "until the result is satisfactory.\n"
+                "6. [op=extension_op] Finalize.\n"
+            )
+            repeat_cookbook_path = fp.name
+        try:
+            repeat_cookbook = CookbookParser().parse(repeat_cookbook_path)
+            semantic_steps = []
+            for step in repeat_cookbook.steps:
+                semantic_steps.append({
+                    "step_number": step.step_number,
+                    "operation_type": step.operation_type,
+                    "semantic_intent": step.description,
+                    "extension_method_hint": None,
+                    "widget_name": None,
+                    "ui_parameter_binding": None,
+                    "slicer_op_category": None,
+                    "slicer_api_keywords": [],
+                    "interaction_kind": (
+                        "markup_placement"
+                        if step.operation_type == "user_interaction" else "none"
+                    ),
+                    "interaction_type": None,
+                    "node_class": (
+                        "vtkMRMLMarkupsFiducialNode"
+                        if step.operation_type == "user_interaction" else None
+                    ),
+                    "placement_instructions": None,
+                    "choice": (
+                        {
+                            "question": step.description,
+                            "choices": [],
+                            "parameter_name": "item_count",
+                            "default_value": None,
+                            "value_kind": "integer",
+                        }
+                        if step.operation_type == "user_choice" else None
+                    ),
+                    "is_optional": False,
+                    "operation_intents": [],
+                    "node_roles": [],
+                    "confidence": "high",
+                    "evidence_ids": [],
+                })
+            semantic_result = {
+                "steps": semantic_steps,
+                "repeat_blocks": [
+                    {
+                        "repeat_id": "create_items",
+                        "body_steps": [2, 3],
+                        "controller": {
+                            "kind": "count",
+                            "source_step": 1,
+                            "prompt": "",
+                            "exit_value": None,
+                        },
+                        "evidence_step_ids": [1, 3],
+                        "confidence": "high",
+                    },
+                    {
+                        "repeat_id": "refine",
+                        "body_steps": [4, 5],
+                        "controller": {
+                            "kind": "until_choice",
+                            "source_step": None,
+                            "prompt": "Is the result satisfactory?",
+                            "exit_value": True,
+                        },
+                        "evidence_step_ids": [5],
+                        "confidence": "high",
+                    },
+                ],
+            }
+            analyzer._call_llm = lambda prompt: json.dumps(semantic_result)
+            stage_map = analyzer._stage4_cookbook_decomposition(
+                repeat_cookbook, {"methods": []}
+            )
+            repeat_blocks = stage_map["repeat_blocks"]
+            self.assertEqual(len(repeat_blocks), 2)
+            self.assertEqual(
+                repeat_blocks[0]["body_steps"], ["cb_step_2", "cb_step_3"]
+            )
+            self.assertEqual(
+                repeat_blocks[0]["controller"]["kind"], "count"
+            )
+            self.assertEqual(
+                repeat_blocks[1]["controller"]["prompt"],
+                "Is the result satisfactory?",
+            )
+            self.assertEqual(
+                repeat_blocks[1]["body_steps"], ["cb_step_4", "cb_step_5"]
+            )
+            self.assertEqual(repeat_blocks[1]["controller"]["kind"], "until_choice")
+            self.assertEqual(
+                [step.operation_type for step in repeat_cookbook.steps],
+                [
+                    "user_choice", "extension_op", "user_interaction",
+                    "user_interaction", "extension_op", "extension_op",
+                ],
+            )
+        finally:
+            os.unlink(repeat_cookbook_path)
 
         # API repair acceptance must depend on valid Python, not on imports.
         analyzer._call_llm = lambda prompt: "node.SetVisibility(True)"
@@ -1442,7 +1556,7 @@ class GenericLogic:
         choice_result = _handle_user_choice_step(choice_ctx)
         self.assertEqual(choice_result["ui_guidance"]["input_label"], "Number of cutting planes")
 
-        # Acronym-heavy extension layout helpers still match custom-layout cookbook text.
+        # Source-derived callable effects are available to Stage 4's LLM candidates.
         layout_source = """
 def addBRPLayout():
     layoutNode = slicer.mrmlScene.GetSingletonNode('vtkMRMLLayoutNodeSingleton', 'vtkMRMLLayoutNode')
@@ -1465,28 +1579,6 @@ def setBRPLayout():
                 }
         self.assertEqual(layout_inventory["addBRPLayout"]["effects"], ["layout_register"])
         self.assertEqual(layout_inventory["setBRPLayout"]["effects"], ["layout_activate"])
-        self.assertEqual(
-            analyzer._match_extension_function(
-                "Restore the BoneReconstructionPlanner custom layout registered by the extension.",
-                ["setBRPLayout"],
-            ),
-            "setBRPLayout",
-        )
-        self.assertEqual(
-            analyzer._match_extension_function(
-                "Change the layout to BoneReconstructionPlanner.",
-                ["addBRPLayout", "setBRPLayout"],
-                layout_inventory,
-            ),
-            "setBRPLayout",
-        )
-        self.assertIsNone(
-            analyzer._match_extension_function(
-                "Restore the BoneReconstructionPlanner custom layout registered by the extension.",
-                ["addBRPLayout"],
-                layout_inventory,
-            )
-        )
 
         analyzer._workflow_metadata = {
             "extension_callable_inventory": {
@@ -1699,5 +1791,19 @@ def setBRPLayout():
             {"methods": []},
         )
         self.assertFalse(semantic["errors"], semantic["errors"])
+
+        # Adjusting existing objects is a view adjustment, not new markup placement.
+        adjusted = {"op_type": "user_interaction"}
+        analyzer._enrich_typed_user_interaction(
+            adjusted,
+            "Manually adjust the existing planes by dragging their handles.",
+            {"interaction_candidates": [{
+                "interaction_kind": "markup_placement",
+                "interaction_type": "plane",
+                "node_class": "vtkMRMLMarkupsPlaneNode",
+            }]},
+        )
+        self.assertEqual(adjusted["interaction_kind"], "view_adjustment")
+        self.assertEqual(adjusted["node_class"], "")
 
         self.delayDisplay("ExtensionCLIAnalyzer contract tests passed")

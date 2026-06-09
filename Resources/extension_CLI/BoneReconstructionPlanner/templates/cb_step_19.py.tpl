@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: 19. Click "Add fibula line" button. (Setup) ---
+# --- BoneReconstructionPlanner: Click "Add fibula line" button. (Setup) ---
 import slicer
 from SlicerAIAgentLib.workflow_state import remember_interaction_node
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic

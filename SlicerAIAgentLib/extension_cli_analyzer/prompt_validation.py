@@ -27,54 +27,43 @@ class AnalyzerPromptValidationMixin:
         ]
 
         for i, step in enumerate(steps):
-            step_type = step["step_type"]
-            op_type = step.get("op_type", "")
+            op_type = _operation_type_for_step(step)
             desc = step.get("description", step["step_id"])
-            # Cookbook-aware markers
-            if step_type == "automated":
-                if op_type == "slicer_op":
-                    marker = "[automated: slicer_op]"
-                elif op_type == "extension_op":
-                    marker = "[automated: extension_op]"
-                else:
-                    marker = "[automated]"
-            elif step_type == "interactive":
-                marker = "[interactive]"
-            elif step_type == "mixed":
-                marker = "[mixed: automated + interaction]"
+            if op_type == "extension_op":
+                marker = "[extension_op]"
+            elif op_type == "slicer_op":
+                marker = "[slicer_op]"
+            elif op_type == "user_interaction":
+                marker = "[user_interaction]"
+            elif op_type == "user_choice":
+                marker = "[user_choice]"
             else:
-                marker = "[optional]"
+                marker = f"[unsupported: {op_type or 'missing'}]"
             # Truncate long descriptions for readability
             short_desc = desc.split("\n")[0][:150] if len(desc) > 150 else desc.split("\n")[0]
             lines.append(f"{i+1}. `{step['step_id']}` {marker} — {short_desc}")
-            if step_type == "interactive":
+            if op_type == "user_interaction":
                 lines.append(f"   - Interaction: {step.get('interaction_type', 'unknown')}")
                 if step.get("placement_instructions"):
                     lines.append(f"   - Tell user: {step['placement_instructions'][:200]}")
-            elif step_type == "mixed":
-                sub_ops = step.get("sub_operations", [])
-                for so in sub_ops:
-                    so_type = so.get("op_type", "")
-                    so_desc = so.get("description", "")[:100]
-                    if so_type == "user_interaction":
-                        lines.append(f"   - User interaction: {so.get('interaction_type', 'unknown')}")
-                        if so.get("placement_instructions"):
-                            lines.append(f"   - Tell user: {so['placement_instructions'][:200]}")
+            elif op_type == "user_choice":
+                choice = step.get("choice_info") or {}
+                if choice.get("question"):
+                    lines.append(f"   - Ask user: {choice['question'][:200]}")
 
         lines.extend([
             "",
             "**Protocol:**",
             f"1. Call `{tool_name}` with `workflow_step='{first_step_id}'` and `user_action='start'` to begin",
-            "2. For **automated** steps (extension_op and slicer_op): output the returned `code` verbatim in a ```python block. Then call the next step.",
-            "3. For **interactive** steps: output the returned `pre_code` verbatim in a ```python block. Relay instructions to the user. Wait for them to click 'Done'.",
-            "4. For **mixed** steps: output the returned `pre_code` verbatim. Then relay interaction instructions. Wait for 'Done'. Then output post_code.",
-            "5. For **optional** steps: ask user if they want to proceed. If yes, call with `user_action='start'`. If no, call with `user_action='skip'`.",
-            "6. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.",
-            "7. Continue until all steps are done.",
+            "2. For **extension_op** and **slicer_op** steps: output the returned `code` verbatim in a ```python block. Then call the next step.",
+            "3. For **user_interaction** steps: output the returned `pre_code` verbatim in a ```python block. Relay instructions to the user. Wait for them to click 'Done'.",
+            "4. For **user_choice** steps: ask the returned question. After the user answers, call the same step with `user_action='choice_made'` and `choice_value`.",
+            "5. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.",
+            "6. Continue until all steps are done.",
             "",
             "**CRITICAL RULES:**",
             "- Execute ONE step per turn. Do NOT call multiple steps in a single turn.",
-            "- Do NOT skip automated steps. Their code MUST be output and executed.",
+            "- Do NOT skip extension_op or slicer_op steps. Their code MUST be output and executed.",
             "- Always start from step 1 (`" + first_step_id + "`) and proceed in order.",
         ])
 
@@ -515,11 +504,15 @@ Return ONLY the sentence, nothing else.""")
         }
         for gen in generators or []:
             step_id = gen.get("param_signature", {}).get("workflow_step", "")
-            step_type = gen.get("step_type", "")
+            step_type = gen.get("operation_type") or gen.get("step_type", "")
             operation_model = gen.get("operation_model") or {}
             if step_type and operation_model and operation_model.get("step_type") != step_type:
                 result["errors"].append(
                     f"{step_id}: operation_model step_type does not match generator step_type"
+                )
+            if step_type in ("unknown_op", "mixed", "branch"):
+                result["errors"].append(
+                    f"{step_id}: unsupported generated operation type '{step_type}'"
                 )
 
             if step_type == "user_choice":
@@ -538,7 +531,7 @@ Return ONLY the sentence, nothing else.""")
                     result["warnings"].append(
                         f"{step_id}: user choice '{parameter_name}' has no source-derived parameter binding"
                     )
-            if step_type in ("interactive", "mixed"):
+            if step_type in ("user_interaction", "interactive", "mixed"):
                 interaction_desc = gen.get("interaction_descriptor", {}) or {}
                 node_class = interaction_desc.get("node_class", "")
                 if node_class and self._is_markup_node_class(node_class):

@@ -55,6 +55,60 @@ _NODE_CLASS_TO_INTERACTION_TYPE = {
     "vtkMRMLMarkupsROINode": "roi",
 }
 
+CANONICAL_OPERATION_TYPES = {
+    "extension_op",
+    "slicer_op",
+    "user_interaction",
+    "user_choice",
+}
+
+
+def _operation_type_for_step(step: Dict[str, Any]) -> str:
+    """Return the canonical operation type, with legacy fallback."""
+    if not isinstance(step, dict):
+        return ""
+    for key in ("operation_type", "op_type"):
+        value = _text_or_empty(step.get(key))
+        if value:
+            return value
+
+    sub_op_types = {
+        _text_or_empty(so.get("op_type"))
+        for so in (step.get("sub_operations") or [])
+        if isinstance(so, dict) and _text_or_empty(so.get("op_type")) in CANONICAL_OPERATION_TYPES
+    }
+    if len(sub_op_types) == 1:
+        return next(iter(sub_op_types))
+
+    legacy_step_type = _text_or_empty(step.get("step_type"))
+    if legacy_step_type == "automated":
+        if any(
+            isinstance(so, dict) and so.get("op_type") == "slicer_op"
+            for so in (step.get("sub_operations") or [])
+        ):
+            return "slicer_op"
+        return "extension_op"
+    if legacy_step_type == "interactive":
+        return "user_interaction"
+    if legacy_step_type == "user_choice":
+        return "user_choice"
+    return legacy_step_type
+
+
+def _legacy_step_type_for_operation(operation_type: str) -> str:
+    """Map canonical operation type to the old execution category."""
+    if operation_type in ("extension_op", "slicer_op"):
+        return "automated"
+    if operation_type == "user_interaction":
+        return "interactive"
+    if operation_type == "user_choice":
+        return "user_choice"
+    return operation_type or "automated"
+
+
+def _is_automated_operation(operation_type: str) -> bool:
+    return operation_type in ("extension_op", "slicer_op")
+
 
 def _derive_interaction_type(node_class, fallback="generic"):
     """Derive a human-readable interaction type from a node class string."""
@@ -65,6 +119,7 @@ def _infer_final_state_intent(text: str) -> Dict[str, Any]:
     """Infer whether an operation asks to set a final state or invert state."""
     raw = text or ""
     normalized = _re.sub(r"[^a-z0-9]+", " ", raw.lower()).strip()
+    action_text = _re.sub(r"^\d+\s+", "", normalized).strip()
     padded = f" {normalized} "
     invert_patterns = (
         " invert current state ",
@@ -89,6 +144,7 @@ def _infer_final_state_intent(text: str) -> Dict[str, Any]:
         " select ",
         " selected ",
         " checked ",
+        " tick ",
         " activate ",
         " activated ",
     )
@@ -107,11 +163,43 @@ def _infer_final_state_intent(text: str) -> Dict[str, Any]:
         " deselect ",
         " unchecked ",
         " uncheck ",
+        " untick ",
+        " clear ",
         " deactivate ",
         " deactivated ",
     )
     if any(pattern in padded for pattern in invert_patterns):
         return {"mode": "invert", "state": None, "confidence": "high"}
+    leading_false_patterns = (
+        "toggle off ",
+        "turn off ",
+        "switch off ",
+        "set off ",
+        "disable ",
+        "hide ",
+        "unselect ",
+        "deselect ",
+        "uncheck ",
+        "clear ",
+        "untick ",
+        "deactivate ",
+    )
+    leading_true_patterns = (
+        "toggle on ",
+        "turn on ",
+        "switch on ",
+        "set on ",
+        "enable ",
+        "show ",
+        "select ",
+        "check ",
+        "tick ",
+        "activate ",
+    )
+    if any(action_text.startswith(pattern) for pattern in leading_false_patterns):
+        return {"mode": "set", "state": False, "confidence": "high"}
+    if any(action_text.startswith(pattern) for pattern in leading_true_patterns):
+        return {"mode": "set", "state": True, "confidence": "high"}
     true_hit = any(pattern in padded for pattern in true_patterns)
     false_hit = any(pattern in padded for pattern in false_patterns)
     if true_hit and not false_hit:

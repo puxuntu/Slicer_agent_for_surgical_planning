@@ -96,6 +96,7 @@ class SlicerAIAgentTest(AnalyzerContractsMixin, WorkflowTestsMixin, ScriptedLoad
                 TurnRouter,
                 WorkflowRuntime,
                 NodeChoiceResolver,
+                WorkflowIntentResolver,
             )
             self.delayDisplay("All module components imported successfully")
         except Exception as e:

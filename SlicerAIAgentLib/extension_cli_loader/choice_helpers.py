@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from .cache import *
+from .templates import _workflow_choices, _workflow_repeat_state
+from .workflow_state import _find_next_step_local
 
 
 def _build_format_kwargs(arguments: Dict) -> Dict[str, str]:
@@ -105,20 +107,32 @@ def _ui_guidance_for_context(ctx: _WorkflowContext, descriptor: Optional[Dict] =
 def _repeat_progress_for_context(ctx: _WorkflowContext) -> Dict:
     """Return repeat progress for one-item-at-a-time interaction UI."""
     repeat_group = (
-        (ctx.target_gen or {}).get("repeat_group")
+        (ctx.target_gen or {}).get("repeat_block")
+        or ctx.target_step.get("repeat_block")
+        or (ctx.target_gen or {}).get("repeat_group")
         or (ctx.target_gen or {}).get("interaction_descriptor", {}).get("repeat_group")
         or (ctx.target_gen or {}).get("choice_descriptor", {}).get("repeat_group")
         or ctx.target_step.get("repeat_group")
     )
     if not repeat_group:
         return {}
-    group_id = repeat_group.get("group_id") or ctx.workflow_step
+    group_id = (
+        repeat_group.get("repeat_id")
+        or repeat_group.get("group_id")
+        or ctx.workflow_step
+    )
     state = _workflow_repeat_state.get(ctx.ext_name, {}).get(group_id, {})
     target = int(state.get("target", 0) or 0)
-    completed = int(state.get("completed", 0) or 0)
+    iteration = int(state.get("iteration", 0) or 0)
+    completed = int(state.get("completed", max(0, iteration - 1)) or 0)
     if target <= 0:
-        return {"group_id": group_id, "completed": completed, "total": 0}
-    current = min(completed + 1, target)
+        return {
+            "group_id": group_id,
+            "current": iteration,
+            "completed": completed,
+            "total": 0,
+        }
+    current = min(iteration or completed + 1, target)
     return {
         "group_id": group_id,
         "current": current,
@@ -134,6 +148,9 @@ def _record_choice_and_advance(
     auto_selected: bool = False,
 ) -> Dict:
     """Store a choice, initialize repeat state when needed, and advance."""
+    choice_desc = (ctx.target_gen or {}).get("choice_descriptor", {}) or {}
+    choices = choice_desc.get("choices") or (ctx.target_step.get("choice_info") or {}).get("choices") or []
+    choice_value = _normalize_choice_value(choice_value, choices)
     ext_choices = _workflow_choices.setdefault(ctx.ext_name, {})
     if param_name:
         ext_choices[param_name] = choice_value
@@ -171,10 +188,110 @@ def _record_choice_and_advance(
             f"Automatically selected '{choice_value}' for '{param_name}' "
             "from the loaded scene."
         )
+    choice_code = _build_choice_parameter_update_code(ctx, param_name, choice_value)
+    if choice_code:
+        result["type"] = "choice_made"
+        result["code"] = choice_code
+        result["instruction"] = (
+            "STOP. Do NOT make any more tool calls. "
+            "Your NEXT response must be an ```agent_plan JSON block followed by a ```python block "
+            "containing the 'code' field above VERBATIM. "
+            "Do NOT call any more tools until this code has been executed."
+        )
+        if next_step:
+            result["next_step"] = next_step
+            result["after_execution_instruction"] = _build_next_step_instruction(ctx.tool_name, next_step)
+        return result
     result["instruction"] = _build_next_step_instruction(ctx.tool_name, next_step)
     if next_step:
         result["next_step"] = next_step
     return result
+
+
+def _normalize_choice_value(choice_value: Any, choices: List[Dict]) -> Any:
+    """Map labels like 'Yes'/'No' or strings to the declared choice value."""
+    if isinstance(choice_value, str):
+        raw = choice_value.strip()
+        lowered = raw.lower()
+    else:
+        raw = choice_value
+        lowered = str(choice_value).strip().lower()
+    for choice in choices or []:
+        label = str(choice.get("label", "")).strip().lower()
+        value = choice.get("value")
+        value_text = str(value).strip().lower()
+        if lowered in {label, value_text}:
+            return value
+    if lowered in ("true", "yes", "right", "right leg", "right side"):
+        return True
+    if lowered in ("false", "no", "left", "left leg", "left side"):
+        return False
+    return raw
+
+
+def _python_bool_text(value: Any) -> str:
+    normalized = _normalize_choice_value(value, [])
+    if isinstance(normalized, bool):
+        return "True" if normalized else "False"
+    lowered = str(normalized).strip().lower()
+    return "True" if lowered in ("true", "yes", "right", "right leg", "right side", "1") else "False"
+
+
+def _build_choice_parameter_update_code(
+    ctx: _WorkflowContext,
+    param_name: str,
+    choice_value: Any,
+) -> str:
+    """Return executable code for user_choice steps bound to parameter updates."""
+    sub_ops = (
+        (ctx.target_gen or {}).get("sub_operations")
+        or ctx.target_step.get("sub_operations")
+        or []
+    )
+    choice_desc = (ctx.target_gen or {}).get("choice_descriptor", {}) or {}
+    choices = choice_desc.get("choices") or (ctx.target_step.get("choice_info") or {}).get("choices") or []
+    normalized_value = _normalize_choice_value(choice_value, choices)
+    matched = None
+    for so in sub_ops:
+        if (
+            so.get("operation_intent") == "extension_parameter_update"
+            and so.get("parameter_name") == param_name
+        ):
+            matched = so
+            break
+    if not matched:
+        return ""
+
+    module_name = ctx.metadata.get("extension_module_name") or ctx.ext_name
+    logic_class_name = ctx.metadata.get("logic_class_name") or f"{ctx.ext_name}Logic"
+    logic_var = f"_{ctx.ext_name.lower()}_logic"
+    value_property = matched.get("value_property", "")
+    if value_property == "checked":
+        value_text = _python_bool_text(normalized_value)
+    else:
+        value_text = str(normalized_value)
+
+    return "\n".join([
+        f"# --- {ctx.ext_name}: {ctx.workflow_step} choice ---",
+        "import slicer",
+        f"from {module_name} import {logic_class_name}",
+        "",
+        "try:",
+        f"    logic = {logic_var}",
+        "except NameError:",
+        f"    logic = {logic_class_name}()",
+        f"    {logic_var} = logic",
+        "",
+        "parameterNode = logic.getParameterNode()",
+        f"parameterNode.SetParameter({param_name!r}, {value_text!r})",
+        "try:",
+        "    parameterNode.Modified()",
+        "except Exception:",
+        "    pass",
+        f"{logic_var} = logic",
+        f"print(\"[{ctx.ext_name}] Step '{ctx.workflow_step}' choice applied.\")",
+        "",
+    ])
 
 
 def _try_auto_select_choice(ctx: _WorkflowContext, choice_desc: Dict) -> Optional[Dict]:
@@ -327,16 +444,20 @@ def _build_choice_prelude(ctx: _WorkflowContext) -> str:
 
 def _repeat_index_for_context(ctx: _WorkflowContext) -> int:
     repeat_group = (
-        (ctx.target_gen or {}).get("repeat_group")
+        (ctx.target_gen or {}).get("repeat_block")
+        or ctx.target_step.get("repeat_block")
+        or (ctx.target_gen or {}).get("repeat_group")
         or (ctx.target_gen or {}).get("interaction_descriptor", {}).get("repeat_group")
         or (ctx.target_gen or {}).get("choice_descriptor", {}).get("repeat_group")
         or ctx.target_step.get("repeat_group")
         or {}
     )
-    group_id = repeat_group.get("group_id", "")
+    group_id = repeat_group.get("repeat_id") or repeat_group.get("group_id", "")
     if not group_id:
         return 0
     state = _workflow_repeat_state.get(ctx.ext_name, {}).get(group_id, {})
+    if state.get("iteration"):
+        return int(state["iteration"])
     return int(state.get("completed", 0)) + 1
 
 
@@ -504,6 +625,9 @@ def _store_generated_interaction_node_code(
 
 def _handle_repeat_after_interaction(ctx: _WorkflowContext) -> Optional[Dict]:
     """Return a repeat-next response when an interaction should loop."""
+    if (ctx.target_gen or {}).get("repeat_block") or ctx.target_step.get("repeat_block"):
+        # Generic repeat blocks advance only after post-code execution succeeds.
+        return None
     repeat_group = (
         (ctx.target_gen or {}).get("repeat_group")
         or (ctx.target_gen or {}).get("interaction_descriptor", {}).get("repeat_group")

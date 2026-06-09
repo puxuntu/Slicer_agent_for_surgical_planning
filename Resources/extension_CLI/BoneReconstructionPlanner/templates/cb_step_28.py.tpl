@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: Tick the "Automatic mandibular planes positioning for maximum bones contact area" checkbox. ---
+# --- BoneReconstructionPlanner: Enter the desired value in "Between space (mm)". ---
 import slicer
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
@@ -9,10 +9,11 @@ except NameError:
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
-parameterNode.SetParameter('mandiblePlanesPositioningForMaximumBoneContact', 'True')
+additional_between_space_of_fibula_planes = {additional_between_space_of_fibula_planes: 1.5}
+parameterNode.SetParameter('additionalBetweenSpaceOfFibulaPlanes', str(additional_between_space_of_fibula_planes))
 try:
     parameterNode.Modified()
 except Exception:
     pass
 _bonereconstructionplanner_logic = logic
-print("[BoneReconstructionPlanner] Step 'cb_step_22' completed.")
+print("[BoneReconstructionPlanner] Step 'cb_step_28' completed.")

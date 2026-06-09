@@ -9,7 +9,7 @@ class AnalyzerCrossStageMixin:
         Use LLM to analyze data flow between cookbook steps.
 
         Produces a cross_stage_map: e.g., "Step 2 writes self.mandibularSegmentation,
-        and Step 4 reads it." Falls back to programmatic Jaccard matching on failure.
+        and Step 4 reads it." Invalid semantic output stops generation.
         """
         self.on_progress(
             "4.5", "Cross-Stage Parameter Mapping",
@@ -91,15 +91,57 @@ class AnalyzerCrossStageMixin:
 
         Return ONLY the JSON, no markdown fences or explanation.""")
 
-        try:
-            response = self._call_llm(prompt)
-            result = self._parse_json_response(response)
-        except Exception as e:
-            logger.warning(
-                "Stage 4.5 LLM cross-stage mapping failed (%s), "
-                "falling back to programmatic matching", e
+        result = None
+        validation_errors = []
+        valid_step_numbers = {item["step_number"] for item in step_summaries}
+        state_field_names = {
+            _text_or_empty(item.get("name") if isinstance(item, dict) else item).replace("self.", "")
+            for item in state_fields
+        }
+        for attempt in range(3):
+            repair_prompt = prompt
+            if validation_errors:
+                repair_prompt += (
+                    "\n\nCorrect the previous response using these validation errors:\n"
+                    + json.dumps(validation_errors, indent=2)
+                    + "\nPrevious response:\n"
+                    + json.dumps(result, indent=2)
+                )
+            try:
+                response = self._call_llm(repair_prompt)
+                candidate = self._parse_json_response(response)
+            except Exception as exc:
+                candidate = None
+                validation_errors = [f"response was not valid JSON: {exc}"]
+            if isinstance(candidate, dict) and isinstance(candidate.get("connections"), list):
+                validation_errors = []
+                for index, conn in enumerate(candidate["connections"]):
+                    label = f"connections[{index}]"
+                    if not isinstance(conn, dict):
+                        validation_errors.append(f"{label} must be an object")
+                        continue
+                    from_step = _int_or_none(conn.get("from_step"))
+                    to_step = _int_or_none(conn.get("to_step"))
+                    if from_step not in valid_step_numbers or to_step not in valid_step_numbers:
+                        validation_errors.append(f"{label} references an unknown step")
+                    elif from_step >= to_step:
+                        validation_errors.append(f"{label} must connect an earlier step to a later step")
+                    if conn.get("type") not in ("state_field", "output_node", "scene_state"):
+                        validation_errors.append(f"{label} has an invalid type")
+                    field = _text_or_empty(conn.get("field")).replace("self.", "")
+                    if conn.get("type") == "state_field" and field not in state_field_names:
+                        validation_errors.append(f"{label} references an unknown state field")
+                if not validation_errors:
+                    result = candidate
+                    break
+            else:
+                validation_errors = ["expected a JSON object containing a connections list"]
+            result = candidate
+        if validation_errors:
+            raise RuntimeError(
+                "Stage 4.5 LLM cross-stage mapping failed after 3 attempts: "
+                + "; ".join(validation_errors)
             )
-            result = None
 
         # Convert LLM connections into cross_stage_map format
         if result and isinstance(result.get("connections"), list):
@@ -130,12 +172,7 @@ class AnalyzerCrossStageMixin:
             )
             return cross_map
 
-        # Fallback to programmatic Jaccard matching
-        self.on_progress(
-            "4.5", "Cross-Stage Parameter Mapping",
-            "Falling back to programmatic name-similarity matching"
-        )
-        return self._map_cross_stage_params(stage_map, extension_name)
+        raise RuntimeError("Stage 4.5 LLM cross-stage mapping returned invalid structure")
 
     # ================================================================
     # Node Lifecycle Analysis (folded into Stage 7)

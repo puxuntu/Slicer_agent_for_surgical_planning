@@ -1,4 +1,4 @@
-# Toggle off slice visibility in 3D view for the Red slice view
+# Hide slice in 3D view for Red slice
 layoutManager = slicer.app.layoutManager()
-redSliceNode = layoutManager.sliceWidget("Red").mrmlSliceNode()
-redSliceNode.SetSliceVisible(False)
+redWidget = layoutManager.sliceWidget("Red")
+redWidget.sliceController().setSliceVisible(False)

@@ -476,6 +476,8 @@ class AnalyzerValidationContractsMixin:
         invalid_aliases = self._invalid_slicer_api_aliases(code)
         if invalid_aliases:
             result["errors"].extend(invalid_aliases)
+        extension_call_contract = self._validate_extension_callable_contract(code)
+        result["errors"].extend(extension_call_contract["errors"])
         for so in sub_ops:
             if so.get("op_type") == "unknown_op":
                 result["errors"].append("Required operation has unknown_op classification")
@@ -485,6 +487,10 @@ class AnalyzerValidationContractsMixin:
                 so.get("op_type") == "extension_op"
                 and not so.get("extension_method_hint")
                 and not so.get("extension_function_hint")
+                and so.get("operation_intent") not in (
+                    "extension_parameter_update",
+                    "extension_node_reference_update",
+                )
                 and code_has_slicer_api
             ):
                 result["errors"].append(
@@ -695,4 +701,79 @@ class AnalyzerValidationContractsMixin:
         result["errors"].extend(node_requirement_contract["errors"])
         result["warnings"].extend(node_requirement_contract["warnings"])
 
+        return result
+
+    def _validate_extension_callable_contract(self, code: str) -> Dict[str, List[str]]:
+        """Validate extension-owned function/method calls against metadata."""
+        result = {"errors": []}
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return result
+        if not isinstance(self._workflow_metadata, dict):
+            return result
+        inventory = self._workflow_metadata.get("extension_callable_inventory", {}) or {}
+        logic_methods = set(inventory.get("logic_methods", []) or [])
+        module_function_counts = inventory.get("module_function_param_counts", {}) or {}
+
+        imported_names = set()
+        imported_modules = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    imported_modules.add(alias.asname or alias.name.split(".")[0])
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    imported_names.add(alias.asname or alias.name)
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if isinstance(node.func, ast.Name):
+                fname = node.func.id
+                if fname in imported_names and fname in module_function_counts:
+                    expected = int(module_function_counts.get(fname, 0) or 0)
+                    actual = len(node.args)
+                    if actual != expected:
+                        result["errors"].append(
+                            f"Extension function {fname}() called with {actual} args, expected {expected}"
+                        )
+            elif isinstance(node.func, ast.Attribute):
+                if isinstance(node.func.value, ast.Name):
+                    module_alias = node.func.value.id
+                    fname = node.func.attr
+                    if module_alias in imported_modules and fname in module_function_counts:
+                        expected = int(module_function_counts.get(fname, 0) or 0)
+                        actual = len(node.args)
+                        if actual != expected:
+                            result["errors"].append(
+                                f"Extension function {fname}() called with {actual} args, expected {expected}"
+                            )
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.If):
+                continue
+            test = node.test
+            if not (
+                isinstance(test, ast.Call)
+                and isinstance(test.func, ast.Name)
+                and test.func.id == "hasattr"
+                and len(test.args) >= 2
+                and isinstance(test.args[1], ast.Constant)
+                and isinstance(test.args[1].value, str)
+            ):
+                continue
+            method_name = test.args[1].value
+            if method_name in logic_methods:
+                continue
+            has_noop_else = False
+            for stmt in node.orelse:
+                if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Constant) and stmt.value.value is None:
+                    has_noop_else = True
+                elif isinstance(stmt, ast.Pass):
+                    has_noop_else = True
+            if has_noop_else:
+                result["errors"].append(
+                    f"Required step silently skips missing logic method '{method_name}'"
+                )
         return result

@@ -21,8 +21,8 @@ class AnalyzerCookbookMappingMixin:
                 return path
         return None
 
-    # Optional per-extension keyword map: cookbook description → method hint.
-    # Populated by callers via the method_keyword_map constructor parameter.
+    # Deprecated compatibility field. Active semantic mapping is performed by
+    # the validated Stage 4 LLM decomposition.
     _method_keyword_map: Dict[str, str] = {}
 
     def _match_description_to_method(self, desc_lower: str, method_names: List[str]) -> Optional[str]:
@@ -364,20 +364,10 @@ class AnalyzerCookbookMappingMixin:
     ) -> Dict:
         """Build a workflow.json-compatible dict from cookbook steps.
 
-        Each cookbook step becomes a workflow step with the appropriate
-        step_type, op_type, and sub_operations.  Supports all five
-        step types: automated, interactive, mixed, branch, user_choice.
-
-        When the stage_map was produced by LLM decomposition (source ==
-        "cookbook_llm_decomposition"), the op_type is reused directly
-        instead of being re-derived from sub_operations, avoiding
-        classification mismatches between the two code paths.
+        Each cookbook step becomes one atomic workflow operation. The
+        user-authored cookbook annotation is the source of truth for
+        operation_type. step_type is kept as a temporary compatibility alias.
         """
-        # Determine if we can trust the decomposition's classification
-        from_llm_decomposition = (
-            stage_map.get("source") == "cookbook_llm_decomposition"
-        )
-
         steps = []
         for stage in stage_map.get("stages", []):
             cb_step = stage.get("cookbook_step")
@@ -386,55 +376,18 @@ class AnalyzerCookbookMappingMixin:
 
             step_id = f"cb_step_{cb_step.step_number}"
             sub_ops = stage.get("sub_operations", [])
-            op_type = stage.get("op_type", "extension_op")
+            op_type = (
+                stage.get("operation_type")
+                or stage.get("op_type")
+                or getattr(cb_step, "operation_type", "")
+                or "extension_op"
+            )
+            if op_type not in CANONICAL_OPERATION_TYPES:
+                raise RuntimeError(
+                    f"{step_id}: unsupported operation type '{op_type}'. "
+                    f"Valid values: {', '.join(sorted(CANONICAL_OPERATION_TYPES))}"
+                )
             is_optional = stage.get("is_optional", False)
-
-            # Determine step_type — reuse decomposition's classification when
-            # available, otherwise derive from sub_operations.
-            if from_llm_decomposition:
-                # Trust the LLM decomposition's op_type mapping
-                _OP_TYPE_TO_STEP_TYPE = {
-                    "extension_op": "automated",
-                    "slicer_op": "automated",
-                    "user_interaction": "interactive",
-                    "user_choice": "user_choice",
-                    "unknown_op": "automated",
-                    "mixed": "mixed",
-                }
-                step_type = _OP_TYPE_TO_STEP_TYPE.get(op_type, "automated")
-                # Validate "mixed" actually contains interaction/choice sub-ops.
-                # A step with only extension_op + slicer_op is not truly mixed.
-                if step_type == "mixed":
-                    has_user_part = any(
-                        so.get("op_type") in ("user_interaction", "user_choice")
-                        for so in sub_ops
-                    )
-                    if not has_user_part:
-                        logger.info(
-                            "Downgrading step %s from 'mixed' to 'automated' "
-                            "(no user_interaction/user_choice sub-ops)",
-                            step_id,
-                        )
-                        step_type = "automated"
-                # Apply optional→branch override
-                if is_optional and step_type == "automated":
-                    step_type = "branch"
-            else:
-                # Heuristic fallback: derive from sub_operations
-                has_interaction = any(so["op_type"] == "user_interaction" for so in sub_ops)
-                has_auto = any(so["op_type"] in ("extension_op", "slicer_op", "unknown_op") for so in sub_ops)
-                has_choice = any(so["op_type"] == "user_choice" for so in sub_ops)
-
-                if has_choice and not has_interaction:
-                    step_type = "user_choice"
-                elif is_optional and not has_interaction and not has_choice:
-                    step_type = "branch"
-                elif has_interaction and has_auto:
-                    step_type = "mixed"
-                elif has_interaction:
-                    step_type = "interactive"
-                else:
-                    step_type = "automated"
 
             # Extract interaction info if present
             interaction_info = {}
@@ -443,7 +396,7 @@ class AnalyzerCookbookMappingMixin:
                     node_cls = so.get("node_class")
                     interaction_info = {
                         "interaction_type": _derive_interaction_type(node_cls),
-                        "interaction_kind": so.get("interaction_kind") or self._infer_interaction_kind_from_evidence({}, node_cls or ""),
+                        "interaction_kind": so.get("interaction_kind") or "none",
                         "node_class": node_cls or "",
                         "placement_instructions": so.get("placement_instructions", ""),
                         "min_control_points": so.get("min_control_points", 0),
@@ -464,41 +417,49 @@ class AnalyzerCookbookMappingMixin:
 
             # Extract method name for template generation
             method_name = None
+            function_name = None
             for so in sub_ops:
                 if so["op_type"] == "extension_op" and so.get("extension_method_hint"):
                     method_name = so["extension_method_hint"]
                     break
+                if so["op_type"] == "extension_op" and so.get("extension_function_hint"):
+                    function_name = so["extension_function_hint"]
 
             step = {
                 "step_id": step_id,
-                "step_type": step_type,
+                "operation_type": op_type,
+                "step_type": op_type,
                 "op_type": op_type,
                 "description": cb_step.description,
                 "depends_on": stage.get("depends_on", []),
                 "sub_operations": sub_ops,
             }
+            semantic_intents = sorted({
+                intent
+                for so in sub_ops
+                for intent in (so.get("operation_intents") or [])
+                if intent
+            })
+            semantic_node_roles = [
+                role
+                for so in sub_ops
+                for role in (so.get("node_roles") or [])
+                if isinstance(role, dict)
+            ]
+            if semantic_intents:
+                step["operation_intents"] = semantic_intents
+            if semantic_node_roles:
+                step["node_roles"] = semantic_node_roles
             if method_name:
                 step["method_name"] = method_name
+            if function_name:
+                step["extension_function_name"] = function_name
             if interaction_info:
                 step.update(interaction_info)
             if choice_info:
                 step["choice_info"] = choice_info
             if is_optional:
                 step["is_optional"] = True
-                if step_type == "branch":
-                    step["condition"] = cb_step.description
-                    # Find the next non-optional step for the "no" branch
-                    stage_idx = stage.get("stage_index", 0)
-                    next_steps = [
-                        f"cb_step_{s.get('stage_index', 0) + 1}"
-                        for s in stage_map.get("stages", [])
-                        if s.get("stage_index", 0) > stage_idx
-                        and not s.get("is_optional", False)
-                    ]
-                    step["branches"] = {
-                        "yes": step_id,
-                        "no": next_steps[0] if next_steps else "",
-                    }
 
             steps.append(step)
 
@@ -506,6 +467,9 @@ class AnalyzerCookbookMappingMixin:
             "steps": steps,
             "step_count": len(steps),
             "source": "cookbook",
+            "repeat_blocks": [
+                dict(block) for block in stage_map.get("repeat_blocks", []) or []
+            ],
         }
 
     @staticmethod

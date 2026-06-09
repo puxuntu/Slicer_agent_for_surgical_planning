@@ -262,14 +262,25 @@ class WidgetStreamingMixin:
         })
 
     def _handleDirectWorkflowTurnIfNeeded(self, prompt):
-        """Route active generated-CLI workflow control turns around the LLM."""
+        """Resolve active generated-workflow chat turns with a narrow LLM call."""
         from SlicerAIAgentLib.TurnRouter import (
             ROUTE_WORKFLOW_CONFLICT,
             ROUTE_WORKFLOW_CONTROL,
-            TurnRouter,
+            ROUTE_WORKFLOW_UNRESOLVED,
         )
+        from SlicerAIAgentLib.WorkflowIntentResolver import WorkflowIntentResolver
 
-        route = TurnRouter.classify(prompt, self._workflowRuntimeState())
+        state = self._workflowRuntimeState()
+        if not state.get("active"):
+            return False
+        resolver = WorkflowIntentResolver(
+            self.logic.llmClient if self.logic else None
+        )
+        route = resolver.resolve(
+            prompt,
+            state,
+            getattr(self, "_currentWorkflowStepInfo", None) or {},
+        )
         if route.route_type == ROUTE_WORKFLOW_CONFLICT:
             count = 0
             if self._workflowRuntime:
@@ -287,39 +298,29 @@ class WidgetStreamingMixin:
             self.sendButton.setEnabled(True)
             return True
 
+        if route.route_type == ROUTE_WORKFLOW_UNRESOLVED:
+            self.appendToChat(
+                "System",
+                "I could not confidently map that message to an allowed workflow "
+                f"action, so the workflow state was not changed. {route.reason}",
+            )
+            self._setReadyStatus()
+            self.sendButton.setEnabled(True)
+            return True
+
         if route.route_type != ROUTE_WORKFLOW_CONTROL:
             return False
 
         self.sendButton.setEnabled(False)
         self._beginWorkflowRuntimeTurn(prompt, route)
-        state = self._workflowRuntimeState()
         action = route.action or "start"
         args = {}
         if action == "choice_made":
-            args["choice_value"] = self._resolveWorkflowChoiceValue(prompt)
+            args["choice_value"] = route.choice_value
         elif action == "proceed" and state.get("status") != "waiting_for_user":
             action = "start"
         self._runWorkflowStepDirect(route.step_id, action, args=args)
         return True
-
-    def _resolveWorkflowChoiceValue(self, prompt):
-        """Map option number/label replies to generated CLI choice values."""
-        text = str(prompt or "").strip()
-        step_info = getattr(self, "_currentWorkflowStepInfo", None) or {}
-        choices = step_info.get("choices") or []
-        if not choices:
-            return text
-        if text.isdigit():
-            index = int(text) - 1
-            if 0 <= index < len(choices):
-                return choices[index].get("value", choices[index].get("label", text))
-        lowered = text.lower()
-        for choice in choices:
-            label = str(choice.get("label", "")).strip()
-            value = str(choice.get("value", "")).strip()
-            if lowered in {label.lower(), value.lower()}:
-                return value or label or text
-        return text
 
     def _buildWorkflowAgentPlan(self, result):
         """Create a valid lightweight plan for deterministic generated code."""
@@ -716,9 +717,11 @@ class WidgetStreamingMixin:
         # Thinking is already persisted per-round via on_reasoning callback — no need to write again here
 
         # Transfer workflow step info from Logic to Widget (for all response types)
+        workflow_step_info = None
         _stepInfoFromInteractive = False
         if hasattr(self.logic, '_lastInteractiveStep') and self.logic._lastInteractiveStep:
             step_info = self.logic._lastInteractiveStep
+            workflow_step_info = step_info
             self._currentWorkflowStepInfo = step_info
             self.logic._lastInteractiveStep = None
             if (hasattr(self.logic, '_lastWorkflowStep')
@@ -758,6 +761,7 @@ class WidgetStreamingMixin:
             and hasattr(self.logic, '_lastWorkflowStep')
             and self.logic._lastWorkflowStep):
             step_info = self.logic._lastWorkflowStep
+            workflow_step_info = step_info
             self._currentWorkflowStepInfo = step_info
             self.logic._lastWorkflowStep = None
             self._registerWorkflowRuntimeResult(step_info)
@@ -784,6 +788,23 @@ class WidgetStreamingMixin:
                     if state:
                         state.current_step = step_info.get("step_id")
                         state.status = "running"
+
+        if not response.get("code") and isinstance(workflow_step_info, dict):
+            workflow_code = (
+                workflow_step_info.get("code")
+                or workflow_step_info.get("pre_code")
+                or workflow_step_info.get("post_code")
+            )
+            if workflow_code:
+                response["code"] = workflow_code
+                response["agent_plan"] = self._buildWorkflowAgentPlan(workflow_step_info)
+                self._recordRoleEvent("Workflow", "promoted_tool_result_code", {
+                    "step_id": workflow_step_info.get("step_id"),
+                    "type": workflow_step_info.get("type"),
+                    "code_chars": len(workflow_code),
+                })
+            elif workflow_step_info.get("type") == "user_choice":
+                response["workflow_wait"] = True
 
         # Display generated code if any and auto-execute
         if response.get("code"):

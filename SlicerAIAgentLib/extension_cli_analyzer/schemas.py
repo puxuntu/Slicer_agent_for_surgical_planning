@@ -8,12 +8,12 @@ class AnalyzerSchemasMixin:
         """Generate tool schema for an interactive workflow extension."""
         steps = workflow_graph.get("steps", [])
         # Filter out removed/invalid steps
-        valid_types = {"automated", "interactive", "branch", "mixed", "user_choice"}
-        steps = [s for s in steps if s.get("step_type") in valid_types]
+        valid_types = CANONICAL_OPERATION_TYPES
+        steps = [
+            s for s in steps
+            if _operation_type_for_step(s) in valid_types
+        ]
         step_ids = [s["step_id"] for s in steps]
-        automated_steps = [s for s in steps if s["step_type"] == "automated"]
-        interactive_steps = [s for s in steps if s["step_type"] == "interactive"]
-        branch_steps = [s for s in steps if s["step_type"] == "branch"]
 
         # Build enum of step IDs for the schema
         step_enum = step_ids
@@ -22,10 +22,11 @@ class AnalyzerSchemasMixin:
         step_descriptions = []
         for s in steps:
             desc = f"'{s['step_id']}': {s['description']}"
-            if s["step_type"] == "interactive":
+            operation_type = _operation_type_for_step(s)
+            if operation_type == "user_interaction":
                 desc += f" (interactive: {s.get('interaction_type', 'unknown')})"
-            elif s["step_type"] == "branch":
-                desc += " (optional — ask user first)"
+            elif s.get("is_optional"):
+                desc += " (optional)"
             step_descriptions.append(desc)
 
         schema = {
@@ -52,6 +53,13 @@ class AnalyzerSchemasMixin:
                                 "Action: 'start' to begin a step, 'proceed' after user "
                                 "completes interaction, 'skip' for optional steps, "
                                 "'cancel' to abort workflow, 'choice_made' for user_choice steps"
+                            ),
+                        },
+                        "choice_value": {
+                            "type": "string",
+                            "description": (
+                                "Value selected by the user for user_choice steps. "
+                                "Required when user_action is 'choice_made'."
                             ),
                         },
                     },

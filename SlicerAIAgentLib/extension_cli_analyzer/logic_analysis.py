@@ -77,29 +77,13 @@ Match method descriptions to their corresponding UI workflow steps.
                 f"{s.step_number}. {s.description}"
                 for s in self._cookbook_def.steps
             )
-            # Extract method hints from cookbook descriptions using fuzzy matching
-            # against known method names (no extension-specific hardcoding).
-            # NOTE: logic_info["methods"] is a list of *strings* from Stage 1 AST
-            # scanning, not a list of dicts.
-            ext_method_hints = []
-            raw_methods = logic_info.get("methods", [])
-            method_names_for_hint = [
-                m if isinstance(m, str) else m.get("name", "")
-                for m in raw_methods
-            ]
-            for s in self._cookbook_def.steps:
-                hint = self._match_description_to_method(
-                    s.description.lower(), method_names_for_hint
-                )
-                if hint and hint not in ext_method_hints:
-                    ext_method_hints.append(hint)
             prompt += textwrap.dedent(f"""\
 
-Cookbook workflow (ground truth — only methods referenced here should be analyzed):
+Cookbook workflow (ground truth):
 {cookbook_steps_text}
 
-Extension method hints from cookbook: {', '.join(ext_method_hints) if ext_method_hints else 'none identified'}
-Focus your analysis on methods that match the cookbook workflow. Other methods can be listed briefly.
+Interpret the cookbook semantics directly. Analyze all methods that may implement
+the workflow, without relying on method-name similarity or fixed cookbook phrases.
 
 """)
 
@@ -126,7 +110,7 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
 
         analysis["_logic_source"] = logic_source
         analysis["_logic_file"] = logic_file
-        analysis["_cookbook_method_hints"] = ext_method_hints if self._cookbook_def else []
+        analysis["_cookbook_method_hints"] = []
         return analysis
 
     def _verify_signatures_ast(self, logic_analysis: Dict, scan_result: Dict) -> None:

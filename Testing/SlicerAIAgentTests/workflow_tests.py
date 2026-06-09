@@ -1,18 +1,24 @@
 from .common import *
+import json
 
 
 class WorkflowTestsMixin:
     def test_TurnRouterWorkflowRoutes(self):
-        """Test routing split between traditional and generated CLI workflow turns."""
+        """Test validated LLM routing for active generated workflows."""
         from SlicerAIAgentLib.TurnRouter import (
             ROUTE_TRADITIONAL,
             ROUTE_WORKFLOW_CONFLICT,
             ROUTE_WORKFLOW_CONTROL,
-            TurnRouter,
+            ROUTE_WORKFLOW_UNRESOLVED,
         )
+        from SlicerAIAgentLib.WorkflowIntentResolver import WorkflowIntentResolver
 
+        class _FakeClient:
+            api_key = "test"
+
+        resolver = WorkflowIntentResolver(_FakeClient())
         self.assertEqual(
-            TurnRouter.classify("load a volume", {"active": False}).route_type,
+            resolver.resolve("load a volume", {"active": False}).route_type,
             ROUTE_TRADITIONAL,
         )
 
@@ -21,39 +27,57 @@ class WorkflowTestsMixin:
             "current_step": "cb_step_18",
             "status": "waiting_for_user",
         }
-        done_route = TurnRouter.classify("done", active)
+        resolver._call_llm = lambda messages: json.dumps({
+            "route_type": ROUTE_WORKFLOW_CONTROL,
+            "action": "proceed",
+            "step_id": "cb_step_18",
+            "choice_value": None,
+            "confidence": 0.94,
+            "reason": "user completed the current action",
+        })
+        done_route = resolver.resolve("that placement is complete", active)
         self.assertEqual(done_route.route_type, ROUTE_WORKFLOW_CONTROL)
         self.assertEqual(done_route.action, "proceed")
         self.assertEqual(done_route.step_id, "cb_step_18")
 
-        skip_route = TurnRouter.classify("skip", active)
-        self.assertEqual(skip_route.route_type, ROUTE_WORKFLOW_CONTROL)
-        self.assertEqual(skip_route.action, "skip")
-        self.assertEqual(skip_route.step_id, "cb_step_18")
-
-        cancel_route = TurnRouter.classify("cancel", active)
-        self.assertEqual(cancel_route.route_type, ROUTE_WORKFLOW_CONTROL)
-        self.assertEqual(cancel_route.action, "cancel")
-        self.assertEqual(cancel_route.step_id, "cb_step_18")
-
-        step_route = TurnRouter.classify("Proceed with workflow step 'cb_step_12'", active)
-        self.assertEqual(step_route.route_type, ROUTE_WORKFLOW_CONTROL)
-        self.assertEqual(step_route.action, "start")
-        self.assertEqual(step_route.step_id, "cb_step_12")
-
-        choice_route = TurnRouter.classify(
-            "2",
-            {
-                "active": True,
-                "current_step": "cb_step_1",
-                "status": "waiting_for_choice",
-            },
-        )
+        resolver._call_llm = lambda messages: json.dumps({
+            "route_type": ROUTE_WORKFLOW_CONTROL,
+            "action": "choice_made",
+            "step_id": "cb_step_1",
+            "choice_value": "right",
+            "confidence": 0.91,
+            "reason": "selected supplied choice",
+        })
+        choice_route = resolver.resolve("use the right side", {
+            "active": True,
+            "current_step": "cb_step_1",
+            "status": "waiting_for_choice",
+        }, {"choices": [{"label": "Left", "value": "left"}, {"label": "Right", "value": "right"}]})
         self.assertEqual(choice_route.route_type, ROUTE_WORKFLOW_CONTROL)
         self.assertEqual(choice_route.action, "choice_made")
+        self.assertEqual(choice_route.choice_value, "right")
 
-        conflict = TurnRouter.classify("segment this CT first", active)
+        resolver._call_llm = lambda messages: json.dumps({
+            "route_type": ROUTE_WORKFLOW_CONFLICT,
+            "action": None,
+            "step_id": None,
+            "choice_value": None,
+            "confidence": 0.95,
+            "reason": "separate task",
+        })
+        conflict = resolver.resolve("segment this CT first", active)
         self.assertEqual(conflict.route_type, ROUTE_WORKFLOW_CONFLICT)
+
+        resolver._call_llm = lambda messages: json.dumps({
+            "route_type": ROUTE_WORKFLOW_CONTROL,
+            "action": "proceed",
+            "step_id": "cb_step_18",
+            "choice_value": None,
+            "confidence": 0.40,
+            "reason": "ambiguous",
+        })
+        unresolved = resolver.resolve("maybe", active)
+        self.assertEqual(unresolved.route_type, ROUTE_WORKFLOW_UNRESOLVED)
 
     def test_WorkflowRuntimeStateTransitions(self):
         """Test deterministic workflow runtime state updates without Slicer execution."""
@@ -78,6 +102,123 @@ class WorkflowTestsMixin:
         count = runtime.queue_traditional_prompt("show me the loaded nodes")
         self.assertEqual(count, 1)
         self.assertEqual(runtime.pop_queued_prompts(), ["show me the loaded nodes"])
+
+        # Generic repeat blocks keep steps atomic while controlling transitions.
+        graph = {
+            "steps": [
+                {"step_id": "cb_step_1", "step_type": "user_choice", "depends_on": []},
+                {"step_id": "cb_step_2", "step_type": "extension_op", "depends_on": ["cb_step_1"]},
+                {"step_id": "cb_step_3", "step_type": "user_interaction", "depends_on": ["cb_step_2"]},
+                {"step_id": "cb_step_4", "step_type": "extension_op", "depends_on": ["cb_step_3"]},
+                {"step_id": "cb_step_5", "step_type": "extension_op", "depends_on": ["cb_step_4"]},
+                {"step_id": "cb_step_6", "step_type": "extension_op", "depends_on": ["cb_step_5"]},
+            ],
+            "repeat_blocks": [
+                {
+                    "repeat_id": "create_items",
+                    "body_steps": ["cb_step_2", "cb_step_3"],
+                    "entry_step": "cb_step_2",
+                    "terminal_step": "cb_step_3",
+                    "exit_step": "cb_step_4",
+                    "controller": {"kind": "count", "source_step": "cb_step_1"},
+                    "max_iterations": 5,
+                },
+                {
+                    "repeat_id": "refine",
+                    "body_steps": ["cb_step_4", "cb_step_5"],
+                    "entry_step": "cb_step_4",
+                    "terminal_step": "cb_step_5",
+                    "exit_step": "cb_step_6",
+                    "controller": {
+                        "kind": "until_choice",
+                        "prompt": "Is the result satisfactory?",
+                        "exit_value": True,
+                    },
+                    "max_iterations": 4,
+                },
+            ],
+        }
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        original_get_workflow_graph = wf_mod.get_workflow_graph
+        wf_mod.get_workflow_graph = lambda extension_name: graph
+        try:
+            runtime = WorkflowRuntime()
+            runtime.session = WorkflowSession(
+                extension_name="FakeExtension",
+                tool_name="FakeExtension",
+                workflow_id="repeat_1",
+                current_step="cb_step_1",
+            )
+            count_choice = runtime.handle_execution_result(
+                {
+                    "type": "choice_made",
+                    "step_id": "cb_step_1",
+                    "choice_value": "2",
+                    "next_step": {"step_id": "cb_step_2"},
+                },
+                {"success": True},
+            )
+            self.assertEqual(count_choice["next_step"]["step_id"], "cb_step_2")
+
+            runtime.handle_execution_result(
+                {"type": "automated", "step_id": "cb_step_2"},
+                {"success": True},
+            )
+            repeat_count = runtime.handle_execution_result(
+                {"type": "interactive_done", "step_id": "cb_step_3"},
+                {"success": True},
+            )
+            self.assertEqual(repeat_count["next_step"]["step_id"], "cb_step_2")
+            self.assertEqual(repeat_count["repeat_progress"]["current"], 2)
+            self.assertNotIn("cb_step_2", runtime.session.completed_steps)
+            self.assertNotIn("cb_step_3", runtime.session.completed_steps)
+
+            runtime.handle_execution_result(
+                {"type": "automated", "step_id": "cb_step_2"},
+                {"success": True},
+            )
+            count_done = runtime.handle_execution_result(
+                {"type": "interactive_done", "step_id": "cb_step_3"},
+                {"success": True},
+            )
+            self.assertEqual(count_done["next_step"]["step_id"], "cb_step_4")
+
+            runtime.handle_execution_result(
+                {"type": "automated", "step_id": "cb_step_4"},
+                {"success": True},
+            )
+            decision = runtime.handle_execution_result(
+                {"type": "automated", "step_id": "cb_step_5"},
+                {"success": True},
+            )
+            self.assertEqual(decision["type"], "user_choice")
+            self.assertEqual(decision["question"], "Is the result satisfactory?")
+            self.assertEqual(runtime.session.status, "waiting_for_choice")
+
+            repeat_decision = runtime.run_step(
+                "cb_step_5", "choice_made", {"choice_value": False}
+            )
+            self.assertEqual(repeat_decision["next_step"]["step_id"], "cb_step_4")
+            self.assertEqual(repeat_decision["repeat_progress"]["current"], 2)
+            self.assertEqual(runtime.session.current_step, "cb_step_4")
+            self.assertEqual(runtime.session.status, "running")
+
+            runtime.handle_execution_result(
+                {"type": "automated", "step_id": "cb_step_4"},
+                {"success": True},
+            )
+            runtime.handle_execution_result(
+                {"type": "automated", "step_id": "cb_step_5"},
+                {"success": True},
+            )
+            accepted = runtime.run_step(
+                "cb_step_5", "choice_made", {"choice_value": True}
+            )
+            self.assertEqual(accepted["next_step"]["step_id"], "cb_step_6")
+            self.assertEqual(runtime.session.current_step, "cb_step_6")
+        finally:
+            wf_mod.get_workflow_graph = original_get_workflow_graph
 
     def test_WorkflowRuntimeUiStateMapping(self):
         """Test compact workflow UI state for progress and controls."""

@@ -150,6 +150,8 @@ class WidgetWorkflowMixin:
             if repeat_total > 0 and repeat_current > 0:
                 object_label = self._currentWorkflowUiState.get("object_label") or "Item"
                 step_text += f" - {str(object_label).title()} {repeat_current} of {repeat_total}"
+            elif repeat_current > 0:
+                step_text += f" - Repeat iteration {repeat_current}"
             self._workflowStepLabel.setText(step_text)
             self._workflowStepLabel.setVisible(True)
         else:

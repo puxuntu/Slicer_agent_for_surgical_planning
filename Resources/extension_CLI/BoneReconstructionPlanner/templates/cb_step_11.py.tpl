@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: 11. Click the "Add mandibular curve" button. (Setup) ---
+# --- BoneReconstructionPlanner: Click the "Add mandibular curve" button. (Setup) ---
 import slicer
 from SlicerAIAgentLib.workflow_state import remember_interaction_node
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic

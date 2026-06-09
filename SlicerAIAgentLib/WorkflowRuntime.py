@@ -11,20 +11,23 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from .ExtensionCLILoader import (
+    clear_workflow_step_completions,
     dispatch_extension_cli_tool,
     find_next_workflow_step,
     get_validated_extensions,
     get_workflow_graph,
     mark_workflow_step_completed,
     reset_workflow_session,
+    set_workflow_repeat_state,
 )
 
 
-WAIT_TYPES = {"interactive", "mixed", "user_choice", "branch"}
+WAIT_TYPES = {"interactive", "user_interaction", "user_choice"}
 COMPLETE_TYPES = {
     "automated",
+    "extension_op",
+    "slicer_op",
     "interactive_done",
-    "mixed_done",
     "choice_made",
     "skipped",
 }
@@ -41,6 +44,8 @@ class WorkflowSession:
     status: str = "running"
     completed_steps: List[str] = field(default_factory=list)
     queued_prompts: List[str] = field(default_factory=list)
+    repeat_states: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    completed_instances: List[Dict[str, Any]] = field(default_factory=list)
     last_result: Optional[Dict[str, Any]] = None
     started_at: float = field(default_factory=time.time)
 
@@ -70,6 +75,7 @@ class WorkflowRuntime:
             "current_step": self.session.current_step,
             "status": self.session.status,
             "completed_steps": list(self.session.completed_steps),
+            "repeat_states": copy.deepcopy(self.session.repeat_states),
         }
 
     def state_for_ui(self, result: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -227,6 +233,26 @@ class WorkflowRuntime:
 
         self.session.current_step = target_step
         self.session.status = "running"
+        repeat_decision = self._handle_pending_repeat_decision(
+            target_step, action, call_args
+        )
+        if repeat_decision is not None:
+            self.session.last_result = repeat_decision
+            self._apply_pre_execution_state(repeat_decision)
+            next_step = repeat_decision.get("next_step")
+            if next_step:
+                self.session.current_step = next_step.get("step_id")
+                self.session.status = "running"
+            else:
+                self.session.current_step = None
+                self.session.status = "completed"
+                repeat_decision["workflow_completed"] = True
+            self._write_event(
+                "repeat_decision",
+                {"args": call_args, "result": self._compact_result(repeat_decision)},
+            )
+            return repeat_decision
+
         result = dispatch_extension_cli_tool(self.session.tool_name, call_args)
         if result is None:
             result = {"type": "error", "error": f"Unknown workflow tool: {self.session.tool_name}"}
@@ -261,7 +287,7 @@ class WorkflowRuntime:
             })
             return result
 
-        if result_type in {"interactive", "mixed"}:
+        if result_type in {"interactive", "user_interaction"}:
             self.session.status = "waiting_for_user"
             self.session.current_step = step_id
             self._write_event("step_waiting_for_user", {"step_id": step_id})
@@ -275,7 +301,18 @@ class WorkflowRuntime:
 
         if result_type in COMPLETE_TYPES and step_id:
             self._mark_completed(step_id)
-            if not result.get("next_step"):
+            repeat_transition = self._repeat_transition_after_completion(
+                step_id, result
+            )
+            if repeat_transition:
+                result.update(repeat_transition)
+                result_type = result.get("type")
+                if result_type == "user_choice":
+                    self.session.last_result = result
+                    self.session.status = "waiting_for_choice"
+                    self.session.current_step = step_id
+                    return result
+            elif not result.get("next_step"):
                 result["next_step"] = self._next_step()
 
         next_step = result.get("next_step")
@@ -331,7 +368,7 @@ class WorkflowRuntime:
         elif result_type == "user_choice":
             self.session.status = "waiting_for_choice"
             self.session.current_step = result.get("step_id")
-        elif result_type in {"interactive", "mixed"}:
+        elif result_type in {"interactive", "user_interaction"}:
             self.session.status = "running"
             self.session.current_step = result.get("step_id")
         elif result_type == "skipped" and result.get("step_id"):
@@ -350,6 +387,10 @@ class WorkflowRuntime:
             return
         if step_id not in self.session.completed_steps:
             self.session.completed_steps.append(step_id)
+            self.session.completed_instances.append({
+                "step_id": step_id,
+                "repeat": self._repeat_instance_for_step(step_id),
+            })
         mark_workflow_step_completed(self.session.extension_name, step_id)
 
     def _next_step(self) -> Optional[Dict[str, Any]]:
@@ -359,6 +400,223 @@ class WorkflowRuntime:
             self.session.extension_name,
             set(self.session.completed_steps),
         )
+
+    def _repeat_blocks(self) -> List[Dict[str, Any]]:
+        if not self.session:
+            return []
+        graph = get_workflow_graph(self.session.extension_name) or {}
+        return [
+            block for block in graph.get("repeat_blocks", []) or []
+            if isinstance(block, dict) and block.get("repeat_id")
+        ]
+
+    def _repeat_instance_for_step(self, step_id: str) -> Dict[str, Any]:
+        if not self.session:
+            return {}
+        for block in self._repeat_blocks():
+            if step_id in (block.get("body_steps") or []):
+                state = self.session.repeat_states.get(block["repeat_id"], {})
+                return {
+                    "repeat_id": block["repeat_id"],
+                    "iteration": int(state.get("iteration", 1) or 1),
+                }
+        return {}
+
+    def _sync_repeat_state(self, repeat_id: str) -> None:
+        if not self.session:
+            return
+        state = self.session.repeat_states.get(repeat_id, {})
+        set_workflow_repeat_state(
+            self.session.extension_name,
+            repeat_id,
+            state,
+        )
+
+    def _clear_repeat_body(self, block: Dict[str, Any]) -> None:
+        if not self.session:
+            return
+        body_steps = list(block.get("body_steps") or [])
+        body_set = set(body_steps)
+        self.session.completed_steps = [
+            step_id for step_id in self.session.completed_steps
+            if step_id not in body_set
+        ]
+        clear_workflow_step_completions(self.session.extension_name, body_steps)
+
+    @staticmethod
+    def _normalize_control_value(value: Any) -> Any:
+        if isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in {"true", "yes", "y", "1"}:
+                return True
+            if lowered in {"false", "no", "n", "0"}:
+                return False
+            try:
+                return int(lowered)
+            except ValueError:
+                return value.strip()
+        return value
+
+    def _repeat_transition_after_completion(
+        self,
+        step_id: str,
+        result: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Return a control-flow transition after one atomic step succeeds."""
+        if not self.session:
+            return {}
+        if result.get("repeat_decision"):
+            return {}
+        for block in self._repeat_blocks():
+            repeat_id = block["repeat_id"]
+            controller = block.get("controller", {}) or {}
+            kind = controller.get("kind", "")
+            state = self.session.repeat_states.setdefault(
+                repeat_id, {"iteration": 1}
+            )
+
+            if kind == "count" and step_id == controller.get("source_step"):
+                raw_target = self._normalize_control_value(result.get("choice_value"))
+                try:
+                    target = int(raw_target)
+                except (TypeError, ValueError):
+                    target = 0
+                state.update({"iteration": 1, "target": max(0, target)})
+                self._sync_repeat_state(repeat_id)
+                if target <= 0:
+                    for body_step in block.get("body_steps", []) or []:
+                        self._mark_completed(body_step)
+                    next_step = self._step_summary(block.get("exit_step"))
+                    return {
+                        "next_step": next_step,
+                        "repeat_progress": {
+                            "repeat_id": repeat_id,
+                            "current": 0,
+                            "completed": 0,
+                            "total": 0,
+                        },
+                    }
+
+            if step_id != block.get("terminal_step"):
+                continue
+
+            iteration = int(state.get("iteration", 1) or 1)
+            max_iterations = int(block.get("max_iterations", 20) or 20)
+            if kind == "count":
+                target = int(state.get("target", 1) or 1)
+                if iteration < min(target, max_iterations):
+                    self._clear_repeat_body(block)
+                    state["iteration"] = iteration + 1
+                    self._sync_repeat_state(repeat_id)
+                    return {
+                        "next_step": self._step_summary(block.get("entry_step")),
+                        "repeat_progress": {
+                            "repeat_id": repeat_id,
+                            "current": iteration + 1,
+                            "completed": iteration,
+                            "total": target,
+                        },
+                    }
+                return {
+                    "next_step": self._step_summary(block.get("exit_step")),
+                    "repeat_limit_reached": target > max_iterations,
+                    "repeat_progress": {
+                        "repeat_id": repeat_id,
+                        "current": iteration,
+                        "completed": iteration,
+                        "total": target,
+                    },
+                }
+
+            if kind in {"until_choice", "while_choice"}:
+                state["waiting_for_decision"] = True
+                self._sync_repeat_state(repeat_id)
+                prompt = controller.get("prompt") or "Continue the repeated workflow?"
+                return {
+                    "type": "user_choice",
+                    "question": prompt,
+                    "choices": [
+                        {"label": "Yes", "value": True},
+                        {"label": "No", "value": False},
+                    ],
+                    "parameter_name": f"repeat_decision:{repeat_id}",
+                    "repeat_decision": repeat_id,
+                    "repeat_progress": {
+                        "repeat_id": repeat_id,
+                        "current": iteration,
+                        "completed": iteration,
+                        "total": 0,
+                    },
+                    "next_step": None,
+                }
+        return {}
+
+    def _handle_pending_repeat_decision(
+        self,
+        step_id: str,
+        action: str,
+        args: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        if not self.session or action != "choice_made":
+            return None
+        for block in self._repeat_blocks():
+            repeat_id = block["repeat_id"]
+            state = self.session.repeat_states.get(repeat_id, {})
+            if not state.get("waiting_for_decision"):
+                continue
+            if step_id != block.get("terminal_step"):
+                continue
+            controller = block.get("controller", {}) or {}
+            choice = self._normalize_control_value(args.get("choice_value"))
+            exit_value = self._normalize_control_value(controller.get("exit_value"))
+            should_exit = choice == exit_value
+            iteration = int(state.get("iteration", 1) or 1)
+            max_iterations = int(block.get("max_iterations", 20) or 20)
+            state["waiting_for_decision"] = False
+            limit_reached = not should_exit and iteration >= max_iterations
+            if should_exit or limit_reached:
+                next_step = self._step_summary(block.get("exit_step"))
+            else:
+                self._clear_repeat_body(block)
+                state["iteration"] = iteration + 1
+                next_step = self._step_summary(block.get("entry_step"))
+            self._sync_repeat_state(repeat_id)
+            return {
+                "tool": self.session.tool_name,
+                "type": "choice_made",
+                "step_id": step_id,
+                "choice_value": choice,
+                "repeat_decision": repeat_id,
+                "repeat_limit_reached": limit_reached,
+                "next_step": next_step,
+                "repeat_progress": {
+                    "repeat_id": repeat_id,
+                    "current": int(state.get("iteration", iteration) or iteration),
+                    "completed": iteration,
+                    "total": 0,
+                },
+            }
+        return None
+
+    def _step_summary(self, step_id: Optional[str]) -> Optional[Dict[str, Any]]:
+        if not self.session or not step_id:
+            return None
+        graph = get_workflow_graph(self.session.extension_name) or {}
+        for step in graph.get("steps", []) or []:
+            if step.get("step_id") == step_id:
+                return {
+                    "step_id": step_id,
+                    "operation_type": (
+                        step.get("operation_type")
+                        or step.get("op_type")
+                        or step.get("step_type", "extension_op")
+                    ),
+                    "step_type": step.get("step_type", "extension_op"),
+                    "description": step.get("description", ""),
+                    "is_optional": bool(step.get("is_optional", False)),
+                    "ui_guidance": step.get("ui_guidance", {}),
+                }
+        return None
 
     @staticmethod
     def _instructions_from_result(result: Dict[str, Any]) -> str:

@@ -135,6 +135,10 @@ class AnalyzerSlicerOpManifestMixin:
                     step,
                     self._workflow_metadata if isinstance(self._workflow_metadata, dict) else {},
                 )
+            operation_type = _operation_type_for_step(step)
+            step["operation_type"] = operation_type
+            step["op_type"] = operation_type
+            step.setdefault("step_type", operation_type)
             operation_model = self._build_step_operation_model(step)
             step["operation_model"] = operation_model
             if isinstance(self._workflow_metadata, dict):
@@ -171,8 +175,9 @@ class AnalyzerSlicerOpManifestMixin:
             manifest["cookbook_file"] = os.path.basename(self._cookbook_def.source_file)
             op_types = set()
             for step in steps:
-                if step.get("op_type"):
-                    op_types.add(step["op_type"])
+                operation_type = _operation_type_for_step(step)
+                if operation_type:
+                    op_types.add(operation_type)
                 for so in step.get("sub_operations", []):
                     if so.get("op_type"):
                         op_types.add(so["op_type"])
@@ -181,14 +186,16 @@ class AnalyzerSlicerOpManifestMixin:
         generators = []
         for step in steps:
             step_id = step["step_id"]
-            step_type = step["step_type"]
-            op_type = step.get("op_type", "")
+            op_type = _operation_type_for_step(step)
+            step_type = op_type
+            exec_type = _legacy_step_type_for_operation(op_type)
 
             gen = {
                 "tool_name": extension_name,
                 "param_signature": {"workflow_step": step_id},
                 "description": step.get("description", step_id),
                 "requirements": [f"{extension_name} extension must be installed"],
+                "operation_type": op_type,
                 "step_type": step_type,
             }
             if step.get("ui_guidance"):
@@ -210,11 +217,11 @@ class AnalyzerSlicerOpManifestMixin:
             if step.get("node_roles"):
                 gen["node_roles"] = step["node_roles"]
 
-            if step_type == "automated" and step.get("code_template"):
+            if exec_type == "automated" and step.get("code_template"):
                 gen["template_file"] = step["code_template"]
                 if step.get("sub_operations"):
                     gen["sub_operations"] = step["sub_operations"]
-            elif step_type == "interactive":
+            elif exec_type == "interactive":
                 gen["pre_template_file"] = step.get("pre_template", "")
                 gen["post_template_file"] = step.get("post_template", "")
                 nc = step.get("node_class")
@@ -250,7 +257,7 @@ class AnalyzerSlicerOpManifestMixin:
                 policy = (workflow_metadata.get("interaction_policies", {}) or {}).get(step_id, {})
                 if policy:
                     gen["interaction_descriptor"]["placement_policy"] = policy
-            elif step_type == "mixed":
+            elif exec_type == "mixed":
                 gen["pre_template_file"] = step.get("pre_template", "")
                 gen["post_template_file"] = step.get("post_template", "")
                 # Collect interaction info from sub_operations
@@ -285,10 +292,10 @@ class AnalyzerSlicerOpManifestMixin:
                     interaction_desc["placement_policy"] = policy
                 gen["interaction_descriptor"] = interaction_desc
                 gen["sub_operations"] = step.get("sub_operations", [])
-            elif step_type == "branch":
+            elif exec_type == "branch":
                 gen["condition"] = step.get("condition", "")
                 gen["branches"] = step.get("branches", {})
-            elif step_type == "user_choice":
+            elif exec_type == "user_choice":
                 choice_info = step.get("choice_info", {})
                 gen["choice_descriptor"] = {
                     "question": choice_info.get("question", ""),
@@ -302,6 +309,8 @@ class AnalyzerSlicerOpManifestMixin:
                     gen["choice_descriptor"]["binding"] = step["choice_binding"]
                 if step.get("node_roles"):
                     gen["choice_descriptor"]["node_roles"] = step["node_roles"]
+                if step.get("sub_operations"):
+                    gen["sub_operations"] = step["sub_operations"]
 
             if step.get("repeat_group"):
                 gen["repeat_group"] = step["repeat_group"]
@@ -309,6 +318,8 @@ class AnalyzerSlicerOpManifestMixin:
                     gen["choice_descriptor"]["repeat_group"] = step["repeat_group"]
                 if gen.get("interaction_descriptor") is not None:
                     gen["interaction_descriptor"]["repeat_group"] = step["repeat_group"]
+            if step.get("repeat_block"):
+                gen["repeat_block"] = step["repeat_block"]
 
             generators.append(gen)
 

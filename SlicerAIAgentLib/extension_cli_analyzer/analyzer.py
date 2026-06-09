@@ -75,11 +75,9 @@ class ExtensionCLIAnalyzer(
             code_validator: CodeValidator instance. Created if not provided.
             on_progress: Callback(stage_num, stage_name, detail) for progress updates.
             on_error: Callback(error_message) for error reporting.
-            method_keyword_map: Optional per-extension mapping of cookbook
-                description keywords to logic method names (e.g.
-                {"create bone model": "createBoneModels"}).  Used by the
-                heuristic fallback when LLM decomposition fails.  If not
-                provided, only fuzzy word-overlap matching is used.
+            method_keyword_map: Deprecated compatibility argument. Semantic
+                cookbook interpretation is performed by the Stage 4 LLM and
+                validated against source-derived candidates.
             live_probe_executor: Optional callable that executes a probe snippet
                 on Slicer's main thread and returns the probe result.
         """
@@ -88,7 +86,7 @@ class ExtensionCLIAnalyzer(
         self.code_validator = code_validator
         self.on_progress = on_progress or (lambda n, s, d: None)
         self.on_error = on_error or (lambda e: None)
-        self._method_keyword_map = method_keyword_map or {}
+        self._method_keyword_map = {}
         self._live_probe_executor = live_probe_executor
         self._analyzer_prompt = self._load_analyzer_prompt()
         self._cancelled = False
@@ -99,6 +97,7 @@ class ExtensionCLIAnalyzer(
         self._current_stage_label: str = ""
         self._cookbook_def = None                # Parsed CookbookDef when cookbook found
         self._widget_connections: List[Dict] = []
+        self._ui_parameter_bindings: Dict[str, Dict] = {}
         self._slicer_op_templates: Dict = {}     # Pre-generated slicer_op templates
         self._slicer_op_evidence: Dict = {}      # API evidence for pre-generated slicer_op templates
         self._placement_starter_methods: Dict = {}
@@ -176,6 +175,8 @@ class ExtensionCLIAnalyzer(
         self._slicer_op_templates = {}
         self._slicer_op_evidence = {}
         self._placement_starter_methods = {}
+        self._widget_connections = []
+        self._ui_parameter_bindings = {}
         self._workflow_metadata = {}
         self._last_logic_analysis = None
         self._last_api_probe_result = None
@@ -237,6 +238,13 @@ class ExtensionCLIAnalyzer(
             scan_result["ui_widgets"] = self._extract_ui_widget_inventory(
                 scan_result.get("ui_files", [])
             )
+            entry_source = self._read_entry_source(scan_result)
+            self._ui_parameter_bindings = self._extract_ui_parameter_bindings(
+                entry_source,
+                scan_result.get("ui_files", []),
+                self._widget_connections,
+            )
+            scan_result["ui_parameter_bindings"] = self._ui_parameter_bindings
 
             # ── Stage 2: Cookbook Detection & Parsing (no LLM, REQUIRED) ──
             self._current_stage_label = "2"
@@ -291,10 +299,10 @@ class ExtensionCLIAnalyzer(
                 result["error"] = "Cancelled during Stage 3.5"
                 return result
 
-            # ── Stage 4: Cookbook Stage Map — LLM Decomposition ──
+            # ── Stage 4: Validated LLM semantic decomposition ──
             self._current_stage_label = "4"
             stage_map = self._stage4_cookbook_decomposition(
-                self._cookbook_def, logic_analysis
+                self._cookbook_def, logic_analysis, scan_result
             )
             result["stages_completed"].append(4)
             if self._cancelled:

@@ -33,6 +33,10 @@ class AnalyzerWorkflowContractsMixin:
                             "name": node.name,
                             "line": node.lineno,
                             "source_file": entry_module,
+                            "param_count": len([
+                                arg for arg in node.args.args
+                                if arg.arg not in ("self", "cls")
+                            ]),
                             "effects": self._infer_callable_effects(node, source_segment),
                         }
 
@@ -77,97 +81,15 @@ class AnalyzerWorkflowContractsMixin:
             effects.add("slice_view_refresh")
         return sorted(effects)
 
-    @staticmethod
-    def _infer_operation_intents_from_text(text: str, categories: Optional[List[str]] = None) -> List[str]:
-        """Infer generic operation intents from cookbook/user-facing text."""
-        text_l = _text_or_empty(text).lower()
-        categories = categories or []
-        intents = set()
-        if "layout" in text_l:
-            if any(word in text_l for word in ("change", "switch", "activate", "restore", "set")):
-                intents.add("layout_activate")
-            if any(word in text_l for word in ("register", "add layout", "create layout")):
-                intents.add("layout_register")
-        if "slice intersection" in text_l or "slice intersections" in text_l:
-            if any(word in text_l for word in ("visibility", "visible", "show", "turn on", "toggle on")):
-                intents.add("slice_intersection_visibility")
-            if any(word in text_l for word in ("interaction", "translate", "rotate")):
-                intents.add("slice_intersection_interaction")
-        if any(cat == "markups_display" for cat in categories) or (
-            "display" in text_l and "view" in text_l
-        ):
-            intents.add("view_display_scope")
-        if any(cat == "module_switching" for cat in categories):
-            intents.add("module_switch")
-        return sorted(intents)
-
     def _infer_step_operation_intents(self, step: Dict) -> List[str]:
-        categories = []
-        text_parts = [_text_or_empty(step.get("description", ""))]
+        intents = set(_text_list(step.get("operation_intents", [])))
         for so in step.get("sub_operations", []) or []:
-            text_parts.append(_text_or_empty(so.get("description", "")))
-            category = so.get("slicer_op_category")
-            if category:
-                categories.append(category)
-            text_parts.extend(_text_list(so.get("slicer_api_keywords", [])))
-        if step.get("slicer_op_category"):
-            categories.append(step.get("slicer_op_category"))
-        return self._infer_operation_intents_from_text(" ".join(text_parts), categories)
-
-    def _match_extension_function(
-        self, description: str, function_names: List[str],
-        function_inventory: Optional[Dict[str, Dict]] = None,
-    ) -> Optional[str]:
-        """Match an extension-owned module function to a cookbook description."""
-        desc_tokens = set(self._role_keywords(description))
-        if not desc_tokens:
-            return None
-        operation_intents = set(self._infer_operation_intents_from_text(description))
-        function_inventory = function_inventory or {}
-        best_name = None
-        best_score = 0.0
-        for name in function_names:
-            name_tokens = set(self._role_keywords(name))
-            if not name_tokens:
-                continue
-            overlap = desc_tokens & name_tokens
-            if not overlap:
-                continue
-            # Prefer concise function names with a direct semantic overlap.
-            score = len(overlap) / (len(name_tokens) ** 0.5)
-            if "layout" in overlap:
-                score += 1.0
-            effects = set((function_inventory.get(name) or {}).get("effects") or [])
-            if "layout_activate" in operation_intents:
-                if "layout_activate" in effects:
-                    score += 3.0
-                if "layout_register" in effects and "layout_activate" not in effects:
-                    score -= 2.0
-            if score > best_score:
-                best_score = score
-                best_name = name
-        if best_name and best_score >= 1.0:
-            return best_name
-
-        desc_lower = _text_or_empty(description).lower()
-        if "layout" in desc_lower and any(
-            word in desc_lower for word in ("custom", "restore", "registered", "view")
-        ):
-            layout_functions = [
-                name for name in function_names
-                if "layout" in set(self._role_keywords(name))
-            ]
-            if len(layout_functions) == 1:
-                only_name = layout_functions[0]
-                effects = set((function_inventory.get(only_name) or {}).get("effects") or [])
-                if (
-                    "layout_activate" in operation_intents
-                    and "layout_register" in effects
-                    and "layout_activate" not in effects
-                ):
-                    return None
-                return layout_functions[0]
-        return None
+            intents.update(_text_list(so.get("operation_intents", [])))
+            if so.get("operation_intent"):
+                intents.add(_text_or_empty(so.get("operation_intent")))
+        if step.get("operation_intent"):
+            intents.add(_text_or_empty(step.get("operation_intent")))
+        return sorted(i for i in intents if i)
 
     def _step_placement_starter(self, step: Dict) -> str:
         """Return the placement-starter method a workflow step calls, if any."""
@@ -193,7 +115,7 @@ class AnalyzerWorkflowContractsMixin:
         """Return True if a step already contains an interaction for node_class."""
         if not node_class:
             return False
-        if step.get("step_type") in ("interactive", "mixed"):
+        if _legacy_step_type_for_operation(_operation_type_for_step(step)) in ("interactive", "mixed"):
             if self._step_interaction_node_class(step) == node_class:
                 return True
             for so in step.get("sub_operations", []) or []:
@@ -369,6 +291,7 @@ class AnalyzerWorkflowContractsMixin:
         return {
             "step_id": step_id,
             "step_type": step.get("step_type", ""),
+            "operation_type": _operation_type_for_step(step),
             "op_type": step.get("op_type", ""),
             "description": _text_or_empty(step.get("description", ""))[:500],
             "interaction_type": step.get("interaction_type", ""),
@@ -407,7 +330,8 @@ class AnalyzerWorkflowContractsMixin:
 
     def _fallback_ui_guidance(self, step: Dict, metadata: Dict) -> Dict:
         """Build deterministic user-facing guidance from generic workflow semantics."""
-        step_type = step.get("step_type", "")
+        operation_type = _operation_type_for_step(step)
+        step_type = _legacy_step_type_for_operation(operation_type)
         description = _text_or_empty(step.get("description", "")).strip()
         object_label = self._guidance_object_label(step)
         repeat_group = step.get("repeat_group") or {}
@@ -494,7 +418,7 @@ class AnalyzerWorkflowContractsMixin:
             return "side"
         if "number" in text or "how many" in text or "count" in text:
             return "value"
-        if step.get("step_type") == "user_choice":
+        if _operation_type_for_step(step) == "user_choice":
             return "choice"
         if "view" in text or "slice" in text:
             return "view"
@@ -570,37 +494,19 @@ class AnalyzerWorkflowContractsMixin:
                     callable_inventory.get("module_functions", {}).items()
                 )
             },
+            "module_function_param_counts": {
+                name: info.get("param_count", 0)
+                for name, info in sorted(
+                    callable_inventory.get("module_functions", {}).items()
+                )
+            },
         }
 
-        module_function_names = list(callable_inventory.get("module_functions", {}).keys())
         steps = workflow_graph.get("steps", []) or []
         by_step = {step.get("step_id", ""): step for step in steps}
+        self._validate_repeat_block_graph(workflow_graph, by_step)
 
-        # Resolve extension-owned module-level functions for extension_op steps
-        # that do not map to a Logic method.
-        for step in steps:
-            if step.get("step_type") not in ("automated", "mixed"):
-                continue
-            for so in step.get("sub_operations", []) or []:
-                if so.get("op_type") != "extension_op":
-                    continue
-                if so.get("extension_method_hint") or so.get("extension_function_hint"):
-                    continue
-                description = " ".join([
-                    _text_or_empty(step.get("description", "")),
-                    _text_or_empty(so.get("description", "")),
-                ])
-                matched = self._match_extension_function(
-                    description,
-                    module_function_names,
-                    callable_inventory.get("module_functions", {}),
-                )
-                if matched:
-                    so["extension_function_hint"] = matched
-                    so["evidence_type"] = "module_function"
-                    so["evidence_id"] = matched
-                    so["confidence"] = "high"
-                    step["extension_function_name"] = matched
+        self._promote_closed_form_parameter_choices(steps)
 
         # Canonicalize count-driven placement repeats.  The starter call belongs
         # to the repeat start step; the following interaction step reuses that
@@ -639,16 +545,10 @@ class AnalyzerWorkflowContractsMixin:
             has_user_interaction = any(
                 so.get("op_type") == "user_interaction" for so in kept_sub_ops
             )
-            has_code_op = any(
-                so.get("op_type") in ("extension_op", "slicer_op", "unknown_op")
-                for so in kept_sub_ops
-            )
-            if has_user_interaction and not has_code_op:
-                interaction_step["step_type"] = "interactive"
+            if has_user_interaction:
+                interaction_step["operation_type"] = "user_interaction"
                 interaction_step["op_type"] = "user_interaction"
-            elif has_user_interaction:
-                interaction_step["step_type"] = "mixed"
-                interaction_step["op_type"] = "mixed"
+                interaction_step["step_type"] = "user_interaction"
 
             start_step["interaction_owner"] = "extension_method"
             start_step["placement_starter_method"] = start_starter
@@ -672,7 +572,7 @@ class AnalyzerWorkflowContractsMixin:
         # Bind user interactions to recent extension placement starters even
         # when Slicer-core display/layout configuration steps intervene.
         for step_index, step in enumerate(steps):
-            if step.get("step_type") != "interactive":
+            if _legacy_step_type_for_operation(_operation_type_for_step(step)) != "interactive":
                 continue
             if step.get("placement_starter_method"):
                 continue
@@ -721,13 +621,115 @@ class AnalyzerWorkflowContractsMixin:
                 metadata["node_roles"][step_id] = node_roles
                 step["node_roles"] = node_roles
 
+    @staticmethod
+    def _validate_repeat_block_graph(
+        workflow_graph: Dict,
+        by_step: Dict[str, Dict],
+    ) -> None:
+        """Validate generic repeat control without changing atomic step types."""
+        ordered_ids = [
+            step.get("step_id", "")
+            for step in workflow_graph.get("steps", []) or []
+            if step.get("step_id")
+        ]
+        used_steps = set()
+        repeat_ids = set()
+        for block in workflow_graph.get("repeat_blocks", []) or []:
+            repeat_id = block.get("repeat_id", "")
+            body_steps = block.get("body_steps", []) or []
+            controller = block.get("controller", {}) or {}
+            kind = controller.get("kind", "")
+            if not repeat_id or repeat_id in repeat_ids:
+                raise RuntimeError("Repeat blocks require unique non-empty repeat_id values")
+            repeat_ids.add(repeat_id)
+            if not body_steps or any(step_id not in by_step for step_id in body_steps):
+                raise RuntimeError(f"{repeat_id}: repeat body references missing workflow steps")
+            indexes = [ordered_ids.index(step_id) for step_id in body_steps]
+            if indexes != list(range(min(indexes), max(indexes) + 1)):
+                raise RuntimeError(f"{repeat_id}: repeat body must be contiguous and ordered")
+            if used_steps.intersection(body_steps):
+                raise RuntimeError(f"{repeat_id}: overlapping repeat bodies are not supported")
+            used_steps.update(body_steps)
+            if block.get("entry_step") != body_steps[0]:
+                raise RuntimeError(f"{repeat_id}: entry_step must be the first body step")
+            if block.get("terminal_step") != body_steps[-1]:
+                raise RuntimeError(f"{repeat_id}: terminal_step must be the last body step")
+            exit_step = block.get("exit_step", "")
+            if exit_step and exit_step not in by_step:
+                raise RuntimeError(f"{repeat_id}: exit_step references a missing workflow step")
+            if kind not in {"count", "until_choice", "while_choice"}:
+                raise RuntimeError(f"{repeat_id}: unsupported repeat controller '{kind}'")
+            if int(block.get("max_iterations", 0) or 0) <= 0:
+                raise RuntimeError(f"{repeat_id}: max_iterations must be greater than zero")
+            if kind == "count":
+                source_step = controller.get("source_step", "")
+                if source_step not in by_step:
+                    raise RuntimeError(f"{repeat_id}: count controller source step is missing")
+                if _operation_type_for_step(by_step[source_step]) != "user_choice":
+                    raise RuntimeError(f"{repeat_id}: count controller source must be user_choice")
+                if source_step in body_steps:
+                    raise RuntimeError(f"{repeat_id}: count controller source cannot be in its body")
+                if ordered_ids.index(source_step) >= ordered_ids.index(body_steps[0]):
+                    raise RuntimeError(f"{repeat_id}: count controller source must precede its body")
+            elif not _text_or_empty(controller.get("prompt", "")):
+                raise RuntimeError(f"{repeat_id}: choice controller requires a prompt")
+
+    @staticmethod
+    def _choice_is_closed_form_parameter_choice(choice_info: Dict) -> bool:
+        choices = choice_info.get("choices") or []
+        if not choices:
+            return False
+        values = {
+            str(choice.get("value", "")).strip().lower()
+            for choice in choices
+        }
+        labels = {
+            str(choice.get("label", "")).strip().lower()
+            for choice in choices
+        }
+        closed_values = {
+            "true", "false", "yes", "no",
+            "left", "right", "left leg", "right leg",
+            "left side", "right side",
+        }
+        return bool(values or labels) and (values | labels) <= closed_values
+
+    def _promote_closed_form_parameter_choices(self, steps: List[Dict]) -> None:
+        """Closed-form parameter questions must ask first, then apply choice."""
+        for step in steps or []:
+            choice_info = step.get("choice_info") or {}
+            if not self._choice_is_closed_form_parameter_choice(choice_info):
+                continue
+            parameter_name = choice_info.get("parameter_name", "")
+            if not parameter_name:
+                continue
+            sub_ops = step.get("sub_operations", []) or []
+            matching_ops = [
+                so for so in sub_ops
+                if (
+                    so.get("operation_intent") == "extension_parameter_update"
+                    and so.get("parameter_name") == parameter_name
+                )
+            ]
+            if not matching_ops:
+                continue
+            step["step_type"] = "user_choice"
+            step["operation_type"] = "user_choice"
+            step["op_type"] = "user_choice"
+            for so in matching_ops:
+                so["op_type"] = "user_choice"
+                so["evidence_type"] = "user_context"
+                so["question"] = choice_info.get("question") or so.get("question") or step.get("description")
+                so["choices"] = choice_info.get("choices", [])
+                so["default_value"] = choice_info.get("default_value")
+
     def _build_step_operation_model(self, step: Dict) -> Dict:
         """Describe a workflow step using generic operation semantics."""
-        step_type = step.get("step_type", "")
+        step_type = _operation_type_for_step(step)
         sub_ops = step.get("sub_operations", []) or []
         op_types = [so.get("op_type", "") for so in sub_ops if so.get("op_type")]
-        if step.get("op_type"):
-            op_types.append(step.get("op_type"))
+        if step_type:
+            op_types.append(step_type)
         op_types = sorted(set(op_types))
 
         interaction_kinds = []
@@ -735,7 +737,7 @@ class AnalyzerWorkflowContractsMixin:
             if so.get("op_type") == "user_interaction":
                 kind = so.get("interaction_kind") or so.get("interaction_type") or "interaction"
                 interaction_kinds.append(kind)
-        if step_type == "interactive":
+        if step_type in ("user_interaction", "interactive"):
             interaction_kinds.append(
                 step.get("interaction_kind")
                 or step.get("interaction_type")
@@ -743,7 +745,7 @@ class AnalyzerWorkflowContractsMixin:
             )
 
         produces_interaction_state = (
-            step_type in ("interactive", "mixed")
+            step_type in ("user_interaction", "interactive", "mixed")
             or any(so.get("op_type") == "user_interaction" for so in sub_ops)
         )
         invokes_extension_method = bool(step.get("method_name")) or any(
@@ -753,30 +755,32 @@ class AnalyzerWorkflowContractsMixin:
             so.get("extension_function_hint") for so in sub_ops
         )
         invokes_slicer_api = (
-            step.get("op_type") == "slicer_op"
+            step_type == "slicer_op"
             or any(so.get("op_type") == "slicer_op" for so in sub_ops)
-        )
-        allow_module_switch = any(
-            so.get("op_type") == "slicer_op"
-            and so.get("slicer_op_category") == "module_switching"
-            and self._is_explicit_module_switch_text(
-                " ".join([
-                    _text_or_empty(step.get("description")),
-                    _text_or_empty(so.get("description")),
-                    " ".join(_text_list(so.get("slicer_api_keywords", []))),
-                ])
+            or any(
+                so.get("operation_intent") == "extension_node_reference_update"
+                for so in sub_ops
             )
-            for so in sub_ops
-        ) or (
-            step.get("op_type") == "slicer_op"
-            and self._is_explicit_module_switch_text(_text_or_empty(step.get("description")))
+        )
+        semantic_intents = set(self._infer_step_operation_intents(step))
+        allow_module_switch = (
+            "module_switch" in semantic_intents
+            or any(
+                so.get("op_type") == "slicer_op"
+                and so.get("slicer_op_category") == "module_switching"
+                for so in sub_ops
+            )
         )
         implementation_uses_slicer_api = bool(
             invokes_slicer_api
-            or step_type in ("interactive", "mixed")
+            or step_type in ("user_interaction", "interactive", "mixed")
             or step.get("interaction_owner")
             or step.get("placement_starter_method")
             or step.get("extension_function_name")
+            or any(
+                so.get("operation_intent") == "extension_node_reference_update"
+                for so in sub_ops
+            )
         )
         operation_intents = self._infer_step_operation_intents(step)
         return {
@@ -794,6 +798,29 @@ class AnalyzerWorkflowContractsMixin:
 
     def _infer_step_node_roles(self, step: Dict, metadata: Dict) -> List[Dict]:
         """Infer generic node roles produced or consumed by a workflow step."""
+        semantic_roles = [
+            role for role in (step.get("node_roles") or [])
+            if isinstance(role, dict)
+        ]
+        for so in step.get("sub_operations", []) or []:
+            semantic_roles.extend(
+                role for role in (so.get("node_roles") or [])
+                if isinstance(role, dict)
+            )
+        if semantic_roles:
+            unique = []
+            seen = set()
+            for role in semantic_roles:
+                key = (
+                    role.get("role_kind", ""),
+                    role.get("step_id", ""),
+                    role.get("node_class", ""),
+                    role.get("parameter_name", ""),
+                )
+                if key not in seen:
+                    seen.add(key)
+                    unique.append(role)
+            return unique
         roles = []
         step_id = step.get("step_id", "")
 

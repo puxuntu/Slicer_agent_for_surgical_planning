@@ -1,44 +1,45 @@
-try:
-    _bonereconstructionplanner_logic
-except NameError:
-    from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
-    _bonereconstructionplanner_logic = BoneReconstructionPlannerLogic()
+from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
-logic = _bonereconstructionplanner_logic
+try:
+    logic = _bonereconstructionplanner_logic
+except NameError:
+    logic = BoneReconstructionPlannerLogic()
+
 parameterNode = logic.getParameterNode()
 
-# Ensure fibula segmentation node reference exists; if not, search scene
-fibulaSegNode = parameterNode.GetNodeReference("fibulaSegmentation")
-if fibulaSegNode is None:
+# Ensure required parameter is set with default if not already
+if parameterNode.GetParameter("useNonDecimatedBoneModelsForPreview") == "":
+    parameterNode.SetParameter("useNonDecimatedBoneModelsForPreview", "True")
+
+# Ensure fibula segmentation node reference exists
+if parameterNode.GetNodeReference("fibulaSegmentation") is None:
     nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
+    fibulaSegmentation = None
     for i in range(nodes.GetNumberOfItems()):
         n = nodes.GetItemAsObject(i)
         if "fibula" in n.GetName().lower():
-            fibulaSegNode = n
+            fibulaSegmentation = n
             break
-    if fibulaSegNode is None:
-        raise ValueError("Could not find a segmentation node containing 'fibula' in its name.")
-    parameterNode.SetNodeReferenceID("fibulaSegmentation", fibulaSegNode.GetID())
+    if fibulaSegmentation:
+        parameterNode.SetNodeReferenceID("fibulaSegmentation", fibulaSegmentation.GetID())
+    else:
+        raise RuntimeError("No fibula segmentation found in the scene. Run previous step first.")
 
 # Ensure mandibular segmentation node reference exists
-mandSegNode = parameterNode.GetNodeReference("mandibularSegmentation")
-if mandSegNode is None:
+if parameterNode.GetNodeReference("mandibularSegmentation") is None:
     nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
+    mandibularSegmentation = None
     for i in range(nodes.GetNumberOfItems()):
         n = nodes.GetItemAsObject(i)
         if "mandibular" in n.GetName().lower() or "mandible" in n.GetName().lower():
-            mandSegNode = n
+            mandibularSegmentation = n
             break
-    if mandSegNode is None:
-        raise ValueError("Could not find a segmentation node containing 'mandibular' or 'mandible' in its name.")
-    parameterNode.SetNodeReferenceID("mandibularSegmentation", mandSegNode.GetID())
+    if mandibularSegmentation:
+        parameterNode.SetNodeReferenceID("mandibularSegmentation", mandibularSegmentation.GetID())
+    else:
+        raise RuntimeError("No mandibular segmentation found in the scene. Run previous step first.")
 
-# Set default for useNonDecimatedBoneModelsForPreview if not already set
-currentVal = parameterNode.GetParameter("useNonDecimatedBoneModelsForPreview")
-if not currentVal:  # empty string means not set
-    parameterNode.SetParameter("useNonDecimatedBoneModelsForPreview", "True")
-
-# Call the method
 logic.makeModels()
 
-print("Step 5 (makeModels) completed successfully.")
+_bonereconstructionplanner_logic = logic
+print("[BoneReconstructionPlanner] Step 5 - Models created.")

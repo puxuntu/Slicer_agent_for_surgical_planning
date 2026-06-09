@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: 17. Click "Add cut plane" button. (Setup) ---
+# --- BoneReconstructionPlanner: Click "Add cut plane" button. (Setup) ---
 import slicer
 from SlicerAIAgentLib.workflow_state import remember_interaction_node
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic

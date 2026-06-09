@@ -1,5 +1,4 @@
-# --- BoneReconstructionPlanner: 18. Place one mandibular cut plane using the extension's Add cut plane workflow. If the user requested N cut planes, repeat the Add cut plane + place plane
-# interaction N times. Do not store these planes as a rotation plane; they are mandibular cut planes managed by the extension. (Setup) ---
+# --- BoneReconstructionPlanner: Place one mandibular cut plane using the extension's Add cut plane workflow. If the user requested N cut planes, repeat the Add cut plane + place plane interaction N times. Do not store these planes as a rotation plane; they are mandibular cut planes managed by the extension. (Setup) ---
 import slicer
 from SlicerAIAgentLib.workflow_state import remember_interaction_node
 

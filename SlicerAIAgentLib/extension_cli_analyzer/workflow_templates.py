@@ -50,16 +50,18 @@ class AnalyzerWorkflowTemplatesMixin:
 
         for step_index, step in enumerate(steps):
             step_id = step["step_id"]
-            step_type = step["step_type"]
-            op_type = step.get("op_type", "")
+            op_type = _operation_type_for_step(step)
+            step["operation_type"] = op_type
+            step["op_type"] = op_type
+            step.setdefault("step_type", op_type)
+            step_type = _legacy_step_type_for_operation(op_type)
 
-            if op_type == "unknown_op" or any(
-                so.get("op_type") == "unknown_op" for so in step.get("sub_operations", [])
-            ):
+            if self._parameter_update_ops_for_step(step):
                 key = f"templates/{step_id}.py.tpl"
-                step["step_type"] = "automated"
                 step["code_template"] = key
-                templates[key] = self._generate_unknown_op_template(step)
+                templates[key] = self._generate_parameter_update_template(
+                    extension_name, step, logic_class_name, module_name,
+                )
 
             elif step_type == "automated" and op_type == "slicer_op":
                 # Slicer_op templates are pre-generated in Stage 5T
@@ -81,7 +83,16 @@ class AnalyzerWorkflowTemplatesMixin:
                 # Consume Stage 5T templates once for the whole step.
                 consumed_5t = False
                 for so in sub_ops:
-                    if so["op_type"] == "extension_op" and so.get("extension_method_hint"):
+                    if so.get("operation_intent") == "extension_parameter_update":
+                        ext_step = dict(step)
+                        ext_step["sub_operations"] = [so]
+                        auto_parts.append(
+                            f"# Extension parameter update: {so.get('description', '')}\n"
+                            + self._generate_parameter_update_template(
+                                extension_name, ext_step, logic_class_name, module_name,
+                            )
+                        )
+                    elif so["op_type"] == "extension_op" and so.get("extension_method_hint"):
                         ext_step = dict(step)
                         ext_step["method_name"] = so["extension_method_hint"]
                         ext_step["description"] = so["description"]
@@ -228,7 +239,16 @@ class AnalyzerWorkflowTemplatesMixin:
                 slicer_templates_appended = False
                 pre_key = f"templates/{step_id}_pre.py.tpl"
                 for so in sub_ops:
-                    if so["op_type"] == "extension_op" and so.get("extension_method_hint"):
+                    if so.get("operation_intent") == "extension_parameter_update":
+                        ext_step = dict(step)
+                        ext_step["sub_operations"] = [so]
+                        auto_parts.append(
+                            f"# Extension parameter update: {so.get('description', '')}\n"
+                            + self._generate_parameter_update_template(
+                                extension_name, ext_step, logic_class_name, module_name,
+                            )
+                        )
+                    elif so["op_type"] == "extension_op" and so.get("extension_method_hint"):
                         # Generate extension_op code
                         ext_step = dict(step)
                         ext_step["method_name"] = so["extension_method_hint"]
@@ -384,7 +404,8 @@ class AnalyzerWorkflowTemplatesMixin:
         # on node ID variables (_ext_step_id).
         consistency_fixes = 0
         for step in steps:
-            if step.get("step_type") not in ("interactive", "mixed"):
+            exec_type = _legacy_step_type_for_operation(_operation_type_for_step(step))
+            if exec_type != "interactive":
                 continue
             s_id = step["step_id"]
             node_var = f"_{extension_name.lower()}_{s_id}_id"
@@ -431,9 +452,12 @@ class AnalyzerWorkflowTemplatesMixin:
             )
 
         # Store workflow graph as JSON template (only valid steps)
-        valid_types = {"automated", "interactive", "branch", "mixed", "user_choice"}
+        valid_types = CANONICAL_OPERATION_TYPES
         clean_graph = {k: v for k, v in workflow_graph.items() if k != "steps"}
-        clean_graph["steps"] = [s for s in steps if s.get("step_type") in valid_types]
+        clean_graph["steps"] = [
+            s for s in steps
+            if _operation_type_for_step(s) in valid_types
+        ]
         templates["workflow.json"] = json.dumps(clean_graph, indent=2)
         templates["workflow_metadata.json"] = json.dumps(self._workflow_metadata or {}, indent=2)
 
@@ -442,6 +466,179 @@ class AnalyzerWorkflowTemplatesMixin:
             f"Generated {len(templates)} workflow templates"
         )
         return templates
+
+    @staticmethod
+    def _parameter_update_ops_for_step(step: Dict) -> List[Dict]:
+        operations = list(step.get("sub_operations") or [])
+        operations.extend(step.get("atomic_operations") or [])
+        return [
+            so for so in operations
+            if so.get("operation_intent") in (
+                "extension_parameter_update",
+                "extension_node_reference_update",
+            )
+            and so.get("parameter_name")
+        ]
+
+    @staticmethod
+    def _parameter_placeholder_name(role: str) -> str:
+        text = _re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", role or "")
+        text = _re.sub(r"[^a-zA-Z0-9]+", "_", text).strip("_").lower()
+        return text or "parameter_value"
+
+    @staticmethod
+    def _placeholder_default_literal(value: Any, value_property: str) -> str:
+        if value is None:
+            return "0.0" if value_property == "value" else "''"
+        if isinstance(value, bool):
+            return "True" if value else "False"
+        if isinstance(value, (int, float)):
+            return repr(value)
+        return repr(str(value))
+
+    @staticmethod
+    def _node_class_for_reference_role(role: str, binding: Dict[str, Any]) -> str:
+        text = " ".join([
+            role or "",
+            (binding or {}).get("widget_name", ""),
+            (binding or {}).get("ui_text", ""),
+        ]).lower()
+        if "segmentation" in text:
+            return "vtkMRMLSegmentationNode"
+        if "volume" in text:
+            return "vtkMRMLScalarVolumeNode"
+        if "curve" in text:
+            return "vtkMRMLMarkupsCurveNode"
+        if "line" in text:
+            return "vtkMRMLMarkupsLineNode"
+        if "plane" in text:
+            return "vtkMRMLMarkupsPlaneNode"
+        if "model" in text:
+            return "vtkMRMLModelNode"
+        return "vtkMRMLNode"
+
+    @staticmethod
+    def _node_reference_keywords(role: str, step: Dict) -> List[str]:
+        text = " ".join([
+            role or "",
+            _text_or_empty(step.get("description", "")),
+            " ".join(
+                _text_or_empty(so.get("description", ""))
+                for so in (step.get("sub_operations") or [])
+            ),
+        ]).lower()
+        tokens = []
+        for token in _re.findall(r"[a-z0-9]+", text):
+            if len(token) < 4:
+                continue
+            if token in {
+                "select", "choose", "current", "scalar", "volume",
+                "segmentation", "node", "option", "section",
+            }:
+                continue
+            if token not in tokens:
+                tokens.append(token)
+        return tokens[:5]
+
+    def _generate_parameter_update_template(
+        self,
+        extension_name: str,
+        step: Dict,
+        logic_class_name: str,
+        module_name: str,
+    ) -> str:
+        """Generate deterministic code for extension parameter-node UI updates."""
+        step_id = step.get("step_id", "")
+        ops = self._parameter_update_ops_for_step(step)
+        if not ops:
+            return self._generate_unknown_op_template(step)
+
+        logic_var = f"_{extension_name.lower()}_logic"
+        lines = [
+            *self._template_header_lines(extension_name, step, ""),
+            "import slicer",
+            f"from {module_name} import {logic_class_name}",
+            "",
+            "try:",
+            f"    logic = {logic_var}",
+            "except NameError:",
+            f"    logic = {logic_class_name}()",
+            f"    {logic_var} = logic",
+            "",
+            "parameterNode = logic.getParameterNode()",
+        ]
+
+        for so in ops:
+            role = so.get("parameter_name", "")
+            mode = so.get("target_value_mode", "")
+            target = so.get("target_value")
+            binding = so.get("ui_parameter_binding") or {}
+            role_info = binding.get("role") or {}
+            value_property = so.get("value_property") or role_info.get("value_property", "")
+            if so.get("operation_intent") == "extension_node_reference_update":
+                placeholder = self._parameter_placeholder_name(role)
+                node_class = self._node_class_for_reference_role(role, binding)
+                keywords = self._node_reference_keywords(role, step)
+                lines.extend([
+                    f"{placeholder}_node_name = {{{placeholder}_node_name: ''}}",
+                    f"{placeholder}_node = None",
+                    f"if {placeholder}_node_name:",
+                    "    try:",
+                    f"        {placeholder}_node = slicer.util.getNode({placeholder}_node_name)",
+                    "    except Exception:",
+                    "        pass",
+                    f"if {placeholder}_node is None:",
+                    f"    _nodes = slicer.mrmlScene.GetNodesByClass({node_class!r})",
+                    f"    _keywords = {keywords!r}",
+                    "    for _i in range(_nodes.GetNumberOfItems()):",
+                    "        _candidate = _nodes.GetItemAsObject(_i)",
+                    "        _name = (_candidate.GetName() or '').lower()",
+                    "        if not _keywords or any(_kw in _name for _kw in _keywords):",
+                    f"            {placeholder}_node = _candidate",
+                    "            break",
+                    f"if {placeholder}_node is None:",
+                    f"    raise RuntimeError('Could not find node for parameter reference {role}')",
+                    f"parameterNode.SetNodeReferenceID({role!r}, {placeholder}_node.GetID())",
+                ])
+            elif target is True:
+                lines.append(f"parameterNode.SetParameter({role!r}, 'True')")
+            elif target is False:
+                lines.append(f"parameterNode.SetParameter({role!r}, 'False')")
+            elif mode == "invert":
+                lines.extend([
+                    f"_current_{role} = parameterNode.GetParameter({role!r}) == 'True'",
+                    f"parameterNode.SetParameter({role!r}, 'False' if _current_{role} else 'True')",
+                ])
+            elif value_property in ("value", "currentText", "currentIndex"):
+                placeholder = self._parameter_placeholder_name(role)
+                default = (binding.get("properties") or {}).get(value_property)
+                default_literal = self._placeholder_default_literal(default, value_property)
+                lines.append(f"{placeholder} = {{{placeholder}: {default_literal}}}")
+                lines.append(f"parameterNode.SetParameter({role!r}, str({placeholder}))")
+            else:
+                default = (
+                    role_info.get("true_value")
+                )
+                if default is None:
+                    default = "True"
+                if isinstance(default, bool):
+                    default_text = "True" if default else "False"
+                else:
+                    default_text = str(default)
+                lines.append(
+                    f"# Final state was not explicit; apply source-derived/default truthy state for {role}"
+                )
+                lines.append(f"parameterNode.SetParameter({role!r}, {default_text!r})")
+
+        lines.extend([
+            "try:",
+            "    parameterNode.Modified()",
+            "except Exception:",
+            "    pass",
+            f"{logic_var} = logic",
+            f"print(\"[{extension_name}] Step '{step_id}' completed.\")",
+        ])
+        return "\n".join(lines) + "\n"
 
     def _generate_extension_function_template(
         self, extension_name: str, step: Dict, module_name: str,

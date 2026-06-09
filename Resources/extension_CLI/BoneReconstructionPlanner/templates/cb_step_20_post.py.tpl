@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: 20. Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally. (Process) ---
+# --- BoneReconstructionPlanner: Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally. (Process) ---
 import slicer
 from SlicerAIAgentLib.workflow_state import resolve_interaction_node
 
@@ -7,11 +7,6 @@ if node is None:
     node = slicer.mrmlScene.GetNodeByID(_bonereconstructionplanner_cb_step_20_id)
 if node is None:
     raise RuntimeError("Node not found for step 'cb_step_20'")
-
-# Validate user input
-numPoints = node.GetNumberOfControlPoints()
-if numPoints < 2:
-    raise RuntimeError("Need at least 2 control points, got %d. Please add more." % numPoints)
 
 # Store the placed node on the extension parameter node for later steps
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic

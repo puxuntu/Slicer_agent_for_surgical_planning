@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: 20. Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally. (Setup) ---
+# --- BoneReconstructionPlanner: Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally. (Setup) ---
 import slicer
 from SlicerAIAgentLib.workflow_state import remember_interaction_node
 
@@ -19,5 +19,5 @@ if displayNode is not None:
 _bonereconstructionplanner_cb_step_20_id = node.GetID()
 remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_20", _bonereconstructionplanner_cb_step_20_id, _workflow_runtime_repeat_index)
 
-print("[BoneReconstructionPlanner] Please Place the first point at the distal end of the fibula and the second point at the proximal end in the 3D View 2.")
+print("[BoneReconstructionPlanner] Please Draw a line over the fibula in 3D View 2, first point distally, last proximally")
 print("When finished, press the 'Done' button in the workflow panel.")

@@ -11,6 +11,7 @@ class AnalyzerStage4DecompositionMixin:
         evidence = {
             "logic_method_candidates": [],
             "widget_candidates": [],
+            "ui_parameter_candidates": [],
             "ui_control_candidates": [],
             "slicer_core_candidates": [],
             "interaction_candidates": [],
@@ -37,6 +38,8 @@ class AnalyzerStage4DecompositionMixin:
                     "logic_methods": conn.get("logic_methods", []),
                     "matched_words": hits,
                 })
+
+        evidence["ui_parameter_candidates"] = self._match_ui_parameter_bindings(desc)
 
         choice_patterns = {
             "left/right": ("left" in desc_lower and "right" in desc_lower),
@@ -103,10 +106,162 @@ class AnalyzerStage4DecompositionMixin:
 
         return evidence
 
+    def _match_ui_parameter_bindings(self, text: str) -> List[Dict[str, Any]]:
+        """Match cookbook text to source-derived UI parameter bindings."""
+        desc = _text_or_empty(text)
+        desc_lower = desc.lower()
+        if not desc_lower:
+            return []
+        text_tokens = set(self._role_keywords(desc))
+        # Generic icon aliases. These describe common UI semantics, not an
+        # extension-specific mapping.
+        if "eye" in desc_lower:
+            text_tokens.update({"show", "visible", "visibility"})
+        if "axes" in desc_lower or "axis" in desc_lower:
+            text_tokens.update({"axes", "axis", "interaction", "handles", "handle"})
+        if "checkbox" in desc_lower:
+            text_tokens.update({"checked", "check", "checkbox"})
+        if "tool button" in desc_lower or "toolbutton" in desc_lower:
+            text_tokens.update({"tool", "button"})
+
+        candidates = []
+        bindings = getattr(self, "_ui_parameter_bindings", {}) or {}
+        for widget_name, binding in bindings.items():
+            roles = binding.get("roles") or []
+            if not roles:
+                continue
+            binding_tokens = set(binding.get("keywords") or [])
+            binding_tokens.update(self._role_keywords(widget_name))
+            binding_tokens.update(self._role_keywords(binding.get("ui_text", "")))
+            overlap = text_tokens & binding_tokens
+            if not overlap:
+                continue
+            role_scores = []
+            for role in roles:
+                role_name = role.get("parameter_name", "")
+                role_tokens = set(self._role_keywords(role_name))
+                role_overlap = text_tokens & role_tokens
+                score = len(overlap) + (2 * len(role_overlap))
+                # Visible label exact text is strong evidence when present.
+                ui_text = _text_or_empty(binding.get("ui_text", "")).lower()
+                if ui_text and ui_text in desc_lower:
+                    score += 4
+                # Widget suffixes such as CheckBox/ToolButton should not
+                # dominate, but they help distinguish controls.
+                widget_tokens = set(self._role_keywords(widget_name))
+                score += min(len(text_tokens & widget_tokens), 3)
+                if "eye" in desc_lower and role_tokens & {"handle", "handles", "interaction", "intera"}:
+                    score -= 4
+                if ("axes" in desc_lower or "axis" in desc_lower) and not (
+                    role_tokens & {"handle", "handles", "interaction", "intera", "axes", "axis"}
+                ):
+                    score -= 4
+                role_scores.append((score, role, sorted(role_overlap)))
+            role_scores.sort(key=lambda item: item[0], reverse=True)
+            if not role_scores:
+                continue
+            score, role, role_overlap = role_scores[0]
+            if score < 3:
+                continue
+            candidates.append({
+                "widget_name": widget_name,
+                "widget_class": binding.get("widget_class", ""),
+                "ui_text": binding.get("ui_text", ""),
+                "properties": binding.get("properties", {}),
+                "role": role,
+                "score": score,
+                "matched_tokens": sorted(overlap),
+                "matched_role_tokens": role_overlap,
+            })
+        candidates.sort(key=lambda item: item.get("score", 0), reverse=True)
+        return candidates[:5]
+
     @staticmethod
     def _evidence_has(evidence: Dict[str, Any], key: str) -> bool:
         value = evidence.get(key, [])
         return isinstance(value, list) and bool(value)
+
+    @staticmethod
+    def _has_explicit_ui_parameter_state(final_state: Dict[str, Any]) -> bool:
+        """Return true when cookbook text gives a state safe to automate."""
+        mode = (final_state or {}).get("mode")
+        return mode in ("set", "invert")
+
+    @staticmethod
+    def _has_ui_parameter_value_input_intent(text: str) -> bool:
+        """Return true when cookbook text asks the user to enter/set a value."""
+        normalized = _re.sub(r"[^a-z0-9]+", " ", _text_or_empty(text).lower()).strip()
+        padded = f" {normalized} "
+        value_patterns = (
+            " enter ",
+            " input ",
+            " type ",
+            " fill ",
+            " set value ",
+            " set the value ",
+            " desired value ",
+            " value in ",
+            " value for ",
+        )
+        return any(pattern in padded for pattern in value_patterns)
+
+    @staticmethod
+    def _has_ui_node_reference_selection_intent(text: str) -> bool:
+        """Return true when cookbook text asks to choose/select a MRML node."""
+        normalized = _re.sub(r"[^a-z0-9]+", " ", _text_or_empty(text).lower()).strip()
+        padded = f" {normalized} "
+        selection_patterns = (
+            " select ",
+            " choose ",
+            " current scalar volume ",
+            " current volume ",
+            " node ",
+            " segmentation ",
+            " volume ",
+            " model ",
+        )
+        return any(pattern in padded for pattern in selection_patterns)
+
+    @staticmethod
+    def _ui_binding_operation_intent(candidate: Dict[str, Any]) -> str:
+        role = (candidate or {}).get("role", {}) or {}
+        if (
+            role.get("access") == "node_reference_write"
+            or role.get("value_property") == "currentNodeID"
+        ):
+            return "extension_node_reference_update"
+        return "extension_parameter_update"
+
+    @staticmethod
+    def _clear_ui_parameter_fields(so: Dict[str, Any]) -> None:
+        for key in (
+            "operation_intent",
+            "parameter_name",
+            "value_property",
+            "target_value",
+            "target_value_mode",
+            "ui_parameter_binding",
+        ):
+            so.pop(key, None)
+
+    def _should_apply_ui_parameter_candidate(
+        self,
+        candidate: Dict[str, Any],
+        final_state: Dict[str, Any],
+        text: str,
+    ) -> bool:
+        """Decide whether UI-parameter evidence is strong enough to automate."""
+        operation_intent = self._ui_binding_operation_intent(candidate)
+        if operation_intent == "extension_node_reference_update":
+            return self._has_ui_node_reference_selection_intent(text)
+        if self._has_explicit_ui_parameter_state(final_state):
+            return True
+        role = (candidate or {}).get("role", {}) or {}
+        value_property = role.get("value_property", "")
+        return (
+            value_property in ("value", "currentText", "currentIndex")
+            and self._has_ui_parameter_value_input_intent(text)
+        )
 
     def _infer_interaction_kind_from_evidence(self, evidence: Dict[str, Any], node_class: str = "") -> str:
         for item in evidence.get("interaction_candidates", []) or []:
@@ -175,274 +330,780 @@ class AnalyzerStage4DecompositionMixin:
         return has_location and has_setting_action
 
     def _stage4_cookbook_decomposition(
-        self, cookbook_def, logic_analysis: Dict
+        self, cookbook_def, logic_analysis: Dict, scan_result: Optional[Dict] = None
     ) -> Dict:
-        """
-        Use LLM to decompose each cookbook step into sub-operations.
-
-        Each step is classified into one or more of:
-        - extension_op: Calls a method on the extension's Logic class.
-        - slicer_op: Uses Slicer core API (layout changes, view toggles, etc.).
-        - user_interaction: Requires the user to draw/click in the 3D view.
-        - user_choice: A chat-based decision point.
-
-        Falls back to keyword heuristics (_cookbook_build_stage_map) on LLM failure.
-        """
+        """Use one validated LLM call to interpret all cookbook step semantics."""
         self.on_progress(
             4, "Cookbook Stage Map",
-            "Decomposing cookbook steps via LLM..."
+            "LLM interpreting cookbook steps and repeat intent..."
+        )
+        context = self._stage4_semantic_context(cookbook_def, logic_analysis, scan_result)
+        prior_result = None
+        errors = []
+        for attempt in range(3):
+            prompt = self._stage4_semantic_prompt(context, prior_result, errors)
+            try:
+                result = self._parse_json_response(self._call_llm(prompt))
+            except Exception as exc:
+                result = None
+                errors = [f"Response was not valid JSON: {exc}"]
+            if isinstance(result, dict):
+                errors = self._validate_stage4_semantic_result(result, context)
+                if not errors:
+                    stage_map = self._stage_map_from_semantic_result(
+                        result, cookbook_def, logic_analysis
+                    )
+                    self.on_progress(
+                        4, "Cookbook Stage Map",
+                        f"LLM interpreted {stage_map['stage_count']} cookbook steps"
+                    )
+                    return stage_map
+            prior_result = result
+            logger.warning(
+                "[Stage 4] Semantic decomposition attempt %d rejected: %s",
+                attempt + 1,
+                "; ".join(errors[:10]),
+            )
+        raise RuntimeError(
+            "Stage 4 semantic decomposition failed after 3 attempts: "
+            + "; ".join(errors[:20])
         )
 
-        # Build cookbook steps text
-        steps_text = "\n".join(
-            f"Step {s.step_number}: {s.description}"
-            for s in cookbook_def.steps
-        )
-
-        # Build method catalog from logic analysis
-        methods = logic_analysis.get("methods", [])
-        method_catalog = []
-        for m in methods:
-            mname = m.get("name", "")
-            params = [
-                f"{p.get('name', '')}: {p.get('type', '?')}"
-                for p in m.get("parameters", [])
-                if p.get("name") != "self"
-            ]
-            state_reads = m.get("state_reads", [])
-            state_writes = m.get("state_writes", [])
-            method_catalog.append({
-                "name": mname,
-                "purpose": m.get("purpose", ""),
-                "parameters": params,
-                "state_reads": state_reads,
-                "state_writes": state_writes,
-                "calls_addnode": m.get("calls_addnode", False),
-                "adds_output_to_scene": m.get("adds_output_to_scene", False),
+    def _stage4_semantic_context(
+        self, cookbook_def, logic_analysis: Dict, scan_result: Optional[Dict] = None
+    ) -> Dict[str, Any]:
+        """Build source-derived candidate allowlists for semantic interpretation."""
+        methods = []
+        node_classes = {
+            "vtkMRMLMarkupsCurveNode",
+            "vtkMRMLMarkupsPlaneNode",
+            "vtkMRMLMarkupsLineNode",
+            "vtkMRMLMarkupsFiducialNode",
+            "vtkMRMLMarkupsROINode",
+            "vtkMRMLCrosshairNode",
+        }
+        for method in logic_analysis.get("methods", []) or []:
+            if not isinstance(method, dict) or not method.get("name"):
+                continue
+            for parameter in method.get("parameters", []) or []:
+                if isinstance(parameter, dict):
+                    parameter_type = _text_or_empty(
+                        parameter.get("type") or parameter.get("node_class")
+                    )
+                    if parameter_type.startswith("vtkMRML"):
+                        node_classes.add(parameter_type)
+            methods.append({
+                "name": method["name"],
+                "parameters": method.get("parameters", []),
+                "return_value": method.get("return_value"),
+                "state_reads": method.get("state_reads", []),
+                "state_writes": method.get("state_writes", []),
+                "side_effects": method.get("side_effects", []),
             })
 
-        method_names = [m["name"] for m in methods]
-        evidence_by_step = {
-            s.step_number: self._collect_step_evidence(
-                s.description, method_names, cookbook_def.extension_name
-            )
-            for s in cookbook_def.steps
+        widgets = []
+        for connection in getattr(self, "_widget_connections", []) or []:
+            if not isinstance(connection, dict):
+                continue
+            name = _text_or_empty(connection.get("button_widget_name"))
+            if name:
+                widgets.append({
+                    "widget_name": name,
+                    "logic_methods": connection.get("logic_methods", []),
+                })
+        extension_functions = []
+        if scan_result and hasattr(self, "_build_extension_callable_inventory"):
+            inventory = self._build_extension_callable_inventory(
+                scan_result, logic_analysis
+            ).get("module_functions", {})
+            extension_functions = [
+                {
+                    "name": name,
+                    "param_count": info.get("param_count", 0),
+                    "effects": info.get("effects", []),
+                }
+                for name, info in sorted(inventory.items())
+            ]
+
+        ui_bindings = []
+        for widget_name, binding in (getattr(self, "_ui_parameter_bindings", {}) or {}).items():
+            for role in binding.get("roles", []) or []:
+                if not isinstance(role, dict) or not role.get("parameter_name"):
+                    continue
+                node_class = _text_or_empty(role.get("node_class"))
+                if node_class:
+                    node_classes.add(node_class)
+                ui_bindings.append({
+                    "widget_name": widget_name,
+                    "parameter_name": role["parameter_name"],
+                    "value_property": role.get("value_property", ""),
+                    "access": role.get("access", ""),
+                    "node_class": node_class,
+                    "ui_text": binding.get("ui_text", ""),
+                })
+
+        steps = [{
+            "step_number": step.step_number,
+            "operation_type": step.operation_type,
+            "description": step.description,
+            "depends_on": step.depends_on,
+        } for step in cookbook_def.steps]
+        return {
+            "extension_name": cookbook_def.extension_name,
+            "steps": steps,
+            "logic_methods": methods,
+            "extension_functions": extension_functions,
+            "widgets": widgets,
+            "ui_parameter_bindings": ui_bindings,
+            "allowed_slicer_op_categories": [
+                "layout_slice_view", "markups_display", "module_switching",
+                "crosshair", "subject_hierarchy", "node_display",
+                "generic_slicer_api",
+            ],
+            "allowed_interaction_kinds": [
+                "none", "markup_placement", "view_adjustment",
+            ],
+            "allowed_operation_intents": [
+                "extension_parameter_update", "extension_node_reference_update",
+                "layout_activate", "layout_register",
+                "slice_intersection_visibility", "slice_intersection_interaction",
+                "view_display_scope", "module_switch",
+            ],
+            "allowed_node_role_kinds": [
+                "choice_input", "interaction_output",
+                "extension_input", "extension_output",
+            ],
+            "allowed_node_classes": sorted(node_classes),
         }
 
-        # Build cookbook method hints section (AST-verified, not subject to truncation)
-        cookbook_method_hints = logic_analysis.get("_cookbook_method_hints", [])
-        if cookbook_method_hints:
-            _cookbook_hints_section = (
-                "\n        ## Cookbook Method Hints (AST-verified)\n"
-                "        These methods were identified by matching cookbook step descriptions\n"
-                "        against the full AST method list (not subject to truncation).\n"
-                "        If a step's description matches one of these, classify as extension_op\n"
-                "        with the hinted method:\n"
-                f"        {json.dumps(cookbook_method_hints, indent=2)}\n"
+    @staticmethod
+    def _stage4_semantic_prompt(
+        context: Dict[str, Any],
+        prior_result: Optional[Dict[str, Any]] = None,
+        errors: Optional[List[str]] = None,
+    ) -> str:
+        repair = ""
+        if errors:
+            repair = (
+                "\nYour previous result was rejected. Correct every validation error.\n"
+                f"Validation errors:\n{json.dumps(errors, indent=2)}\n"
+                f"Previous result:\n{json.dumps(prior_result, indent=2)}\n"
             )
-        else:
-            _cookbook_hints_section = ""
+        return textwrap.dedent(f"""\
+        Interpret a user-authored 3D Slicer extension cookbook as a generic workflow.
+        The cookbook operation_type annotations are authoritative and MUST NOT change.
+        Identify semantic bindings and repeat intent from meaning, not fixed phrases.
+        Select methods, extension functions, widgets, UI bindings, categories,
+        interaction kinds, and node classes only from the supplied candidate lists.
+        Use null when no candidate is semantically justified. Do not invent references.
 
-        prompt = textwrap.dedent(f"""\
-        You are analyzing a 3D Slicer extension's cookbook workflow and must decompose
-        each step into atomic sub-operations.
-
-        ## Cookbook Steps
-        {steps_text}
-
-        ## Available Logic Methods
-        {json.dumps(method_catalog, indent=2)}
-{_cookbook_hints_section}
-
-        ## Deterministic Evidence Candidates
-        These candidates were extracted from the extension source, UI/widget
-        connections, and known Slicer-core concepts before this LLM call.
-        Prefer high-confidence evidence over guessing. If no extension evidence
-        or Slicer-core evidence supports an operation, use `unknown_op` instead
-        of guessing.
-        {json.dumps(evidence_by_step, indent=2)}
-
-        ## Task
-        For EACH cookbook step, decompose it into one or more sub-operations.
-        Each sub-operation must have one of these types:
-
-        1. **extension_op** — The operation calls a method on THIS extension's own
-           Logic class. The code to generate it comes directly from the extension's
-           source code — NO knowledge-base search is needed.
-           Specify `extension_method_hint` matching one of:
-           {json.dumps(method_names[:40])}
-           Examples: calling addMandibularCurve(), generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible(),
-           or any other method defined in the extension's Logic/Widget class.
-
-        2. **slicer_op** — The operation uses Slicer CORE APIs that are NOT part of
-           this extension. Code generation requires searching the Slicer knowledge base
-           for the correct API calls (layout changes, view toggles, explicit module switching,
-           node selection from Slicer's core modules).
-           Specify `slicer_api_keywords` (e.g., ["layout", "red view", "set layout"]).
-           Examples: slicer.app.layoutManager().setLayout(),
-           slicer.util.getNode(), explicitly switching to a target module,
-           toggling slice visibility.
-           IMPORTANT: Checkbox ticks, dropdown selections, or button clicks in THIS
-           extension's own UI panel are NOT slicer_op — they are either extension_op
-           (if a Logic method exists) or user_choice (if the agent cannot determine
-           the value, e.g. left vs. right).
-
-        3. **user_interaction** — The user must physically interact with the 3D
-           visualization window — drawing curves, positioning planes, placing
-           fiducials, dragging objects in the viewport.
-           Specify `interaction_type` (one of: "curve", "plane", "line", "fiducial"),
-           `node_class` (e.g., "vtkMRMLMarkupsCurveNode"), and
-           `placement_instructions` (what to tell the user to do).
-           Examples: "Draw a curve along the mandible in the Red slice view",
-           "Position the cutting plane by dragging in 3D view".
-
-        4. **user_choice** — The agent CANNOT determine the answer on its own and
-           must ask the user via the chat box. This applies whenever a parameter
-           value depends on patient-specific or case-specific context that is not
-           available in the scene.
-           Specify `question` (the question to ask), `choices` (list of
-           {{"label": "...", "value": "..."}} objects), `parameter_name`
-           (snake_case identifier for the choice), and `default_value` (optional).
-           Examples:
-           - "Tick Right side leg checkbox" → user_choice (left/right depends on patient)
-           - "Select mandibulectomy type" → user_choice (clinical decision)
-           - "Choose segmentation" → user_choice if multiple options exist and the
-             agent cannot determine the correct one from context.
-           Anti-patterns (NOT user_choice):
-           - If the agent CAN determine the value programmatically from the scene,
-             it is extension_op or slicer_op, not user_choice.
-           - A step like "click the Create Models button" is extension_op (there is
-             a Logic method) or slicer_op (Slicer core API), NOT user_choice.
-
-        5. **unknown_op** — The operation is required by the cookbook but cannot
-           be proven as extension_op or slicer_op from the evidence. Do NOT use
-           slicer_op as a catch-all fallback.
-
-        ## Output Format
-        Return a JSON object with this structure:
+        Return strict JSON only:
         {{
-          "steps": [
-            {{
-              "step_number": 1,
-              "sub_operations": [
-                {{
-                  "op_type": "extension_op" | "slicer_op" | "user_interaction" | "user_choice" | "unknown_op",
-                  "description": "what this sub-operation does",
-                  "extension_method_hint": "methodName" or null,
-                  "slicer_api_keywords": ["keyword1"] or [],
-                  "interaction_type": "curve" | "plane" | "line" | "fiducial" or null,
-                  "node_class": "vtkMRML..." or null,
-                  "placement_instructions": "..." or null,
-                  "min_control_points": 0,
-                  "evidence_type": "logic_method" | "widget_connection" | "ui_control" | "parameter_node" | "slicer_core" | "viewport_action" | "user_context" | "unknown",
-                  "evidence_id": "method/widget/concept id" or null,
-                  "confidence": "high" | "medium" | "low",
-                  "interaction_kind": "markup_placement" | "view_adjustment" | "none",
-                  "slicer_op_category": "layout_slice_view" | "module_switching" | "markups_display" | "crosshair" | "subject_hierarchy" | "node_display" | "scene_node_lookup" | "cli_module" | "generic_slicer_api" or null,
-                  "question": "..." or null,
-                  "choices": [{{"label": "...", "value": "..."}}] or [],
-                  "parameter_name": "..." or null,
-                  "default_value": "..." or null,
-                  "is_optional": false
-                }}
-              ]
-            }}
-          ]
+          "steps": [{{
+            "step_number": 1,
+            "operation_type": "extension_op|slicer_op|user_interaction|user_choice",
+            "semantic_intent": "concise meaning",
+            "extension_method_hint": null,
+            "extension_function_hint": null,
+            "widget_name": null,
+            "ui_parameter_binding": null,
+            "target_value": null,
+            "target_value_mode": null,
+            "slicer_op_category": null,
+            "slicer_api_keywords": [],
+            "interaction_kind": "none|markup_placement|view_adjustment",
+            "interaction_type": null,
+            "node_class": null,
+            "placement_instructions": null,
+            "choice": null,
+            "is_optional": false,
+            "operation_intents": [],
+            "node_roles": [],
+            "confidence": "high|medium|low",
+            "evidence_ids": []
+          }}],
+          "repeat_blocks": [{{
+            "repeat_id": "stable_generic_id",
+            "body_steps": [2, 3],
+            "controller": {{
+              "kind": "count|until_choice|while_choice",
+              "source_step": 1,
+              "prompt": "",
+              "exit_value": null
+            }},
+            "evidence_step_ids": [1, 3],
+            "confidence": "high|medium"
+          }}]
         }}
 
-        ## Classification Rules (CRITICAL — read carefully)
-        - A single cookbook step may have MULTIPLE sub-operations (e.g., setup + user interaction).
-        - Every step must have at least one sub-operation.
-        - **Ask yourself for each step**: "Can the agent determine ALL parameter values
-          programmatically from the scene, or does it need information only the user knows?"
-          If it needs user-only information → user_choice.
-        - **Ask yourself**: "Does the code for this step come from THIS extension's source,
-          or from Slicer's core API?" If from this extension → extension_op. If from
-          Slicer core → slicer_op.
-        - **Ask yourself**: "Does the user need to physically touch the 3D view?" If yes →
-          user_interaction.
-        - **Checkbox/toggle steps**: If the checkbox controls patient-specific or
-          case-specific behavior (e.g., left/right, type selection) → user_choice.
-          If the checkbox triggers a known extension method → extension_op.
-          If the checkbox sets an extension parameter node value (no Logic method call,
-          just UI state) → extension_op with extension_method_hint set to the parameter name.
-          Extension UI checkboxes are NEVER slicer_op.
-        - **Dropdown selections**: If selecting from this extension's outputs (e.g.,
-          picking a segmentation it created) → extension_op (use the Logic class).
-          If selecting from Slicer core nodes or modules → slicer_op.
-          If the agent cannot determine WHICH option to select → user_choice.
-          IMPORTANT: "Select the [X] volume/segmentation/node" is user_choice when the
-          agent cannot programmatically determine WHICH scene node is X. Do NOT guess
-          based on node names (e.g., "maybe there's a volume named 'Mandible'").
-          If the step says "select the Mandible Volume" and the agent has no reliable
-          way to know which volume is the mandible, it must ask the user → user_choice.
-        - **Button clicks**: If a step says "Click [X] button" where X is a button in
-          THIS extension's UI panel, classify as extension_op even if the exact method
-          name is not in the catalog. Extension buttons call extension Logic methods.
-          Only classify as slicer_op when the step explicitly references Slicer core
-          features (layout changes, module switching, slicer.app, slicer.util).
-        - **Module/panel location phrases**: Cookbook steps are user-facing UI records.
-          Phrases like "In the Markups module's Display > Advanced panel, configure View..."
-          identify where the user found a control. They are NOT a request to switch the
-          active module. Do not create a separate `module_switching` sub-operation and do
-          not use `slicer.util.selectModule` for such location context. Classify the
-          actual setting change (for example Markups display View restrictions) as the
-          operation. Use `module_switching` only when the cookbook explicitly asks to make
-          the active module change the final state, such as "Switch to Markups module",
-          "Open the Markups module", or "Select the Markups module".
-        - **Slicer core UI operations** (CRITICAL — these are slicer_op, NOT extension_op):
-          The following operations use Slicer's core API, not the extension's Logic class.
-          Even if described in the context of using the extension, they are slicer_op:
-          • "Slice visibility in 3D view" → slicer_op (use the verified Slicer slice-view API)
-          • "Slice intersection visibility" / "Crosshair" → slicer_op (vtkMRMLCrosshairNode)
-          • "FOV/Spacing match 2D" → slicer_op (vtkMRMLSliceNode.SetSliceSpacingMode)
-          • Explicit "Open [X] module" / "Switch to [X] module" → slicer_op (slicer.util.selectModule)
-          • Layout changes (Conventional, Four-Up, etc.) → slicer_op (layoutManager.setLayout)
-          • "Display" panel / "View" settings on markup nodes → slicer_op (display node API)
-          Extension UI toggles (checkboxes in the extension's own panel) are still
-          extension_op, but Slicer core view/display/interaction toggles are slicer_op.
-          Key test: "Does this use slicer.app, slicer.util, or a vtkMRML*Node method?"
-          If yes → slicer_op. "Does this set an extension parameter node value?" If yes → extension_op.
-        - **Evidence requirement**: extension_op must cite extension evidence
-          (logic_method/widget_connection/ui_control/parameter_node). slicer_op must
-          cite slicer_core evidence and include `slicer_op_category`.
-          If evidence is weak or absent, return unknown_op with confidence "low".
-        - Mark optional/experimental steps with is_optional: true.
-        - Return ONLY the JSON object, no markdown fences or explanation.""")
+        For choice, use null or:
+        {{"question":"", "choices":[{{"label":"","value":null}}],
+          "parameter_name":"", "default_value":null, "value_kind":""}}
+        ui_parameter_binding must be null or exactly:
+        {{"widget_name":"candidate widget", "parameter_name":"candidate parameter"}}
+        node_roles must contain only explicit records shaped as
+        {{"role_kind":"candidate kind","node_class":"candidate class or empty",
+          "parameter_name":"candidate parameter or empty"}}; use [] if unknown.
+        A repeat body must be a contiguous range of existing steps. A count repeat must
+        reference a preceding user_choice source step. until_choice/while_choice must
+        include a clear prompt and boolean exit_value. Repeat blocks may not overlap.
+        Every step requires medium or high confidence. Include exactly one output step
+        for every input step, even when most optional semantic fields are null.
+        {repair}
+        Candidate context:
+        {json.dumps(context, indent=2)}
+        """)
 
-        try:
-            response = self._call_llm(prompt)
-            decomposition = self._parse_json_response(response)
-            if decomposition is None:
-                logger.warning(
-                    "Stage 4: LLM response could not be parsed as JSON. "
-                    "Response starts with: %s... Falling back to keyword heuristics.",
-                    response[:200] if response else "(empty)",
+    def _validate_stage4_semantic_result(
+        self, result: Dict[str, Any], context: Dict[str, Any]
+    ) -> List[str]:
+        """Validate all LLM semantics against deterministic source allowlists."""
+        errors = []
+        expected = {step["step_number"]: step for step in context["steps"]}
+        raw_steps = result.get("steps")
+        if not isinstance(raw_steps, list):
+            return ["steps must be a list"]
+        by_number = {}
+        for item in raw_steps:
+            if not isinstance(item, dict):
+                errors.append("every steps item must be an object")
+                continue
+            number = _int_or_none(item.get("step_number"))
+            if number is None or number not in expected:
+                errors.append(f"invalid step_number: {item.get('step_number')!r}")
+                continue
+            if number in by_number:
+                errors.append(f"duplicate step_number: {number}")
+            by_number[number] = item
+        missing = sorted(set(expected) - set(by_number))
+        if missing:
+            errors.append(f"missing step numbers: {missing}")
+
+        method_names = {item["name"] for item in context["logic_methods"]}
+        function_names = {item["name"] for item in context["extension_functions"]}
+        widget_names = {item["widget_name"] for item in context["widgets"]}
+        binding_pairs = {
+            (item["widget_name"], item["parameter_name"])
+            for item in context["ui_parameter_bindings"]
+        }
+        allowed_categories = set(context["allowed_slicer_op_categories"])
+        allowed_kinds = set(context["allowed_interaction_kinds"])
+        allowed_classes = set(context["allowed_node_classes"])
+        allowed_intents = set(context["allowed_operation_intents"])
+        allowed_role_kinds = set(context["allowed_node_role_kinds"])
+        allowed_parameters = {
+            item["parameter_name"] for item in context["ui_parameter_bindings"]
+        }
+        for method in context["logic_methods"]:
+            for parameter in method.get("parameters", []) or []:
+                if isinstance(parameter, dict) and parameter.get("name"):
+                    allowed_parameters.add(parameter["name"])
+        for number, item in by_number.items():
+            if item.get("operation_type") != expected[number]["operation_type"]:
+                errors.append(f"step {number} changed authoritative operation_type")
+            if item.get("confidence") not in ("high", "medium"):
+                errors.append(f"step {number} requires medium or high confidence")
+            method = item.get("extension_method_hint")
+            if method is not None and method not in method_names:
+                errors.append(f"step {number} references unknown method {method!r}")
+            function = item.get("extension_function_hint")
+            if function is not None and function not in function_names:
+                errors.append(f"step {number} references unknown extension function {function!r}")
+            if method is not None and function is not None:
+                errors.append(f"step {number} cannot select both a method and extension function")
+            widget = item.get("widget_name")
+            if widget is not None and widget not in widget_names:
+                errors.append(f"step {number} references unknown widget {widget!r}")
+            binding = item.get("ui_parameter_binding")
+            if binding is not None:
+                if not isinstance(binding, dict) or (
+                    binding.get("widget_name"), binding.get("parameter_name")
+                ) not in binding_pairs:
+                    errors.append(f"step {number} references unknown UI parameter binding")
+            target_mode = item.get("target_value_mode")
+            if target_mode not in (None, "set", "invert", "node_reference", "runtime_value"):
+                errors.append(f"step {number} has invalid target_value_mode {target_mode!r}")
+            category = item.get("slicer_op_category")
+            if category is not None and category not in allowed_categories:
+                errors.append(f"step {number} references unknown Slicer category {category!r}")
+            kind = item.get("interaction_kind", "none")
+            if kind not in allowed_kinds:
+                errors.append(f"step {number} has invalid interaction_kind {kind!r}")
+            node_class = item.get("node_class")
+            if node_class is not None and node_class not in allowed_classes:
+                errors.append(f"step {number} references unknown node_class {node_class!r}")
+            intents = item.get("operation_intents", [])
+            if not isinstance(intents, list) or any(
+                intent not in allowed_intents for intent in intents
+            ):
+                errors.append(f"step {number} contains an unknown operation intent")
+            elif any(
+                intent in ("extension_parameter_update", "extension_node_reference_update")
+                for intent in intents
+            ) and not isinstance(binding, dict):
+                errors.append(f"step {number} parameter update intent requires a UI binding")
+            node_roles = item.get("node_roles", [])
+            if not isinstance(node_roles, list):
+                errors.append(f"step {number} node_roles must be a list")
+            else:
+                for role in node_roles:
+                    if not isinstance(role, dict):
+                        errors.append(f"step {number} contains an invalid node role")
+                        continue
+                    role_class = role.get("node_class")
+                    role_parameter = role.get("parameter_name")
+                    if role.get("role_kind") not in allowed_role_kinds:
+                        errors.append(f"step {number} node role uses unknown role_kind")
+                    if role_class and role_class not in allowed_classes:
+                        errors.append(f"step {number} node role uses unknown node_class")
+                    if role_parameter and role_parameter not in allowed_parameters:
+                        errors.append(f"step {number} node role uses unknown parameter_name")
+            if expected[number]["operation_type"] == "user_choice":
+                choice = item.get("choice")
+                if not isinstance(choice, dict) or not _text_or_empty(choice.get("question")):
+                    errors.append(f"step {number} user_choice requires a choice question")
+                elif not _text_or_empty(choice.get("parameter_name")):
+                    errors.append(f"step {number} user_choice requires parameter_name")
+                elif not isinstance(choice.get("choices", []), list):
+                    errors.append(f"step {number} user_choice choices must be a list")
+
+        repeats = result.get("repeat_blocks", [])
+        if not isinstance(repeats, list):
+            errors.append("repeat_blocks must be a list")
+            repeats = []
+        used = set()
+        repeat_ids = set()
+        ordered_numbers = sorted(expected)
+        for index, block in enumerate(repeats):
+            label = f"repeat_blocks[{index}]"
+            if not isinstance(block, dict):
+                errors.append(f"{label} must be an object")
+                continue
+            repeat_id = _text_or_empty(block.get("repeat_id"))
+            if not repeat_id or repeat_id in repeat_ids:
+                errors.append(f"{label} requires a unique repeat_id")
+            repeat_ids.add(repeat_id)
+            body = block.get("body_steps")
+            if not isinstance(body, list) or not body:
+                errors.append(f"{label} requires body_steps")
+                continue
+            body_numbers = [_int_or_none(value) for value in body]
+            if any(value not in expected for value in body_numbers):
+                errors.append(f"{label} references unknown body step")
+                continue
+            positions = [ordered_numbers.index(value) for value in body_numbers]
+            if positions != list(range(min(positions), max(positions) + 1)):
+                errors.append(f"{label} body_steps must be ordered and contiguous")
+            if used.intersection(body_numbers):
+                errors.append(f"{label} overlaps another repeat block")
+            used.update(body_numbers)
+            controller = block.get("controller")
+            if not isinstance(controller, dict):
+                errors.append(f"{label} requires controller")
+                continue
+            kind = controller.get("kind")
+            if kind == "count":
+                source = _int_or_none(controller.get("source_step"))
+                if (
+                    source not in expected
+                    or expected[source]["operation_type"] != "user_choice"
+                    or source >= body_numbers[0]
+                ):
+                    errors.append(f"{label} count source_step must be a preceding user_choice")
+            elif kind in ("until_choice", "while_choice"):
+                if not _text_or_empty(controller.get("prompt")):
+                    errors.append(f"{label} condition controller requires prompt")
+                if not isinstance(controller.get("exit_value"), bool):
+                    errors.append(f"{label} condition controller requires boolean exit_value")
+            else:
+                errors.append(f"{label} has invalid controller kind {kind!r}")
+            if block.get("confidence") not in ("high", "medium"):
+                errors.append(f"{label} requires medium or high confidence")
+        return errors
+
+    def _stage_map_from_semantic_result(
+        self, result: Dict[str, Any], cookbook_def, logic_analysis: Dict
+    ) -> Dict[str, Any]:
+        """Convert validated semantic output to the existing stage-map contract."""
+        raw_methods = logic_analysis.get("methods", []) or []
+        all_methods = {
+            item["name"]: item for item in raw_methods
+            if isinstance(item, dict) and item.get("name")
+        }
+        semantic_steps = {
+            int(item["step_number"]): item for item in result["steps"]
+        }
+        stages = []
+        for cb_step in cookbook_def.steps:
+            semantic = semantic_steps[cb_step.step_number]
+            op_type = cb_step.operation_type
+            choice = semantic.get("choice") or {}
+            semantic_binding = semantic.get("ui_parameter_binding")
+            resolved_binding = None
+            if isinstance(semantic_binding, dict):
+                source_binding = (
+                    getattr(self, "_ui_parameter_bindings", {}) or {}
+                ).get(semantic_binding.get("widget_name"), {})
+                role = next((
+                    item for item in source_binding.get("roles", []) or []
+                    if item.get("parameter_name") == semantic_binding.get("parameter_name")
+                ), {})
+                resolved_binding = {
+                    "widget_name": semantic_binding.get("widget_name"),
+                    "widget_class": source_binding.get("widget_class", ""),
+                    "ui_text": source_binding.get("ui_text", ""),
+                    "properties": source_binding.get("properties", {}),
+                    "role": role,
+                }
+            operation_intents = semantic.get("operation_intents", [])
+            node_roles = [
+                {**role, "step_id": f"cb_step_{cb_step.step_number}"}
+                for role in semantic.get("node_roles", [])
+            ]
+            sub_op = {
+                "op_type": op_type,
+                "operation_type": op_type,
+                "description": _text_or_empty(semantic.get("semantic_intent")) or cb_step.description,
+                "extension_method_hint": semantic.get("extension_method_hint"),
+                "extension_function_hint": semantic.get("extension_function_hint"),
+                "widget_name": semantic.get("widget_name"),
+                "ui_parameter_binding": resolved_binding,
+                "target_value": semantic.get("target_value"),
+                "target_value_mode": semantic.get("target_value_mode"),
+                "slicer_op_category": semantic.get("slicer_op_category"),
+                "slicer_api_keywords": _text_list(semantic.get("slicer_api_keywords", [])),
+                "interaction_kind": semantic.get("interaction_kind") or "none",
+                "interaction_type": semantic.get("interaction_type"),
+                "node_class": semantic.get("node_class"),
+                "placement_instructions": semantic.get("placement_instructions"),
+                "min_control_points": 0,
+                "is_optional": bool(semantic.get("is_optional")),
+                "operation_intents": operation_intents,
+                "node_roles": node_roles,
+                "confidence": semantic.get("confidence"),
+                "evidence_type": "llm_semantic_decomposition",
+                "evidence_id": ",".join(_text_list(semantic.get("evidence_ids", []))),
+            }
+            if len(operation_intents) == 1:
+                sub_op["operation_intent"] = operation_intents[0]
+            if resolved_binding:
+                role = resolved_binding.get("role", {})
+                sub_op["parameter_name"] = role.get("parameter_name", "")
+                sub_op["value_property"] = role.get("value_property", "")
+            if op_type == "user_choice":
+                sub_op.update({
+                    "question": choice.get("question", cb_step.description),
+                    "choices": choice.get("choices", []),
+                    "parameter_name": choice.get(
+                        "parameter_name", f"choice_step_{cb_step.step_number}"
+                    ),
+                    "default_value": choice.get("default_value"),
+                    "value_kind": choice.get("value_kind", ""),
+                })
+            method_name = semantic.get("extension_method_hint")
+            method_details = [all_methods[method_name]] if method_name else []
+            stages.append({
+                "stage_index": cb_step.step_number - 1,
+                "stage_name": _text_or_empty(semantic.get("semantic_intent"))[:80]
+                or f"Cookbook step {cb_step.step_number}",
+                "methods": [method_name] if method_name else [],
+                "method_details": method_details,
+                "depends_on": (
+                    [f"cb_step_{number}" for number in cb_step.depends_on]
+                    if cb_step.depends_on
+                    else ([f"cb_step_{cb_step.step_number - 1}"] if cb_step.step_number > 1 else [])
+                ),
+                "input_nodes": [],
+                "output_nodes": [],
+                "op_type": op_type,
+                "operation_type": op_type,
+                "cookbook_step": cb_step,
+                "sub_operations": [sub_op],
+                "is_optional": bool(semantic.get("is_optional")),
+            })
+
+        step_numbers = [step.step_number for step in cookbook_def.steps]
+        repeat_blocks = []
+        for block in result.get("repeat_blocks", []):
+            body_numbers = [int(value) for value in block["body_steps"]]
+            terminal_position = step_numbers.index(body_numbers[-1])
+            controller = dict(block["controller"])
+            source = _int_or_none(controller.get("source_step"))
+            controller["source_step"] = f"cb_step_{source}" if source is not None else ""
+            repeat_blocks.append({
+                "repeat_id": block["repeat_id"],
+                "body_steps": [f"cb_step_{number}" for number in body_numbers],
+                "entry_step": f"cb_step_{body_numbers[0]}",
+                "terminal_step": f"cb_step_{body_numbers[-1]}",
+                "exit_step": (
+                    f"cb_step_{step_numbers[terminal_position + 1]}"
+                    if terminal_position + 1 < len(step_numbers) else ""
+                ),
+                "controller": controller,
+                "max_iterations": 100 if controller["kind"] == "count" else 20,
+                "inference": {
+                    "source": "llm_semantic_decomposition",
+                    "evidence_step_ids": block.get("evidence_step_ids", []),
+                    "confidence": block.get("confidence"),
+                },
+            })
+        return {
+            "stages": stages,
+            "stage_count": len(stages),
+            "source": "llm_semantic_decomposition",
+            "repeat_blocks": repeat_blocks,
+        }
+
+    def _build_stage_map_from_typed_cookbook(
+        self, cookbook_def, logic_analysis: Dict
+    ) -> Dict:
+        """Build stage map from explicit cookbook operation_type annotations."""
+        raw_methods = logic_analysis.get("methods", [])
+        if isinstance(raw_methods, list):
+            all_methods = {
+                m["name"]: m
+                for m in raw_methods
+                if isinstance(m, dict) and m.get("name")
+            }
+        else:
+            all_methods = raw_methods if isinstance(raw_methods, dict) else {}
+        method_names = list(all_methods.keys())
+        stages = []
+        for cb_step in cookbook_def.steps:
+            step_num = cb_step.step_number
+            op_type = _operation_type_for_step({"operation_type": cb_step.operation_type})
+            if op_type not in CANONICAL_OPERATION_TYPES:
+                raise RuntimeError(
+                    f"Cookbook step {step_num} has unsupported operation type '{op_type}'."
                 )
-        except Exception as e:
-            logger.warning(
-                "Stage 4 LLM decomposition failed (%s), falling back to heuristics", e
+            desc = _text_or_empty(cb_step.description)
+            desc_lower = desc.lower()
+            evidence = self._collect_step_evidence(
+                desc, method_names, cookbook_def.extension_name
             )
-            decomposition = None
+            sub_op = {
+                "op_type": op_type,
+                "operation_type": op_type,
+                "description": desc[:300],
+                "extension_method_hint": None,
+                "slicer_api_keywords": [],
+                "interaction_type": None,
+                "node_class": None,
+                "placement_instructions": None,
+                "min_control_points": 0,
+                "evidence_type": "cookbook_annotation",
+                "evidence_id": op_type,
+                "confidence": "high",
+                "interaction_kind": "none",
+                "slicer_op_category": None,
+                "is_optional": self._is_optional_cookbook_step(desc),
+            }
 
-        # Validate LLM output structure
-        if (
-            not decomposition
-            or not isinstance(decomposition.get("steps"), list)
-            or len(decomposition["steps"]) != len(cookbook_def.steps)
-        ):
-            logger.warning(
-                "Stage 4 LLM decomposition returned invalid structure "
-                "(got %d steps, expected %d), falling back to keyword heuristics",
-                len(decomposition.get("steps", [])) if decomposition and isinstance(decomposition, dict) else 0,
-                len(cookbook_def.steps),
-            )
-            return self._cookbook_build_stage_map(cookbook_def, logic_analysis)
+            final_state = _infer_final_state_intent(desc)
+            ui_param_candidates = evidence.get("ui_parameter_candidates") or []
+            if op_type == "extension_op":
+                self._enrich_typed_extension_op(
+                    sub_op, desc_lower, method_names, evidence, final_state, desc
+                )
+            elif op_type == "slicer_op":
+                category = self._infer_slicer_op_category(desc, evidence) or "generic_slicer_api"
+                sub_op["slicer_op_category"] = category
+                sub_op["slicer_api_keywords"] = [category]
+                sub_op["evidence_type"] = "slicer_core"
+                sub_op["evidence_id"] = category
+            elif op_type == "user_interaction":
+                self._enrich_typed_user_interaction(sub_op, desc, evidence)
+            elif op_type == "user_choice":
+                self._enrich_typed_user_choice(
+                    sub_op, cb_step, evidence, ui_param_candidates, final_state
+                )
 
-        # Convert LLM decomposition into stage_map format
-        return self._build_stage_map_from_decomposition(
-            decomposition, cookbook_def, logic_analysis
+            stage_methods = []
+            method_hint = sub_op.get("extension_method_hint")
+            if op_type == "extension_op" and method_hint:
+                m_info = all_methods.get(method_hint, {})
+                stage_methods.append({
+                    "name": method_hint,
+                    "purpose": sub_op["description"],
+                    "parameters": m_info.get("parameters", []),
+                    "return_value": m_info.get("return_value"),
+                    "state_reads": m_info.get("state_reads", []),
+                    "state_writes": m_info.get("state_writes", []),
+                    "calls_addnode": m_info.get("calls_addnode", False),
+                    "adds_output_to_scene": m_info.get("adds_output_to_scene", False),
+                    "side_effects": m_info.get("side_effects", []),
+                })
+            stage_method_names = [m["name"] for m in stage_methods]
+            stages.append({
+                "stage_index": step_num - 1,
+                "stage_name": self._infer_stage_name(
+                    stage_method_names, step_num - 1, len(cookbook_def.steps)
+                ),
+                "methods": stage_method_names,
+                "method_details": stage_methods,
+                "depends_on": (
+                    [f"cb_step_{d}" for d in cb_step.depends_on]
+                    if cb_step.depends_on
+                    else ([f"cb_step_{step_num - 1}"] if step_num > 1 else [])
+                ),
+                "input_nodes": [],
+                "output_nodes": [],
+                "op_type": op_type,
+                "operation_type": op_type,
+                "cookbook_step": cb_step,
+                "sub_operations": [sub_op],
+                "is_optional": bool(sub_op.get("is_optional")),
+            })
+
+        self.on_progress(
+            4, "Cookbook Stage Map",
+            f"Built {len(stages)} typed cookbook steps"
         )
+        return {
+            "stages": stages,
+            "stage_count": len(stages),
+            "source": "typed_cookbook",
+        }
+
+    @staticmethod
+    def _is_optional_cookbook_step(description: str) -> bool:
+        desc = _text_or_empty(description).lower()
+        return any(token in desc for token in ("optional", "if desired", "if needed"))
+
+    def _enrich_typed_extension_op(
+        self,
+        sub_op: Dict[str, Any],
+        desc_lower: str,
+        method_names: List[str],
+        evidence: Dict[str, Any],
+        final_state: Dict[str, Any],
+        state_text: str,
+    ) -> None:
+        ui_candidates = evidence.get("ui_parameter_candidates") or []
+        if ui_candidates and self._should_apply_ui_parameter_candidate(
+            ui_candidates[0], final_state, state_text,
+        ):
+            candidate = ui_candidates[0]
+            role = candidate.get("role", {}) or {}
+            sub_op["operation_intent"] = self._ui_binding_operation_intent(candidate)
+            sub_op["parameter_name"] = role.get("parameter_name", "")
+            sub_op["value_property"] = role.get("value_property", "")
+            if sub_op["operation_intent"] == "extension_node_reference_update":
+                sub_op["target_value"] = None
+                sub_op["target_value_mode"] = "node_reference"
+            else:
+                sub_op["target_value"] = final_state.get("state")
+                sub_op["target_value_mode"] = final_state.get("mode")
+            sub_op["ui_parameter_binding"] = candidate
+            sub_op["evidence_type"] = "ui_parameter_binding"
+            sub_op["evidence_id"] = candidate.get("widget_name")
+            return
+        if evidence.get("widget_candidates"):
+            widget = evidence["widget_candidates"][0]
+            logic_methods = widget.get("logic_methods") or []
+            if logic_methods:
+                sub_op["extension_method_hint"] = logic_methods[0]
+            sub_op["evidence_type"] = "widget_connection"
+            sub_op["evidence_id"] = widget.get("button_widget_name")
+            return
+        matched = self._match_description_to_method(desc_lower, method_names)
+        if matched:
+            sub_op["extension_method_hint"] = matched
+            sub_op["evidence_type"] = "logic_method"
+            sub_op["evidence_id"] = matched
+            return
+        if evidence.get("ui_control_candidates"):
+            sub_op["evidence_type"] = "ui_control"
+            sub_op["evidence_id"] = evidence["ui_control_candidates"][0].get("control")
+            sub_op["confidence"] = "medium"
+
+    def _enrich_typed_user_interaction(
+        self,
+        sub_op: Dict[str, Any],
+        description: str,
+        evidence: Dict[str, Any],
+    ) -> None:
+        interaction = (evidence.get("interaction_candidates") or [{}])[0]
+        text = _text_or_empty(description).lower()
+        node_class = interaction.get("node_class", "")
+        interaction_type = interaction.get("interaction_type", "")
+        adjusts_existing = (
+            any(word in text for word in ("drag", "adjust", "rotate", "translate"))
+            and not any(word in text for word in ("add", "create", "draw", "place"))
+        )
+        if adjusts_existing:
+            interaction = {}
+            node_class = ""
+            interaction_type = "generic"
+        if not node_class:
+            if "curve" in text:
+                node_class, interaction_type = "vtkMRMLMarkupsCurveNode", "curve"
+            elif "plane" in text:
+                node_class, interaction_type = "vtkMRMLMarkupsPlaneNode", "plane"
+            elif "line" in text:
+                node_class, interaction_type = "vtkMRMLMarkupsLineNode", "line"
+            elif "point" in text or "fiducial" in text:
+                node_class, interaction_type = "vtkMRMLMarkupsFiducialNode", "fiducial"
+            elif not adjusts_existing and any(word in text for word in ("drag", "adjust", "position", "rotate", "translate")):
+                node_class, interaction_type = "vtkMRMLCrosshairNode", "generic"
+        sub_op["interaction_kind"] = (
+            interaction.get("interaction_kind")
+            or (
+                "view_adjustment"
+                if adjusts_existing or node_class == "vtkMRMLCrosshairNode"
+                else "markup_placement"
+            )
+        )
+        sub_op["interaction_type"] = interaction_type or _derive_interaction_type(node_class)
+        sub_op["node_class"] = node_class
+        sub_op["placement_instructions"] = description
+        sub_op["evidence_type"] = "viewport_action"
+        sub_op["evidence_id"] = sub_op["interaction_type"]
+
+    def _enrich_typed_user_choice(
+        self,
+        sub_op: Dict[str, Any],
+        cb_step,
+        evidence: Dict[str, Any],
+        ui_param_candidates: List[Dict[str, Any]],
+        final_state: Dict[str, Any],
+    ) -> None:
+        desc = _text_or_empty(cb_step.description)
+        text = desc.lower()
+        sub_op["question"] = desc
+        sub_op["choices"] = []
+        sub_op["parameter_name"] = f"choice_step_{cb_step.step_number}"
+        sub_op["default_value"] = None
+        if ui_param_candidates:
+            candidate = ui_param_candidates[0]
+            role = candidate.get("role", {}) or {}
+            parameter_name = role.get("parameter_name", "")
+            if parameter_name:
+                sub_op["parameter_name"] = parameter_name
+            sub_op["value_property"] = role.get("value_property", "")
+            sub_op["ui_parameter_binding"] = candidate
+            sub_op["operation_intent"] = self._ui_binding_operation_intent(candidate)
+            if sub_op.get("value_property") == "checked" or "right" in text or "left" in text:
+                sub_op["choices"] = [
+                    {"label": "Yes", "value": True},
+                    {"label": "No", "value": False},
+                ]
+                sub_op["default_value"] = final_state.get("state")
+        if not sub_op["choices"] and ("left" in text and "right" in text):
+            sub_op["choices"] = [
+                {"label": "Left", "value": "left"},
+                {"label": "Right", "value": "right"},
+            ]
+            sub_op["parameter_name"] = (
+                sub_op["parameter_name"]
+                if sub_op["parameter_name"] != f"choice_step_{cb_step.step_number}"
+                else "side"
+            )
+        if any(token in text for token in ("how many", "number of", "count")):
+            if sub_op["parameter_name"].startswith("choice_step_"):
+                sub_op["parameter_name"] = f"number_step_{cb_step.step_number}"
+        sub_op["evidence_type"] = "user_context"
+        sub_op["evidence_id"] = sub_op["parameter_name"]
 
     def _build_stage_map_from_decomposition(
         self, decomposition: Dict, cookbook_def, logic_analysis: Dict
@@ -600,10 +1261,52 @@ class AnalyzerStage4DecompositionMixin:
             # but source/UI/Slicer-core evidence decides whether it can stand.
             for so in sub_ops:
                 desc_lower = _text_or_empty(so.get("description")).lower()
+                ui_param_candidates = step_evidence.get("ui_parameter_candidates") or []
+                final_state = _infer_final_state_intent(
+                    " ".join([
+                        _text_or_empty(cb_step.description),
+                        _text_or_empty(so.get("description")),
+                    ])
+                )
+                state_text = " ".join([
+                    _text_or_empty(cb_step.description),
+                    _text_or_empty(so.get("description")),
+                ])
+                if (
+                    ui_param_candidates
+                    and not (
+                        so["op_type"] == "slicer_op"
+                        and self._evidence_has(step_evidence, "slicer_core_candidates")
+                    )
+                    and self._should_apply_ui_parameter_candidate(
+                        ui_param_candidates[0], final_state, state_text
+                    )
+                    and so["op_type"] not in ("user_choice", "user_interaction")
+                ):
+                    candidate = ui_param_candidates[0]
+                    role = candidate.get("role", {}) or {}
+                    so["op_type"] = "extension_op"
+                    so["extension_method_hint"] = None
+                    so["slicer_api_keywords"] = []
+                    so["evidence_type"] = "ui_parameter_binding"
+                    so["evidence_id"] = candidate.get("widget_name")
+                    so["confidence"] = "high"
+                    so["operation_intent"] = self._ui_binding_operation_intent(candidate)
+                    so["parameter_name"] = role.get("parameter_name", "")
+                    so["value_property"] = role.get("value_property", "")
+                    if so["operation_intent"] == "extension_node_reference_update":
+                        so["target_value"] = None
+                        so["target_value_mode"] = "node_reference"
+                    else:
+                        so["target_value"] = final_state.get("state")
+                        so["target_value_mode"] = final_state.get("mode")
+                    so["ui_parameter_binding"] = candidate
+
                 if (
                     so["op_type"] not in ("user_choice", "user_interaction")
                     and self._evidence_has(step_evidence, "choice_candidates")
                     and not self._evidence_has(step_evidence, "widget_candidates")
+                    and not self._evidence_has(step_evidence, "ui_parameter_candidates")
                     and not so.get("extension_method_hint")
                 ):
                     so["op_type"] = "user_choice"
@@ -646,7 +1349,34 @@ class AnalyzerStage4DecompositionMixin:
                         so["confidence"] = "medium"
 
                 if so["op_type"] == "extension_op":
-                    if so.get("extension_method_hint"):
+                    if so.get("operation_intent") == "extension_parameter_update":
+                        so["evidence_type"] = so.get("evidence_type") or "ui_parameter_binding"
+                        so["confidence"] = "high"
+                    elif (
+                        self._evidence_has(step_evidence, "ui_parameter_candidates")
+                        and self._should_apply_ui_parameter_candidate(
+                            step_evidence["ui_parameter_candidates"][0],
+                            final_state,
+                            state_text,
+                        )
+                    ):
+                        candidate = step_evidence["ui_parameter_candidates"][0]
+                        role = candidate.get("role", {}) or {}
+                        so["extension_method_hint"] = None
+                        so["operation_intent"] = self._ui_binding_operation_intent(candidate)
+                        so["parameter_name"] = role.get("parameter_name", "")
+                        so["value_property"] = role.get("value_property", "")
+                        if so["operation_intent"] == "extension_node_reference_update":
+                            so["target_value"] = None
+                            so["target_value_mode"] = "node_reference"
+                        else:
+                            so["target_value"] = final_state.get("state")
+                            so["target_value_mode"] = final_state.get("mode")
+                        so["ui_parameter_binding"] = candidate
+                        so["evidence_type"] = "ui_parameter_binding"
+                        so["evidence_id"] = candidate.get("widget_name")
+                        so["confidence"] = "high"
+                    elif so.get("extension_method_hint"):
                         so["evidence_type"] = "logic_method"
                         so["evidence_id"] = so["extension_method_hint"]
                         so["confidence"] = "high"
@@ -678,6 +1408,7 @@ class AnalyzerStage4DecompositionMixin:
                         so.get("description", ""), step_evidence
                     )
                     if self._evidence_has(step_evidence, "slicer_core_candidates") and category:
+                        self._clear_ui_parameter_fields(so)
                         so["slicer_op_category"] = category
                         so["evidence_type"] = "slicer_core"
                         so["evidence_id"] = category
@@ -889,6 +1620,7 @@ class AnalyzerStage4DecompositionMixin:
                     so["evidence_type"] = "slicer_core"
                     so["evidence_id"] = category
                     so["confidence"] = "high"
+                    self._clear_ui_parameter_fields(so)
                     logger.info(
                         "[Stage 4] Reclassified step %d %s → slicer_op "
                         "(Slicer core UI pattern '%s'): %s",

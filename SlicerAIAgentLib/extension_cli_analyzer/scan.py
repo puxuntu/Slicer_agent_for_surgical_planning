@@ -307,7 +307,13 @@ class AnalyzerScanMixin:
     # ================================================================
 
     def _extract_widget_connections(self, widget_source: str) -> List[Dict]:
-        """Extract button→handler→logic_method mappings from Widget class source."""
+        """Extract widget signal→handler→logic_method mappings from Widget source.
+
+        This intentionally covers more than push-button clicks.  Many Slicer
+        scripted extensions persist checkbox/toolbutton/spinbox changes through
+        a shared updateParameterNodeFromGUI handler, and those controls are
+        workflow operations even when no Logic method is called directly.
+        """
         try:
             tree = ast.parse(widget_source)
         except SyntaxError:
@@ -324,7 +330,7 @@ class AnalyzerScanMixin:
         return connections
 
     def _find_clicked_connections(self, setup_node, class_node) -> List[Dict]:
-        """Find .clicked.connect(self.XXX) patterns in setup() method."""
+        """Find common Qt signal connect(self.XXX) patterns in setup()."""
         connections = []
         # Build handler→logic_method map from all methods in the class
         handler_logic_map = {}
@@ -345,11 +351,19 @@ class AnalyzerScanMixin:
 
             button_name = ""
             handler_name = ""
+            signal_name = ""
 
             # Pattern 1: something.clicked.connect(self.handlerMethod)
+            # Also supports stateChanged/valueChanged/currentTextChanged/etc.
             receiver = func.value
-            if isinstance(receiver, ast.Attribute) and receiver.attr == "clicked":
+            _SUPPORTED_SIGNALS = {
+                "clicked", "toggled", "stateChanged", "valueChanged",
+                "currentTextChanged", "currentIndexChanged", "textActivated",
+                "checkBoxToggled", "currentNodeChanged",
+            }
+            if isinstance(receiver, ast.Attribute) and receiver.attr in _SUPPORTED_SIGNALS:
                 button_name = self._get_attribute_chain(receiver.value)
+                signal_name = receiver.attr
                 if stmt.args:
                     arg = stmt.args[0]
                     if isinstance(arg, ast.Attribute) and isinstance(arg.value, ast.Name):
@@ -357,13 +371,14 @@ class AnalyzerScanMixin:
                             handler_name = arg.attr
 
             # Pattern 2: something.connect('clicked(bool)', self.handlerMethod)
-            #            something.connect("clicked(bool)", self.handlerMethod)
+            #            something.connect("stateChanged(int)", self.handlerMethod)
             if not button_name and stmt.args:
                 first_arg = stmt.args[0]
                 if (isinstance(first_arg, ast.Constant)
                         and isinstance(first_arg.value, str)
-                        and "clicked" in first_arg.value):
+                        and any(sig in first_arg.value for sig in _SUPPORTED_SIGNALS)):
                     button_name = self._get_attribute_chain(func.value)
+                    signal_name = first_arg.value
                     if len(stmt.args) > 1:
                         second_arg = stmt.args[1]
                         if isinstance(second_arg, ast.Attribute) and isinstance(second_arg.value, ast.Name):
@@ -374,6 +389,7 @@ class AnalyzerScanMixin:
                 logic_methods = handler_logic_map.get(handler_name, [])
                 connections.append({
                     "button_widget_name": button_name,
+                    "signal": signal_name,
                     "handler_method": handler_name,
                     "logic_methods": logic_methods,
                 })

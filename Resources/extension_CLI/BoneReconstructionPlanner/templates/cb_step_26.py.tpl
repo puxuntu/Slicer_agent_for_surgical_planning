@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: Tick the "Automatic mandibular planes positioning for maximum bones contact area" checkbox. ---
+# --- BoneReconstructionPlanner: In the same "Mandible planes" row, toggle on the axes-icon tool button to show the plane interaction handles. ---
 import slicer
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
@@ -9,10 +9,10 @@ except NameError:
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
-parameterNode.SetParameter('mandiblePlanesPositioningForMaximumBoneContact', 'True')
+parameterNode.SetParameter('showMandiblePlanesInteractionHandles', 'True')
 try:
     parameterNode.Modified()
 except Exception:
     pass
 _bonereconstructionplanner_logic = logic
-print("[BoneReconstructionPlanner] Step 'cb_step_22' completed.")
+print("[BoneReconstructionPlanner] Step 'cb_step_26' completed.")

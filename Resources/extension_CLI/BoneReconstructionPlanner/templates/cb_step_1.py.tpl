@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: Tick the "Automatic mandibular planes positioning for maximum bones contact area" checkbox. ---
+# --- BoneReconstructionPlanner: If the fibula is from the right leg, tick the "Right side leg" checkbox. ---
 import slicer
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
@@ -9,10 +9,11 @@ except NameError:
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
-parameterNode.SetParameter('mandiblePlanesPositioningForMaximumBoneContact', 'True')
+# Final state was not explicit; apply source-derived/default truthy state for rightSideLegFibula
+parameterNode.SetParameter('rightSideLegFibula', 'True')
 try:
     parameterNode.Modified()
 except Exception:
     pass
 _bonereconstructionplanner_logic = logic
-print("[BoneReconstructionPlanner] Step 'cb_step_22' completed.")
+print("[BoneReconstructionPlanner] Step 'cb_step_1' completed.")

@@ -1,2 +1,3 @@
-# Change layout to Conventional
-slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)
+# Set layout to Conventional
+layoutManager = slicer.app.layoutManager()
+layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)

@@ -1,7 +1,7 @@
 [
   {
     "attempt": 1,
-    "timestamp": "2026-06-04T04:25:58.115879",
+    "timestamp": "2026-06-10T05:46:09.945190",
     "stage": "initial_generation",
     "trigger": "user_request",
     "analysis_stages_completed": [
@@ -19,255 +19,19 @@
       9
     ],
     "api_probe_result": {
-      "probed": 46,
-      "failures": [
-        {
-          "chain": "vtk.vtkIdList",
-          "receiver_type": "NoneType",
-          "receiver_is_none": true,
-          "available_methods": []
-        },
-        {
-          "chain": "vtk.vtkIdList().GetNumberOfIds",
-          "error": "AttributeError: 'NoneType' object has no attribute 'vtkIdList'"
-        },
-        {
-          "chain": "vtk.vtkIdList().GetId",
-          "error": "AttributeError: 'NoneType' object has no attribute 'vtkIdList'"
-        }
-      ],
-      "revised": 1,
-      "unresolved_failures": [],
-      "syntax_skipped": [
-        {
-          "template": "templates/cb_step_18_pre.py.tpl",
-          "error": "unexpected indent (<unknown>, line 2)"
-        },
-        {
-          "template": "templates/cb_step_18_post.py.tpl",
-          "error": "unexpected indent (<unknown>, line 2)"
-        }
-      ]
-    },
-    "validation_result": {
-      "valid": false,
-      "errors": [
-        "templates/cb_step_18_pre.py.tpl: Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code",
-        "templates/cb_step_18_post.py.tpl: Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code; Post-template references '_bonereconstructionplanner_cb_step_18_id' but pre-template does not assign it",
-        "templates/cb_step_22.py.tpl: Undefined variable: 'key'; Undefined variable: 'key'; Undefined variable: 'default_val'"
-      ],
-      "warnings": [
-        "templates/cb_step_19.py.tpl: Parameter 'fibulaCentroidX' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_19.py.tpl: Parameter 'fibulaCentroidY' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_19.py.tpl: Parameter 'fibulaCentroidZ' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_19.py.tpl: Parameter 'mandibleCentroidX' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_19.py.tpl: Parameter 'mandibleCentroidY' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_19.py.tpl: Parameter 'mandibleCentroidZ' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_21.py.tpl: API chain 'vtk.vtkIdList' was flagged by live probe as potentially invalid",
-        "templates/cb_step_21.py.tpl: API chain 'vtk.vtkIdList().GetNumberOfIds' was flagged by live probe as potentially invalid",
-        "templates/cb_step_21.py.tpl: API chain 'vtk.vtkIdList().GetId' was flagged by live probe as potentially invalid",
-        "templates/cb_step_22.py.tpl: Parameter 'fibulaCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'fibulaCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'fibulaCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'initialSpace' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'mandibleCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'mandibleCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'mandibleCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'"
-      ],
-      "per_template": {
-        "templates/cb_step_5.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_6_slicer.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_7_slicer.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_8_slicer.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_9_slicer.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_10_pre.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_10_post.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_11.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_12_slicer.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_13_pre.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_13_post.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_14.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_15_slicer.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_17.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_18_pre.py.tpl": {
-          "valid": false,
-          "reason": "Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code",
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_18_post.py.tpl": {
-          "valid": false,
-          "reason": "Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code; Post-template references '_bonereconstructionplanner_cb_step_18_id' but pre-template does not assign it",
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_19.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [
-            "Parameter 'fibulaCentroidX' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'fibulaCentroidY' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'fibulaCentroidZ' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidX' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidY' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidZ' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'"
-          ],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_20_pre.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_20_post.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_21.py.tpl": {
-          "valid": true,
-          "reason": null,
-          "warnings": [
-            "API chain 'vtk.vtkIdList' was flagged by live probe as potentially invalid",
-            "API chain 'vtk.vtkIdList().GetNumberOfIds' was flagged by live probe as potentially invalid",
-            "API chain 'vtk.vtkIdList().GetId' was flagged by live probe as potentially invalid"
-          ],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        },
-        "templates/cb_step_22.py.tpl": {
-          "valid": false,
-          "reason": "Undefined variable: 'key'; Undefined variable: 'key'; Undefined variable: 'default_val'",
-          "warnings": [
-            "Parameter 'fibulaCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'fibulaCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'fibulaCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'initialSpace' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'"
-          ],
-          "requires_confirmation": false,
-          "destructive_ops": []
-        }
-      }
-    }
-  },
-  {
-    "attempt": 2,
-    "timestamp": "2026-06-04T04:27:26.664623",
-    "stage": "revision",
-    "trigger": "validation_failure",
-    "status": "validation_failed",
-    "error": "templates/cb_step_18_pre.py.tpl: Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code; templates/cb_step_18_post.py.tpl: Syntax error: unexpected indent (<unknown>, line 2); Syntax error in generated code; Post-template references '_bonereconstructionplanner_cb_step_18_id' but pre-template does not assign it; templates/cb_step_22.py.tpl: Undefined variable: 'key'; Undefined variable: 'key'; Undefined variable: 'default_val'",
-    "fix": "Fixed cb_step_18_pre.py.tpl and cb_step_18_post.py.tpl: merged multi-line description into single line to avoid unexpected indent syntax error, and ensured pre-template assigns _bonereconstructionplanner_cb_step_18_id correctly. Fixed cb_step_22.py.tpl: escaped curly braces in for loop variables (key, default_val) to prevent template engine from treating them as placeholders, resolving undefined variable errors.",
-    "api_probe_result": {
       "probed": 48,
       "failures": [
         {
-          "chain": "vtk.vtkIdList",
+          "chain": "slicer.mrmlScene.CreateNodeByClass('').GetDisplayNode",
           "receiver_type": "NoneType",
           "receiver_is_none": true,
           "available_methods": []
         },
         {
-          "chain": "vtk.vtkIdList().GetNumberOfIds",
-          "error": "AttributeError: 'NoneType' object has no attribute 'vtkIdList'"
-        },
-        {
-          "chain": "vtk.vtkIdList().GetId",
-          "error": "AttributeError: 'NoneType' object has no attribute 'vtkIdList'"
+          "chain": "slicer.mrmlScene.CreateNodeByClass('').GetID",
+          "receiver_type": "NoneType",
+          "receiver_is_none": true,
+          "available_methods": []
         }
       ],
       "revised": 1,
@@ -277,7 +41,7 @@
     "validation_result": {
       "valid": false,
       "errors": [
-        "templates/cb_step_22.py.tpl: Undefined variable: 'key'; Undefined variable: 'key'; Undefined variable: 'default_val'"
+        "templates/cb_step_24.py.tpl: Undefined variable: 'logging'; Undefined variable: 'logging'"
       ],
       "warnings": [
         "templates/cb_step_19.py.tpl: Parameter 'fibulaCentroidX' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
@@ -286,15 +50,43 @@
         "templates/cb_step_19.py.tpl: Parameter 'mandibleCentroidX' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
         "templates/cb_step_19.py.tpl: Parameter 'mandibleCentroidY' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
         "templates/cb_step_19.py.tpl: Parameter 'mandibleCentroidZ' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'fibulaCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'fibulaCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'fibulaCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'initialSpace' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'mandibleCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'mandibleCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'mandibleCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'"
+        "templates/cb_step_30.py.tpl: Parameter 'fibulaCentroidX' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'fibulaCentroidY' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'fibulaCentroidZ' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'initialSpace' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'mandibleCentroidX' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'mandibleCentroidY' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'mandibleCentroidZ' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'"
       ],
       "per_template": {
+        "templates/cb_step_1.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_2.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_3.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_4.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
         "templates/cb_step_5.py.tpl": {
           "valid": true,
           "reason": null,
@@ -356,7 +148,9 @@
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
-          "destructive_ops": []
+          "destructive_ops": [
+            "displayNode.RemoveAllViewNodeIDs"
+          ]
         },
         "templates/cb_step_13_pre.py.tpl": {
           "valid": true,
@@ -372,7 +166,7 @@
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_14.py.tpl": {
+        "templates/cb_step_14_slicer.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
@@ -443,17 +237,94 @@
           "destructive_ops": []
         },
         "templates/cb_step_22.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_23.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_24.py.tpl": {
           "valid": false,
-          "reason": "Undefined variable: 'key'; Undefined variable: 'key'; Undefined variable: 'default_val'",
+          "reason": "Undefined variable: 'logging'; Undefined variable: 'logging'",
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_25.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_26.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_27.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_28.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_29_pre.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_29_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_30.py.tpl": {
+          "valid": true,
+          "reason": null,
           "warnings": [
-            "Parameter 'fibulaCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'fibulaCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'fibulaCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'initialSpace' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'"
+            "Parameter 'fibulaCentroidX' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'fibulaCentroidY' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'fibulaCentroidZ' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'initialSpace' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'mandibleCentroidX' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'mandibleCentroidY' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'mandibleCentroidZ' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'"
           ],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_31.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_32.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         }
@@ -461,112 +332,16 @@
     }
   },
   {
-    "attempt": 3,
-    "timestamp": "2026-06-04T04:29:05.614599",
+    "attempt": 2,
+    "timestamp": "2026-06-10T05:48:47.264746",
     "stage": "revision",
     "trigger": "validation_failure",
-    "error": "templates/cb_step_22.py.tpl: Undefined variable: 'key'; Undefined variable: 'key'; Undefined variable: 'default_val'",
-    "fix": "Replaced the param_defaults dictionary and loop with explicit if/SetParameter calls for each parameter. The original loop used Python variables 'key' and 'default_val' that the template engine misinterpreted as undefined placeholders. Explicit calls eliminate these variable names and resolve the 'Undefined variable' errors.",
+    "error": "templates/cb_step_24.py.tpl: Undefined variable: 'logging'; Undefined variable: 'logging'",
+    "fix": "Fixed 'Undefined variable: logging' error in cb_step_24.py.tpl by adding import logging. Also corrected method name from setDefaultNodes to setDefaultParameters in cb_step_21.py.tpl, and replaced placeholder syntax (e.g., {state: True}) with literal values in cb_step_7_slicer.py.tpl and cb_step_9_slicer.py.tpl to avoid runtime errors.",
     "api_probe_result": {
-      "probed": 47,
-      "failures": [
-        {
-          "chain": "slicer.mrmlScene.GetSubjectHierarchyNode().GetItemChild",
-          "receiver_type": "vtkMRMLSubjectHierarchyNode",
-          "receiver_is_none": false,
-          "available_methods": [
-            "AddAndObserveNodeReferenceID",
-            "AddNodeReferenceID",
-            "AddNodeReferenceRole",
-            "AddObserver",
-            "AddToSceneOff",
-            "AddToSceneOn",
-            "BreakOnError",
-            "ClearNodeReferenceProperties",
-            "ClearNthNodeReferenceProperties",
-            "ContentModifiedObserveDisabled",
-            "ContentModifiedObserveEnabled",
-            "ContentModifiedObserveType",
-            "ContentModifiedObserveUndefined",
-            "Copy",
-            "CopyContent",
-            "CopyReferences",
-            "CopyWithScene",
-            "CreateFolderItem",
-            "CreateHierarchyItem",
-            "CreateItem",
-            "CreateNodeInstance",
-            "CreateStudyItem",
-            "CreateSubjectItem",
-            "DebugOff",
-            "DebugOn",
-            "DeserializeUIDList",
-            "DisableModifiedEventOff",
-            "DisableModifiedEventOn",
-            "EndModify",
-            "FastDelete",
-            "GenerateUniqueItemName",
-            "GetAddToScene",
-            "GetAddressAsString",
-            "GetAttribute",
-            "GetAttributeFromItemAncestor",
-            "GetAttributeNames",
-            "GetClassName",
-            "GetCommand",
-            "GetContentModifiedEvents",
-            "GetCustomModifiedEventPending"
-          ]
-        },
-        {
-          "chain": "slicer.mrmlScene.GetSubjectHierarchyNode().HasChildItems",
-          "receiver_type": "vtkMRMLSubjectHierarchyNode",
-          "receiver_is_none": false,
-          "available_methods": [
-            "AddAndObserveNodeReferenceID",
-            "AddNodeReferenceID",
-            "AddNodeReferenceRole",
-            "AddObserver",
-            "AddToSceneOff",
-            "AddToSceneOn",
-            "BreakOnError",
-            "ClearNodeReferenceProperties",
-            "ClearNthNodeReferenceProperties",
-            "ContentModifiedObserveDisabled",
-            "ContentModifiedObserveEnabled",
-            "ContentModifiedObserveType",
-            "ContentModifiedObserveUndefined",
-            "Copy",
-            "CopyContent",
-            "CopyReferences",
-            "CopyWithScene",
-            "CreateFolderItem",
-            "CreateHierarchyItem",
-            "CreateItem",
-            "CreateNodeInstance",
-            "CreateStudyItem",
-            "CreateSubjectItem",
-            "DebugOff",
-            "DebugOn",
-            "DeserializeUIDList",
-            "DisableModifiedEventOff",
-            "DisableModifiedEventOn",
-            "EndModify",
-            "FastDelete",
-            "GenerateUniqueItemName",
-            "GetAddToScene",
-            "GetAddressAsString",
-            "GetAttribute",
-            "GetAttributeFromItemAncestor",
-            "GetAttributeNames",
-            "GetClassName",
-            "GetCommand",
-            "GetContentModifiedEvents",
-            "GetCustomModifiedEventPending"
-          ]
-        }
-      ],
-      "revised": 1,
-      "unresolved_failures": [],
+      "probed": 48,
+      "failures": [],
+      "revised": 0,
       "syntax_skipped": []
     },
     "validation_result": {
@@ -579,13 +354,14 @@
         "templates/cb_step_19.py.tpl: Parameter 'mandibleCentroidX' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
         "templates/cb_step_19.py.tpl: Parameter 'mandibleCentroidY' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
         "templates/cb_step_19.py.tpl: Parameter 'mandibleCentroidZ' for logic.addFibulaLine() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'fibulaCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'fibulaCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'fibulaCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'initialSpace' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'mandibleCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'mandibleCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-        "templates/cb_step_22.py.tpl: Parameter 'mandibleCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'"
+        "templates/cb_step_24.py.tpl: Unrecognized module: logging (line 1)",
+        "templates/cb_step_30.py.tpl: Parameter 'fibulaCentroidX' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'fibulaCentroidY' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'fibulaCentroidZ' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'initialSpace' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'mandibleCentroidX' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'mandibleCentroidY' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+        "templates/cb_step_30.py.tpl: Parameter 'mandibleCentroidZ' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'"
       ],
       "per_template": {
         "templates/cb_step_5.py.tpl": {
@@ -649,7 +425,9 @@
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
-          "destructive_ops": []
+          "destructive_ops": [
+            "displayNode.RemoveAllViewNodeIDs"
+          ]
         },
         "templates/cb_step_13_pre.py.tpl": {
           "valid": true,
@@ -665,7 +443,7 @@
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_14.py.tpl": {
+        "templates/cb_step_14_slicer.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
@@ -738,15 +516,80 @@
         "templates/cb_step_22.py.tpl": {
           "valid": true,
           "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_23.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_24.py.tpl": {
+          "valid": true,
+          "reason": null,
           "warnings": [
-            "Parameter 'fibulaCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'fibulaCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'fibulaCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'initialSpace' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidX' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidY' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'",
-            "Parameter 'mandibleCentroidZ' for logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible() uses low-confidence typed_read_safe_fallback default '0.0'"
+            "Unrecognized module: logging (line 1)"
           ],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_25.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_26.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_29_pre.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_29_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_30.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [
+            "Parameter 'fibulaCentroidX' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'fibulaCentroidY' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'fibulaCentroidZ' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'initialSpace' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'mandibleCentroidX' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'mandibleCentroidY' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'",
+            "Parameter 'mandibleCentroidZ' for logic.onGenerateFibulaPlanesTimerTimeout() uses low-confidence typed_read_safe_fallback default '0.0'"
+          ],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_31.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_32.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         }

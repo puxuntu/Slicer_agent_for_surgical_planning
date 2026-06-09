@@ -29,6 +29,7 @@ __all__ = [
     'TurnRouter',
     'WorkflowRuntime',
     'NodeChoiceResolver',
+    'WorkflowIntentResolver',
 ]
 
 # Import main classes for convenient access
@@ -53,3 +54,4 @@ from .WorkflowOrchestrator import WorkflowOrchestrator
 from .TurnRouter import TurnRouter, TurnRoute
 from .WorkflowRuntime import WorkflowRuntime
 from .NodeChoiceResolver import NodeChoiceResolver
+from .WorkflowIntentResolver import WorkflowIntentResolver

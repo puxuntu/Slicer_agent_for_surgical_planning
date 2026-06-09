@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: Tick the "Automatic mandibular planes positioning for maximum bones contact area" checkbox. ---
+# --- BoneReconstructionPlanner: Clear the "Show original mandible model" checkbox. ---
 import slicer
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
@@ -9,10 +9,10 @@ except NameError:
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
-parameterNode.SetParameter('mandiblePlanesPositioningForMaximumBoneContact', 'True')
+parameterNode.SetParameter('showOriginalMandible', 'False')
 try:
     parameterNode.Modified()
 except Exception:
     pass
 _bonereconstructionplanner_logic = logic
-print("[BoneReconstructionPlanner] Step 'cb_step_22' completed.")
+print("[BoneReconstructionPlanner] Step 'cb_step_32' completed.")

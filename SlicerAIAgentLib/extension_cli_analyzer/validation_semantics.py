@@ -245,13 +245,12 @@ class AnalyzerValidationSemanticsMixin:
         operation_model = gen.get("operation_model") or {}
         if operation_model.get("allow_module_switch"):
             return True
-        texts = [_text_or_empty(gen.get("description"))]
+        intents = set(_text_list(gen.get("operation_intents", [])))
         for so in gen.get("sub_operations", []) or []:
-            if so.get("op_type") != "slicer_op" or so.get("slicer_op_category") != "module_switching":
-                continue
-            texts.append(_text_or_empty(so.get("description")))
-            texts.extend(_text_list(so.get("slicer_api_keywords", [])))
-        return self._is_explicit_module_switch_text(" ".join(texts))
+            intents.update(_text_list(so.get("operation_intents", [])))
+            if so.get("operation_intent"):
+                intents.add(so["operation_intent"])
+        return "module_switch" in intents
 
     @staticmethod
     def _extension_methods_called_by_template(code: str) -> List[str]:

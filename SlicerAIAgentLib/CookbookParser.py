@@ -3,10 +3,10 @@ CookbookParser - Parse extension cookbook markdown files into structured
 step definitions.
 
 Cookbook .md files are user-facing guides (numbered step lists) that serve
-as the ground truth for the CLI generation pipeline.  This module only does
-regex-based step extraction (instant, no LLM).  Sub-operation classification
-into extension_op / slicer_op / user_interaction / user_choice is deferred to
-ExtensionCLIAnalyzer._cookbook_build_stage_map.
+as the ground truth for the CLI generation pipeline.  Each numbered step must
+include a simple operation annotation, for example ``[op=extension_op]``.
+The parser records this broad type only; technical metadata is inferred later
+from extension source/UI evidence.
 
 Type definitions:
 - extension_op: Calls this extension's own Logic methods (code from local source).
@@ -22,6 +22,13 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+VALID_OPERATION_TYPES = {
+    "extension_op",
+    "slicer_op",
+    "user_interaction",
+    "user_choice",
+}
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -55,6 +62,7 @@ class CookbookStep:
     step_number: int
     title: str
     description: str                        # Full prose of the step
+    operation_type: str = ""                # Canonical op from [op=...]
     sub_operations: List[SubOperation] = field(default_factory=list)
     depends_on: List[int] = field(default_factory=list)
     is_mixed: bool = False                  # True if sub_operations span >1 op_type
@@ -78,20 +86,12 @@ class CookbookDef:
         return result
 
     def classify_step_type(self, step: CookbookStep) -> str:
-        """Return the overall step type: 'automated', 'interactive', 'user_choice', or 'mixed'."""
-        if not step.sub_operations:
-            return "automated"
-        types = {so.op_type for so in step.sub_operations}
-        has_interaction = "user_interaction" in types
-        has_choice = "user_choice" in types
-        has_auto = bool(types - {"user_interaction", "user_choice"})
-        if (has_interaction or has_choice) and has_auto:
-            return "mixed"
-        if has_interaction:
-            return "interactive"
-        if has_choice:
-            return "user_choice"
-        return "automated"
+        """Return the canonical operation type for the step."""
+        if step.operation_type:
+            return step.operation_type
+        if step.sub_operations:
+            return step.sub_operations[0].op_type
+        return "extension_op"
 
 
 # ---------------------------------------------------------------------------
@@ -101,9 +101,8 @@ class CookbookDef:
 class CookbookParser:
     """Parse free-form cookbook markdown into structured step definitions.
 
-    Only does regex-based step extraction. Classification into
-    extension_op/slicer_op/user_interaction/user_choice is deferred to the
-    analyzer's _cookbook_build_stage_map where logic analysis is available.
+    Only does regex-based step extraction and operation annotation parsing.
+    Source-derived technical metadata is inferred later by the analyzer.
     """
 
     def __init__(self):
@@ -119,9 +118,8 @@ class CookbookParser:
     ) -> Optional[CookbookDef]:
         """Read a cookbook .md file and parse into numbered steps.
 
-        This only does regex-based step extraction (instant, no LLM).
-        Sub-operation classification is deferred to
-        _cookbook_build_stage_map() where the logic analysis is available.
+        This only does regex-based step extraction and [op=...] parsing
+        (instant, no LLM).
 
         Args:
             cookbook_path: Absolute path to the .md cookbook file.
@@ -153,18 +151,21 @@ class CookbookParser:
 
         steps = []
         for step_num, step_text in raw_steps:
-            first_line = step_text.split("\n", 1)[0]
+            operation_type, clean_text = self._extract_operation_annotation(
+                step_num, step_text, cookbook_path,
+            )
+            first_line = clean_text.split("\n", 1)[0]
             steps.append(CookbookStep(
                 step_number=step_num,
                 title=first_line[:120],
-                description=step_text,
+                description=clean_text,
+                operation_type=operation_type,
                 sub_operations=[],  # populated later in _cookbook_build_stage_map
                 is_mixed=False,
             ))
 
         # Resolve dependencies (sequential ordering)
         self._resolve_dependencies(steps)
-
         return CookbookDef(
             extension_name=ext_name,
             source_file=cookbook_path,
@@ -177,6 +178,34 @@ class CookbookParser:
     # ------------------------------------------------------------------
 
     _STEP_RE = re.compile(r"^(\d+)\.\s+(.+)", re.MULTILINE)
+    _OP_ANNOTATION_RE = re.compile(
+        r"^(\d+\.\s*)\[op\s*=\s*([A-Za-z_]+)\]\s*(.*)$",
+        re.DOTALL,
+    )
+    def _extract_operation_annotation(
+        self,
+        step_number: int,
+        step_text: str,
+        cookbook_path: str,
+    ) -> tuple:
+        """Return (operation_type, cleaned_step_text) from a numbered step."""
+        match = self._OP_ANNOTATION_RE.match(step_text.strip())
+        if not match:
+            raise ValueError(
+                f"Cookbook step {step_number} in {cookbook_path} is missing "
+                "a required [op=...] annotation. Valid values: "
+                + ", ".join(sorted(VALID_OPERATION_TYPES))
+            )
+        _prefix, op_type, remainder = match.groups()
+        op_type = op_type.strip()
+        if op_type not in VALID_OPERATION_TYPES:
+            raise ValueError(
+                f"Cookbook step {step_number} in {cookbook_path} has invalid "
+                f"operation type '{op_type}'. Valid values: "
+                + ", ".join(sorted(VALID_OPERATION_TYPES))
+            )
+        cleaned = remainder.strip()
+        return op_type, cleaned
 
     def _split_numbered_steps(self, markdown: str) -> List[tuple]:
         """Split markdown into (step_number, step_text) pairs.
