@@ -455,7 +455,7 @@ class AnalyzerLiveRevisionMixin:
         for attempt in range(max_attempts):
             result["attempts"] = attempt + 1
             self.on_progress(
-                0, "Revising templates",
+                "verify_repair", "Verify And Repair Templates",
                 f"Revision attempt {attempt + 1}/{max_attempts}..."
             )
 
@@ -618,16 +618,21 @@ Return ONLY the JSON, no markdown fences.""")
             if validation_result.get("valid"):
                 if isinstance(self._workflow_metadata, dict):
                     resolved_syntax_issues = self._workflow_metadata.pop(
-                        "stage7_syntax_issues", None
+                        "generate_syntax_issues", None
                     )
                     if resolved_syntax_issues:
-                        self._workflow_metadata["resolved_stage7_syntax_issues"] = (
+                        self._workflow_metadata["resolved_generate_syntax_issues"] = (
                             resolved_syntax_issues
                         )
                     self._workflow_metadata["revision_validation_status"] = "passed"
+                    self._workflow_metadata.setdefault("verify_repair", {})[
+                        "used_outer_revision"
+                    ] = True
 
                 # Update manifest status
                 manifest["status"] = "validated"
+                manifest["manifest_version"] = 2
+                manifest["pipeline_version"] = "agentic-cli-v2"
                 manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
                 with open(manifest_path, "w", encoding="utf-8") as f:
                     json.dump(manifest, f, indent=2)
@@ -654,7 +659,7 @@ Return ONLY the JSON, no markdown fences.""")
                 log_entries.append({
                     "attempt": len(log_entries) + 1,
                     "timestamp": datetime.now().isoformat(),
-                    "stage": "revision",
+                    "phase": "verify_repair",
                     "trigger": "validation_failure",
                     "error": "; ".join(errors),
                     "fix": fixed.get("fix_description", ""),
@@ -689,7 +694,7 @@ Return ONLY the JSON, no markdown fences.""")
             log_entries.append({
                 "attempt": len(log_entries) + 1,
                 "timestamp": datetime.now().isoformat(),
-                "stage": "revision",
+                "phase": "verify_repair",
                 "trigger": "validation_failure",
                 "status": "validation_failed",
                 "error": "; ".join(errors),

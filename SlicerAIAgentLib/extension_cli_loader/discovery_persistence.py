@@ -91,6 +91,8 @@ def discover_installed_extensions() -> List[Dict]:
                 with open(manifest_path, "r", encoding="utf-8") as f:
                     m = json.load(f)
                 cli_status = m.get("status")
+                if cli_status == "validated" and m.get("manifest_version") != 2:
+                    cli_status = "needs_regeneration"
             except Exception:
                 pass
 
@@ -228,7 +230,7 @@ def save_cli_package(
 
     # Write templates
     for tpl_name, tpl_content in templates.items():
-        if tpl_name in ("workflow.json", "workflow_metadata.json"):
+        if tpl_name in ("workflow.json", "workflow_metadata.json", "workflow_contract.json"):
             # Workflow graph/metadata go at CLI root, not in templates/
             tpl_path = os.path.join(ext_dir, tpl_name)
         else:

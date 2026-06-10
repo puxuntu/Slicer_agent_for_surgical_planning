@@ -6,6 +6,22 @@ _PRECONDITION_END = "# precondition:end"
 
 class AnalyzerValidationSemanticsMixin:
     @staticmethod
+    def _is_extension_module_import(module_name: str) -> bool:
+        """Return whether an import name represents extension code."""
+        top = _text_or_empty(module_name).split(".")[0]
+        if not top:
+            return False
+        non_extension_imports = {
+            "slicer", "SlicerAIAgentLib", "vtk", "qt", "ctk", "logging",
+            "os", "sys", "json", "re", "abc", "typing", "functools",
+            "collections", "itertools", "math", "time", "copy",
+            "pathlib", "io", "traceback", "warnings", "numpy",
+        }
+        if top in non_extension_imports:
+            return False
+        return not top.startswith(("vtkMRML", "vtkSlicer", "qSlicer", "qMRML"))
+
+    @staticmethod
     def _template_calls_select_module(code: str) -> bool:
         return bool(_re.search(r"\bslicer\s*\.\s*util\s*\.\s*selectModule\s*\(", code))
 
@@ -26,6 +42,44 @@ class AnalyzerValidationSemanticsMixin:
             r"\b(repeat|for each|each requested|requested .* times|continue placing)\b",
             text,
         ))
+
+    @staticmethod
+    def _validate_callable_reference_misuse(code: str) -> Dict[str, List[str]]:
+        """Catch known Slicer functions accidentally used as attributes."""
+        result = {"errors": [], "warnings": []}
+        patterns = [
+            (
+                r"\bslicer\s*\.\s*util\s*\.\s*selectedModule\b(?!\s*\()",
+                "slicer.util.selectedModule",
+                "slicer.util.selectedModule()",
+            ),
+        ]
+        for pattern, bad, good in patterns:
+            if _re.search(pattern, code or ""):
+                result["errors"].append(
+                    f"CallableReferenceMisuse: used {bad} without calling it; "
+                    f"use {good} when reading the active module name"
+                )
+        return result
+
+    @staticmethod
+    def _validate_user_instruction_text(code: str) -> Dict[str, List[str]]:
+        """Reject invalid user-facing instructions such as 'Please None'."""
+        result = {"errors": [], "warnings": []}
+        invalid = []
+        for match in _re.finditer(r"\bprint\s*\(\s*([rubfRUBF]*)(['\"])(.*?)\2\s*\)", code or "", _re.DOTALL):
+            text = (match.group(3) or "").strip()
+            lowered = text.lower()
+            if _re.search(r"\bplease\s+(none|null|undefined|n/a|na)\b", lowered):
+                invalid.append(text)
+            elif lowered in {"please", "please.", "please:", "please -"}:
+                invalid.append(text)
+        for text in invalid:
+            result["errors"].append(
+                f"BadInstructionText: invalid user-facing instruction {text!r}; "
+                "use the cookbook step description or a concrete interaction instruction"
+            )
+        return result
 
     def _operation_intents_for_generator(self, gen: Dict) -> List[str]:
         operation_model = gen.get("operation_model") or {}
@@ -275,19 +329,13 @@ class AnalyzerValidationSemanticsMixin:
         """
         if not code:
             return False
-        _NON_EXTENSION_IMPORTS = {
-            "slicer", "SlicerAIAgentLib", "vtk", "qt", "ctk", "logging",
-            "os", "sys", "json", "re", "abc", "typing", "functools",
-            "collections", "itertools", "math", "time", "copy",
-            "pathlib", "io", "traceback", "warnings", "numpy",
-        }
         for m in _re.finditer(r'^\s*from\s+([\w.]+)\s+import\s+', code, _re.MULTILINE):
             top = m.group(1).split(".")[0]
-            if top not in _NON_EXTENSION_IMPORTS:
+            if AnalyzerValidationSemanticsMixin._is_extension_module_import(top):
                 return True
         for m in _re.finditer(r'^\s*import\s+([\w.]+)', code, _re.MULTILINE):
             top = m.group(1).split(".")[0]
-            if top not in _NON_EXTENSION_IMPORTS:
+            if AnalyzerValidationSemanticsMixin._is_extension_module_import(top):
                 return True
         return False
 
@@ -379,16 +427,16 @@ class AnalyzerValidationSemanticsMixin:
                 value_types = set(info.get("value_types") or [])
                 if not (value_types & {"float", "int", "bool"}):
                     continue
-                if (
-                    role in defaults
-                    or role in choice_bound_roles
-                    or self._template_sets_parameter(code, role)
-                ):
+                if role in choice_bound_roles or self._template_sets_parameter(code, role):
+                    continue
+                if role in defaults:
                     default_info = defaults.get(role, {}) or {}
                     if default_info.get("confidence") == "low":
-                        result["warnings"].append(
+                        result["errors"].append(
                             f"Parameter '{role}' for logic.{method}() uses low-confidence "
-                            f"{default_info.get('source', 'default')} default {default_info.get('value')!r}"
+                            f"{default_info.get('source', 'default')} default {default_info.get('value')!r}; "
+                            "bind the parameter to a user/cookbook value, derive a source-backed default, "
+                            "or raise a clear required-input error instead of silently using a fallback"
                         )
                     continue
                 result["errors"].append(
@@ -606,20 +654,14 @@ class AnalyzerValidationSemanticsMixin:
         if not isinstance(gen, dict) or not isinstance(code, str) or not code:
             return result
 
-        _NON_EXTENSION_IMPORTS = {
-            "slicer", "SlicerAIAgentLib", "vtk", "qt", "ctk", "logging",
-            "os", "sys", "json", "re", "abc", "typing", "functools",
-            "collections", "itertools", "math", "time", "copy",
-            "pathlib", "io", "traceback", "warnings", "numpy",
-        }
         extension_modules = set()
         for m in _re.finditer(r'^\s*from\s+([\w.]+)\s+import\s+', code, _re.MULTILINE):
             top = m.group(1).split(".")[0]
-            if top not in _NON_EXTENSION_IMPORTS:
+            if self._is_extension_module_import(top):
                 extension_modules.add(top)
         for m in _re.finditer(r'^\s*import\s+([\w.]+)', code, _re.MULTILINE):
             top = m.group(1).split(".")[0]
-            if top not in _NON_EXTENSION_IMPORTS:
+            if self._is_extension_module_import(top):
                 extension_modules.add(top)
 
         if not extension_modules:

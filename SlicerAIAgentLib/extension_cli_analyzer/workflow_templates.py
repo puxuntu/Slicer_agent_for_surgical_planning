@@ -64,7 +64,7 @@ class AnalyzerWorkflowTemplatesMixin:
                 )
 
             elif step_type == "automated" and op_type == "slicer_op":
-                # Slicer_op templates are pre-generated in Stage 5T
+                # Slicer_op templates are pre-generated in the ground phase.
                 key = f"templates/{step_id}_slicer.py.tpl"
                 step["code_template"] = key
                 pregen_items = _matching_slicer_template_items(step_id)
@@ -80,7 +80,7 @@ class AnalyzerWorkflowTemplatesMixin:
                 # (extension_op + slicer_op) into a single template.
                 sub_ops = step.get("sub_operations", [])
                 auto_parts = []
-                # Consume Stage 5T templates once for the whole step.
+                # Consume ground-phase templates once for the whole step.
                 consumed_5t = False
                 for so in sub_ops:
                     if so.get("operation_intent") == "extension_parameter_update":
@@ -111,7 +111,7 @@ class AnalyzerWorkflowTemplatesMixin:
                             pregen_items = _matching_slicer_template_items(step_id)
                             if pregen_items:
                                 auto_parts.append(
-                                    "# Slicer ops (Stage 5T)\n"
+                                    "# Slicer ops (ground phase)\n"
                                     + "\n\n".join(code for _, code in pregen_items)
                                 )
                                 _attach_slicer_evidence(
@@ -402,6 +402,10 @@ class AnalyzerWorkflowTemplatesMixin:
                             "placement_instructions",
                             step.get("description", ""),
                         )
+                        instructions = self._sanitize_interaction_instruction(
+                            instructions,
+                            fallback=step.get("description", ""),
+                        )
                         auto_parts.append(
                             "\n\n# --- View adjustment interaction ---\n"
                             f"print(\"[{extension_name}] Please {instructions}\")\n"
@@ -481,13 +485,13 @@ class AnalyzerWorkflowTemplatesMixin:
             templates[pre_key] = templates[pre_key].rstrip() + "\n" + injection
             consistency_fixes += 1
             logger.info(
-                "[Stage 7] Injected missing node ID '%s' into %s",
+                "[generate] Injected missing node ID '%s' into %s",
                 node_var, pre_key,
             )
 
         if consistency_fixes:
             logger.info(
-                "[Stage 7] Fixed %d pre/post node ID consistency issues",
+                "[generate] Fixed %d pre/post node ID consistency issues",
                 consistency_fixes,
             )
 
@@ -501,9 +505,10 @@ class AnalyzerWorkflowTemplatesMixin:
         templates["workflow.json"] = json.dumps(clean_graph, indent=2)
         templates["workflow_metadata.json"] = json.dumps(self._workflow_metadata or {}, indent=2)
 
-        self.on_progress(
-            7, "Generating code templates",
-            f"Generated {len(templates)} workflow templates"
+        self._phase_progress(
+            "generate",
+            f"Generated {len(templates)} workflow templates",
+            "Generate Schemas And Templates",
         )
         return templates
 

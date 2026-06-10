@@ -36,11 +36,11 @@ class AnalyzerSlicerOpManifestMixin:
                     slicer_ops.append((step_num, sub_op))
 
         if not slicer_ops:
-            self.on_progress("5T", "Slicer op generation", "No slicer_op sub-operations found")
+            self.on_progress("ground", "Ground Slicer APIs", "No slicer_op sub-operations found")
             return {}
 
         self.on_progress(
-            "5T", "Slicer op generation",
+            "ground", "Ground Slicer APIs",
             f"Generating templates for {len(slicer_ops)} slicer_op operations..."
         )
 
@@ -58,14 +58,14 @@ class AnalyzerSlicerOpManifestMixin:
             else:
                 detail = f"[{finished}/{total}] {desc}"
             self.on_progress(
-                "5T", "Slicer op generation",
+                "ground", "Ground Slicer APIs",
                 detail,
             )
 
         # Set up debug file path for live progress tracking
         debug_path = None
         if self._debug_dir:
-            debug_path = os.path.join(self._debug_dir, "stage_5T_debug.json")
+            debug_path = os.path.join(self._debug_dir, "ground_slicer_api_debug.json")
 
         generator = SlicerOpGenerator(
             llm_client=self.llm_client,
@@ -84,13 +84,13 @@ class AnalyzerSlicerOpManifestMixin:
             self._slicer_op_evidence[key] = self._build_template_api_evidence(
                 code,
                 sub_op,
-                source="stage5T",
+                source="ground_api",
             )
         if isinstance(self._workflow_metadata, dict):
-            self._workflow_metadata["stage5T_api_evidence"] = self._slicer_op_evidence
+            self._workflow_metadata["ground_api_evidence"] = self._slicer_op_evidence
 
         self.on_progress(
-            "5T", "Slicer op generation",
+            "ground", "Ground Slicer APIs",
             f"Generated {len(templates)} slicer_op templates"
         )
 
@@ -137,8 +137,6 @@ class AnalyzerSlicerOpManifestMixin:
                 )
             operation_type = _operation_type_for_step(step)
             step["operation_type"] = operation_type
-            step["op_type"] = operation_type
-            step.setdefault("step_type", operation_type)
             operation_model = self._build_step_operation_model(step)
             step["operation_model"] = operation_model
             if isinstance(self._workflow_metadata, dict):
@@ -159,6 +157,8 @@ class AnalyzerSlicerOpManifestMixin:
         stage_names = [s["step_id"] for s in steps]
 
         manifest = {
+            "manifest_version": 2,
+            "pipeline_version": "agentic-cli-v2",
             "extension_name": extension_name,
             "extension_module_name": os.path.splitext(os.path.basename(scan_result.get("entry_module", "")))[0],
             "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
@@ -187,7 +187,6 @@ class AnalyzerSlicerOpManifestMixin:
         for step in steps:
             step_id = step["step_id"]
             op_type = _operation_type_for_step(step)
-            step_type = op_type
             exec_type = _legacy_step_type_for_operation(op_type)
 
             gen = {
@@ -196,12 +195,9 @@ class AnalyzerSlicerOpManifestMixin:
                 "description": step.get("description", step_id),
                 "requirements": [f"{extension_name} extension must be installed"],
                 "operation_type": op_type,
-                "step_type": step_type,
             }
             if step.get("ui_guidance"):
                 gen["ui_guidance"] = step["ui_guidance"]
-            if op_type:
-                gen["op_type"] = op_type
             if step.get("method_name"):
                 gen["method_name"] = step["method_name"]
             if step.get("extension_function_name"):
@@ -458,7 +454,7 @@ class AnalyzerSlicerOpManifestMixin:
         debug_entry = {
             "call_index": call_index,
             "timestamp": datetime.now().isoformat(),
-            "stage": self._current_stage_label,
+            "phase": self._current_stage_label,
             "input": {
                 "system_prompt": messages[0].get("content", "") if len(messages) > 0 else "",
                 "user_prompt": messages[1].get("content", "") if len(messages) > 1 else "",
@@ -470,7 +466,7 @@ class AnalyzerSlicerOpManifestMixin:
             "usage": response.get("usage", {}),
         }
 
-        filename = f"stage_{self._current_stage_label}_call_{call_index:03d}.json"
+        filename = f"{self._current_stage_label}_call_{call_index:03d}.json"
         filepath = os.path.join(self._debug_dir, filename)
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(debug_entry, f, indent=2, ensure_ascii=False)

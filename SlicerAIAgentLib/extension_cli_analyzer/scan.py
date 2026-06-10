@@ -4,7 +4,7 @@ from .common import *
 class AnalyzerScanMixin:
     def _stage1_scan(self, source_path: str) -> Dict:
         """Scan extension source tree, parse AST, find Logic class."""
-        self.on_progress(1, "Scanning extension files", "Walking directory tree...")
+        self.on_progress("discover", "Discover Source And Cookbook", "Scanning extension files...")
 
         if not os.path.isdir(source_path):
             raise ValueError(f"Source path does not exist: {source_path}")
@@ -22,7 +22,7 @@ class AnalyzerScanMixin:
                     ui_files.append(os.path.join(root, f))
 
         self.on_progress(
-            1, "Scanning extension files",
+            "discover", "Discover Source And Cookbook",
             f"Found {len(py_files)} Python files"
         )
 
@@ -130,7 +130,7 @@ class AnalyzerScanMixin:
             entry_module = logic_class["file"]
 
         self.on_progress(
-            1, "Scanning extension files",
+            "discover", "Discover Source And Cookbook",
             f"Logic class: {logic_class['class_name'] if logic_class else 'None'} "
             f"in {os.path.basename(entry_module) if entry_module else 'N/A'}"
             f", Widget class: {widget_class['class_name'] if widget_class else 'None'}"

@@ -3,13 +3,13 @@ from .common import *
 
 class AnalyzerLogicAnalysisMixin:
     def _stage3_analyze_logic(self, scan_result: Dict) -> Dict:
-        """Stage 3: Use LLM to analyze the Logic class methods in detail."""
+        """Use LLM to analyze the Logic class methods in detail."""
         logic_info = scan_result["logic_class"]
         logic_file = logic_info["file"]
         class_name = logic_info["class_name"]
 
         self.on_progress(
-            3, "Analyzing logic class",
+            "analyze", "Analyze Extension Logic",
             f"Reading {class_name} from {os.path.basename(logic_file)}..."
         )
 
@@ -104,7 +104,7 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
             )
 
         self.on_progress(
-            3, "Analyzing logic class",
+            "analyze", "Analyze Extension Logic",
             f"Analyzed {len(analysis.get('methods', []))} methods"
         )
 
@@ -215,7 +215,7 @@ Return ONLY the JSON object, no markdown fences or explanation.""")
 
         if corrections:
             self.on_progress(
-                "3.5", "Verifying signatures",
+                "analyze", "Analyze Extension Logic",
                 f"Corrected {corrections} method signature(s) via AST"
             )
 

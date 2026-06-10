@@ -69,7 +69,7 @@ class AnalyzerSchemasMixin:
         }
 
         self.on_progress(
-            6, "Generating tool schemas",
+            "generate", "Generate Schemas And Templates",
             f"Generated interactive workflow schema with {len(steps)} steps"
         )
         return [schema]
@@ -84,7 +84,7 @@ class AnalyzerSchemasMixin:
         workflow_graph: Optional[Dict] = None,
     ) -> List[Dict]:
         """Generate OpenAI function-calling tool schemas."""
-        self.on_progress(6, "Generating tool schemas", "Building tool definitions...")
+        self.on_progress("generate", "Generate Schemas And Templates", "Building tool definitions...")
 
         # Interactive workflow schema generation
         if workflow_graph:
@@ -255,7 +255,7 @@ Return ONLY the JSON array, no markdown fences.""")
                 del params_obj["required"]
 
         self.on_progress(
-            6, "Generating tool schemas",
+            "generate", "Generate Schemas And Templates",
             f"Generated {len(schemas)} tool schema(s): "
             f"{[s.get('function', {}).get('name', '?') for s in schemas]}"
         )
@@ -263,5 +263,5 @@ Return ONLY the JSON array, no markdown fences.""")
         return schemas
 
     # ================================================================
-    # Stage 7: Code Template Generation (LLM + internal review)
+    # generate: Code Template Generation (LLM + internal review)
     # ================================================================

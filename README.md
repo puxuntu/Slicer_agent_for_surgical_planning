@@ -157,17 +157,19 @@ A major challenge in medical imaging software is the gap between what a user say
 
 For complex extensions with multi-step workflows (e.g., surgical planning tools), repeatedly asking an LLM to replan at every step is slow, expensive, and non-deterministic. The Extension CLI Generator solves this by pre-compiling extension workflows into validated code templates:
 
-1. **Source Scanning** — Discovers installed extensions from the Extension Manager, additional module paths, or loaded modules.
-2. **Cookbook Parsing** — Reads a human-written markdown cookbook that describes the extension's step-by-step workflow. The cookbook is the *contract*: without it, generation does not proceed.
-3. **Logic Analysis** — The LLM analyzes the extension source code to identify operations, parameters, and dependencies.
-4. **API Probing** — Live code probes run inside Slicer's Python environment to verify actual API signatures and runtime behavior.
-5. **Template Generation** — Two types of templates are produced:
+The generator now uses a strict v2, contract-driven pipeline with named phases:
+
+1. **discover** — Scans extension source, parses the required cookbook, and collects UI/widget bindings.
+2. **analyze** — Analyzes logic methods, signatures, parameters, and source-derived callable effects.
+3. **contract** — Builds a canonical workflow contract from cookbook steps plus source facts. This contract is the source of truth for generated files.
+4. **ground** — Searches/probes Slicer API evidence for required Slicer operations.
+5. **generate** — Produces tool schemas, workflow projections, and code templates:
    - *Extension operations* (`extension_op`): calls into the extension's own Python API.
    - *Slicer operations* (`slicer_op`): calls into Slicer core APIs, generated via the same autonomous tool-calling loop the main agent uses.
-6. **Validation** — Generated templates are checked with AST parsing and static validation rules.
-7. **Auto-Revision** — If validation fails, the LLM receives the errors and the original analysis context and revises the templates automatically.
+6. **verify_repair** — Runs static validation, semantic contract checks, live API probes, and typed repair loops until validation passes or the repair budget is exhausted.
+7. **package** — Writes a validated v2 CLI package.
 
-The output is a validated Extension CLI: tool schemas, code templates, a workflow graph, and a prompt fragment. Once generated, this CLI can be loaded at runtime and executed deterministically.
+The output is a validated v2 Extension CLI: `manifest.json`, `workflow_contract.json`, tool schemas, code templates, a workflow graph, workflow metadata, and a prompt fragment. Runtime loading is strict: older generated CLI packages without `manifest_version: 2` are ignored and must be regenerated.
 
 ---
 

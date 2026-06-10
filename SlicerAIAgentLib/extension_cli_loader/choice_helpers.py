@@ -564,7 +564,7 @@ def build_assembled_code_for_validation(
     """Assemble prelude + filled template for offline dry-validation.
 
     Mirrors what ``dispatch_workflow_step`` produces at runtime, minus the
-    actual choice values (which are runtime state). Used by Stage 9 to
+    actual choice values (which are runtime state). Used by verify_repair to
     validate the *assembled* artifact (template + prelude) at generation
     time, so generator-side prelude bugs surface here instead of at every
     runtime step.

@@ -68,7 +68,7 @@ class AnalyzerPromptValidationMixin:
         ])
 
         fragment = "\n".join(lines)
-        self.on_progress(8, "Generating prompt fragment", "Generated workflow prompt")
+        self.on_progress("package", "Package Validated CLI", "Generated workflow prompt")
         return fragment
 
     def _stage8_generate_prompt(
@@ -80,7 +80,7 @@ class AnalyzerPromptValidationMixin:
         workflow_graph: Optional[Dict] = None,
     ) -> str:
         """Generate markdown prompt fragment for system prompt injection."""
-        self.on_progress(8, "Generating prompt fragment", "Building usage instructions...")
+        self.on_progress("package", "Package Validated CLI", "Building usage instructions...")
 
         # Interactive workflow prompt fragment
         if workflow_graph:
@@ -138,7 +138,7 @@ class AnalyzerPromptValidationMixin:
   **CRITICAL**: After receiving the `{tool_name}` result, your very next response must be exactly one ```agent_plan JSON block followed by one ```python code block containing the tool's `code` string verbatim. Do NOT modify the generated code. Do NOT write analysis or planning text before the code blocks.
 """)
 
-        self.on_progress(8, "Generating prompt fragment", "Prompt fragment generated")
+        self.on_progress("package", "Package Validated CLI", "Prompt fragment generated")
         return fragment.strip()
 
     def _llm_capability_summary(self, extension_name: str, logic_analysis: Dict, stages: List[Dict]) -> str:
@@ -223,7 +223,7 @@ Return ONLY the sentence, nothing else.""")
         return stage.get("stage_name", "unknown").replace("_", " ")
 
     # ================================================================
-    # Stage 9: Validation + Save
+    # verify_repair: validation before packaging
     # ================================================================
 
     def _stage9_validate(
@@ -235,7 +235,7 @@ Return ONLY the sentence, nothing else.""")
         extension_name: str = "",
     ) -> Dict:
         """Validate all templates with CodeValidator + semantic checks."""
-        self.on_progress(9, "Validating templates", "Running CodeValidator...")
+        self.on_progress("verify_repair", "Verify And Repair Templates", "Running CodeValidator...")
 
         if not self.code_validator:
             from ..CodeValidator import CodeValidator
@@ -461,7 +461,7 @@ Return ONLY the sentence, nothing else.""")
             }
 
         self.on_progress(
-            9, "Validating templates",
+            "verify_repair", "Verify And Repair Templates",
             "PASS" if results["valid"] else f"FAIL: {results['errors']}"
         )
 

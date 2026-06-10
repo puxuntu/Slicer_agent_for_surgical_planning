@@ -13,6 +13,197 @@ class AnalyzerContractsMixin:
             code_validator=CodeValidator(),
         )
 
+        # v2 issue typing and workflow contracts are extension-agnostic.
+        self.assertEqual(
+            analyzer._classify_validation_issue(
+                "templates/step.py.tpl: Unresolved live API probe failure for 'slicer.app.bad': API call does not exist"
+            ),
+            "InvalidSlicerAPI",
+        )
+        self.assertEqual(
+            analyzer._classify_validation_issue(
+                "templates/step.py.tpl: Template references parameter role 'line' with node class vtkMRMLMarkupsCurveNode but metadata expects vtkMRMLMarkupsLineNode"
+            ),
+            "NodeClassMismatch",
+        )
+        self.assertEqual(
+            analyzer._classify_validation_issue(
+                "templates/step.py.tpl: CallableReferenceMisuse: used slicer.util.selectedModule without calling it"
+            ),
+            "CallableReferenceMisuse",
+        )
+        self.assertEqual(
+            analyzer._classify_validation_issue(
+                "templates/step.py.tpl: BadInstructionText: invalid user-facing instruction 'Please None'"
+            ),
+            "BadInstructionText",
+        )
+        self.assertEqual(
+            analyzer._classify_validation_issue(
+                "templates/step.py.tpl: Parameter 'x' for logic.run() uses low-confidence typed_read_safe_fallback default '0.0'"
+            ),
+            "LowConfidenceFallback",
+        )
+        self.assertEqual(
+            analyzer._classify_validation_issue(
+                "templates/cb_step_9_slicer.py.tpl: Slice intersection visibility step must use applicationLogic().SetIntersectingSlicesEnabled(...)"
+            ),
+            "SlicerSemanticError",
+        )
+        self.assertFalse(analyzer._is_extension_module_import("vtkMRMLApplicationLogic"))
+        self.assertTrue(analyzer._is_extension_module_import("FakeExtension"))
+
+        semantic_issues = analyzer._validation_issues_from_result(
+            {
+                "errors": [
+                    "templates/cb_step_9_slicer.py.tpl: Slice intersection visibility step must use applicationLogic().SetIntersectingSlicesEnabled(...)"
+                ]
+            },
+            generators=[{
+                "template_file": "templates/cb_step_9_slicer.py.tpl",
+                "operation_type": "slicer_op",
+                "operation_model": {
+                    "operation_intents": ["slice_intersection_visibility"],
+                },
+                "sub_operations": [{
+                    "op_type": "slicer_op",
+                    "description": "Show slice intersections",
+                    "slicer_op_category": "crosshair",
+                }],
+            }],
+            workflow_contract={
+                "steps": [{
+                    "step_id": "cb_step_9",
+                    "description": "Show slice intersections",
+                }]
+            },
+        )
+        self.assertEqual(semantic_issues[0]["step_id"], "cb_step_9")
+        self.assertEqual(semantic_issues[0]["repair_strategy"], "reground_slicer_op")
+        self.assertEqual(
+            semantic_issues[0]["semantic_recipe_id"],
+            "slice_intersection_visibility",
+        )
+        self.assertTrue(
+            semantic_issues[0]["semantic_recipe"]["required_api_patterns"]
+        )
+        original_reground = analyzer._reground_slicer_template
+        try:
+            analyzer._reground_slicer_template = lambda issue, templates, generators: (
+                issue["template_key"],
+                "slicer.app.applicationLogic().SetIntersectingSlicesEnabled(True)\n",
+                {"source": "mock_reground"},
+            )
+            repaired, strategy_results = analyzer._execute_repair_plan(
+                "FakeExt",
+                {"templates/cb_step_9_slicer.py.tpl": "bad_code()\n"},
+                [{
+                    "template_file": "templates/cb_step_9_slicer.py.tpl",
+                    "operation_type": "slicer_op",
+                    "sub_operations": [{"op_type": "slicer_op"}],
+                }],
+                {"steps": []},
+                semantic_issues,
+                None,
+            )
+            self.assertIn("SetIntersectingSlicesEnabled", repaired["templates/cb_step_9_slicer.py.tpl"])
+            self.assertTrue(strategy_results[0]["changed"])
+        finally:
+            analyzer._reground_slicer_template = original_reground
+
+        callable_contract = analyzer._validate_callable_reference_misuse(
+            "_active_module = slicer.util.selectedModule\n"
+        )
+        self.assertTrue(any("CallableReferenceMisuse" in e for e in callable_contract["errors"]))
+        callable_contract = analyzer._validate_callable_reference_misuse(
+            "_active_module = slicer.util.selectedModule()\n"
+        )
+        self.assertFalse(callable_contract["errors"])
+
+        instruction_contract = analyzer._validate_user_instruction_text(
+            "print('[FakeExt] Please None')\n"
+        )
+        self.assertTrue(any("BadInstructionText" in e for e in instruction_contract["errors"]))
+        self.assertEqual(
+            analyzer._sanitize_interaction_instruction(None, fallback="Adjust the existing plane."),
+            "Adjust the existing plane.",
+        )
+
+        analyzer._workflow_metadata = {
+            "parameter_bindings": {
+                "fibulaLine": {
+                    "node_class": "vtkMRMLMarkupsLineNode",
+                    "methods": ["run"],
+                    "accesses": ["node_reference_read"],
+                }
+            },
+            "operation_model": {
+                "cb_step_1": {"step_type": "extension_op", "operation_intents": ["extension_call"]}
+            },
+        }
+        v2_contract = analyzer._build_workflow_contract_v2(
+            "FakeExt",
+            {
+                "entry_module": "/tmp/FakeExt/FakeExt.py",
+                "source_path": "/tmp/FakeExt",
+                "logic_class": {"class_name": "FakeExtLogic"},
+            },
+            "/tmp/FakeExt.md",
+            {"methods": []},
+            {
+                "steps": [{
+                    "step_id": "cb_step_1",
+                    "operation_type": "extension_op",
+                    "description": "Run extension method",
+                    "method_name": "run",
+                    "depends_on": [],
+                    "code_template": "templates/cb_step_1.py.tpl",
+                    "sub_operations": [{
+                        "op_type": "extension_op",
+                        "description": "Run extension method",
+                        "extension_method_hint": "run",
+                        "confidence": "high",
+                    }],
+                }]
+            },
+        )
+        self.assertEqual(v2_contract["schema_version"], 2)
+        self.assertEqual(v2_contract["pipeline_version"], "agentic-cli-v2")
+        self.assertEqual(v2_contract["steps"][0]["operation_type"], "extension_op")
+        self.assertEqual(
+            v2_contract["steps"][0]["parameter_roles"]["fibulaLine"]["node_class"],
+            "vtkMRMLMarkupsLineNode",
+        )
+
+        analyzer._workflow_metadata = {
+            "parameter_bindings": {
+                "initialSpace": {
+                    "value_types": ["float"],
+                    "node_class": "",
+                },
+            },
+            "parameter_defaults": {
+                "initialSpace": {
+                    "value": "0.0",
+                    "source": "typed_read_safe_fallback",
+                    "confidence": "low",
+                },
+            },
+            "parameter_method_dependencies": {
+                "run": {
+                    "parameter_roles": ["initialSpace"],
+                },
+            },
+            "choice_bindings": {},
+        }
+        scalar_contract = analyzer._validate_scalar_parameter_contract("logic.run()\n")
+        self.assertTrue(any("low-confidence" in e for e in scalar_contract["errors"]))
+        analyzer._workflow_metadata["choice_bindings"] = {
+            "cb_step_1": {"parameter_name": "initialSpace"}
+        }
+        scalar_contract = analyzer._validate_scalar_parameter_contract("logic.run()\n")
+        self.assertFalse(scalar_contract["errors"])
+
         # Stage 4 uses LLM semantics for repeat intent while preserving the
         # authoritative one-operation-per-step cookbook contract.
         from SlicerAIAgentLib.CookbookParser import CookbookParser

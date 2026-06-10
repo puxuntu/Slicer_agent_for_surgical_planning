@@ -303,7 +303,7 @@ class AnalyzerParameterMetadataMixin:
               parameterNode.SetParameter("role", "False")
 
         The result is keyed by widget object name, with enough metadata for
-        Stage 4 to classify cookbook UI-control steps and Stage 7 to generate
+        The contract phase classifies cookbook UI-control steps and generate emits
         deterministic parameter-update templates.
         """
         if not source:

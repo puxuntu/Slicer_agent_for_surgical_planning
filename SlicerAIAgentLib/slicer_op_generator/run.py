@@ -230,6 +230,7 @@ class SlicerOpGeneratorRunMixin:
         if errors:
             logger.warning("[5T] Errors:\n  %s", "\n  ".join(errors))
 
+        self.last_run_records = list(debug_log)
         _write_debug()
         return results
 

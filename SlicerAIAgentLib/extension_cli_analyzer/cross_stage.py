@@ -12,14 +12,14 @@ class AnalyzerCrossStageMixin:
         and Step 4 reads it." Invalid semantic output stops generation.
         """
         self.on_progress(
-            "4.5", "Cross-Stage Parameter Mapping",
+            "contract", "Build Workflow Contract",
             "LLM analyzing data flow between steps..."
         )
 
         stages = stage_map.get("stages", [])
         if len(stages) <= 1:
             self.on_progress(
-                "4.5", "Cross-Stage Parameter Mapping",
+                "contract", "Build Workflow Contract",
                 "Single stage — no cross-stage mapping needed"
             )
             return {"_extension_name": extension_name}
@@ -139,7 +139,7 @@ class AnalyzerCrossStageMixin:
             result = candidate
         if validation_errors:
             raise RuntimeError(
-                "Stage 4.5 LLM cross-stage mapping failed after 3 attempts: "
+                "Contract-phase LLM cross-stage mapping failed after 3 attempts: "
                 + "; ".join(validation_errors)
             )
 
@@ -167,22 +167,22 @@ class AnalyzerCrossStageMixin:
                 }
 
             self.on_progress(
-                "4.5", "Cross-Stage Parameter Mapping",
+                "contract", "Build Workflow Contract",
                 f"LLM identified {len(result['connections'])} cross-stage connections"
             )
             return cross_map
 
-        raise RuntimeError("Stage 4.5 LLM cross-stage mapping returned invalid structure")
+        raise RuntimeError("Contract-phase LLM cross-stage mapping returned invalid structure")
 
     # ================================================================
-    # Node Lifecycle Analysis (folded into Stage 7)
+    # Node Lifecycle Analysis (folded into generate)
     # ================================================================
 
     def _compute_node_lifecycle(self, scan_result: Dict, logic_analysis: Dict) -> Dict:
         """Compute node creation mode and param role for each vtkMRML parameter.
 
         This is an AST-based analysis (no LLM unless AST finds nothing) used
-        internally by code template generation (Stage 7).
+        internally by code template generation (generate).
         """
         return self._stage4_node_lifecycle(scan_result, logic_analysis)
 
@@ -230,17 +230,17 @@ class AnalyzerCrossStageMixin:
 
         if starters:
             logger.info(
-                "[Stage 7] Detected placement-starter methods: %s",
+                "[generate] Detected placement-starter methods: %s",
                 ", ".join(sorted(starters)),
             )
             self.on_progress(
-                7, "Analyzing interaction methods",
+                "generate", "Generate Schemas And Templates",
                 f"Detected {len(starters)} placement-starter method(s)"
             )
         return starters
 
     # ================================================================
-    # Internal LLM Review of Templates (part of Stage 7)
+    # Internal LLM Review of Templates (part of generate)
     # ================================================================
 
     def _review_templates(

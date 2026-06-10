@@ -153,7 +153,25 @@ class AnalyzerTemplateHelpersMixin:
             if object_name == "placement":
                 return "Complete this placement, then click Done."
             return f"Place this {object_name}, then click Done."
-        return step.get("placement_instructions", step.get("description", ""))
+        return self._sanitize_interaction_instruction(
+            step.get("placement_instructions"),
+            fallback=step.get("description", ""),
+        )
+
+    @staticmethod
+    def _sanitize_interaction_instruction(value: Any, fallback: str = "") -> str:
+        """Return safe user-facing interaction text.
+
+        LLM decomposition can leave optional instruction fields as None or the
+        literal string "None". Emitting that directly produces bad workflow UI
+        text such as "Please None"; fall back to the cookbook step text instead.
+        """
+        text = _text_or_empty(value).strip()
+        if text.lower() in {"", "none", "null", "n/a", "na", "undefined"}:
+            text = _text_or_empty(fallback).strip()
+        if text.lower() in {"", "none", "null", "n/a", "na", "undefined"}:
+            text = "Complete this interaction, then click Done."
+        return text
 
     def _placement_mode_policy(self, step: Dict, starter_info: Optional[Dict] = None) -> Dict:
         """Decide how generated code should enter Markups placement mode."""
@@ -244,7 +262,7 @@ class AnalyzerTemplateHelpersMixin:
                 f"{node_var}, _workflow_runtime_repeat_index)"
             ),
             "",
-            f"print(\"[{extension_name}] Please {instructions}\")",
+            f"print(\"[{extension_name}] Please {self._sanitize_interaction_instruction(instructions, fallback=step.get('description', ''))}\")",
             "print(\"When finished, press the 'Done' button in the workflow panel.\")",
         ])
         return "\n".join(lines) + "\n"
@@ -252,7 +270,10 @@ class AnalyzerTemplateHelpersMixin:
     def _generate_view_adjustment_pre_template(self, extension_name, step) -> str:
         """Generate setup for interactions that do not create markups nodes."""
         step_id = step.get("step_id", "")
-        instructions = step.get("placement_instructions", step.get("description", ""))
+        instructions = self._sanitize_interaction_instruction(
+            step.get("placement_instructions"),
+            fallback=step.get("description", ""),
+        )
         lines = [
             *self._template_header_lines(extension_name, step, "Setup"),
             "import slicer",
@@ -541,7 +562,7 @@ class AnalyzerTemplateHelpersMixin:
     def _sanitize_templates(templates: Dict[str, str]) -> Dict[str, str]:
         """Post-generation sanitization of code templates.
 
-        Fixes common LLM output issues that would cause Stage 9 validation
+        Fixes common LLM output issues that would cause verify_repair validation
         failures:
         1. Null bytes in generated code
         2. Blocked module imports (sys, os, subprocess, etc.)
@@ -550,7 +571,7 @@ class AnalyzerTemplateHelpersMixin:
         5. Empty method calls like ``logic.()`` from null method hints
         6. Multi-line Python comment headers accidentally split by raw descriptions
 
-        This runs before Stage 9 validation and is also applied to LLM review
+        This runs before verify_repair validation and is also applied to LLM review
         and revision outputs, so cheap syntax repairs do not require another
         LLM pass.
         """
@@ -633,7 +654,7 @@ class AnalyzerTemplateHelpersMixin:
                         _ast.parse(dedented)
                         code = dedented
                         logger.info(
-                            "[Stage 7] Fixed indentation in '%s' via dedent",
+                            "[generate] Fixed indentation in '%s' via dedent",
                             key,
                         )
                     except (SyntaxError, IndentationError):
@@ -662,7 +683,7 @@ class AnalyzerTemplateHelpersMixin:
             if not _non_trivial:
                 fixes_applied += 1
                 logger.warning(
-                    "[Stage 7] Template '%s' appears to be a stub "
+                    "[generate] Template '%s' appears to be a stub "
                     "(only pass/comments). Consider regenerating.",
                     key,
                 )
@@ -670,7 +691,7 @@ class AnalyzerTemplateHelpersMixin:
             if code != original:
                 fixes_applied += 1
                 logger.info(
-                    "[Stage 7] Sanitized template '%s'",
+                    "[generate] Sanitized template '%s'",
                     key,
                 )
 
@@ -678,12 +699,12 @@ class AnalyzerTemplateHelpersMixin:
 
         if fixes_applied:
             logger.info(
-                "[Stage 7] Sanitization fixed %d/%d templates",
+                "[generate] Sanitization fixed %d/%d templates",
                 fixes_applied, len(templates),
             )
 
         return sanitized
 
     # ================================================================
-    # Stage 7.5: Live API Probing
+    # verify_repair: Live API Probing
     # ================================================================

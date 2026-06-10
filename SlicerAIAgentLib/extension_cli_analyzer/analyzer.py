@@ -3,7 +3,7 @@ from .scan import AnalyzerScanMixin
 from .logic_analysis import AnalyzerLogicAnalysisMixin
 from .stage4_decomposition import AnalyzerStage4DecompositionMixin
 from .cross_stage import AnalyzerCrossStageMixin
-from .workflow_detection import AnalyzerWorkflowDetectionMixin
+from .node_lifecycle import AnalyzerNodeLifecycleMixin
 from .schemas import AnalyzerSchemasMixin
 from .workflow_templates import AnalyzerWorkflowTemplatesMixin
 from .template_helpers import AnalyzerTemplateHelpersMixin
@@ -17,6 +17,9 @@ from .cookbook_mapping import AnalyzerCookbookMappingMixin
 from .parameter_metadata import AnalyzerParameterMetadataMixin
 from .workflow_contracts import AnalyzerWorkflowContractsMixin
 from .slicer_op_manifest import AnalyzerSlicerOpManifestMixin
+from .phases import AnalyzerPhaseMixin, MANIFEST_VERSION, PIPELINE_VERSION
+from .v2_contracts import AnalyzerV2ContractsMixin
+from .repair_loop import AnalyzerRepairLoopMixin
 
 
 class ExtensionCLIAnalyzer(
@@ -24,7 +27,7 @@ class ExtensionCLIAnalyzer(
     AnalyzerLogicAnalysisMixin,
     AnalyzerStage4DecompositionMixin,
     AnalyzerCrossStageMixin,
-    AnalyzerWorkflowDetectionMixin,
+    AnalyzerNodeLifecycleMixin,
     AnalyzerSchemasMixin,
     AnalyzerWorkflowTemplatesMixin,
     AnalyzerTemplateHelpersMixin,
@@ -38,23 +41,15 @@ class ExtensionCLIAnalyzer(
     AnalyzerParameterMetadataMixin,
     AnalyzerWorkflowContractsMixin,
     AnalyzerSlicerOpManifestMixin,
+    AnalyzerPhaseMixin,
+    AnalyzerV2ContractsMixin,
+    AnalyzerRepairLoopMixin,
 ):
     """
     Analyzes a Slicer extension's source code and generates operation CLIs.
 
-    9-stage cookbook-driven pipeline:
-    1. AST Scanning (no LLM)
-    2. Cookbook Detection & Parsing (regex-based, no LLM, REQUIRED)
-    3. Logic Class Analysis (LLM)
-    3.5. AST Signature Verification (no LLM)
-    4. Cookbook Stage Map — LLM Decomposition into sub-operations
-    4.5. Cross-Stage Parameter Mapping (LLM)
-    5C. Workflow Graph Building
-    5T. Slicer Op Templates (KB search + LLM)
-    6. Tool Schema Generation (LLM)
-    7. Code Template Generation (LLM, includes internal LLM review)
-    8. Prompt Fragment Generation (LLM)
-    9. Validation + Save (CodeValidator, semantic checks, optional revision)
+    Strict v2 cookbook-driven pipeline:
+    discover -> analyze -> contract -> ground -> generate -> verify_repair -> package.
     """
 
     def __init__(
@@ -154,7 +149,7 @@ class ExtensionCLIAnalyzer(
         force_overwrite: bool = False,
     ) -> Dict:
         """
-        Run the full 9-stage cookbook-driven analysis pipeline.
+        Run the strict v2 cookbook-driven analysis pipeline.
 
         Args:
             extension_name: Name for the generated CLI directory.
@@ -164,7 +159,7 @@ class ExtensionCLIAnalyzer(
             force_overwrite: If True, overwrite existing CLI.
 
         Returns:
-            Dict with 'success', 'cli_dir', 'manifest', 'stages_completed',
+            Dict with 'success', 'cli_dir', 'manifest', 'phases_completed',
             'validation_result', 'error' keys.
         """
         self._cancelled = False
@@ -188,6 +183,7 @@ class ExtensionCLIAnalyzer(
             "success": False,
             "cli_dir": None,
             "manifest": None,
+            "phases_completed": [],
             "stages_completed": [],
             "validation_result": None,
             "error": None,
@@ -211,12 +207,12 @@ class ExtensionCLIAnalyzer(
             # Set up debug directory (lazily created on first LLM call)
             self._debug_dir = os.path.join(ext_dir, "debug")
 
-            # ── Stage 1: AST Scanning (no LLM) ──
-            self._current_stage_label = "1"
+            # ── discover: source scan + cookbook parsing ──
+            self._set_phase("discover")
             scan_result = self._stage1_scan(source_path)
-            result["stages_completed"].append(1)
+            self._record_phase(result, "discover")
             if self._cancelled:
-                result["error"] = "Cancelled during Stage 1"
+                result["error"] = "Cancelled during discover"
                 return result
 
             if not scan_result.get("logic_class"):
@@ -246,8 +242,7 @@ class ExtensionCLIAnalyzer(
             )
             scan_result["ui_parameter_bindings"] = self._ui_parameter_bindings
 
-            # ── Stage 2: Cookbook Detection & Parsing (no LLM, REQUIRED) ──
-            self._current_stage_label = "2"
+            # Cookbook detection and parsing are part of discover.
             cookbook_path = self._find_cookbook(extension_name)
             if not cookbook_path:
                 result["error"] = (
@@ -275,52 +270,43 @@ class ExtensionCLIAnalyzer(
                 return result
 
             self.on_progress(
-                2, "Cookbook detection & parsing",
+                "discover", "Discover Source And Cookbook",
                 f"Parsed cookbook: {cookbook_path} "
                 f"({len(self._cookbook_def.steps)} steps)"
             )
-            result["stages_completed"].append(2)
 
-            # ── Stage 3: Logic Class Analysis (LLM) ──
-            self._current_stage_label = "3"
+            # ── analyze: logic analysis + AST signature verification ──
+            self._set_phase("analyze")
             logic_analysis = self._stage3_analyze_logic(scan_result)
             self._last_logic_analysis = logic_analysis
             result["logic_analysis"] = logic_analysis
-            result["stages_completed"].append(3)
+            self._record_phase(result, "analyze")
             if self._cancelled:
-                result["error"] = "Cancelled during Stage 3"
+                result["error"] = "Cancelled during analyze"
                 return result
 
-            # ── Stage 3.5: AST Signature Verification (no LLM) ──
-            self._current_stage_label = "3.5"
             self._verify_signatures_ast(logic_analysis, scan_result)
-            result["stages_completed"].append("3.5")
             if self._cancelled:
-                result["error"] = "Cancelled during Stage 3.5"
+                result["error"] = "Cancelled during analyze"
                 return result
 
-            # ── Stage 4: Validated LLM semantic decomposition ──
-            self._current_stage_label = "4"
+            # ── contract: semantic decomposition + workflow contract ──
+            self._set_phase("contract")
             stage_map = self._stage4_cookbook_decomposition(
                 self._cookbook_def, logic_analysis, scan_result
             )
-            result["stages_completed"].append(4)
+            self._record_phase(result, "contract")
             if self._cancelled:
-                result["error"] = "Cancelled during Stage 4"
+                result["error"] = "Cancelled during contract"
                 return result
 
-            # ── Stage 4.5: Cross-Stage Parameter Mapping (LLM) ──
-            self._current_stage_label = "4.5"
             cross_stage_map = self._stage4_5_cross_stage_mapping(
                 stage_map, logic_analysis, extension_name
             )
-            result["stages_completed"].append("4.5")
             if self._cancelled:
-                result["error"] = "Cancelled during Stage 4.5"
+                result["error"] = "Cancelled during contract"
                 return result
 
-            # ── Stage 5C: Workflow Graph Building ──
-            self._current_stage_label = "5C"
             workflow_graph = self._build_workflow_from_cookbook(
                 self._cookbook_def, logic_analysis, stage_map
             )
@@ -328,33 +314,6 @@ class ExtensionCLIAnalyzer(
                 scan_result, logic_analysis, workflow_graph
             )
             self._enrich_workflow_with_metadata(workflow_graph, self._workflow_metadata)
-            result["stages_completed"].append("5C")
-            if self._cancelled:
-                result["error"] = "Cancelled during Stage 5C"
-                return result
-
-            # ── Stage 5T: Slicer Op Template Generation (KB search) ──
-            self._current_stage_label = "5T"
-            self._slicer_op_templates = self._generate_slicer_op_templates(
-                stage_map
-            )
-            result["stages_completed"].append("5T")
-
-            # ── Stage 6: Tool Schema Generation (LLM) ──
-            self._current_stage_label = "6"
-            tool_schemas = self._stage6_generate_schemas(
-                extension_name, stage_map, logic_analysis,
-                cross_stage_map=cross_stage_map,
-                workflow_graph=workflow_graph,
-            )
-            result["stages_completed"].append(6)
-            if self._cancelled:
-                result["error"] = "Cancelled during Stage 6"
-                return result
-
-            # ── Stage 7: Code Template Generation (LLM + internal review) ──
-            self._current_stage_label = "7"
-            node_lifecycle = self._compute_node_lifecycle(scan_result, logic_analysis)
             self._placement_starter_methods = self._classify_placement_starter_methods(
                 logic_analysis
             )
@@ -364,6 +323,35 @@ class ExtensionCLIAnalyzer(
             self._synthesize_workflow_ui_guidance(
                 workflow_graph, self._workflow_metadata, scan_result, logic_analysis
             )
+            if self._cancelled:
+                result["error"] = "Cancelled during contract"
+                return result
+
+            workflow_contract = self._build_workflow_contract_v2(
+                extension_name, scan_result, cookbook_path, logic_analysis, workflow_graph
+            )
+            result["workflow_contract"] = workflow_contract
+
+            # ── ground: Slicer API evidence and slicer_op template grounding ──
+            self._set_phase("ground")
+            self._slicer_op_templates = self._generate_slicer_op_templates(
+                stage_map
+            )
+            self._record_phase(result, "ground")
+
+            # ── generate: schemas and templates ──
+            self._set_phase("generate")
+            tool_schemas = self._stage6_generate_schemas(
+                extension_name, stage_map, logic_analysis,
+                cross_stage_map=cross_stage_map,
+                workflow_graph=workflow_graph,
+            )
+            self._record_phase(result, "generate")
+            if self._cancelled:
+                result["error"] = "Cancelled during generate"
+                return result
+
+            node_lifecycle = self._compute_node_lifecycle(scan_result, logic_analysis)
             templates = self._stage7_generate_templates(
                 extension_name, stage_map, node_lifecycle, scan_result, logic_analysis,
                 cross_stage_map=cross_stage_map,
@@ -372,57 +360,59 @@ class ExtensionCLIAnalyzer(
             # Internal LLM review (not a separate numbered stage)
             templates = self._review_templates(templates, logic_analysis, node_lifecycle)  # internal LLM review
             templates = self._sanitize_templates(templates)
-            result["stages_completed"].append(7)
+            workflow_contract = self._build_workflow_contract_v2(
+                extension_name, scan_result, cookbook_path, logic_analysis, workflow_graph
+            )
+            result["workflow_contract"] = workflow_contract
             if self._cancelled:
-                result["error"] = "Cancelled during Stage 7"
+                result["error"] = "Cancelled during generate"
                 return result
 
-            # ── Stage 7.5: Live API Probing ──
-            self._current_stage_label = "7.5"
-            probe_result = self._stage7c_live_api_probe(templates)
-            self._last_api_probe_result = probe_result
-            result["stages_completed"].append("7.5")
-            result["api_probe_result"] = probe_result
-            if probe_result.get("revised", 0) > 0:
-                templates = self._sanitize_templates(templates)
-            if self._cancelled:
-                result["error"] = "Cancelled during Stage 7.5"
-                return result
-
-            # ── Stage 9: Validation + Save ──
-            self._current_stage_label = "9"
+            # ── verify_repair: static validation, live probes, targeted repair loop ──
+            self._set_phase("verify_repair")
             manifest, generators = self._build_manifest_and_generators(
                 extension_name, scan_result, stage_map,
                 workflow_graph=workflow_graph,
             )
+            workflow_graph = self._canonicalize_workflow_graph_v2(workflow_graph)
+            generators = self._canonicalize_generators_v2(generators)
+            templates["workflow.json"] = json.dumps(workflow_graph, indent=2)
+            templates["workflow_contract.json"] = self._workflow_contract_to_json(workflow_contract)
             self._sync_template_contracts(
                 templates,
                 generators,
                 workflow_graph=workflow_graph,
             )
             result["workflow_metadata"] = self._workflow_metadata
-            validation_result = self._stage9_validate(
-                templates, generators, logic_analysis=logic_analysis,
-                api_probe_result=probe_result,
+            templates, validation_result = self._verify_and_repair_templates(
                 extension_name=extension_name,
+                templates=templates,
+                generators=generators,
+                logic_analysis=logic_analysis,
+                workflow_contract=workflow_contract,
+                workflow_graph=workflow_graph,
             )
-            result["stages_completed"].append(9)
+            probe_result = validation_result.get("api_probe_result") or {}
+            self._last_api_probe_result = probe_result
+            result["api_probe_result"] = probe_result
+            self._record_phase(result, "verify_repair")
+            result["workflow_metadata"] = self._workflow_metadata
             result["validation_result"] = validation_result
+            if self._cancelled:
+                result["error"] = "Cancelled during verify_repair"
+                return result
 
             if validation_result.get("valid"):
                 manifest["status"] = "validated"
                 manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
-                # ── Stage 8: Prompt Fragment Generation (LLM) ──
-                # Generate the runtime prompt only after templates are known to
-                # be valid, so prompt instructions match the final package.
-                self._current_stage_label = "8"
+                self._set_phase("package")
                 prompt_fragment = self._stage8_generate_prompt(
                     extension_name, tool_schemas, stage_map, logic_analysis,
                     workflow_graph=workflow_graph,
                 )
-                result["stages_completed"].append(8)
+                self._record_phase(result, "package")
                 if self._cancelled:
-                    result["error"] = "Cancelled during Stage 8"
+                    result["error"] = "Cancelled during package"
                     return result
             else:
                 manifest["status"] = "validation_failed"
@@ -432,6 +422,10 @@ class ExtensionCLIAnalyzer(
                     "Generation failed validation. This CLI package is saved "
                     "only for debugging/revision and is not loaded as a runtime tool.\n"
                 )
+            manifest["manifest_version"] = MANIFEST_VERSION
+            manifest["pipeline_version"] = PIPELINE_VERSION
+            manifest["workflow_contract_file"] = "workflow_contract.json"
+            templates["workflow_contract.json"] = self._workflow_contract_to_json(workflow_contract)
             templates["workflow_metadata.json"] = json.dumps(self._workflow_metadata or {}, indent=2)
 
             # Save CLI package
@@ -446,9 +440,9 @@ class ExtensionCLIAnalyzer(
                 generation_log_entry={
                     "attempt": 1,
                     "timestamp": datetime.now().isoformat(),
-                    "stage": "initial_generation",
+                    "phase": "package",
                     "trigger": "user_request",
-                    "analysis_stages_completed": result["stages_completed"],
+                    "phases_completed": result["phases_completed"],
                     "api_probe_result": probe_result,
                     "validation_result": validation_result,
                 },
@@ -478,8 +472,8 @@ class ExtensionCLIAnalyzer(
 
 
 def _patch_mixin_globals():
-    from . import scan, logic_analysis, stage4_decomposition, cross_stage, workflow_detection, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest
-    for _module in [scan, logic_analysis, stage4_decomposition, cross_stage, workflow_detection, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest]:
+    from . import scan, logic_analysis, stage4_decomposition, cross_stage, node_lifecycle, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest, phases, v2_contracts, repair_loop
+    for _module in [scan, logic_analysis, stage4_decomposition, cross_stage, node_lifecycle, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest, phases, v2_contracts, repair_loop]:
         _module.ExtensionCLIAnalyzer = ExtensionCLIAnalyzer
 
 

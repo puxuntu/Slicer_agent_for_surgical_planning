@@ -74,11 +74,19 @@ def _ensure_cache():
                         "Skipping %s (status=%s, not validated)", entry, status
                     )
                     continue
+                if manifest.get("manifest_version") != 2:
+                    logger.info(
+                        "Skipping %s (manifest_version=%s, expected 2; regenerate CLI)",
+                        entry,
+                        manifest.get("manifest_version", "missing"),
+                    )
+                    continue
 
                 schemas_path = os.path.join(ext_dir, "tool_schemas.json")
                 generators_path = os.path.join(ext_dir, "code_generators.json")
                 prompt_path = os.path.join(ext_dir, "prompt_fragment.md")
                 metadata_path = os.path.join(ext_dir, "workflow_metadata.json")
+                contract_path = os.path.join(ext_dir, "workflow_contract.json")
 
                 schemas = []
                 if os.path.isfile(schemas_path):
@@ -99,6 +107,10 @@ def _ensure_cache():
                 if os.path.isfile(metadata_path):
                     with open(metadata_path, "r", encoding="utf-8") as f:
                         workflow_metadata = json.load(f)
+                workflow_contract = {}
+                if os.path.isfile(contract_path):
+                    with open(contract_path, "r", encoding="utf-8") as f:
+                        workflow_contract = json.load(f)
 
                 _cli_cache[entry] = {
                     "manifest": manifest,
@@ -106,6 +118,7 @@ def _ensure_cache():
                     "generators": generators,
                     "prompt_fragment": prompt_fragment,
                     "workflow_metadata": workflow_metadata,
+                    "workflow_contract": workflow_contract,
                     "dir": ext_dir,
                 }
 

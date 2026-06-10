@@ -1,5 +1,5 @@
 """
-ExtensionCLIAnalyzer - 9-stage pipeline for analyzing Slicer extensions
+ExtensionCLIAnalyzer - named-phase v2 pipeline for analyzing Slicer extensions
 and generating operation CLIs (tool schemas + code templates).
 
 The pipeline is cookbook-driven: a markdown cookbook describing the extension's

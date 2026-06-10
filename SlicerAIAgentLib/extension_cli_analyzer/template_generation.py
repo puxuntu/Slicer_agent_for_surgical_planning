@@ -28,7 +28,7 @@ class AnalyzerTemplateGenerationMixin:
         for i, stage in enumerate(stages):
             stage_name = stage["stage_name"]
             self.on_progress(
-                7, "Generating code templates",
+                "generate", "Generate Schemas And Templates",
                 f"Generating template for stage '{stage_name}' ({i+1}/{len(stages)})..."
             )
 
@@ -41,7 +41,7 @@ class AnalyzerTemplateGenerationMixin:
         # Also generate "full" template if multiple stages
         if len(stages) > 1:
             self.on_progress(
-                7, "Generating code templates",
+                "generate", "Generate Schemas And Templates",
                 "Generating combined 'full' template..."
             )
             full_template = self._generate_full_template(
@@ -51,7 +51,7 @@ class AnalyzerTemplateGenerationMixin:
             templates["full.py.tpl"] = full_template
 
         self.on_progress(
-            7, "Generating code templates",
+            "generate", "Generate Schemas And Templates",
             f"Generated {len(templates)} templates: {list(templates.keys())}"
         )
 
@@ -65,7 +65,7 @@ class AnalyzerTemplateGenerationMixin:
     ) -> Dict[str, str]:
         """LLM review of generated templates against actual method source."""
         self.on_progress(
-            7, "Reviewing templates",
+            "generate", "Generate Schemas And Templates",
             "Sending templates to LLM for correctness review..."
         )
 
@@ -201,24 +201,24 @@ If the template is correct with no issues, return:
         syntax_issues = self._syntax_check_templates(reviewed)
         if isinstance(self._workflow_metadata, dict):
             self._workflow_metadata.setdefault("validation_state", {})[
-                "stage7_syntax_valid"
+                "generate_syntax_valid"
             ] = not bool(syntax_issues)
             if syntax_issues:
-                self._workflow_metadata["stage7_syntax_issues"] = syntax_issues
+                self._workflow_metadata["generate_syntax_issues"] = syntax_issues
 
         if syntax_issues:
             self.on_progress(
-                7, "Reviewing templates",
+                "generate", "Generate Schemas And Templates",
                 f"Found {len(syntax_issues)} syntax issue(s); validation/revision must fix them"
             )
         elif corrections_count:
             self.on_progress(
-                7, "Reviewing templates",
+                "generate", "Generate Schemas And Templates",
                 f"LLM corrected {corrections_count} template(s)"
             )
         else:
             self.on_progress(
-                7, "Reviewing templates",
+                "generate", "Generate Schemas And Templates",
                 "All templates passed LLM review"
             )
 

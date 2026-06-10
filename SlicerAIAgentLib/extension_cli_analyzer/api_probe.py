@@ -347,12 +347,12 @@ class AnalyzerApiProbeMixin:
             import slicer as _slicer_mod  # noqa: F401
         except ImportError:
             logger.info(
-                "[Stage 7.5] Slicer not available — skipping live API probe"
+                "[verify_repair] Slicer not available — skipping live API probe"
             )
             return {"probed": 0, "failures": [], "revised": 0}
 
         self.on_progress(
-            "7.5", "Live API Probing",
+            "verify_repair", "Verify And Repair Templates",
             "Verifying template API calls against running Slicer..."
         )
 
@@ -395,7 +395,7 @@ class AnalyzerApiProbeMixin:
 
         probes = self._generate_probes(all_specs)
         logger.info(
-            "[Stage 7.5] Generated %d probes for %d API calls across %d templates",
+            "[verify_repair] Generated %d probes for %d API calls across %d templates",
             len(probes), len(all_specs), len(all_specs_by_template),
         )
 
@@ -429,9 +429,9 @@ class AnalyzerApiProbeMixin:
                 })
 
         if not failures:
-            logger.info("[Stage 7.5] All %d API probes passed", len(probes))
+            logger.info("[verify_repair] All %d API probes passed", len(probes))
             self.on_progress(
-                "7.5", "Live API Probing",
+                "verify_repair", "Verify And Repair Templates",
                 f"All {len(probes)} API probes passed"
             )
             return {
@@ -443,11 +443,11 @@ class AnalyzerApiProbeMixin:
 
         # Log failures
         logger.warning(
-            "[Stage 7.5] %d/%d API probes failed",
+            "[verify_repair] %d/%d API probes failed",
             len(failures), len(all_specs),
         )
         for f in failures:
-            logger.warning("[Stage 7.5] FAILED: %s", f["chain"])
+            logger.warning("[verify_repair] FAILED: %s", f["chain"])
 
         # Map failures back to affected templates
         affected_templates = {}
@@ -476,7 +476,7 @@ class AnalyzerApiProbeMixin:
                 templates[tpl_key] = revised
                 revised_count += 1
                 logger.info(
-                    "[Stage 7.5] Revised template '%s' for API failures",
+                    "[verify_repair] Revised template '%s' for API failures",
                     tpl_key,
                 )
             else:
@@ -545,7 +545,7 @@ class AnalyzerApiProbeMixin:
                                 break
 
         self.on_progress(
-            "7.5", "Live API Probing",
+            "verify_repair", "Verify And Repair Templates",
             f"Found {len(failures)} API issues, revised {revised_count} templates"
         )
         return {
@@ -638,7 +638,7 @@ class AnalyzerApiProbeMixin:
                         return response
         except Exception:
             logger.debug(
-                "[Stage 7.5] LLM revision failed for %s", template_key,
+                "[verify_repair] LLM revision failed for %s", template_key,
                 exc_info=True,
             )
         return None

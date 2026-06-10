@@ -361,7 +361,7 @@ class AnalyzerStage4DecompositionMixin:
     ) -> Dict:
         """Use one validated LLM call to interpret all cookbook step semantics."""
         self.on_progress(
-            4, "Cookbook Stage Map",
+            "contract", "Build Workflow Contract",
             "LLM interpreting cookbook steps and repeat intent..."
         )
         context = self._stage4_semantic_context(cookbook_def, logic_analysis, scan_result)
@@ -381,7 +381,7 @@ class AnalyzerStage4DecompositionMixin:
                         result, cookbook_def, logic_analysis
                     )
                     self.on_progress(
-                        4, "Cookbook Stage Map",
+                        "contract", "Build Workflow Contract",
                         f"LLM interpreted {stage_map['stage_count']} cookbook steps"
                     )
                     return stage_map
@@ -706,7 +706,7 @@ class AnalyzerStage4DecompositionMixin:
             if node_class is not None and node_class not in allowed_classes:
                 errors.append(f"step {number} references unknown node_class {node_class!r}")
             # Revision B: validate the new descriptor fields. These are
-            # advisory (consumed by Stage 7 dispatch and Stage 9 semantic
+            # advisory (consumed by template dispatch and verify_repair semantic
             # checks), so downgrade type problems to soft rewrites instead
             # of hard validation errors — the rest of the pipeline still
             # functions with defaulted values.
@@ -1049,7 +1049,7 @@ class AnalyzerStage4DecompositionMixin:
             })
 
         self.on_progress(
-            4, "Cookbook Stage Map",
+            "contract", "Build Workflow Contract",
             f"Built {len(stages)} typed cookbook steps"
         )
         return {
@@ -1141,7 +1141,7 @@ class AnalyzerStage4DecompositionMixin:
             # `node_class = "vtkMRMLCrosshairNode"` for any drag/adjust/
             # rotate/translate action without an explicit markup keyword.
             # That conflated view_adjustment with crosshair and broke the
-            # Stage 7 dispatch for non-crosshair viewport adjustments.
+            # generate dispatch for non-crosshair viewport adjustments.
             # node_class now stays empty for view_adjustment fallbacks.
         interaction_kind = (
             interaction.get("interaction_kind")
@@ -1551,7 +1551,7 @@ class AnalyzerStage4DecompositionMixin:
                     # `node_class = "vtkMRMLCrosshairNode"` whenever a
                     # view_adjustment step had empty node_class. That hack
                     # conflated "no node created" with "crosshair node" and
-                    # broke the Stage 7 dispatch for every drag-existing-handle
+                    # broke the generate dispatch for every drag-existing-handle
                     # or viewport-adjustment interaction. With Revision A
                     # dispatching on interaction_kind, node_class is allowed
                     # to be empty for view_adjustment steps, so the injection
@@ -1691,7 +1691,7 @@ class AnalyzerStage4DecompositionMixin:
             # ── Reclassify extension_op/unknown_op → slicer_op when no method hint and matches Slicer core ──
             # Sub-ops classified as extension_op (or downgraded to unknown_op due to
             # no matching method) that describe Slicer core UI operations should be
-            # slicer_op so Stage 5T / Stage 7 can generate proper Slicer API code.
+            # slicer_op so the ground/generate phases can produce proper Slicer API code.
             _SLICER_CORE_PATTERNS = {
                 "layout_slice_view": [
                     "layout", "conventional", "four-up", "slice view",
@@ -1811,7 +1811,7 @@ class AnalyzerStage4DecompositionMixin:
             stages.append(stage)
 
         self.on_progress(
-            4, "Cookbook Stage Map",
+            "contract", "Build Workflow Contract",
             f"Decomposed {len(stages)} cookbook steps via LLM"
         )
 

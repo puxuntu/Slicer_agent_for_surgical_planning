@@ -528,7 +528,7 @@ class WidgetWorkflowMixin:
 
     def _handleCliProgress(self, stage_num, stage_name, detail):
         """Handle CLI generator progress updates on the main thread."""
-        self._cliProgressDisplay.append(f"  Stage {stage_num}: {stage_name} — {detail}")
+        self._cliProgressDisplay.append(f"  Phase {stage_num}: {stage_name} — {detail}")
 
     def _handleCliProbeRequest(self, payload):
         """Execute a CLI live-API probe on the Qt/Slicer main thread."""
@@ -556,10 +556,10 @@ class WidgetWorkflowMixin:
             error = result.get("error", "Unknown error")
             self._cliProgressDisplay.append(f"FAILED: {error}")
 
-            stages = result.get("stages_completed", [])
+            stages = result.get("phases_completed") or result.get("stages_completed", [])
             if stages:
                 self._cliProgressDisplay.append(
-                    f"Completed stages: {stages}"
+                    f"Completed phases: {stages}"
                 )
 
             # Auto-revise if templates were generated but validation failed
@@ -618,7 +618,7 @@ class WidgetWorkflowMixin:
         live_info = f" ({len(live_results)} templates live-validated)" if has_live else ""
         self._cliResultSummary.setText(
             f"Generated CLI for {manifest.get('extension_name', '?')} "
-            f"(stages: {', '.join(stages)}).{live_info} "
+            f"(workflow steps: {', '.join(stages)}).{live_info} "
             f"Saved to: {result.get('cli_dir', '?')}"
         )
         self._cliProgressDisplay.append(f"CLI generation complete: {status_text}!")

@@ -99,8 +99,8 @@ class AnalyzerValidationContractsMixin:
             self._workflow_metadata["template_contract_sync"] = sync_report
             if final_api_evidence:
                 self._workflow_metadata["final_api_evidence"] = final_api_evidence
-                self._workflow_metadata["stage5T_api_evidence_note"] = (
-                    "stage5T_api_evidence is pre-revision retrieval evidence; "
+                self._workflow_metadata["ground_api_evidence_note"] = (
+                    "ground_api_evidence is pre-revision retrieval evidence; "
                     "final_api_evidence reflects the current validated templates."
                 )
             self._workflow_metadata["operation_model"] = {
@@ -114,7 +114,7 @@ class AnalyzerValidationContractsMixin:
     def _merge_api_evidence(evidence_items: List[Dict]) -> Dict:
         """Merge API evidence records from multiple generated sub-templates."""
         merged = {
-            "source": "stage5T",
+            "source": "ground_api",
             "accepted_footprints": [],
             "api_chains": [],
             "operation_descriptions": [],
@@ -575,7 +575,7 @@ class AnalyzerValidationContractsMixin:
                         if kw and kw in code.lower():
                             found = True
                             break
-                # Prefer per-template API evidence discovered during Stage 5T
+                # Prefer per-template API evidence discovered during the ground phase
                 # or contract synchronization over broad category fallbacks.
                 if not found and so_type == "slicer_op":
                     evidence = gen.get("api_evidence") or {}
@@ -617,6 +617,12 @@ class AnalyzerValidationContractsMixin:
 
         if "TODO" in code:
             result["errors"].append("Required template contains TODO")
+        callable_contract = self._validate_callable_reference_misuse(code)
+        result["errors"].extend(callable_contract.get("errors", []))
+        result["warnings"].extend(callable_contract.get("warnings", []))
+        instruction_contract = self._validate_user_instruction_text(code)
+        result["errors"].extend(instruction_contract.get("errors", []))
+        result["warnings"].extend(instruction_contract.get("warnings", []))
         unresolved_placeholders = [
             p["name"] for p in self._find_template_placeholders(raw_code)
             if p["name"] != "vol_lookup" and not p["has_default"]

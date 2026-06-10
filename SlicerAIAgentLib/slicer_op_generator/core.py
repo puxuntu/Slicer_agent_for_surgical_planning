@@ -16,6 +16,7 @@ class SlicerOpGeneratorCoreMixin:
         self._executor_initialized = skill_executor is not None
         self._on_progress = on_progress
         self._debug_path = debug_path
+        self.last_run_records = []
 
     # ------------------------------------------------------------------
     # Lazy SkillToolExecutor initialization
@@ -85,6 +86,34 @@ class SlicerOpGeneratorCoreMixin:
         """Build the user prompt for a single slicer_op sub-operation."""
         parts = [f"Generate a Python code template for this 3D Slicer operation:\n"]
         parts.append(sub_op.description)
+        repair_context = getattr(sub_op, "repair_context", None)
+        if isinstance(repair_context, dict) and repair_context:
+            parts.append("\n\nThis is a targeted repair of a previously generated template.")
+            if repair_context.get("validation_issue"):
+                parts.append(
+                    "\nValidation failure to fix:\n"
+                    + str(repair_context["validation_issue"])
+                )
+            if repair_context.get("semantic_recipe"):
+                parts.append(
+                    "\nRequired semantic recipe:\n"
+                    + json.dumps(repair_context["semantic_recipe"], indent=2)
+                )
+            if repair_context.get("existing_api_evidence"):
+                parts.append(
+                    "\nExisting API evidence to verify or replace:\n"
+                    + json.dumps(repair_context["existing_api_evidence"], indent=2)
+                )
+            if repair_context.get("failed_code"):
+                parts.append(
+                    "\nPreviously failing code:\n```python\n"
+                    + str(repair_context["failed_code"])
+                    + "\n```"
+                )
+            parts.append(
+                "\nSearch again for source-backed evidence. Do not preserve an API "
+                "pattern merely because it appears in the failing code."
+            )
         state_intent = infer_final_state_intent(
             " ".join([
                 getattr(sub_op, "description", "") or "",

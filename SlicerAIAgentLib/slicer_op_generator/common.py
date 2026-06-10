@@ -10,6 +10,7 @@ for interactive queries.
 """
 
 import ast
+import json
 import logging
 import os
 import re
@@ -421,7 +422,7 @@ def _extract_backticked_values(lines: List[str], label: str, limit: int = 30) ->
 
 
 def _summarize_tool_evidence(tool_calls_history: List[Dict]) -> Dict[str, Any]:
-    """Summarize whether/how Stage 5T used generated Slicer UI pre-analysis."""
+    """Summarize whether/how the ground phase used generated Slicer UI pre-analysis."""
     ui_query_paths: List[str] = []
     ui_result_files: List[str] = []
     non_ui_result_files: List[str] = []
