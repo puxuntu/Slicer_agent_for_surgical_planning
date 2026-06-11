@@ -15,39 +15,38 @@ except NameError:
     from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
     _bonereconstructionplanner_logic = BoneReconstructionPlannerLogic()
 
-logic = _bonereconstructionplanner_logic
-parameterNode = logic.getParameterNode()
+paramNode = _bonereconstructionplanner_logic.getParameterNode()
 
-# Ensure fibulaLine reference
-if not parameterNode.GetNodeReference("fibulaLine"):
+# Ensure fibulaLine (vtkMRMLMarkupsLineNode) reference exists
+fibulaLineRef = paramNode.GetNodeReference("fibulaLine")
+if fibulaLineRef is None:
     fibulaLineNodes = slicer.util.getNodesByClass("vtkMRMLMarkupsLineNode")
-    if fibulaLineNodes:
-        # Select first node with name containing "fibula" (case-insensitive)
-        fibulaLine = None
-        for node in fibulaLineNodes:
-            if "fibula" in node.GetName().lower():
-                fibulaLine = node
-                break
-        if fibulaLine is None:
-            fibulaLine = fibulaLineNodes[0]
-        parameterNode.SetNodeReferenceID("fibulaLine", fibulaLine.GetID())
-    else:
-        raise ValueError("No vtkMRMLMarkupsLineNode found in scene for fibulaLine. Please create or load one with 'fibula' in its name.")
-
-# Ensure fibulaModelNode reference
-if not parameterNode.GetNodeReference("fibulaModelNode"):
-    modelNodes = slicer.util.getNodesByClass("vtkMRMLModelNode")
-    fibulaModel = None
-    for node in modelNodes:
-        if "fibula" in node.GetName().lower():
-            fibulaModel = node
+    fibulaLineNode = None
+    for node in fibulaLineNodes:
+        name = node.GetName().lower()
+        if "fibula" in name and "line" in name:
+            fibulaLineNode = node
             break
-    if fibulaModel is None and modelNodes:
-        fibulaModel = modelNodes[0]
-    if fibulaModel:
-        parameterNode.SetNodeReferenceID("fibulaModelNode", fibulaModel.GetID())
-    else:
-        raise ValueError("No vtkMRMLModelNode found in scene for fibulaModelNode. Please create or load one with 'fibula' in its name.")
+    if fibulaLineNode is None:
+        raise RuntimeError("No fibula line node found in the scene. Run previous steps first.")
+    paramNode.SetNodeReferenceID("fibulaLine", fibulaLineNode.GetID())
 
-logic.centerFibulaLine()
-print("[BoneReconstructionPlanner] Completed cb_step_21: centerFibulaLine")
+# Ensure fibulaModelNode (vtkMRMLModelNode) reference exists
+fibulaModelRef = paramNode.GetNodeReference("fibulaModelNode")
+if fibulaModelRef is None:
+    modelNodes = slicer.util.getNodesByClass("vtkMRMLModelNode")
+    fibulaModelNode = None
+    for node in modelNodes:
+        name = node.GetName().lower()
+        if "fibula" in name and "model" in name:
+            fibulaModelNode = node
+            break
+    if fibulaModelNode is None:
+        raise RuntimeError("No fibula model node found in the scene. Run previous steps first.")
+    paramNode.SetNodeReferenceID("fibulaModelNode", fibulaModelNode.GetID())
+
+# The method also relies on getMandibleReconstructionFolderItemID() from parameterNode.
+# We assume it has been set in earlier steps. If not, the method may fail; we let it propagate.
+
+_bonereconstructionplanner_logic.centerFibulaLine()
+print("centerFibulaLine completed successfully.")

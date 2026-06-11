@@ -19,7 +19,8 @@ except NameError:
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
-parameterNode.SetParameter('showOriginalMandible', 'False')
+# Final state was not explicit; apply source-derived/default truthy state for showOriginalMandible
+parameterNode.SetParameter('showOriginalMandible', 'True')
 try:
     parameterNode.Modified()
 except Exception:

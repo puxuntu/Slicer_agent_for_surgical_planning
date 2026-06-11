@@ -235,7 +235,20 @@ class SafeExecutor:
                     _node_ids_before.add(node.GetID())
         except Exception:
             pass
-        
+
+        # Snapshot the active GUI module so the agent never strands the user on
+        # another module's panel. Generated extension-CLI steps call
+        # slicer.util.selectModule(<ext>) as a precondition to fire the module's
+        # enter() lifecycle; without this guard that switch would leave the user
+        # on the extension's panel instead of the SlicerAIAgent module. The
+        # pre-execution module is restored in the finally block. Only an actual
+        # change is reverted, so steps that don't switch pay nothing.
+        _pre_selected_module = None
+        try:
+            _pre_selected_module = slicer.util.selectedModule()
+        except Exception:
+            _pre_selected_module = None
+
         # Temporarily redirect VTK error/warning output so that C++ layer messages
         # (e.g. "[VTK] ModifySegmentByLabelmap: Invalid segment") are captured and
         # can trigger the self-correction mechanism.
@@ -326,6 +339,20 @@ class SafeExecutor:
             if _undo_snapshot_taken:
                 try:
                     slicer.mrmlScene.SetUndoFlag(_undo_flag_before)
+                except Exception:
+                    pass
+
+            # Restore the active GUI module if execution switched it away. This
+            # neutralizes the slicer.util.selectModule(<ext>) precondition that
+            # generated extension-CLI steps run: enter() still fires (so the
+            # extension logic stays correct), but the panel returns to whatever
+            # module the user had active (e.g. the SlicerAIAgent module). The
+            # equality guard means modules that weren't switched cost nothing,
+            # and a deliberate switch to the same module is a no-op.
+            if _pre_selected_module:
+                try:
+                    if slicer.util.selectedModule() != _pre_selected_module:
+                        slicer.util.selectModule(_pre_selected_module)
                 except Exception:
                     pass
 

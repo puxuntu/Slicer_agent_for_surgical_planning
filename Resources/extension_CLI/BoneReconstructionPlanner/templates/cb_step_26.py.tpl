@@ -19,6 +19,7 @@ except NameError:
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
+# Final state was not explicit; apply source-derived/default truthy state for showMandiblePlanesInteractionHandles
 parameterNode.SetParameter('showMandiblePlanesInteractionHandles', 'True')
 try:
     parameterNode.Modified()

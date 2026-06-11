@@ -11,7 +11,7 @@
 9. [op=slicer_op] In the toolbar, turn on "slice intersection visibility". In the slice intersection interaction options, turn on "set interaction", then enable both "Translate" and "Rotate".
 10. [op=user_interaction] Manually adjust the slice intersection position by translate and rotate of the cross lines in each view.
 11. [op=extension_op] Click the "Add mandibular curve" button.
-12. [op=slicer_op] Configure the display settings of the mandibular curve created by the "Add mandibular curve" button so it is shown in both "View 1" and "Red".
+12. [op=slicer_op] Configure the display settings of the mandibular curve created by the "Add Mandibular Curve" button. Specifically, in the "Markups" module, under the "Advanced" collapsible section, select "View 1" and "Red" in the "View" combo box.
 13. [op=user_interaction] Manually click and draw on the "Red" view to create a curve along the mandible.
 14. [op=slicer_op] Change the layout to "BoneReconstructionPlanner".
 15. [op=slicer_op] For the R (red) view, toggle off "slice visibility in 3D view".

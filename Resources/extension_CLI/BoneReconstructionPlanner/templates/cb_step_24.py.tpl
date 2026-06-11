@@ -1,4 +1,6 @@
 import slicer
+from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
+
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
@@ -10,51 +12,41 @@ if _active_module_name != 'BoneReconstructionPlanner':
 # precondition:end
 
 try:
-    _bonereconstructionplanner_logic
+    logic = _bonereconstructionplanner_logic
 except NameError:
-    from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
-    _bonereconstructionplanner_logic = BoneReconstructionPlannerLogic()
+    logic = BoneReconstructionPlannerLogic()
+    _bonereconstructionplanner_logic = logic
 
-logic = _bonereconstructionplanner_logic
+parameterNode = logic.getParameterNode()
 
-# Ensure parameter node exists
-if not hasattr(logic, 'parameterNode') or logic.parameterNode is None:
-    parameterNode = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScriptedModuleNode')
-    if parameterNode is None:
-        parameterNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLScriptedModuleNode')
-    logic.parameterNode = parameterNode
+# Set scalar parameters from defaults if not already set
+parametersToSet = [
+    ("additionalBetweenSpaceOfFibulaPlanes", "1.5"),
+    ("fibulaCentroidX", "0.0"),
+    ("fibulaCentroidY", "0.0"),
+    ("fibulaCentroidZ", "0.0"),
+    ("fibulaSegmentsMeasurementMode", "center2center"),
+    ("fixCutGoesThroughTheMandibleTwice", "False"),
+    ("fixCutGoesThroughTheMandibleTwiceCheckBoxChanged", "False"),
+    ("initialSpace", "0.0"),
+    ("kindOfMandibleResection", "Segmental Mandibulectomy"),
+    ("mandibleCentroidX", "0.0"),
+    ("mandibleCentroidY", "0.0"),
+    ("mandibleCentroidZ", "0.0"),
+    ("mandibleSideToRemove", "Removing right side"),
+    ("rightSideLegFibula", "False"),
+    ("useMoreExactVersionOfPositioningAlgorithm", "False"),
+    ("useNonDecimatedBoneModelsForPreview", "True"),
+]
 
-paramNode = logic.parameterNode
+for paramName, defaultValue in parametersToSet:
+    currentValue = parameterNode.GetParameter(paramName)
+    if currentValue is None or currentValue == "":
+        parameterNode.SetParameter(paramName, defaultValue)
 
-# Set required parameters with defaults if not already set
-defaults = {
-    'additionalBetweenSpaceOfFibulaPlanes': '1.5',
-    'fibulaCentroidX': '0.0',
-    'fibulaCentroidY': '0.0',
-    'fibulaCentroidZ': '0.0',
-    'fibulaSegmentsMeasurementMode': 'center2center',
-    'fixCutGoesThroughTheMandibleTwice': 'False',
-    'fixCutGoesThroughTheMandibleTwiceCheckBoxChanged': 'False',
-    'initialSpace': '0.0',
-    'kindOfMandibleResection': 'Segmental Mandibulectomy',
-    'lockVSP': 'False',
-    'makeAllMandiblePlanesRotateTogether': 'True',
-    'mandibleCentroidX': '0.0',
-    'mandibleCentroidY': '0.0',
-    'mandibleCentroidZ': '0.0',
-    'mandiblePlanesPositioningForMaximumBoneContact': 'True',
-    'mandibleSideToRemove': 'Removing right side',
-    'rightSideLegFibula': 'False',
-    'useMoreExactVersionOfPositioningAlgorithm': 'False',
-    'useNonDecimatedBoneModelsForPreview': 'True',
-}
+# Node references are expected to be set by previous steps.
+# The method reads 'mandibleModelNode' and 'decimatedMandibleModelNode' from the parameter node.
+# We do not attempt to set them here; if missing, the method will raise an appropriate error.
 
-for key, default_value in defaults.items():
-    current = paramNode.GetParameter(key)
-    if not current:
-        paramNode.SetParameter(key, default_value)
-
-# Call the method
-logic.hardVSPUpdate()
-
-print("[BoneReconstructionPlanner] Step cb_step_24 (hardVSPUpdate) completed.")
+logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible()
+print("[BoneReconstructionPlanner] Step 24: generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible completed.")

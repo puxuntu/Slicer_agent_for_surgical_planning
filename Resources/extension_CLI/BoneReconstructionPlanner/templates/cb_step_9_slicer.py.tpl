@@ -1,23 +1,25 @@
-# Enable slice intersection visibility and interaction modes
-appLogic = slicer.app.applicationLogic()
+"""
+Enable slice intersection visibility and interaction with Translate and Rotate.
 
-# Enable visibility of slice intersections
-appLogic.SetIntersectingSlicesEnabled(
-    appLogic.IntersectingSlicesVisibility, True)
+This script iterates over all vtkMRMLSliceDisplayNode instances in the scene
+and sets intersection visibility, interactive mode, translation, and rotation
+enabled to True.
+"""
 
-# Enable interaction with slice intersections (show handles)
-appLogic.SetIntersectingSlicesEnabled(
-    appLogic.IntersectingSlicesInteractive, True)
+# Get all slice display nodes
+sliceDisplayNodes = slicer.util.getNodesByClass("vtkMRMLSliceDisplayNode")
 
-# Enable translation handles for slice intersections
-appLogic.SetIntersectingSlicesEnabled(
-    appLogic.IntersectingSlicesTranslation, True)
+for sliceDisplayNode in sliceDisplayNodes:
+    # Enable visibility of slice intersection lines
+    sliceDisplayNode.SetIntersectingSlicesVisibility(True)
+    # Enable interaction with slice intersections
+    sliceDisplayNode.SetIntersectingSlicesInteractive(True)
+    # Enable translation handles on slice intersections
+    sliceDisplayNode.SetIntersectingSlicesTranslationEnabled(True)
+    # Enable rotation handles on slice intersections
+    sliceDisplayNode.SetIntersectingSlicesRotationEnabled(True)
 
-# Enable rotation handles for slice intersections
-appLogic.SetIntersectingSlicesEnabled(
-    appLogic.IntersectingSlicesRotation, True)
-
-# Force visual update of all slice nodes (workaround for https://github.com/Slicer/Slicer/issues/6338)
+# Trigger visual update on all slice nodes
 sliceNodes = slicer.util.getNodesByClass('vtkMRMLSliceNode')
 for sliceNode in sliceNodes:
     sliceNode.Modified()
