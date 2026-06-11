@@ -441,6 +441,25 @@ def _build_runtime_prelude(ctx: _WorkflowContext) -> str:
     metadata = ctx.metadata or {}
     module_name = metadata.get("extension_module_name", "")
     logic_class_name = metadata.get("logic_class_name", "")
+    bindings = metadata.get("parameter_bindings", {}) or {}
+    method_deps = (metadata.get("parameter_method_dependencies", {}) or {}).get(method_name, {}) or {}
+    role_names = list(method_deps.get("parameter_roles") or []) + list(method_deps.get("node_roles") or [])
+    node_requirements = method_deps.get("node_requirements") or {}
+    fallback_required_bindings = {
+        role: {
+            **bindings.get(role, {}),
+            "_workflow_requirement": node_requirements.get(
+                role,
+                {
+                    "requirement": "optional_unknown",
+                    "conditions": [],
+                    "condition_groups": [],
+                },
+            ),
+        }
+        for role in role_names
+        if isinstance(bindings.get(role), dict)
+    }
 
     lines = [
         "# [Workflow runtime] Hidden generated-CLI workflow context",
@@ -459,6 +478,12 @@ def _build_runtime_prelude(ctx: _WorkflowContext) -> str:
         "from SlicerAIAgentLib.workflow_state import validate_method_preconditions",
         f"try:\n    _workflow_logic = _{ctx.ext_name.lower()}_logic\nexcept NameError:\n    from {module_name} import {logic_class_name}\n    _workflow_logic = {logic_class_name}()",
         f"_{ctx.ext_name.lower()}_logic = _workflow_logic",
+        "try:",
+        "    _workflow_required_bindings",
+        "except NameError:",
+        f"    _workflow_required_bindings = {fallback_required_bindings!r}",
+        "def _workflow_validate_method_preconditions():",
+        "    validate_method_preconditions(_workflow_logic, _workflow_required_bindings)",
         "",
     ])
     return "\n".join(lines) + "\n"

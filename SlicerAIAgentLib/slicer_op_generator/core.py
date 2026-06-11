@@ -86,6 +86,11 @@ class SlicerOpGeneratorCoreMixin:
         """Build the user prompt for a single slicer_op sub-operation."""
         parts = [f"Generate a Python code template for this 3D Slicer operation:\n"]
         parts.append(sub_op.description)
+        parts.append(
+            "\nEvery executable API call must use a receiver type derivable from retrieved "
+            "source or wrapper evidence. Report uncertainty instead of inventing a method. "
+            "Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior."
+        )
         repair_context = getattr(sub_op, "repair_context", None)
         if isinstance(repair_context, dict) and repair_context:
             parts.append("\n\nThis is a targeted repair of a previously generated template.")
@@ -96,7 +101,7 @@ class SlicerOpGeneratorCoreMixin:
                 )
             if repair_context.get("semantic_recipe"):
                 parts.append(
-                    "\nRequired semantic recipe:\n"
+                    "\nBehavioral repair contract:\n"
                     + json.dumps(repair_context["semantic_recipe"], indent=2)
                 )
             if repair_context.get("existing_api_evidence"):

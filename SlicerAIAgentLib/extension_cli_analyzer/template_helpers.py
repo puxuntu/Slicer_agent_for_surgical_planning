@@ -55,8 +55,8 @@ class AnalyzerTemplateHelpersMixin:
         return [
             "# precondition:begin",
             "# Ensure the extension module is active so module.enter() has run.",
-            "_active_module = slicer.app.moduleManager().activeModule()",
-            f"if _active_module is None or _active_module.name != {module_name!r}:",
+            "_active_module_name = slicer.util.selectedModule()",
+            f"if _active_module_name != {module_name!r}:",
             "    try:",
             f"        slicer.util.selectModule({module_name!r})",
             "    except Exception as _module_enter_error:",
@@ -64,6 +64,23 @@ class AnalyzerTemplateHelpersMixin:
             "# precondition:end",
             "",
         ]
+
+    def _inject_module_enter_precondition(self, code: str, module_name: str) -> str:
+        """Insert the shared lifecycle precondition after imports."""
+        if not code or "# precondition:begin" in code or not module_name:
+            return code
+        lines = code.splitlines()
+        if not any(line.strip() == "import slicer" for line in lines):
+            lines.insert(0, "import slicer")
+        insert_at = 0
+        for index, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.startswith(("import ", "from ")) or not stripped or stripped.startswith("#"):
+                insert_at = index + 1
+                continue
+            break
+        block = self._emit_module_enter_precondition(module_name)
+        return "\n".join(lines[:insert_at] + block + lines[insert_at:]).rstrip() + "\n"
 
     @staticmethod
     def _repair_multiline_comment_headers(code: str) -> str:
@@ -501,17 +518,7 @@ class AnalyzerTemplateHelpersMixin:
                `node = resolve_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "{step.get('step_id', '')}", "{node_class}", _workflow_runtime_repeat_index)`.
                If that returns None, fall back to `slicer.mrmlScene.GetNodeByID({node_var})`.
             3. Validate the user placed enough control points ({min_points} minimum)
-            4. Ensure the extension module is active so module.enter() has run (extension methods may depend on parameter-node init, observers, and UI bindings set up by the widget's enter() method). Emit (include the marker comments exactly):
-               ```
-               # precondition:begin
-               _active_module = slicer.app.moduleManager().activeModule()
-               if _active_module is None or _active_module.name != "{module_name}":
-                   try:
-                       slicer.util.selectModule("{module_name}")
-                   except Exception as _module_enter_error:
-                       print(f"Warning: could not activate module '{module_name}': {{_module_enter_error}}")
-               # precondition:end
-               ```
+            4. Do not emit module lifecycle setup; the generator adds the shared lifecycle precondition deterministically.
             5. Reuse the existing logic instance `_{extension_name.lower()}_logic` if it exists in `dir()`, otherwise create a new `{logic_class_name}()`
             6. Set up any required state on the logic instance BEFORE calling the method (e.g., if the method reads `self.inputMarkupNode`, assign the retrieved node to it)
             7. Call the method `{method_name}()` with correct arguments — pass the markup node if the method expects it
@@ -523,7 +530,7 @@ class AnalyzerTemplateHelpersMixin:
             IMPORTANT restrictions:
             - Do NOT use `dir()`, `eval()`, `exec()`, `globals()`, or `locals()` — these are blocked in the execution sandbox.
             - Use `try/except NameError` to check if a variable exists, NOT `if 'var' in dir()`.
-            - Do NOT use curly brace template placeholders. Write actual Python values (strings, numbers, etc.). If you need a node name, use a hardcoded lookup like `slicer.util.getNode('NodeName')`.
+            - Do NOT use curly brace template placeholders. Write actual source-derived Python values. Do not invent or hardcode node names.
             - Escape all braces in f-strings and .format() calls by doubling them: use doubled-braces for literal braces in output strings.
             - Return ONLY raw Python code. Do NOT wrap it in markdown fences (```python ... ```).""")
 
@@ -537,7 +544,7 @@ class AnalyzerTemplateHelpersMixin:
                 import ast as _ast
                 try:
                     _ast.parse(response)
-                    return response
+                    return self._inject_module_enter_precondition(response, module_name)
                 except (SyntaxError, IndentationError) as e:
                     if _attempt == 0:
                         logger.info(
@@ -553,7 +560,7 @@ class AnalyzerTemplateHelpersMixin:
                             "LLM post-interaction template for step %s still has syntax error after retry: %s",
                             step.get("step_id", "?"), e,
                         )
-                        return response
+                        return self._inject_module_enter_precondition(response, module_name)
         except Exception:
             logger.debug("LLM post-interaction template generation failed", exc_info=True)
         return None
@@ -577,6 +584,26 @@ class AnalyzerTemplateHelpersMixin:
         """
         import ast as _ast
         import textwrap as _textwrap
+
+        class _QualifyBareSlicerClasses(_ast.NodeTransformer):
+            def __init__(self):
+                self.changed = False
+
+            def visit_Name(self, node):
+                if (
+                    isinstance(node.ctx, _ast.Load)
+                    and node.id.startswith("vtkMRML")
+                ):
+                    self.changed = True
+                    return _ast.copy_location(
+                        _ast.Attribute(
+                            value=_ast.Name(id="slicer", ctx=_ast.Load()),
+                            attr=node.id,
+                            ctx=node.ctx,
+                        ),
+                        node,
+                    )
+                return node
 
         # Blocked imports — mirror CodeValidator's list
         _BLOCKED_MODULES = {
@@ -670,6 +697,21 @@ class AnalyzerTemplateHelpersMixin:
                         return f"# {var}.<method>()  # method name not available"
                     return m.group(0)
                 code = _EMPTY_METHOD_CALL_RE.sub(_fix_empty_call, code)
+
+            # 6b. Python templates must qualify Slicer MRML classes through the
+            # slicer module.  LLMs sometimes emit C++-style bare class names
+            # such as vtkMRMLSliceNode.EnumValue, which are undefined at
+            # runtime.
+            try:
+                tree = _ast.parse(code)
+                qualifier = _QualifyBareSlicerClasses()
+                fixed_tree = qualifier.visit(tree)
+                if qualifier.changed:
+                    _ast.fix_missing_locations(fixed_tree)
+                    qualified_code = _ast.unparse(fixed_tree)
+                    code = qualified_code
+            except (SyntaxError, IndentationError):
+                pass
 
             # 7. Detect stub templates (only pass + comments/print)
             _stripped = [

@@ -77,36 +77,23 @@ Once you have seen the target function's parameter list and at least one usage e
 - Code runs inside Slicer's Python environment (`slicer` and `vtk` are available).
 - Use `slicer.mrmlScene`, `slicer.app.layoutManager()`, etc. directly.
 - For finding nodes by name, use fuzzy matching (iterate nodes, check keyword in name).
-- Use `{placeholder}` syntax for runtime values, e.g. `{volume_name: Mandible}`.
+- Use `{placeholder}` syntax for runtime values, e.g. `{node_name: TargetNode}`.
 - Do NOT use f-strings (single braces are template placeholders). Use %-formatting.
   If you need literal braces, double them: `{{expr}}`.
 - Generate final-state code. If the requested operation says enable/on/show/visible,
   call an API that sets the state to true/visible; if it says disable/off/hide,
   set the state to false/hidden. Do not use toggle APIs unless the request
   explicitly asks to invert the current state.
-- For slice intersection visibility/interactions, prefer
-  `slicer.app.applicationLogic().SetIntersectingSlicesEnabled(...)` with the
-  appropriate `vtkMRMLApplicationLogic` operation enum. Direct
-  `vtkMRMLSliceDisplayNode` setters are acceptable only when followed by
-  `vtkMRMLSliceNode.Modified()` refresh for all slice nodes. Do not implement
-  slice intersection visibility with `vtkMRMLCrosshairNode`/`SetCrosshairMode`
-  unless the operation explicitly asks for crosshair visibility.
+- For slice-intersection operations, implement the requested intersection
+  visibility and interaction state. Do not substitute crosshair visibility.
+  Search source/docs for the appropriate state APIs and any required refresh.
 - For custom layout operations, distinguish registering a layout from activating
-  it. A "change/switch/restore layout" operation must call
-  `layoutManager.setLayout(...)` or an extension helper that does so; a helper
-  that only calls `AddLayoutDescription(...)` is not sufficient.
+  it. A "change/switch/restore layout" operation must actually activate the
+  requested layout; registration alone is not sufficient.
 - For display/view-scope operations, adding view IDs is only a view filter.
-  If the target includes a slice view such as Red/Green/Yellow, also enable
-  display-class-specific 2D visibility:
-  - Markups display nodes: call `SetVisibility(True)` and enable either
-    `SetVisibility2D(True)`/`Visibility2DOn()` if available or
-    `SetSliceProjection(True)`/`SliceProjectionOn()` when the object should be
-    visible in the slice view even when it is not exactly on the current slice.
-  - Model display nodes: call `SetVisibility(True)` and
-    `SetVisibility2D(True)`/`Visibility2DOn()` for slice views.
-  - Segmentation display nodes: enable 2D fill or outline visibility for slice
-    views, for example `SetVisibility2DFill(True)` or
-    `SetVisibility2DOutline(True)`.
+  If the target includes a slice view, also enable the target display class's
+  supported slice/2D visibility state. Search evidence for the discovered
+  display-node class rather than assuming one shared API.
   Resolve view node IDs from scene/layout evidence when possible; avoid
   hard-coded view-node IDs unless the ID or singleton tag is verified.
 - Do NOT call `slicer.util.selectModule(...)` for module/panel location context

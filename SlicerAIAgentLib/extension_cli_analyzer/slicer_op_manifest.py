@@ -157,7 +157,7 @@ class AnalyzerSlicerOpManifestMixin:
         stage_names = [s["step_id"] for s in steps]
 
         manifest = {
-            "manifest_version": 2,
+            "manifest_version": 3,
             "pipeline_version": "agentic-cli-v2",
             "extension_name": extension_name,
             "extension_module_name": os.path.splitext(os.path.basename(scan_result.get("entry_module", "")))[0],

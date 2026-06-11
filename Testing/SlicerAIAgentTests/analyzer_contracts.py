@@ -13,6 +13,46 @@ class AnalyzerContractsMixin:
             code_validator=CodeValidator(),
         )
 
+        # Active generation/repair sources must not accumulate
+        # extension-specific domain vocabulary.
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        guarded_sources = [
+            "SlicerAIAgentLib/extension_cli_analyzer/repair_loop.py",
+            "SlicerAIAgentLib/extension_cli_analyzer/workflow_templates.py",
+            "SlicerAIAgentLib/extension_cli_analyzer/template_helpers.py",
+            "SlicerAIAgentLib/extension_cli_analyzer/stage4_decomposition.py",
+            "SlicerAIAgentLib/extension_cli_analyzer/cookbook_mapping.py",
+            "SlicerAIAgentLib/extension_cli_analyzer/cross_stage.py",
+            "SlicerAIAgentLib/extension_cli_analyzer/schemas.py",
+            "SlicerAIAgentLib/extension_cli_analyzer/prompt_validation.py",
+            "SlicerAIAgentLib/extension_cli_analyzer/contract_audit.py",
+            "SlicerAIAgentLib/extension_cli_analyzer/api_proof.py",
+            "SlicerAIAgentLib/slicer_op_generator/common.py",
+        ]
+        forbidden_domain_terms = {
+            "bonereconstructionplanner", "fibula", "mandible", "mandibular",
+            "hemimandibulectomy", "pelvicfractureplanning",
+        }
+        for relative_path in guarded_sources:
+            with open(os.path.join(project_root, relative_path), "r", encoding="utf-8") as source_file:
+                source_text = source_file.read().lower()
+            for forbidden_term in forbidden_domain_terms:
+                self.assertNotIn(forbidden_term, source_text, relative_path)
+
+        from SlicerAIAgentLib.extension_cli_analyzer.repair_loop import (
+            _SEMANTIC_REPAIR_RECIPES,
+        )
+        for recipe_id, recipe in _SEMANTIC_REPAIR_RECIPES.items():
+            self.assertEqual(recipe.get("knowledge_level"), "behavioral_contract", recipe_id)
+            self.assertTrue(recipe.get("behavior_requirements"), recipe_id)
+            self.assertNotIn("required_api_patterns", recipe, recipe_id)
+            self.assertNotIn("forbidden_api_patterns", recipe, recipe_id)
+            self.assertEqual(
+                recipe.get("retrieval_query_provenance"),
+                "generic_slicer_search_hint",
+                recipe_id,
+            )
+
         # v2 issue typing and workflow contracts are extension-agnostic.
         self.assertEqual(
             analyzer._classify_validation_issue(
@@ -46,21 +86,96 @@ class AnalyzerContractsMixin:
         )
         self.assertEqual(
             analyzer._classify_validation_issue(
-                "templates/cb_step_9_slicer.py.tpl: Slice intersection visibility step must use applicationLogic().SetIntersectingSlicesEnabled(...)"
+                "templates/cb_step_1_slicer.py.tpl: Slice intersection visibility step does not provide evidence-backed intersection visibility behavior"
             ),
             "SlicerSemanticError",
         )
         self.assertFalse(analyzer._is_extension_module_import("vtkMRMLApplicationLogic"))
         self.assertTrue(analyzer._is_extension_module_import("FakeExtension"))
 
+        contract_audit = analyzer._audit_workflow_contract({
+            "steps": [{
+                "step_id": "cb_step_1",
+                "description": "Toggle on slice visibility in 3D view for the Red slice",
+                "operation_model": {
+                    "operation_intents": ["slice_intersection_visibility"],
+                },
+                "operations": [{
+                    "description": "Toggle on slice visibility in 3D view",
+                    "intent": "slice_intersection_visibility",
+                }],
+            }]
+        })
+        self.assertFalse(contract_audit["valid"])
+        self.assertTrue(any("ContractFidelity" in e for e in contract_audit["errors"]))
+
+        contract_audit = analyzer._audit_workflow_contract({
+            "steps": [{
+                "step_id": "cb_step_1",
+                "description": "Show slice intersections and enable interaction",
+                "operation_model": {
+                    "operation_intents": ["slice_intersection_visibility"],
+                },
+                "operations": [{
+                    "description": "Show slice intersections",
+                    "intent": "slice_intersection_visibility",
+                }],
+            }]
+        })
+        self.assertTrue(contract_audit["valid"])
+
+        self.assertEqual(
+            analyzer._classify_validation_issue(
+                "Workflow contract audit failed: ContractFidelity: cb_step_1 intent mismatch"
+            ),
+            "ContractFidelity",
+        )
+        routed_issues = analyzer._validation_issues_from_result(
+            {
+                "errors": [
+                    "workflow_contract.json: ContractFidelity: cb_step_1 intent mismatch"
+                ]
+            },
+            generators=[],
+            workflow_contract={"steps": []},
+        )
+        self.assertEqual(routed_issues[0]["issue_class"], "contract")
+        self.assertEqual(routed_issues[0]["repair_route"], "rebuild_contract")
+
+        manifest = {"status": "validation_failed"}
+        analyzer._workflow_metadata = {
+            "revision_validation_status": "passed",
+            "verify_repair": {"status": "failed", "used_outer_revision": False},
+            "validation_state": {"contract_audit_valid": True},
+            "api_proof_coverage": {
+                "inventory_complete": True,
+                "invalid_calls": 0,
+                "blocking_unproven_calls": 0,
+                "warning_unproven_reads": 0,
+            },
+        }
+        analyzer._finalize_package_validation_state(manifest, {
+            "valid": True,
+            "api_proof_coverage": analyzer._workflow_metadata["api_proof_coverage"],
+        })
+        self.assertEqual(manifest["status"], "validated")
+        self.assertTrue(manifest["validation_state"]["overall_valid"])
+        self.assertEqual(
+            analyzer._workflow_metadata["verify_repair"]["status"],
+            "passed_after_revision",
+        )
+
+        from SlicerAIAgentLib.skill_indexer.retriever_builder import _SOURCE_TYPE_WEIGHTS
+        self.assertGreater(_SOURCE_TYPE_WEIGHTS.get("doc_example", 0), 1.0)
+
         semantic_issues = analyzer._validation_issues_from_result(
             {
                 "errors": [
-                    "templates/cb_step_9_slicer.py.tpl: Slice intersection visibility step must use applicationLogic().SetIntersectingSlicesEnabled(...)"
+                    "templates/cb_step_1_slicer.py.tpl: Slice intersection visibility step does not provide evidence-backed intersection visibility behavior"
                 ]
             },
             generators=[{
-                "template_file": "templates/cb_step_9_slicer.py.tpl",
+                "template_file": "templates/cb_step_1_slicer.py.tpl",
                 "operation_type": "slicer_op",
                 "operation_model": {
                     "operation_intents": ["slice_intersection_visibility"],
@@ -73,32 +188,38 @@ class AnalyzerContractsMixin:
             }],
             workflow_contract={
                 "steps": [{
-                    "step_id": "cb_step_9",
+                    "step_id": "cb_step_1",
                     "description": "Show slice intersections",
                 }]
             },
         )
-        self.assertEqual(semantic_issues[0]["step_id"], "cb_step_9")
+        self.assertEqual(semantic_issues[0]["step_id"], "cb_step_1")
         self.assertEqual(semantic_issues[0]["repair_strategy"], "reground_slicer_op")
         self.assertEqual(
             semantic_issues[0]["semantic_recipe_id"],
             "slice_intersection_visibility",
         )
         self.assertTrue(
-            semantic_issues[0]["semantic_recipe"]["required_api_patterns"]
+            semantic_issues[0]["semantic_recipe"]["behavior_requirements"]
         )
+        self.assertEqual(
+            semantic_issues[0]["semantic_recipe"]["knowledge_level"],
+            "behavioral_contract",
+        )
+        self.assertNotIn("required_api_patterns", semantic_issues[0]["semantic_recipe"])
+        self.assertNotIn("forbidden_api_patterns", semantic_issues[0]["semantic_recipe"])
         original_reground = analyzer._reground_slicer_template
         try:
             analyzer._reground_slicer_template = lambda issue, templates, generators: (
                 issue["template_key"],
-                "slicer.app.applicationLogic().SetIntersectingSlicesEnabled(True)\n",
+                "apply_source_backed_intersection_state()\n",
                 {"source": "mock_reground"},
             )
             repaired, strategy_results = analyzer._execute_repair_plan(
                 "FakeExt",
-                {"templates/cb_step_9_slicer.py.tpl": "bad_code()\n"},
+                {"templates/cb_step_1_slicer.py.tpl": "bad_code()\n"},
                 [{
-                    "template_file": "templates/cb_step_9_slicer.py.tpl",
+                    "template_file": "templates/cb_step_1_slicer.py.tpl",
                     "operation_type": "slicer_op",
                     "sub_operations": [{"op_type": "slicer_op"}],
                 }],
@@ -106,7 +227,10 @@ class AnalyzerContractsMixin:
                 semantic_issues,
                 None,
             )
-            self.assertIn("SetIntersectingSlicesEnabled", repaired["templates/cb_step_9_slicer.py.tpl"])
+            self.assertIn(
+                "apply_source_backed_intersection_state",
+                repaired["templates/cb_step_1_slicer.py.tpl"],
+            )
             self.assertTrue(strategy_results[0]["changed"])
         finally:
             analyzer._reground_slicer_template = original_reground
@@ -131,7 +255,7 @@ class AnalyzerContractsMixin:
 
         analyzer._workflow_metadata = {
             "parameter_bindings": {
-                "fibulaLine": {
+                "targetLine": {
                     "node_class": "vtkMRMLMarkupsLineNode",
                     "methods": ["run"],
                     "accesses": ["node_reference_read"],
@@ -171,7 +295,7 @@ class AnalyzerContractsMixin:
         self.assertEqual(v2_contract["pipeline_version"], "agentic-cli-v2")
         self.assertEqual(v2_contract["steps"][0]["operation_type"], "extension_op")
         self.assertEqual(
-            v2_contract["steps"][0]["parameter_roles"]["fibulaLine"]["node_class"],
+            v2_contract["steps"][0]["parameter_roles"]["targetLine"]["node_class"],
             "vtkMRMLMarkupsLineNode",
         )
 
@@ -203,6 +327,234 @@ class AnalyzerContractsMixin:
         }
         scalar_contract = analyzer._validate_scalar_parameter_contract("logic.run()\n")
         self.assertFalse(scalar_contract["errors"])
+        self.assertTrue(analyzer._template_sets_parameter(
+            (
+                "roles = ['initialSpace', 'targetSpacing']\n"
+                "for role in roles:\n"
+                "    parameterNode.SetParameter(role, '1.0')\n"
+            ),
+            "targetSpacing",
+        ))
+        self.assertFalse(analyzer._template_sets_parameter(
+            (
+                "roles = get_runtime_roles()\n"
+                "for role in roles:\n"
+                "    parameterNode.SetParameter(role, '1.0')\n"
+            ),
+            "targetSpacing",
+        ))
+
+        analyzer._workflow_metadata = {
+            "parameter_bindings": {
+                "initialSpace": {
+                    "value_types": ["float"],
+                    "node_class": "",
+                },
+            },
+            "parameter_defaults": {
+                "initialSpace": {
+                    "value": "0.0",
+                    "source": "typed_read_safe_fallback",
+                    "confidence": "low",
+                },
+            },
+            "parameter_method_dependencies": {
+                "consume": {
+                    "parameter_roles": ["initialSpace"],
+                },
+            },
+            "method_parameter_effects": {
+                "produce": {
+                    "writes": ["initialSpace"],
+                    "reads": [],
+                },
+                "consume": {
+                    "writes": [],
+                    "reads": ["initialSpace"],
+                },
+            },
+            "choice_bindings": {},
+            "interaction_bindings": {},
+            "workflow_steps": [
+                {"step_id": "cb_step_1"},
+                {"step_id": "cb_step_2"},
+            ],
+        }
+        contract_audit = analyzer._audit_workflow_contract({
+            "steps": [
+                {
+                    "step_id": "cb_step_1",
+                    "description": "Prepare required value",
+                    "operations": [{"extension_method_hint": "produce"}],
+                },
+                {
+                    "step_id": "cb_step_2",
+                    "description": "Use required value",
+                    "operations": [{"extension_method_hint": "consume"}],
+                },
+            ]
+        })
+        self.assertTrue(contract_audit["valid"], contract_audit.get("errors"))
+        scalar_contract = analyzer._validate_scalar_parameter_contract(
+            "logic.consume()\n",
+            step_id="cb_step_2",
+        )
+        self.assertFalse(scalar_contract["errors"])
+
+        analyzer._workflow_metadata["workflow_steps"] = [
+            {"step_id": "cb_step_1"},
+            {"step_id": "cb_step_2"},
+        ]
+        contract_audit = analyzer._audit_workflow_contract({
+            "steps": [
+                {
+                    "step_id": "cb_step_1",
+                    "description": "Use required value",
+                    "operations": [{"extension_method_hint": "consume"}],
+                },
+                {
+                    "step_id": "cb_step_2",
+                    "description": "Prepare required value",
+                    "operations": [{"extension_method_hint": "produce"}],
+                },
+            ]
+        })
+        self.assertFalse(contract_audit["valid"])
+        self.assertTrue(any("WorkflowState" in e for e in contract_audit["errors"]))
+
+        resolved_dynamic_code = (
+            "redSliceNode = slicer.vtkMRMLSliceNode.SafeDownCast("
+            "slicer.mrmlScene.GetSingletonNode('Red', 'vtkMRMLSliceNode'))\n"
+            "if redSliceNode is not None:\n"
+            "    redSliceNode.SetSliceVisible(True)\n"
+        )
+        self.assertTrue(any(
+            spec.get("attr") == "SetSliceVisible"
+            for spec in analyzer._extract_api_probe_specs(resolved_dynamic_code)
+        ))
+        self.assertFalse(analyzer._extract_unresolved_api_probe_specs(resolved_dynamic_code))
+        typed_display_code = (
+            "displayNode = slicer.vtkMRMLMarkupsDisplayNode.SafeDownCast("
+            "curveNode.GetDisplayNode())\n"
+            "if displayNode is not None:\n"
+            "    displayNode.AddViewNodeID('vtkMRMLViewNode1')\n"
+        )
+        typed_display_specs = analyzer._extract_api_probe_specs(typed_display_code)
+        self.assertTrue(any(
+            spec.get("chain") == "displayNode.AddViewNodeID"
+            and spec.get("receiver_expr") == "slicer.vtkMRMLMarkupsDisplayNode"
+            and spec.get("proof_kind") == "class_type"
+            for spec in typed_display_specs
+        ))
+        self.assertFalse(analyzer._extract_unresolved_api_probe_specs(typed_display_code))
+        unresolved_dynamic_code = (
+            "displayNode = get_runtime_display_node()\n"
+            "displayNode.SetVisibility(True)\n"
+        )
+        unresolved_dynamic_specs = analyzer._extract_unresolved_api_probe_specs(unresolved_dynamic_code)
+        self.assertTrue(unresolved_dynamic_specs)
+        self.assertEqual(unresolved_dynamic_specs[0]["proof_kind"], "unproven_receiver")
+        self.assertEqual(
+            analyzer._classify_validation_issue(
+                "templates/step.py.tpl: Unproven dynamic API receiver for 'displayNode.SetVisibility'"
+            ),
+            "UnprovenReceiver",
+        )
+        sanitized = analyzer._sanitize_templates({
+            "templates/slice.py.tpl": (
+                "mode = vtkMRMLSliceNode.SliceFOVMatchVolumesSpacingMatch2DView\n"
+            )
+        })
+        self.assertIn(
+            "slicer.vtkMRMLSliceNode.SliceFOVMatchVolumesSpacingMatch2DView",
+            sanitized["templates/slice.py.tpl"],
+        )
+
+        routed_issues = analyzer._validation_issues_from_result(
+            {
+                "errors": [
+                    "templates/step.py.tpl: Parameter 'initialSpace' for logic.consume() uses low-confidence typed_read_safe_fallback default '0.0'"
+                ]
+            },
+            generators=[{"template_file": "templates/step.py.tpl"}],
+            workflow_contract={"steps": []},
+        )
+        self.assertEqual(routed_issues[0]["issue_class"], "dataflow")
+        self.assertEqual(routed_issues[0]["repair_route"], "rebuild_dataflow")
+
+        # Stage 4 deterministically repairs schema-level contract drift while
+        # leaving genuinely semantic source-selection errors for the LLM loop.
+        stage4_context = {
+            "steps": [{
+                "step_number": 1,
+                "operation_type": "user_choice",
+                "description": "How many items?",
+            }],
+            "logic_methods": [],
+            "extension_functions": [],
+            "widgets": [],
+            "ui_parameter_bindings": [],
+            "parameter_roles": [{"role": "sourceBackedNode"}],
+            "allowed_slicer_op_categories": [],
+            "allowed_interaction_kinds": ["none"],
+            "allowed_node_classes": ["vtkMRMLMarkupsPlaneNode"],
+            "allowed_operation_intents": [],
+            "allowed_node_role_kinds": ["choice_input", "interaction_output"],
+        }
+        normalized_stage4, normalization_notes = analyzer._normalize_stage4_semantic_result(
+            {
+                "steps": [{
+                    "step_number": 1,
+                    "operation_type": "extension_op",
+                    "extension_method_hint": "inventedMethod",
+                    "confidence": "high",
+                    "interaction_kind": "none",
+                    "operation_intents": [],
+                    "choice": None,
+                    "node_roles": [
+                        {
+                            "role_kind": "choice_input",
+                            "node_class": "",
+                            "parameter_name": "runtimeCount",
+                        },
+                        {
+                            "role_kind": "interaction_output",
+                            "node_class": "vtkMRMLMarkupsPlaneNode",
+                            "parameter_name": "inventedNodeRole",
+                        },
+                        {
+                            "role_kind": "interaction_output",
+                            "node_class": "vtkMRMLMarkupsPlaneNode",
+                            "parameter_name": "sourceBackedNode",
+                        },
+                    ],
+                }],
+                "repeat_blocks": [],
+            },
+            stage4_context,
+        )
+        normalized_step = normalized_stage4["steps"][0]
+        self.assertEqual(normalized_step["operation_type"], "user_choice")
+        self.assertEqual(normalized_step["choice"]["question"], "How many items?")
+        self.assertEqual(normalized_step["choice"]["parameter_name"], "choice_step_1")
+        self.assertEqual(normalized_step["node_roles"], [
+            {
+                "role_kind": "interaction_output",
+                "node_class": "vtkMRMLMarkupsPlaneNode",
+                "parameter_name": "",
+            },
+            {
+                "role_kind": "interaction_output",
+                "node_class": "vtkMRMLMarkupsPlaneNode",
+                "parameter_name": "sourceBackedNode",
+            },
+        ])
+        self.assertTrue(normalization_notes)
+        stage4_errors = analyzer._validate_stage4_semantic_result(
+            normalized_stage4, stage4_context
+        )
+        self.assertTrue(any("unknown method" in error for error in stage4_errors))
+        self.assertFalse(any("node role" in error for error in stage4_errors))
 
         # Stage 4 uses LLM semantics for repeat intent while preserving the
         # authoritative one-operation-per-step cookbook contract.
@@ -326,9 +678,328 @@ class AnalyzerContractsMixin:
         )
         self.assertEqual(repaired, "node.SetVisibility(True)")
 
+        # Evidence-complete API proof inventory and generic type propagation.
+        from SlicerAIAgentLib.extension_cli_analyzer.api_proof import (
+            ApiProofValidator,
+            RepairCoordinator,
+            TemplateApiAnalyzer,
+            TypeProvenanceGraph,
+        )
+        provenance_code = (
+            "from typing import cast, List\n"
+            "def make_node() -> vtkGenericNode:\n"
+            "    return slicer.vtkGenericNode()\n"
+            "first = make_node()\n"
+            "alias = first\n"
+            "typed = cast(vtkGenericNode, alias)\n"
+            "items: List[vtkGenericNode] = [typed]\n"
+            "for item in items:\n"
+            "    child = item.GetChild()\n"
+            "    child.SetValue(1)\n"
+        )
+        contracts = {
+            "vtkGenericNode": {
+                "methods": {
+                    "GetChild": {
+                        "exists": True,
+                        "effect": "read_only",
+                        "return_type": "vtkGenericChild",
+                        "source": "synthetic_wrapper_metadata",
+                    },
+                },
+            },
+            "vtkGenericChild": {
+                "methods": {
+                    "SetValue": {
+                        "exists": True,
+                        "effect": "state_change",
+                        "source": "synthetic_wrapper_metadata",
+                    },
+                    "MissingMethod": {
+                        "exists": False,
+                        "effect": "state_change",
+                        "source": "synthetic_wrapper_metadata",
+                    },
+                },
+            },
+        }
+        graph = TypeProvenanceGraph(provenance_code, return_contracts=contracts)
+        self.assertEqual(graph.receiver_candidates("alias")[0]["type"], "vtkGenericNode")
+        self.assertEqual(graph.receiver_candidates("typed")[0]["type"], "vtkGenericNode")
+        self.assertEqual(graph.receiver_candidates("item")[0]["type"], "vtkGenericNode")
+        self.assertEqual(graph.receiver_candidates("child")[0]["type"], "vtkGenericChild")
+
+        inventory = TemplateApiAnalyzer().analyze(
+            "templates/generic.py.tpl", provenance_code
+        )
+        self.assertTrue(inventory["complete"])
+        call_ids = [call["call_id"] for call in inventory["calls"]]
+        self.assertEqual(len(call_ids), len(set(call_ids)))
+        self.assertEqual(len(call_ids), len([
+            node for node in ast.walk(ast.parse(provenance_code))
+            if isinstance(node, ast.Call)
+        ]))
+
+        proof_code = (
+            "node = slicer.vtkGenericChild()\n"
+            "node.SetValue(1)\n"
+        )
+        proof_inventory = TemplateApiAnalyzer().analyze(
+            "templates/proven.py.tpl", proof_code
+        )
+        proof_graph = TypeProvenanceGraph(proof_code, return_contracts=contracts)
+        proof = ApiProofValidator(type_contracts=contracts).validate_inventory(
+            proof_inventory, proof_graph
+        )
+        self.assertFalse(proof["issues"], proof["issues"])
+
+        invalid_code = (
+            "node = slicer.vtkGenericChild()\n"
+            "node.MissingMethod()\n"
+        )
+        invalid_proof = ApiProofValidator(type_contracts=contracts).validate_inventory(
+            TemplateApiAnalyzer().analyze("templates/invalid.py.tpl", invalid_code),
+            TypeProvenanceGraph(invalid_code, return_contracts=contracts),
+        )
+        self.assertTrue(any(
+            issue["issue_type"] == "InvalidApiCall" and issue["blocking"]
+            for issue in invalid_proof["issues"]
+        ))
+
+        unknown_write = "runtime_value.SetValue(1)\n"
+        unknown_write_proof = ApiProofValidator().validate_inventory(
+            TemplateApiAnalyzer().analyze("templates/write.py.tpl", unknown_write),
+            TypeProvenanceGraph(unknown_write),
+        )
+        self.assertTrue(unknown_write_proof["issues"][0]["blocking"])
+        unknown_read = "value = runtime_value.GetValue()\n"
+        unknown_read_proof = ApiProofValidator().validate_inventory(
+            TemplateApiAnalyzer().analyze("templates/read.py.tpl", unknown_read),
+            TypeProvenanceGraph(unknown_read),
+        )
+        self.assertFalse(unknown_read_proof["issues"][0]["blocking"])
+        self.assertFalse(
+            TemplateApiAnalyzer().analyze("templates/broken.py.tpl", "node.SetValue(")["complete"]
+        )
+
+        coordinator = RepairCoordinator()
+        self.assertTrue(coordinator.can_attempt("call", "source_backed_cast"))
+        coordinator.record("call", "source_backed_cast", "failed")
+        self.assertFalse(coordinator.can_attempt("call", "source_backed_cast"))
+
+        analyzer._workflow_metadata = {
+            "api_type_contracts": contracts,
+            "parameter_bindings": {},
+            "extension_callable_inventory": {
+                "logic_methods": [],
+                "module_functions": [],
+            },
+        }
+        proof_report = analyzer._build_api_proof_report({
+            "templates/proven.py.tpl": proof_code,
+            "templates/read.py.tpl": unknown_read,
+        })
+        self.assertTrue(proof_report["valid"])
+        self.assertEqual(
+            proof_report["api_proof_coverage"]["warning_unproven_reads"], 1
+        )
+        warning_manifest = {}
+        analyzer._finalize_package_validation_state(warning_manifest, {
+            "valid": True,
+            "api_proof_coverage": proof_report["api_proof_coverage"],
+        })
+        self.assertEqual(warning_manifest["status"], "validated_with_warnings")
+
+        incomplete_report = analyzer._build_api_proof_report({
+            "templates/broken.py.tpl": "node.SetValue("
+        })
+        self.assertFalse(incomplete_report["valid"])
+        self.assertFalse(
+            incomplete_report["api_proof_coverage"]["inventory_complete"]
+        )
+
+        structured_issues = analyzer._validation_issues_from_result({
+            "errors": [],
+            "validation_issues": unknown_write_proof["issues"],
+        })
+        self.assertEqual(structured_issues[0]["issue_type"], "UnprovenReceiver")
+        self.assertEqual(
+            structured_issues[0]["evidence_diagnosis"]["diagnosis"],
+            "receiver_type_unproven",
+        )
+
+        live_alias_code = (
+            "layoutManager = slicer.app.layoutManager()\n"
+            "layoutManager.setLayout(1)\n"
+        )
+        live_alias_probe = {
+            "probed": 2,
+            "failures": [],
+            "api_probe_coverage": {
+                "resolved": [
+                    {
+                        "chain": "slicer.app.layoutManager",
+                        "receiver_expr": "slicer.app",
+                        "original_receiver_expr": "slicer.app",
+                        "expanded_receiver_expr": "slicer.app",
+                        "attr": "layoutManager",
+                        "method_exists": True,
+                        "live_receiver_type": "qSlicerApplication",
+                    },
+                    {
+                        "chain": "slicer.app.layoutManager().setLayout",
+                        "receiver_expr": "slicer.app.layoutManager()",
+                        "original_receiver_expr": "layoutManager",
+                        "expanded_receiver_expr": "slicer.app.layoutManager()",
+                        "attr": "setLayout",
+                        "method_exists": True,
+                        "live_receiver_type": "qSlicerLayoutManager",
+                    },
+                ],
+            },
+        }
+        analyzer._workflow_metadata = {
+            "api_type_contracts": {},
+            "parameter_bindings": {},
+            "extension_callable_inventory": {},
+        }
+        live_alias_report = analyzer._build_api_proof_report(
+            {"templates/live.py.tpl": live_alias_code},
+            api_probe_result=live_alias_probe,
+        )
+        self.assertTrue(live_alias_report["valid"], live_alias_report["issues"])
+
+        invalid_alias_report = analyzer._build_api_proof_report(
+            {
+                "templates/invalid_live.py.tpl": (
+                    "node = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLModelNode')\n"
+                    "node.BadMethod()\n"
+                ),
+            },
+            api_probe_result={
+                "probed": 1,
+                "failures": [{
+                    "chain": "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLModelNode').BadMethod",
+                    "receiver_expr": (
+                        "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLModelNode')"
+                    ),
+                    "original_receiver_expr": "node",
+                    "expanded_receiver_expr": (
+                        "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLModelNode')"
+                    ),
+                    "attr": "BadMethod",
+                    "receiver_type": "vtkMRMLModelNode",
+                }],
+                "api_probe_coverage": {"resolved": []},
+            },
+        )
+        self.assertFalse(invalid_alias_report["valid"])
+        self.assertTrue(any(
+            issue.get("issue_type") == "InvalidApiCall"
+            and issue.get("method") == "BadMethod"
+            for issue in invalid_alias_report["issues"]
+        ))
+
+        imported_logic_code = (
+            "import GenericExtension\n"
+            "logic = GenericExtension.GenericLogic()\n"
+            "logic.run()\n"
+            "parameterNode = logic.getParameterNode()\n"
+            "parameterNode.SetParameter('role', 'value')\n"
+        )
+        imported_graph = TypeProvenanceGraph(
+            imported_logic_code,
+            logic_class_name="GenericLogic",
+        )
+        self.assertEqual(
+            imported_graph.receiver_candidates("logic")[0]["type"],
+            "GenericLogic",
+        )
+        self.assertEqual(
+            imported_graph.receiver_candidates("parameterNode")[0]["type"],
+            "vtkMRMLScriptedModuleNode",
+        )
+
+        analyzer._workflow_metadata = {
+            "extension_callable_inventory": {
+                "logic_methods": ["run"],
+                "module_functions": [],
+            },
+            "logic_class_name": "GenericLogic",
+            "parameter_bindings": {},
+            "api_type_contracts": {
+                "vtkMRMLScriptedModuleNode": {
+                    "methods": {
+                        "SetParameter": {
+                            "exists": True,
+                            "effect": "state_change",
+                            "source": "wrapper_metadata",
+                        },
+                    },
+                },
+            },
+        }
+        imported_logic_report = analyzer._build_api_proof_report({
+            "templates/logic.py.tpl": imported_logic_code,
+        })
+        self.assertTrue(imported_logic_report["valid"], imported_logic_report["issues"])
+
+        view_adjustment_contract = analyzer._validate_template_contract(
+            "templates/adjust_pre.py.tpl",
+            "print('Adjust the existing object, then press Done.')\n",
+            {
+                "role": "pre",
+                "generator": {
+                    "pre_template_file": "templates/adjust_pre.py.tpl",
+                    "interaction_descriptor": {
+                        "interaction_kind": "view_adjustment",
+                        "node_class": "",
+                    },
+                    "sub_operations": [],
+                },
+            },
+            {},
+        )
+        self.assertFalse(
+            any("stub" in error.lower() for error in view_adjustment_contract["errors"])
+        )
+
+        precondition_code = (
+            "import slicer\n"
+            "from GenericExtension import GenericLogic\n"
+            "# precondition:begin\n"
+            "slicer.util.selectModule('GenericExtension')\n"
+            "# precondition:end\n"
+            "logic = GenericLogic()\n"
+            "logic.run()\n"
+        )
+        analyzer._workflow_metadata["extension_callable_inventory"]["logic_methods"] = ["run"]
+        precondition_contract = analyzer._validate_template_contract(
+            "templates/logic.py.tpl",
+            precondition_code,
+            {
+                "role": "code",
+                "generator": {
+                    "template_file": "templates/logic.py.tpl",
+                    "method_name": "run",
+                    "operation_model": {"allow_module_switch": False},
+                    "sub_operations": [{
+                        "op_type": "extension_op",
+                        "extension_method_hint": "run",
+                        "description": "Run source-backed logic",
+                    }],
+                },
+            },
+            {},
+        )
+        self.assertFalse(any(
+            "switches the active Slicer module" in error
+            for error in precondition_contract["errors"]
+        ))
+
         # Live API probe failures remain blocking through validation.
         validation = analyzer._stage9_validate(
-            {"templates/step.py.tpl": "x = 1"},
+            {"templates/step.py.tpl": "slicer.app.badApi()\n"},
             [{"template_file": "templates/step.py.tpl", "step_type": "automated"}],
             logic_analysis=None,
             api_probe_result={
@@ -342,20 +1013,20 @@ class AnalyzerContractsMixin:
             },
         )
         self.assertFalse(validation["valid"])
-        self.assertTrue(any("Unresolved live API probe failure" in e for e in validation["errors"]))
+        self.assertTrue(any("InvalidApiCall" in e for e in validation["errors"]))
 
-        # Known invalid Slicer API aliases must be blocking even if a live
-        # probe was not run against the final revised template.
+        # Unsupported state-changing calls block without prescribing an
+        # API-error-specific replacement.
         validation = analyzer._stage9_validate(
-            {"templates/slice.py.tpl": "sliceNode.SetSliceVisibility(False)\n"},
+            {"templates/state.py.tpl": "receiver.SetUnsupportedState(True)\n"},
             [{
-                "template_file": "templates/slice.py.tpl",
+                "template_file": "templates/state.py.tpl",
                 "step_type": "automated",
                 "op_type": "slicer_op",
                 "sub_operations": [{
                     "op_type": "slicer_op",
-                    "description": "Toggle slice visibility in 3D",
-                    "slicer_op_category": "layout_slice_view",
+                    "description": "Apply a state change",
+                    "slicer_op_category": "generic_state_change",
                     "confidence": "high",
                 }],
                 "operation_model": {
@@ -366,7 +1037,12 @@ class AnalyzerContractsMixin:
             logic_analysis=None,
         )
         self.assertFalse(validation["valid"])
-        self.assertTrue(any("SetSliceVisibility does not exist" in e for e in validation["errors"]))
+        unsupported_errors = [
+            e for e in validation["errors"] if "SetUnsupportedState" in e
+        ]
+        self.assertTrue(unsupported_errors)
+        self.assertTrue(any("UnprovenApiCall" in e for e in unsupported_errors))
+        self.assertFalse(any("replacement" in e.lower() for e in unsupported_errors))
 
         # Method dependency metadata must include node-reference reads, not just
         # scalar GetParameter reads, so runtime guards can validate geometry.
@@ -385,9 +1061,11 @@ class Logic:
 """
         roles = analyzer._extract_parameter_roles_from_source(source)
         deps = analyzer._extract_parameter_method_dependencies(source, roles)
+        effects = analyzer._extract_parameter_method_effects(source)
         self.assertIn("modelNode", deps["runGeometry"].get("node_roles", []))
         self.assertIn("spacing", deps["runGeometry"].get("parameter_roles", []))
         self.assertNotIn("initializeCentroid", deps)
+        self.assertIn("centroidX", effects["initializeCentroid"]["writes"])
 
         # Node-reference requirements are based on actual use sites, including
         # parameter guards and references created by the method itself.
@@ -738,6 +1416,81 @@ class Logic:
         with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fp:
             fp.write(
                 "class GenericLogic:\n"
+                "    def updateParameterNodeFromGUI(self):\n"
+                "        parameterNode.SetParameter('implicitSpace', str(self.ui.implicitSpinBox.value))\n"
+                "    def generate(self):\n"
+                "        implicitSpace = float(parameterNode.GetParameter('implicitSpace'))\n"
+            )
+            source_path = fp.name
+        with tempfile.NamedTemporaryFile("w", suffix=".ui", delete=False) as fp:
+            fp.write(
+                "<ui><widget class=\"ctkDoubleSpinBox\" name=\"implicitSpinBox\">"
+                "<property name=\"decimals\"><number>1</number></property>"
+                "</widget></ui>"
+            )
+            ui_path = fp.name
+        try:
+            metadata = analyzer._build_workflow_metadata(
+                {
+                    "entry_module": source_path,
+                    "ui_files": [ui_path],
+                    "logic_class": {"class_name": "GenericLogic"},
+                },
+                {},
+                {"steps": []},
+            )
+            self.assertEqual(
+                metadata["parameter_defaults"]["implicitSpace"]["source"],
+                "ui_widget_implicit_default",
+            )
+            self.assertEqual(
+                metadata["parameter_defaults"]["implicitSpace"]["value"],
+                "0.0",
+            )
+        finally:
+            os.unlink(source_path)
+            os.unlink(ui_path)
+
+        analyzer._workflow_metadata = {
+            "parameter_bindings": {
+                "internalCounter": {
+                    "value_types": ["int"],
+                    "node_class": "",
+                },
+            },
+            "parameter_defaults": {},
+            "parameter_method_dependencies": {
+                "increment": {
+                    "parameter_roles": ["internalCounter"],
+                },
+            },
+            "method_parameter_effects": {
+                "increment": {
+                    "reads": ["internalCounter"],
+                    "writes": ["internalCounter"],
+                },
+            },
+            "choice_bindings": {},
+            "interaction_bindings": {},
+            "workflow_steps": [{"step_id": "cb_step_1"}],
+        }
+        contract_audit = analyzer._audit_workflow_contract({
+            "steps": [{
+                "step_id": "cb_step_1",
+                "description": "Increment internal counter",
+                "operations": [{"extension_method_hint": "increment"}],
+            }]
+        })
+        self.assertTrue(contract_audit["valid"], contract_audit.get("errors"))
+        scalar_contract = analyzer._validate_scalar_parameter_contract(
+            "logic.increment()\n",
+            step_id="cb_step_1",
+        )
+        self.assertFalse(scalar_contract["errors"])
+
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fp:
+            fp.write(
+                "class GenericLogic:\n"
                 "    def generate(self):\n"
                 "        initialSpace = float(parameterNode.GetParameter('initialSpace'))\n"
             )
@@ -1024,7 +1777,7 @@ class Logic:
         )
         prelude = _build_choice_prelude(ctx)
         self.assertIn("_workflow_defaults", prelude)
-        self.assertIn("parameterNode.SetParameter(_role", prelude)
+        self.assertIn("apply_workflow_metadata(parameterNode", prelude)
 
         # Fallback node resolution must not use a different Markups class than metadata expects.
         analyzer._workflow_metadata = {
@@ -1091,7 +1844,7 @@ class Logic:
             }],
         )
         self.assertFalse(validation["valid"])
-        self.assertTrue(any("Slice intersection visibility step must use" in e for e in validation["errors"]))
+        self.assertTrue(any("Slice intersection visibility step" in e for e in validation["errors"]))
 
         validation = analyzer._stage9_validate(
             {
@@ -1178,7 +1931,7 @@ class Logic:
             }],
         )
         self.assertFalse(validation["valid"])
-        self.assertTrue(any("crosshair visibility APIs" in e for e in validation["errors"]))
+        self.assertTrue(any("changes only crosshair state" in e for e in validation["errors"]))
 
         # Final-state Slicer operations must not invert current state.
         validation = analyzer._stage9_validate(
@@ -1388,7 +2141,7 @@ class Logic:
                 {"methods": []},
             )
             interaction_step = workflow_graph["steps"][2]
-            self.assertEqual(interaction_step["step_type"], "interactive")
+            self.assertEqual(interaction_step["step_type"], "user_interaction")
             self.assertEqual(interaction_step["interaction_owner"], "previous_extension_method")
             self.assertFalse(any(
                 so.get("extension_method_hint") == "addPlane"

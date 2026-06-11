@@ -2,13 +2,14 @@ from .common import *
 
 
 PIPELINE_VERSION = "agentic-cli-v2"
-MANIFEST_VERSION = 2
+MANIFEST_VERSION = 3
 
 
 PHASES = {
     "discover": "Discover Source And Cookbook",
     "analyze": "Analyze Extension Logic",
     "contract": "Build Workflow Contract",
+    "audit_contract": "Audit Workflow Contract",
     "ground": "Ground Slicer APIs",
     "generate": "Generate Schemas And Templates",
     "verify_repair": "Verify And Repair Templates",

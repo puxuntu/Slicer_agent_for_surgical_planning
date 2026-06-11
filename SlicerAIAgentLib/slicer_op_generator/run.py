@@ -93,6 +93,7 @@ class SlicerOpGeneratorRunMixin:
                     "preferred_root": "slicer-ui-analysis",
                     "requires_ui_first_when_ui_labeled": True,
                     "category_hints": _CATEGORY_SEARCH_HINTS.get(category, [])[:10],
+                    "category_hint_provenance": "generic_slicer_search_hint",
                 },
                 "status": "started",
                 "total_time_s": None,

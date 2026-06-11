@@ -71,7 +71,7 @@ class AnalyzerLiveRevisionMixin:
         total = len(tpl_files)
 
         for idx, tpl_path in enumerate(tpl_files):
-            tpl_key = os.path.relpath(tpl_path, cli_dir)  # e.g. "templates/cb_step_4_pre.py.tpl"
+            tpl_key = os.path.relpath(tpl_path, cli_dir)
             tpl_name = os.path.basename(tpl_path)
 
             try:
@@ -452,6 +452,50 @@ class AnalyzerLiveRevisionMixin:
             "error": None,
         }
 
+        initial_issues = self._validation_issues_from_result(
+            {"errors": errors or []},
+            generators=generators,
+            workflow_contract=workflow_data or {"steps": []},
+        )
+        upstream_issues = [
+            issue for issue in initial_issues
+            if issue.get("issue_class") in {"contract", "dataflow"}
+        ]
+        if upstream_issues:
+            repair_trace = self._workflow_metadata.setdefault("repair_trace", [])
+            for issue in upstream_issues:
+                repair_trace.append({
+                    "issue_class": issue.get("issue_type"),
+                    "repair_route": issue.get("repair_route"),
+                    "template_file": issue.get("template_key", ""),
+                    "message": issue.get("message", ""),
+                })
+            validation_result = {
+                "valid": False,
+                "errors": [
+                    (
+                        f"{issue.get('template_key') or 'workflow_contract'}: "
+                        f"{issue.get('issue_type')} requires {issue.get('repair_route')} "
+                        "before template revision"
+                    )
+                    for issue in upstream_issues
+                ],
+            }
+            result["validation_result"] = validation_result
+            result["error"] = (
+                "Revision blocked by upstream contract/dataflow issue; "
+                "rerun generation after rebuilding workflow metadata."
+            )
+            self._finalize_package_validation_state(manifest, validation_result)
+            try:
+                with open(manifest_path, "w", encoding="utf-8") as f:
+                    json.dump(manifest, f, indent=2)
+                with open(workflow_metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(self._workflow_metadata, f, indent=2)
+            except Exception:
+                logger.debug("Failed to persist upstream revision block", exc_info=True)
+            return result
+
         for attempt in range(max_attempts):
             result["attempts"] = attempt + 1
             self.on_progress(
@@ -476,10 +520,74 @@ class AnalyzerLiveRevisionMixin:
                         with open(tpl_path, "r") as f:
                             templates[tpl_file] = f.read()
 
+            # Re-evaluate current templates with fresh deterministic/live
+            # evidence before asking the LLM to rewrite anything. Stale proof
+            # failures from a previous validator version must not trigger a
+            # broad template regeneration.
+            self._sync_template_contracts(
+                templates,
+                generators,
+                workflow_graph=workflow_data,
+            )
+            fresh_probe_result = self._stage7c_live_api_probe(templates)
+            for tpl_file, tpl_code in templates.items():
+                tpl_path = os.path.join(cli_dir, tpl_file)
+                os.makedirs(os.path.dirname(tpl_path), exist_ok=True)
+                with open(tpl_path, "w", encoding="utf-8") as f:
+                    f.write(tpl_code)
+            current_validation = self._stage9_validate(
+                templates,
+                generators,
+                logic_analysis=logic_analysis,
+                api_probe_result=fresh_probe_result,
+                extension_name=extension_name,
+            )
+            if current_validation.get("valid"):
+                manifest["manifest_version"] = 3
+                manifest["pipeline_version"] = "agentic-cli-v2"
+                self._workflow_metadata["revision_validation_status"] = "passed"
+                self._finalize_package_validation_state(manifest, current_validation)
+                with open(manifest_path, "w", encoding="utf-8") as f:
+                    json.dump(manifest, f, indent=2)
+                with open(workflow_metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(self._workflow_metadata, f, indent=2)
+                result["success"] = True
+                result["validation_result"] = current_validation
+                return result
+
+            current_issues = self._validation_issues_from_result(
+                current_validation,
+                generators=generators,
+                workflow_contract=workflow_data or {"steps": []},
+            )
+            rewrite_issues = [
+                issue for issue in current_issues
+                if issue.get("repair_strategy") != "gather_api_evidence"
+            ]
+            if current_issues and not rewrite_issues:
+                result["validation_result"] = current_validation
+                result["error"] = (
+                    "Revision stopped because validation requires additional "
+                    "receiver, method, or behavior evidence; templates were not rewritten."
+                )
+                self._finalize_package_validation_state(manifest, current_validation)
+                with open(manifest_path, "w", encoding="utf-8") as f:
+                    json.dump(manifest, f, indent=2)
+                with open(workflow_metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(self._workflow_metadata, f, indent=2)
+                return result
+
+            errors = current_validation.get("errors", [])
+            affected_templates = {
+                issue.get("template_key")
+                for issue in rewrite_issues
+                if issue.get("template_key") in templates
+            }
             # Build revision prompt
             templates_text = "\n\n".join(
                 f"--- {name} ---\n{content}"
                 for name, content in templates.items()
+                if not affected_templates or name in affected_templates
             )
 
             source_section = ""
@@ -494,7 +602,7 @@ class AnalyzerLiveRevisionMixin:
                 for tpl_file, tpl_code in templates.items():
                     # Find matching workflow step(s) by template file reference
                     step_id = None
-                    # Extract step ID from template filename (e.g., cb_step_5 from templates/cb_step_5.py.tpl)
+                    # Extract the generated step ID from the template filename.
                     import re as _re_for_tpl
                     m = _re_for_tpl.search(r"(cb_step_\d+)", tpl_file)
                     if m:
@@ -557,6 +665,8 @@ Return ONLY the JSON, no markdown fences.""")
             for tpl_name, tpl_content in fixed["templates"].items():
                 if tpl_name.endswith(".py.tpl") and not tpl_name.startswith("templates/"):
                     tpl_name = f"templates/{tpl_name}"
+                if affected_templates and tpl_name not in affected_templates:
+                    continue
                 tpl_path = os.path.join(cli_dir, tpl_name)
                 os.makedirs(os.path.dirname(tpl_path), exist_ok=True)
                 templates[tpl_name] = tpl_content
@@ -629,11 +739,9 @@ Return ONLY the JSON, no markdown fences.""")
                         "used_outer_revision"
                     ] = True
 
-                # Update manifest status
-                manifest["status"] = "validated"
-                manifest["manifest_version"] = 2
+                manifest["manifest_version"] = 3
                 manifest["pipeline_version"] = "agentic-cli-v2"
-                manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
+                self._finalize_package_validation_state(manifest, validation_result)
                 with open(manifest_path, "w", encoding="utf-8") as f:
                     json.dump(manifest, f, indent=2)
                 if os.path.isfile(workflow_metadata_path):
@@ -676,8 +784,7 @@ Return ONLY the JSON, no markdown fences.""")
                 result["validation_result"] = validation_result
                 return result
 
-            manifest["status"] = "validation_failed"
-            manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
+            self._finalize_package_validation_state(manifest, validation_result)
             with open(manifest_path, "w", encoding="utf-8") as f:
                 json.dump(manifest, f, indent=2)
             if os.path.isfile(workflow_metadata_path):
@@ -706,8 +813,7 @@ Return ONLY the JSON, no markdown fences.""")
                 json.dump(log_entries, f, indent=2)
             errors = validation_result.get("errors", [])
 
-        manifest["status"] = "validation_failed"
-        manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
+        self._finalize_package_validation_state(manifest, {"valid": False})
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
         with open(

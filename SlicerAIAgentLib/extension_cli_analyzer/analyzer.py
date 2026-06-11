@@ -20,6 +20,8 @@ from .slicer_op_manifest import AnalyzerSlicerOpManifestMixin
 from .phases import AnalyzerPhaseMixin, MANIFEST_VERSION, PIPELINE_VERSION
 from .v2_contracts import AnalyzerV2ContractsMixin
 from .repair_loop import AnalyzerRepairLoopMixin
+from .contract_audit import AnalyzerContractAuditMixin
+from .api_proof import AnalyzerApiProofMixin
 
 
 class ExtensionCLIAnalyzer(
@@ -44,12 +46,14 @@ class ExtensionCLIAnalyzer(
     AnalyzerPhaseMixin,
     AnalyzerV2ContractsMixin,
     AnalyzerRepairLoopMixin,
+    AnalyzerContractAuditMixin,
+    AnalyzerApiProofMixin,
 ):
     """
     Analyzes a Slicer extension's source code and generates operation CLIs.
 
     Strict v2 cookbook-driven pipeline:
-    discover -> analyze -> contract -> ground -> generate -> verify_repair -> package.
+    discover -> analyze -> contract -> audit_contract -> ground -> generate -> verify_repair -> package.
     """
 
     def __init__(
@@ -331,6 +335,14 @@ class ExtensionCLIAnalyzer(
                 extension_name, scan_result, cookbook_path, logic_analysis, workflow_graph
             )
             result["workflow_contract"] = workflow_contract
+            self._set_phase("audit_contract")
+            contract_audit = self._enforce_workflow_contract_audit(
+                workflow_contract,
+                workflow_graph=workflow_graph,
+                logic_analysis=logic_analysis,
+            )
+            result["contract_audit"] = contract_audit
+            self._record_phase(result, "audit_contract")
 
             # ── ground: Slicer API evidence and slicer_op template grounding ──
             self._set_phase("ground")
@@ -364,6 +376,12 @@ class ExtensionCLIAnalyzer(
                 extension_name, scan_result, cookbook_path, logic_analysis, workflow_graph
             )
             result["workflow_contract"] = workflow_contract
+            contract_audit = self._enforce_workflow_contract_audit(
+                workflow_contract,
+                workflow_graph=workflow_graph,
+                logic_analysis=logic_analysis,
+            )
+            result["contract_audit"] = contract_audit
             if self._cancelled:
                 result["error"] = "Cancelled during generate"
                 return result
@@ -403,8 +421,7 @@ class ExtensionCLIAnalyzer(
                 return result
 
             if validation_result.get("valid"):
-                manifest["status"] = "validated"
-                manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
+                self._finalize_package_validation_state(manifest, validation_result)
                 self._set_phase("package")
                 prompt_fragment = self._stage8_generate_prompt(
                     extension_name, tool_schemas, stage_map, logic_analysis,
@@ -415,8 +432,7 @@ class ExtensionCLIAnalyzer(
                     result["error"] = "Cancelled during package"
                     return result
             else:
-                manifest["status"] = "validation_failed"
-                manifest["validation_state"] = self._workflow_metadata.get("validation_state", {})
+                self._finalize_package_validation_state(manifest, validation_result)
                 prompt_fragment = (
                     f"### {extension_name}\n\n"
                     "Generation failed validation. This CLI package is saved "
@@ -472,8 +488,8 @@ class ExtensionCLIAnalyzer(
 
 
 def _patch_mixin_globals():
-    from . import scan, logic_analysis, stage4_decomposition, cross_stage, node_lifecycle, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest, phases, v2_contracts, repair_loop
-    for _module in [scan, logic_analysis, stage4_decomposition, cross_stage, node_lifecycle, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest, phases, v2_contracts, repair_loop]:
+    from . import scan, logic_analysis, stage4_decomposition, cross_stage, node_lifecycle, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest, phases, v2_contracts, repair_loop, contract_audit
+    for _module in [scan, logic_analysis, stage4_decomposition, cross_stage, node_lifecycle, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest, phases, v2_contracts, repair_loop, contract_audit]:
         _module.ExtensionCLIAnalyzer = ExtensionCLIAnalyzer
 
 

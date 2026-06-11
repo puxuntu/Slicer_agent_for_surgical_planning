@@ -1,5 +1,5 @@
 from .common import *
-from .vector_index import VectorIndex
+from .vector_index import VectorIndex, _SOURCE_TYPE_WEIGHTS
 
 class VectorRetriever:
     """Pure dense vector retrieval with source_type weighting."""

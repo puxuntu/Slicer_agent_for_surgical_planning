@@ -1,35 +1,49 @@
 from .common import *
+import hashlib
+
+from .api_proof import ApiEvidenceAgent, RepairCoordinator
 
 _SEMANTIC_REPAIR_RECIPES = {
     "slice_intersection_visibility": {
         "recipe_id": "slice_intersection_visibility",
-        "required_api_patterns": [
-            "slicer.app.applicationLogic().SetIntersectingSlicesEnabled(...)",
-            "vtkMRMLSliceNode.Modified() after per-slice interaction changes",
+        "knowledge_level": "behavioral_contract",
+        "behavior_requirements": [
+            "The requested slice intersections become visible.",
+            "Any requested slice-intersection interaction modes become enabled.",
+            "Changed slice-view state is refreshed when the selected API requires it.",
         ],
-        "forbidden_api_patterns": [
-            "crosshair-only visibility APIs",
+        "invalid_substitutions": [
+            "crosshair-only visibility changes",
             "module switching used as the operation implementation",
         ],
-        "search_terms": [
+        "retrieval_queries": [
             "SetIntersectingSlicesEnabled",
             "SetSliceIntersectionInteractionEnabled",
             "SetSliceIntersectionInteractionModeFlags",
         ],
+        "retrieval_query_provenance": "generic_slicer_search_hint",
+        "evidence_policy": "Select any source-backed implementation that satisfies the behavior validator.",
     },
     "layout_activate": {
         "recipe_id": "layout_activate",
-        "required_api_patterns": ["layoutManager().setLayout(...)"],
-        "forbidden_api_patterns": ["AddLayoutDescription without activating the layout"],
-        "search_terms": ["layoutManager setLayout"],
+        "knowledge_level": "behavioral_contract",
+        "behavior_requirements": ["The requested layout becomes the active layout."],
+        "invalid_substitutions": ["registering a layout without activating it"],
+        "retrieval_queries": ["layoutManager setLayout activate layout"],
+        "retrieval_query_provenance": "generic_slicer_search_hint",
+        "evidence_policy": "Accept direct Slicer APIs or extension helpers proven to activate the layout.",
     },
     "view_display_scope": {
         "recipe_id": "view_display_scope",
-        "required_api_patterns": [
-            "view-node filtering plus display-node 2D/slice visibility for slice targets",
+        "knowledge_level": "behavioral_contract",
+        "behavior_requirements": [
+            "The displayable is visible in every requested target view.",
+            "Slice-view targets receive the display-class-specific slice/2D visibility state.",
         ],
-        "forbidden_api_patterns": ["view-node filtering without enabling slice visibility"],
-        "search_terms": ["AddViewNodeID SetVisibility2D SetSliceProjection"],
+        "invalid_substitutions": ["view filtering without enabling required slice visibility"],
+        "retrieval_queries": ["view display scope slice visibility"],
+        "retrieval_query_provenance": "generic_slicer_search_hint",
+        "evidence_policy": "Select APIs appropriate to the discovered display-node class.",
     },
 }
 
@@ -42,6 +56,12 @@ class AnalyzerRepairLoopMixin:
     def _classify_validation_issue(error: str) -> str:
         text = error or ""
         lowered = text.lower()
+        if "contractfidelity" in lowered or "workflow contract audit failed" in lowered:
+            return "ContractFidelity"
+        if "workflowstate" in lowered:
+            return "WorkflowStateError"
+        if "unproven dynamic api receiver" in lowered:
+            return "UnprovenReceiver"
         if "unresolved live api probe failure" in lowered or "api call does not exist" in lowered:
             return "InvalidSlicerAPI"
         if "callablereferencemisuse" in lowered or "without calling it" in lowered:
@@ -52,6 +72,7 @@ class AnalyzerRepairLoopMixin:
             return "LowConfidenceFallback"
         if (
             "slice intersection visibility step" in lowered
+            or "slice-intersection behavior" in lowered
             or "layout activation step" in lowered
             or "display step targets a slice view" in lowered
             or "markups display step targets a slice view" in lowered
@@ -75,6 +96,40 @@ class AnalyzerRepairLoopMixin:
             return "ContractConflict"
         return "ValidationError"
 
+    @staticmethod
+    def _issue_class_for_issue(issue_type: str) -> str:
+        if issue_type in {"ContractFidelity", "ContractConflict", "UnknownOperation"}:
+            return "contract"
+        if issue_type in {"WorkflowStateError", "LowConfidenceFallback", "UnresolvedPlaceholder"}:
+            return "dataflow"
+        if issue_type in {"InvalidSlicerAPI", "UnprovenReceiver"}:
+            return "runtime_api"
+        if issue_type in {"SlicerSemanticError", "MissingOperationFootprint"}:
+            return "grounding"
+        if issue_type in {
+            "CallableReferenceMisuse", "BadInstructionText",
+            "ModuleEnterPreconditionMissing", "SyntaxError", "StubTemplate",
+            "NodeClassMismatch",
+        }:
+            return "template"
+        return "template"
+
+    @staticmethod
+    def _repair_route_for_issue(issue_class: str, issue_type: str, strategy: str) -> str:
+        if issue_class == "contract":
+            return "rebuild_contract"
+        if issue_class == "dataflow":
+            return "rebuild_dataflow"
+        if issue_class == "runtime_api":
+            if issue_type == "UnprovenReceiver":
+                return "gather_receiver_method_behavior_evidence"
+            return "resolve_receiver_and_reground"
+        if issue_class == "grounding":
+            return "reground_api"
+        if strategy == "targeted_template_repair":
+            return "repair_template"
+        return strategy or "repair_template"
+
     @classmethod
     def _validation_issues_from_result(
         cls,
@@ -93,7 +148,46 @@ class AnalyzerRepairLoopMixin:
             if isinstance(step, dict)
         }
         issues = []
+        for structured in validation_result.get("validation_issues", []) or []:
+            if not isinstance(structured, dict):
+                continue
+            if structured.get("severity") == "warning" or structured.get("blocking") is False:
+                continue
+            issue_type = structured.get("issue_type", "ValidationError")
+            if issue_type == "InvalidApiCall":
+                classified = "InvalidSlicerAPI"
+            elif issue_type == "UnprovenApiCall":
+                classified = "UnprovenReceiver"
+            else:
+                classified = issue_type
+            template = structured.get("template", "")
+            step_match = _re.search(r"(cb_step_\d+)", template)
+            gen = template_context.get(template, {})
+            issue_class = cls._issue_class_for_issue(classified)
+            strategy = cls._repair_strategy_for_issue(classified, gen)
+            issue = {
+                **structured,
+                "issue_id": structured.get("issue_id") or f"issue_{len(issues) + 1}",
+                "issue_type": classified,
+                "issue_class": issue_class,
+                "template_key": template,
+                "step_id": step_match.group(1) if step_match else "",
+                "root_cause": structured.get("diagnosis", classified),
+                "repair_strategy": strategy,
+                "repair_route": cls._repair_route_for_issue(issue_class, classified, strategy),
+                "affected_artifacts": [issue_class],
+                "message": structured.get("diagnosis", classified),
+                "raw": structured,
+            }
+            issue["evidence_diagnosis"] = ApiEvidenceAgent.diagnose(structured)
+            issues.append(issue)
+        if validation_result.get("validation_issues"):
+            return issues
         for index, error in enumerate(validation_result.get("errors", []) or []):
+            if any(marker in str(error) for marker in (
+                "UnprovenApiCall:", "InvalidApiCall:", "IncompleteCallInventory:",
+            )):
+                continue
             template = ""
             message = error
             if isinstance(error, str) and ": " in error:
@@ -116,9 +210,12 @@ class AnalyzerRepairLoopMixin:
                 issue_type, operation_intents, str(error)
             )
             strategy = cls._repair_strategy_for_issue(issue_type, gen)
+            issue_class = cls._issue_class_for_issue(issue_type)
+            repair_route = cls._repair_route_for_issue(issue_class, issue_type, strategy)
             issues.append({
                 "issue_id": f"issue_{index + 1}",
                 "issue_type": issue_type,
+                "issue_class": issue_class,
                 "severity": "error",
                 "template_key": template,
                 "step_id": step_id,
@@ -131,14 +228,16 @@ class AnalyzerRepairLoopMixin:
                 ), ""),
                 "root_cause": issue_type,
                 "repair_strategy": strategy,
+                "repair_route": repair_route,
+                "affected_artifacts": [issue_class],
                 "semantic_recipe_id": recipe_id,
                 "semantic_recipe": _SEMANTIC_REPAIR_RECIPES.get(recipe_id, {}),
                 "evidence_requirements": {
-                    "search_terms": _SEMANTIC_REPAIR_RECIPES.get(recipe_id, {}).get(
-                        "search_terms", []
+                    "retrieval_queries": _SEMANTIC_REPAIR_RECIPES.get(recipe_id, {}).get(
+                        "retrieval_queries", []
                     ),
-                    "required_api_patterns": _SEMANTIC_REPAIR_RECIPES.get(recipe_id, {}).get(
-                        "required_api_patterns", []
+                    "behavior_requirements": _SEMANTIC_REPAIR_RECIPES.get(recipe_id, {}).get(
+                        "behavior_requirements", []
                     ),
                 },
                 "contract_step": contract_steps.get(step_id, {}),
@@ -177,6 +276,8 @@ class AnalyzerRepairLoopMixin:
         )
         if issue_type in {"InvalidSlicerAPI", "SlicerSemanticError", "MissingOperationFootprint"}:
             return "reground_slicer_op" if pure_slicer_op else "contract_aware_template_repair"
+        if issue_type == "UnprovenReceiver":
+            return "gather_api_evidence"
         if issue_type in {
             "CallableReferenceMisuse", "BadInstructionText",
             "ModuleEnterPreconditionMissing", "SyntaxError",
@@ -194,6 +295,7 @@ class AnalyzerRepairLoopMixin:
                 "template_key": issue.get("template_key"),
                 "step_id": issue.get("step_id"),
                 "strategy": issue.get("repair_strategy"),
+                "route": issue.get("repair_route"),
                 "semantic_recipe_id": issue.get("semantic_recipe_id", ""),
             }
             for issue in issues or []
@@ -266,24 +368,18 @@ TEMPLATES:
 
 Rules:
 - Return valid JSON only.
+- Gather and report receiver-type, method-existence, and behavior evidence before rewriting code.
+- Distinguish invalid code from missing proof; do not claim a call is valid from absence of a probe failure.
 - Preserve template placeholders like {{name: default}} and {{vol_lookup}}.
 - Do not use blocked modules or functions: os, sys, subprocess, socket, eval, exec, open, getattr, setattr, globals, locals, vars, dir.
 - For node class conflicts, the workflow contract and parameter metadata win.
 - For API errors, replace only invalid Slicer API calls with APIs supported by the evidence in the issue.
 - For CallableReferenceMisuse, call the function explicitly (for example slicer.util.selectedModule()) when reading its value.
-- For ModuleEnterPreconditionMissing, add the standard module-enter precondition after imports and before extension logic use:
-  # precondition:begin
-  # Ensure the extension module is active so module.enter() has run.
-  _active_module = slicer.app.moduleManager().activeModule()
-  if _active_module is None or _active_module.name != "{extension_name}":
-      try:
-          slicer.util.selectModule("{extension_name}")
-      except Exception as _module_enter_error:
-          print(f"Warning: could not activate module '{extension_name}': {{_module_enter_error}}")
-  # precondition:end
+- Module-enter lifecycle setup is handled deterministically outside this LLM repair.
 - For BadInstructionText, replace empty/None/null instructions with the cookbook step description from the workflow contract.
 - For LowConfidenceFallback, do not silently use 0/0.0/False typed fallback values for required logic inputs. Bind from a user/cookbook value, derive a source-backed default, or raise a clear RuntimeError that names the missing input.
 - For stubs, implement the required operation or instruction-only setup if the contract explicitly allows it.
+- Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.
 
 Return:
 {{
@@ -346,7 +442,7 @@ Return:
         )
         recipe = issue.get("semantic_recipe") or {}
         keywords = list(source.get("slicer_api_keywords") or [])
-        keywords.extend(recipe.get("search_terms") or [])
+        keywords.extend(recipe.get("retrieval_queries") or [])
         sub_op = SubOperation(
             op_type="slicer_op",
             description=description,
@@ -405,8 +501,9 @@ Return:
             "source": "verify_repair_reground",
             "issue_id": issue.get("issue_id"),
             "semantic_recipe_id": issue.get("semantic_recipe_id", ""),
-            "required_api_patterns": recipe.get("required_api_patterns", []),
-            "forbidden_api_patterns": recipe.get("forbidden_api_patterns", []),
+            "behavior_requirements": recipe.get("behavior_requirements", []),
+            "invalid_substitutions": recipe.get("invalid_substitutions", []),
+            "evidence_policy": recipe.get("evidence_policy", ""),
             "generator_records": records,
         }
         return template_key, code, evidence
@@ -427,7 +524,14 @@ Return:
 
         reground_by_template = {}
         for issue in issues or []:
-            if issue.get("repair_strategy") == "reground_slicer_op":
+            if issue.get("repair_strategy") == "gather_api_evidence":
+                strategy_results.append({
+                    "template_key": issue.get("template_key", ""),
+                    "strategy": "gather_api_evidence",
+                    "changed": False,
+                    "evidence_diagnosis": issue.get("evidence_diagnosis", {}),
+                })
+            elif issue.get("repair_strategy") == "reground_slicer_op":
                 key = issue.get("template_key", "")
                 existing = reground_by_template.get(key)
                 if (
@@ -438,6 +542,27 @@ Return:
                     )
                 ):
                     reground_by_template[key] = issue
+            elif issue.get("issue_type") == "ModuleEnterPreconditionMissing":
+                key = issue.get("template_key", "")
+                if key in repaired:
+                    updated = self._inject_module_enter_precondition(
+                        repaired[key], extension_name
+                    )
+                    changed = updated != repaired[key]
+                    repaired[key] = updated
+                    strategy_results.append({
+                        "template_key": key,
+                        "strategy": "deterministic_module_enter_precondition",
+                        "changed": changed,
+                    })
+            elif issue.get("issue_class") in {"contract", "dataflow"}:
+                strategy_results.append({
+                    "template_key": issue.get("template_key", ""),
+                    "strategy": "requires_upstream_artifact_rebuild",
+                    "route": issue.get("repair_route"),
+                    "changed": False,
+                    "blocked": True,
+                })
             else:
                 remaining.append(issue)
 
@@ -471,8 +596,8 @@ Return:
             if gen is not None:
                 recipe = issue.get("semantic_recipe") or {}
                 gen["semantic_recipe_id"] = issue.get("semantic_recipe_id", "")
-                gen["required_api_patterns"] = recipe.get("required_api_patterns", [])
-                gen["forbidden_api_patterns"] = recipe.get("forbidden_api_patterns", [])
+                gen["behavior_requirements"] = recipe.get("behavior_requirements", [])
+                gen["invalid_substitutions"] = recipe.get("invalid_substitutions", [])
                 gen["repair_evidence"] = evidence
             if isinstance(self._workflow_metadata, dict):
                 self._workflow_metadata.setdefault("repair_evidence", {})[key] = evidence
@@ -512,6 +637,12 @@ Return:
     ) -> Tuple[Dict[str, str], Dict]:
         """Validate, live-probe, repair, and revalidate templates before packaging."""
         repair_log = []
+        repair_coordinator = RepairCoordinator(
+            (
+                self._workflow_metadata.get("repair_strategy_history", [])
+                if isinstance(self._workflow_metadata, dict) else []
+            )
+        )
         current_templates = self._sanitize_templates(dict(templates or {}))
         current_probe_result = None
         validation_result = {"valid": False, "errors": ["verify_repair did not run"]}
@@ -545,6 +676,27 @@ Return:
                 generators=generators,
                 workflow_contract=workflow_contract,
             )
+            filtered_issues = []
+            for issue in issues:
+                strategy = issue.get("repair_strategy", "")
+                call_id = issue.get("call_id") or issue.get("issue_id", "")
+                template_code = current_templates.get(issue.get("template_key", ""), "")
+                content_fingerprint = hashlib.sha256(
+                    template_code.encode("utf-8")
+                ).hexdigest()[:20]
+                if repair_coordinator.can_attempt(call_id, strategy, content_fingerprint):
+                    filtered_issues.append(issue)
+            issues = filtered_issues
+            if isinstance(self._workflow_metadata, dict):
+                repair_trace = self._workflow_metadata.setdefault("repair_trace", [])
+                for issue in issues:
+                    repair_trace.append({
+                        "attempt": attempt + 1,
+                        "issue_class": issue.get("issue_type"),
+                        "repair_route": issue.get("repair_route"),
+                        "template_file": issue.get("template_key", ""),
+                        "message": issue.get("message", ""),
+                    })
             repair_plan = self._repair_plan_from_issues(issues)
             repair_log.append({
                 "attempt": attempt + 1,
@@ -566,6 +718,14 @@ Return:
             )
             repair_log[-1]["strategy_results"] = strategy_results
             if not repaired or repaired == current_templates:
+                for issue in issues:
+                    template_code = current_templates.get(issue.get("template_key", ""), "")
+                    repair_coordinator.record(
+                        issue.get("call_id") or issue.get("issue_id", ""),
+                        issue.get("repair_strategy", ""),
+                        "failed",
+                        hashlib.sha256(template_code.encode("utf-8")).hexdigest()[:20],
+                    )
                 break
             current_templates = repaired
 
@@ -627,6 +787,7 @@ Return:
                 })
 
         if isinstance(self._workflow_metadata, dict):
+            self._workflow_metadata["repair_strategy_history"] = repair_coordinator.history
             self._workflow_metadata["verify_repair"] = {
                 "attempts": repair_log,
                 "status": "passed" if validation_result.get("valid") else "failed",

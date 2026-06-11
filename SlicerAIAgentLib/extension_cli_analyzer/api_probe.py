@@ -3,6 +3,25 @@ from .common import *
 
 class AnalyzerApiProbeMixin:
     @staticmethod
+    def _enrich_resolved_probe_specs(
+        specs: List[Dict[str, Any]],
+        probe_results: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        """Attach successful live receiver evidence to resolved probe specs."""
+        enriched = []
+        for spec in specs or []:
+            item = dict(spec)
+            result = probe_results.get(spec.get("chain", ""))
+            if isinstance(result, dict) and result.get("exists") and not result.get("error"):
+                item["method_exists"] = True
+                item["live_receiver_type"] = result.get("type", "")
+                if not item.get("receiver_type"):
+                    item["receiver_type"] = result.get("type", "")
+                item["evidence_source"] = "live_probe_success"
+            enriched.append(item)
+        return enriched
+
+    @staticmethod
     def _build_var_to_expr_map(code: str) -> Dict[str, str]:
         """Map local variables to the expressions that create them.
 
@@ -101,6 +120,74 @@ class AnalyzerApiProbeMixin:
             return expr
 
     @staticmethod
+    def _slicer_class_from_expr(node) -> str:
+        """Return a Slicer class name proven by an expression, if any."""
+        import ast as _ast
+
+        if not isinstance(node, _ast.Call):
+            return ""
+
+        func = node.func
+        if (
+            isinstance(func, _ast.Attribute)
+            and func.attr == "SafeDownCast"
+            and isinstance(func.value, _ast.Attribute)
+            and isinstance(func.value.value, _ast.Name)
+            and func.value.value.id == "slicer"
+            and func.value.attr.startswith("vtkMRML")
+        ):
+            return func.value.attr
+
+        if isinstance(func, _ast.Attribute) and node.args:
+            class_arg = node.args[0]
+            if isinstance(class_arg, _ast.Constant) and isinstance(class_arg.value, str):
+                class_name = class_arg.value
+                if class_name.startswith("vtkMRML") and func.attr in {
+                    "CreateNodeByClass",
+                    "AddNewNodeByClass",
+                    "GetFirstNodeByClass",
+                }:
+                    return class_name
+
+        if isinstance(func, _ast.Attribute):
+            if func.attr == "mrmlSliceNode":
+                return "vtkMRMLSliceNode"
+            if func.attr == "mrmlViewNode":
+                return "vtkMRMLViewNode"
+            if func.attr == "GetDisplayNode":
+                return "vtkMRMLDisplayNode"
+        if isinstance(func, _ast.Name) and func.id == "resolve_interaction_node":
+            for keyword in node.keywords:
+                if (
+                    keyword.arg == "expected_class"
+                    and isinstance(keyword.value, _ast.Constant)
+                    and isinstance(keyword.value.value, str)
+                ):
+                    return keyword.value.value
+
+        return ""
+
+    @staticmethod
+    def _infer_probe_receiver_types(code: str) -> Dict[str, str]:
+        """Infer local receiver variable classes from source-backed Slicer idioms."""
+        import ast as _ast
+        try:
+            tree = _ast.parse(code)
+        except (SyntaxError, IndentationError):
+            return {}
+
+        inferred: Dict[str, str] = {}
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.Assign):
+                continue
+            if len(node.targets) != 1 or not isinstance(node.targets[0], _ast.Name):
+                continue
+            class_name = ExtensionCLIAnalyzer._slicer_class_from_expr(node.value)
+            if class_name:
+                inferred[node.targets[0].id] = class_name
+        return inferred
+
+    @staticmethod
     def _extract_api_probe_specs(code: str) -> List[Dict[str, Any]]:
         """Extract receiver-level API probes from template code.
 
@@ -114,6 +201,7 @@ class AnalyzerApiProbeMixin:
             return []
 
         var_map = ExtensionCLIAnalyzer._build_var_to_expr_map(code)
+        receiver_types = ExtensionCLIAnalyzer._infer_probe_receiver_types(code)
         specs: List[Dict[str, Any]] = []
         seen = set()
 
@@ -125,6 +213,29 @@ class AnalyzerApiProbeMixin:
             try:
                 receiver_expr = _ast.unparse(node.func.value)
             except Exception:
+                continue
+            original_receiver_expr = receiver_expr
+            if (
+                isinstance(node.func.value, _ast.Name)
+                and node.func.value.id in receiver_types
+            ):
+                class_name = receiver_types[node.func.value.id]
+                class_receiver = f"slicer.{class_name}"
+                chain = f"{receiver_expr}.{attr}"
+                key = (chain, attr)
+                if key not in seen:
+                    seen.add(key)
+                    specs.append({
+                        "chain": chain,
+                        "receiver_expr": class_receiver,
+                        "original_receiver_expr": original_receiver_expr,
+                        "expanded_receiver_expr": class_receiver,
+                        "receiver_type": class_name,
+                        "proof_kind": "class_type",
+                        "attr": attr,
+                        "lineno": getattr(node, "lineno", 0),
+                        "is_attribute": False,
+                    })
                 continue
             receiver_expr = ExtensionCLIAnalyzer._expand_probe_expr(receiver_expr, var_map)
             receiver_expr = ExtensionCLIAnalyzer._make_probe_receiver_safe(receiver_expr)
@@ -151,6 +262,9 @@ class AnalyzerApiProbeMixin:
             specs.append({
                 "chain": chain,
                 "receiver_expr": receiver_expr,
+                "original_receiver_expr": original_receiver_expr,
+                "expanded_receiver_expr": receiver_expr,
+                "proof_kind": "live_instance",
                 "attr": attr,
                 "lineno": getattr(node, "lineno", 0),
                 "is_attribute": False,
@@ -159,14 +273,17 @@ class AnalyzerApiProbeMixin:
         # Pass 2: bare attribute accesses (e.g., slicer.vtkMRMLSliceNode.SpacingModeMatch2D)
         # These are ast.Attribute nodes that are NOT the func of a Call.
         call_func_ids = set()
+        attribute_value_ids = set()
         for node in _ast.walk(tree):
             if isinstance(node, _ast.Call) and isinstance(node.func, _ast.Attribute):
                 call_func_ids.add(id(node.func))
+            if isinstance(node, _ast.Attribute) and isinstance(node.value, _ast.Attribute):
+                attribute_value_ids.add(id(node.value))
 
         for node in _ast.walk(tree):
             if not isinstance(node, _ast.Attribute):
                 continue
-            if id(node) in call_func_ids:
+            if id(node) in call_func_ids or id(node) in attribute_value_ids:
                 continue
             attr = node.attr
             try:
@@ -196,12 +313,92 @@ class AnalyzerApiProbeMixin:
             specs.append({
                 "chain": chain,
                 "receiver_expr": receiver_expr,
+                "original_receiver_expr": receiver_expr,
+                "expanded_receiver_expr": receiver_expr,
+                "proof_kind": "live_instance",
                 "attr": attr,
                 "lineno": getattr(node, "lineno", 0),
                 "is_attribute": True,
             })
 
         return specs
+
+    @staticmethod
+    def _extract_unresolved_api_probe_specs(code: str) -> List[Dict[str, Any]]:
+        """Return likely Slicer receiver calls that static probing cannot resolve."""
+        import ast as _ast
+        try:
+            tree = _ast.parse(code)
+        except (SyntaxError, IndentationError):
+            return []
+
+        var_map = ExtensionCLIAnalyzer._build_var_to_expr_map(code)
+        receiver_types = ExtensionCLIAnalyzer._infer_probe_receiver_types(code)
+        resolved_specs = ExtensionCLIAnalyzer._extract_api_probe_specs(code)
+        resolved_keys = set()
+        for spec in resolved_specs:
+            attr = spec.get("attr", "")
+            for key_name in ("receiver_expr", "original_receiver_expr", "expanded_receiver_expr"):
+                receiver = spec.get(key_name, "")
+                if receiver:
+                    resolved_keys.add((receiver, attr))
+        unresolved = []
+        seen = set()
+        receiver_name_re = _re.compile(
+            r"(slice_?node|slice_?display|display_?node|view_?node|layout_?node)",
+            _re.IGNORECASE,
+        )
+        method_re = _re.compile(
+            r"^(Set|Get|Add|Remove|Update|Modified|Visibility|.*Visibility.*|.*Layout.*)",
+        )
+        for node in _ast.walk(tree):
+            if not isinstance(node, _ast.Call) or not isinstance(node.func, _ast.Attribute):
+                continue
+            attr = node.func.attr
+            try:
+                receiver_expr = _ast.unparse(node.func.value)
+            except Exception:
+                continue
+            if isinstance(node.func.value, _ast.Name) and node.func.value.id in receiver_types:
+                continue
+            expanded_receiver = ExtensionCLIAnalyzer._expand_probe_expr(receiver_expr, var_map)
+            expanded_receiver = ExtensionCLIAnalyzer._make_probe_receiver_safe(expanded_receiver)
+            if (expanded_receiver, attr) in resolved_keys or (receiver_expr, attr) in resolved_keys:
+                continue
+            if ExtensionCLIAnalyzer._expr_starts_with_api_root(expanded_receiver):
+                try:
+                    recv_tree = _ast.parse(expanded_receiver, mode="eval")
+                except SyntaxError:
+                    recv_tree = None
+                if recv_tree is not None:
+                    unresolved_names = {
+                        n.id for n in _ast.walk(recv_tree)
+                        if isinstance(n, _ast.Name)
+                        and n.id not in {"slicer", "vtk", "qt", "ctk"}
+                    }
+                    if not unresolved_names:
+                        continue
+            elif ExtensionCLIAnalyzer._expr_starts_with_api_root(receiver_expr):
+                continue
+            if not method_re.match(attr):
+                continue
+            receiver_compact = receiver_expr.replace(".", "_")
+            if not receiver_name_re.search(receiver_compact):
+                continue
+            chain = f"{receiver_expr}.{attr}"
+            if chain in seen:
+                continue
+            seen.add(chain)
+            unresolved.append({
+                "chain": chain,
+                "receiver_expr": receiver_expr,
+                "expanded_receiver_expr": expanded_receiver,
+                "attr": attr,
+                "proof_kind": "unproven_receiver",
+                "lineno": getattr(node, "lineno", 0),
+                "unresolved_reason": "receiver expression is dynamic and could not be live-probed",
+            })
+        return unresolved
 
     @staticmethod
     def _extract_api_chains(code: str) -> List[str]:
@@ -238,7 +435,7 @@ class AnalyzerApiProbeMixin:
             is_attr = spec.get("is_attribute", False)
             if not receiver_expr or not attr:
                 continue
-            key = f"{receiver_expr}.{attr}"
+            key = spec.get("chain") or f"{receiver_expr}.{attr}"
             if key in seen:
                 continue
             seen.add(key)
@@ -273,6 +470,10 @@ class AnalyzerApiProbeMixin:
             probes.append({
                 "chain": key,
                 "receiver_expr": receiver_expr,
+                "original_receiver_expr": spec.get("original_receiver_expr", receiver_expr),
+                "expanded_receiver_expr": spec.get("expanded_receiver_expr", receiver_expr),
+                "receiver_type": spec.get("receiver_type", ""),
+                "proof_kind": spec.get("proof_kind", "live_instance"),
                 "attr": attr,
                 "probe_code": probe_code,
                 "lineno": spec.get("lineno", 0),
@@ -349,7 +550,16 @@ class AnalyzerApiProbeMixin:
             logger.info(
                 "[verify_repair] Slicer not available — skipping live API probe"
             )
-            return {"probed": 0, "failures": [], "revised": 0}
+            return {
+                "probed": 0,
+                "failures": [],
+                "revised": 0,
+                "api_probe_coverage": {
+                    "resolved": [],
+                    "unresolved": [],
+                    "skipped": [{"reason": "slicer_not_available"}],
+                },
+            }
 
         self.on_progress(
             "verify_repair", "Verify And Repair Templates",
@@ -357,6 +567,7 @@ class AnalyzerApiProbeMixin:
         )
 
         all_specs_by_template = {}
+        unresolved_dynamic_by_template = {}
         syntax_skipped = []
         for key, code in templates.items():
             if not key.endswith(".py.tpl") or not code or not code.strip():
@@ -374,13 +585,22 @@ class AnalyzerApiProbeMixin:
             specs = self._extract_api_probe_specs(sample_code)
             if specs:
                 all_specs_by_template[key] = specs
+            unresolved_specs = self._extract_unresolved_api_probe_specs(sample_code)
+            if unresolved_specs:
+                unresolved_dynamic_by_template[key] = unresolved_specs
 
-        if not all_specs_by_template:
+        if not all_specs_by_template and not unresolved_dynamic_by_template:
             return {
                 "probed": 0,
                 "failures": [],
                 "revised": 0,
                 "syntax_skipped": syntax_skipped,
+                "unresolved_failures": [],
+                "api_probe_coverage": {
+                    "resolved": [],
+                    "unresolved": [],
+                    "skipped": syntax_skipped,
+                },
             }
 
         # Collect all unique receiver probes
@@ -401,24 +621,40 @@ class AnalyzerApiProbeMixin:
 
         # Execute probes
         probe_results = {}
+        probe_metadata = {}
         for probe in probes:
             chain_key = probe["chain"]
+            probe_metadata[chain_key] = probe
             result = self._execute_live_probe(probe["probe_code"])
             probe_results[chain_key] = result
+        resolved_specs = self._enrich_resolved_probe_specs(all_specs, probe_results)
 
         # Analyze results — collect failures
         failures = []
         for chain_key, probe_result in probe_results.items():
+            probe_meta = probe_metadata.get(chain_key, {})
             if isinstance(probe_result, dict):
                 if probe_result.get("error"):
                     failures.append({
                         "chain": chain_key,
                         "error": probe_result["error"],
+                        "receiver_expr": probe_meta.get("receiver_expr", ""),
+                        "original_receiver_expr": probe_meta.get("original_receiver_expr", ""),
+                        "expanded_receiver_expr": probe_meta.get("expanded_receiver_expr", ""),
+                        "attr": probe_meta.get("attr", ""),
+                        "receiver_type": probe_meta.get("receiver_type", ""),
+                        "proof_kind": probe_meta.get("proof_kind", ""),
                     })
                 elif not probe_result.get("exists"):
                     failures.append({
                         "chain": chain_key,
                         "receiver_type": probe_result.get("type"),
+                        "expected_receiver_type": probe_meta.get("receiver_type", ""),
+                        "receiver_expr": probe_meta.get("receiver_expr", ""),
+                        "original_receiver_expr": probe_meta.get("original_receiver_expr", ""),
+                        "expanded_receiver_expr": probe_meta.get("expanded_receiver_expr", ""),
+                        "attr": probe_meta.get("attr", ""),
+                        "proof_kind": probe_meta.get("proof_kind", ""),
                         "receiver_is_none": probe_result.get("is_none"),
                         "available_methods": probe_result.get("available_methods", []),
                     })
@@ -426,9 +662,28 @@ class AnalyzerApiProbeMixin:
                 failures.append({
                     "chain": chain_key,
                     "error": probe_result,
+                    "receiver_expr": probe_meta.get("receiver_expr", ""),
+                    "original_receiver_expr": probe_meta.get("original_receiver_expr", ""),
+                    "expanded_receiver_expr": probe_meta.get("expanded_receiver_expr", ""),
+                    "attr": probe_meta.get("attr", ""),
+                    "receiver_type": probe_meta.get("receiver_type", ""),
+                    "proof_kind": probe_meta.get("proof_kind", ""),
                 })
 
-        if not failures:
+        unresolved_failures = []
+        for tpl_key, unresolved_specs in unresolved_dynamic_by_template.items():
+            for spec in unresolved_specs:
+                unresolved_failures.append({
+                    "template": tpl_key,
+                    "chain": spec.get("chain", "unknown API"),
+                    "error": spec.get("unresolved_reason", "API receiver could not be resolved"),
+                    "proof_kind": "unproven_receiver",
+                    "receiver_expr": spec.get("receiver_expr", ""),
+                    "expanded_receiver_expr": spec.get("expanded_receiver_expr", ""),
+                    "lineno": spec.get("lineno", 0),
+                })
+
+        if not failures and not unresolved_failures:
             logger.info("[verify_repair] All %d API probes passed", len(probes))
             self.on_progress(
                 "verify_repair", "Verify And Repair Templates",
@@ -439,7 +694,25 @@ class AnalyzerApiProbeMixin:
                 "failures": [],
                 "revised": 0,
                 "syntax_skipped": syntax_skipped,
+                "api_probe_coverage": {
+                    "resolved": resolved_specs,
+                    "unresolved": [
+                        {**spec, "template": tpl_key}
+                        for tpl_key, specs in unresolved_dynamic_by_template.items()
+                        for spec in specs
+                    ],
+                    "skipped": syntax_skipped,
+                },
             }
+        if not failures and unresolved_failures:
+            logger.warning(
+                "[verify_repair] %d dynamic API receivers could not be resolved",
+                len(unresolved_failures),
+            )
+            self.on_progress(
+                "verify_repair", "Verify And Repair Templates",
+                f"Found {len(unresolved_failures)} unresolved dynamic API receiver(s)"
+            )
 
         # Log failures
         logger.warning(
@@ -461,7 +734,6 @@ class AnalyzerApiProbeMixin:
 
         # Revise affected templates via LLM
         revised_count = 0
-        unresolved_failures = []
         for tpl_key, tpl_failures in affected_templates.items():
             if tpl_key not in templates:
                 continue
@@ -516,22 +788,52 @@ class AnalyzerApiProbeMixin:
                         seen_final_specs.add(key)
                         final_specs.append(spec)
             final_probe_results = {}
+            final_probe_metadata = {}
             for probe in self._generate_probes(final_specs):
+                final_probe_metadata[probe["chain"]] = probe
                 final_probe_results[probe["chain"]] = self._execute_live_probe(probe["probe_code"])
+            resolved_specs = self._enrich_resolved_probe_specs(
+                final_specs, final_probe_results
+            )
             final_failures = []
             for chain_key, probe_result in final_probe_results.items():
+                probe_meta = final_probe_metadata.get(chain_key, {})
                 if isinstance(probe_result, dict):
                     if probe_result.get("error"):
-                        final_failures.append({"chain": chain_key, "error": probe_result["error"]})
+                        final_failures.append({
+                            "chain": chain_key,
+                            "error": probe_result["error"],
+                            "receiver_expr": probe_meta.get("receiver_expr", ""),
+                            "original_receiver_expr": probe_meta.get("original_receiver_expr", ""),
+                            "expanded_receiver_expr": probe_meta.get("expanded_receiver_expr", ""),
+                            "attr": probe_meta.get("attr", ""),
+                            "receiver_type": probe_meta.get("receiver_type", ""),
+                            "proof_kind": probe_meta.get("proof_kind", ""),
+                        })
                     elif not probe_result.get("exists"):
                         final_failures.append({
                             "chain": chain_key,
                             "receiver_type": probe_result.get("type"),
+                            "expected_receiver_type": probe_meta.get("receiver_type", ""),
+                            "receiver_expr": probe_meta.get("receiver_expr", ""),
+                            "original_receiver_expr": probe_meta.get("original_receiver_expr", ""),
+                            "expanded_receiver_expr": probe_meta.get("expanded_receiver_expr", ""),
+                            "attr": probe_meta.get("attr", ""),
+                            "proof_kind": probe_meta.get("proof_kind", ""),
                             "receiver_is_none": probe_result.get("is_none"),
                             "available_methods": probe_result.get("available_methods", []),
                         })
                 elif isinstance(probe_result, str) and probe_result.startswith("EXCEPTION:"):
-                    final_failures.append({"chain": chain_key, "error": probe_result})
+                    final_failures.append({
+                        "chain": chain_key,
+                        "error": probe_result,
+                        "receiver_expr": probe_meta.get("receiver_expr", ""),
+                        "original_receiver_expr": probe_meta.get("original_receiver_expr", ""),
+                        "expanded_receiver_expr": probe_meta.get("expanded_receiver_expr", ""),
+                        "attr": probe_meta.get("attr", ""),
+                        "receiver_type": probe_meta.get("receiver_type", ""),
+                        "proof_kind": probe_meta.get("proof_kind", ""),
+                    })
             if final_failures:
                 unresolved_failures = []
                 for tpl_key, specs in final_specs_by_template.items():
@@ -541,8 +843,18 @@ class AnalyzerApiProbeMixin:
                             if chain == failure["chain"] or chain.startswith(failure["chain"] + "."):
                                 item = dict(failure)
                                 item["template"] = tpl_key
+                                item["receiver_expr"] = spec.get("receiver_expr", "")
+                                item["original_receiver_expr"] = spec.get(
+                                    "original_receiver_expr", ""
+                                )
+                                item["expanded_receiver_expr"] = spec.get(
+                                    "expanded_receiver_expr", ""
+                                )
+                                item["attr"] = spec.get("attr", item.get("attr", ""))
+                                item["proof_kind"] = spec.get("proof_kind", "")
                                 unresolved_failures.append(item)
                                 break
+            failures = final_failures
 
         self.on_progress(
             "verify_repair", "Verify And Repair Templates",
@@ -554,6 +866,15 @@ class AnalyzerApiProbeMixin:
             "revised": revised_count,
             "unresolved_failures": unresolved_failures,
             "syntax_skipped": syntax_skipped,
+            "api_probe_coverage": {
+                "resolved": resolved_specs,
+                "unresolved": [
+                    {**spec, "template": tpl_key}
+                    for tpl_key, specs in unresolved_dynamic_by_template.items()
+                    for spec in specs
+                ],
+                "skipped": syntax_skipped,
+            },
         }
 
     def _revise_template_for_api(

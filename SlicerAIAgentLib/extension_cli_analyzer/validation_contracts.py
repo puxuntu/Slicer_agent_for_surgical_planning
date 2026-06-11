@@ -69,7 +69,17 @@ class AnalyzerValidationContractsMixin:
                         "scope": contract.get("scope", ""),
                     })
 
-            if gen.get("op_type") == "slicer_op" or any(
+            api_chains = self._extract_api_chains(sample_code)
+            if api_chains:
+                operation_model = gen.setdefault("operation_model", {})
+                operation_model["implementation_uses_slicer_api"] = True
+                operation_model["invokes_slicer_api"] = True
+                if workflow_step is not None:
+                    step_model = workflow_step.setdefault("operation_model", {})
+                    step_model["implementation_uses_slicer_api"] = True
+                    step_model["invokes_slicer_api"] = True
+
+            if api_chains or gen.get("op_type") == "slicer_op" or any(
                 so.get("op_type") == "slicer_op"
                 for so in (gen.get("sub_operations", []) or [])
             ):
@@ -94,6 +104,12 @@ class AnalyzerValidationContractsMixin:
                 final_api_evidence[tpl_name] = existing_evidence
 
             self._refresh_generator_operation_model(gen, workflow_step)
+            if api_chains:
+                operation_model = gen.setdefault("operation_model", {})
+                operation_model["implementation_uses_slicer_api"] = True
+                operation_model["invokes_slicer_api"] = True
+                if workflow_step is not None:
+                    workflow_step["operation_model"] = operation_model
 
         if isinstance(self._workflow_metadata, dict):
             self._workflow_metadata["template_contract_sync"] = sync_report
@@ -249,7 +265,21 @@ class AnalyzerValidationContractsMixin:
     ) -> None:
         """Recompute operation models after contract synchronization."""
         source = workflow_step if workflow_step is not None else gen
+        existing_model = dict(gen.get("operation_model") or {})
         operation_model = self._build_step_operation_model(source)
+        if workflow_step is None and gen.get("step_type"):
+            operation_model["step_type"] = gen.get("step_type")
+        for key in ("operation_intents", "op_types", "allow_module_switch"):
+            if existing_model.get(key) and not operation_model.get(key):
+                operation_model[key] = existing_model[key]
+        for key in (
+            "invokes_slicer_api",
+            "implementation_uses_slicer_api",
+            "invokes_extension_method",
+            "invokes_extension_function",
+        ):
+            if existing_model.get(key):
+                operation_model[key] = True
         gen["operation_model"] = operation_model
         if workflow_step is not None:
             workflow_step["operation_model"] = operation_model
@@ -441,19 +471,6 @@ class AnalyzerValidationContractsMixin:
                 return True
         return False
 
-    @staticmethod
-    def _invalid_slicer_api_aliases(code: str) -> List[str]:
-        """Return known invalid Slicer API spellings found in code."""
-        aliases = {
-            "SetSliceVisibility": "SetSliceVisible",
-            "GetSliceVisibility": "GetSliceVisible",
-        }
-        found = []
-        for invalid, replacement in aliases.items():
-            if _re.search(rf"\.{_re.escape(invalid)}\s*\(", code):
-                found.append(f"{invalid} does not exist; use {replacement}")
-        return found
-
     def _validate_template_contract(
         self,
         tpl_name: str,
@@ -474,9 +491,6 @@ class AnalyzerValidationContractsMixin:
         operation_code = self._strip_precondition_regions(code)
         api_chains = self._extract_api_chains(operation_code)
         code_has_slicer_api = bool(api_chains)
-        invalid_aliases = self._invalid_slicer_api_aliases(code)
-        if invalid_aliases:
-            result["errors"].extend(invalid_aliases)
         extension_call_contract = self._validate_extension_callable_contract(code)
         result["errors"].extend(extension_call_contract["errors"])
         for so in sub_ops:
@@ -515,7 +529,7 @@ class AnalyzerValidationContractsMixin:
                     "Template uses Slicer API calls but operation_model.invokes_slicer_api is false"
                 )
 
-        if self._template_calls_select_module(code) and not self._module_switch_allowed_by_contract(gen, code):
+        if self._template_calls_select_module(operation_code) and not self._module_switch_allowed_by_contract(gen, operation_code):
             result["errors"].append(
                 "Template switches the active Slicer module without an explicit module_switching contract; "
                 "module/panel phrases in cookbook steps are UI-location context and should be implemented "
@@ -632,7 +646,14 @@ class AnalyzerValidationContractsMixin:
                 "Required template contains unresolved placeholders: "
                 + ", ".join(unresolved_placeholders)
             )
-        allow_instruction_only = role == "pre" and node_class and not is_markup
+        interaction_kind = _text_or_empty(
+            (gen.get("interaction_descriptor") or {}).get("interaction_kind")
+            or gen.get("interaction_kind")
+        )
+        allow_instruction_only = role == "pre" and (
+            (node_class and not is_markup)
+            or interaction_kind == "view_adjustment"
+        )
         if not allow_instruction_only and not self._template_has_meaningful_code(code):
             result["errors"].append("Required template is a stub (only pass/comments/prints)")
 
@@ -709,7 +730,7 @@ class AnalyzerValidationContractsMixin:
                     "Repeated interaction pre-template tells the user to repeat inside one wait step"
                 )
 
-        scalar_contract = self._validate_scalar_parameter_contract(code)
+        scalar_contract = self._validate_scalar_parameter_contract(code, step_id=step_id)
         result["errors"].extend(scalar_contract["errors"])
         result["warnings"].extend(scalar_contract["warnings"])
 

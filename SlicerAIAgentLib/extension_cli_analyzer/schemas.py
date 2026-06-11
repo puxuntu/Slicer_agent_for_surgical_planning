@@ -151,7 +151,7 @@ class AnalyzerSchemasMixin:
 {
   "type": "function",
   "function": {
-    "name": "PelvicFracturePlanning",
+    "name": "GenericExtensionWorkflow",
     "description": "...",
     "parameters": {
       "type": "object",

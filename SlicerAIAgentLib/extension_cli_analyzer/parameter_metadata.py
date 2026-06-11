@@ -259,6 +259,16 @@ class AnalyzerParameterMetadataMixin:
                         method=method, widget=widget_name,
                         property_name=prop_name, confidence="high", precedence=80,
                     )
+                elif widget_info and prop_name == "value":
+                    widget_class = widget_info.get("class", "")
+                    if "DoubleSpinBox" in widget_class or "SpinBox" in widget_class:
+                        implicit_value = 0.0 if "DoubleSpinBox" in widget_class else 0
+                        self._record_parameter_default(
+                            defaults, role, implicit_value,
+                            source="ui_widget_implicit_default",
+                            method=method, widget=widget_name,
+                            property_name=prop_name, confidence="medium", precedence=70,
+                        )
 
         for role, info in (roles or {}).items():
             if info.get("node_class") or role in defaults:
@@ -529,6 +539,73 @@ class AnalyzerParameterMetadataMixin:
                 dependencies[method] = entry
         return dependencies
 
+    def _extract_parameter_method_effects(self, source: str) -> Dict[str, Dict]:
+        """Map logic methods to direct/transitive parameter-node reads and writes."""
+        try:
+            tree = ast.parse(source)
+        except SyntaxError:
+            return {}
+
+        method_names = {
+            node.name for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+        }
+        direct_reads: Dict[str, set] = {}
+        direct_writes: Dict[str, set] = {}
+        calls: Dict[str, set] = {}
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            for child in ast.walk(node):
+                if isinstance(child, ast.Call):
+                    func_name = self._get_call_name(child)
+                    if child.args and (
+                        func_name.endswith("GetParameter")
+                        or func_name.endswith("SetParameter")
+                    ):
+                        role_arg = child.args[0]
+                        if isinstance(role_arg, ast.Constant) and isinstance(role_arg.value, str):
+                            target = direct_writes if func_name.endswith("SetParameter") else direct_reads
+                            target.setdefault(node.name, set()).add(role_arg.value)
+                    func = child.func
+                    if (
+                        isinstance(func, ast.Attribute)
+                        and isinstance(func.value, ast.Name)
+                        and func.value.id == "self"
+                        and func.attr in method_names
+                    ):
+                        calls.setdefault(node.name, set()).add(func.attr)
+
+        effects: Dict[str, Dict] = {}
+        for method in sorted(method_names):
+            seen = set()
+            stack = [method]
+            reads = set()
+            writes = set()
+            transitive_methods = set()
+            while stack:
+                current = stack.pop()
+                if current in seen:
+                    continue
+                seen.add(current)
+                if current != method:
+                    transitive_methods.add(current)
+                reads.update(direct_reads.get(current, set()))
+                writes.update(direct_writes.get(current, set()))
+                for callee in calls.get(current, set()):
+                    if callee not in seen:
+                        stack.append(callee)
+            if reads or writes:
+                effects[method] = {
+                    "reads": sorted(reads),
+                    "writes": sorted(writes),
+                    "direct_reads": sorted(direct_reads.get(method, set())),
+                    "direct_writes": sorted(direct_writes.get(method, set())),
+                    "transitive_methods": sorted(transitive_methods),
+                }
+        return effects
+
     @staticmethod
     def _merge_node_requirements(existing: Optional[Dict], incoming: Dict) -> Dict:
         """Merge node requirements, preserving the strongest pre-call contract."""
@@ -794,6 +871,7 @@ class AnalyzerParameterMetadataMixin:
         parameter_dependencies = self._extract_parameter_method_dependencies(
             source, bindings
         )
+        method_parameter_effects = self._extract_parameter_method_effects(source)
         ui_parameter_bindings = (
             getattr(self, "_ui_parameter_bindings", None)
             or scan_result.get("ui_parameter_bindings", {})
@@ -806,13 +884,21 @@ class AnalyzerParameterMetadataMixin:
         metadata = {
             "extension_module_name": os.path.splitext(os.path.basename(entry_module))[0],
             "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
-            "metadata_version": 5,
+            "metadata_version": 7,
             "parameter_bindings": bindings,
             "parameter_defaults": parameter_defaults,
             "ui_parameter_bindings": ui_parameter_bindings,
             "parameter_method_dependencies": parameter_dependencies,
+            "method_parameter_effects": method_parameter_effects,
             "choice_bindings": {},
             "interaction_bindings": {},
+            "workflow_steps": [
+                {
+                    "step_id": step.get("step_id", ""),
+                    "step_number": step.get("step_number"),
+                }
+                for step in workflow_graph.get("steps", []) or []
+            ],
             "operation_model": {},
             "node_roles": {},
             "repeat_groups": {},
@@ -824,6 +910,8 @@ class AnalyzerParameterMetadataMixin:
                 "prelude_valid": None,
             },
             "api_evidence": {},
+            "api_type_contracts": {},
+            "api_proof_coverage": {},
         }
 
         for step in workflow_graph.get("steps", []):
@@ -834,6 +922,25 @@ class AnalyzerParameterMetadataMixin:
 
             choice = step.get("choice_info") or {}
             pname = choice.get("parameter_name")
+            if pname and pname not in bindings:
+                choice_text = " ".join([
+                    _text_or_empty(pname),
+                    _text_or_empty(choice.get("question")),
+                    _text_or_empty(step.get("description")),
+                ])
+                choice_keywords = set(self._role_keywords(choice_text))
+                candidates = []
+                for role, info in bindings.items():
+                    if info.get("node_class"):
+                        continue
+                    role_keywords = set(info.get("keywords") or self._role_keywords(role))
+                    score = len(choice_keywords & role_keywords)
+                    if score:
+                        candidates.append((score, role))
+                if candidates:
+                    candidates.sort(reverse=True)
+                    if len(candidates) == 1 or candidates[0][0] > candidates[1][0]:
+                        pname = candidates[0][1]
             if pname and pname in bindings:
                 metadata["choice_bindings"][step_id] = {
                     "parameter_name": pname,

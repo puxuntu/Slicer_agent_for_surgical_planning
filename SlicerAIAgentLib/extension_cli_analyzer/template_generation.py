@@ -139,13 +139,16 @@ Verify the template for these issues ONLY:
 2. Are all variables DEFINED before they are used (no NameError at runtime)?
 3. Are boolean parameters set to valid literal values (True/False), not bare variable names?
 4. Is the try/except for cached logic correct? (logic should be assigned in the except block, not after it)
+5. For every executable API call, is the receiver type derivable from supplied
+   source or node-lifecycle evidence? Distinguish a known-invalid call from missing proof.
 
 Do NOT change: node creation mode, cross-stage wiring, or display setup code.
+Do NOT introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.
 
 Return JSON:
 {{
   "issues": [
-    {{"line": 0, "problem": "description", "fix": "description of fix"}}
+    {{"line": 0, "call": "receiver.method", "diagnosis": "invalid_code|missing_proof", "problem": "description", "fix": "description of fix"}}
   ],
   "corrected_template": "the corrected full template string, or null if no changes needed"
 }}

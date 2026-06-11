@@ -882,39 +882,24 @@ class AnalyzerWorkflowTemplatesMixin:
 
             The code must:
             1. Import the logic class from `{module_name}`
-            2. Ensure the extension module is active so module.enter() has run (extension methods may depend on parameter-node init, observers, and UI bindings set up by the widget's enter() method). Emit (include the marker comments exactly):
-               ```
-               # precondition:begin
-               _active_module = slicer.app.moduleManager().activeModule()
-               if _active_module is None or _active_module.name != "{module_name}":
-                   try:
-                       slicer.util.selectModule("{module_name}")
-                   except Exception as _module_enter_error:
-                       print(f"Warning: could not activate module '{module_name}': {{_module_enter_error}}")
-               # precondition:end
-               ```
+            2. Do not emit module lifecycle setup; the generator adds the shared lifecycle precondition deterministically.
             3. Reuse the existing logic instance `_{extension_name.lower()}_logic` if it exists, otherwise create a new `{logic_class_name}()`
-            4. Set up any required state on the logic instance BEFORE calling the method (e.g., if the method reads `self.mandibleSegmentationNode`, find the node in the scene and assign it)
+            4. Set up any required state on the logic instance BEFORE calling the method. Derive required roles, node classes, and lookup terms only from the provided parameter metadata and method source.
                If the method or its helper methods read scalar values from `parameterNode.GetParameter(...)`, initialize missing values using the provided source-derived defaults with `parameterNode.SetParameter(...)` before calling the method. Never overwrite a non-empty parameter value.
-            5. To find scene nodes, use robust fuzzy matching — NEVER rely on exact node names. Use this pattern:
-               ```python
-               nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
-               for i in range(nodes.GetNumberOfItems()):
-                   n = nodes.GetItemAsObject(i)
-                   if "fibula" in n.GetName().lower():
-                       fibulaNode = n
-                       break
-               ```
-               Or for parameter node references: first check `parameterNode.GetNodeReference("refName")`, and if None, search the scene by class + name substring, then set via `parameterNode.SetNodeReferenceID("refName", node.GetID())`.
+            5. For parameter node references, first use the source-derived reference role. If no reference exists, search only by the source-derived node class and role keywords, then store the selected node reference. Do not invent fixed node names or anatomy/domain terms.
             6. Call the method with correct arguments
             7. Store the logic instance as `_{extension_name.lower()}_logic` for subsequent steps
             8. Print a completion message
+            9. Use API receivers whose types are derivable from the supplied source and
+               parameter metadata. If a receiver type is uncertain, do not invent a method;
+               fail with a clear missing-evidence message.
 
             IMPORTANT restrictions:
             - Do NOT use `dir()`, `eval()`, `exec()`, `globals()`, or `locals()` — these are blocked in the execution sandbox.
             - Use `try/except NameError` to check if a variable exists, NOT `if 'var' in dir()`.
-            - Do NOT use curly brace template placeholders. Write actual Python values (strings, numbers, etc.). If you need a node name, hardcode a reasonable default like `slicer.util.getNode('FibulaModel')`.
+            - Do NOT use curly brace template placeholders. Write actual source-derived Python values. Do not invent or hardcode node names.
             - Escape all braces in f-strings and .format() calls by doubling them: use doubled-braces for literal braces in output strings.
+            - Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.
             - Return ONLY raw Python code. Do NOT wrap it in markdown fences (```python ... ```).""")
 
         try:
@@ -927,7 +912,7 @@ class AnalyzerWorkflowTemplatesMixin:
                 import ast as _ast
                 try:
                     _ast.parse(response)
-                    return response
+                    return self._inject_module_enter_precondition(response, module_name)
                 except (SyntaxError, IndentationError) as e:
                     if _attempt == 0:
                         logger.info(
@@ -944,7 +929,9 @@ class AnalyzerWorkflowTemplatesMixin:
                             "LLM automated template for step %s still has syntax error after retry: %s",
                             step.get("step_id", "?"), e,
                         )
-                        return response  # Return as-is, stage 9 / revision will catch it
+                        return self._inject_module_enter_precondition(
+                            response, module_name
+                        )  # Return as-is; validation will catch remaining issues.
         except Exception:
             logger.debug("LLM automated template generation failed", exc_info=True)
         return None
@@ -972,12 +959,14 @@ class AnalyzerWorkflowTemplatesMixin:
             2. Be a complete, self-contained snippet that performs the described operation
             3. Use robust patterns (check for None, handle missing nodes gracefully)
             4. Print a short completion message
+            5. Use only API calls whose receiver type and method are supported by supplied evidence.
 
             IMPORTANT restrictions:
             - Do NOT use `dir()`, `eval()`, `exec()`, `globals()`, or `locals()`
             - Do NOT import the extension module — use only Slicer core APIs
             - Do NOT use curly brace template placeholders — write actual Python values
             - Escape all braces in f-strings by doubling them
+            - Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior
             - Return ONLY raw Python code, no markdown fences""")
 
         try:

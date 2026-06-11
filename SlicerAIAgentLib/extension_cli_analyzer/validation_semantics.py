@@ -259,8 +259,7 @@ class AnalyzerValidationSemanticsMixin:
             )
             if not code_activates_layout:
                 result["errors"].append(
-                    "Layout activation step does not switch the active layout; expected "
-                    "layoutManager.setLayout(...) or an extension function with layout_activate effect"
+                    "Layout activation step does not produce an evidence-backed active-layout change"
                 )
             elif (
                 code_only_registers_layout
@@ -268,28 +267,35 @@ class AnalyzerValidationSemanticsMixin:
                 and not _re.search(r"\.\s*setLayout\s*\(", code)
             ):
                 result["errors"].append(
-                    "Layout activation step only registers a layout; expected active layout switch"
+                    "Layout activation step only registers a layout and does not activate it"
                 )
 
         if "slice_intersection_visibility" in intents:
+            called_function = self._detect_extension_function_call(code)
+            called_effects = set(self._extension_function_effects(called_function))
             uses_app_logic = "SetIntersectingSlicesEnabled" in code
             uses_display_setter = "SetIntersectingSlicesVisibility" in code
             refreshes_slice_nodes = bool("Modified(" in code and "vtkMRMLSliceNode" in code)
+            has_global_effect = uses_app_logic or "slice_intersection_global" in called_effects
+            has_display_effect = (
+                uses_display_setter
+                or "slice_intersection_display_node" in called_effects
+            )
+            has_refresh_effect = refreshes_slice_nodes or "slice_view_refresh" in called_effects
             uses_crosshair_only = bool(
                 ("vtkMRMLCrosshairNode" in code or "SetCrosshairMode" in code)
-                and not uses_app_logic
-                and not uses_display_setter
+                and not has_global_effect
+                and not has_display_effect
             )
             if uses_crosshair_only:
                 result["errors"].append(
-                    "Slice intersection visibility step uses crosshair visibility APIs; "
-                    "expected slice-intersection state APIs"
+                    "Slice intersection visibility step changes only crosshair state, "
+                    "which does not satisfy the requested slice-intersection behavior"
                 )
-            elif not uses_app_logic and not (uses_display_setter and refreshes_slice_nodes):
+            elif not has_global_effect and not (has_display_effect and has_refresh_effect):
                 result["errors"].append(
-                    "Slice intersection visibility step must use applicationLogic()."
-                    "SetIntersectingSlicesEnabled(...) or refresh vtkMRMLSliceNode.Modified() "
-                    "after direct slice display-node setters"
+                    "Slice intersection visibility step does not provide evidence-backed "
+                    "intersection visibility behavior with any required view refresh"
                 )
 
         display_scope_contract = self._validate_display_view_scope_semantics(code, gen, intents)
@@ -389,6 +395,35 @@ class AnalyzerValidationSemanticsMixin:
             tree = ast.parse(code)
         except SyntaxError:
             return False
+        literal_sequences: Dict[str, set] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign):
+                continue
+            if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+                continue
+            if not isinstance(node.value, (ast.List, ast.Tuple)):
+                continue
+            values = set()
+            for elt in node.value.elts:
+                if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                    values.add(elt.value)
+            if values:
+                literal_sequences[node.targets[0].id] = values
+
+        loop_targets: Dict[str, set] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.For) or not isinstance(node.target, ast.Name):
+                continue
+            values = set()
+            if isinstance(node.iter, ast.Name):
+                values.update(literal_sequences.get(node.iter.id, set()))
+            elif isinstance(node.iter, (ast.List, ast.Tuple)):
+                for elt in node.iter.elts:
+                    if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                        values.add(elt.value)
+            if values:
+                loop_targets[node.target.id] = values
+
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -398,9 +433,59 @@ class AnalyzerValidationSemanticsMixin:
             arg0 = node.args[0]
             if isinstance(arg0, ast.Constant) and arg0.value == role:
                 return True
+            if isinstance(arg0, ast.Name) and role in loop_targets.get(arg0.id, set()):
+                return True
         return False
 
-    def _validate_scalar_parameter_contract(self, code: str) -> Dict[str, List[str]]:
+    def _scalar_role_has_prior_producer(self, role: str, step_id: str = "") -> bool:
+        if not isinstance(self._workflow_metadata, dict):
+            return False
+        audit = self._workflow_metadata.get("contract_audit") or {}
+        state_graph = (
+            audit.get("workflow_state_graph")
+            if isinstance(audit, dict)
+            else {}
+        ) or self._workflow_metadata.get("workflow_state_graph") or {}
+        producers = (
+            state_graph.get("parameter_producers")
+            or state_graph.get("producers")
+            or {}
+        )
+        role_producers = producers.get(role, []) if isinstance(producers, dict) else []
+        if not role_producers:
+            return False
+        if not step_id:
+            return True
+        step_order = {}
+        steps = (
+            self._workflow_metadata.get("workflow_steps")
+            or self._workflow_metadata.get("steps")
+            or []
+        )
+        for index, step in enumerate(steps if isinstance(steps, list) else []):
+            if isinstance(step, dict) and step.get("step_id"):
+                step_order[step["step_id"]] = index
+        if not step_order and isinstance(state_graph.get("step_order"), dict):
+            step_order = state_graph.get("step_order") or {}
+        current_order = step_order.get(step_id)
+        if current_order is None:
+            return bool(role_producers)
+        for producer in role_producers:
+            producer_step = (
+                producer.get("step_id", "")
+                if isinstance(producer, dict)
+                else str(producer)
+            )
+            producer_order = step_order.get(producer_step)
+            if producer_order is not None and producer_order < current_order:
+                return True
+        return False
+
+    def _validate_scalar_parameter_contract(
+        self,
+        code: str,
+        step_id: str = "",
+    ) -> Dict[str, List[str]]:
         """Ensure automated extension method calls have scalar parameter defaults."""
         result = {"errors": [], "warnings": []}
         if not isinstance(self._workflow_metadata, dict):
@@ -412,6 +497,7 @@ class AnalyzerValidationSemanticsMixin:
         bindings = self._workflow_metadata.get("parameter_bindings", {}) or {}
         defaults = self._workflow_metadata.get("parameter_defaults", {}) or {}
         dependencies = self._workflow_metadata.get("parameter_method_dependencies", {}) or {}
+        method_effects = self._workflow_metadata.get("method_parameter_effects", {}) or {}
         choice_bound_roles = {
             binding.get("parameter_name")
             for binding in (self._workflow_metadata.get("choice_bindings", {}) or {}).values()
@@ -421,6 +507,9 @@ class AnalyzerValidationSemanticsMixin:
         for method in methods:
             dep = dependencies.get(method, {}) or {}
             for role in dep.get("parameter_roles", []) or []:
+                effects = method_effects.get(method, {}) or {}
+                if role in (effects.get("writes", []) or []):
+                    continue
                 info = bindings.get(role, {}) or {}
                 if info.get("node_class"):
                     continue
@@ -428,6 +517,8 @@ class AnalyzerValidationSemanticsMixin:
                 if not (value_types & {"float", "int", "bool"}):
                     continue
                 if role in choice_bound_roles or self._template_sets_parameter(code, role):
+                    continue
+                if self._scalar_role_has_prior_producer(role, step_id=step_id):
                     continue
                 if role in defaults:
                     default_info = defaults.get(role, {}) or {}
@@ -655,17 +746,46 @@ class AnalyzerValidationSemanticsMixin:
             return result
 
         extension_modules = set()
-        for m in _re.finditer(r'^\s*from\s+([\w.]+)\s+import\s+', code, _re.MULTILINE):
-            top = m.group(1).split(".")[0]
-            if self._is_extension_module_import(top):
-                extension_modules.add(top)
-        for m in _re.finditer(r'^\s*import\s+([\w.]+)', code, _re.MULTILINE):
-            top = m.group(1).split(".")[0]
-            if self._is_extension_module_import(top):
-                extension_modules.add(top)
+        imports_logic_class = False
+        logic_class_name = ""
+        if isinstance(self._workflow_metadata, dict):
+            logic_class_name = _text_or_empty(self._workflow_metadata.get("logic_class_name", ""))
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            tree = None
+        if tree is not None:
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    top = (node.module or "").split(".")[0]
+                    if self._is_extension_module_import(top):
+                        extension_modules.add(top)
+                        for alias in node.names:
+                            imported_name = alias.name
+                            if (
+                                imported_name == logic_class_name
+                                or imported_name.endswith("Logic")
+                            ):
+                                imports_logic_class = True
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        top = alias.name.split(".")[0]
+                        if self._is_extension_module_import(top):
+                            extension_modules.add(top)
+        else:
+            for m in _re.finditer(r'^\s*from\s+([\w.]+)\s+import\s+', code, _re.MULTILINE):
+                top = m.group(1).split(".")[0]
+                if self._is_extension_module_import(top):
+                    extension_modules.add(top)
+            for m in _re.finditer(r'^\s*import\s+([\w.]+)', code, _re.MULTILINE):
+                top = m.group(1).split(".")[0]
+                if self._is_extension_module_import(top):
+                    extension_modules.add(top)
 
         if not extension_modules:
             return result  # no extension import — not a logic-calling template
+        if not imports_logic_class and not self._extension_methods_called_by_template(code):
+            return result
 
         if "slicer.util.selectModule(" in code:
             return result  # precondition present

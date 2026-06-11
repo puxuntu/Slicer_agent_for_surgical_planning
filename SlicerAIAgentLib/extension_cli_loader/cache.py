@@ -69,14 +69,14 @@ def _ensure_cache():
                     manifest = json.load(f)
 
                 status = manifest.get("status", "unknown")
-                if status != "validated":
+                if status not in {"validated", "validated_with_warnings"}:
                     logger.info(
                         "Skipping %s (status=%s, not validated)", entry, status
                     )
                     continue
-                if manifest.get("manifest_version") != 2:
+                if manifest.get("manifest_version") not in {2, 3}:
                     logger.info(
-                        "Skipping %s (manifest_version=%s, expected 2; regenerate CLI)",
+                        "Skipping %s (manifest_version=%s, expected 2 or 3; regenerate CLI)",
                         entry,
                         manifest.get("manifest_version", "missing"),
                     )

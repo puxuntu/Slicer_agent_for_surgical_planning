@@ -66,7 +66,7 @@ def discover_installed_extensions() -> List[Dict]:
     - install_path: file system path to the extension root
     - source_path: file system path usable for source analysis
     - has_python: whether the extension has Python modules
-    - cli_status: 'validated', 'draft', 'failed', or None
+    - cli_status: 'validated', 'validated_with_warnings', 'draft', 'failed', or None
     """
     results = []
     seen = set()
@@ -91,7 +91,10 @@ def discover_installed_extensions() -> List[Dict]:
                 with open(manifest_path, "r", encoding="utf-8") as f:
                     m = json.load(f)
                 cli_status = m.get("status")
-                if cli_status == "validated" and m.get("manifest_version") != 2:
+                if (
+                    cli_status in {"validated", "validated_with_warnings"}
+                    and m.get("manifest_version") not in {2, 3}
+                ):
                     cli_status = "needs_regeneration"
             except Exception:
                 pass

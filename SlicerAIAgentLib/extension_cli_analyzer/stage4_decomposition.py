@@ -44,11 +44,11 @@ class AnalyzerStage4DecompositionMixin:
         choice_patterns = {
             "left/right": ("left" in desc_lower and "right" in desc_lower),
             "which side": "which side" in desc_lower,
-            "which type": "which type" in desc_lower or "mandibulectomy type" in desc_lower,
+            "which type": "which type" in desc_lower,
             "select scene node": any(
                 p in desc_lower for p in (
                     "select the", "choose the", "current scalar volume",
-                    "select mandibular segmentation", "select fibula segmentation",
+                    "select segmentation", "select volume", "select model",
                 )
             ),
             "number requested": any(p in desc_lower for p in ("how many", "number of")),
@@ -375,6 +375,14 @@ class AnalyzerStage4DecompositionMixin:
                 result = None
                 errors = [f"Response was not valid JSON: {exc}"]
             if isinstance(result, dict):
+                result, normalization_notes = self._normalize_stage4_semantic_result(
+                    result, context
+                )
+                if normalization_notes:
+                    logger.info(
+                        "[Stage 4] Applied deterministic contract normalization: %s",
+                        "; ".join(normalization_notes[:20]),
+                    )
                 errors = self._validate_stage4_semantic_result(result, context)
                 if not errors:
                     stage_map = self._stage_map_from_semantic_result(
@@ -479,6 +487,17 @@ class AnalyzerStage4DecompositionMixin:
                     "ui_text": binding.get("ui_text", ""),
                 })
 
+        parameter_roles = []
+        logic_source = _text_or_empty(logic_analysis.get("_logic_source"))
+        if logic_source and hasattr(self, "_extract_parameter_roles_from_source"):
+            parameter_roles = list(
+                self._extract_parameter_roles_from_source(logic_source).values()
+            )
+            for role in parameter_roles:
+                node_class = _text_or_empty(role.get("node_class"))
+                if node_class:
+                    node_classes.add(node_class)
+
         steps = [{
             "step_number": step.step_number,
             "operation_type": step.operation_type,
@@ -492,6 +511,7 @@ class AnalyzerStage4DecompositionMixin:
             "extension_functions": extension_functions,
             "widgets": widgets,
             "ui_parameter_bindings": ui_bindings,
+            "parameter_roles": parameter_roles,
             "allowed_slicer_op_categories": [
                 "layout_slice_view", "markups_display", "module_switching",
                 "crosshair", "subject_hierarchy", "node_display",
@@ -584,6 +604,12 @@ class AnalyzerStage4DecompositionMixin:
         node_roles must contain only explicit records shaped as
         {{"role_kind":"candidate kind","node_class":"candidate class or empty",
           "parameter_name":"candidate parameter or empty"}}; use [] if unknown.
+        node_roles describe MRML-node flow only. Do not create a node role for a
+        scalar, boolean, count, text, or other non-node user choice. A choice's
+        parameter_name is independent from node_roles and may be a stable runtime
+        name when no source-derived UI or method parameter exists.
+        A non-empty node-role parameter_name must come from ui_parameter_bindings,
+        a logic method parameter, or parameter_roles in the candidate context.
         A repeat body must be a contiguous range of existing steps. A count repeat must
         reference a preceding user_choice source step. until_choice/while_choice must
         include a clear prompt and boolean exit_value. Repeat blocks may not overlap.
@@ -627,6 +653,109 @@ class AnalyzerStage4DecompositionMixin:
         {json.dumps(context, indent=2)}
         """)
 
+    @staticmethod
+    def _stage4_allowed_parameter_names(context: Dict[str, Any]) -> set:
+        """Return every source-backed parameter role exposed to Stage 4."""
+        allowed = {
+            item.get("parameter_name")
+            for item in context.get("ui_parameter_bindings", [])
+            if isinstance(item, dict) and item.get("parameter_name")
+        }
+        allowed.update(
+            role.get("role")
+            for role in context.get("parameter_roles", [])
+            if isinstance(role, dict) and role.get("role")
+        )
+        for method in context.get("logic_methods", []):
+            if not isinstance(method, dict):
+                continue
+            for parameter in method.get("parameters", []) or []:
+                if isinstance(parameter, dict) and parameter.get("name"):
+                    allowed.add(parameter["name"])
+        return allowed
+
+    @staticmethod
+    def _normalize_stage4_semantic_result(
+        result: Dict[str, Any], context: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], List[str]]:
+        """Repair deterministic Stage 4 contract invariants before validation.
+
+        The LLM remains responsible for semantic interpretation. This pass only
+        restores cookbook-authoritative fields and removes references that the
+        source-derived allowlists prove cannot be valid.
+        """
+        normalized = json.loads(json.dumps(result))
+        notes = []
+        expected = {
+            step["step_number"]: step
+            for step in context.get("steps", [])
+            if isinstance(step, dict) and _int_or_none(step.get("step_number")) is not None
+        }
+        allowed_parameters = AnalyzerStage4DecompositionMixin._stage4_allowed_parameter_names(
+            context
+        )
+
+        for item in normalized.get("steps", []) or []:
+            if not isinstance(item, dict):
+                continue
+            number = _int_or_none(item.get("step_number"))
+            expected_step = expected.get(number)
+            if expected_step is None:
+                continue
+
+            authoritative_type = expected_step.get("operation_type")
+            if item.get("operation_type") != authoritative_type:
+                item["operation_type"] = authoritative_type
+                notes.append(f"step {number} restored authoritative operation_type")
+
+            if authoritative_type == "user_choice":
+                choice = item.get("choice")
+                if not isinstance(choice, dict):
+                    choice = {}
+                    item["choice"] = choice
+                if not _text_or_empty(choice.get("question")):
+                    choice["question"] = _text_or_empty(expected_step.get("description"))
+                    notes.append(f"step {number} restored choice question")
+                if not _text_or_empty(choice.get("parameter_name")):
+                    binding = item.get("ui_parameter_binding")
+                    binding_parameter = (
+                        binding.get("parameter_name")
+                        if isinstance(binding, dict) else ""
+                    )
+                    choice["parameter_name"] = (
+                        binding_parameter or f"choice_step_{number}"
+                    )
+                    notes.append(f"step {number} restored choice parameter_name")
+                if not isinstance(choice.get("choices"), list):
+                    choice["choices"] = []
+                    notes.append(f"step {number} restored choice choices list")
+
+            roles = item.get("node_roles")
+            if not isinstance(roles, list):
+                continue
+            normalized_roles = []
+            for role in roles:
+                if not isinstance(role, dict):
+                    normalized_roles.append(role)
+                    continue
+                normalized_role = dict(role)
+                parameter_name = _text_or_empty(normalized_role.get("parameter_name"))
+                if parameter_name and parameter_name not in allowed_parameters:
+                    normalized_role["parameter_name"] = ""
+                    notes.append(
+                        f"step {number} cleared ungrounded node-role parameter_name"
+                    )
+                if (
+                    not _text_or_empty(normalized_role.get("node_class"))
+                    and not _text_or_empty(normalized_role.get("parameter_name"))
+                ):
+                    notes.append(f"step {number} removed non-node node role")
+                    continue
+                normalized_roles.append(normalized_role)
+            item["node_roles"] = normalized_roles
+
+        return normalized, notes
+
     def _validate_stage4_semantic_result(
         self, result: Dict[str, Any], context: Dict[str, Any]
     ) -> List[str]:
@@ -664,13 +793,7 @@ class AnalyzerStage4DecompositionMixin:
         allowed_classes = set(context["allowed_node_classes"])
         allowed_intents = set(context["allowed_operation_intents"])
         allowed_role_kinds = set(context["allowed_node_role_kinds"])
-        allowed_parameters = {
-            item["parameter_name"] for item in context["ui_parameter_bindings"]
-        }
-        for method in context["logic_methods"]:
-            for parameter in method.get("parameters", []) or []:
-                if isinstance(parameter, dict) and parameter.get("name"):
-                    allowed_parameters.add(parameter["name"])
+        allowed_parameters = self._stage4_allowed_parameter_names(context)
         for number, item in by_number.items():
             if item.get("operation_type") != expected[number]["operation_type"]:
                 errors.append(f"step {number} changed authoritative operation_type")
@@ -744,7 +867,11 @@ class AnalyzerStage4DecompositionMixin:
                     if role_class and role_class not in allowed_classes:
                         errors.append(f"step {number} node role uses unknown node_class")
                     if role_parameter and role_parameter not in allowed_parameters:
-                        errors.append(f"step {number} node role uses unknown parameter_name")
+                        errors.append(
+                            f"step {number} node role parameter_name "
+                            f"{role_parameter!r} is not source-backed; use an allowed "
+                            "parameter or leave it empty"
+                        )
             if expected[number]["operation_type"] == "user_choice":
                 choice = item.get("choice")
                 if not isinstance(choice, dict) or not _text_or_empty(choice.get("question")):
@@ -1128,7 +1255,7 @@ class AnalyzerStage4DecompositionMixin:
             interaction = {}
             node_class = ""
             interaction_type = "generic"
-        if not node_class:
+        if not node_class and not adjusts_existing:
             if "curve" in text:
                 node_class, interaction_type = "vtkMRMLMarkupsCurveNode", "curve"
             elif "plane" in text:
@@ -1576,7 +1703,7 @@ class AnalyzerStage4DecompositionMixin:
             _extension_specific_indicators = set()
             if ext_name_lower:
                 _extension_specific_indicators.add(ext_name_lower)
-                # Also add shortened forms (e.g., "brp" for BoneReconstructionPlanner)
+                # Also add a shortened acronym derived from the extension name.
                 parts = _re.sub(r'([a-z])([A-Z])', r'\1 \2', ext_name).split()
                 if parts:
                     acronym = "".join(p[0].lower() for p in parts if p)

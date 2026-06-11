@@ -8,8 +8,8 @@ class AnalyzerCrossStageMixin:
         """
         Use LLM to analyze data flow between cookbook steps.
 
-        Produces a cross_stage_map: e.g., "Step 2 writes self.mandibularSegmentation,
-        and Step 4 reads it." Invalid semantic output stops generation.
+        Produces a cross_stage_map describing which step writes state or nodes
+        consumed by later steps. Invalid semantic output stops generation.
         """
         self.on_progress(
             "contract", "Build Workflow Contract",
@@ -83,8 +83,8 @@ class AnalyzerCrossStageMixin:
               "from_step": 2,
               "to_step": 4,
               "type": "state_field" | "output_node" | "scene_state",
-              "field": "self.mandibularSegmentation",
-              "description": "Step 2 creates the mandible segmentation node which Step 4 reads"
+              "field": "self.outputNode",
+              "description": "Step 2 creates an output node which Step 4 reads"
             }}
           ]
         }}
@@ -189,8 +189,8 @@ class AnalyzerCrossStageMixin:
     def _classify_placement_starter_methods(self, logic_analysis: Dict) -> Dict[str, Dict]:
         """Detect extension methods that create a markup and enter placement mode.
 
-        These methods correspond to UI buttons such as "Add cut plane" or
-        "Add fibula line".  The generated workflow should call them in the
+        These methods correspond to UI actions that create interaction nodes
+        and enter placement mode. The generated workflow should call them in the
         pre-interaction template and should not create a second markup node or
         call the same method again in the post-interaction template.
         """

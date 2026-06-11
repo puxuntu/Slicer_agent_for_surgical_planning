@@ -182,7 +182,7 @@ The sentence will be used in this context: "If the user asks to [YOUR SENTENCE],
 
 Examples of good outputs:
 - "segment bones, organs, or other structures from a CT or MRI volume using text prompts"
-- "segment pelvic fractures and plan surgical screw placement"
+- "prepare a model and generate a source-guided procedural plan"
 - "register two volumes using rigid or affine transformation"
 - "measure distances and angles between markup points"
 
@@ -251,8 +251,10 @@ Return ONLY the sentence, nothing else.""")
             "errors": [],
             "warnings": [],
             "per_template": {},
+            "validation_issues": [],
         }
 
+        self._sync_template_contracts(templates, generators)
         template_context = self._build_template_validation_context(generators)
 
         for tpl_name, tpl_content in templates.items():
@@ -392,24 +394,26 @@ Return ONLY the sentence, nothing else.""")
         if generator_contract.get("warnings"):
             results["warnings"].extend(generator_contract["warnings"])
 
-        if api_probe_result:
-            unresolved = api_probe_result.get("unresolved_failures")
-            if unresolved is None and api_probe_result.get("failures") and not api_probe_result.get("revised"):
-                unresolved = api_probe_result.get("failures", [])
-            unresolved = unresolved or []
-            if unresolved:
+        # Proof validation inventories every executable call. Absence of a
+        # recognized live-probe failure is never treated as positive evidence.
+        api_proof_report = self._build_api_proof_report(
+            templates,
+            generators=generators,
+            api_probe_result=api_probe_result,
+        )
+        results["api_proof_report"] = api_proof_report
+        results["api_proof_coverage"] = api_proof_report["api_proof_coverage"]
+        results["validation_issues"].extend(api_proof_report["issues"])
+        for issue in api_proof_report["issues"]:
+            rendered = (
+                f"{issue.get('template', 'unknown template')}: "
+                f"{self._render_api_proof_issue(issue)}"
+            )
+            if issue.get("blocking"):
                 results["valid"] = False
-                for failure in unresolved:
-                    template = failure.get("template", "unknown template")
-                    chain = failure.get("chain", "unknown API")
-                    error = failure.get("error") or (
-                        "API call does not exist"
-                        if not failure.get("receiver_is_none")
-                        else "API receiver resolved to None"
-                    )
-                    results["errors"].append(
-                        f"{template}: Unresolved live API probe failure for '{chain}': {error}"
-                    )
+                results["errors"].append(rendered)
+            else:
+                results["warnings"].append(rendered)
 
         # Prelude dry-validation: assemble prelude + filled template for each
         # generator and run ast.parse + CodeValidator. This catches generator-
@@ -432,17 +436,19 @@ Return ONLY the sentence, nothing else.""")
                 item.get("valid", True)
                 for item in results.get("per_template", {}).values()
             )
-            probe_failures = bool(
-                api_probe_result
-                and (
-                    api_probe_result.get("unresolved_failures")
-                    or (
-                        api_probe_result.get("failures")
-                        and not api_probe_result.get("revised")
-                    )
+            probe_failures = bool(api_probe_result and (
+                [
+                    failure
+                    for failure in (api_probe_result.get("unresolved_failures", []) or [])
+                    if failure.get("proof_kind") != "unproven_receiver"
+                ]
+                or (
+                    api_probe_result.get("failures")
+                    and not api_probe_result.get("revised")
                 )
-            )
-            self._workflow_metadata["validation_state"] = {
+            ))
+            validation_state = dict(self._workflow_metadata.get("validation_state", {}) or {})
+            validation_state.update({
                 "static_valid": static_valid,
                 "api_probe_valid": None if api_probe_result is None else not probe_failures,
                 "contract_valid": not bool(
@@ -458,7 +464,51 @@ Return ONLY the sentence, nothing else.""")
                 "prelude_valid": prelude_results.get("valid", True),
                 "prelude_bytes_max": prelude_results.get("bytes_max", 0),
                 "overall_valid": bool(results.get("valid")),
-            }
+                "api_proof_valid": bool(api_proof_report.get("valid")),
+                "api_inventory_complete": bool(
+                    api_proof_report.get("api_proof_coverage", {}).get("inventory_complete")
+                ),
+            })
+            self._workflow_metadata["validation_state"] = validation_state
+
+        # Emit structured issues for every current validation finding. String
+        # parsing remains only as a compatibility path for older saved results.
+        structured_markers = (
+            "UnprovenApiCall:", "InvalidApiCall:", "IncompleteCallInventory:",
+        )
+        existing_messages = {
+            issue.get("rendered_message", "")
+            for issue in results["validation_issues"]
+            if isinstance(issue, dict)
+        }
+        for severity, messages in (
+            ("error", results.get("errors", [])),
+            ("warning", results.get("warnings", [])),
+        ):
+            for index, raw_message in enumerate(messages):
+                if raw_message in existing_messages or any(
+                    marker in raw_message for marker in structured_markers
+                ):
+                    continue
+                template = ""
+                message = raw_message
+                if ": " in raw_message:
+                    prefix, remainder = raw_message.split(": ", 1)
+                    if prefix.endswith((".py.tpl", ".py")) or prefix.startswith("templates/"):
+                        template = prefix
+                        message = remainder
+                results["validation_issues"].append({
+                    "issue_id": f"validation_{severity}_{index + 1}",
+                    "issue_type": self._classify_validation_issue(raw_message),
+                    "severity": severity,
+                    "blocking": severity == "error",
+                    "template": template,
+                    "diagnosis": "validation_failure" if severity == "error" else "validation_warning",
+                    "message": message,
+                    "rendered_message": raw_message,
+                    "evidence_sources": [],
+                    "minimal_repair": None,
+                })
 
         self.on_progress(
             "verify_repair", "Verify And Repair Templates",

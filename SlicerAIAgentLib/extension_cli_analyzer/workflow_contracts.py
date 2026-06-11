@@ -507,6 +507,27 @@ class AnalyzerWorkflowContractsMixin:
         self._validate_repeat_block_graph(workflow_graph, by_step)
 
         self._promote_closed_form_parameter_choices(steps)
+        module_function_names = sorted(callable_inventory.get("module_functions", {}).keys())
+        for step in steps:
+            for so in step.get("sub_operations", []) or []:
+                if so.get("op_type") != "extension_op":
+                    continue
+                if so.get("extension_method_hint") or so.get("extension_function_hint"):
+                    continue
+                text = " ".join([
+                    _text_or_empty(so.get("description")),
+                    _text_or_empty(step.get("description")),
+                ])
+                text_keywords = set(self._role_keywords(text))
+                candidates = []
+                for function_name in module_function_names:
+                    score = len(text_keywords & set(self._role_keywords(function_name)))
+                    if score:
+                        candidates.append((score, function_name))
+                if candidates:
+                    candidates.sort(reverse=True)
+                    if len(candidates) == 1 or candidates[0][0] > candidates[1][0]:
+                        so["extension_function_hint"] = candidates[0][1]
 
         # Canonicalize count-driven placement repeats.  The starter call belongs
         # to the repeat start step; the following interaction step reuses that
@@ -607,6 +628,18 @@ class AnalyzerWorkflowContractsMixin:
                 starter_step["interaction_owner"] = "extension_method"
                 starter_step["placement_starter_method"] = starter
                 starter_step["created_node_source"] = "extension_method"
+
+        for step in steps:
+            if step.get("extension_function_name"):
+                continue
+            function_hints = [
+                so.get("extension_function_hint")
+                for so in step.get("sub_operations", []) or []
+                if so.get("op_type") == "extension_op" and so.get("extension_function_hint")
+            ]
+            function_hints = sorted(set(hint for hint in function_hints if hint))
+            if len(function_hints) == 1 and not step.get("method_name"):
+                step["extension_function_name"] = function_hints[0]
 
         # Recompute operation and node-role metadata after normalization.
         metadata["operation_model"] = {}

@@ -90,8 +90,8 @@ class AnalyzerCookbookMappingMixin:
                 return name
         # Try substring containment with length-ratio guard
         # Reject matches where one side is >3x longer than the other,
-        # which prevents e.g. "plane" matching
-        # "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible"
+        # which prevents a short UI noun such as "plane" from matching an
+        # unrelated long compound implementation-method name
         max_ratio = 3.0
         for name in available:
             name_lower = name.lower()
@@ -158,7 +158,6 @@ class AnalyzerCookbookMappingMixin:
         _USER_CHOICE_KEYWORDS = {
             "left or right", "left/right", "right side", "left side",
             "choose", "select the", "which side", "which type",
-            "segmental", "hemimandibulectomy", "hemimandible",
             "tick the", "check the", "checkbox for",
         }
         # slicer_op keywords: Slicer core API operations NOT in this extension.
@@ -204,13 +203,6 @@ class AnalyzerCookbookMappingMixin:
                     ]
                     parameter_name = "side"
                     question = "Which side? (Left or Right)"
-                elif "segmental" in desc_lower and "hemimandibulectomy" in desc_lower:
-                    choices = [
-                        {"label": "Segmental", "value": "segmental"},
-                        {"label": "Hemimandibulectomy", "value": "hemimandibulectomy"},
-                    ]
-                    parameter_name = "mandibulectomy_type"
-                    question = "Which mandibulectomy type?"
                 sub_ops.append({
                     "op_type": "user_choice",
                     "description": step.description[:200],
@@ -540,9 +532,9 @@ class AnalyzerCookbookMappingMixin:
         """Return True for finite non-node choices such as yes/no or left/right.
 
         Node-selector questions usually have no static choices at generation
-        time; the runtime agent discovers scene nodes.  If cookbook parsing
-        produced a finite clinical/UI option set, do not infer a scene-node
-        binding from overlapping words such as "fibula".
+        time; the runtime agent discovers scene nodes. If cookbook parsing
+        produced a finite UI option set, do not infer a scene-node binding
+        from incidental domain words.
         """
         choices = choice.get("choices") or []
         if not choices:
@@ -557,14 +549,7 @@ class AnalyzerCookbookMappingMixin:
         }
         compact = {item.replace(" ", "") for item in normalized}
         boolean_options = {"yes", "no", "true", "false"}
-        side_options = {
-            "left", "right", "left leg", "right leg",
-            "left side", "right side", "left fibula", "right fibula",
-        }
-        compact_side_options = {item.replace(" ", "") for item in side_options}
         if normalized <= boolean_options or compact <= boolean_options:
-            return True
-        if normalized <= side_options or compact <= compact_side_options:
             return True
         choice_text = " ".join([
             _text_or_empty(choice.get("parameter_name", "")),
