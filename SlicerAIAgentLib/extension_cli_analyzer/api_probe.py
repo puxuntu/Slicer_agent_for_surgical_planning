@@ -287,10 +287,12 @@ class AnalyzerApiProbeMixin:
                 continue
             attr = node.attr
             try:
-                receiver_expr = _ast.unparse(node.value)
+                original_receiver_expr = _ast.unparse(node.value)
             except Exception:
                 continue
-            receiver_expr = ExtensionCLIAnalyzer._expand_probe_expr(receiver_expr, var_map)
+            receiver_expr = ExtensionCLIAnalyzer._expand_probe_expr(
+                original_receiver_expr, var_map
+            )
             if not ExtensionCLIAnalyzer._expr_starts_with_api_root(receiver_expr):
                 continue
             # Skip expressions with unresolved locals
@@ -313,7 +315,9 @@ class AnalyzerApiProbeMixin:
             specs.append({
                 "chain": chain,
                 "receiver_expr": receiver_expr,
-                "original_receiver_expr": receiver_expr,
+                # Keep the literal call-site receiver so live evidence can be
+                # aliased back to what the proof validator actually looks up.
+                "original_receiver_expr": original_receiver_expr,
                 "expanded_receiver_expr": receiver_expr,
                 "proof_kind": "live_instance",
                 "attr": attr,
@@ -532,6 +536,84 @@ class AnalyzerApiProbeMixin:
             return self._live_probe_executor(probe_code)
         return self._execute_probe(probe_code)
 
+    def _introspect_type_method(self, class_name: str, attr: str) -> Dict[str, Any]:
+        """Ask the running Slicer whether instances of ``class_name`` expose ``attr``.
+
+        This is the universal, source-agnostic method-existence oracle.  Given a
+        receiver type that the proof layer already named (e.g.
+        ``vtkMRMLScriptedModuleNode``) and a method name, it resolves the class
+        from ``slicer``/``vtk``/``qt`` by name, constructs (or, failing that,
+        queries) a transient instance, and reports ``hasattr``.  There are no
+        per-class rules: any class the type graph can name can be checked.
+
+        Returns a dict that always carries ``resolved``.  Only when
+        ``resolved`` is True is ``method_exists`` meaningful — callers must NOT
+        treat an unresolved class or a probe error as method-absent evidence.
+
+        Results are memoised for the lifetime of the verify/repair run via
+        ``self._introspection_cache`` (keyed by ``(class_name, attr)``).
+        """
+        if not class_name or not attr or class_name.startswith("live_instance"):
+            return {"resolved": False, "reason": "missing_class_or_attr"}
+        cache = getattr(self, "_introspection_cache", None)
+        if cache is None:
+            cache = {}
+            self._introspection_cache = cache
+        cache_key = (class_name, attr)
+        if cache_key in cache:
+            return cache[cache_key]
+
+        # vtk/qt are not imported at module scope in this file, so the probe
+        # imports them itself rather than relying on injected globals.
+        probe_code = (
+            "try:\n"
+            "    import slicer as _slicer\n"
+            "    try:\n"
+            "        import vtk as _vtk\n"
+            "    except Exception:\n"
+            "        _vtk = None\n"
+            "    try:\n"
+            "        import qt as _qt\n"
+            "    except Exception:\n"
+            "        _qt = None\n"
+            f"    _cls = getattr(_slicer, {class_name!r}, None)\n"
+            f"    if _cls is None and _vtk is not None:\n"
+            f"        _cls = getattr(_vtk, {class_name!r}, None)\n"
+            f"    if _cls is None and _qt is not None:\n"
+            f"        _cls = getattr(_qt, {class_name!r}, None)\n"
+            "    if _cls is None:\n"
+            "        __result = {'resolved': False, 'reason': 'class_not_found'}\n"
+            "    else:\n"
+            "        _inst = None\n"
+            f"        if {class_name!r}.startswith('vtkMRML'):\n"
+            "            try:\n"
+            f"                _inst = _slicer.mrmlScene.CreateNodeByClass({class_name!r})\n"
+            "            except Exception:\n"
+            "                _inst = None\n"
+            "        if _inst is None:\n"
+            "            try:\n"
+            "                _inst = _cls()\n"
+            "            except Exception:\n"
+            "                _inst = None\n"
+            "        _target = _inst if _inst is not None else _cls\n"
+            "        _all = [m for m in dir(_target) if not m.startswith('_')][:80]\n"
+            "        __result = {\n"
+            "            'resolved': True,\n"
+            "            'instance': _inst is not None,\n"
+            f"            'method_exists': hasattr(_target, {attr!r}),\n"
+            "            'type': (type(_inst).__name__ if _inst is not None"
+            " else getattr(_cls, '__name__', '')),\n"
+            "            'all_attrs': _all,\n"
+            "        }\n"
+            "except Exception as _e:\n"
+            "    __result = {'resolved': False, 'error': f'{type(_e).__name__}: {_e}'}"
+        )
+        result = self._execute_live_probe(probe_code)
+        if not isinstance(result, dict):
+            result = {"resolved": False, "error": str(result)}
+        cache[cache_key] = result
+        return result
+
     def _stage7c_live_api_probe(
         self, templates: Dict[str, str],
     ) -> Dict[str, Any]:
@@ -608,7 +690,16 @@ class AnalyzerApiProbeMixin:
         seen_specs = set()
         for specs in all_specs_by_template.values():
             for spec in specs:
-                key = (spec.get("receiver_expr", ""), spec.get("attr", ""))
+                # Keep the call-site receiver spelling in the key: two templates
+                # may reach the same expanded chain via different spellings
+                # (e.g. `layoutManager` vs `slicer.app.layoutManager()`), and the
+                # validator looks evidence up by the literal call-site receiver,
+                # so each spelling must survive to produce its own alias.
+                key = (
+                    spec.get("receiver_expr", ""),
+                    spec.get("attr", ""),
+                    spec.get("original_receiver_expr", ""),
+                )
                 if key not in seen_specs:
                     seen_specs.add(key)
                     all_specs.append(spec)
@@ -783,7 +874,11 @@ class AnalyzerApiProbeMixin:
             seen_final_specs = set()
             for specs in final_specs_by_template.values():
                 for spec in specs:
-                    key = (spec.get("receiver_expr", ""), spec.get("attr", ""))
+                    key = (
+                        spec.get("receiver_expr", ""),
+                        spec.get("attr", ""),
+                        spec.get("original_receiver_expr", ""),
+                    )
                     if key not in seen_final_specs:
                         seen_final_specs.add(key)
                         final_specs.append(spec)

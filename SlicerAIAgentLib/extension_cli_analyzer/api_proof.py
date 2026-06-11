@@ -699,6 +699,14 @@ class ApiProofValidator:
             return obligation, None
 
         blocking = obligation["proof_status"] == "invalid" or obligation["effect"] != "read_only"
+        # `behavior_unproven` is only reachable once the receiver type AND method
+        # existence are both proven (see the diagnosis chain above) — the method
+        # is a real, resolved API and only its read/write effect could not be
+        # name-classified.  That is a bookkeeping gap, not a proof or safety
+        # failure (destructive-op safety lives in CodeValidator), so it must not
+        # block.  Down-grade it to a non-blocking warning.
+        if diagnosis == "behavior_unproven":
+            blocking = False
         issue = {
             "issue_id": "api_proof_" + obligation["call_id"],
             "issue_type": (
@@ -813,6 +821,15 @@ class AnalyzerApiProofMixin:
             chain = failure.get("chain", "")
             if failure.get("proof_kind") == "unproven_receiver":
                 continue
+            # A probe that could not evaluate its receiver (NameError on a local,
+            # or a receiver that resolved to None) is NOT evidence that the method
+            # is absent — only a resolved receiver object lacking the attribute is.
+            # Treating un-runnable receivers as method-absent would falsely reject
+            # valid APIs, so they are skipped here and stay "unproven" instead.
+            if failure.get("error"):
+                continue
+            if failure.get("receiver_is_none"):
+                continue
             method = failure.get("attr") or (chain.rsplit(".", 1)[-1] if chain else "")
             receiver_type = failure.get("receiver_type", "")
             if not receiver_type or receiver_type == "NoneType":
@@ -855,6 +872,72 @@ class AnalyzerApiProofMixin:
                         result[alias] = evidence
         return result
 
+    def _enrich_contracts_via_introspection(
+        self,
+        obligations: List[Dict],
+        issues: List[Dict],
+        type_contracts: Dict[str, Any],
+    ) -> bool:
+        """Prove method existence for type-known calls via live introspection.
+
+        For each ``method_unproven`` issue whose receiver type was resolved with
+        >= medium confidence, query the running Slicer for whether that type has
+        the method and record the answer as a high-confidence ``type_contract``.
+        Mutates ``type_contracts`` in place; returns True if anything was added.
+
+        Invariants:
+        - Only a class that actually resolves can mint evidence.  ``class_not_found``
+          or a probe error writes NO contract, so the call stays unproven (still
+          blocking) rather than being falsely accepted or falsely rejected.
+        - A resolved class whose ``hasattr`` is False is written ``exists: False``,
+          which the validator routes to a blocking ``InvalidApiCall``.
+        """
+        if not hasattr(self, "_introspect_type_method"):
+            return False
+        obligation_by_call = {
+            obligation.get("call_id"): obligation for obligation in obligations
+        }
+        targets = set()
+        for issue in issues:
+            if issue.get("issue_type") != "UnprovenApiCall":
+                continue
+            if issue.get("diagnosis") != "method_unproven":
+                continue
+            method = _text_or_empty(issue.get("method"))
+            if not method:
+                continue
+            candidate_types = []
+            obligation = obligation_by_call.get(issue.get("call_id"))
+            if obligation:
+                for item in obligation.get("receiver_type_candidates", []) or []:
+                    if _confidence_rank(item.get("confidence", "")) >= _confidence_rank("medium"):
+                        receiver_type = _text_or_empty(item.get("type"))
+                        if receiver_type and not receiver_type.startswith("live_instance"):
+                            candidate_types.append(receiver_type)
+            if not candidate_types and _text_or_empty(issue.get("receiver_type")):
+                candidate_types.append(_text_or_empty(issue.get("receiver_type")))
+            for receiver_type in candidate_types:
+                targets.add((receiver_type, method))
+
+        added = False
+        for receiver_type, method in sorted(targets):
+            existing = (type_contracts.get(receiver_type, {}) or {}).get("methods", {})
+            if method in existing:
+                continue
+            result = self._introspect_type_method(receiver_type, method)
+            if not isinstance(result, dict) or not result.get("resolved"):
+                continue
+            receiver_contract = type_contracts.setdefault(receiver_type, {})
+            methods = receiver_contract.setdefault("methods", {})
+            methods[method] = {
+                "exists": bool(result.get("method_exists")),
+                "effect": ApiProofValidator.effect_for_method(method),
+                "source": "live_introspection",
+                "confidence": "high",
+            }
+            added = True
+        return added
+
     def _build_api_proof_report(
         self,
         templates: Dict[str, str],
@@ -880,6 +963,10 @@ class AnalyzerApiProofMixin:
                     "confidence": "high",
                 }
             for failure in probe.get("failures", []) or []:
+                # Only a resolved receiver that lacks the attribute is evidence of
+                # an absent method; an un-runnable receiver or a None receiver is not.
+                if failure.get("error") or failure.get("receiver_is_none"):
+                    continue
                 receiver_type = _text_or_empty(
                     failure.get("expected_receiver_type") or failure.get("receiver_type")
                 )
@@ -900,25 +987,24 @@ class AnalyzerApiProofMixin:
         inventory_analyzer = TemplateApiAnalyzer()
         live_evidence = self._api_live_evidence(api_probe_result)
         callable_inventory = metadata.get("extension_callable_inventory", {}) or {}
-        validator = ApiProofValidator(
-            type_contracts=type_contracts,
-            live_evidence=live_evidence,
-            extension_methods=set(callable_inventory.get("logic_methods", []) or []),
-            extension_functions=(
-                set(callable_inventory.get("module_functions", []) or [])
-                | {_text_or_empty(metadata.get("logic_class_name"))}
-            ) - {""},
-            logic_class_name=_text_or_empty(metadata.get("logic_class_name")),
-        )
+        extension_methods = set(callable_inventory.get("logic_methods", []) or [])
+        extension_functions = (
+            set(callable_inventory.get("module_functions", []) or [])
+            | {_text_or_empty(metadata.get("logic_class_name"))}
+        ) - {""}
+        logic_class_name = _text_or_empty(metadata.get("logic_class_name"))
+
         generator_by_template = {}
         for gen in generators or []:
             for key in ("template_file", "pre_template_file", "post_template_file"):
                 if gen.get(key):
                     generator_by_template[gen[key]] = gen
 
+        # Build the call inventory once; templates with an incomplete inventory
+        # are reported up front and excluded from proof passes.
         inventories = {}
-        obligations = []
-        issues = []
+        prepared = []  # (template, code, inventory)
+        inventory_issues = []
         coverage_complete = True
         for template, raw_code in templates.items():
             if not template.endswith((".py.tpl", ".py")):
@@ -937,7 +1023,7 @@ class AnalyzerApiProofMixin:
             inventories[template] = inventory
             if not inventory.get("complete"):
                 coverage_complete = False
-                issues.append({
+                inventory_issues.append({
                     "issue_id": "api_inventory_" + hashlib.sha256(
                         template.encode("utf-8")
                     ).hexdigest()[:20],
@@ -951,15 +1037,43 @@ class AnalyzerApiProofMixin:
                     "minimal_repair": None,
                 })
                 continue
-            graph = TypeProvenanceGraph(
-                code,
-                workflow_roles=roles,
-                return_contracts=type_contracts,
-                logic_class_name=_text_or_empty(metadata.get("logic_class_name")),
+            prepared.append((template, code, inventory))
+
+        def _run_proof_pass(contracts):
+            validator = ApiProofValidator(
+                type_contracts=contracts,
+                live_evidence=live_evidence,
+                extension_methods=extension_methods,
+                extension_functions=extension_functions,
+                logic_class_name=logic_class_name,
             )
-            proof = validator.validate_inventory(inventory, graph)
-            obligations.extend(proof["obligations"])
-            issues.extend(proof["issues"])
+            pass_obligations = []
+            pass_issues = []
+            for template, code, inventory in prepared:
+                graph = TypeProvenanceGraph(
+                    code,
+                    workflow_roles=roles,
+                    return_contracts=contracts,
+                    logic_class_name=logic_class_name,
+                )
+                proof = validator.validate_inventory(inventory, graph)
+                pass_obligations.extend(proof["obligations"])
+                pass_issues.extend(proof["issues"])
+            return pass_obligations, pass_issues
+
+        obligations, issues = _run_proof_pass(type_contracts)
+
+        # Universal live-introspection enrichment: for every method that the
+        # static layer could not prove but whose receiver TYPE is already known,
+        # ask the running Slicer directly whether the type exposes the method.
+        # This replaces partial keyword/idiom evidence with a single ground-truth
+        # oracle and is applied uniformly to every template.
+        if self._enrich_contracts_via_introspection(obligations, issues, type_contracts):
+            if isinstance(self._workflow_metadata, dict):
+                self._workflow_metadata["api_type_contracts"] = type_contracts
+            obligations, issues = _run_proof_pass(type_contracts)
+
+        issues = inventory_issues + issues
 
         state_changing = [
             item for item in obligations if item.get("effect") in {"state_change", "unknown"}
