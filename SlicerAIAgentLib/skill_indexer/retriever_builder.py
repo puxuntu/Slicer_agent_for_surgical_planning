@@ -1,4 +1,5 @@
 from .common import *
+from .chunker import Chunker
 from .vector_index import VectorIndex, _SOURCE_TYPE_WEIGHTS
 
 class VectorRetriever:

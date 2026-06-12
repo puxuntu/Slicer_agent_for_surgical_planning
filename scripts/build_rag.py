@@ -22,12 +22,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 sys.path.insert(0, _PROJECT_ROOT)
 
-_spec = importlib.util.spec_from_file_location(
-    "SkillIndexer",
-    os.path.join(_PROJECT_ROOT, "SlicerAIAgentLib", "SkillIndexer.py")
-)
-SkillIndexer = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(SkillIndexer)
+# Import SkillIndexer with proper package context (it uses relative imports
+# since the skill_indexer package split) WITHOUT executing
+# SlicerAIAgentLib/__init__.py, which imports slicer and cannot run outside
+# the Slicer Python environment: pre-register a stub package module whose
+# __path__ points at the real directory.
+import types as _types
+import importlib
+
+_pkg = _types.ModuleType("SlicerAIAgentLib")
+_pkg.__path__ = [os.path.join(_PROJECT_ROOT, "SlicerAIAgentLib")]
+sys.modules.setdefault("SlicerAIAgentLib", _pkg)
+SkillIndexer = importlib.import_module("SlicerAIAgentLib.SkillIndexer")
 IndexBuilder = SkillIndexer.IndexBuilder
 
 SKILL_PATH = os.path.join(_PROJECT_ROOT, "Resources", "Skills", "slicer-skill-full")

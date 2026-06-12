@@ -14,6 +14,10 @@ class VectorIndex:
         self.tokenizer = None    # tokenizers Tokenizer
         self.faiss_index = None
         self.chunk_ids: List[str] = []
+        # Lazy model init may now be triggered from concurrent search
+        # threads (parallel pre-retrieval) as well as the warmup thread.
+        import threading
+        self._load_lock = threading.Lock()
 
     @staticmethod
     def _find_tokenizer_json(cache_dir: str) -> Optional[str]:
@@ -98,6 +102,16 @@ class VectorIndex:
             raise
 
     def _load_model(self):
+        if self.session is not None:
+            return self.session
+        lock = getattr(self, "_load_lock", None)
+        if lock is None:  # instances created before the lock existed
+            import threading
+            lock = self._load_lock = threading.Lock()
+        with lock:
+            return self._load_model_locked()
+
+    def _load_model_locked(self):
         import time
         if self.session is None:
             t0 = time.time()
@@ -110,8 +124,10 @@ class VectorIndex:
             import onnxruntime as ort
             logger.info(f"Loading ONNX model from {onnx_path} ...")
 
-            # Auto-detect GPU providers; fallback to CPU
-            available = ort.get_available_providers()
+            # Auto-detect GPU providers; fallback to CPU.
+            # SLICERAIAGENT_FORCE_CPU=1 skips GPU providers entirely.
+            force_cpu = os.environ.get("SLICERAIAGENT_FORCE_CPU", "") == "1"
+            available = [] if force_cpu else ort.get_available_providers()
             preferred = []
             if 'CUDAExecutionProvider' in available:
                 preferred.append('CUDAExecutionProvider')
@@ -122,6 +138,8 @@ class VectorIndex:
             if 'CoreMLExecutionProvider' in available:
                 preferred.append('CoreMLExecutionProvider')
             preferred.append('CPUExecutionProvider')
+            if force_cpu:
+                logger.info("SLICERAIAGENT_FORCE_CPU=1 — using CPU execution provider.")
 
             if preferred[0] != 'CPUExecutionProvider':
                 logger.info(f"GPU provider available: {preferred[0]}")

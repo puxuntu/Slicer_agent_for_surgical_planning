@@ -306,6 +306,55 @@ class WidgetExecutionFlowMixin:
             if self._timing:
                 self._timing['validation_end'] = time.time()
 
+        # Live API sanity check (fail-open, runs on the Qt main thread):
+        # resolve module-rooted attribute chains against the running Slicer
+        # before execution. A confirmed-missing API goes straight to
+        # self-correction with close-match evidence, skipping the doomed
+        # execute/rollback cycle a runtime AttributeError would cost.
+        try:
+            from ..ApiSanityChecker import check_code, format_failures
+            sanity = check_code(self.currentCode or "")
+            if self._timing is not None:
+                self._timing['api_sanity'] = {
+                    'elapsed': sanity.get('elapsed', 0.0),
+                    'checked': sanity.get('checked', 0),
+                    'missing': len(sanity.get('missing', [])),
+                }
+            if not sanity.get("ok"):
+                error_msg = format_failures(sanity["missing"])
+                self._recordRoleEvent("SafetyCritic", "api_sanity_failed", {
+                    "missing": [item.get("chain") for item in sanity["missing"]],
+                    "checked": sanity.get("checked", 0),
+                })
+                if attempt >= max_attempts:
+                    self._setReadyStatus()
+                    self.sendButton.setEnabled(True)
+                    self._recordRoleEvent("Repairer", "max_attempts_reached", {
+                        "attempts": max_attempts,
+                        "final_error": error_msg,
+                        "stage": "api_sanity",
+                    })
+                    self._saveRoleTraceToFile()
+                    self.appendToChat(
+                        "Error",
+                        f"Pre-execution API check failed after {max_attempts} attempts.\n{error_msg}"
+                    )
+                    return
+                self.appendToChat(
+                    "System",
+                    f"Pre-execution API check failed (attempt {attempt}/{max_attempts}).\n"
+                    f"{error_msg}\nAuto-correcting..."
+                )
+                if self.logic:
+                    self.logic.addExecutionFeedback(
+                        f"Pre-execution API sanity check failed (attempt {attempt}/{max_attempts}):\n"
+                        f"{error_msg}"
+                    )
+                self._selfCorrectCode(error_msg, attempt, max_attempts)
+                return
+        except Exception:
+            logger.debug("ApiSanityChecker failed open", exc_info=True)
+
         requires_confirmation = plan_validation.get("requires_confirmation", False)
         confirmation_reasons = []
         if plan_validation.get("warnings"):

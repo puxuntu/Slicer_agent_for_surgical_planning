@@ -42,6 +42,14 @@ class LogicCoreMixin:
                 if source_path and os.path.isdir(source_path):
                     self.toolExecutor.extra_roots[ext_name] = source_path
 
+            # Publish this executor so other consumers (extension CLI
+            # generation) reuse it instead of loading a second ONNX
+            # session + vector index.
+            try:
+                SkillTools.register_shared_executor(self.toolExecutor)
+            except Exception:
+                logger.debug("Shared executor registration failed", exc_info=True)
+
             self.skillTools = SkillTools.get_skill_tools() + SceneTools.get_scene_tools()
             self.codeValidator = CodeValidator()
             self.executor = SafeExecutor()
@@ -113,33 +121,79 @@ class LogicCoreMixin:
         """
         import time
         t_total0 = time.time()
+
+        # Deterministic core-UI evidence (sub-millisecond, no LLM): controls
+        # whose labels match the request contribute slots/API footprints.
+        # Quiet no-op when the pre-analysis artifacts are absent or nothing
+        # matches confidently.
+        ui_block = ""
+        try:
+            from SlicerAIAgentLib.UIControlIndex import format_evidence_lines, get_index
+            ui_index = get_index()
+            if ui_index is not None:
+                ui_lines = format_evidence_lines(
+                    ui_index.match(prompt, top_k=3), max_total_chars=700,
+                )
+                if ui_lines:
+                    ui_block = (
+                        "\n\n## CORE-UI EVIDENCE (deterministic, from Slicer core "
+                        "UI pre-analysis)\n"
+                        "These Slicer core controls match the request; prefer their "
+                        "evidenced slots/API method names over remembered APIs:\n"
+                        + "\n".join(ui_lines)
+                    )
+                if timing is not None:
+                    timing['ui_evidence_count'] = len(ui_lines)
+        except Exception:
+            logger.debug("Core-UI evidence lookup failed", exc_info=True)
+
         try:
             t_get0 = time.time()
             retriever = self._getVectorRetriever()
             t_get = time.time() - t_get0
             if not retriever or not retriever.is_ready():
-                return ""
+                return ui_block
 
-            import time
-            # Step 1: Decompose into sub-task queries
-            t0 = time.time()
-            sub_queries = self.llmClient.decomposeQuery(prompt)
-            t1 = time.time()
+            from concurrent.futures import ThreadPoolExecutor
 
-            # Step 2: Multi-retrieval using sub-queries (top-10 per sub-query)
-            # Run searches sequentially so each query is fully independent.
+            def _timed_search(query):
+                q_start = time.time()
+                try:
+                    results = retriever.search(query, top_k=10)
+                except Exception as exc:
+                    logger.warning(f"Pre-retrieval search failed for '{query}': {exc}")
+                    results = []
+                return results, round(time.time() - q_start, 3)
+
+            # Steps 1+2 overlapped: the raw-prompt search runs DURING the
+            # decompose LLM call, and sub-query searches run in parallel.
+            # Result ordering and per-query timing entries are identical to
+            # the previous sequential implementation.
             all_results = []
             per_query = []
-            for sq in sub_queries:
-                q_start = time.time()
-                results = retriever.search(sq, top_k=10)
-                q_end = time.time()
-                all_results.append(results)
-                per_query.append({
-                    'query': sq,
-                    'count': len(results),
-                    'time': round(q_end - q_start, 3)
-                })
+            raw_prefetch_reused = False
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                raw_future = pool.submit(_timed_search, prompt)
+
+                t0 = time.time()
+                sub_queries = self.llmClient.decomposeQuery(prompt)
+                t1 = time.time()
+
+                futures = []
+                for sq in sub_queries:
+                    if sq == prompt:
+                        futures.append(raw_future)
+                        raw_prefetch_reused = True
+                    else:
+                        futures.append(pool.submit(_timed_search, sq))
+                for sq, future in zip(sub_queries, futures):
+                    results, q_time = future.result()
+                    all_results.append(results)
+                    per_query.append({
+                        'query': sq,
+                        'count': len(results),
+                        'time': q_time,
+                    })
 
             # Step 3: Concatenate all per-query results and format
             t_merge0 = time.time()
@@ -218,13 +272,16 @@ class LogicCoreMixin:
                 timing['retrieval_count'] = len(sub_queries)
                 timing['retrieval_per_query'] = per_query
                 timing['concatenated_count'] = len(concatenated)
+                timing['retrieval_parallel'] = True
+                timing['retrieval_wall_time'] = round(total_t, 3)
+                timing['raw_prompt_prefetch_reused'] = raw_prefetch_reused
 
-            return formatted
+            return formatted + ui_block
         except Exception as e:
             import traceback
             traceback.print_exc()
             logger.warning(f"Dense pre-retrieval failed: {e}")
-            return ""
+            return ui_block
 
     @staticmethod
     def _isWorkflowControlTurn(prompt: str, context: Optional[Dict] = None) -> bool:

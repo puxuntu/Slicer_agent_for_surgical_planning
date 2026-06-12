@@ -63,6 +63,31 @@ class WidgetCorrectionMixin:
         _lastUserPrompt = getattr(self, '_lastUserPrompt', '')
         _currentTurn = getattr(self, '_currentTurn', 1)
         _system_content = system_content
+
+        # Deterministic evidence for the Repairer (computed on the main
+        # thread; capped, fail-open). Live close-match introspection for
+        # attribute/name errors, plus core-UI control evidence matching the
+        # error and original request.
+        _evidence_block = ""
+        try:
+            from ..ApiSanityChecker import live_attribute_evidence
+            _evidence_block = live_attribute_evidence(error_detail)
+        except Exception:
+            _evidence_block = ""
+        _ui_evidence = ""
+        try:
+            from ..UIControlIndex import format_evidence_lines, get_index
+            ui_index = get_index()
+            if ui_index is not None:
+                first_request_line = (_lastUserPrompt or "").splitlines()[0] if _lastUserPrompt else ""
+                ui_query = f"{error_detail[:300]} {first_request_line}"
+                ui_lines = format_evidence_lines(
+                    ui_index.match(ui_query, top_k=3), max_total_chars=600,
+                )
+                if ui_lines:
+                    _ui_evidence = "\n".join(ui_lines)
+        except Exception:
+            _ui_evidence = ""
         _workflow_state = {}
         _workflow_repair_active = False
         try:
@@ -150,6 +175,20 @@ class WidgetCorrectionMixin:
                         "Python code that raises a clear RuntimeError for the current step.\n\n"
                         if _workflow_repair_active else ""
                     )
+                    + (
+                        "DETERMINISTIC EVIDENCE (verified live against this running "
+                        "Slicer — trust it over memory):\n"
+                        + "\n".join(filter(None, [_evidence_block, _ui_evidence]))
+                        + "\n\n"
+                        if (_evidence_block or _ui_evidence) else ""
+                    )
+                    + (
+                        f"This is correction attempt {attempt + 1}. A minimal edit of the "
+                        "previous code already failed. Re-derive the approach: choose a "
+                        "different, evidence-backed API path instead of patching the same "
+                        "call again.\n\n"
+                        if attempt >= 2 else ""
+                    )
                     +
                     "You have Grep, ReadFile, and VectorSearch tools available. "
                     "If the error is caused by an incorrect API signature, missing parameter, or wrong module path, "
@@ -201,6 +240,9 @@ class WidgetCorrectionMixin:
                     on_status=_on_correction_status,
                     on_reasoning=_on_correction_reasoning,
                     on_reasoning_delta=_on_correction_reasoning_delta,
+                    # Repair-class sampling (matches the CLI pipeline's repair
+                    # temperature); applied only where the provider allows.
+                    options={"temperature": 0.4},
                 )
 
                 # Dispatch result handling via _streamQueue so it runs on the main thread
