@@ -39,6 +39,21 @@ class AnalyzerSlicerOpManifestMixin:
             self.on_progress("ground", "Ground Slicer APIs", "No slicer_op sub-operations found")
             return {}
 
+        # Integrity guard: grounding quality depends on the core-UI
+        # pre-analysis artifacts; degrade loudly rather than silently.
+        try:
+            from ..UIControlIndex import preanalysis_status
+            status = preanalysis_status()
+            if not status.get("ok"):
+                self.on_progress(
+                    "ground", "Ground Slicer APIs",
+                    "WARNING: Slicer UI pre-analysis missing/empty "
+                    f"({status.get('reason', 'unknown')}) — UI-labeled grounding is "
+                    "degraded; run scripts/build_rag.py outside Slicer to rebuild.",
+                )
+        except Exception:
+            logger.debug("UI pre-analysis status check failed", exc_info=True)
+
         self.on_progress(
             "ground", "Ground Slicer APIs",
             f"Generating templates for {len(slicer_ops)} slicer_op operations..."
@@ -67,11 +82,16 @@ class AnalyzerSlicerOpManifestMixin:
         if self._debug_dir:
             debug_path = os.path.join(self._debug_dir, "ground_slicer_api_debug.json")
 
+        _ext_name = (
+            self._cookbook_def.extension_name
+            if getattr(self, "_cookbook_def", None) else ""
+        )
         generator = SlicerOpGenerator(
             llm_client=self.llm_client,
             skill_path=skill_path,
             on_progress=_on_op_progress,
             debug_path=debug_path,
+            extension_name=_ext_name,
         )
 
         templates = generator.generate(slicer_ops)
@@ -400,31 +420,55 @@ class AnalyzerSlicerOpManifestMixin:
 
         return manifest, generators
 
-    def _call_llm(self, user_prompt: str) -> str:
+    def _call_llm(
+        self,
+        user_prompt: str,
+        call_class: Optional[str] = None,
+        attempt: int = 0,
+        validation_errors: Optional[list] = None,
+    ) -> str:
         """Make an isolated LLM call and return the text response.
 
         If self._debug_dir is set, also saves the full input/output/thinking
         to a JSON file in the debug directory.
 
         Retries once on empty responses.
+
+        Args:
+            call_class: Pipeline call class ("analysis", "contract", "critic",
+                "grounding", "generation", "repair") used to select sampling
+                options (temperature). None keeps provider defaults.
+            attempt: Re-ask attempt index, recorded in debug artifacts.
+            validation_errors: Errors that triggered this re-ask, recorded in
+                debug artifacts.
         """
         messages = [
             {"role": "system", "content": self._analyzer_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        response = self.llm_client.chatIsolated(messages)
+        options = self._llm_sampling_options(call_class)
+        response = self.llm_client.chatIsolated(messages, options=options)
         message_text = response.get("message", "")
 
         # Retry once on empty responses
         if not message_text or not message_text.strip():
             logger.info("Empty LLM response, retrying once...")
-            response = self.llm_client.chatIsolated(messages)
+            response = self.llm_client.chatIsolated(messages, options=options)
             message_text = response.get("message", "")
 
         # Debug saving
         if self._debug_dir:
             try:
-                self._save_debug_call(messages, response)
+                self._save_debug_call(
+                    messages,
+                    response,
+                    extra={
+                        "call_class": call_class,
+                        "attempt": attempt,
+                        "validation_errors": list(validation_errors or []),
+                        "sampling_options": options or {},
+                    },
+                )
             except Exception:
                 logger.debug("Failed to save debug call", exc_info=True)
 
@@ -443,7 +487,7 @@ class AnalyzerSlicerOpManifestMixin:
                 text = text.rstrip()[:-3].rstrip()
         return text
 
-    def _save_debug_call(self, messages: list, response: dict) -> None:
+    def _save_debug_call(self, messages: list, response: dict, extra: Optional[dict] = None) -> None:
         """Save a single LLM call's debug info to a JSON file."""
         if not os.path.isdir(self._debug_dir):
             os.makedirs(self._debug_dir, exist_ok=True)
@@ -465,6 +509,8 @@ class AnalyzerSlicerOpManifestMixin:
             },
             "usage": response.get("usage", {}),
         }
+        if extra:
+            debug_entry.update(extra)
 
         filename = f"{self._current_stage_label}_call_{call_index:03d}.json"
         filepath = os.path.join(self._debug_dir, filename)
@@ -603,124 +649,3 @@ class AnalyzerSlicerOpManifestMixin:
                     return "\n".join(lines[start:end])
 
         return None
-
-    # ================================================================
-    # Stage 1.5: UI Workflow Extraction
-    # ================================================================
-
-    def _stage1_5_extract_workflow(self, scan_result: Dict) -> Optional[Dict]:
-        """Extract the user-facing workflow from UI (.ui file) + Widget class.
-
-        Returns a structured workflow dict, or None if insufficient UI data.
-        """
-        widget_class = scan_result.get("widget_class")
-        ui_files = scan_result.get("ui_files", [])
-
-        # Parse .ui file(s)
-        ui_sections = None
-        for ui_path in ui_files:
-            parsed = self._parse_ui_file(ui_path)
-            if parsed and parsed.get("sections"):
-                ui_sections = parsed
-                break
-
-        # Extract Widget signal connections
-        widget_connections = []
-        widget_source = None
-        if widget_class:
-            widget_source = self._extract_class_source(
-                widget_class["file"], widget_class["class_name"]
-            )
-            if widget_source:
-                widget_connections = self._extract_widget_connections(widget_source)
-
-        # If no UI data at all, skip this stage
-        if not ui_sections and not widget_connections:
-            self.on_progress(1.5, "UI workflow extraction", "No UI/Widget data — skipping")
-            return None
-
-        # Build the LLM prompt for workflow synthesis
-        prompt_parts = [
-            "## Task: Synthesize Extension Workflow from UI Analysis\n",
-            "You are analyzing a 3D Slicer extension's user-facing workflow.",
-            "Based on the UI layout and Widget signal connections below,",
-            "produce a structured JSON workflow that reflects the actual user-facing workflow.\n",
-        ]
-
-        # UI sections and buttons
-        if ui_sections:
-            prompt_parts.append("### UI Layout (from .ui file)\n")
-            prompt_parts.append("```json")
-            prompt_parts.append(json.dumps(ui_sections, indent=2))
-            prompt_parts.append("```\n")
-
-        # Widget signal connections
-        if widget_connections:
-            prompt_parts.append("### Widget Signal Connections (from AST)\n")
-            prompt_parts.append("Each entry maps a UI button to its handler method and the logic methods it calls.\n")
-            prompt_parts.append("Some buttons may not appear in the UI Layout above (created programmatically).\n")
-            prompt_parts.append("You MUST include steps for these buttons too — match them by their handler/logic method names.\n")
-            prompt_parts.append("```json")
-            prompt_parts.append(json.dumps(widget_connections, indent=2))
-            prompt_parts.append("```\n")
-
-        # Logic class methods (for context)
-        logic_class = scan_result.get("logic_class")
-        if logic_class:
-            prompt_parts.append("### Logic Class Methods\n")
-            prompt_parts.append(f"Class: `{logic_class['class_name']}`\n")
-            prompt_parts.append("Methods: " + ", ".join(f"`{m}`" for m in logic_class.get("methods", [])))
-            prompt_parts.append("\n")
-
-        # Output schema instructions
-        prompt_parts.append("### Required Output\n")
-        prompt_parts.append(textwrap.dedent("""\
-            Return a single JSON object with this structure:
-            ```json
-            {
-              "ui_sections": [
-                {
-                  "section_name": "Section Name from UI",
-                  "is_optional": false,
-                  "steps": [
-                    {
-                      "step_id": "snake_case_id",
-                      "button_label": "Button text from UI",
-                      "logic_method": "methodName",
-                      "description": "What this step does",
-                      "step_type": "automated" or "interactive",
-                      "interaction_type": "fiducial|curve|line|plane|null",
-                      "depends_on": ["previous_step_id"],
-                      "is_optional": false
-                    }
-                  ]
-                }
-              ]
-            }
-            ```
-
-            Rules:
-            1. Use the UI section order as the workflow sequence.
-            2. Match button widget names to logic methods using the signal connections.
-            3. Include ALL buttons from the signal connections, even those not in the UI Layout — they are created programmatically.
-            4. `step_type` is "interactive" if the button triggers user 3D interaction (placing markups, drawing curves), "automated" for buttons that just trigger computation.
-            6. `interaction_type` should be one of: fiducial, curve, line, plane, or null for automated steps.
-            7. `depends_on` should list step_ids of prerequisite steps (sequential by default).
-            8. Mark optional/experimental sections with `is_optional: true`.
-            9. Use descriptive snake_case step_ids that reflect the button's purpose.
-            10. Return ONLY the JSON object, no other text.
-        """))
-
-        full_prompt = "\n".join(prompt_parts)
-        response_text = self._call_llm(full_prompt)
-
-        if not response_text:
-            self.on_progress(1.5, "UI workflow extraction", "LLM returned empty response")
-            return None
-
-        workflow = self._parse_json_response(response_text)
-        if not workflow or "ui_sections" not in workflow:
-            self.on_progress(1.5, "UI workflow extraction", "Failed to parse workflow JSON from LLM")
-            return None
-
-        return workflow

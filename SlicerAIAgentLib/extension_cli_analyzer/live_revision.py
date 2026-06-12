@@ -344,6 +344,32 @@ class AnalyzerLiveRevisionMixin:
         logic_analysis: Optional[Dict] = None,
         api_probe_result: Optional[Dict] = None,
     ) -> Dict:
+        """Revise failed templates; always flushes progress artifacts to debug/."""
+        result: Dict = {}
+        try:
+            result = self._revise_impl(
+                extension_name, errors,
+                max_attempts=max_attempts,
+                source_path=source_path,
+                logic_analysis=logic_analysis,
+                api_probe_result=api_probe_result,
+            )
+            return result
+        finally:
+            try:
+                self._flush_progress_artifacts(result if isinstance(result, dict) else {})
+            except Exception:
+                logger.debug("Revision progress flush failed", exc_info=True)
+
+    def _revise_impl(
+        self,
+        extension_name: str,
+        errors: List[str],
+        max_attempts: int = _MAX_REVISION_ATTEMPTS,
+        source_path: Optional[str] = None,
+        logic_analysis: Optional[Dict] = None,
+        api_probe_result: Optional[Dict] = None,
+    ) -> Dict:
         """
         Revise failed templates using LLM feedback.
 
@@ -370,6 +396,22 @@ class AnalyzerLiveRevisionMixin:
         cli_dir = os.path.join(get_cli_base_dir(), extension_name)
         if not os.path.isdir(cli_dir):
             return {"success": False, "error": f"No CLI found for {extension_name}"}
+
+        # Revisions previously ran without a debug dir, losing their LLM-call
+        # artifacts and UI output. Record everything alongside the original
+        # generation artifacts — under revision-specific file names so the
+        # original generation run's log is never clobbered.
+        import time as _time
+        self._debug_dir = os.path.join(cli_dir, "debug")
+        self._progress_log_name = "ui_output_revision.log"
+        self._progress_json_name = "progress_events_revision.json"
+        if self._pipeline_start is None:
+            self._pipeline_start = _time.time()
+        self.on_progress(
+            "verify_repair", "Verify And Repair Templates",
+            f"Revision started for '{extension_name}' with {len(errors or [])} "
+            f"reported error(s)",
+        )
 
         # Load existing CLI data
         manifest_path = os.path.join(cli_dir, "manifest.json")
@@ -482,9 +524,17 @@ class AnalyzerLiveRevisionMixin:
                 ],
             }
             result["validation_result"] = validation_result
+            upstream_requests = self._upstream_requests_from_issues(upstream_issues)
+            result["upstream_requests"] = upstream_requests
+            result["requires_regeneration"] = True
+            # Persist the diagnosis so the next regeneration starts the
+            # contract phase with this failure as structured feedback
+            # (cross-run closed loop) instead of resampling blindly.
+            self._save_pending_upstream_feedback(extension_name, upstream_requests)
             result["error"] = (
-                "Revision blocked by upstream contract/dataflow issue; "
-                "rerun generation after rebuilding workflow metadata."
+                "Upstream contract/dataflow issue detected; template-level revision "
+                "cannot fix it. Re-run generation: the pipeline will re-derive the "
+                "workflow contract using this failure as feedback."
             )
             self._finalize_package_validation_state(manifest, validation_result)
             try:
@@ -546,7 +596,10 @@ class AnalyzerLiveRevisionMixin:
                 manifest["manifest_version"] = 3
                 manifest["pipeline_version"] = "agentic-cli-v2"
                 self._workflow_metadata["revision_validation_status"] = "passed"
-                self._finalize_package_validation_state(manifest, current_validation)
+                self._finalize_package_validation_state(
+                    manifest, current_validation,
+                    templates=templates, generators=generators,
+                )
                 with open(manifest_path, "w", encoding="utf-8") as f:
                     json.dump(manifest, f, indent=2)
                 with open(workflow_metadata_path, "w", encoding="utf-8") as f:
@@ -570,7 +623,10 @@ class AnalyzerLiveRevisionMixin:
                     "Revision stopped because validation requires additional "
                     "receiver, method, or behavior evidence; templates were not rewritten."
                 )
-                self._finalize_package_validation_state(manifest, current_validation)
+                self._finalize_package_validation_state(
+                    manifest, current_validation,
+                    templates=templates, generators=generators,
+                )
                 with open(manifest_path, "w", encoding="utf-8") as f:
                     json.dump(manifest, f, indent=2)
                 with open(workflow_metadata_path, "w", encoding="utf-8") as f:
@@ -626,6 +682,76 @@ class AnalyzerLiveRevisionMixin:
                         + "\n".join(semantic_lines) + "\n"
                     )
 
+            # Structured per-call diagnosis so the LLM knows exactly which
+            # receiver/method could not be proven and why (the stringified ERRORS
+            # alone do not carry receiver_type/effect/diagnosis fields).
+            diagnosis_section = ""
+            diag_entries = []
+            for issue in rewrite_issues:
+                if issue.get("issue_type") != "UnprovenReceiver":
+                    continue
+                diag_entries.append({
+                    "template": issue.get("template_key", ""),
+                    "receiver_expression": issue.get("receiver_expression", ""),
+                    "receiver_type": issue.get("receiver_type", ""),
+                    "method": issue.get("method", ""),
+                    "diagnosis": issue.get("diagnosis", ""),
+                    "effect": issue.get("effect", ""),
+                })
+            if diag_entries:
+                diagnosis_section = (
+                    "\nUNPROVEN CALL DIAGNOSIS (each entry names a call that could not "
+                    "be proven; 'method_unproven' with a known receiver_type means the "
+                    "method does NOT exist on that receiver type):\n"
+                    + json.dumps(diag_entries, indent=2) + "\n"
+                )
+
+            # Proven-method inventory: the only methods known to exist on the
+            # extension logic receiver. Same source the api-proof validator trusts,
+            # enriched with signatures from logic_analysis when available.
+            proven_targets_section = ""
+            try:
+                proven_names = list(
+                    (self._workflow_metadata or {})
+                    .get("extension_callable_inventory", {})
+                    .get("logic_methods", [])
+                ) or []
+            except Exception:
+                proven_names = []
+            proven_methods = []
+            if logic_analysis:
+                for method in logic_analysis.get("methods", []) or []:
+                    proven_methods.append({
+                        "name": method.get("name", ""),
+                        "parameters": method.get("parameters", []),
+                        "state_reads": method.get("state_reads", []),
+                        "state_writes": method.get("state_writes", []),
+                    })
+            if proven_methods or proven_names:
+                proven_targets_section = (
+                    "\nPROVEN TARGETS (the ONLY methods known to exist on the extension "
+                    "logic receiver `logic`; never call or assume a method not listed):\n"
+                    + json.dumps(proven_methods[:80] if proven_methods else proven_names, indent=2)
+                    + "\n"
+                )
+
+            # Proven attribute/members on `logic` (for member_unproven diagnoses).
+            proven_members_section = ""
+            try:
+                proven_members = list(
+                    (self._workflow_metadata or {})
+                    .get("extension_callable_inventory", {})
+                    .get("logic_attributes", [])
+                ) or []
+            except Exception:
+                proven_members = []
+            if proven_members:
+                proven_members_section = (
+                    "\nPROVEN MEMBERS (the ONLY attributes/members known on `logic`; "
+                    "`getParameterNode` returns the parameter node):\n"
+                    + json.dumps(proven_members[:120], indent=2) + "\n"
+                )
+
             prompt = textwrap.dedent(f"""\
 The following code templates for the "{extension_name}" extension failed validation.
 Please fix ALL errors while maintaining the template format (use {{placeholder}} for dynamic values, {{{{ }}}} for literal braces).
@@ -633,7 +759,16 @@ Please fix ALL errors while maintaining the template format (use {{placeholder}}
 ERRORS:
 {chr(10).join(f'- {e}' for e in errors)}
 {source_section}
+{diagnosis_section}
+{proven_targets_section}
+{proven_members_section}
 {semantic_section}
+REPAIR RULES FOR UNPROVEN CALLS:
+- You may call a method on the `logic` receiver ONLY if its name appears in PROVEN TARGETS. A method not listed does not exist on the logic class (it may belong to the Widget class or not exist at all).
+- To repair a "method_unproven" call you MUST do exactly ONE of: (a) REMOVE the call if it sits in a defensive guard/fallback (e.g. `if hasattr(...)`, `try/except AttributeError`) and is not required by the step's semantic context; (b) REPLACE it with a PROVEN TARGET method that achieves the step's stated effect; (c) RESTRUCTURE so the unprovable call is both unreachable and unnecessary.
+- A "member_unproven" issue means an ATTRIBUTE access `logic.<name>` references a member that does NOT exist on the logic class. Replace it with a PROVEN MEMBER/TARGET that yields the intended object — most often the access should be the method call `logic.getParameterNode()` (e.g. rewrite `logic.parameterNode.GetNodeReference(...)` to `logic.getParameterNode().GetNodeReference(...)`). Never access an attribute that is not in PROVEN MEMBERS.
+- Do NOT satisfy a "method_unproven" issue by wrapping a REQUIRED call in a new `hasattr`/`try` guard — guarding a required step does not implement it.
+
 CONSTRAINTS (CodeValidator):
 - BLOCKED: os, subprocess, sys, socket, urllib, http, pickle, ctypes, mmap
 - BLOCKED: eval, exec, compile, __import__, open, file, input, getattr, setattr, delattr
@@ -654,7 +789,7 @@ Return a JSON object with this structure:
 
 Return ONLY the JSON, no markdown fences.""")
 
-            response = self._call_llm(prompt)
+            response = self._call_llm(prompt, call_class="repair")
             fixed = self._parse_json_response(response)
 
             if not fixed or "templates" not in fixed:
@@ -741,7 +876,10 @@ Return ONLY the JSON, no markdown fences.""")
 
                 manifest["manifest_version"] = 3
                 manifest["pipeline_version"] = "agentic-cli-v2"
-                self._finalize_package_validation_state(manifest, validation_result)
+                self._finalize_package_validation_state(
+                    manifest, validation_result,
+                    templates=templates, generators=generators,
+                )
                 with open(manifest_path, "w", encoding="utf-8") as f:
                     json.dump(manifest, f, indent=2)
                 if os.path.isfile(workflow_metadata_path):
@@ -784,7 +922,10 @@ Return ONLY the JSON, no markdown fences.""")
                 result["validation_result"] = validation_result
                 return result
 
-            self._finalize_package_validation_state(manifest, validation_result)
+            self._finalize_package_validation_state(
+                manifest, validation_result,
+                templates=templates, generators=generators,
+            )
             with open(manifest_path, "w", encoding="utf-8") as f:
                 json.dump(manifest, f, indent=2)
             if os.path.isfile(workflow_metadata_path):

@@ -55,6 +55,19 @@ class AnalyzerCrossStageMixin:
 
         state_fields = logic_analysis.get("state_fields", [])
 
+        # Closed-loop re-entry: downstream failures diagnosed as dataflow gaps
+        # are surfaced so the re-derived mapping covers the missed connections.
+        feedback_block = ""
+        if getattr(self, "_upstream_feedback", None):
+            feedback_block = (
+                "\n## Upstream Failure Feedback\n"
+                "A previous generation failed downstream validation with these "
+                "issues diagnosed as missing or incorrect cross-step dataflow. "
+                "Make sure the connections you return account for every input "
+                "named below (its producing step must be connected):\n"
+                + json.dumps(self._upstream_feedback, indent=2) + "\n"
+            )
+
         prompt = textwrap.dedent(f"""\
         Analyze the data flow between steps of a Slicer extension cookbook workflow.
 
@@ -63,7 +76,7 @@ class AnalyzerCrossStageMixin:
 
         ## Workflow Steps
         {json.dumps(step_summaries, indent=2)}
-
+        {feedback_block}
         ## Task
         For each step that depends on data produced by an earlier step, identify the
         connection. This is critical for code template generation so that later steps
@@ -91,57 +104,133 @@ class AnalyzerCrossStageMixin:
 
         Return ONLY the JSON, no markdown fences or explanation.""")
 
-        result = None
-        validation_errors = []
         valid_step_numbers = {item["step_number"] for item in step_summaries}
         state_field_names = {
             _text_or_empty(item.get("name") if isinstance(item, dict) else item).replace("self.", "")
             for item in state_fields
         }
-        for attempt in range(3):
-            repair_prompt = prompt
-            if validation_errors:
-                repair_prompt += (
-                    "\n\nCorrect the previous response using these validation errors:\n"
-                    + json.dumps(validation_errors, indent=2)
-                    + "\nPrevious response:\n"
-                    + json.dumps(result, indent=2)
-                )
-            try:
-                response = self._call_llm(repair_prompt)
-                candidate = self._parse_json_response(response)
-            except Exception as exc:
-                candidate = None
-                validation_errors = [f"response was not valid JSON: {exc}"]
-            if isinstance(candidate, dict) and isinstance(candidate.get("connections"), list):
-                validation_errors = []
-                for index, conn in enumerate(candidate["connections"]):
-                    label = f"connections[{index}]"
-                    if not isinstance(conn, dict):
-                        validation_errors.append(f"{label} must be an object")
-                        continue
-                    from_step = _int_or_none(conn.get("from_step"))
-                    to_step = _int_or_none(conn.get("to_step"))
-                    if from_step not in valid_step_numbers or to_step not in valid_step_numbers:
-                        validation_errors.append(f"{label} references an unknown step")
-                    elif from_step >= to_step:
-                        validation_errors.append(f"{label} must connect an earlier step to a later step")
-                    if conn.get("type") not in ("state_field", "output_node", "scene_state"):
-                        validation_errors.append(f"{label} has an invalid type")
-                    field = _text_or_empty(conn.get("field")).replace("self.", "")
-                    if conn.get("type") == "state_field" and field not in state_field_names:
-                        validation_errors.append(f"{label} references an unknown state field")
-                if not validation_errors:
-                    result = candidate
-                    break
+
+        def _validate(candidate, raw):
+            if not (isinstance(candidate, dict) and isinstance(candidate.get("connections"), list)):
+                return candidate, ["expected a JSON object containing a connections list"]
+            validation_errors = []
+            for index, conn in enumerate(candidate["connections"]):
+                label = f"connections[{index}]"
+                if not isinstance(conn, dict):
+                    validation_errors.append(f"{label} must be an object")
+                    continue
+                from_step = _int_or_none(conn.get("from_step"))
+                to_step = _int_or_none(conn.get("to_step"))
+                if from_step not in valid_step_numbers or to_step not in valid_step_numbers:
+                    validation_errors.append(f"{label} references an unknown step")
+                elif from_step >= to_step:
+                    validation_errors.append(f"{label} must connect an earlier step to a later step")
+                if conn.get("type") not in ("state_field", "output_node", "scene_state"):
+                    validation_errors.append(f"{label} has an invalid type")
+                field = _text_or_empty(conn.get("field")).replace("self.", "")
+                if conn.get("type") == "state_field" and field not in state_field_names:
+                    validation_errors.append(f"{label} references an unknown state field")
+            return candidate, validation_errors
+
+        result = self._call_llm_structured(
+            prompt=prompt,
+            validator=_validate,
+            call_class="contract",
+            failure_label="Contract-phase LLM cross-stage mapping",
+        )
+
+        # ── deterministic verification + closure against AST ground truth ──
+        # state_field connections are fully checkable: the writer/reader pair
+        # must exist in the AST-derived state access sets (logic analysis uses
+        # the AST method universe). Unverifiable claims are dropped; missing
+        # connections (an AST read of a field some earlier step writes) are
+        # added deterministically. This bounds connection-count variance by
+        # construction — the LLM's remaining latitude is output_node and
+        # scene_state semantics.
+        def _norm_field(name: str) -> str:
+            name = _text_or_empty(name)
+            if not name:
+                return ""
+            return name if name.startswith("self.") else f"self.{name}"
+
+        reads_by_step = {
+            s["step_number"]: {_norm_field(f) for f in s.get("state_reads", [])}
+            for s in step_summaries
+        }
+        writes_by_step = {
+            s["step_number"]: {_norm_field(f) for f in s.get("state_writes", [])}
+            for s in step_summaries
+        }
+
+        verified_connections = []
+        dropped_connections = []
+        for conn in (result.get("connections") if isinstance(result, dict) else None) or []:
+            if conn.get("type") != "state_field":
+                verified_connections.append(conn)
+                continue
+            from_step = _int_or_none(conn.get("from_step"))
+            to_step = _int_or_none(conn.get("to_step"))
+            field = _norm_field(conn.get("field"))
+            if (
+                field
+                and field in writes_by_step.get(from_step, set())
+                and field in reads_by_step.get(to_step, set())
+            ):
+                verified_connections.append(conn)
             else:
-                validation_errors = ["expected a JSON object containing a connections list"]
-            result = candidate
-        if validation_errors:
-            raise RuntimeError(
-                "Contract-phase LLM cross-stage mapping failed after 3 attempts: "
-                + "; ".join(validation_errors)
+                dropped_connections.append(conn)
+
+        existing = {
+            (
+                _int_or_none(conn.get("from_step")),
+                _int_or_none(conn.get("to_step")),
+                _norm_field(conn.get("field")),
             )
+            for conn in verified_connections
+            if conn.get("type") == "state_field"
+        }
+        closure_added = []
+        for to_step in sorted(reads_by_step):
+            for field in sorted(reads_by_step[to_step]):
+                writers = [
+                    s for s in writes_by_step
+                    if s < to_step and field in writes_by_step[s]
+                ]
+                if not writers:
+                    continue
+                from_step = max(writers)  # nearest earlier writer
+                if (from_step, to_step, field) in existing:
+                    continue
+                connection = {
+                    "from_step": from_step,
+                    "to_step": to_step,
+                    "type": "state_field",
+                    "field": field,
+                    "description": (
+                        f"Deterministic closure: AST shows step {from_step} writes "
+                        f"{field} and step {to_step} reads it"
+                    ),
+                    "provenance": "ast_closure",
+                }
+                verified_connections.append(connection)
+                closure_added.append(connection)
+                existing.add((from_step, to_step, field))
+
+        if dropped_connections or closure_added:
+            logger.info(
+                "[cross-stage] AST verification dropped %d unverifiable state_field "
+                "connection(s) and added %d by deterministic closure",
+                len(dropped_connections), len(closure_added),
+            )
+            self.on_progress(
+                "contract", "Build Workflow Contract",
+                f"AST verification: -{len(dropped_connections)} unverifiable, "
+                f"+{len(closure_added)} closure connection(s)",
+            )
+        if isinstance(result, dict):
+            result["connections"] = verified_connections
+            if dropped_connections:
+                result["dropped_connections"] = dropped_connections
 
         # Convert LLM connections into cross_stage_map format
         if result and isinstance(result.get("connections"), list):

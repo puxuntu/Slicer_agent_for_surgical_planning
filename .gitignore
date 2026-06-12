@@ -70,3 +70,7 @@ EXECUTION_FLOW.md
 # Ignore all hidden/dot files except .gitignore itself
 .*
 !.gitignore
+
+# CLI generation caches (content-keyed checkpoints + repair experience memory)
+Resources/extension_CLI/_checkpoints/
+Resources/extension_CLI/_repair_memory.json

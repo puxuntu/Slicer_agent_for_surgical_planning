@@ -365,44 +365,39 @@ class AnalyzerStage4DecompositionMixin:
             "LLM interpreting cookbook steps and repeat intent..."
         )
         context = self._stage4_semantic_context(cookbook_def, logic_analysis, scan_result)
-        prior_result = None
-        errors = []
-        for attempt in range(3):
-            prompt = self._stage4_semantic_prompt(context, prior_result, errors)
-            try:
-                result = self._parse_json_response(self._call_llm(prompt))
-            except Exception as exc:
-                result = None
-                errors = [f"Response was not valid JSON: {exc}"]
-            if isinstance(result, dict):
-                result, normalization_notes = self._normalize_stage4_semantic_result(
-                    result, context
-                )
-                if normalization_notes:
-                    logger.info(
-                        "[Stage 4] Applied deterministic contract normalization: %s",
-                        "; ".join(normalization_notes[:20]),
-                    )
-                errors = self._validate_stage4_semantic_result(result, context)
-                if not errors:
-                    stage_map = self._stage_map_from_semantic_result(
-                        result, cookbook_def, logic_analysis
-                    )
-                    self.on_progress(
-                        "contract", "Build Workflow Contract",
-                        f"LLM interpreted {stage_map['stage_count']} cookbook steps"
-                    )
-                    return stage_map
-            prior_result = result
-            logger.warning(
-                "[Stage 4] Semantic decomposition attempt %d rejected: %s",
-                attempt + 1,
-                "; ".join(errors[:10]),
+        # Closed-loop re-entry: structured downstream failure feedback (from
+        # verify_repair) is injected so the re-derived contract addresses the
+        # diagnosed dataflow/contract gaps.
+        if getattr(self, "_upstream_feedback", None):
+            context["upstream_feedback"] = self._upstream_feedback
+
+        def _validate(candidate, raw):
+            if not isinstance(candidate, dict):
+                return None, ["expected a JSON object"]
+            normalized, normalization_notes = self._normalize_stage4_semantic_result(
+                candidate, context
             )
-        raise RuntimeError(
-            "Stage 4 semantic decomposition failed after 3 attempts: "
-            + "; ".join(errors[:20])
+            if normalization_notes:
+                logger.info(
+                    "[Stage 4] Applied deterministic contract normalization: %s",
+                    "; ".join(normalization_notes[:20]),
+                )
+            return normalized, self._validate_stage4_semantic_result(normalized, context)
+
+        result = self._call_llm_structured(
+            prompt=lambda prior, errors: self._stage4_semantic_prompt(context, prior, errors),
+            validator=_validate,
+            call_class="contract",
+            failure_label="Stage 4 semantic decomposition",
         )
+        stage_map = self._stage_map_from_semantic_result(
+            result, cookbook_def, logic_analysis
+        )
+        self.on_progress(
+            "contract", "Build Workflow Contract",
+            f"LLM interpreted {stage_map['stage_count']} cookbook steps"
+        )
+        return stage_map
 
     def _stage4_semantic_context(
         self, cookbook_def, logic_analysis: Dict, scan_result: Optional[Dict] = None
@@ -545,6 +540,16 @@ class AnalyzerStage4DecompositionMixin:
                 "\nYour previous result was rejected. Correct every validation error.\n"
                 f"Validation errors:\n{json.dumps(errors, indent=2)}\n"
                 f"Previous result:\n{json.dumps(prior_result, indent=2)}\n"
+            )
+        upstream = context.get("upstream_feedback") or []
+        if upstream:
+            repair += (
+                "\nA PREVIOUS GENERATION FAILED DOWNSTREAM VALIDATION. The failures "
+                "below were diagnosed as contract/dataflow root causes (not template "
+                "bugs). Re-derive the affected steps so that every required input "
+                "has a producing step or user interaction, and every referenced "
+                "parameter is bound to a source-backed candidate:\n"
+                + json.dumps(upstream, indent=2) + "\n"
             )
         return textwrap.dedent(f"""\
         Interpret a user-authored 3D Slicer extension cookbook as a generic workflow.
@@ -1695,16 +1700,27 @@ class AnalyzerStage4DecompositionMixin:
             # cannot be resolved via Slicer KB search. Reclassify them as
             # extension_op so they use the extension source for code generation.
             ext_name = _text_or_empty(cookbook_def.extension_name)
-            ext_name_lower = ext_name.lower() if ext_name else ""
             # Common patterns indicating extension-specific knowledge:
             # - The extension's own name in layout/view descriptions
             # - Custom layout IDs registered by the extension
             # - Extension module names not in Slicer core
+            # Build the indicator set from ALL authoritative identifiers, not just
+            # the repo/cookbook name: the cookbook name is often the repo name
+            # ("SlicerBoneReconstructionPlanner") while steps reference the module
+            # name ("BoneReconstructionPlanner"). The module name derives from the
+            # Logic class name minus the trailing "Logic".
+            logic_class_name = _text_or_empty(logic_analysis.get("class_name"))
+            module_name = (
+                logic_class_name[: -len("Logic")]
+                if logic_class_name.endswith("Logic") else ""
+            )
             _extension_specific_indicators = set()
-            if ext_name_lower:
-                _extension_specific_indicators.add(ext_name_lower)
-                # Also add a shortened acronym derived from the extension name.
-                parts = _re.sub(r'([a-z])([A-Z])', r'\1 \2', ext_name).split()
+            for _id_name in (ext_name, logic_class_name, module_name):
+                if not _id_name:
+                    continue
+                _extension_specific_indicators.add(_id_name.lower())
+                # Also add a shortened acronym derived from the camelCase name.
+                parts = _re.sub(r'([a-z])([A-Z])', r'\1 \2', _id_name).split()
                 if parts:
                     acronym = "".join(p[0].lower() for p in parts if p)
                     if len(acronym) >= 2:

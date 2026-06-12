@@ -172,16 +172,6 @@ Extension stages:
 
 {'The extension has multiple stages, so include a "stage" enum parameter.' if has_multiple_stages else 'The extension has a single stage, so no "stage" parameter is needed.'}""")
 
-        if self._ui_workflow:
-            prompt += textwrap.dedent(f"""\
-Extracted UI Workflow (reflects the intended user-facing operation sequence):
-```json
-{json.dumps(self._ui_workflow, indent=2)}
-```
-Use this workflow to design tool schemas that match the actual user-facing steps.
-
-""")
-
         prompt += textwrap.dedent("""\
 
 IMPORTANT RULES:
@@ -204,7 +194,7 @@ The description should explain what the tool does and when to use it.
 
 Return ONLY the JSON array, no markdown fences.""")
 
-        response = self._call_llm(prompt)
+        response = self._call_llm(prompt, call_class="generation")
         schemas = self._parse_json_response(response)
 
         if isinstance(schemas, dict):

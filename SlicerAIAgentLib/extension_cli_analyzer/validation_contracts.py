@@ -631,6 +631,17 @@ class AnalyzerValidationContractsMixin:
 
         if "TODO" in code:
             result["errors"].append("Required template contains TODO")
+        # The slicer_op grounder emits this deterministic sentinel when it cannot
+        # find a required extension-specific artifact (a custom layout ID/XML, a
+        # registered node/constant) in source evidence, rather than fabricating a
+        # placeholder. Treat it as blocking so the step is re-grounded against the
+        # extension source instead of shipping a guaranteed-failing template.
+        if "MISSING_EVIDENCE" in code:
+            result["errors"].append(
+                "Template reports MISSING_EVIDENCE: an extension-specific artifact "
+                "could not be grounded against source evidence; re-ground against the "
+                "extension's own source rather than fabricating a value."
+            )
         callable_contract = self._validate_callable_reference_misuse(code)
         result["errors"].extend(callable_contract.get("errors", []))
         result["warnings"].extend(callable_contract.get("warnings", []))

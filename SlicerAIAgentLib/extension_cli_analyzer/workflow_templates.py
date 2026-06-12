@@ -836,14 +836,7 @@ class AnalyzerWorkflowTemplatesMixin:
             if state_writes:
                 params_desc += f"\nState writes: {', '.join(state_writes)}"
 
-        # UI workflow context
         ui_context = ""
-        if self._ui_workflow:
-            for sec in self._ui_workflow.get("ui_sections", []):
-                for s in sec.get("steps", []):
-                    if s.get("step_id") == step.get("step_id") or s.get("logic_method") == method_name:
-                        ui_context = f"Button label: '{s.get('button_label', '')}'\nDescription: {s.get('description', '')}"
-                        break
 
         parameter_context = ""
         if isinstance(self._workflow_metadata, dict):
@@ -863,6 +856,7 @@ class AnalyzerWorkflowTemplatesMixin:
                         rows.append(f"  - {role}: no inferred default")
                 parameter_context = "Parameter-node dependencies:\n" + "\n".join(rows)
 
+        proven_block = self._proven_api_chain_block()
         prompt = textwrap.dedent(f"""\
             Generate a Python code snippet for a 3D Slicer extension workflow step.
 
@@ -879,6 +873,7 @@ class AnalyzerWorkflowTemplatesMixin:
             ```python
             {method_source}
             ```
+            {proven_block}
 
             The code must:
             1. Import the logic class from `{module_name}`
@@ -904,7 +899,7 @@ class AnalyzerWorkflowTemplatesMixin:
 
         try:
             for _attempt in range(2):
-                response = self._call_llm(prompt)
+                response = self._call_llm(prompt, call_class="generation", attempt=_attempt)
                 response = self._strip_markdown_fences(response) if response else None
                 if not response:
                     break
@@ -946,12 +941,14 @@ class AnalyzerWorkflowTemplatesMixin:
         keyword hints to produce Slicer core API code (no extension imports).
         """
         keywords_str = ", ".join(slicer_api_keywords) if slicer_api_keywords else "none"
+        proven_block = self._proven_api_chain_block()
         prompt = textwrap.dedent(f"""\
             Generate a Python code snippet for a 3D Slicer operation.
 
             Step ID: {step_id}
             Description: {description}
             API keyword hints: [{keywords_str}]
+            {proven_block}
 
             The code must:
             1. Use Slicer's built-in Python API only (slicer.mrmlScene,
@@ -971,7 +968,7 @@ class AnalyzerWorkflowTemplatesMixin:
 
         try:
             for _attempt in range(2):
-                response = self._call_llm(prompt)
+                response = self._call_llm(prompt, call_class="generation", attempt=_attempt)
                 response = self._strip_markdown_fences(response) if response else None
                 if not response or "slicer" not in response.lower():
                     break

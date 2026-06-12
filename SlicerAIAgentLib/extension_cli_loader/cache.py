@@ -27,6 +27,23 @@ _cli_cache: Dict[str, Dict] = {}
 _cache_valid = False
 _cache_lock = threading.Lock()
 
+# Opt-in (default OFF): load CLIs that failed overall validation but have at
+# least one individually proven step (manifest["step_validation"]). Unproven
+# steps are surfaced as requiring user confirmation at dispatch time.
+_allow_partial = os.environ.get("SLICERAIAGENT_CLI_ALLOW_PARTIAL", "") == "1"
+
+
+def set_allow_partial(enabled: bool) -> None:
+    """Enable/disable partial loading of CLIs with per-step validity."""
+    global _allow_partial
+    if enabled != _allow_partial:
+        _allow_partial = bool(enabled)
+        invalidate_cache()
+
+
+def get_allow_partial() -> bool:
+    return _allow_partial
+
 __all__ = [name for name in list(globals()) if not name.startswith("__")]
 
 
@@ -69,11 +86,24 @@ def _ensure_cache():
                     manifest = json.load(f)
 
                 status = manifest.get("status", "unknown")
+                partial = False
                 if status not in {"validated", "validated_with_warnings"}:
-                    logger.info(
-                        "Skipping %s (status=%s, not validated)", entry, status
-                    )
-                    continue
+                    if (
+                        _allow_partial
+                        and status == "validation_failed"
+                        and manifest.get("partial_valid_step_count", 0) > 0
+                    ):
+                        partial = True
+                        logger.info(
+                            "Loading %s PARTIALLY (%d proven step(s); unproven "
+                            "steps will require confirmation)",
+                            entry, manifest.get("partial_valid_step_count", 0),
+                        )
+                    else:
+                        logger.info(
+                            "Skipping %s (status=%s, not validated)", entry, status
+                        )
+                        continue
                 if manifest.get("manifest_version") not in {2, 3}:
                     logger.info(
                         "Skipping %s (manifest_version=%s, expected 2 or 3; regenerate CLI)",
@@ -120,6 +150,7 @@ def _ensure_cache():
                     "workflow_metadata": workflow_metadata,
                     "workflow_contract": workflow_contract,
                     "dir": ext_dir,
+                    "partial": partial,
                 }
 
                 tool_names = [s.get("function", {}).get("name", "?") for s in schemas]

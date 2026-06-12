@@ -120,6 +120,51 @@ class TemplateApiAnalyzer:
                 "result_usage": result_usage,
                 "enclosing_operation": enclosing_operation,
             })
+
+        # Attribute-access obligations: a bare ``logic.<attr>`` member access on the
+        # extension Logic receiver is invisible to the call inventory above, yet a
+        # hallucinated member (e.g. ``logic.parameterNode`` instead of
+        # ``logic.getParameterNode()``) raises AttributeError at runtime.  Emit a
+        # proof obligation for each such access so the validator can deny unknown
+        # members.  Restricted to the simple ``logic.<attr>`` receiver (the strict,
+        # low-false-positive start); skip attributes that are the method being
+        # called (handled as a call above).
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Attribute):
+                continue
+            if not (isinstance(node.value, ast.Name) and node.value.id == "logic"):
+                continue
+            parent = parents.get(id(node))
+            if isinstance(parent, ast.Call) and parent.func is node:
+                continue
+            span = {
+                "lineno": getattr(node, "lineno", 0),
+                "col_offset": getattr(node, "col_offset", 0),
+                "end_lineno": getattr(node, "end_lineno", getattr(node, "lineno", 0)),
+                "end_col_offset": getattr(node, "end_col_offset", 0),
+            }
+            fingerprint = "|".join([
+                template,
+                str(span["lineno"]),
+                str(span["col_offset"]),
+                str(span["end_lineno"]),
+                str(span["end_col_offset"]),
+                "attr:" + _unparse(node),
+            ])
+            calls.append({
+                "call_id": hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()[:20],
+                "template": template,
+                "source_span": span,
+                "call_expression": _unparse(node),
+                "receiver_expression": _unparse(node.value),
+                "method": node.attr,
+                "arguments": [],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": enclosing_operation,
+                "access_kind": "attribute",
+            })
+
         calls.sort(key=lambda item: (
             item["source_span"]["lineno"],
             item["source_span"]["col_offset"],
@@ -447,18 +492,29 @@ class TypeProvenanceGraph:
 class ApiProofValidator:
     """Evaluate receiver, method-existence, and behavior proof obligations."""
 
+    # Members inherited from ScriptedLoadableModuleLogic / VTKObservationMixin that
+    # an extension Logic instance exposes but that are not visible in a subclass AST
+    # scan.  Base-class-generic (not tied to any specific extension).
+    _KNOWN_LOGIC_BASE_MEMBERS = frozenset({
+        "getParameterNode", "getParameterNodeWrapper", "parent", "moduleName",
+        "resourcePath", "cliRunSync", "delayDisplay",
+        "addObserver", "removeObserver", "removeObservers", "hasObserver",
+    })
+
     def __init__(
         self,
         type_contracts: Optional[Dict[str, Any]] = None,
         live_evidence: Optional[Dict[str, Dict]] = None,
         extension_methods: Optional[Set[str]] = None,
         extension_functions: Optional[Set[str]] = None,
+        extension_attributes: Optional[Set[str]] = None,
         logic_class_name: str = "",
     ):
         self.type_contracts = type_contracts or {}
         self.live_evidence = live_evidence or {}
         self.extension_methods = extension_methods or set()
         self.extension_functions = extension_functions or set()
+        self.extension_attributes = extension_attributes or set()
         self.logic_class_name = logic_class_name
 
     @staticmethod
@@ -497,6 +553,73 @@ class ApiProofValidator:
             return {"exists": False, "effect": "unknown", "source": "api_type_contract"}
         return value if isinstance(value, dict) else None
 
+    def _validate_attribute_access(
+        self,
+        obligation: Dict,
+        graph: TypeProvenanceGraph,
+        attr: str,
+        receiver_expr: str,
+    ) -> Tuple[Dict, Optional[Dict]]:
+        """Prove a bare attribute access (e.g. ``logic.parameterNode``) on a known
+        extension Logic receiver.  An unknown member is itself the bug, so it blocks
+        regardless of how the resulting value is later consumed (a downstream
+        read-only call must not downgrade it)."""
+        obligation["effect"] = "read_only"
+
+        # Confidence gate: only judge attributes on a confidently-known extension
+        # Logic receiver.  Anything else is left unproven-but-silent (out of scope).
+        candidates = graph.receiver_candidates(receiver_expr) if receiver_expr else []
+        high_types = {
+            item.get("type") for item in candidates
+            if _confidence_rank(item.get("confidence", "")) >= _confidence_rank("medium")
+        }
+        is_known_logic_receiver = (
+            receiver_expr == "logic"
+            or (self.logic_class_name and self.logic_class_name in high_types)
+            or "extension_logic" in high_types
+        )
+        if not is_known_logic_receiver:
+            obligation["proof_status"] = "proven"
+            return obligation, None
+
+        known_members = (
+            set(self.extension_methods)
+            | set(self.extension_attributes)
+            | self._KNOWN_LOGIC_BASE_MEMBERS
+        )
+        if attr in known_members:
+            obligation["proof_status"] = "proven"
+            obligation["evidence"].append({
+                "kind": "extension_source",
+                "receiver_type": self.logic_class_name or "extension_logic",
+                "method_exists": True,
+                "effect": "read_only",
+                "source": "extension_callable_inventory",
+            })
+            return obligation, None
+
+        # Unknown member on a known extension Logic receiver → blocking.  Emitted as
+        # an UnprovenApiCall with a dedicated `member_unproven` diagnosis so it flows
+        # through the existing repair escalation (rewrite to a proven member).
+        issue = {
+            "issue_id": "api_proof_" + obligation["call_id"],
+            "issue_type": "UnprovenApiCall",
+            "severity": "error",
+            "blocking": True,
+            "template": obligation["template"],
+            "call_id": obligation["call_id"],
+            "source_span": obligation["source_span"],
+            "diagnosis": "member_unproven",
+            "receiver_expression": receiver_expr,
+            "receiver_type": self.logic_class_name or "extension_logic",
+            "method": attr,
+            "method_exists": False,
+            "effect": "read_only",
+            "evidence_sources": ["extension_callable_inventory"],
+            "minimal_repair": None,
+        }
+        return obligation, issue
+
     def validate_call(self, call: Dict, graph: TypeProvenanceGraph) -> Tuple[Dict, Optional[Dict]]:
         obligation = {
             **call,
@@ -508,6 +631,9 @@ class ApiProofValidator:
         }
         method = call.get("method", "")
         receiver_expr = call.get("receiver_expression", "")
+
+        if call.get("access_kind") == "attribute":
+            return self._validate_attribute_access(obligation, graph, method, receiver_expr)
 
         if not receiver_expr and method in _READ_ONLY_BUILTINS:
             obligation["effect"] = "read_only"
@@ -705,7 +831,17 @@ class ApiProofValidator:
         # name-classified.  That is a bookkeeping gap, not a proof or safety
         # failure (destructive-op safety lives in CodeValidator), so it must not
         # block.  Down-grade it to a non-blocking warning.
-        if diagnosis == "behavior_unproven":
+        #
+        # `receiver_type_unproven` means NO receiver type could be resolved at all
+        # (common for chained MRML/VTK accessors like
+        # `node.GetMarkupsDisplayNode()` or `scene.GetNodesByClass(...)` whose
+        # return types are not contracted, and which the live probe cannot resolve
+        # against an empty scene).  Without a resolved type we have NO positive
+        # evidence the method is invalid — it is a proof gap, not a proven error,
+        # so it must not block either.  Calls that ARE provably wrong stay blocking:
+        # `method_unproven`/`member_unproven` (receiver type known, member absent)
+        # and `InvalidApiCall` (a live probe proved the method missing).
+        if diagnosis in ("behavior_unproven", "receiver_type_unproven"):
             blocking = False
         issue = {
             "issue_id": "api_proof_" + obligation["call_id"],
@@ -764,10 +900,95 @@ class ApiEvidenceAgent:
 
 
 class RepairCoordinator:
-    """Track issue/strategy fingerprints and reject unchanged failed retries."""
+    """Track issue lineages and escalate strategies instead of retrying them.
+
+    A *lineage* identifies the same semantic issue across validation cycles
+    — (issue_type, step_id, normalized subject) — independent of message text
+    or template content. When a lineage survives a validation cycle after a
+    strategy was applied, that strategy is exhausted for the lineage and the
+    next rung of its issue-class ladder becomes mandatory. This replaces the
+    old exact-content-fingerprint dedup, which let the same strategy be
+    retried indefinitely because every LLM rewrite changed the fingerprint.
+    """
+
+    # Generic per-issue-class escalation ladders (data, not per-error rules).
+    # The final rung "upstream_request" hands the issue to the pipeline
+    # engine for upstream phase re-entry.
+    STRATEGY_LADDERS = {
+        "template": [
+            "targeted_template_repair",
+            "contract_aware_template_repair",
+            "upstream_request",
+        ],
+        "grounding": [
+            "reground_slicer_op",
+            "reground_broadened",
+            "upstream_request",
+        ],
+        "runtime_api": [
+            "gather_api_evidence",
+            "contract_aware_template_repair",
+            "upstream_request",
+        ],
+        "contract": ["upstream_request"],
+        "dataflow": ["upstream_request"],
+    }
 
     def __init__(self, history: Optional[List[Dict]] = None):
         self.history = list(history or [])
+
+    @staticmethod
+    def lineage_key(issue: Dict) -> str:
+        """Semantic identity of an issue: type + step + offending subject."""
+        subject = (
+            issue.get("call_id")
+            or ".".join(filter(None, [
+                _text_or_empty(issue.get("receiver_expression")),
+                _text_or_empty(issue.get("method")),
+            ]))
+            or issue.get("template_key", "")
+        )
+        return "|".join([
+            _text_or_empty(issue.get("issue_type")),
+            _text_or_empty(issue.get("step_id")),
+            _text_or_empty(subject),
+        ])
+
+    def exhausted_rungs(self, lineage: str) -> set:
+        return {
+            item.get("strategy", "")
+            for item in self.history
+            if item.get("lineage") == lineage
+            and item.get("outcome") in {"failed", "survived", "exhausted"}
+        }
+
+    def next_strategy(self, issue: Dict) -> Optional[str]:
+        """Return the next untried ladder rung for this issue's lineage.
+
+        The issue's classifier-chosen strategy anchors the starting rung:
+        earlier rungs the classifier deliberately skipped are not revisited.
+        Returns None when the ladder is exhausted (terminal diagnosis).
+        """
+        lineage = self.lineage_key(issue)
+        ladder = list(self.STRATEGY_LADDERS.get(issue.get("issue_class", ""), []))
+        default = issue.get("repair_strategy") or ""
+        if default:
+            if default in ladder:
+                ladder = ladder[ladder.index(default):]
+            else:
+                ladder.insert(0, default)
+        if not ladder:
+            ladder = [default] if default else []
+        tried = self.exhausted_rungs(lineage)
+        for rung in ladder:
+            if rung and rung not in tried:
+                return rung
+        return None
+
+    def record_lineage(self, lineage: str, strategy: str, outcome: str) -> Dict:
+        entry = {"lineage": lineage, "strategy": strategy, "outcome": outcome}
+        self.history.append(entry)
+        return entry
 
     @staticmethod
     def fingerprint(call_id: str, strategy: str, content_fingerprint: str = "") -> str:
@@ -988,6 +1209,7 @@ class AnalyzerApiProofMixin:
         live_evidence = self._api_live_evidence(api_probe_result)
         callable_inventory = metadata.get("extension_callable_inventory", {}) or {}
         extension_methods = set(callable_inventory.get("logic_methods", []) or [])
+        extension_attributes = set(callable_inventory.get("logic_attributes", []) or [])
         extension_functions = (
             set(callable_inventory.get("module_functions", []) or [])
             | {_text_or_empty(metadata.get("logic_class_name"))}
@@ -1045,6 +1267,7 @@ class AnalyzerApiProofMixin:
                 live_evidence=live_evidence,
                 extension_methods=extension_methods,
                 extension_functions=extension_functions,
+                extension_attributes=extension_attributes,
                 logic_class_name=logic_class_name,
             )
             pass_obligations = []

@@ -3,7 +3,7 @@
 1. [op=user_choice] If the fibula is from the right leg, tick the "Right side leg" checkbox.
 2. [op=user_choice] In the "Select mandibular segmentation" section, choose the mandibular segmentation.
 3. [op=user_choice] In the "Select fibula segmentation" section, choose the fibula segmentation.
-4. [op=user_choice] For the "Current Scalar Volume" option, select the Mandible Volume.
+4. [op=user_choice] In the "Current Scalar Volume" option, choose the Mandible Volume.
 5. [op=extension_op] Click "Create bone models from segmentations" button.
 6. [op=slicer_op] Change the layout to "Conventional".
 7. [op=slicer_op] For the R (red) view, toggle on "slice visibility in 3D view".
@@ -11,13 +11,13 @@
 9. [op=slicer_op] In the toolbar, turn on "slice intersection visibility". In the slice intersection interaction options, turn on "set interaction", then enable both "Translate" and "Rotate".
 10. [op=user_interaction] Manually adjust the slice intersection position by translate and rotate of the cross lines in each view.
 11. [op=extension_op] Click the "Add mandibular curve" button.
-12. [op=slicer_op] Configure the display settings of the mandibular curve created by the "Add Mandibular Curve" button. Specifically, in the "Markups" module, under the "Advanced" collapsible section, select "View 1" and "Red" in the "View" combo box.
+12. [op=slicer_op] Configure the display settings of the mandibular curve created by the "Add Mandibular Curve" button. Specifically, in the "Markups" module, under the "Advanced" collapsible section, select "3D View 1" and "Red" in the "View" combo box.
 13. [op=user_interaction] Manually click and draw on the "Red" view to create a curve along the mandible.
 14. [op=slicer_op] Change the layout to "BoneReconstructionPlanner".
 15. [op=slicer_op] For the R (red) view, toggle off "slice visibility in 3D view".
 16. [op=user_choice] Manually set how many cut planes you want.
 17. [op=extension_op] Click "Add cut plane" button.
-18. [op=user_interaction] Place one mandibular cut plane using the extension's Add cut plane workflow. If the user requested N cut planes, repeat the Add cut plane + place plane interaction N times. Do not store these planes as a rotation plane; they are mandibular cut planes managed by the extension.
+18. [op=user_interaction] Place one mandibular cut plane using the extension's Add cut plane workflow. If the user requested N cut planes, repeat the Add cut plane + place plane interaction N times. 
 19. [op=extension_op] Click "Add fibula line" button.
 20. [op=user_interaction] Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally.
 21. [op=extension_op] Click "Center fibula line using fibula model" button to align the line with the anatomical axis of the fibula.

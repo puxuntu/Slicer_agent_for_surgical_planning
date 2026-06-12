@@ -1036,7 +1036,7 @@ class AnalyzerApiProbeMixin:
 
         try:
             for _attempt in range(2):
-                response = self._call_llm(prompt)
+                response = self._call_llm(prompt, call_class="grounding", attempt=_attempt)
                 response = self._strip_markdown_fences(response) if response else None
                 if not response:
                     break

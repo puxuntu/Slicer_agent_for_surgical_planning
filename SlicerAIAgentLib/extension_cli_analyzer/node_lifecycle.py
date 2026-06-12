@@ -134,7 +134,7 @@ Return JSON:
   ]
 }}""")
 
-        response = self._call_llm(prompt)
+        response = self._call_llm(prompt, call_class="analysis")
         parsed = self._parse_json_response(response)
         if not parsed:
             return {}

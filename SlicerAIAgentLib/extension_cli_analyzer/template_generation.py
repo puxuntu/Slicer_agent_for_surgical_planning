@@ -156,7 +156,7 @@ Return JSON:
 If the template is correct with no issues, return:
 {{"issues": [], "corrected_template": null}}""")
 
-            response = self._call_llm(prompt)
+            response = self._call_llm(prompt, call_class="critic")
             review = self._parse_json_response(response)
 
             if not review:

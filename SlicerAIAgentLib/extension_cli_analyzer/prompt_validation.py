@@ -188,7 +188,7 @@ Examples of good outputs:
 
 Return ONLY the sentence, nothing else.""")
 
-        response = self._call_llm(prompt)
+        response = self._call_llm(prompt, call_class="generation")
         if response:
             summary = response.strip().strip('"').strip("'")
             # Truncate if too long

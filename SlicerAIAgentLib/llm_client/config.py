@@ -404,7 +404,7 @@ class LLMClientConfigMixin:
             total_chars -= len(str(removed.get('content', '')))
         return trimmed
 
-    def _buildPayload(self, messages: List[Dict[str, Any]], stream: bool = False, tools: Optional[List[Dict]] = None, thinking: Optional[bool] = None, reasoning_effort: str = "high") -> Dict[str, Any]:
+    def _buildPayload(self, messages: List[Dict[str, Any]], stream: bool = False, tools: Optional[List[Dict]] = None, thinking: Optional[bool] = None, reasoning_effort: str = "high", options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Build the API payload for chat completion requests.
 
         Args:
@@ -412,7 +412,14 @@ class LLMClientConfigMixin:
                       uses the model's default capability check.
             reasoning_effort: "low", "medium", or "high" for reasoning models.
                               Applied to DeepSeek, OpenAI o-series/gpt-5, and Claude 4.6+.
+            options: Optional per-call sampling overrides: {"temperature": float,
+                     "top_p": float, "thinking": bool}. Sampling keys are applied
+                     only where the provider supports them (see
+                     _applySamplingOptions); a "thinking" key overrides the
+                     `thinking` argument.
         """
+        if options and "thinking" in options:
+            thinking = bool(options["thinking"])
         enable_thinking = self._supportsThinking() if thinking is None else thinking
 
         if self._isClaude():
@@ -438,7 +445,7 @@ class LLMClientConfigMixin:
                     budget = 4096
                     payload["thinking"] = {"type": "enabled", "budget_tokens": budget}
                     payload["max_tokens"] = max(payload["max_tokens"], budget + 4096)
-            return payload
+            return self._applySamplingOptions(payload, options, thinking_enabled=enable_thinking)
 
         payload = {
             "model": self.model,
@@ -457,6 +464,29 @@ class LLMClientConfigMixin:
                 payload["reasoning_effort"] = reasoning_effort
         if tools:
             payload["tools"] = tools
+        return self._applySamplingOptions(payload, options, thinking_enabled=enable_thinking)
+
+    def _applySamplingOptions(self, payload: Dict[str, Any], options: Optional[Dict[str, Any]], thinking_enabled: bool) -> Dict[str, Any]:
+        """Apply per-call temperature/top_p overrides where the provider allows them.
+
+        Skipped silently where the API would reject or ignore them:
+        - Anthropic forbids temperature/top_p when extended thinking is enabled.
+        - OpenAI o-series / gpt-5 reasoning models reject temperature.
+        """
+        if not options:
+            return payload
+        temperature = options.get("temperature")
+        top_p = options.get("top_p")
+        if temperature is None and top_p is None:
+            return payload
+        if self._isClaude() and thinking_enabled:
+            return payload
+        if self._isOpenAIReasoningModel():
+            return payload
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if top_p is not None:
+            payload["top_p"] = top_p
         return payload
 
     def _loadSystemPromptTemplate(self) -> str:

@@ -14,6 +14,7 @@ class LLMClientToolsMixin:
         reasoning_effort: str = "high",
         on_reasoning: Optional[Callable[[str, int], None]] = None,
         on_reasoning_delta: Optional[Callable[[str], None]] = None,
+        options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Core tool-calling loop. Operates on messages in-place.
@@ -25,6 +26,9 @@ class LLMClientToolsMixin:
             on_reasoning: Optional callback(reasoning_text, round_number) fired
                           after each API response with thinking content.
                           Used for streaming thinking to disk in real-time.
+            options: Optional per-call sampling overrides ({"temperature",
+                     "top_p", "thinking"}) applied where the provider allows
+                     (see _applySamplingOptions).
         """
         tool_calls_history = []
         intermediate_messages = []
@@ -41,6 +45,13 @@ class LLMClientToolsMixin:
             'rounds': [],
         }
 
+        # Per-call memo for deterministic search/read tools: LLMs frequently
+        # repeat an identical search in a later round; the repeat returns
+        # instantly. Stateful tools (scene introspection, workflow dispatch,
+        # GenerateSegmentationCode) are never memoized. Cleared with the loop.
+        _MEMOIZABLE = {"Grep", "ReadFile", "VectorSearch", "SearchSymbol"}
+        tool_memo: Dict[str, Any] = {}
+
         pending_workflow_wait = False
         for round_num in range(max_tool_rounds):
             logger.info(f"Tool calling round {round_num + 1}")
@@ -54,7 +65,7 @@ class LLMClientToolsMixin:
             try:
                 api_start = time.time()
 
-                payload = self._buildPayload(messages, stream=False, tools=tools, reasoning_effort=reasoning_effort)
+                payload = self._buildPayload(messages, stream=False, tools=tools, reasoning_effort=reasoning_effort, options=options)
                 request = self._buildRequest(url, payload)
 
                 # On first round, run a quick TCP probe to catch network issues early
@@ -188,6 +199,30 @@ class LLMClientToolsMixin:
                         tool_args = json.loads(tool_args_str)
                     except json.JSONDecodeError:
                         tool_args = {}
+                    memo_key = None
+                    if tool_name in _MEMOIZABLE:
+                        try:
+                            memo_key = tool_name + "\x00" + json.dumps(
+                                tool_args, sort_keys=True, ensure_ascii=False
+                            )
+                        except Exception:
+                            memo_key = None
+                    if memo_key is not None and memo_key in tool_memo:
+                        cached_result = tool_memo[memo_key]
+                        return {
+                            "tool_result": {
+                                "role": "tool",
+                                "tool_call_id": tool_id,
+                                "content": json.dumps(cached_result, ensure_ascii=False, default=str),
+                            },
+                            "history_entry": {
+                                "tool": tool_name,
+                                "args": tool_args,
+                                "result": cached_result,
+                                "memoized": True,
+                            },
+                            "name": tool_name,
+                        }
                     try:
                         result = tool_executor(tool_name, tool_args)
                         # Strip the _prelude_globals side channel before LLM
@@ -201,6 +236,10 @@ class LLMClientToolsMixin:
                                 k: v for k, v in result.items()
                                 if k != "_prelude_globals"
                             }
+                        if memo_key is not None and not (
+                            isinstance(llm_result, dict) and llm_result.get("error")
+                        ):
+                            tool_memo[memo_key] = llm_result
                         return {
                             "tool_result": {
                                 "role": "tool",
@@ -373,7 +412,7 @@ class LLMClientToolsMixin:
         intermediate_messages.append(messages[-1])
 
         final_start = time.time()
-        payload = self._buildPayload(messages, stream=False, tools=None, reasoning_effort=reasoning_effort)
+        payload = self._buildPayload(messages, stream=False, tools=None, reasoning_effort=reasoning_effort, options=options)
         request = self._buildRequest(url, payload)
         with self._openRequest(request) as response:
             data = json.loads(response.read().decode('utf-8'))
@@ -429,6 +468,7 @@ class LLMClientToolsMixin:
         on_status: Optional[Callable[[str], None]] = None,
         on_reasoning: Optional[Callable[[str, int], None]] = None,
         on_reasoning_delta: Optional[Callable[[str], None]] = None,
+        options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Send a chat request with tool calling support.
@@ -569,7 +609,12 @@ class LLMClientToolsMixin:
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": f"User request: {prompt}"},
             ]
-            payload = self._buildPayload(messages, stream=False, thinking=False)
+            # Deterministic decomposition: same prompt should yield the same
+            # sub-queries (temperature applied only where the provider allows).
+            payload = self._buildPayload(
+                messages, stream=False, thinking=False,
+                options={"temperature": 0.0},
+            )
             url = self._getChatUrl()
             request = self._buildRequest(url, payload)
 
@@ -611,6 +656,7 @@ class LLMClientToolsMixin:
         on_status: Optional[Callable[[str], None]] = None,
         on_reasoning: Optional[Callable[[str, int], None]] = None,
         on_reasoning_delta: Optional[Callable[[str], None]] = None,
+        options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Run tool-calling loop with fully isolated context.
@@ -644,6 +690,7 @@ class LLMClientToolsMixin:
             reasoning_effort="high",
             on_reasoning=on_reasoning,
             on_reasoning_delta=on_reasoning_delta,
+            options=options,
         )
 
         content = result['content']

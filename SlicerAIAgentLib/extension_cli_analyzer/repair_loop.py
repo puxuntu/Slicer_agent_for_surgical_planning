@@ -49,7 +49,10 @@ _SEMANTIC_REPAIR_RECIPES = {
 
 
 class AnalyzerRepairLoopMixin:
-    _VERIFY_REPAIR_MAX_ATTEMPTS = 3
+    # Global cycle cap. Wasted same-strategy retries are prevented by the
+    # per-lineage escalation ladder (RepairCoordinator), so a higher cap buys
+    # real strategy diversity instead of repetition.
+    _VERIFY_REPAIR_MAX_ATTEMPTS = 5
     _FORMAT_RETRY_MAX_ATTEMPTS = 2
 
     @staticmethod
@@ -164,7 +167,7 @@ class AnalyzerRepairLoopMixin:
             step_match = _re.search(r"(cb_step_\d+)", template)
             gen = template_context.get(template, {})
             issue_class = cls._issue_class_for_issue(classified)
-            strategy = cls._repair_strategy_for_issue(classified, gen)
+            strategy = cls._repair_strategy_for_issue(classified, gen, structured)
             issue = {
                 **structured,
                 "issue_id": structured.get("issue_id") or f"issue_{len(issues) + 1}",
@@ -209,6 +212,29 @@ class AnalyzerRepairLoopMixin:
             recipe_id = cls._semantic_recipe_for_issue(
                 issue_type, operation_intents, str(error)
             )
+            # Recipe synthesized from the contract step + validator message
+            # (general mechanism). The static table is a deprecated fallback:
+            # its retrieval hints are merged in when one still matches, and
+            # the match is logged so the table can be retired after a release
+            # of trace comparisons.
+            recipe = cls._synthesize_semantic_recipe(
+                issue_type, operation_intents,
+                contract_steps.get(step_id, {}), str(error),
+            )
+            static_recipe = _SEMANTIC_REPAIR_RECIPES.get(recipe_id, {})
+            if static_recipe:
+                logger.info(
+                    "[deprecated] static semantic recipe '%s' merged as fallback "
+                    "alongside synthesized recipe", recipe_id,
+                )
+                recipe["retrieval_queries"] = list(dict.fromkeys(
+                    list(recipe.get("retrieval_queries", []))
+                    + list(static_recipe.get("retrieval_queries", []))
+                ))
+                recipe["behavior_requirements"] = list(dict.fromkeys(
+                    list(static_recipe.get("behavior_requirements", []))
+                    + list(recipe.get("behavior_requirements", []))
+                ))
             strategy = cls._repair_strategy_for_issue(issue_type, gen)
             issue_class = cls._issue_class_for_issue(issue_type)
             repair_route = cls._repair_route_for_issue(issue_class, issue_type, strategy)
@@ -230,15 +256,11 @@ class AnalyzerRepairLoopMixin:
                 "repair_strategy": strategy,
                 "repair_route": repair_route,
                 "affected_artifacts": [issue_class],
-                "semantic_recipe_id": recipe_id,
-                "semantic_recipe": _SEMANTIC_REPAIR_RECIPES.get(recipe_id, {}),
+                "semantic_recipe_id": recipe.get("recipe_id", recipe_id),
+                "semantic_recipe": recipe,
                 "evidence_requirements": {
-                    "retrieval_queries": _SEMANTIC_REPAIR_RECIPES.get(recipe_id, {}).get(
-                        "retrieval_queries", []
-                    ),
-                    "behavior_requirements": _SEMANTIC_REPAIR_RECIPES.get(recipe_id, {}).get(
-                        "behavior_requirements", []
-                    ),
+                    "retrieval_queries": recipe.get("retrieval_queries", []),
+                    "behavior_requirements": recipe.get("behavior_requirements", []),
                 },
                 "contract_step": contract_steps.get(step_id, {}),
                 "message": message,
@@ -264,7 +286,65 @@ class AnalyzerRepairLoopMixin:
         return ""
 
     @staticmethod
-    def _repair_strategy_for_issue(issue_type: str, gen: Dict) -> str:
+    def _synthesize_semantic_recipe(
+        issue_type: str,
+        operation_intents: List[str],
+        contract_step: Dict,
+        error: str,
+    ) -> Dict:
+        """Synthesize a repair recipe from generic inputs at repair time.
+
+        Replaces the fixed _SEMANTIC_REPAIR_RECIPES table with a recipe built
+        from what is actually known about the failing step: the contract step
+        description, its operation intents, and the validator's stated
+        requirement. Works for any extension and any operation — no
+        per-operation rules.
+        """
+        step_desc = _text_or_empty((contract_step or {}).get("description"))
+        behavior_requirements = []
+        if step_desc:
+            behavior_requirements.append(
+                f"The step's contracted behavior is achieved: {step_desc}"
+            )
+        if error:
+            behavior_requirements.append(
+                f"The validator's stated requirement is satisfied: {error}"
+            )
+
+        # Retrieval queries from intents, contract-step terms, and API-shaped
+        # tokens in the validator message (CamelCase or dotted chains).
+        queries: List[str] = [intent for intent in (operation_intents or []) if intent]
+        text = " ".join(filter(None, [step_desc, error]))
+        api_tokens = [
+            token for token in _re.findall(r"[A-Za-z_][A-Za-z0-9_.]{3,}", text)
+            if "." in token or _re.search(r"[a-z][A-Z]", token)
+        ]
+        plain_terms = [
+            token.lower()
+            for token in _re.findall(r"[A-Za-z]{4,}", step_desc)
+        ]
+        queries.extend(sorted(set(api_tokens))[:12])
+        queries.append(" ".join(dict.fromkeys(plain_terms))[:120])
+
+        return {
+            "recipe_id": f"synthesized:{issue_type or 'semantic'}",
+            "knowledge_level": "behavioral_contract",
+            "behavior_requirements": behavior_requirements,
+            "invalid_substitutions": [
+                "an implementation that does not produce the contracted behavior",
+                "removing or skipping the required behavior instead of implementing it",
+                "an unrelated operation (e.g. module switching) used as the implementation",
+            ],
+            "retrieval_queries": [q for q in queries if q and q.strip()],
+            "retrieval_query_provenance": "synthesized_from_contract_and_validator",
+            "evidence_policy": (
+                "Select any source-backed implementation that satisfies the "
+                "behavior validator."
+            ),
+        }
+
+    @staticmethod
+    def _repair_strategy_for_issue(issue_type: str, gen: Dict, structured: Optional[Dict] = None) -> str:
         slicer_sub_ops = [
             so for so in gen.get("sub_operations", []) or []
             if so.get("op_type") == "slicer_op"
@@ -277,6 +357,26 @@ class AnalyzerRepairLoopMixin:
         if issue_type in {"InvalidSlicerAPI", "SlicerSemanticError", "MissingOperationFootprint"}:
             return "reground_slicer_op" if pure_slicer_op else "contract_aware_template_repair"
         if issue_type == "UnprovenReceiver":
+            # A state-changing call whose method cannot be proven on a KNOWN
+            # receiver type ("method_unproven") will never be resolved by more
+            # probing — the method simply is not on that type. Escalate it to the
+            # LLM rewrite path so the template can be repaired (remove the dead
+            # call, replace with a proven method, or restructure). Receiver-type-
+            # unknown and read-only cases keep the cheap evidence-gathering path.
+            info = structured or {}
+            diagnosis = info.get("diagnosis")
+            if (
+                diagnosis == "method_unproven"
+                and info.get("effect") != "read_only"
+                and info.get("blocking", True)
+            ):
+                return "contract_aware_template_repair"
+            # A hallucinated attribute member (e.g. `logic.parameterNode`) cannot be
+            # resolved by probing — the member simply does not exist on the receiver.
+            # It is read-only but must still be rewritten to a proven member, so
+            # escalate it too.
+            if diagnosis == "member_unproven" and info.get("blocking", True):
+                return "contract_aware_template_repair"
             return "gather_api_evidence"
         if issue_type in {
             "CallableReferenceMisuse", "BadInstructionText",
@@ -286,6 +386,40 @@ class AnalyzerRepairLoopMixin:
         if issue_type in {"LowConfidenceFallback", "UnresolvedPlaceholder"}:
             return "parameter_contract_repair"
         return "contract_aware_template_repair"
+
+    @staticmethod
+    def _upstream_requests_from_issues(
+        issues: List[Dict],
+        escalated_lineages: Optional[set] = None,
+    ) -> List[Dict]:
+        """Convert contract/dataflow-rooted issues into structured re-entry requests.
+
+        These issues cannot be fixed at template level; the pipeline engine
+        re-runs the owning upstream phase with this feedback injected instead
+        of blocking and asking the user to rerun manually. Issues whose
+        escalation ladder ended at "upstream_request" (any class) are included
+        via escalated_lineages.
+        """
+        escalated_lineages = escalated_lineages or set()
+        requests = []
+        for issue in issues or []:
+            escalated = (
+                issue.get("escalated_to_upstream")
+                or RepairCoordinator.lineage_key(issue) in escalated_lineages
+            )
+            if issue.get("issue_class") not in {"contract", "dataflow"} and not escalated:
+                continue
+            requests.append({
+                "phase": "contract",
+                "issue_type": issue.get("issue_type", ""),
+                "issue_class": issue.get("issue_class", ""),
+                "step_ids": [issue["step_id"]] if issue.get("step_id") else [],
+                "template_key": issue.get("template_key", ""),
+                "message": issue.get("message", ""),
+                "contract_step": issue.get("contract_step", {}),
+                "repair_route": issue.get("repair_route", ""),
+            })
+        return requests
 
     @staticmethod
     def _repair_plan_from_issues(issues: List[Dict]) -> List[Dict]:
@@ -347,6 +481,13 @@ class AnalyzerRepairLoopMixin:
                     "state_reads": method.get("state_reads", []),
                     "state_writes": method.get("state_writes", []),
                 })
+        logic_attributes = []
+        if isinstance(self._workflow_metadata, dict):
+            logic_attributes = list(
+                self._workflow_metadata.get("extension_callable_inventory", {})
+                .get("logic_attributes", []) or []
+            )
+        memory_examples = self._repair_memory_examples(issues)
 
         prompt = textwrap.dedent(f"""\
 You are repairing generated 3D Slicer workflow templates for extension "{extension_name}".
@@ -360,14 +501,21 @@ VALIDATION ISSUES:
 WORKFLOW CONTRACT STEPS:
 {json.dumps(contract_steps, indent=2)}
 
-LOGIC METHOD FACTS:
+PROVEN TARGETS (the ONLY methods known to exist on the extension logic receiver `logic`):
 {json.dumps(logic_methods[:80], indent=2)}
+
+PROVEN MEMBERS (the ONLY attributes/members known on `logic`; `getParameterNode` returns the parameter node):
+{json.dumps(logic_attributes[:120], indent=2)}
 
 TEMPLATES:
 {templates_text}
-
+{memory_examples}
 Rules:
 - Return valid JSON only.
+- You may call a method on the `logic` receiver ONLY if its name appears in PROVEN TARGETS. Never call or assume a method that is not listed (it does not exist on the logic class — it may belong to the Widget class or not exist at all).
+- A "method_unproven" issue with a known receiver type means the named method does NOT exist on that receiver. To repair it you MUST do exactly ONE of: (a) REMOVE the call if it sits in a defensive guard/fallback (e.g. `if hasattr(...)`, `try/except AttributeError`) and is not required by the contract step; (b) REPLACE it with a PROVEN TARGET method that achieves the contract step's stated effect; (c) RESTRUCTURE so the unprovable call is both unreachable and unnecessary.
+- A "member_unproven" issue means an ATTRIBUTE access `logic.<name>` references a member that does NOT exist on the logic class. Replace it with a PROVEN MEMBER/TARGET that yields the intended object — most often the access should be the method call `logic.getParameterNode()` (e.g. rewrite `logic.parameterNode.GetNodeReference(...)` to `logic.getParameterNode().GetNodeReference(...)`). Never access an attribute that is not in PROVEN MEMBERS.
+- Do NOT satisfy a "method_unproven" issue by wrapping a REQUIRED call in a new `hasattr`/`try` guard — guarding a required step does not implement it.
 - Gather and report receiver-type, method-existence, and behavior evidence before rewriting code.
 - Distinguish invalid code from missing proof; do not claim a call is valid from absence of a probe failure.
 - Preserve template placeholders like {{name: default}} and {{vol_lookup}}.
@@ -389,18 +537,55 @@ Return:
   "fix_description": "short summary"
 }}""")
 
-        for _attempt in range(self._FORMAT_RETRY_MAX_ATTEMPTS):
-            response = self._call_llm(prompt)
-            fixed = self._parse_json_response(response)
-            if isinstance(fixed, dict) and isinstance(fixed.get("templates"), dict):
-                repaired = dict(templates)
-                for tpl_name, tpl_content in fixed["templates"].items():
-                    key = tpl_name if tpl_name.startswith("templates/") else f"templates/{tpl_name}"
-                    if key in affected and isinstance(tpl_content, str):
-                        repaired[key] = tpl_content
-                return self._sanitize_templates(repaired)
-            prompt += "\n\nPrevious response was not valid JSON with a templates object. Return only the required JSON."
-        return None
+        def _validate(candidate, raw):
+            if isinstance(candidate, dict) and isinstance(candidate.get("templates"), dict):
+                return candidate, []
+            return None, ["Response must be a JSON object with a 'templates' object"]
+
+        try:
+            fixed = self._call_llm_structured(
+                prompt=prompt,
+                validator=_validate,
+                call_class="repair",
+                max_attempts=self._FORMAT_RETRY_MAX_ATTEMPTS,
+                failure_label="Targeted template repair",
+            )
+        except RuntimeError:
+            return None
+        self._last_fix_description = _text_or_empty(fixed.get("fix_description"))
+        repaired = dict(templates)
+        for tpl_name, tpl_content in fixed["templates"].items():
+            key = tpl_name if tpl_name.startswith("templates/") else f"templates/{tpl_name}"
+            if key in affected and isinstance(tpl_content, str):
+                repaired[key] = tpl_content
+        return self._sanitize_templates(repaired)
+
+    @staticmethod
+    def _broadened_keywords(step_text: str) -> List[str]:
+        """Widened retrieval terms for an escalated re-ground rung.
+
+        Generic synthesis from the failing step's text (tokenization) plus the
+        Slicer core-UI pre-analysis index: controls whose labels match the
+        step text contribute their observed API footprints. No rule tables;
+        no-op when the pre-analysis artifacts are absent.
+        """
+        added = sorted({
+            token for token in _re.findall(r"[A-Za-z][A-Za-z0-9_]{3,}", step_text)
+        })[:24]
+        try:
+            from ..UIControlIndex import get_index
+            index = get_index()
+            if index is not None:
+                ui_terms = []
+                for match in index.match(step_text, top_k=4):
+                    record = match.get("record", {})
+                    ui_terms.extend((record.get("api_footprints") or [])[:6])
+                    if record.get("object_name"):
+                        ui_terms.append(record["object_name"])
+                added.extend(sorted(set(ui_terms))[:12])
+        except Exception:
+            logger.debug("UI-evidence keyword broadening failed", exc_info=True)
+        return added
 
     def _reground_slicer_template(
         self,
@@ -443,6 +628,13 @@ Return:
         recipe = issue.get("semantic_recipe") or {}
         keywords = list(source.get("slicer_api_keywords") or [])
         keywords.extend(recipe.get("retrieval_queries") or [])
+        if issue.get("broadened_retrieval"):
+            step_text = " ".join(filter(None, [
+                _text_or_empty((issue.get("contract_step") or {}).get("description")),
+                _text_or_empty(source.get("description")),
+                _text_or_empty(issue.get("message")),
+            ]))
+            keywords.extend(self._broadened_keywords(step_text))
         sub_op = SubOperation(
             op_type="slicer_op",
             description=description,
@@ -484,11 +676,16 @@ Return:
                 "Verify And Repair Templates",
             )
 
+        _ext_name = (
+            self._cookbook_def.extension_name
+            if getattr(self, "_cookbook_def", None) else ""
+        )
         generator = SlicerOpGenerator(
             llm_client=self.llm_client,
             skill_path=skill_path,
             on_progress=_progress,
             debug_path=debug_path,
+            extension_name=_ext_name,
         )
         step_match = _re.search(r"cb_step_(\d+)", issue.get("step_id", "") or template_key)
         step_number = int(step_match.group(1)) if step_match else 0
@@ -555,7 +752,11 @@ Return:
                         "strategy": "deterministic_module_enter_precondition",
                         "changed": changed,
                     })
-            elif issue.get("issue_class") in {"contract", "dataflow"}:
+            elif issue.get("issue_class") in {"contract", "dataflow"} and issue.get(
+                "repair_strategy", ""
+            ) in {"", "rebuild_contract", "rebuild_dataflow", "upstream_request"}:
+                # No template-level rung assigned — this issue is owned by the
+                # pipeline engine's upstream re-entry (see upstream_requests).
                 strategy_results.append({
                     "template_key": issue.get("template_key", ""),
                     "strategy": "requires_upstream_artifact_rebuild",
@@ -646,6 +847,9 @@ Return:
         current_templates = self._sanitize_templates(dict(templates or {}))
         current_probe_result = None
         validation_result = {"valid": False, "errors": ["verify_repair did not run"]}
+        applied_last_cycle: Dict[str, str] = {}
+        last_cycle_issues: List[Dict] = []
+        escalated_upstream_lineages: set = set()
 
         for attempt in range(self._VERIFY_REPAIR_MAX_ATTEMPTS):
             self._phase_progress(
@@ -676,17 +880,82 @@ Return:
                 generators=generators,
                 workflow_contract=workflow_contract,
             )
+            # Escalation ladder: a lineage that survived the strategy applied
+            # in the previous cycle exhausts that rung — the next rung of its
+            # issue-class ladder becomes mandatory. Lineages whose ladder ends
+            # in "upstream_request" are routed to the pipeline engine for
+            # upstream phase re-entry instead of more template-level retries.
+            surviving_lineages = set()
+            for issue in issues:
+                lineage = RepairCoordinator.lineage_key(issue)
+                prior_rung = applied_last_cycle.get(lineage)
+                if prior_rung:
+                    repair_coordinator.record_lineage(lineage, prior_rung, "survived")
+                    surviving_lineages.add(lineage)
+                    self._repair_memory_record(issue, prior_rung, "failed")
+            # Lineages repaired last cycle that no longer appear were fixed —
+            # record the successful strategy as cross-run experience.
+            for prev_issue in last_cycle_issues:
+                lineage = RepairCoordinator.lineage_key(prev_issue)
+                rung = applied_last_cycle.get(lineage)
+                if rung and lineage not in surviving_lineages:
+                    self._repair_memory_record(
+                        prev_issue, rung, "succeeded",
+                        getattr(self, "_last_fix_description", ""),
+                    )
+            applied_last_cycle = {}
             filtered_issues = []
             for issue in issues:
-                strategy = issue.get("repair_strategy", "")
-                call_id = issue.get("call_id") or issue.get("issue_id", "")
-                template_code = current_templates.get(issue.get("template_key", ""), "")
-                content_fingerprint = hashlib.sha256(
-                    template_code.encode("utf-8")
-                ).hexdigest()[:20]
-                if repair_coordinator.can_attempt(call_id, strategy, content_fingerprint):
-                    filtered_issues.append(issue)
+                lineage = RepairCoordinator.lineage_key(issue)
+                rung = repair_coordinator.next_strategy(issue)
+                if rung == "upstream_request":
+                    issue["escalated_to_upstream"] = True
+                    escalated_upstream_lineages.add(lineage)
+                    repair_coordinator.record_lineage(lineage, rung, "requested")
+                    continue
+                if rung is None:
+                    repair_coordinator.record_lineage(lineage, "", "exhausted")
+                    continue
+                issue["ladder_rung"] = rung
+                if rung == "reground_broadened":
+                    issue["repair_strategy"] = "reground_slicer_op"
+                    issue["broadened_retrieval"] = True
+                else:
+                    issue["repair_strategy"] = rung
+                filtered_issues.append(issue)
             issues = filtered_issues
+
+            # Detailed attempt report for the UI/debug log: issue breakdown
+            # and the ladder rung chosen per lineage.
+            if not validation_result.get("valid"):
+                type_counts: Dict[str, int] = {}
+                for issue in issues:
+                    key = issue.get("issue_type", "?")
+                    type_counts[key] = type_counts.get(key, 0) + 1
+                breakdown = ", ".join(
+                    f"{itype}x{count}" for itype, count in sorted(type_counts.items())
+                ) or "none repairable"
+                self._phase_progress(
+                    "verify_repair",
+                    f"Attempt {attempt + 1} found {len(issues)} repairable issue(s) "
+                    f"[{breakdown}]"
+                    + (f"; {len(escalated_upstream_lineages)} lineage(s) escalated "
+                       "to upstream re-entry" if escalated_upstream_lineages else ""),
+                    "Verify And Repair Templates",
+                )
+                ladder_notes = [
+                    f"{issue.get('step_id') or issue.get('template_key', '?')}:"
+                    f"{issue.get('issue_type', '?')} -> "
+                    f"{issue.get('ladder_rung', issue.get('repair_strategy', '?'))}"
+                    for issue in issues[:6]
+                ]
+                if ladder_notes:
+                    self._phase_progress(
+                        "verify_repair",
+                        "Repair ladder: " + "; ".join(ladder_notes)
+                        + (" ..." if len(issues) > 6 else ""),
+                        "Verify And Repair Templates",
+                    )
             if isinstance(self._workflow_metadata, dict):
                 repair_trace = self._workflow_metadata.setdefault("repair_trace", [])
                 for issue in issues:
@@ -717,6 +986,31 @@ Return:
                 logic_analysis,
             )
             repair_log[-1]["strategy_results"] = strategy_results
+            changed_results = [r for r in strategy_results or [] if r.get("changed")]
+            if changed_results:
+                self._phase_progress(
+                    "verify_repair",
+                    f"Repairs applied: {len(changed_results)} change(s) via "
+                    + ", ".join(sorted({
+                        str(r.get("strategy", "?")) for r in changed_results
+                    })),
+                    "Verify And Repair Templates",
+                )
+            elif strategy_results:
+                self._phase_progress(
+                    "verify_repair",
+                    "No template changes produced by repair strategies this attempt",
+                    "Verify And Repair Templates",
+                )
+            # Lineages repaired this cycle: if they reappear next cycle the
+            # applied rung is recorded as survived (exhausted).
+            applied_last_cycle = {
+                RepairCoordinator.lineage_key(issue): issue.get(
+                    "ladder_rung", issue.get("repair_strategy", "")
+                )
+                for issue in issues
+            }
+            last_cycle_issues = list(issues)
             if not repaired or repaired == current_templates:
                 for issue in issues:
                     template_code = current_templates.get(issue.get("template_key", ""), "")
@@ -786,6 +1080,19 @@ Return:
                     "api_probe_result": current_probe_result,
                 })
 
+        if not validation_result.get("valid"):
+            remaining_issues = self._validation_issues_from_result(
+                validation_result,
+                generators=generators,
+                workflow_contract=workflow_contract,
+            )
+            upstream_requests = self._upstream_requests_from_issues(
+                remaining_issues,
+                escalated_lineages=escalated_upstream_lineages,
+            )
+            if upstream_requests:
+                validation_result["upstream_requests"] = upstream_requests
+
         if isinstance(self._workflow_metadata, dict):
             self._workflow_metadata["repair_strategy_history"] = repair_coordinator.history
             self._workflow_metadata["verify_repair"] = {
@@ -795,4 +1102,13 @@ Return:
             }
         validation_result["repair_log"] = repair_log
         validation_result["api_probe_result"] = current_probe_result
+        upstream_count = len(validation_result.get("upstream_requests") or [])
+        self._phase_progress(
+            "verify_repair",
+            f"verify_repair finished: {'PASS' if validation_result.get('valid') else 'FAIL'} "
+            f"after {len(repair_log)} validation attempt(s)"
+            + (f"; {upstream_count} upstream re-entry request(s) raised"
+               if upstream_count else ""),
+            "Verify And Repair Templates",
+        )
         return current_templates, validation_result

@@ -253,25 +253,171 @@ class AnalyzerContractAuditMixin:
             "Workflow contract audit failed: " + "; ".join(report.get("errors", []))
         )
 
-    def _finalize_package_validation_state(
+    def _final_package_audit(
         self,
-        manifest: Dict,
+        templates: Optional[Dict[str, str]],
+        generators: Optional[List[Dict]],
         validation_result: Dict,
     ) -> Dict:
-        metadata = self._workflow_metadata if isinstance(self._workflow_metadata, dict) else {}
-        state = metadata.setdefault("validation_state", {})
-        valid = bool((validation_result or {}).get("valid"))
-        coverage = (validation_result or {}).get("api_proof_coverage") or metadata.get(
-            "api_proof_coverage", {}
+        """Deterministic audit recomputed from the FINAL artifacts only.
+
+        This is the single source of truth for package validity. Phase-time
+        flags (e.g. a syntax check recorded at generate time) are advisory:
+        templates rewritten by verify_repair or revision would otherwise leave
+        stale verdicts that disagree with the actual shipped artifacts.
+        """
+        audit: Dict = {"errors": [], "checks": {}}
+        validation_result = validation_result or {}
+
+        coverage = validation_result.get("api_proof_coverage") or (
+            self._workflow_metadata.get("api_proof_coverage", {})
+            if isinstance(self._workflow_metadata, dict) else {}
         ) or {}
         proof_valid = bool(
             coverage.get("inventory_complete")
             and not coverage.get("invalid_calls")
             and not coverage.get("blocking_unproven_calls")
         )
-        valid = valid and proof_valid
+        audit["checks"]["api_proof_valid"] = proof_valid
+        audit["coverage"] = coverage
+
+        if templates is not None:
+            # 1) Syntax of the final (placeholder-filled) templates
+            syntax_issues = self._syntax_check_templates(templates)
+            audit["checks"]["final_syntax_valid"] = not syntax_issues
+            for issue in syntax_issues:
+                audit["errors"].append(
+                    f"{issue.get('template')}: final syntax error: {issue.get('error')}"
+                )
+
+            # 2) Placeholder closure on generator-referenced templates
+            #    (same rule as contract validation: placeholders without a
+            #    default, excluding vol_lookup, cannot be instantiated)
+            unresolved_total = []
+            referenced = []
+            for gen in generators or []:
+                for key_field in ("template_file", "pre_template_file", "post_template_file"):
+                    tpl_key = gen.get(key_field)
+                    if not tpl_key:
+                        continue
+                    referenced.append(tpl_key)
+                    if tpl_key not in templates:
+                        audit["errors"].append(
+                            f"{tpl_key}: referenced by generator "
+                            f"'{gen.get('operation_id') or gen.get('stage_name', '?')}' "
+                            "but missing from the package"
+                        )
+                        continue
+                    unresolved = [
+                        p["name"]
+                        for p in self._find_template_placeholders(templates[tpl_key])
+                        if p["name"] != "vol_lookup" and not p["has_default"]
+                    ]
+                    if unresolved:
+                        unresolved_total.extend(unresolved)
+                        audit["errors"].append(
+                            f"{tpl_key}: unresolved placeholders in final template: "
+                            + ", ".join(sorted(set(unresolved)))
+                        )
+            audit["checks"]["placeholder_closure_valid"] = not unresolved_total
+            audit["checks"]["generator_template_sync_valid"] = all(
+                key in templates for key in referenced
+            )
+
+        deterministic_valid = all(
+            value for value in audit["checks"].values() if value is not None
+        )
+        audit["valid"] = bool(validation_result.get("valid")) and deterministic_valid
+
+        # Per-step validity: which workflow steps have no blocking issues on
+        # their templates. Always recorded (informational); the runtime
+        # loader's opt-in partial mode uses it to load proven steps while
+        # surfacing unproven ones as requiring confirmation.
+        if templates is not None and generators:
+            step_validation: Dict[str, Dict] = {}
+            error_texts = [str(e) for e in (validation_result.get("errors") or [])]
+            structured_issues = validation_result.get("validation_issues") or []
+            for gen in generators:
+                tpl_keys = {
+                    gen.get(field)
+                    for field in ("template_file", "pre_template_file", "post_template_file")
+                    if gen.get(field)
+                }
+                step_id = gen.get("step_id") or ""
+                if not step_id:
+                    for key in tpl_keys:
+                        match = _re.search(r"(cb_step_\d+)", key or "")
+                        if match:
+                            step_id = match.group(1)
+                            break
+                if not step_id:
+                    continue
+                step_issues = [
+                    text for text in error_texts
+                    if any(key and key in text for key in tpl_keys)
+                ]
+                step_issues.extend(
+                    _text_or_empty(item.get("diagnosis") or item.get("issue_type"))
+                    for item in structured_issues
+                    if isinstance(item, dict)
+                    and item.get("template") in tpl_keys
+                    and item.get("severity") != "warning"
+                    and item.get("blocking") is not False
+                )
+                step_issues.extend(
+                    text for text in audit["errors"]
+                    if any(key and key in text for key in tpl_keys)
+                )
+                entry = step_validation.setdefault(
+                    step_id, {"valid": True, "issues": []}
+                )
+                entry["issues"].extend(issue for issue in step_issues if issue)
+                entry["issues"] = entry["issues"][:5]
+                entry["valid"] = entry["valid"] and not step_issues
+            audit["step_validation"] = step_validation
+        return audit
+
+    def _finalize_package_validation_state(
+        self,
+        manifest: Dict,
+        validation_result: Dict,
+        templates: Optional[Dict[str, str]] = None,
+        generators: Optional[List[Dict]] = None,
+    ) -> Dict:
+        """Write the authoritative package status from a final-artifact audit.
+
+        All keys in validation_state are owned and overwritten here; earlier
+        phase-time verdicts are preserved under '*_at_<phase>' advisory names
+        so they can never disagree with the final gate.
+        """
+        metadata = self._workflow_metadata if isinstance(self._workflow_metadata, dict) else {}
+        state = metadata.setdefault("validation_state", {})
+
+        final_audit = self._final_package_audit(templates, generators, validation_result)
+        coverage = final_audit.get("coverage", {})
+        valid = final_audit["valid"]
+
+        # Demote stale phase-time syntax verdict to an advisory key; the gate
+        # owns the final value (Run-3 class bug: repaired templates kept a
+        # stale generate-time `generate_syntax_valid: false`).
+        if "generate_syntax_valid" in state:
+            state.setdefault("generate_syntax_valid_at_generate", state["generate_syntax_valid"])
+            del state["generate_syntax_valid"]
+        if "final_syntax_valid" in final_audit["checks"]:
+            state["final_syntax_valid"] = final_audit["checks"]["final_syntax_valid"]
+            state["placeholder_closure_valid"] = final_audit["checks"].get(
+                "placeholder_closure_valid"
+            )
+            state["generator_template_sync_valid"] = final_audit["checks"].get(
+                "generator_template_sync_valid"
+            )
+
         state["overall_valid"] = valid
-        state["api_proof_valid"] = proof_valid
+        state["api_proof_valid"] = final_audit["checks"]["api_proof_valid"]
+        if final_audit["errors"]:
+            state["final_audit_errors"] = final_audit["errors"]
+        else:
+            state.pop("final_audit_errors", None)
         audit = metadata.get("contract_audit")
         if isinstance(audit, dict):
             state["contract_audit_valid"] = bool(audit.get("valid"))
@@ -292,6 +438,51 @@ class AnalyzerContractAuditMixin:
         else:
             repair["status"] = "failed"
             manifest["status"] = "validation_failed"
+        step_validation = final_audit.get("step_validation")
+        if step_validation is not None:
+            manifest["step_validation"] = step_validation
+            manifest["partial_valid_step_count"] = sum(
+                1 for entry in step_validation.values() if entry.get("valid")
+            )
         manifest["validation_state"] = state
         manifest["api_proof_coverage"] = coverage
+
+        # Final-gate summary for the UI/debug log: one line that states
+        # exactly which deterministic checks decided the package status.
+        try:
+            checks = final_audit.get("checks", {})
+            parts = [f"status={manifest['status']}"]
+            parts.append(
+                "api_proof=" + ("OK" if checks.get("api_proof_valid") else "FAIL")
+            )
+            if "final_syntax_valid" in checks:
+                parts.append(
+                    "final_syntax=" + ("OK" if checks.get("final_syntax_valid") else "FAIL")
+                )
+                parts.append(
+                    "placeholders=" + (
+                        "OK" if checks.get("placeholder_closure_valid") else "FAIL"
+                    )
+                )
+                parts.append(
+                    "generator_sync=" + (
+                        "OK" if checks.get("generator_template_sync_valid") else "FAIL"
+                    )
+                )
+            if step_validation:
+                parts.append(
+                    f"steps_valid={manifest.get('partial_valid_step_count', 0)}"
+                    f"/{len(step_validation)}"
+                )
+            warning_reads = coverage.get("warning_unproven_reads")
+            if warning_reads:
+                count = len(warning_reads) if isinstance(warning_reads, (list, tuple)) else warning_reads
+                parts.append(f"unproven_read_warnings={count}")
+            if final_audit.get("errors"):
+                parts.append(f"gate_errors={len(final_audit['errors'])}")
+            self.on_progress("package", "Final Gate", " | ".join(str(p) for p in parts))
+            for error in (final_audit.get("errors") or [])[:5]:
+                self.on_progress("package", "Final Gate", f"gate error: {error}")
+        except Exception:
+            logger.debug("Final-gate summary emission failed", exc_info=True)
         return manifest

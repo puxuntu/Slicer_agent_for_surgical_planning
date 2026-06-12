@@ -43,7 +43,92 @@ class AnalyzerWorkflowContractsMixin:
         return {
             "logic_methods": logic_methods,
             "module_functions": module_functions,
+            "logic_attributes": self._collect_logic_instance_attributes(
+                scan_result, logic_analysis
+            ),
         }
+
+    @staticmethod
+    def _collect_attr_target(target, names: set) -> None:
+        """Add ``self.<name>`` assignment targets (incl. tuple unpacking) to names."""
+        elements = target.elts if isinstance(target, (ast.Tuple, ast.List)) else [target]
+        for elem in elements:
+            if (
+                isinstance(elem, ast.Attribute)
+                and isinstance(elem.value, ast.Name)
+                and elem.value.id == "self"
+            ):
+                names.add(elem.attr)
+
+    def _collect_logic_instance_attributes(
+        self, scan_result: Dict, logic_analysis: Dict,
+    ) -> List[str]:
+        """Collect member names defined on the Logic class via a static AST scan.
+
+        Used to prove (or disprove) attribute accesses like ``logic.parameterNode``
+        on the extension Logic receiver.  Proving NON-existence demands a
+        deterministic scan, so we read the actual class source rather than rely on
+        the LLM-derived ``state_fields``.  Collected members:
+          - instance attributes assigned as ``self.<name> = ...`` in any method
+          - class-level assignments
+          - ``@property`` names and all method names
+        The LLM ``state_fields`` names are unioned in as a low-risk supplement.
+        """
+        names: set = set()
+
+        logic_info = scan_result.get("logic_class") or {}
+        logic_file = logic_info.get("file", "") or logic_analysis.get("_logic_file", "")
+        class_name = logic_info.get("class_name", "") or logic_analysis.get("class_name", "")
+        source = ""
+        if logic_file and class_name:
+            try:
+                source = self._extract_class_source(logic_file, class_name) or ""
+            except Exception:
+                source = ""
+        if source:
+            try:
+                tree = ast.parse(source)
+            except Exception:
+                tree = None
+            if tree is not None:
+                class_def = next(
+                    (n for n in ast.walk(tree)
+                     if isinstance(n, ast.ClassDef) and n.name == class_name),
+                    None,
+                ) or next(
+                    (n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)),
+                    None,
+                )
+                if class_def is not None:
+                    # Instance attributes set as self.<name> = ... anywhere in the class.
+                    for node in ast.walk(class_def):
+                        if isinstance(node, ast.Assign):
+                            for target in node.targets:
+                                self._collect_attr_target(target, names)
+                        elif isinstance(node, ast.AnnAssign):
+                            self._collect_attr_target(node.target, names)
+                    # Class-level assignments + method/property names.
+                    for node in class_def.body:
+                        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            names.add(node.name)
+                        elif isinstance(node, ast.Assign):
+                            for target in node.targets:
+                                if isinstance(target, ast.Name):
+                                    names.add(target.id)
+                        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                            names.add(node.target.id)
+
+        # Supplement with LLM-derived state fields (never the sole source).
+        for field in logic_analysis.get("state_fields", []) or []:
+            raw = field.get("name", "") if isinstance(field, dict) else field
+            raw = _text_or_empty(raw)
+            if raw.startswith("self."):
+                raw = raw[len("self."):]
+            raw = raw.split(".")[0].split("[")[0].strip()
+            if raw.isidentifier():
+                names.add(raw)
+
+        return sorted(n for n in names if n and not n.startswith("__"))
 
     @staticmethod
     def _infer_callable_effects(node: Optional[ast.AST], source: str = "") -> List[str]:
@@ -268,7 +353,7 @@ class AnalyzerWorkflowContractsMixin:
             {json.dumps(contexts, indent=2)}
             """)
         try:
-            response = self._call_llm(prompt)
+            response = self._call_llm(prompt, call_class="contract")
             parsed = self._parse_json_response(response)
         except Exception:
             logger.debug("UI guidance synthesis failed", exc_info=True)
@@ -487,6 +572,7 @@ class AnalyzerWorkflowContractsMixin:
         )
         metadata["extension_callable_inventory"] = {
             "logic_methods": sorted(callable_inventory.get("logic_methods", {}).keys()),
+            "logic_attributes": list(callable_inventory.get("logic_attributes", []) or []),
             "module_functions": sorted(callable_inventory.get("module_functions", {}).keys()),
             "module_function_effects": {
                 name: info.get("effects", [])

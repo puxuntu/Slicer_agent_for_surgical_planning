@@ -248,17 +248,21 @@ class LLMClientChatMixin:
 
         raise RuntimeError(f"Failed after {self.MAX_RETRIES} attempts. Last error: {last_error}")
 
-    def chatIsolated(self, messages: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def chatIsolated(self, messages: List[Dict[str, Any]], options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Send a non-streaming chat request with isolated messages.
         Does NOT read from or write to conversation_history.
         Used for self-correction to avoid context bloat from failed attempts.
+
+        Args:
+            options: Optional per-call sampling overrides forwarded to
+                     _buildPayload ({"temperature", "top_p", "thinking"}).
         """
         if not self.api_key:
             raise RuntimeError("API key not configured")
 
         url = self._getChatUrl()
-        payload = self._buildPayload(messages, stream=False, thinking=True)
+        payload = self._buildPayload(messages, stream=False, thinking=True, options=options)
 
         last_error = None
         for attempt in range(self.MAX_RETRIES):

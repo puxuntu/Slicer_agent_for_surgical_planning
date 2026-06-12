@@ -3,7 +3,16 @@ from .common import *
 
 class AnalyzerLogicAnalysisMixin:
     def _stage3_analyze_logic(self, scan_result: Dict) -> Dict:
-        """Use LLM to analyze the Logic class methods in detail."""
+        """Analyze the Logic class: AST-derived method universe + LLM annotation.
+
+        The complete method list and its structural facts (signatures,
+        state reads/writes, AddNode usage) are enumerated deterministically
+        from the AST. The LLM only annotates this fixed universe with
+        semantics (purpose, side effects, classification); it cannot omit or
+        invent methods, so every downstream consumer — placement-starter
+        classification, cross-stage mapping, proven-target lists — sees the
+        same complete universe on every run.
+        """
         logic_info = scan_result["logic_class"]
         logic_file = logic_info["file"]
         class_name = logic_info["class_name"]
@@ -18,13 +27,41 @@ class AnalyzerLogicAnalysisMixin:
         if not logic_source:
             raise RuntimeError(f"Could not extract source for {class_name} from {logic_file}")
 
+        # Deterministic ground truth: every method of the class, with
+        # AST-derived signatures and state-access facts.
+        method_universe = self._enumerate_logic_method_universe(logic_source, class_name)
+        if not method_universe:
+            raise RuntimeError(
+                f"AST enumeration found no methods in {class_name} ({logic_file})"
+            )
+        universe_names = [m["name"] for m in method_universe]
+        self.on_progress(
+            "analyze", "Analyze Extension Logic",
+            f"AST enumerated {len(universe_names)} methods; requesting LLM annotation..."
+        )
+
         # Truncate if too large
         if len(logic_source) > _MAX_SOURCE_FOR_LLM:
             logic_source = logic_source[:_MAX_SOURCE_FOR_LLM] + "\n# ... [truncated for LLM analysis] ..."
 
+        method_listing = "\n".join(
+            f"- {m['name']}({', '.join(p['name'] for p in m['parameters'])})"
+            for m in method_universe
+        )
+
         # Build prompt
         prompt = textwrap.dedent(f"""\
-Analyze the following Slicer extension Logic class and return a JSON object with this exact structure:
+Annotate the methods of the following Slicer extension Logic class.
+
+The COMPLETE method list below was extracted from the source AST and is fixed.
+You MUST return exactly one annotation entry for EVERY listed method — do not
+skip any method (not even trivial getters/setters or private helpers), and do
+not invent methods that are not listed.
+
+METHOD UNIVERSE ({len(universe_names)} methods):
+{method_listing}
+
+Return a JSON object with this exact structure:
 
 {{
   "class_name": "{class_name}",
@@ -34,42 +71,27 @@ Analyze the following Slicer extension Logic class and return a JSON object with
       "name": "method_name",
       "purpose": "one-line description",
       "parameters": [
-        {{"name": "param_name", "type": "vtkMRML... or str or int etc", "required": true, "description": "what it is"}}
+        {{"name": "param_name", "type": "vtkMRML... or str or int etc", "description": "what it is"}}
       ],
       "return_value": "description or null",
-      "state_reads": ["self.field1", "self.field2"],
-      "state_writes": ["self.field3"],
-      "calls_addnode": true/false,
       "adds_output_to_scene": true/false,
-      "side_effects": "description"
+      "side_effects": "one-line description or empty string"
     }}
   ],
   "public_api_methods": ["method1", "method2"],
   "internal_methods": ["_helper1"],
   "pipeline_methods": ["method1", "method2"],
   "state_fields": [
-    {{"name": "self.field1", "type": "description", "set_by": "method_name", "read_by": ["other_method"]}}
+    {{"name": "self.field1", "type": "description"}}
   ]
 }}
 
-Focus on public methods that perform meaningful operations (process, run, compute, execute).
-Skip trivial getters/setters and Qt signal handlers.
-For each method, be precise about:
-- Whether it calls slicer.mrmlScene.AddNode() on its output parameters
-- Whether it reads state from self.* that must be set by a prior method call
-- Whether it writes state to self.* that future method calls depend on""")
-
-        # Inject UI workflow context if available (skipped when cookbook-driven)
-        if self._ui_workflow:
-            prompt += textwrap.dedent(f"""\
-Extracted UI Workflow (from .ui file and Widget class analysis):
-```json
-{json.dumps(self._ui_workflow, indent=2)}
-```
-Use this workflow to understand the intended user-facing sequence of operations.
-Match method descriptions to their corresponding UI workflow steps.
-
-""")
+Annotation guidance:
+- "pipeline_methods": the subset of methods that perform meaningful workflow
+  operations (process, run, compute, execute), in their natural call order.
+- "parameters": annotate types/descriptions only; names and defaults come from
+  the AST and any mismatch will be corrected automatically.
+- Be precise about whether a method adds its outputs to the MRML scene.""")
 
         # Inject cookbook context if available (cookbook-driven pipeline)
         if self._cookbook_def:
@@ -95,23 +117,233 @@ Logic class source:
 
 Return ONLY the JSON object, no markdown fences or explanation.""")
 
-        response = self._call_llm(prompt)
-        analysis = self._parse_json_response(response)
+        universe_name_set = set(universe_names)
 
-        if not analysis or "methods" not in analysis:
-            raise RuntimeError(
-                f"LLM analysis returned invalid structure. Response: {response[:500]}"
-            )
+        def _validate(candidate, raw):
+            if not isinstance(candidate, dict) or not isinstance(candidate.get("methods"), list):
+                return None, ["Response must be a JSON object with a 'methods' list"]
+            errors = []
+            annotated = {}
+            for entry in candidate["methods"]:
+                if not isinstance(entry, dict) or not entry.get("name"):
+                    errors.append("each methods[] entry must be an object with a 'name'")
+                    continue
+                annotated[entry["name"]] = entry
+            invented = sorted(set(annotated) - universe_name_set)
+            missing = sorted(universe_name_set - set(annotated))
+            if invented:
+                errors.append(
+                    "methods not in the fixed METHOD UNIVERSE (remove them): "
+                    + ", ".join(invented[:20])
+                )
+            if missing:
+                errors.append(
+                    "missing annotation entries for these METHOD UNIVERSE methods "
+                    "(add them all): " + ", ".join(missing[:40])
+                )
+            return candidate, errors
+
+        analysis = self._call_llm_structured(
+            prompt=prompt,
+            validator=_validate,
+            call_class="analysis",
+            failure_label="Logic class annotation",
+        )
+
+        analysis = self._merge_logic_annotations(
+            analysis, method_universe, class_name, os.path.basename(logic_file)
+        )
 
         self.on_progress(
             "analyze", "Analyze Extension Logic",
-            f"Analyzed {len(analysis.get('methods', []))} methods"
+            f"Analyzed {len(analysis.get('methods', []))} methods "
+            "(AST universe + LLM annotation)"
         )
 
         analysis["_logic_source"] = logic_source
         analysis["_logic_file"] = logic_file
         analysis["_cookbook_method_hints"] = []
         return analysis
+
+    @staticmethod
+    def _enumerate_logic_method_universe(logic_source: str, class_name: str) -> List[Dict]:
+        """Enumerate every method of the class with AST-derived facts.
+
+        Returns one entry per method (in source order):
+        name, parameters (name/type/required/default), state_reads,
+        state_writes (self.* attribute loads/stores anywhere in the method),
+        and calls_addnode.
+        """
+        try:
+            tree = ast.parse(textwrap.dedent(logic_source))
+        except SyntaxError:
+            return []
+
+        class_def = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == class_name:
+                class_def = node
+                break
+        if class_def is None:
+            # Fall back to the first class in the extracted source
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    class_def = node
+                    break
+        if class_def is None:
+            return []
+
+        universe = []
+        for item in class_def.body:
+            if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+
+            # Parameters with annotations and defaults
+            args = item.args
+            all_args = args.args[:]
+            if all_args and getattr(all_args[0], "arg", None) == "self":
+                all_args = all_args[1:]
+            defaults = args.defaults[:]
+            padded_defaults = [None] * (len(all_args) - len(defaults)) + defaults
+            parameters = []
+            for arg_obj, default_val in zip(all_args, padded_defaults):
+                annotation = ""
+                if arg_obj.annotation is not None:
+                    try:
+                        annotation = ast.unparse(arg_obj.annotation)
+                    except Exception:
+                        annotation = ""
+                entry = {
+                    "name": arg_obj.arg,
+                    "type": annotation or "Any",
+                    "required": default_val is None,
+                    "description": "",
+                }
+                if default_val is not None:
+                    try:
+                        entry["default"] = _parse_default_value(ast.unparse(default_val))
+                    except Exception:
+                        entry["default"] = None
+                parameters.append(entry)
+
+            # self.* state access
+            state_reads, state_writes = set(), set()
+            for node in ast.walk(item):
+                if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) \
+                        and node.value.id == "self":
+                    field = f"self.{node.attr}"
+                    if isinstance(node.ctx, (ast.Store, ast.Del)):
+                        state_writes.add(field)
+                    else:
+                        state_reads.add(field)
+
+            # AddNode / AddNewNodeByClass usage
+            visitor = _AddNodeVisitor({p["name"] for p in parameters})
+            visitor.visit(item)
+            calls_addnode = bool(visitor.params_added_to_scene) or visitor.has_addnewnodebyclass
+
+            universe.append({
+                "name": item.name,
+                "parameters": parameters,
+                "state_reads": sorted(state_reads),
+                "state_writes": sorted(state_writes),
+                "calls_addnode": calls_addnode,
+            })
+        return universe
+
+    @staticmethod
+    def _merge_logic_annotations(
+        analysis: Dict, method_universe: List[Dict], class_name: str, source_file: str
+    ) -> Dict:
+        """Merge LLM annotations onto the AST method universe.
+
+        AST facts (method list, parameter names/defaults, state reads/writes,
+        calls_addnode) are ground truth; LLM supplies semantics only. The
+        merged 'methods' list always covers the full universe in source order.
+        """
+        annotated = {
+            entry.get("name"): entry
+            for entry in analysis.get("methods", [])
+            if isinstance(entry, dict) and entry.get("name")
+        }
+
+        merged_methods = []
+        for fact in method_universe:
+            llm = annotated.get(fact["name"], {})
+            llm_params = {
+                p.get("name"): p
+                for p in (llm.get("parameters") or [])
+                if isinstance(p, dict) and p.get("name")
+            }
+            parameters = []
+            for param in fact["parameters"]:
+                entry = dict(param)
+                llm_param = llm_params.get(param["name"], {})
+                if llm_param.get("description"):
+                    entry["description"] = llm_param["description"]
+                # Prefer the LLM's semantic type only when the AST had none
+                if (not param.get("type") or param["type"] == "Any") and llm_param.get("type"):
+                    entry["type"] = llm_param["type"]
+                parameters.append(entry)
+            merged_methods.append({
+                "name": fact["name"],
+                "purpose": llm.get("purpose", ""),
+                "parameters": parameters,
+                "return_value": llm.get("return_value"),
+                "state_reads": fact["state_reads"],
+                "state_writes": fact["state_writes"],
+                "calls_addnode": fact["calls_addnode"],
+                "adds_output_to_scene": bool(
+                    fact["calls_addnode"] or llm.get("adds_output_to_scene")
+                ),
+                "side_effects": llm.get("side_effects", ""),
+            })
+
+        # Deterministic state-field inventory from the AST universe; LLM
+        # descriptions merged by name when provided.
+        llm_field_types = {}
+        for field in analysis.get("state_fields", []) or []:
+            if isinstance(field, dict) and field.get("name"):
+                llm_field_types[field["name"].replace("self.", "")] = field.get("type", "")
+        field_writers: Dict[str, List[str]] = {}
+        field_readers: Dict[str, List[str]] = {}
+        for fact in method_universe:
+            for field in fact["state_writes"]:
+                field_writers.setdefault(field, []).append(fact["name"])
+            for field in fact["state_reads"]:
+                field_readers.setdefault(field, []).append(fact["name"])
+        state_fields = []
+        for field in sorted(set(field_writers) | set(field_readers)):
+            state_fields.append({
+                "name": field,
+                "type": llm_field_types.get(field.replace("self.", ""), ""),
+                "set_by": (field_writers.get(field) or [""])[0],
+                "read_by": field_readers.get(field, []),
+            })
+
+        universe_names = {fact["name"] for fact in method_universe}
+        public_default = [n for n in universe_names if not n.startswith("_")]
+        internal_default = [n for n in universe_names if n.startswith("_")]
+
+        def _filtered(names, fallback):
+            valid = [n for n in (names or []) if n in universe_names]
+            return valid or fallback
+
+        return {
+            "class_name": analysis.get("class_name") or class_name,
+            "source_file": analysis.get("source_file") or source_file,
+            "methods": merged_methods,
+            "public_api_methods": _filtered(
+                analysis.get("public_api_methods"), sorted(public_default)
+            ),
+            "internal_methods": _filtered(
+                analysis.get("internal_methods"), sorted(internal_default)
+            ),
+            "pipeline_methods": [
+                n for n in (analysis.get("pipeline_methods") or []) if n in universe_names
+            ],
+            "state_fields": state_fields,
+        }
 
     def _verify_signatures_ast(self, logic_analysis: Dict, scan_result: Dict) -> None:
         """Cross-check LLM-extracted method signatures against actual AST."""

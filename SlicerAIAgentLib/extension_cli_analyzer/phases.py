@@ -53,7 +53,33 @@ def phase_label(phase_id: str) -> str:
 
 class AnalyzerPhaseMixin:
     def _set_phase(self, phase_id: str) -> None:
-        self._current_stage_label = canonical_phase_id(phase_id)
+        """Switch the active phase, accumulating per-phase wall time.
+
+        On a transition, the finished phase's duration is emitted as a
+        progress event (and thereby mirrored into debug/ui_output.log).
+        Re-entered phases (closed-loop repair) accumulate across visits.
+        """
+        import time as _time
+        phase_id = canonical_phase_id(phase_id)
+        now = _time.time()
+        prev = getattr(self, "_current_stage_label", "")
+        starts = getattr(self, "_phase_start_times", None)
+        durations = getattr(self, "_phase_durations", None)
+        if starts is not None and durations is not None and prev and prev != phase_id:
+            started = starts.pop(prev, None)
+            if started is not None:
+                durations[prev] = durations.get(prev, 0.0) + (now - started)
+                try:
+                    self.on_progress(
+                        prev, phase_label(prev),
+                        f"Phase '{prev}' took {now - started:.1f}s "
+                        f"(cumulative {durations[prev]:.1f}s)",
+                    )
+                except Exception:
+                    pass
+        if starts is not None:
+            starts[phase_id] = now
+        self._current_stage_label = phase_id
 
     def _record_phase(self, result: Dict, phase_id: str) -> None:
         phase_id = canonical_phase_id(phase_id)

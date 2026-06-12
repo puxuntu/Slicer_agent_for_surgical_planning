@@ -17,6 +17,136 @@ _SETATTR_LITERAL_RE = _re.compile(
 
 
 class AnalyzerTemplateHelpersMixin:
+    # Cap on chains listed in generation prompts; the omission note keeps the
+    # truncation visible to the LLM instead of silently implying completeness.
+    _PROVEN_CHAIN_PROMPT_LIMIT = 250
+
+    @staticmethod
+    def _collect_source_api_chains(*sources) -> List[str]:
+        """Extract `slicer.*` attribute/call chains observed in source code.
+
+        These chains are evidence-backed: the extension (or a grounded
+        snippet) actually uses them, so a generated template may use them
+        without inventing APIs. Intermediate calls are marked with `()`
+        (e.g. ``slicer.app.layoutManager().setLayout``).
+        """
+        chains = set()
+        for source in sources:
+            if isinstance(source, dict):
+                source = source.get("code") or source.get("template") or ""
+            if not source or not isinstance(source, str):
+                continue
+            try:
+                tree = ast.parse(textwrap.dedent(source))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Attribute):
+                    continue
+                parts = []
+                cur = node
+                while True:
+                    if isinstance(cur, ast.Attribute):
+                        parts.append(cur.attr)
+                        cur = cur.value
+                    elif isinstance(cur, ast.Call):
+                        func = cur.func
+                        if isinstance(func, ast.Attribute):
+                            parts.append(func.attr + "()")
+                            cur = func.value
+                        else:
+                            parts = []
+                            break
+                    elif isinstance(cur, ast.Name):
+                        parts.append(cur.id)
+                        break
+                    else:
+                        parts = []
+                        break
+                if parts and parts[-1] == "slicer" and len(parts) >= 3:
+                    chains.add(".".join(reversed(parts)))
+        return sorted(chains)
+
+    def _proven_api_chain_block(self) -> str:
+        """Prompt section constraining state-changing Slicer calls to evidence.
+
+        Evidence-first generation: instead of generate→probe→repair, the
+        generator is told up front which API chains are evidence-backed and
+        must emit a MISSING_EVIDENCE sentinel (a blocking validator signal
+        that routes to re-grounding) when the needed API is not evidenced.
+        """
+        chains = getattr(self, "_proven_api_chains", None)
+        if chains is None:
+            sources = []
+            logic_analysis = getattr(self, "_last_logic_analysis", None) or {}
+            if logic_analysis.get("_logic_source"):
+                sources.append(logic_analysis["_logic_source"])
+            sources.extend((getattr(self, "_slicer_op_templates", {}) or {}).values())
+            chains = self._collect_source_api_chains(*sources)
+            self._proven_api_chains = chains
+        if not chains:
+            return ""
+        shown = chains[: self._PROVEN_CHAIN_PROMPT_LIMIT]
+        note = (
+            ""
+            if len(chains) <= self._PROVEN_CHAIN_PROMPT_LIMIT
+            else f"\n(... {len(chains) - len(shown)} more evidenced chains omitted)"
+        )
+        # Core-UI method-name evidence is a SEPARATE subsection: these are bare
+        # method names (not slicer.* chains) and must not loosen the chain-only
+        # rule for slicer.* receivers.
+        ui_subsection = ""
+        ui_methods = self._core_ui_evidence_methods()
+        if ui_methods:
+            ui_subsection = (
+                "\n\nCORE-UI EVIDENCED SLICER METHOD NAMES (from Slicer core UI "
+                "analysis — method names only, receiver class NOT proven here; "
+                "verify the receiver from the cited implementation evidence "
+                "before use):\n"
+                + "\n".join(f"- {name}" for name in ui_methods)
+            )
+        return (
+            "\nEVIDENCE-BACKED SLICER API CHAINS (observed in the extension's own "
+            "source or grounded snippets — safe to use):\n"
+            + "\n".join(f"- {chain}" for chain in shown)
+            + note
+            + ui_subsection
+            + "\n\nFor STATE-CHANGING calls on `slicer.*` receivers, use only chains "
+            "evidenced above, in the supplied method source, or in the provided "
+            "evidence context. If the operation requires a Slicer API that is not "
+            "evidenced, output a single line `# MISSING_EVIDENCE: <describe the "
+            "missing API>` instead of inventing a call.\n"
+        )
+
+    def _core_ui_evidence_methods(self) -> List[str]:
+        """Method names evidenced by core-UI controls matching the cookbook.
+
+        Computed once per run from the cookbook step descriptions against the
+        UI pre-analysis index; empty when artifacts are absent. Cached on
+        self._ui_evidence_methods (reset together with _proven_api_chains).
+        """
+        methods = getattr(self, "_ui_evidence_methods", None)
+        if methods is not None:
+            return methods
+        methods = []
+        try:
+            from ..UIControlIndex import get_index
+            index = get_index()
+            cookbook = getattr(self, "_cookbook_def", None)
+            steps = getattr(cookbook, "steps", None) if cookbook is not None else None
+            if index is not None and steps:
+                query = " ".join(
+                    str(getattr(step, "description", "") or "") for step in steps
+                )
+                names = set()
+                for match in index.match(query, top_k=10):
+                    names.update(match.get("record", {}).get("api_footprints") or [])
+                methods = sorted(names)[:40]
+        except Exception:
+            logger.debug("Core-UI evidence method lookup failed", exc_info=True)
+        self._ui_evidence_methods = methods
+        return methods
+
     @staticmethod
     def _is_markup_node_class(node_class: str) -> bool:
         """Return True for MRML Markups nodes that support placement/control points."""
@@ -483,15 +613,9 @@ class AnalyzerTemplateHelpersMixin:
         node_var = f"_{extension_name.lower()}_{step['step_id']}_id"
         min_points = step.get("min_control_points", 0)
 
-        # UI workflow context
         ui_context = ""
-        if self._ui_workflow:
-            for sec in self._ui_workflow.get("ui_sections", []):
-                for s in sec.get("steps", []):
-                    if s.get("step_id") == step.get("step_id") or s.get("logic_method") == method_name:
-                        ui_context = f"Button label: '{s.get('button_label', '')}'\nDescription: {s.get('description', '')}"
-                        break
 
+        proven_block = self._proven_api_chain_block()
         prompt = textwrap.dedent(f"""\
             Generate a Python code snippet for a 3D Slicer extension workflow step.
             This is the POST-INTERACTION part — the user has finished placing control points on a {node_class}.
@@ -508,6 +632,7 @@ class AnalyzerTemplateHelpersMixin:
             ```python
             {method_source}
             ```
+            {proven_block}
 
             Context: The user just placed control points on a markup node. The node ID is stored in workflow runtime state and may also be available in variable `{node_var}` as a fallback.
             Parameter-node role for this interaction, if any: `{step.get('parameter_role') or (step.get('interaction_binding') or {}).get('parameter_name', '')}`.
@@ -536,7 +661,7 @@ class AnalyzerTemplateHelpersMixin:
 
         try:
             for _attempt in range(2):
-                response = self._call_llm(prompt)
+                response = self._call_llm(prompt, call_class="generation", attempt=_attempt)
                 response = self._strip_markdown_fences(response) if response else None
                 if not response or "import" not in response:
                     break
