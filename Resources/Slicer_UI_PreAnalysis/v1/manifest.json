@@ -1,15 +1,18 @@
 {
   "version": 1,
-  "source_root": "/media/ps/85D96EED9527D342/PuxunTu_workspace/Slicer_SKill/Slicer_agent/Resources/Skills/slicer-skill-full/slicer-source",
+  "source_root": "C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source",
   "ui_file_count": 138,
   "qrc_file_count": 44,
   "control_count": 2368,
   "confidence_counts": {
-    "linked_to_code": 403,
-    "ui_only": 780,
-    "linked_to_slot": 196,
-    "linked_to_api": 989
+    "linked_to_slot": 268,
+    "ui_only": 691,
+    "linked_to_code": 393,
+    "linked_to_api": 1016
   },
-  "docs_path": "/media/ps/85D96EED9527D342/PuxunTu_workspace/Slicer_SKill/Slicer_agent/Resources/Slicer_UI_PreAnalysis/v1/docs",
-  "virtual_search_prefix": "slicer-ui-analysis/"
+  "docs_path": "C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Slicer_UI_PreAnalysis\\v1\\docs",
+  "virtual_search_prefix": "slicer-ui-analysis/",
+  "generated_at": "2026-06-12T09:11:36.087071",
+  "connection_link_count": 124,
+  "sibling_scan_promotions": 39
 }

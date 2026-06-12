@@ -24,7 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:73: Q_Q(qMRMLMarkupsDisplayNodeWidget);`
   - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:86: QObject::connect(this->glyphTypeComboBox, &QComboBox::currentTextChanged, q, &qMRMLMarkupsDisplayNodeWidget::onGlyphTypeComboBoxChanged);`
   - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:104: this->SnapModeComboBox->addItem(qMRMLMarkupsDisplayNodeWidget::tr("unconstrained"), vtkMRMLMarkupsDisplayNode::SnapModeUnconstrained);`
-- Connected slots/functions: `currentTextChanged`, `onGlyphTypeComboBoxChanged`
+- Connected slots/functions: `currentTextChanged`, `onGlyphTypeComboBoxChanged`, `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ScalarsDisplayWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> InteractionHandleWidget.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetDisplayNode`, `GetPointer`, `SetGlyphTypeFromString`, `vtkMRMLMarkupsDisplayNode::SafeDownCast`, `vtkMRMLMarkupsDisplayNode::SnapModeToVisibleSurface`, `vtkMRMLMarkupsDisplayNode::SnapModeUnconstrained`, `vtkMRMLMarkupsNode::SafeDownCast`
 
 ## widget: VisibilityCheckBox
@@ -94,7 +95,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:174: this->curveLineThicknessSliderWidget->setHidden(this->glyphSizeIsAbsoluteButton->isChecked());`
   - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:281: d->glyphSizeIsAbsoluteButton->setChecked(!markupsDisplayNode->GetUseGlyphScale());`
   - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:520: return d->glyphSizeIsAbsoluteButton->isChecked();`
-- Connected slots/functions: `setGlyphSizeIsAbsolute`
+- Connected slots/functions: `setGlyphSizeIsAbsolute`, `setHidden`, `setVisible`
+- Declared UI connections: `toggled(bool) -> glyphScaleSliderWidget.setHidden(bool)`; `toggled(bool) -> glyphSizeSliderWidget.setVisible(bool)`
 - API footprints: `GetPointer`, `GetUseGlyphScale`, `SetUseGlyphScale`
 - Key UI properties: {"checkable": "true"}
 
@@ -263,11 +265,15 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: label
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QLabel`
 - Search text: Background: | label | QLabel
 - Text: Background:
-- Implementation candidates: `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx`, `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.h`
+- Implementation candidates: `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx`, `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.h`, `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx:740: QTableWidgetItem* labelItem = new QTableWidgetItem(QString::fromStdString(controlPointLabel));`
+  - `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx:763: d->MarkupsControlPointsTableWidget->setItem(i, CONTROL_POINT_LABEL_COLUMN, labelItem);`
+- API footprints: `GetNthControlPointPosition`
 
 ## widget: glyphTypeComboBox
 
@@ -450,7 +456,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:302: d->curveLineSizeIsAbsoluteButton->setChecked(markupsDisplayNode->GetCurveLineSizeMode() == vtkMRMLMarkupsDisplayNode::UseLineDiameter);`
   - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:324: d->curveLineSizeIsAbsoluteButton->setEnabled(lineSizeEnabled);`
   - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:538: return d->curveLineSizeIsAbsoluteButton->isChecked();`
-- Connected slots/functions: `setCurveLineSizeIsAbsolute`
+- Connected slots/functions: `setCurveLineSizeIsAbsolute`, `setHidden`, `setVisible`
+- Declared UI connections: `toggled(bool) -> curveLineThicknessSliderWidget.setHidden(bool)`; `toggled(bool) -> curveLineDiameterSliderWidget.setVisible(bool)`
 - API footprints: `GetCurveLineSizeMode`, `GetDisplayableNode`, `GetPointer`, `GetScene`, `SetCurveLineSizeMode`, `vtkMRMLMarkupsDisplayNode::UseLineDiameter`, `vtkMRMLMarkupsDisplayNode::UseLineThickness`, `vtkMRMLMarkupsFiducialNode::SafeDownCast`
 - Key UI properties: {"checkable": "true"}
 

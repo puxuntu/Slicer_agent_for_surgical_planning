@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Volumes/Widgets/qSlicerLabelMapVolumeDisplayWidget.cxx:60: void qSlicerLabelMapVolumeDisplayWidgetPrivate::init()`
   - `Modules/Loadable/Volumes/Widgets/qSlicerLabelMapVolumeDisplayWidget.cxx:62: Q_Q(qSlicerLabelMapVolumeDisplayWidget);`
   - `Modules/Loadable/Volumes/Widgets/qSlicerLabelMapVolumeDisplayWidget.cxx:73: qSlicerLabelMapVolumeDisplayWidget::qSlicerLabelMapVolumeDisplayWidget(QWidget* _parent)`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ColorTableComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetVolumeDisplayNode`, `vtkMRMLLabelMapVolumeDisplayNode::SafeDownCast`, `vtkMRMLScalarVolumeNode::SafeDownCast`
 
 ## widget: SliceIntersectionThicknessSpinBox

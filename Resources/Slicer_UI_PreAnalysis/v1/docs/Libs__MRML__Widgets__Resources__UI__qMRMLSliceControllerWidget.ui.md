@@ -60,6 +60,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:1514: bool labelmapBlockSignals = d->LabelMapComboBox->blockSignals(true);`
   - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:1523: d->LabelMapComboBox->blockSignals(labelmapBlockSignals);`
 - Connected slots/functions: `onLabelMapNodeSelected`, `setEnabled`, `setMRMLScene`
+- Declared UI connections: `currentNodeChanged(bool) -> LabelMapIconLabel.setEnabled(bool)`
 - API footprints: `EndSliceCompositeNodeInteraction`, `GetID`, `GetLabelVolumeID`, `GetNodeByID`, `SetLabelVolumeID`, `SetMRMLScene`, `StartSliceCompositeNodeInteraction`, `vtkMRMLScene::EndBatchProcessEvent`, `vtkMRMLScene::SceneImportedEvent`, `vtkMRMLSliceCompositeNode::LabelVolumeFlag`
 - Key UI properties: {"nodeTypes": ["vtkMRMLLabelMapVolumeNode"]}
 
@@ -161,6 +162,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:1513: bool foregroundBlockSignals = d->ForegroundComboBox->blockSignals(true);`
   - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:1522: d->ForegroundComboBox->blockSignals(foregroundBlockSignals);`
 - Connected slots/functions: `onForegroundLayerNodeSelected`, `setEnabled`, `setMRMLScene`
+- Declared UI connections: `currentNodeChanged(bool) -> ForegroundIconLabel.setEnabled(bool)`
 - API footprints: `EndSliceCompositeNodeInteraction`, `GetForegroundVolumeID`, `GetID`, `GetNodeByID`, `SetForegroundVolumeID`, `SetMRMLScene`, `StartSliceCompositeNodeInteraction`, `vtkMRMLScene::EndBatchProcessEvent`, `vtkMRMLScene::SceneImportedEvent`, `vtkMRMLSliceCompositeNode::ForegroundVolumeFlag`
 - Key UI properties: {"nodeTypes": ["vtkMRMLVolumeNode"]}
 
@@ -265,6 +267,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:1512: bool backgroundBlockSignals = d->BackgroundComboBox->blockSignals(true);`
   - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:1521: d->BackgroundComboBox->blockSignals(backgroundBlockSignals);`
 - Connected slots/functions: `moveBackgroundComboBox`, `onBackgroundLayerNodeSelected`, `setEnabled`, `setMRMLScene`
+- Declared UI connections: `currentNodeChanged(bool) -> BackgroundIconLabel.setEnabled(bool)`
 - API footprints: `EndSliceCompositeNodeInteraction`, `GetBackgroundVolumeID`, `GetID`, `GetNodeByID`, `SetBackgroundVolumeID`, `SetMRMLScene`, `StartSliceCompositeNodeInteraction`, `vtkMRMLScene::EndBatchProcessEvent`, `vtkMRMLScene::SceneImportedEvent`, `vtkMRMLSliceCompositeNode::BackgroundVolumeFlag`
 - Key UI properties: {"nodeTypes": ["vtkMRMLVolumeNode"]}
 
@@ -308,7 +311,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.h:61: Q_PROPERTY(bool moreButtonVisibility READ isMoreButtonVisible WRITE setMoreButtonVisible)`
   - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.h:202: /// Set the visibility of the MoreButton which allows to show the advanced`
   - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.h:204: void setMoreButtonVisible(bool visible);`
-- Connected slots/functions: `moveBackgroundComboBox`, `setVisible`, `updateSegmentationControlsVisibility`
+- Connected slots/functions: `hide`, `moveBackgroundComboBox`, `setActive`, `setVisible`, `updateSegmentationControlsVisibility`
+- Declared UI connections: `toggled(bool) -> BackgroundComboBox.hide()`; `toggled(bool) -> ShowReformatWidgetToolButton.setVisible(bool)`; `toggled(bool) -> SliceCompositeButton.setVisible(bool)`; `toggled(bool) -> SliceSpacingButton.setVisible(bool)`; `toggled(bool) -> SliceRotateToVolumePlaneButton.setVisible(bool)`; `toggled(bool) -> SegmentationIconLabel.setVisible(bool)`
 - API footprints: `GetFirstNode`
 - Key UI properties: {"checked": "true"}
 

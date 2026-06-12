@@ -286,7 +286,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## action: FileLoadSceneAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Load Scene | Raise a file browser to select a scene (mrml, xcat or xml) to load. It first clears any existing scene in Slicer and resets the application state. | FileLoadSceneAction
 - Text: Load Scene
@@ -295,10 +295,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:903: void qSlicerMainWindow::on_FileLoadSceneAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:76: virtual void on_FileLoadSceneAction_triggered();`
+- Connected slots/functions: `on_FileLoadSceneAction_triggered`
 
 ## action: FileLoadDataAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Load Data | Raise an "Add Data" widget that allows you to select individual datasets to add to the existing scene. This load option is most useful when you want to load many different data types at once (volumes, models, etc.) which may not yet be described by a scene file. | FileLoadDataAction
 - Text: Load Data
@@ -307,10 +308,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:891: void qSlicerMainWindow::on_FileLoadDataAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:74: virtual void on_FileLoadDataAction_triggered();`
+- Connected slots/functions: `on_FileLoadDataAction_triggered`
 
 ## action: LoadDICOMAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Load DICOM | Raise the DICOM module for loading DICOM datasets. | LoadDICOMAction
 - Text: Load DICOM
@@ -320,10 +322,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:149: this->LoadDICOMAction->setVisible(false);`
   - `Base/QTApp/qSlicerMainWindow.cxx:1377: void qSlicerMainWindow::on_LoadDICOMAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:85: virtual void on_LoadDICOMAction_triggered();`
+- Connected slots/functions: `on_LoadDICOMAction_triggered`
 
 ## action: FileImportSceneAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Import Scene | Raise a file browser to navigate and select a scene file to be added to the existing scene. The scene is not cleared. | FileImportSceneAction
 - Text: Import Scene
@@ -332,10 +335,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:897: void qSlicerMainWindow::on_FileImportSceneAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:75: virtual void on_FileImportSceneAction_triggered();`
+- Connected slots/functions: `on_FileImportSceneAction_triggered`
 
 ## action: FileAddDataAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: &Add Data | Raise an "Add Data" widget that allows you to select individual datasets to add to the existing scene. This load option is most useful when you want to load many different data types at once (volumes, models, etc.) which may not yet be described by a scene file. | FileAddDataAction
 - Text: &Add Data
@@ -344,10 +348,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:885: void qSlicerMainWindow::on_FileAddDataAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:73: virtual void on_FileAddDataAction_triggered();`
+- Connected slots/functions: `on_FileAddDataAction_triggered`
 
 ## action: FileAddVolumeAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Add Volume | Raise an "Add Volume" widget that allows you to select a volumetric dataset to add to the existing scene. The "Volume Options" panel can be used to clarify how a selected dataset should be loaded and displayed. | FileAddVolumeAction
 - Text: Add Volume
@@ -356,10 +361,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:909: void qSlicerMainWindow::on_FileAddVolumeAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:77: virtual void on_FileAddVolumeAction_triggered();`
+- Connected slots/functions: `on_FileAddVolumeAction_triggered`
 
 ## action: FileAddTransformAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Add Transform | Raise a standard file browser that allows you to select a transform to the existing scene. | FileAddTransformAction
 - Text: Add Transform
@@ -368,10 +374,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:915: void qSlicerMainWindow::on_FileAddTransformAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:78: virtual void on_FileAddTransformAction_triggered();`
+- Connected slots/functions: `on_FileAddTransformAction_triggered`
 
 ## action: FileSaveSceneAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Save Data | Display the "Save Data" widget, which offers many options for saving a scene and/or individual datasets. | FileSaveSceneAction
 - Text: Save Data
@@ -381,10 +388,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:586: this->FileSaveSceneAction->trigger();`
   - `Base/QTApp/qSlicerMainWindow.cxx:921: void qSlicerMainWindow::on_FileSaveSceneAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:79: virtual void on_FileSaveSceneAction_triggered();`
+- Connected slots/functions: `on_FileSaveSceneAction_triggered`
 
 ## action: SDBSaveToDirectoryAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Save Scene To Directory | UNDER CONSTRUCTION: Save the current scene to a stand alone directory. | SDBSaveToDirectoryAction
 - Text: Save Scene To Directory
@@ -393,10 +401,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:933: void qSlicerMainWindow::on_SDBSaveToDirectoryAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:82: virtual void on_SDBSaveToDirectoryAction_triggered();`
+- Connected slots/functions: `on_SDBSaveToDirectoryAction_triggered`
 
 ## action: SDBSaveToMRBAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Save Scene to MRB File | Create a Medical Reality Bundle containing the scene. | SDBSaveToMRBAction
 - Text: Save Scene to MRB File
@@ -405,10 +414,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:961: void qSlicerMainWindow::on_SDBSaveToMRBAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:83: virtual void on_SDBSaveToMRBAction_triggered();`
+- Connected slots/functions: `on_SDBSaveToMRBAction_triggered`
 
 ## action: FileCloseSceneAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_api`
 - Widget/action class: `action`
 - Search text: Close Scene | Close the current scene and reset the application state.  | FileCloseSceneAction
 - Text: Close Scene
@@ -417,10 +427,12 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:985: void qSlicerMainWindow::on_FileCloseSceneAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:84: virtual void on_FileCloseSceneAction_triggered();`
+- Connected slots/functions: `on_FileCloseSceneAction_triggered`
+- API footprints: `Clear`, `SetURL`
 
 ## action: FileExitAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: E&xit | Quit the application | FileExitAction
 - Text: E&xit
@@ -430,6 +442,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:330: setThemeIcon(this->FileExitAction, "application-exit");`
   - `Base/QTApp/qSlicerMainWindow.cxx:927: void qSlicerMainWindow::on_FileExitAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:80: virtual void on_FileExitAction_triggered();`
+- Connected slots/functions: `on_FileExitAction_triggered`
 
 ## action: EditUndoAction
 
@@ -444,6 +457,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:1018: void qSlicerMainWindow::on_EditUndoAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.cxx:1551: // d->EditUndoAction->setEnabled(scene && scene->GetNumberOfUndoLevels());`
   - `Base/QTApp/qSlicerMainWindow.h:89: virtual void on_EditUndoAction_triggered();`
+- Connected slots/functions: `on_EditUndoAction_triggered`
 - API footprints: `GetNumberOfRedoLevels`, `GetNumberOfUndoLevels`, `Undo`
 
 ## action: EditRedoAction
@@ -459,11 +473,12 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:1024: void qSlicerMainWindow::on_EditRedoAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.cxx:1552: // d->EditRedoAction->setEnabled(scene && scene->GetNumberOfRedoLevels());`
   - `Base/QTApp/qSlicerMainWindow.h:90: virtual void on_EditRedoAction_triggered();`
+- Connected slots/functions: `on_EditRedoAction_triggered`
 - API footprints: `GetNumberOfRedoLevels`, `GetNumberOfUndoLevels`, `Redo`
 
 ## action: ViewExtensionsManagerAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Extensions Manager | Raise the "Extensions Manager" wizard that provides status and information about available extensions | ViewExtensionsManagerAction
 - Text: Extensions Manager
@@ -479,6 +494,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:1757: d->ViewExtensionsManagerAction->setIcon(QIcon(":/Icons/ExtensionNotificationIcon.png"));`
   - `Base/QTApp/qSlicerMainWindow.cxx:1761: d->ViewExtensionsManagerAction->setIcon(QIcon(":/Icons/ExtensionDefaultIcon.png"));`
   - `Base/QTApp/qSlicerMainWindow.h:116: virtual void on_ViewExtensionsManagerAction_triggered();`
+- Connected slots/functions: `on_ViewExtensionsManagerAction_triggered`
 
 ## action: ViewCacheRemoteIOManagerAction
 
@@ -491,7 +507,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## action: FileFavoriteModulesAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Favorite Modules | Open settings to the Modules panel where Favorite Modules can be defined. | FileFavoriteModulesAction
 - Text: Favorite Modules
@@ -500,10 +516,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:879: void qSlicerMainWindow::on_FileFavoriteModulesAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:72: virtual void on_FileFavoriteModulesAction_triggered();`
+- Connected slots/functions: `on_FileFavoriteModulesAction_triggered`
 
 ## action: EditApplicationSettingsAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Application Settings | The Application Settings provides options for controlling the application's user interface preferences into the application registry, so they are preserved across sessions. | EditApplicationSettingsAction
 - Text: Application Settings
@@ -513,10 +530,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:336: setThemeIcon(this->EditApplicationSettingsAction, "preferences-system");`
   - `Base/QTApp/qSlicerMainWindow.cxx:1398: void qSlicerMainWindow::on_EditApplicationSettingsAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:112: virtual void on_EditApplicationSettingsAction_triggered();`
+- Connected slots/functions: `on_EditApplicationSettingsAction_triggered`
 
 ## action: CutAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Cut | Cut currently selected item and place in clipboard | CutAction
 - Text: Cut
@@ -527,10 +545,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:333: setThemeIcon(this->CutAction, "edit-cut");`
   - `Base/QTApp/qSlicerMainWindow.cxx:1490: void qSlicerMainWindow::on_CutAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:113: virtual void on_CutAction_triggered();`
+- Connected slots/functions: `on_CutAction_triggered`
 
 ## action: CopyAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Copy | Copy currently selected item to clipboard | CopyAction
 - Text: Copy
@@ -541,10 +560,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:334: setThemeIcon(this->CopyAction, "edit-copy");`
   - `Base/QTApp/qSlicerMainWindow.cxx:1468: void qSlicerMainWindow::on_CopyAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:114: virtual void on_CopyAction_triggered();`
+- Connected slots/functions: `on_CopyAction_triggered`
 
 ## action: PasteAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Paste | Paste the current contents of the clipboard | PasteAction
 - Text: Paste
@@ -555,6 +575,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:335: setThemeIcon(this->PasteAction, "edit-paste");`
   - `Base/QTApp/qSlicerMainWindow.cxx:1479: void qSlicerMainWindow::on_PasteAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:115: virtual void on_PasteAction_triggered();`
+- Connected slots/functions: `on_PasteAction_triggered`
 
 ## action: WindowMaximizeViewAction
 
@@ -730,7 +751,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## action: ModuleHomeAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Home | Favorite module for easy access | ModuleHomeAction
 - Text: Home
@@ -742,6 +763,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:412: this->ViewMenu->insertAction(this->ModuleHomeAction, this->PythonConsoleToggleViewAction);`
   - `Base/QTApp/qSlicerMainWindow.cxx:1030: void qSlicerMainWindow::on_ModuleHomeAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:92: virtual void on_ModuleHomeAction_triggered();`
+- Connected slots/functions: `on_ModuleHomeAction_triggered`
 
 ## action: ViewLayoutConventionalWidescreenAction
 
@@ -913,7 +935,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## action: EditRecordMacroAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Record Macro | EditRecordMacroAction
 - Text: Record Macro
@@ -922,10 +944,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:1002: void qSlicerMainWindow::on_EditRecordMacroAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.cxx:1369: d->EditRecordMacroAction->setVisible(true);`
   - `Base/QTApp/qSlicerMainWindow.h:87: virtual void on_EditRecordMacroAction_triggered();`
+- Connected slots/functions: `on_EditRecordMacroAction_triggered`
 
 ## action: EditPlayMacroAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Play Macro | EditPlayMacroAction
 - Text: Play Macro
@@ -934,6 +957,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:1010: void qSlicerMainWindow::on_EditPlayMacroAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.cxx:1368: d->EditPlayMacroAction->setVisible(true);`
   - `Base/QTApp/qSlicerMainWindow.h:88: virtual void on_EditPlayMacroAction_triggered();`
+- Connected slots/functions: `on_EditPlayMacroAction_triggered`
 
 ## action: ViewLayoutSideBySideAction
 
@@ -1079,7 +1103,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## action: WindowToolbarsResetToDefaultAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Reset to default | WindowToolbarsResetToDefaultAction
 - Text: Reset to default
@@ -1087,10 +1111,11 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTApp/qSlicerMainWindow.cxx:1149: void qSlicerMainWindow::on_WindowToolbarsResetToDefaultAction_triggered()`
   - `Base/QTApp/qSlicerMainWindow.h:110: virtual void on_WindowToolbarsResetToDefaultAction_triggered();`
+- Connected slots/functions: `on_WindowToolbarsResetToDefaultAction_triggered`
 
 ## action: ShowStatusBarAction
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `action`
 - Search text: Show Status Bar | ShowStatusBarAction
 - Text: Show Status Bar
@@ -1099,4 +1124,5 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTApp/qSlicerMainWindow.cxx:159: this->AppearanceMenu->insertAction(this->ShowStatusBarAction, this->PanelDockWidget->toggleViewAction());`
   - `Base/QTApp/qSlicerMainWindow.cxx:873: void qSlicerMainWindow::on_ShowStatusBarAction_triggered(bool toggled)`
   - `Base/QTApp/qSlicerMainWindow.h:118: virtual void on_ShowStatusBarAction_triggered(bool);`
+- Connected slots/functions: `on_ShowStatusBarAction_triggered`
 - Key UI properties: {"checkable": "true", "checked": "true"}

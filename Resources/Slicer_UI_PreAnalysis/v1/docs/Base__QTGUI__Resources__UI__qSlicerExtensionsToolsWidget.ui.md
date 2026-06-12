@@ -56,9 +56,14 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: SearchBox
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_code`
 - Widget/action class: `ctkSearchBox`
 - Search text: SearchBox | ctkSearchBox
+- Implementation candidates: `Base/QTGUI/qSlicerApplication.cxx`, `Base/QTGUI/qSlicerExtensionsManagerDialog.cxx`
+- Matched implementation lines:
+  - `Base/QTGUI/qSlicerApplication.cxx:990: d->ExtensionsManagerDialog->setFocusToSearchBox();`
+  - `Base/QTGUI/qSlicerExtensionsManagerDialog.cxx:225: void qSlicerExtensionsManagerDialog::setFocusToSearchBox()`
+  - `Base/QTGUI/qSlicerExtensionsManagerDialog.cxx:228: d->ExtensionsManagerWidget->setFocusToSearchBox();`
 
 ## action: AutoUpdateCheckAction
 

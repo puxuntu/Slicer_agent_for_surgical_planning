@@ -243,12 +243,14 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: AdditionalModulePathMoreButton
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `ctkExpandButton`
 - Search text: AdditionalModulePathMoreButton | ctkExpandButton
 - Implementation candidates: `Base/QTGUI/qSlicerSettingsModulesPanel.cxx`, `Base/QTGUI/qSlicerSettingsModulesPanel.h`
 - Matched implementation lines:
   - `Base/QTGUI/qSlicerSettingsModulesPanel.cxx:80: this->AdditionalModulePathMoreButton->setChecked(false);`
+- Connected slots/functions: `setVisible`
+- Declared UI connections: `toggled(bool) -> groupBox.setVisible(bool)`
 - Key UI properties: {"checked": "true"}
 
 ## widget: DisableModulesLabel
@@ -361,12 +363,14 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: FilterMoreButton
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `ctkExpandButton`
 - Search text: FilterMoreButton | ctkExpandButton
 - Implementation candidates: `Base/QTGUI/qSlicerSettingsModulesPanel.cxx`, `Base/QTGUI/qSlicerSettingsModulesPanel.h`
 - Matched implementation lines:
   - `Base/QTGUI/qSlicerSettingsModulesPanel.cxx:91: this->FilterMoreButton->setChecked(false); // hide filters by default`
+- Connected slots/functions: `setVisible`
+- Declared UI connections: `toggled(bool) -> FilterGroupBox.setVisible(bool)`
 - Key UI properties: {"checked": "true"}
 
 ## widget: HomeModuleLabel
@@ -485,5 +489,6 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Base/QTGUI/qSlicerSettingsModulesPanel.cxx:107: QObject::connect(this->FavoritesMoreButton, SIGNAL(toggled(bool)), this->FavoritesModulesListView, SLOT(scrollToSelectedModules()));`
   - `Base/QTGUI/qSlicerSettingsModulesPanel.cxx:108: this->FavoritesMoreButton->setChecked(false);`
-- Connected slots/functions: `scrollToSelectedModules`
+- Connected slots/functions: `scrollToSelectedModules`, `setVisible`
+- Declared UI connections: `toggled(bool) -> FavoritesMoreGroupBox.setVisible(bool)`
 - Key UI properties: {"checked": "true"}

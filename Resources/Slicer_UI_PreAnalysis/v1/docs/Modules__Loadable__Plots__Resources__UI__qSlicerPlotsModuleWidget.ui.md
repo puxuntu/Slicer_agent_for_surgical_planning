@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx:89: vtkPlot* qSlicerPlotsModuleWidgetPrivate::table() const`
   - `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx:100: qSlicerPlotsModuleWidget::qSlicerPlotsModuleWidget(QWidget* _parentWidget)`
   - `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx:102: , d_ptr(new qSlicerPlotsModuleWidgetPrivate(*this))`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> PlotChartNodeSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> PlotSeriesPropertiesWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> PlotSeriesNodeSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> PlotChartPropertiesWidget.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetPointer`, `vtkMRMLPlotChartNode::SafeDownCast`
 
 ## widget: PlotsTabWidget
@@ -39,10 +41,13 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: charts
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QWidget`
 - Search text: charts | QWidget
-- Implementation candidates: `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx`, `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.h`
+- Implementation candidates: `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx`, `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.h`, `Modules/Loadable/Plots/SubjectHierarchyPlugins/qSlicerSubjectHierarchyPlotsPlugin.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Plots/SubjectHierarchyPlugins/qSlicerSubjectHierarchyPlotsPlugin.cxx:303: // Update icons of all charts (if we show this chart then we may have hidden other charts)`
+- API footprints: `IsBatchProcessing`
 
 ## widget: PlotChartLabel
 
@@ -62,7 +67,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx:116: this->connect(d->PlotChartNodeSelector, SIGNAL(currentNodeChanged(vtkMRMLNode*)), SLOT(onNodeSelected(vtkMRMLNode*)));`
   - `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx:210: d->PlotChartNodeSelector->setCurrentNode(tableNode);`
   - `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx:223: d->PlotChartNodeSelector->setCurrentNode(node);`
-- Connected slots/functions: `onNodeSelected`
+- Connected slots/functions: `onNodeSelected`, `setEnabled`, `setMRMLPlotChartNode`
+- Declared UI connections: `currentNodeChanged(vtkMRMLNode*) -> PlotChartPropertiesWidget.setMRMLPlotChartNode(vtkMRMLNode*)`; `currentNodeChanged(bool) -> ShowChartButton.setEnabled(bool)`
 - API footprints: `vtkMRMLPlotChartNode::SafeDownCast`
 - Key UI properties: {"nodeTypes": ["vtkMRMLPlotChartNode"]}
 
@@ -120,16 +126,31 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx:118: this->connect(d->PlotSeriesNodeSelector, SIGNAL(nodeAddedByUser(vtkMRMLNode*)), SLOT(onSeriesNodeAddedByUser(vtkMRMLNode*)));`
   - `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx:229: d->PlotSeriesNodeSelector->setCurrentNode(node);`
   - `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx:299: d->PlotSeriesNodeSelector->setCurrentNode(addedNode);`
-- Connected slots/functions: `onSeriesNodeAddedByUser`
+- Connected slots/functions: `onSeriesNodeAddedByUser`, `setMRMLPlotSeriesNode`
+- Declared UI connections: `currentNodeChanged(vtkMRMLNode*) -> PlotSeriesPropertiesWidget.setMRMLPlotSeriesNode(vtkMRMLNode*)`
 - API footprints: `SetUniqueColor`, `vtkMRMLPlotSeriesNode::SafeDownCast`
 - Key UI properties: {"nodeTypes": ["vtkMRMLPlotSeriesNode"]}
 
 ## widget: PlotSeriesPropertiesWidget
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `qMRMLPlotSeriesPropertiesWidget`
 - Search text: PlotSeriesPropertiesWidget | qMRMLPlotSeriesPropertiesWidget
-- Implementation candidates: `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx`, `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.h`
+- Implementation candidates: `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.cxx`, `Modules/Loadable/Plots/qSlicerPlotsModuleWidget.h`, `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx`, `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.h`, `Modules/Loadable/Plots/Widgets/DesignerPlugins/qSlicerPlotsModuleWidgetsPlugin.h`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.cxx`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.h`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget_p.h`, `Modules/Loadable/Plots/Widgets/Testing/Cxx/qMRMLPlotPropertiesWidgetTest1.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:21: #include "qMRMLPlotSeriesPropertiesWidgetPlugin.h"`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:22: #include "qMRMLPlotSeriesPropertiesWidget.h"`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:25: qMRMLPlotSeriesPropertiesWidgetPlugin::qMRMLPlotSeriesPropertiesWidgetPlugin(QObject* _parent)`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:31: QWidget* qMRMLPlotSeriesPropertiesWidgetPlugin::createWidget(QWidget* _parent)`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:33: qMRMLPlotSeriesPropertiesWidget* _widget = new qMRMLPlotSeriesPropertiesWidget(_parent);`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:38: QString qMRMLPlotSeriesPropertiesWidgetPlugin::domXml() const`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:40: return "<widget class=\"qMRMLPlotSeriesPropertiesWidget\" \`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:46: QString qMRMLPlotSeriesPropertiesWidgetPlugin::includeFile() const`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:48: return "qMRMLPlotSeriesPropertiesWidget.h";`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:52: bool qMRMLPlotSeriesPropertiesWidgetPlugin::isContainer() const`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:58: QString qMRMLPlotSeriesPropertiesWidgetPlugin::name() const`
+  - `Modules/Loadable/Plots/Widgets/DesignerPlugins/qMRMLPlotSeriesPropertiesWidgetPlugin.cxx:60: return "qMRMLPlotSeriesPropertiesWidget";`
+- API footprints: `GetPointer`, `vtkMRMLPlotSeriesNode::SafeDownCast`, `vtkMRMLTableNode::SafeDownCast`
 
 ## widget: copyPlotSeriesNodePushButton
 

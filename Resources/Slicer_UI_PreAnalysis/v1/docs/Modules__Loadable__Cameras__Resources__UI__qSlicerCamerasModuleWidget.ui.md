@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Cameras/qSlicerCamerasModuleWidget.cxx:70: void qSlicerCamerasModuleWidget::synchronizeCameraWithView()`
   - `Modules/Loadable/Cameras/qSlicerCamerasModuleWidget.cxx:72: Q_D(qSlicerCamerasModuleWidget);`
   - `Modules/Loadable/Cameras/qSlicerCamerasModuleWidget.cxx:78: void qSlicerCamerasModuleWidget::synchronizeCameraWithView(vtkMRMLViewNode* currentViewNode)`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ViewNodeSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> CameraNodeSelector.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `vtkMRMLCameraNode::SafeDownCast`, `vtkMRMLViewNode::SafeDownCast`
 
 ## widget: CameraCollapsibleWidget

@@ -24,7 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.cxx:100: this->LastRotationValues[qSlicerReformatModuleWidget::axisY] = 0;`
   - `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.cxx:101: this->LastRotationValues[qSlicerReformatModuleWidget::axisZ] = 0;`
   - `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.cxx:105: void qSlicerReformatModuleWidgetPrivate::setupReformatOptionsMenu()`
-- Connected slots/functions: `currentTextChanged`, `onSliceOrientationChanged`
+- Connected slots/functions: `currentTextChanged`, `onSliceOrientationChanged`, `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> SliceNodeSelector.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `SetOrientation`, `vtkMRMLSliceNode::SafeDownCast`
 
 ## widget: VisibilityCheckBox
@@ -53,7 +54,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.cxx:312: this->connect(d->SliceNodeSelector, SIGNAL(currentNodeChanged(vtkMRMLNode*)), SLOT(onNodeSelected(vtkMRMLNode*)));`
   - `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.cxx:682: d->SliceNodeSelector->setCurrentNode(node);`
   - `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.cxx:694: d->SliceNodeSelector->setCurrentNode(sliceNode);`
-- Connected slots/functions: `onNodeSelected`
+- Connected slots/functions: `onNodeSelected`, `setEnabled`
+- Declared UI connections: `currentNodeChanged(bool) -> DisplayEditCollapsibleWidget.setEnabled(bool)`
 - API footprints: `GetMRMLApplicationLogic`, `GetSliceLogic`, `vtkMRMLSliceNode::SafeDownCast`
 - Key UI properties: {"nodeTypes": ["vtkMRMLSliceNode"]}
 

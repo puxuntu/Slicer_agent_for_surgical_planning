@@ -15,6 +15,7 @@ import re
 import shutil
 import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -41,6 +42,7 @@ class UIControl:
     slots: List[str] = field(default_factory=list)
     api_footprints: List[str] = field(default_factory=list)
     confidence: str = "ui_only"
+    connections: List[Dict] = field(default_factory=list)
 
 
 def _rel(path: Path, root: Path) -> str:
@@ -101,6 +103,29 @@ def _iter_qrc_files(source_root: Path) -> Iterable[Path]:
         yield path
 
 
+def _parse_connections(root: ET.Element) -> Dict[str, List[Dict]]:
+    """Parse Qt Designer <connections> blocks: sender -> [{signal, receiver, slot}]."""
+    by_sender: Dict[str, List[Dict]] = {}
+    for conn in root.iter("connection"):
+        sender = (conn.findtext("sender") or "").strip()
+        if not sender:
+            continue
+        signal = (conn.findtext("signal") or "").strip()
+        receiver = (conn.findtext("receiver") or "").strip()
+        slot = (conn.findtext("slot") or "").strip()
+        by_sender.setdefault(sender, []).append({
+            "signal": signal,
+            "receiver": receiver,
+            "slot": slot,
+        })
+    return by_sender
+
+
+def _slot_function_name(slot_signature: str) -> str:
+    """'setVisibility(bool)' -> 'setVisibility'."""
+    return slot_signature.split("(", 1)[0].strip()
+
+
 def _parse_ui_file(path: Path, source_root: Path) -> Tuple[str, List[UIControl]]:
     try:
         root = ET.parse(path).getroot()
@@ -110,6 +135,7 @@ def _parse_ui_file(path: Path, source_root: Path) -> Tuple[str, List[UIControl]]
     owner_el = root.find("class")
     owner_class = owner_el.text.strip() if owner_el is not None and owner_el.text else path.stem
     ui_rel = _rel(path, source_root)
+    connections_by_sender = _parse_connections(root)
     controls: List[UIControl] = []
 
     for widget in root.iter("widget"):
@@ -127,6 +153,7 @@ def _parse_ui_file(path: Path, source_root: Path) -> Tuple[str, List[UIControl]]
             tool_tip=str(props.get("toolTip", "")),
             status_tip=str(props.get("statusTip", "")),
             properties=props,
+            connections=connections_by_sender.get(object_name, []),
         ))
 
     for action in root.iter("action"):
@@ -143,6 +170,7 @@ def _parse_ui_file(path: Path, source_root: Path) -> Tuple[str, List[UIControl]]
             tool_tip=str(props.get("toolTip", "")),
             status_tip=str(props.get("statusTip", "")),
             properties=props,
+            connections=connections_by_sender.get(object_name, []),
         ))
 
     return owner_class, controls
@@ -177,6 +205,21 @@ def _candidate_impl_files(ui_path: Path, source_root: Path, owner_class: str) ->
             if p.exists() and p.is_file():
                 candidates.append(p)
 
+    # Scripted modules: Modules/Scripted/<Mod>/Resources/UI/<Mod>.ui is
+    # implemented by <Mod>.py and <Mod>Lib/*.py, whose names often differ
+    # from the .ui <class>.
+    if "Scripted" in rel_parts:
+        scripted_index = rel_parts.index("Scripted")
+        if scripted_index + 1 < len(rel_parts):
+            module_name = rel_parts[scripted_index + 1]
+            module_dir = source_root.joinpath(*rel_parts[:scripted_index + 2])
+            module_py = module_dir / f"{module_name}.py"
+            if module_py.is_file():
+                candidates.append(module_py)
+            lib_dir = module_dir / f"{module_name}Lib"
+            if lib_dir.is_dir():
+                candidates.extend(sorted(lib_dir.glob("*.py")))
+
     # Fallback: exact owner-class files anywhere under the same broad module dir.
     if not candidates:
         broad_root = owner_dir
@@ -203,6 +246,16 @@ def _extract_slot_names(line: str, object_name: str) -> List[str]:
     for match in re.finditer(r"SLOT\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(", line):
         slots.append(match.group(1))
     for match in re.finditer(r"&[A-Za-z_][A-Za-z0-9_:]*::([A-Za-z_][A-Za-z0-9_]*)", line):
+        name = match.group(1)
+        if name != object_name:
+            slots.append(name)
+    # Qt auto-connect convention (C++ and Python): on_<objectName>_<signal>(...)
+    for match in re.finditer(
+        rf"\bon_{re.escape(object_name)}_([A-Za-z0-9_]+)\s*\(", line
+    ):
+        slots.append(f"on_{object_name}_{match.group(1)}")
+    # Python scripted modules: self.ui.x.signal.connect(self.onHandler)
+    for match in re.finditer(r"\.connect\(\s*self\.([A-Za-z_]\w*)", line):
         name = match.group(1)
         if name != object_name:
             slots.append(name)
@@ -244,11 +297,7 @@ def _extract_function_block(lines: List[str], owner_class: str, slot_name: str) 
     return "".join(block)
 
 
-def _link_controls(
-    controls: List[UIControl],
-    impl_files: List[Path],
-    source_root: Path,
-) -> None:
+def _read_impl_contents(impl_files: List[Path]) -> List[Tuple[Path, List[str], str]]:
     impl_contents: List[Tuple[Path, List[str], str]] = []
     for impl in impl_files:
         try:
@@ -256,6 +305,28 @@ def _link_controls(
         except Exception:
             continue
         impl_contents.append((impl, lines, "".join(lines)))
+    return impl_contents
+
+
+def _assign_confidence(control: UIControl) -> None:
+    if control.api_footprints:
+        control.confidence = "linked_to_api"
+    elif control.slots:
+        control.confidence = "linked_to_slot"
+    elif control.matched_lines:
+        control.confidence = "linked_to_code"
+    else:
+        control.confidence = "ui_only"
+
+
+def _link_controls(
+    controls: List[UIControl],
+    impl_files: List[Path],
+    source_root: Path,
+) -> Dict[str, int]:
+    """Link controls to implementation evidence. Returns linking stats."""
+    impl_contents = _read_impl_contents(impl_files)
+    stats = {"connection_links": 0}
 
     impl_rels = [_rel(path, source_root) for path in impl_files]
     for control in controls:
@@ -276,17 +347,102 @@ def _link_controls(
                         apis.update(_extract_api_footprints(block))
                 apis.update(_extract_api_footprints(context))
 
+        # Qt Designer <connections> declared in the .ui file itself: free
+        # signal/slot links even when implementation code never names the
+        # control (the runtime wires it from the XML).
+        for connection in control.connections:
+            slot_name = _slot_function_name(connection.get("slot", ""))
+            if not slot_name:
+                continue
+            if slot_name not in slots:
+                stats["connection_links"] += 1
+            slots.add(slot_name)
+            for impl, lines, full_text in impl_contents:
+                block = _extract_function_block(lines, control.owner_class, slot_name)
+                if block:
+                    apis.update(_extract_api_footprints(block))
+
         control.matched_lines = matched_context[:12]
         control.slots = sorted(slots)
         control.api_footprints = sorted(apis)[:30]
-        if control.api_footprints:
-            control.confidence = "linked_to_api"
-        elif control.slots:
-            control.confidence = "linked_to_slot"
-        elif control.matched_lines:
-            control.confidence = "linked_to_code"
-        else:
-            control.confidence = "ui_only"
+        _assign_confidence(control)
+    return stats
+
+
+def _sibling_scan(
+    controls: List[UIControl],
+    ui_path: Path,
+    source_root: Path,
+    scanned_files: List[Path],
+    max_files: int = 40,
+    max_bytes: int = 1_000_000,
+) -> int:
+    """Second linking pass for residual ui_only controls.
+
+    Scans the owner module's source files (beyond the name-matched
+    candidates) in deterministic sorted order. Returns the number of controls
+    promoted out of ui_only.
+    """
+    residual = [c for c in controls if c.confidence == "ui_only"]
+    if not residual:
+        return 0
+
+    rel_parts = ui_path.relative_to(source_root).parts
+    if "Resources" in rel_parts:
+        owner_dir = source_root.joinpath(*rel_parts[:rel_parts.index("Resources")])
+    else:
+        owner_dir = ui_path.parent
+
+    already = set(scanned_files)
+    extra_files: List[Path] = []
+    for path in sorted(owner_dir.rglob("*")):
+        if len(extra_files) >= max_files:
+            break
+        if path in already or not path.is_file():
+            continue
+        if path.suffix.lower() not in {".cxx", ".cpp", ".h", ".py"}:
+            continue
+        try:
+            if path.stat().st_size > max_bytes:
+                continue
+        except OSError:
+            continue
+        extra_files.append(path)
+    if not extra_files:
+        return 0
+
+    impl_contents = _read_impl_contents(extra_files)
+    promotions = 0
+    for control in residual:
+        matched_context = []
+        slots = set(control.slots)
+        apis = set(control.api_footprints)
+        extra_rels = []
+        for impl, lines, full_text in impl_contents:
+            if control.object_name not in full_text:
+                continue
+            extra_rels.append(_rel(impl, source_root))
+            for index, line in enumerate(lines):
+                if control.object_name not in line:
+                    continue
+                context = "".join(lines[max(0, index - 2):min(len(lines), index + 3)])
+                matched_context.append(f"{_rel(impl, source_root)}:{index + 1}: {line.strip()}")
+                for slot in _extract_slot_names(line, control.object_name):
+                    slots.add(slot)
+                    block = _extract_function_block(lines, control.owner_class, slot)
+                    if block:
+                        apis.update(_extract_api_footprints(block))
+                apis.update(_extract_api_footprints(context))
+        if not matched_context:
+            continue
+        control.implementation_files = list(control.implementation_files) + extra_rels
+        control.matched_lines = (control.matched_lines + matched_context)[:12]
+        control.slots = sorted(slots)
+        control.api_footprints = sorted(apis)[:30]
+        _assign_confidence(control)
+        if control.confidence != "ui_only":
+            promotions += 1
+    return promotions
 
 
 def _parse_qrc_file(path: Path, source_root: Path) -> Dict[str, object]:
@@ -354,6 +510,11 @@ def _write_docs(output_dir: Path, by_ui_file: Dict[str, List[UIControl]]) -> Non
                 lines.extend(f"  - `{line}`" for line in control.matched_lines)
             if control.slots:
                 lines.append("- Connected slots/functions: " + ", ".join(f"`{s}`" for s in control.slots))
+            if control.connections:
+                lines.append("- Declared UI connections: " + "; ".join(
+                    f"`{c.get('signal', '?')} -> {c.get('receiver', '?')}.{c.get('slot', '?')}`"
+                    for c in control.connections[:6]
+                ))
             if control.api_footprints:
                 lines.append("- API footprints: " + ", ".join(f"`{a}`" for a in control.api_footprints))
             interesting_props = {
@@ -375,11 +536,17 @@ def build_ui_analysis(source_root: Path, output_dir: Path, clean: bool = True) -
 
     by_ui_file: Dict[str, List[UIControl]] = {}
     all_controls: List[UIControl] = []
+    connection_link_count = 0
+    sibling_scan_promotions = 0
     ui_files = list(_iter_ui_files(source_root))
     for ui_path in ui_files:
         _, controls = _parse_ui_file(ui_path, source_root)
         impl_files = _candidate_impl_files(ui_path, source_root, controls[0].owner_class if controls else ui_path.stem)
-        _link_controls(controls, impl_files, source_root)
+        link_stats = _link_controls(controls, impl_files, source_root)
+        connection_link_count += link_stats.get("connection_links", 0)
+        sibling_scan_promotions += _sibling_scan(
+            controls, ui_path, source_root, impl_files
+        )
         if controls:
             rel_ui = _rel(ui_path, source_root)
             by_ui_file[rel_ui] = controls
@@ -402,6 +569,9 @@ def build_ui_analysis(source_root: Path, output_dir: Path, clean: bool = True) -
         "confidence_counts": confidence_counts,
         "docs_path": str(output_dir / "docs"),
         "virtual_search_prefix": "slicer-ui-analysis/",
+        "generated_at": datetime.now().isoformat(),
+        "connection_link_count": connection_link_count,
+        "sibling_scan_promotions": sibling_scan_promotions,
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     return manifest

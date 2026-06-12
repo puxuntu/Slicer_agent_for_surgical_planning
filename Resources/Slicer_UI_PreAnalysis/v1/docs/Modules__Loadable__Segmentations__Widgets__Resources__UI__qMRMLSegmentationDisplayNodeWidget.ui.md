@@ -24,7 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Segmentations/Widgets/qMRMLSegmentationDisplayNodeWidget.cxx:96: &qMRMLSegmentationDisplayNodeWidget::onVisibilityChanged);`
   - `Modules/Loadable/Segmentations/Widgets/qMRMLSegmentationDisplayNodeWidget.cxx:107: &qMRMLSegmentationDisplayNodeWidget::onVisibilitySliceFillChanged);`
   - `Modules/Loadable/Segmentations/Widgets/qMRMLSegmentationDisplayNodeWidget.cxx:111: &qMRMLSegmentationDisplayNodeWidget::onVisibilitySliceOutlineChanged);`
-- Connected slots/functions: `onSegmentVisibility3DChanged`, `onSegmentVisibilitySliceFillChanged`, `onSegmentVisibilitySliceOutlineChanged`, `onVisibility3DChanged`, `onVisibilityChanged`, `onVisibilitySliceFillChanged`, `onVisibilitySliceOutlineChanged`
+- Connected slots/functions: `onSegmentVisibility3DChanged`, `onSegmentVisibilitySliceFillChanged`, `onSegmentVisibilitySliceOutlineChanged`, `onVisibility3DChanged`, `onVisibilityChanged`, `onVisibilitySliceFillChanged`, `onVisibilitySliceOutlineChanged`, `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> MRMLNodeComboBox_Clip.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> SlicerWidget_ClipNodeDisplayProperties.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> SlicerWidget_ClipNodeProperties.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetDisplayNode`, `GetID`, `GetPointer`, `SetSegmentVisibility2DFill`, `SetSegmentVisibility2DOutline`, `SetSegmentVisibility3D`, `SetVisibility`, `SetVisibility2DFill`, `SetVisibility2DOutline`, `SetVisibility3D`, `vtkMRMLSegmentationDisplayNode::SafeDownCast`
 
 ## widget: SliderWidget_Opacity

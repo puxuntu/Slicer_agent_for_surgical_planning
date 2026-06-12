@@ -234,12 +234,14 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ThreeDUseOrthographicProjectionCheckBox
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `ctkCheckBox`
 - Search text: ThreeDUseOrthographicProjectionCheckBox | ctkCheckBox
 - Implementation candidates: `Base/QTGUI/qSlicerSettingsViewsPanel.cxx`, `Base/QTGUI/qSlicerSettingsViewsPanel.h`
 - Matched implementation lines:
   - `Base/QTGUI/qSlicerSettingsViewsPanel.cxx:163: this->ThreeDUseOrthographicProjectionCheckBox,`
+- Connected slots/functions: `setEnabled`
+- Declared UI connections: `toggled(bool) -> ThreeDRulerTypeComboBox.setEnabled(bool)`
 
 ## widget: ThreeDRulerTypeLabel
 
@@ -291,13 +293,15 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ThreeDShadowsVisibilityCheckBox
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `ctkCheckBox`
 - Search text: Show shadows by default to improve depth perception | ThreeDShadowsVisibilityCheckBox | ctkCheckBox
 - Tooltip: Show shadows by default to improve depth perception
 - Implementation candidates: `Base/QTGUI/qSlicerSettingsViewsPanel.cxx`, `Base/QTGUI/qSlicerSettingsViewsPanel.h`
 - Matched implementation lines:
   - `Base/QTGUI/qSlicerSettingsViewsPanel.cxx:168: this->ThreeDShadowsVisibilityCheckBox,`
+- Connected slots/functions: `setEnabled`
+- Declared UI connections: `toggled(bool) -> ThreeDAmbientShadowsSizeScaleSlider.setEnabled(bool)`; `toggled(bool) -> ThreeDAmbientShadowsVolumeOpacityThresholdSlider.setEnabled(bool)`; `toggled(bool) -> ThreeDAmbientShadowsIntensityScaleSlider.setEnabled(bool)`; `toggled(bool) -> ThreeDAmbientShadowsIntensityShiftSlider.setEnabled(bool)`
 - Key UI properties: {"checked": "false"}
 
 ## widget: ThreeDAmbientShadowsSizeScaleLabel

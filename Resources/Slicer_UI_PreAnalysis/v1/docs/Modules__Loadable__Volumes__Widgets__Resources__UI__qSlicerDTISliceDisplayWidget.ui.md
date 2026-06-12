@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Volumes/Widgets/qSlicerDTISliceDisplayWidget.cxx:62: void qSlicerDTISliceDisplayWidgetPrivate::init()`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDTISliceDisplayWidget.cxx:64: Q_Q(qSlicerDTISliceDisplayWidget);`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDTISliceDisplayWidget.cxx:86: void qSlicerDTISliceDisplayWidgetPrivate::computeScalarBounds(double scalarBounds[2])`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> GlyphScalarColorTableComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> GlyphScalarColorTableComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetColorGlyphBy`, `GetDiffusionTensorDisplayPropertiesNode`, `vtkMRMLDiffusionTensorVolumeSliceDisplayNode::SafeDownCast`
 
 ## widget: GlyphVisibilityLabel
@@ -137,7 +139,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Modules/Loadable/Volumes/Widgets/qSlicerDTISliceDisplayWidget.cxx:78: QObject::connect(this->GlyphGeometryComboBox, SIGNAL(currentIndexChanged(int)), q, SLOT(setGlyphGeometry(int)));`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDTISliceDisplayWidget.cxx:206: d->GlyphGeometryComboBox->setCurrentIndex(displayPropertiesNode->GetGlyphGeometry());`
-- Connected slots/functions: `setGlyphGeometry`
+- Connected slots/functions: `setCurrentIndex`, `setGlyphGeometry`
+- Declared UI connections: `currentIndexChanged(int) -> GlyphAdvancedPropertiesWidget.setCurrentIndex(int)`
 - API footprints: `GetColorGlyphBy`, `GetGlyphGeometry`, `GetGlyphScaleFactor`, `GetLineGlyphResolution`, `SetGlyphGeometry`
 
 ## widget: GlyphScaleLabel
@@ -263,7 +266,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Modules/Loadable/Volumes/Widgets/qSlicerDTISliceDisplayWidget.cxx:76: QObject::connect(this->GlyphManualScalarRangeCheckBox, SIGNAL(toggled(bool)), q, SLOT(setManualScalarRange(bool)));`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDTISliceDisplayWidget.cxx:180: d->GlyphManualScalarRangeCheckBox->setChecked(d->DisplayNode->GetAutoScalarRange() == 0);`
-- Connected slots/functions: `setManualScalarRange`
+- Connected slots/functions: `setEnabled`, `setManualScalarRange`
+- Declared UI connections: `toggled(bool) -> GlyphScalarRangeWidget.setEnabled(bool)`
 - API footprints: `GetAutoScalarRange`, `GetColorNode`, `GetOpacity`, `SetAutoScalarRange`
 
 ## widget: GlyphScalarRangeWidget

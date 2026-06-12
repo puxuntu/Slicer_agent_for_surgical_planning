@@ -62,11 +62,15 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: label
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QLabel`
 - Search text: Size mode: | label | QLabel
 - Text: Size mode:
-- Implementation candidates: `Modules/Loadable/Markups/Widgets/qMRMLMarkupsPlaneWidget.cxx`, `Modules/Loadable/Markups/Widgets/qMRMLMarkupsPlaneWidget.h`
+- Implementation candidates: `Modules/Loadable/Markups/Widgets/qMRMLMarkupsPlaneWidget.cxx`, `Modules/Loadable/Markups/Widgets/qMRMLMarkupsPlaneWidget.h`, `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx:740: QTableWidgetItem* labelItem = new QTableWidgetItem(QString::fromStdString(controlPointLabel));`
+  - `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx:763: d->MarkupsControlPointsTableWidget->setItem(i, CONTROL_POINT_LABEL_COLUMN, labelItem);`
+- API footprints: `GetNthControlPointPosition`
 
 ## widget: planeSizeModeComboBox
 

@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Colors/Widgets/qMRMLColorLegendDisplayNodeWidget.cxx:71: void qMRMLColorLegendDisplayNodeWidgetPrivate::setupUi(qMRMLColorLegendDisplayNodeWidget* widget)`
   - `Modules/Loadable/Colors/Widgets/qMRMLColorLegendDisplayNodeWidget.cxx:73: this->Ui_qMRMLColorLegendDisplayNodeWidget::setupUi(widget);`
   - `Modules/Loadable/Colors/Widgets/qMRMLColorLegendDisplayNodeWidget.cxx:77: void qMRMLColorLegendDisplayNodeWidgetPrivate::init()`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> DisplayNodeViewComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `vtkMRMLColorLegendDisplayNode::SafeDownCast`
 
 ## widget: VisibilityLabel

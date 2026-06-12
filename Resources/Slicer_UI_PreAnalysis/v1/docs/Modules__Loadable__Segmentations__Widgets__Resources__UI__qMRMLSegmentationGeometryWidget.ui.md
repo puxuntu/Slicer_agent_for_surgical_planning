@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Segmentations/Widgets/qMRMLSegmentationGeometryWidget.cxx:101: void qMRMLSegmentationGeometryWidgetPrivate::init()`
   - `Modules/Loadable/Segmentations/Widgets/qMRMLSegmentationGeometryWidget.cxx:103: Q_Q(qMRMLSegmentationGeometryWidget);`
   - `Modules/Loadable/Segmentations/Widgets/qMRMLSegmentationGeometryWidget.cxx:117: void qMRMLSegmentationGeometryWidgetPrivate::updateGeometryWidgets()`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> MRMLNodeComboBox_SourceGeometryNode.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLCoordinatesWidget_Dimensions.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLCoordinatesWidget_Spacing.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLCoordinatesWidget_Origin.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetID`, `GetOutputGeometryImageData`, `GetPointer`, `GetScene`, `ResampleLabelmapsInSegmentationNode`, `SetIsotropicSpacing`, `SetOversamplingFactor`, `SetPadOutputGeometry`, `SetSourceGeometryNode`, `SetUserSpacing`, `vtkMRMLDisplayableNode::SafeDownCast`
 
 ## widget: frame_SourceGeometry

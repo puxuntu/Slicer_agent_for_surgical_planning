@@ -183,6 +183,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Libs/MRML/Widgets/qMRMLSliceInformationWidget.cxx:70: this->SliceSpacingModeGroup->addButton(this->PrescribedSliceSpacingRadioButton, vtkMRMLSliceNode::PrescribedSliceSpacingMode);`
   - `Libs/MRML/Widgets/qMRMLSliceInformationWidget.cxx:127: this->PrescribedSliceSpacingRadioButton->setChecked(true);`
+- Connected slots/functions: `setEnabled`
+- Declared UI connections: `toggled(bool) -> label_10.setEnabled(bool)`; `toggled(bool) -> PrescribedSpacingSpinBox.setEnabled(bool)`
 - API footprints: `GetPrescribedSliceSpacing`, `GetSliceSpacingMode`, `vtkMRMLSliceNode::AutomaticSliceSpacingMode`, `vtkMRMLSliceNode::PrescribedSliceSpacingMode`
 
 ## widget: label_10

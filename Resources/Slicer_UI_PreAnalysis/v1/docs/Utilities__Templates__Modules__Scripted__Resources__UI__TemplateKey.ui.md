@@ -7,7 +7,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: TemplateKey
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `qMRMLWidget`
 - Search text: TemplateKey | qMRMLWidget
 - Implementation candidates: `Utilities/Templates/Modules/Scripted/TemplateKey.py`
@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Utilities/Templates/Modules/Scripted/TemplateKey.py:85: nodeNames="TemplateKey1",`
   - `Utilities/Templates/Modules/Scripted/TemplateKey.py:88: # TemplateKey2`
   - `Utilities/Templates/Modules/Scripted/TemplateKey.py:91: category="TemplateKey",`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> inputSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> outputSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> invertedOutputSelector.setMRMLScene(vtkMRMLScene*)`
 
 ## widget: inputsCollapsibleButton
 

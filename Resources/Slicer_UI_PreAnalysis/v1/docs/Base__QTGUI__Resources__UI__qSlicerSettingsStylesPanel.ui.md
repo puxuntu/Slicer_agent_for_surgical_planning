@@ -112,7 +112,7 @@ p, li { white-space: pre-wrap; }
 
 ## widget: AdditionalStylePathMoreButton
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `ctkExpandButton`
 - Search text: <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">
 <html><head><meta name="qrichtext" content="1" /><style type="text/css">
@@ -127,6 +127,8 @@ p, li { white-space: pre-wrap; }
 - Implementation candidates: `Base/QTGUI/qSlicerSettingsStylesPanel.cxx`, `Base/QTGUI/qSlicerSettingsStylesPanel.h`
 - Matched implementation lines:
   - `Base/QTGUI/qSlicerSettingsStylesPanel.cxx:88: this->AdditionalStylePathMoreButton->setChecked(false);`
+- Connected slots/functions: `setVisible`
+- Declared UI connections: `toggled(bool) -> groupBox.setVisible(bool)`
 - Key UI properties: {"checked": "true"}
 
 ## widget: StyleLabel

@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:90: qMRMLTransformSliders::~qMRMLTransformSliders() = default;`
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:93: void qMRMLTransformSliders::setCoordinateReference(CoordinateReferenceType _coordinateReference)`
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:95: Q_D(qMRMLTransformSliders);`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> LRSlider.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> PASlider.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ISSlider.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MaxValueSpinBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MinValueSpinBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetMatrix`, `GetPointer`, `vtkMRMLTransformNode::SafeDownCast`
 
 ## widget: SlidersGroupBox
@@ -71,7 +73,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:149: d->LRSlider->setTypeOfTransform(qMRMLLinearTransformSlider::TRANSLATION_LR);`
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:155: d->LRSlider->setTypeOfTransform(qMRMLLinearTransformSlider::ROTATION_LR);`
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:191: bool blocked = d->LRSlider->blockSignals(true);`
-- Connected slots/functions: `onLRSliderPositionChanged`
+- Connected slots/functions: `onLRSliderPositionChanged`, `setDecimals`
+- Declared UI connections: `decimalsChanged(int) -> MinValueSpinBox.setDecimals(int)`
 - API footprints: `vtkMRMLTransformableNode::TransformModifiedEvent`
 
 ## widget: PALabel
@@ -178,7 +181,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:304: return d->MinValueSpinBox->value();`
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:318: d->MinValueSpinBox->setValue(min);`
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:335: d->MinValueSpinBox->setValue(min);`
-- Connected slots/functions: `onMinimumChanged`
+- Connected slots/functions: `onMinimumChanged`, `setDecimals`
+- Declared UI connections: `decimalsChanged(int) -> MaxValueSpinBox.setDecimals(int)`
 
 ## widget: MaxLabel
 
@@ -200,4 +204,5 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:311: return d->MaxValueSpinBox->value();`
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:325: d->MaxValueSpinBox->setValue(max);`
   - `Libs/MRML/Widgets/qMRMLTransformSliders.cxx:336: d->MaxValueSpinBox->setValue(max);`
-- Connected slots/functions: `onMaximumChanged`
+- Connected slots/functions: `onMaximumChanged`, `setDecimals`
+- Declared UI connections: `decimalsChanged(int) -> LRSlider.setDecimals(int)`

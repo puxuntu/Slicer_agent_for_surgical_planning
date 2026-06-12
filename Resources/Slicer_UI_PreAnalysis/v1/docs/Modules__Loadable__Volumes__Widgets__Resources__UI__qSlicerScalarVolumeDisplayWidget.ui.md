@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Volumes/Widgets/qSlicerScalarVolumeDisplayWidget.cxx:74: void qSlicerScalarVolumeDisplayWidgetPrivate::init()`
   - `Modules/Loadable/Volumes/Widgets/qSlicerScalarVolumeDisplayWidget.cxx:76: Q_Q(qSlicerScalarVolumeDisplayWidget);`
   - `Modules/Loadable/Volumes/Widgets/qSlicerScalarVolumeDisplayWidget.cxx:110: QString presetName = qSlicerScalarVolumeDisplayWidget::tr(preset.name.c_str());`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ColorTableComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetVolumeDisplayPreset`, `vtkMRMLScalarVolumeNode::SafeDownCast`
 
 ## widget: PresetsGroupBox

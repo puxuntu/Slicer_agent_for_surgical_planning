@@ -24,7 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:116: qSlicerMarkupsModulePrivate::~qSlicerMarkupsModulePrivate()`
   - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:135: void qSlicerMarkupsModulePrivate::addToolBar()`
   - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:137: Q_Q(qSlicerMarkupsModule);`
-- Connected slots/functions: `mappedString`, `onCreateMarkupByClass`
+- Connected slots/functions: `mappedString`, `onCreateMarkupByClass`, `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> activeMarkupTreeView.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> exportedImportedNodeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> markupsDisplayWidget.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `AddNewMarkupsNode`, `GetClassName`, `GetDefaultMarkupsDisplayNode`, `GetHideFromEditors`, `GetMarkupType`, `GetNthControlPointPosition`, `GetNthControlPointPositionStatus`, `GetPlaceAddIcon`, `GetTypeDisplayName`, `IsBatchProcessing`, `SetNthControlPointDescription`, `SetNthControlPointLabel`, `SetNthControlPointLocked`, `SetNthControlPointSelected`, `SetNthControlPointVisibility`, `vtkMRMLMarkupsNode::PositionDefined`, `vtkMRMLMarkupsNode::SafeDownCast`
 
 ## widget: createMarkupsGroupBox

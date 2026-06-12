@@ -429,19 +429,22 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologyNavigatorWidget.cxx:1508: settings->setValue("Terminology/ShowRegionSelector", d->RegionExpandButton->isChecked());`
   - `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologyNavigatorWidget.cxx:1976: return d->RegionExpandButton->isChecked();`
   - `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologyNavigatorWidget.cxx:1984: d->RegionExpandButton->setChecked(visible);`
-- Connected slots/functions: `onRegionExpandButtonDown`, `onRegionExpandButtonUp`
+- Connected slots/functions: `onRegionExpandButtonDown`, `onRegionExpandButtonUp`, `setVisible`
+- Declared UI connections: `toggled(bool) -> frame_Region.setVisible(bool)`
 - API footprints: `GetShowAnatomy`
 - Key UI properties: {"checked": "true"}
 
 ## widget: CategoryExpandButton
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `ctkExpandButton`
 - Search text: CategoryExpandButton | ctkExpandButton
 - Implementation candidates: `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologyNavigatorWidget.cxx`, `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologyNavigatorWidget.h`
 - Matched implementation lines:
   - `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologyNavigatorWidget.cxx:322: this->CategoryExpandButton->setChecked(settings->value("Terminology/ShowCategorySelector", false).toBool());`
   - `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologyNavigatorWidget.cxx:1507: settings->setValue("Terminology/ShowCategorySelector", d->CategoryExpandButton->isChecked());`
+- Connected slots/functions: `setVisible`
+- Declared UI connections: `toggled(bool) -> frame_Category.setVisible(bool)`
 - Key UI properties: {"checked": "true"}
 
 ## widget: frame_ColorTable

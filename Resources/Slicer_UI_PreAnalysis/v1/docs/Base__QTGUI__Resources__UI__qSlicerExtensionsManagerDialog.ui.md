@@ -56,7 +56,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ButtonBox
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QDialogButtonBox`
 - Search text: ButtonBox | QDialogButtonBox
 - Implementation candidates: `Base/QTGUI/qSlicerExtensionsManagerDialog.cxx`, `Base/QTGUI/qSlicerExtensionsManagerDialog.h`
@@ -64,3 +64,5 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTGUI/qSlicerExtensionsManagerDialog.cxx:68: QPushButton* restartButton = this->ButtonBox->button(QDialogButtonBox::Ok);`
   - `Base/QTGUI/qSlicerExtensionsManagerDialog.cxx:107: this->ButtonBox->setEnabled(!isInBatchMode);`
   - `Base/QTGUI/qSlicerExtensionsManagerDialog.cxx:173: d->ButtonBox->button(QDialogButtonBox::Ok)->setEnabled(value);`
+- Connected slots/functions: `accept`, `reject`
+- Declared UI connections: `accepted() -> qSlicerExtensionsManagerDialog.accept()`; `rejected() -> qSlicerExtensionsManagerDialog.reject()`

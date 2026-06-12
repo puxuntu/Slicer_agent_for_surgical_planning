@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Tables/qSlicerTablesModuleWidget.cxx:90: vtkTable* qSlicerTablesModuleWidgetPrivate::table() const`
   - `Modules/Loadable/Tables/qSlicerTablesModuleWidget.cxx:100: qSlicerTablesModuleWidget::qSlicerTablesModuleWidget(QWidget* _parentWidget)`
   - `Modules/Loadable/Tables/qSlicerTablesModuleWidget.cxx:102: , d_ptr(new qSlicerTablesModuleWidgetPrivate(*this))`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> TableNodeSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> TableView.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetPointer`, `vtkMRMLTableNode::SafeDownCast`
 
 ## widget: TableNodeSelector
@@ -38,6 +40,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Tables/qSlicerTablesModuleWidget.cxx:251: d->TableNodeSelector->setCurrentNode(tableNode);`
   - `Modules/Loadable/Tables/qSlicerTablesModuleWidget.cxx:263: d->TableNodeSelector->setCurrentNode(node);`
 - Connected slots/functions: `onNodeSelected`, `setMRMLTableNode`
+- Declared UI connections: `currentNodeChanged(vtkMRMLNode*) -> TableView.setMRMLTableNode(vtkMRMLNode*)`
 - API footprints: `vtkMRMLTableNode::GetDefaultColumnName`, `vtkMRMLTableNode::SafeDownCast`
 - Key UI properties: {"nodeTypes": ["vtkMRMLTableNode"]}
 

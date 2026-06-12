@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:82: qSlicerVolumeRenderingModuleWidgetPrivate::qSlicerVolumeRenderingModuleWidgetPrivate(qSlicerVolumeRenderingModuleWidget& object)`
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:89: qSlicerVolumeRenderingModuleWidgetPrivate::~qSlicerVolumeRenderingModuleWidgetPrivate() = default;`
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:92: void qSlicerVolumeRenderingModuleWidgetPrivate::setupUi(qSlicerVolumeRenderingModuleWidget* q)`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ViewCheckableNodeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ROINodeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> VolumePropertyNodeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ClipNodeSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLClipNodeWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> VolumeNodeSelector.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `vtkMRMLDisplayableNode::SafeDownCast`, `vtkMRMLMarkupsROINode::SafeDownCast`, `vtkMRMLVolumeNode::SafeDownCast`, `vtkMRMLVolumePropertyNode::SafeDownCast`, `vtkMRMLVolumeRenderingDisplayNode::SafeDownCast`
 
 ## widget: ResizableFrame_2
@@ -89,7 +91,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:678: return vtkMRMLDisplayableNode::SafeDownCast(d->ROINodeComboBox->currentNode());`
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:685: return vtkMRMLMarkupsROINode::SafeDownCast(d->ROINodeComboBox->currentNode());`
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:692: d->ROINodeComboBox->setCurrentNode(roiNode);`
-- Connected slots/functions: `onCurrentMRMLROINodeChanged`
+- Connected slots/functions: `onCurrentMRMLROINodeChanged`, `setEnabled`, `setMRMLMarkupsNode`
+- Declared UI connections: `currentNodeChanged(vtkMRMLNode*) -> MarkupsROIWidget.setMRMLMarkupsNode(vtkMRMLNode*)`; `currentNodeChanged(bool) -> ROIFitPushButton.setEnabled(bool)`
 - API footprints: `GetID`, `SetAndObserveROINodeID`, `vtkMRMLDisplayableNode::SafeDownCast`, `vtkMRMLMarkupsROINode::SafeDownCast`
 - Key UI properties: {"nodeTypes": ["vtkMRMLMarkupsROINode"]}
 
@@ -114,7 +117,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:390: d->VolumePropertyNodeComboBox->setCurrentNode(volumePropertyNode);`
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:614: return vtkMRMLVolumePropertyNode::SafeDownCast(d->VolumePropertyNodeComboBox->currentNode());`
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:622: d->VolumePropertyNodeComboBox->setCurrentNode(volumePropertyNode);`
-- Connected slots/functions: `onCurrentMRMLVolumePropertyNodeChanged`, `onNewVolumePropertyAdded`, `setMRMLVolumePropertyNode`
+- Connected slots/functions: `onCurrentMRMLVolumePropertyNodeChanged`, `onNewVolumePropertyAdded`, `setEnabled`, `setMRMLVolumePropertyNode`
+- Declared UI connections: `currentNodeChanged(vtkMRMLNode*) -> VolumePropertyNodeWidget.setMRMLVolumePropertyNode(vtkMRMLNode*)`; `currentNodeChanged(bool) -> VolumePropertyNodeWidget.setEnabled(bool)`; `currentNodeChanged(bool) -> PresetComboBox.setEnabled(bool)`
 - API footprints: `GetID`, `SetAndObserveVolumePropertyNodeID`, `vtkMRMLVolumePropertyNode::SafeDownCast`
 - Key UI properties: {"nodeTypes": ["vtkMRMLVolumePropertyNode"]}
 
@@ -425,7 +429,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:166: QObject::connect(this->ClippingExpandInfoButton, SIGNAL(clicked()), q, SLOT(updateWidgetFromMRML()));`
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:526: d->ClippingExpandInfoButton->setEnabled(clipNode != nullptr);`
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:527: d->ClippingExpandInfoButton->setIcon(clippingInfoIcon);`
-- Connected slots/functions: `updateWidgetFromMRML`
+- Connected slots/functions: `setVisible`, `updateWidgetFromMRML`
+- Declared UI connections: `toggled(bool) -> ClippingInfoLabel.setVisible(bool)`
 - API footprints: `GetAutoClippingBlankVoxelValue`, `GetAutoReleaseGraphicsResources`, `GetClassName`, `GetClipNode`, `GetClipping`, `GetClippingSoftEdgeVoxels`, `GetCroppingEnabled`, `GetExpectedFPS`, `GetFirstViewNode`, `GetFollowVolumeDisplayNode`, `GetGPUMemorySize`, `GetIgnoreVolumeDisplayNodeThreshold`, `GetMarkupsROINode`, `GetName`, `GetNumberOfIndependentComponents`, `GetPresetByName`, `GetScene`, `GetVisibility`, `GetVolumePropertyNode`, `GetVolumeRenderingQuality`, `vtkMRMLDisplayableNode::DisplayModifiedEvent`, `vtkMRMLViewNode::Adaptive`, `vtkMRMLVolumePropertyNode::EffectiveRangeModified`
 - Key UI properties: {"checkable": "true"}
 
@@ -590,7 +595,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:460: d->SynchronizeScalarDisplayNodeButton->setEnabled(displayNode != nullptr);`
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:464: d->SynchronizeScalarDisplayNodeButton->setCheckState(Qt::Checked);`
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:466: d->SynchronizeScalarDisplayNodeButton->setChecked(follow);`
-- Connected slots/functions: `setFollowVolumeDisplayNode`, `synchronizeScalarDisplayNode`
+- Connected slots/functions: `setChecked`, `setFollowVolumeDisplayNode`, `synchronizeScalarDisplayNode`
+- Declared UI connections: `checkBoxToggled(bool) -> SynchronizeScalarDisplayNodeButton.setChecked(bool)`
 - API footprints: `CopyDisplayToVolumeRenderingDisplayNode`, `GetFollowVolumeDisplayNode`, `GetIgnoreVolumeDisplayNodeThreshold`, `SetFollowVolumeDisplayNode`
 
 ## widget: IgnoreVolumesThresholdCheckBox
@@ -610,12 +616,14 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ExpandSynchronizeWithVolumesButton
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `ctkExpandButton`
 - Search text: ExpandSynchronizeWithVolumesButton | ctkExpandButton
 - Implementation candidates: `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx`, `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.h`
 - Matched implementation lines:
   - `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:178: this->ExpandSynchronizeWithVolumesButton->setChecked(false);`
+- Connected slots/functions: `setVisible`
+- Declared UI connections: `toggled(bool) -> IgnoreVolumesThresholdCheckBox.setVisible(bool)`
 - Key UI properties: {"checked": "true"}
 
 ## widget: VolumePropertyNodeWidget

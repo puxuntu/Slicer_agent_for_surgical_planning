@@ -174,13 +174,15 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ExpandButton
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `ctkExpandButton`
 - Search text: ExpandButton | ctkExpandButton
 - Implementation candidates: `Libs/MRML/Widgets/qMRMLModelInfoWidget.cxx`, `Libs/MRML/Widgets/qMRMLModelInfoWidget.h`
 - Matched implementation lines:
   - `Libs/MRML/Widgets/qMRMLModelInfoWidget.cxx:75: this->ExpandButton->setOrientation(Qt::Vertical);`
   - `Libs/MRML/Widgets/qMRMLModelInfoWidget.cxx:76: this->ExpandButton->setChecked(false);`
+- Connected slots/functions: `setVisible`
+- Declared UI connections: `toggled(bool) -> widget.setVisible(bool)`
 - Key UI properties: {"checked": "true"}
 
 ## widget: widget

@@ -27,7 +27,21 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: TerminologyNavigatorWidget
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `qSlicerTerminologyNavigatorWidget`
 - Search text: TerminologyNavigatorWidget | qSlicerTerminologyNavigatorWidget
-- Implementation candidates: `Modules/Loadable/Terminologies/qSlicerTerminologiesModule.cxx`, `Modules/Loadable/Terminologies/qSlicerTerminologiesModule.h`, `Modules/Loadable/Terminologies/qSlicerTerminologiesModuleWidget.cxx`, `Modules/Loadable/Terminologies/qSlicerTerminologiesModuleWidget.h`
+- Implementation candidates: `Modules/Loadable/Terminologies/qSlicerTerminologiesModule.cxx`, `Modules/Loadable/Terminologies/qSlicerTerminologiesModule.h`, `Modules/Loadable/Terminologies/qSlicerTerminologiesModuleWidget.cxx`, `Modules/Loadable/Terminologies/qSlicerTerminologiesModuleWidget.h`, `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologiesModuleWidgetsPlugin.h`, `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx`, `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.h`, `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologyItemDelegate.cxx`, `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologyNavigatorWidget.cxx`, `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologyNavigatorWidget.h`, `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologySelectorButton.cxx`, `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologySelectorButton.h`, `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologySelectorDialog.cxx`, `Modules/Loadable/Terminologies/Widgets/qSlicerTerminologySelectorDialog.h`
+- Matched implementation lines:
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologiesModuleWidgetsPlugin.h:28: #include "qSlicerTerminologyNavigatorWidgetPlugin.h"`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologiesModuleWidgetsPlugin.h:43: plugins << new qSlicerTerminologyNavigatorWidgetPlugin;`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx:21: #include "qSlicerTerminologyNavigatorWidgetPlugin.h"`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx:22: #include "qSlicerTerminologyNavigatorWidget.h"`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx:25: qSlicerTerminologyNavigatorWidgetPlugin::qSlicerTerminologyNavigatorWidgetPlugin(QObject* pluginParent)`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx:31: QWidget* qSlicerTerminologyNavigatorWidgetPlugin::createWidget(QWidget* parentWidget)`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx:33: qSlicerTerminologyNavigatorWidget* pluginWidget = new qSlicerTerminologyNavigatorWidget(parentWidget);`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx:38: QString qSlicerTerminologyNavigatorWidgetPlugin::domXml() const`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx:40: return "<widget class=\"qSlicerTerminologyNavigatorWidget\" \`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx:46: QString qSlicerTerminologyNavigatorWidgetPlugin::includeFile() const`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx:48: return "qSlicerTerminologyNavigatorWidget.h";`
+  - `Modules/Loadable/Terminologies/Widgets/DesignerPlugins/qSlicerTerminologyNavigatorWidgetPlugin.cxx:52: bool qSlicerTerminologyNavigatorWidgetPlugin::isContainer() const`
+- API footprints: `Copy`, `GetCodeMeaning`, `GetCodeValue`, `GetCodingSchemeDesignator`, `GetHasModifiers`, `GetShowAnatomy`, `GetTerminologyEntry`

@@ -150,7 +150,8 @@ If unchecked, the exported dataset will be added to the DICOM database.
   - `Modules/Scripted/DICOMLib/Widgets/qSlicerDICOMExportDialog.cxx:411: bool exportToDatabase = !d->ExportToFolderCheckBox->isChecked();`
   - `Modules/Scripted/DICOMLib/Widgets/qSlicerDICOMExportDialog.cxx:496: void qSlicerDICOMExportDialog::onExportToFolderCheckBoxToggled(bool on)`
   - `Modules/Scripted/DICOMLib/Widgets/qSlicerDICOMExportDialog.h:88: void onExportToFolderCheckBoxToggled(bool);`
-- Connected slots/functions: `onExportToFolderCheckBoxToggled`
+- Connected slots/functions: `onExportToFolderCheckBoxToggled`, `setEnabled`
+- Declared UI connections: `toggled(bool) -> PathLineEdit_OutputFolder.setEnabled(bool)`
 
 ## widget: PathLineEdit_OutputFolder
 

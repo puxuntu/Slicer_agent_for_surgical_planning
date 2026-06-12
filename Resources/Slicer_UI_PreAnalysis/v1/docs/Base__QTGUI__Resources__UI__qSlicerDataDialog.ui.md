@@ -74,12 +74,14 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ButtonBox
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QDialogButtonBox`
 - Search text: ButtonBox | QDialogButtonBox
 - Implementation candidates: `Base/QTGUI/qSlicerDataDialog.cxx`, `Base/QTGUI/qSlicerDataDialog.h`, `Base/QTGUI/qSlicerDataDialog_p.h`
 - Matched implementation lines:
   - `Base/QTGUI/qSlicerDataDialog.cxx:93: QPushButton* resetButton = this->ButtonBox->button(QDialogButtonBox::Reset);`
+- Connected slots/functions: `accept`, `reject`
+- Declared UI connections: `accepted() -> qSlicerDataDialog.accept()`; `rejected() -> qSlicerDataDialog.reject()`
 
 ## widget: ShowOptionsCheckBox
 

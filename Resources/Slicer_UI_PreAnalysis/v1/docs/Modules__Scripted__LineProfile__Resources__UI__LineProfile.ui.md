@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Scripted/LineProfile/LineProfile.py:238: class LineProfileLogic(ScriptedLoadableModuleLogic):`
   - `Modules/Scripted/LineProfile/LineProfile.py:258: self._parameterNode = LineProfileParameterNode(parameterNode)`
   - `Modules/Scripted/LineProfile/LineProfile.py:417: distanceArray = LineProfileLogic.getArrayFromTable(outputTable, DISTANCE_ARRAY_NAME)`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> inputVolumeSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> inputLineWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> outputTableSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> outputPlotSeriesSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> outputPeaksTableSelector.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetNumberOfPoints`, `GetTable`, `SetNumberOfRows`
 
 ## widget: parametersCollapsibleButton
@@ -249,7 +251,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: applyButton
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `ctkCheckablePushButton`
 - Search text: Compute intensity profile | applyButton | ctkCheckablePushButton
 - Text: Compute intensity profile
@@ -258,4 +260,5 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Scripted/LineProfile/LineProfile.py:130: self.ui.applyButton.clicked.connect(self.onApplyButton)`
   - `Modules/Scripted/LineProfile/LineProfile.py:197: self.ui.applyButton.enabled = True`
   - `Modules/Scripted/LineProfile/LineProfile.py:199: self.ui.applyButton.enabled = False`
+- Connected slots/functions: `onApplyButton`
 - Key UI properties: {"checkable": "false"}

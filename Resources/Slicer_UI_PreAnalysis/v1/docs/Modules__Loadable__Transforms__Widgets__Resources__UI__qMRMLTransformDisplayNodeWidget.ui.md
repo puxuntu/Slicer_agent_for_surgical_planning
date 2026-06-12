@@ -25,6 +25,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Transforms/Widgets/qMRMLTransformDisplayNodeWidget.cxx:75: qMRMLTransformDisplayNodeWidgetPrivate ::~qMRMLTransformDisplayNodeWidgetPrivate()`
   - `Modules/Loadable/Transforms/Widgets/qMRMLTransformDisplayNodeWidget.cxx:82: void qMRMLTransformDisplayNodeWidgetPrivate::init()`
   - `Modules/Loadable/Transforms/Widgets/qMRMLTransformDisplayNodeWidget.cxx:84: Q_Q(qMRMLTransformDisplayNodeWidget);`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> RegionNodeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> GlyphSpacingMm.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> GridSpacingMm.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> GridLineDiameterMm.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> GridResolutionMm.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ContourResolutionMm.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `Delete`, `vtkMRMLTransformNode::SafeDownCast`
 
 ## widget: VisualizationCollapsibleGroupBox
@@ -1213,11 +1215,13 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ShowInteractionAdvancedOptionsButton
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QPushButton`
 - Search text: More options... | ShowInteractionAdvancedOptionsButton | QPushButton
 - Text: More options...
 - Implementation candidates: `Modules/Loadable/Transforms/Widgets/qMRMLTransformDisplayNodeWidget.cxx`, `Modules/Loadable/Transforms/Widgets/qMRMLTransformDisplayNodeWidget.h`
+- Connected slots/functions: `setVisible`
+- Declared UI connections: `toggled(bool) -> InteractiveAdvancedOptions3DFrame.setVisible(bool)`; `toggled(bool) -> InteractiveAdvancedOptionsSliceFrame.setVisible(bool)`
 - Key UI properties: {"checkable": "true"}
 
 ## widget: InteractiveAdvancedOptionsSliceFrame

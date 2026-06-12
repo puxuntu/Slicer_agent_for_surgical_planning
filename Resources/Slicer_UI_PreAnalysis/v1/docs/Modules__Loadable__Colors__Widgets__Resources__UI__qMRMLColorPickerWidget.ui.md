@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Colors/Widgets/qMRMLColorPickerWidget.cxx:86: qMRMLColorPickerWidget::qMRMLColorPickerWidget(QWidget* _parent)`
   - `Modules/Loadable/Colors/Widgets/qMRMLColorPickerWidget.cxx:88: , d_ptr(new qMRMLColorPickerWidgetPrivate(*this))`
   - `Modules/Loadable/Colors/Widgets/qMRMLColorPickerWidget.cxx:90: Q_D(qMRMLColorPickerWidget);`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ColorTableComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetPointer`, `vtkMRMLColorNode::SafeDownCast`, `vtkMRMLNode::SafeDownCast`, `vtkMRMLScene::NodeAddedEvent`
 
 ## widget: ColorTableLabel
@@ -46,7 +48,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Colors/Widgets/qMRMLColorPickerWidget.cxx:115: return vtkMRMLColorNode::SafeDownCast(d->ColorTableComboBox->currentNode());`
   - `Modules/Loadable/Colors/Widgets/qMRMLColorPickerWidget.cxx:122: d->ColorTableComboBox->setCurrentNode(node);`
   - `Modules/Loadable/Colors/Widgets/qMRMLColorPickerWidget.cxx:160: if (scene && !d->ColorTableComboBox->currentNode())`
-- Connected slots/functions: `clear`, `onCurrentColorNodeChanged`
+- Connected slots/functions: `clear`, `onCurrentColorNodeChanged`, `setMRMLColorNode`
+- Declared UI connections: `currentNodeChanged(vtkMRMLNode*) -> MRMLColorListView.setMRMLColorNode(vtkMRMLNode*)`
 - API footprints: `vtkMRMLColorNode::SafeDownCast`, `vtkMRMLScene::NodeAddedEvent`
 
 ## widget: MRMLColorListView

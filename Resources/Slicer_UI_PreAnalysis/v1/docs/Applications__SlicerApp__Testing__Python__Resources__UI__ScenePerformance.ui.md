@@ -7,7 +7,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ScenePerformance
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `qMRMLWidget`
 - Search text: ScenePerformance | qMRMLWidget
 - Implementation candidates: `Applications/SlicerApp/Testing/Python/ScenePerformance.py`
@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Applications/SlicerApp/Testing/Python/ScenePerformance.py:116: # ScenePerformanceLogic`
   - `Applications/SlicerApp/Testing/Python/ScenePerformance.py:118: class ScenePerformanceLogic(ScriptedLoadableModuleLogic):`
   - `Applications/SlicerApp/Testing/Python/ScenePerformance.py:135: class ScenePerformanceTest(ScriptedLoadableModuleTest):`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> MRMLNodeComboBox.setMRMLScene(vtkMRMLScene*)`
 
 ## widget: groupBox
 

@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx:99: qSlicerSimpleMarkupsWidgetPrivate::~qSlicerSimpleMarkupsWidgetPrivate() = default;`
   - `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx:102: void qSlicerSimpleMarkupsWidgetPrivate::setupUi(qSlicerSimpleMarkupsWidget* widget)`
   - `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx:104: this->Ui_qSlicerSimpleMarkupsWidget::setupUi(widget);`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> MarkupsNodeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MarkupsPlaceWidget.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `vtkMRMLMarkupsNode::SafeDownCast`
 
 ## widget: MarkupsNodeComboBox

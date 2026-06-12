@@ -1,4 +1,3 @@
-{"qrc_file": "Resources/qSlicer.qrc", "resources": ["Logos/Bills.png", "Logos/BIRN-NoText.png", "Logos/NAC.png", "Logos/NAMIC.png", "Logos/NCIGT.png", "Logos/SPL.png"]}
 {"qrc_file": "Applications/SlicerApp/Resources/SlicerApp.qrc", "resources": ["Icons/Small/Slicer-DesktopIcon.png", "Icons/Medium/Slicer-DesktopIcon.png", "Icons/Large/Slicer-DesktopIcon.png", "Icons/XLarge/Slicer-DesktopIcon.png", "Icons/XXLarge/Slicer-DesktopIcon.png", "Images/Slicer-SplashScreen.png", "Images/Slicer-Logo.png", "Images/Slicer-ModulePanelLogo.png", "Images/Slicer-ModulePanelLogo@2x.png"]}
 {"qrc_file": "Base/QTCLI/Resources/qSlicerBaseQTCLI.qrc", "resources": []}
 {"qrc_file": "Base/QTCore/Resources/qSlicerBaseQTCore.qrc", "resources": ["Files/default-extension-filetype.ini"]}
@@ -18,8 +17,8 @@
 {"qrc_file": "Modules/Loadable/Plots/SubjectHierarchyPlugins/Resources/qSlicerPlotsSubjectHierarchyPlugins.qrc", "resources": ["Icons/Plot.png"]}
 {"qrc_file": "Modules/Loadable/Reformat/Resources/qSlicerReformatModule.qrc", "resources": ["Icons/Reformat.png"]}
 {"qrc_file": "Modules/Loadable/SceneViews/Resources/qSlicerSceneViewsModule.qrc", "resources": ["Icons/Restore.png", "Icons/Camera.png", "Icons/MoveUp.png", "Icons/MoveDown.png", "Icons/LayoutFull.png", "Icons/LayoutYellowSliceView.png", "Icons/LayoutRedSliceView.png", "Icons/LayoutGreenSliceView.png", "Icons/Layout3DView.png", "Icons/Delete.png", "Icons/SelectCameras.png"]}
-{"qrc_file": "Modules/Loadable/Segmentations/Resources/qSlicerSegmentationsModule.qrc", "resources": ["Icons/AddLabelmap.png", "Icons/Segmentations.png"]}
 {"qrc_file": "Modules/Loadable/Segmentations/EditorEffects/Resources/qSlicerSegmentationsEditorEffects.qrc", "resources": ["Icons/NullEffect.png", "Icons/Erase.png", "Icons/Paint.png", "Icons/Rectangle.png"]}
+{"qrc_file": "Modules/Loadable/Segmentations/Resources/qSlicerSegmentationsModule.qrc", "resources": ["Icons/AddLabelmap.png", "Icons/Segmentations.png"]}
 {"qrc_file": "Modules/Loadable/Segmentations/SubjectHierarchyPlugins/Resources/qSlicerSegmentationsSubjectHierarchyPlugins.qrc", "resources": ["Icons/Segment.png", "Icons/Segmentation.png"]}
 {"qrc_file": "Modules/Loadable/Segmentations/Widgets/Resources/qSlicerSegmentationsModuleWidgets.qrc", "resources": ["Icons/Add.png", "Icons/Edit.png", "Icons/ClearSelection.png", "Icons/Completed.png", "Icons/Flagged.png", "Icons/Help.png", "Icons/InProgress.png", "Icons/Source.png", "Icons/MakeModel.png", "Icons/NotStarted.png", "Icons/Present.png", "Icons/Remove.png", "Icons/SegmentGeometry.png", "Icons/SlicerRotateWarning.png"]}
 {"qrc_file": "Modules/Loadable/Sequences/Resources/qSlicerSequencesModule.qrc", "resources": ["Icons/Sequences.png", "Icons/DataNodeUnhidden.png", "Icons/DataNodeHidden.png", "Icons/DataNodeDelete.png", "Icons/Add.png", "Icons/Remove.png"]}
@@ -41,4 +40,5 @@
 {"qrc_file": "Modules/Loadable/Volumes/SubjectHierarchyPlugins/Resources/qSlicerVolumesSubjectHierarchyPlugins.qrc", "resources": ["Icons/DiffusionTensorVolume.png", "Icons/Labelmap.png", "Icons/Volume.png", "Icons/VolumeVisibilityOff.png", "Icons/VolumeVisibilityOn.png"]}
 {"qrc_file": "Modules/Loadable/Volumes/Widgets/Resources/qSlicerVolumesWidgetsModule.qrc", "resources": ["Icons/WindowLevelPreset-CT-air.png", "Icons/WindowLevelPreset-CT-bone.png", "Icons/WindowLevelPreset-PET.png", "Icons/WindowLevelPreset-Abdomen.png", "Icons/WindowLevelPreset-Brain.png", "Icons/WindowLevelPreset-Lung.png", "Icons/WindowLevelPreset-DTI.png"]}
 {"qrc_file": "Modules/Scripted/ExtensionWizard/ExtensionWizardLib/ExtensionWizard.qrc", "resources": ["Icons/XSmall/ExtensionWizard.png", "Icons/Medium/ExtensionWizard.png", "Icons/XLarge/ExtensionWizard.png"]}
+{"qrc_file": "Resources/qSlicer.qrc", "resources": ["Logos/Bills.png", "Logos/BIRN-NoText.png", "Logos/NAC.png", "Logos/NAMIC.png", "Logos/NCIGT.png", "Logos/SPL.png"]}
 {"qrc_file": "Utilities/Templates/Modules/Loadable/Resources/qSlicerTemplateKeyModule.qrc", "resources": ["Icons/TemplateKey.png"]}

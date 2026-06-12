@@ -52,6 +52,22 @@ then generate code immediately.
 - You have up to 15 tool rounds total. Prefer fewer rounds — generate code as soon \
 as you have enough evidence.
 
+### Extension-specific artifacts
+This applies ONLY to artifacts the extension DEFINES IN ITS OWN SOURCE whose exact
+value you must reproduce: a custom layout registered by the extension (its layout
+ID and XML), an `slicer.<Const>` the extension sets, a custom singleton tag, or a
+magic constant. Their concrete values live in the extension's OWN source, not in
+Slicer core. Search `slicer-extensions/<ExtensionName>/` (and any `ext:` root
+provided) for the real definition or accessor (for example a `setX`/`addX` helper
+or an `slicer.<Const>`) and use that. Do NOT guess an ID, invent XML, or copy a
+placeholder value.
+
+This does NOT apply to ordinary MRML scene nodes the user/workflow creates and that
+are referenced by NAME or role (for example a "mandibular curve", a segmentation,
+or a volume). Those are resolved at RUNTIME from the scene by name/role lookup
+(parameter-node references, `GetFirstNodeByName`, fuzzy name match) — generate that
+lookup directly; do NOT treat them as missing source artifacts.
+
 ### Efficient search order
 If you need to search, prefer these sources in order:
 1. `slicer-ui-analysis/` — UI labels/actions mapped to nearby implementation/API evidence
@@ -90,6 +106,15 @@ Once you have seen the target function's parameter list and at least one usage e
 - For custom layout operations, distinguish registering a layout from activating
   it. A "change/switch/restore layout" operation must actually activate the
   requested layout; registration alone is not sufficient.
+- NEVER fabricate extension-specific data artifacts. Do not invent or guess a
+  custom-layout ID, layout XML, node name, singleton tag, or magic constant that
+  belongs to an extension. Every such literal must come from retrieved source
+  evidence (the extension's own source). If, after searching the extension source,
+  you cannot find the real value or a helper that performs the operation, do NOT
+  emit a placeholder, a guessed number, or made-up XML — instead emit exactly:
+  `raise RuntimeError("MISSING_EVIDENCE: <what is missing>")`
+  as the entire operation body, so the failure is explicit rather than silently
+  wrong.
 - For display/view-scope operations, adding view IDs is only a view filter.
   If the target includes a slice view, also enable the target display class's
   supported slice/2D visibility state. Search evidence for the discovered

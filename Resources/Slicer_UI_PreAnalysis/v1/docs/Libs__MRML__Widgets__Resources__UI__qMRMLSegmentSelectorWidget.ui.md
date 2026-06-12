@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLSegmentSelectorWidget.cxx:100: void qMRMLSegmentSelectorWidgetPrivate::setMessage(QString message)`
   - `Libs/MRML/Widgets/qMRMLSegmentSelectorWidget.cxx:109: // qMRMLSegmentSelectorWidget methods`
   - `Libs/MRML/Widgets/qMRMLSegmentSelectorWidget.cxx:112: qMRMLSegmentSelectorWidget::qMRMLSegmentSelectorWidget(QWidget* _parent)`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> MRMLNodeComboBox_Segmentation.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `vtkMRMLSegmentationNode::SafeDownCast`
 
 ## widget: frame_Segment

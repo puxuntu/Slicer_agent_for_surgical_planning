@@ -208,7 +208,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ButtonBox
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QDialogButtonBox`
 - Search text: ButtonBox | QDialogButtonBox
 - Implementation candidates: `Base/QTGUI/qSlicerExportNodeDialog.cxx`, `Base/QTGUI/qSlicerExportNodeDialog.h`, `Base/QTGUI/qSlicerExportNodeDialog_p.h`
@@ -216,3 +216,5 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Base/QTGUI/qSlicerExportNodeDialog.cxx:427: this->ButtonBox->button(QDialogButtonBox::Save)->setText(qSlicerExportNodeDialog::tr("&Export"));`
   - `Base/QTGUI/qSlicerExportNodeDialog.cxx:742: this->ButtonBox->setFocus(Qt::ActiveWindowFocusReason);`
   - `Base/QTGUI/qSlicerExportNodeDialog.cxx:820: setTabOrder(this->HardenTransformCheckBox, this->ButtonBox);`
+- Connected slots/functions: `accept`, `reject`
+- Declared UI connections: `accepted() -> qSlicerExportNodeDialog.accept()`; `rejected() -> qSlicerExportNodeDialog.reject()`

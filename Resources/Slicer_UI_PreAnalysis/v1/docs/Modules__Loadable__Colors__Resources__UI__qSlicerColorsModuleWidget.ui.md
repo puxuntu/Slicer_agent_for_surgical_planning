@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx:101: vtkSlicerColorLogic* qSlicerColorsModuleWidgetPrivate::colorLogic() const`
   - `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx:103: Q_Q(const qSlicerColorsModuleWidget);`
   - `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx:108: void qSlicerColorsModuleWidgetPrivate::setDefaultColorNode()`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ColorTableComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> LUTRangeWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> DisplayableNodeComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetScene`, `vtkMRMLColorNode::SafeDownCast`, `vtkMRMLColorTableNode::SafeDownCast`, `vtkMRMLDisplayableNode::DisplayModifiedEvent`, `vtkMRMLDisplayableNode::SafeDownCast`
 
 ## widget: ColorLegendCollapsibleButton
@@ -117,10 +119,14 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: frame
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_code`
 - Widget/action class: `QFrame`
 - Search text: frame | QFrame
-- Implementation candidates: `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx`, `Modules/Loadable/Colors/qSlicerColorsModuleWidget.h`
+- Implementation candidates: `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx`, `Modules/Loadable/Colors/qSlicerColorsModuleWidget.h`, `Modules/Loadable/Colors/MRML/vtkMRMLColorLegendDisplayNode.h`, `Modules/Loadable/Colors/VTKWidgets/vtkSlicerScalarBarActor.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Colors/MRML/vtkMRMLColorLegendDisplayNode.h:138: /// The text object property controls background color/opacity, frame size/color, font, etc.`
+  - `Modules/Loadable/Colors/MRML/vtkMRMLColorLegendDisplayNode.h:145: /// The text object property controls background color/opacity, frame size/color, font, etc.`
+  - `Modules/Loadable/Colors/VTKWidgets/vtkSlicerScalarBarActor.cxx:258: // Ticks span the entire width of the frame`
 
 ## widget: ColorTableLabel
 
@@ -149,7 +155,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx:405: d->ColorTableComboBox->setCurrentNode(newColorTableNode);`
   - `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx:412: vtkMRMLColorTableNode* currentNode = vtkMRMLColorTableNode::SafeDownCast(d->ColorTableComboBox->currentNode());`
   - `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx:435: vtkMRMLColorTableNode* currentNode = vtkMRMLColorTableNode::SafeDownCast(d->ColorTableComboBox->currentNode());`
-- Connected slots/functions: `onMRMLColorNodeChanged`
+- Connected slots/functions: `onMRMLColorNodeChanged`, `setMRMLColorNode`
+- Declared UI connections: `currentNodeChanged(vtkMRMLNode*) -> ColorView.setMRMLColorNode(vtkMRMLNode*)`
 - API footprints: `GetColorName`, `GetColorTransferFunction`, `GetDefaultLabelMapColorNodeID`, `GetID`, `GetLookupTable`, `GetNodeByID`, `GetNumberOfColors`, `GetRange`, `GetType`, `SetNumberOfValues`, `SetValue`, `vtkMRMLColorNode::SafeDownCast`, `vtkMRMLColorNode::User`, `vtkMRMLColorTableNode::SafeDownCast`, `vtkMRMLColorTableNode::User`, `vtkMRMLProceduralColorNode::SafeDownCast`
 
 ## widget: CopyColorNodeButton
@@ -190,6 +197,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx:215: d->EditColorsCollapsibleButton->setText(tr("Discrete table"));`
   - `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx:275: d->EditColorsCollapsibleButton->setText(tr("Continuous scale"));`
+- Connected slots/functions: `setInactive`, `setShowOnlyNamedColors`
+- Declared UI connections: `toggled(bool) -> DynamicSpacer.setInactive(bool)`; `toggled(bool) -> ColorView.setShowOnlyNamedColors(bool)`
 - API footprints: `GetType`, `vtkMRMLColorTableNode::User`
 - Key UI properties: {"checked": "true"}
 
@@ -238,11 +247,13 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: HideInvalidColorsCheckBox
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QCheckBox`
 - Search text: Show/Hide the unnamed color entries in the list below. | HideInvalidColorsCheckBox | QCheckBox
 - Tooltip: Show/Hide the unnamed color entries in the list below.
 - Implementation candidates: `Modules/Loadable/Colors/qSlicerColorsModuleWidget.cxx`, `Modules/Loadable/Colors/qSlicerColorsModuleWidget.h`
+- Connected slots/functions: `setShowOnlyNamedColors`
+- Declared UI connections: `toggled(bool) -> ColorView.setShowOnlyNamedColors(bool)`
 - Key UI properties: {"checked": "true"}
 
 ## widget: LUTRangeLabel

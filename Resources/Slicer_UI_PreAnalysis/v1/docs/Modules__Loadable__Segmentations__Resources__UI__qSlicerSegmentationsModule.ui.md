@@ -24,7 +24,9 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Segmentations/qSlicerSegmentationsModule.cxx:94: qSlicerSegmentationsModule::~qSlicerSegmentationsModule() = default;`
   - `Modules/Loadable/Segmentations/qSlicerSegmentationsModule.cxx:97: QString qSlicerSegmentationsModule::helpText() const`
   - `Modules/Loadable/Segmentations/qSlicerSegmentationsModule.cxx:109: QString qSlicerSegmentationsModule::acknowledgementText() const`
-- API footprints: `IsBatchProcessing`, `vtkMRMLScene::SafeDownCast`, `vtkMRMLSegmentationNode::SafeDownCast`, `vtkMRMLSubjectHierarchyNode::GetSubjectHierarchyNode`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> MRMLNodeComboBox_OtherSegmentationOrRepresentationNode.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLNodeComboBox_ExportLabelmapReferenceVolume.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ExportToFilesWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> SubjectHierarchyComboBox_ImportExport.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ColorTableNodeSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> SegmentationDisplayNodeWidget.setMRMLScene(vtkMRMLScene*)`
+- API footprints: `Delete`, `GetItemAsObject`, `GetNodesByClass`, `IsBatchProcessing`, `vtkMRMLScene::NodeAddedEvent`, `vtkMRMLScene::SafeDownCast`, `vtkMRMLSegmentationNode::SafeDownCast`, `vtkMRMLSubjectHierarchyNode::GetSubjectHierarchyNode`, `vtkMRMLSubjectHierarchyNode::SafeDownCast`
 
 ## widget: ResizableFrame_2
 
@@ -159,6 +161,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Segmentations/qSlicerSegmentationsModuleWidget.cxx:362: d->SegmentsTableView_Current->setStatusColumnVisible(false);`
   - `Modules/Loadable/Segmentations/qSlicerSegmentationsModuleWidget.cxx:364: d->SegmentsTableView_Other->setSelectionMode(QAbstractItemView::ExtendedSelection);`
 - Connected slots/functions: `onSegmentSelectionChanged`, `setSegmentationNode`
+- Declared UI connections: `selectionChanged(QItemSelection,QItemSelection) -> SegmentationDisplayNodeWidget.onSegmentSelectionChanged(QItemSelection,QItemSelection)`
 - API footprints: `AddEmptySegment`, `CreateDefaultDisplayNodes`, `GetSegmentation`, `vtkMRMLSegmentationNode::SafeDownCast`
 
 ## widget: CollapsibleButton_Display

@@ -55,7 +55,8 @@ This should only used by advanced users who understand the consequences of chang
   - `Modules/Loadable/Units/qSlicerUnitsSettingsPanel.cxx:96: q->connect(this->ShowAllCheckBox, SIGNAL(toggled(bool)), q, SLOT(showAll(bool)));`
   - `Modules/Loadable/Units/qSlicerUnitsSettingsPanel.cxx:97: this->ShowAllCheckBox->setChecked(false);`
   - `Modules/Loadable/Units/qSlicerUnitsSettingsPanel.cxx:158: unitWidget->unitWidget()->setDisplayedProperties(this->ShowAllCheckBox->isChecked() ? qMRMLUnitWidget::All : qMRMLUnitWidget::Precision);`
-- Connected slots/functions: `showAll`
+- Connected slots/functions: `setVisible`, `showAll`
+- Declared UI connections: `toggled(bool) -> WarningLabel.setVisible(bool)`
 - Key UI properties: {"checked": "true"}
 
 ## widget: scrollArea

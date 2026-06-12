@@ -24,7 +24,9 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLSliceWidget.cxx:101: void qMRMLSliceWidgetPrivate::endProcessing()`
   - `Libs/MRML/Widgets/qMRMLSliceWidget.cxx:109: void qMRMLSliceWidgetPrivate::setImageDataConnection(vtkAlgorithmOutput* imageDataConnection)`
   - `Libs/MRML/Widgets/qMRMLSliceWidget.cxx:111: // qDebug() << "qMRMLSliceWidgetPrivate::setImageDataConnection";`
-- API footprints: `vtkMRMLSliceNode::SafeDownCast`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> SliceController.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> SliceView.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> SliceVerticalController.setMRMLScene(vtkMRMLScene*)`
+- API footprints: `vtkMRMLScene::EndBatchProcessEvent`, `vtkMRMLSliceNode::SafeDownCast`
 
 ## widget: SliceController
 

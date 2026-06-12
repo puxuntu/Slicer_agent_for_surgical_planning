@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.cxx:80: Q_Q(qMRMLPlotSeriesPropertiesWidget);`
   - `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.cxx:238: void qMRMLPlotSeriesPropertiesWidgetPrivate::onPlotSeriesNodeChanged(vtkMRMLNode* node)`
   - `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.cxx:255: void qMRMLPlotSeriesPropertiesWidgetPrivate::onInputTableNodeChanged(vtkMRMLNode* node)`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> inputTableComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `vtkMRMLPlotSeriesNode::SafeDownCast`, `vtkMRMLTableNode::SafeDownCast`
 
 ## widget: InputTableLabel
@@ -73,11 +75,17 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: xAxisLabel
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QLabel`
 - Search text: X Axis Column: | xAxisLabel | QLabel
 - Text: X Axis Column:
-- Implementation candidates: `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.cxx`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.h`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget_p.h`
+- Implementation candidates: `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.cxx`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.h`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget_p.h`, `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:75: QObject::connect(this->xAxisLabelLineEdit, SIGNAL(textEdited(const QString&)), q, SLOT(setXAxisLabel(const QString&)));`
+  - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:107: this->xAxisLabelLineEdit->clear();`
+  - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:187: this->xAxisLabelLineEdit->setText(this->PlotChartNode->GetXAxisTitle() ? this->PlotChartNode->GetXAxisTitle() : "");`
+- Connected slots/functions: `setXAxisLabel`
+- API footprints: `GetTitle`, `GetXAxisTitle`, `GetYAxisTitle`, `SetXAxisTitle`
 
 ## widget: xAxisComboBox
 
@@ -103,11 +111,17 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: yAxisLabel
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QLabel`
 - Search text: Y Axis Column: | yAxisLabel | QLabel
 - Text: Y Axis Column:
-- Implementation candidates: `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.cxx`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.h`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget_p.h`
+- Implementation candidates: `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.cxx`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget.h`, `Modules/Loadable/Plots/Widgets/qMRMLPlotSeriesPropertiesWidget_p.h`, `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:76: QObject::connect(this->yAxisLabelLineEdit, SIGNAL(textEdited(const QString&)), q, SLOT(setYAxisLabel(const QString&)));`
+  - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:108: this->yAxisLabelLineEdit->clear();`
+  - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:188: this->yAxisLabelLineEdit->setText(this->PlotChartNode->GetYAxisTitle() ? this->PlotChartNode->GetYAxisTitle() : "");`
+- Connected slots/functions: `setYAxisLabel`
+- API footprints: `GetLegendVisibility`, `GetTitle`, `GetXAxisTitle`, `GetYAxisTitle`, `SetYAxisTitle`
 
 ## widget: yAxisComboBox
 

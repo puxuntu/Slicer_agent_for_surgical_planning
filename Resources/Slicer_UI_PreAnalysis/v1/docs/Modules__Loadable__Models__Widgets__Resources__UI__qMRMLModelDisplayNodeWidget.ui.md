@@ -24,7 +24,9 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Models/Widgets/qMRMLModelDisplayNodeWidget.cxx:96: Q_Q(qMRMLModelDisplayNodeWidget);`
   - `Modules/Loadable/Models/Widgets/qMRMLModelDisplayNodeWidget.cxx:142: QList<vtkMRMLModelDisplayNode*> qMRMLModelDisplayNodeWidgetPrivate::modelDisplayNodesFromSelection() const`
   - `Modules/Loadable/Models/Widgets/qMRMLModelDisplayNodeWidget.cxx:144: Q_Q(const qMRMLModelDisplayNodeWidget);`
-- API footprints: `GetPointer`, `vtkMRMLModelDisplayNode::SafeDownCast`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ScalarsDisplayWidget.setMRMLScene(vtkMRMLScene*)`
+- API footprints: `GetPointer`, `vtkMRMLModelDisplayNode::SafeDownCast`, `vtkMRMLScene::EndBatchProcessEvent`
 
 ## widget: RepresentationCollapsibleGroupBox
 

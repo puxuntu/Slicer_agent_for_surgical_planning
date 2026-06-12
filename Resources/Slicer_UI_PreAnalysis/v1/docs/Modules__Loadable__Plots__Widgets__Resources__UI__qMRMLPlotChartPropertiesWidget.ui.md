@@ -121,7 +121,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:80: this->connect(this->xAxisManualRangeCheckBox, SIGNAL(toggled(bool)), q, SLOT(setXAxisManualRangeEnabled(bool)));`
   - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:110: this->xAxisManualRangeCheckBox->setChecked(false);`
   - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:137: this->xAxisManualRangeCheckBox->setChecked(!this->PlotChartNode->GetXAxisRangeAuto());`
-- Connected slots/functions: `setXAxisManualRangeEnabled`
+- Connected slots/functions: `setEnabled`, `setXAxisManualRangeEnabled`
+- Declared UI connections: `toggled(bool) -> xAxisRangeMinDoubleSpinBox.setEnabled(bool)`; `toggled(bool) -> xAxisRangeMaxDoubleSpinBox.setEnabled(bool)`
 - API footprints: `GetXAxisRangeAuto`, `SetXAxisRangeAuto`
 
 ## widget: xAxisRangeMinDoubleSpinBox
@@ -175,7 +176,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:84: this->connect(this->yAxisManualRangeCheckBox, SIGNAL(toggled(bool)), q, SLOT(setYAxisManualRangeEnabled(bool)));`
   - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:111: this->yAxisManualRangeCheckBox->setChecked(false);`
   - `Modules/Loadable/Plots/Widgets/qMRMLPlotChartPropertiesWidget.cxx:154: this->yAxisManualRangeCheckBox->setChecked(!this->PlotChartNode->GetYAxisRangeAuto());`
-- Connected slots/functions: `setYAxisManualRangeEnabled`
+- Connected slots/functions: `setEnabled`, `setYAxisManualRangeEnabled`
+- Declared UI connections: `toggled(bool) -> yAxisRangeMinDoubleSpinBox.setEnabled(bool)`; `toggled(bool) -> yAxisRangeMaxDoubleSpinBox.setEnabled(bool)`
 - API footprints: `GetYAxisRangeAuto`, `SetYAxisRangeAuto`
 
 ## widget: yAxisRangeMinDoubleSpinBox

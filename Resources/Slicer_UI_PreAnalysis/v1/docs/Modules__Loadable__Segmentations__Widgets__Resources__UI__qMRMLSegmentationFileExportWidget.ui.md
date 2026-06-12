@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Segmentations/Widgets/qMRMLSegmentationFileExportWidget.cxx:92: // qMRMLSegmentationFileExportWidget methods`
   - `Modules/Loadable/Segmentations/Widgets/qMRMLSegmentationFileExportWidget.cxx:95: qMRMLSegmentationFileExportWidget::qMRMLSegmentationFileExportWidget(QWidget* _parent)`
   - `Modules/Loadable/Segmentations/Widgets/qMRMLSegmentationFileExportWidget.cxx:97: , d_ptr(new qMRMLSegmentationFileExportWidgetPrivate(*this))`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ColorTableNodeSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ReferenceVolumeComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetID`, `GetPointer`, `vtkMRMLSegmentationNode::SafeDownCast`
 
 ## widget: VisibleSegmentsOnlyLabel

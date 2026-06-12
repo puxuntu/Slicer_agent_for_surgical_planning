@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Data/qSlicerDataModuleWidget.cxx:90: this->CallBack->SetCallback(qSlicerDataModuleWidget::onSubjectHierarchyItemEvent);`
   - `Modules/Loadable/Data/qSlicerDataModuleWidget.cxx:94: qSlicerDataModuleWidgetPrivate::~qSlicerDataModuleWidgetPrivate()`
   - `Modules/Loadable/Data/qSlicerDataModuleWidget.cxx:104: vtkSlicerDataModuleLogic* qSlicerDataModuleWidgetPrivate::logic() const`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> TransformMRMLTreeView.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> SubjectHierarchyTreeView.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> AllNodesMRMLTreeView.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `AddNode`, `GetParentTransformNode`, `GetPointer`, `SetCallback`, `SetClientData`, `vtkMRMLTransformableNode::SafeDownCast`
 
 ## widget: FilterLabel

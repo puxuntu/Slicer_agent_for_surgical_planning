@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionTensorVolumeDisplayWidget.cxx:62: void qSlicerDiffusionTensorVolumeDisplayWidgetPrivate::init()`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionTensorVolumeDisplayWidget.cxx:64: Q_Q(qSlicerDiffusionTensorVolumeDisplayWidget);`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionTensorVolumeDisplayWidget.cxx:76: void qSlicerDiffusionTensorVolumeDisplayWidgetPrivate::glyphsOnSlicesDisplaySetEnabled(bool enabled)`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ScalarVolumeDisplayWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> DTISliceDisplayWidget.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `vtkMRMLDiffusionTensorVolumeNode::SafeDownCast`
 
 ## widget: CollapsibleGroupBox_2
@@ -78,11 +80,14 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: GlyphVisibilityLabel
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_code`
 - Widget/action class: `QLabel`
 - Search text: Slice Visibility: | GlyphVisibilityLabel | QLabel
 - Text: Slice Visibility:
-- Implementation candidates: `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionTensorVolumeDisplayWidget.cxx`, `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionTensorVolumeDisplayWidget.h`
+- Implementation candidates: `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionTensorVolumeDisplayWidget.cxx`, `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionTensorVolumeDisplayWidget.h`, `Modules/Loadable/Volumes/Widgets/qSlicerDTISliceDisplayWidget.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Volumes/Widgets/qSlicerDTISliceDisplayWidget.cxx:353: return d->GlyphVisibilityLabel->isVisibleTo(const_cast<qSlicerDTISliceDisplayWidget*>(this));`
+  - `Modules/Loadable/Volumes/Widgets/qSlicerDTISliceDisplayWidget.cxx:360: d->GlyphVisibilityLabel->setVisible(!hide);`
 
 ## widget: RedSliceCheckBox
 

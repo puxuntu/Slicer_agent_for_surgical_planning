@@ -36,7 +36,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: fullLayoutRadio
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QRadioButton`
 - Search text: Full layout | fullLayoutRadio | QRadioButton
 - Text: Full layout
@@ -44,11 +44,13 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:92: this->WidgetTypeGroup->addButton(this->fullLayoutRadio, qMRMLScreenShotDialog::FullLayout);`
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:122: this->fullLayoutRadio->setEnabled(state);`
+- Connected slots/functions: `grabScreenShot`
+- Declared UI connections: `clicked() -> qMRMLScreenShotDialog.grabScreenShot()`
 - Key UI properties: {"checked": "true"}
 
 ## widget: threeDViewRadio
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QRadioButton`
 - Search text: 3D View | threeDViewRadio | QRadioButton
 - Text: 3D View
@@ -56,11 +58,13 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:93: this->WidgetTypeGroup->addButton(this->threeDViewRadio, qMRMLScreenShotDialog::ThreeD);`
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:118: this->threeDViewRadio->setEnabled(state);`
+- Connected slots/functions: `grabScreenShot`
+- Declared UI connections: `clicked() -> qMRMLScreenShotDialog.grabScreenShot()`
 - Key UI properties: {"checked": "false"}
 
 ## widget: redSliceViewRadio
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QRadioButton`
 - Search text: Red Slice View | redSliceViewRadio | QRadioButton
 - Text: Red Slice View
@@ -68,10 +72,12 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:94: this->WidgetTypeGroup->addButton(this->redSliceViewRadio, qMRMLScreenShotDialog::Red);`
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:119: this->redSliceViewRadio->setEnabled(state);`
+- Connected slots/functions: `grabScreenShot`
+- Declared UI connections: `clicked() -> qMRMLScreenShotDialog.grabScreenShot()`
 
 ## widget: yellowSliceViewRadio
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QRadioButton`
 - Search text: Yellow Slice View | yellowSliceViewRadio | QRadioButton
 - Text: Yellow Slice View
@@ -79,10 +85,12 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:95: this->WidgetTypeGroup->addButton(this->yellowSliceViewRadio, qMRMLScreenShotDialog::Yellow);`
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:120: this->yellowSliceViewRadio->setEnabled(state);`
+- Connected slots/functions: `grabScreenShot`
+- Declared UI connections: `clicked() -> qMRMLScreenShotDialog.grabScreenShot()`
 
 ## widget: greenSliceViewRadio
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QRadioButton`
 - Search text: Green Slice View | greenSliceViewRadio | QRadioButton
 - Text: Green Slice View
@@ -90,6 +98,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Matched implementation lines:
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:96: this->WidgetTypeGroup->addButton(this->greenSliceViewRadio, qMRMLScreenShotDialog::Green);`
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:121: this->greenSliceViewRadio->setEnabled(state);`
+- Connected slots/functions: `grabScreenShot`
+- Declared UI connections: `clicked() -> qMRMLScreenShotDialog.grabScreenShot()`
 
 ## widget: ScreenshotWidget
 
@@ -112,7 +122,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: scaleFactorSpinBox
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `ctkDoubleSpinBox`
 - Search text: Adjust the Magnification factor. | scaleFactorSpinBox | ctkDoubleSpinBox
 - Tooltip: Adjust the Magnification factor.
@@ -124,6 +134,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:257: d->scaleFactorSpinBox->setVisible(state);`
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:265: return d->scaleFactorSpinBox->isVisible();`
   - `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx:353: double scaleFactor = d->scaleFactorSpinBox->value();`
+- Connected slots/functions: `grabScreenShot`
+- Declared UI connections: `valueChanged(double) -> qMRMLScreenShotDialog.grabScreenShot()`
 
 ## widget: saveAsButton
 
@@ -168,11 +180,13 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: buttonBox
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QDialogButtonBox`
 - Search text: Save snapshot via File Save. Edit in Annotations module. | buttonBox | QDialogButtonBox
 - Tooltip: Save snapshot via File Save. Edit in Annotations module.
 - Implementation candidates: `Libs/MRML/Widgets/qMRMLScreenShotDialog.cxx`, `Libs/MRML/Widgets/qMRMLScreenShotDialog.h`
+- Connected slots/functions: `accept`, `reject`
+- Declared UI connections: `rejected() -> qMRMLScreenShotDialog.reject()`; `accepted() -> qMRMLScreenShotDialog.accept()`
 
 ## widget: groupBox_2
 

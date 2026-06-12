@@ -160,11 +160,13 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: moreOptionsCheckBox
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QPushButton`
 - Search text: More options... | moreOptionsCheckBox | QPushButton
 - Text: More options...
 - Implementation candidates: `Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx`, `Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.h`
+- Connected slots/functions: `setVisible`
+- Declared UI connections: `toggled(bool) -> translateXCheckBox.setVisible(bool)`; `toggled(bool) -> scaleViewPlaneCheckBox.setVisible(bool)`; `toggled(bool) -> scaleZCheckBox.setVisible(bool)`; `toggled(bool) -> scaleYCheckBox.setVisible(bool)`; `toggled(bool) -> scaleXCheckBox.setVisible(bool)`; `toggled(bool) -> rotateZCheckBox.setVisible(bool)`
 - Key UI properties: {"checkable": "true"}
 
 ## widget: overallVisibilityCheckBox
@@ -237,11 +239,15 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: label
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QLabel`
 - Search text: Visibility: | label | QLabel
 - Text: Visibility:
-- Implementation candidates: `Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx`, `Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.h`
+- Implementation candidates: `Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx`, `Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.h`, `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx:740: QTableWidgetItem* labelItem = new QTableWidgetItem(QString::fromStdString(controlPointLabel));`
+  - `Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.cxx:763: d->MarkupsControlPointsTableWidget->setItem(i, CONTROL_POINT_LABEL_COLUMN, labelItem);`
+- API footprints: `GetNthControlPointPosition`
 
 ## widget: translateZCheckBox
 

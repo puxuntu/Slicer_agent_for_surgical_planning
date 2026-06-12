@@ -24,8 +24,9 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Sequences/qSlicerSequencesModuleWidget.cxx:124: qSlicerSequencesModuleWidgetPrivate::~qSlicerSequencesModuleWidgetPrivate()`
   - `Modules/Loadable/Sequences/qSlicerSequencesModuleWidget.cxx:149: void qSlicerSequencesModuleWidgetPrivate::setAndObserveCrosshairNode()`
   - `Modules/Loadable/Sequences/qSlicerSequencesModuleWidget.cxx:151: Q_Q(qSlicerSequencesModuleWidget);`
-- Connected slots/functions: `checkStateChanged`, `synchronizedSequenceNodeOverwriteProxyNameStateChanged`, `synchronizedSequenceNodePlaybackStateChanged`, `synchronizedSequenceNodeRecordingStateChanged`, `synchronizedSequenceNodeSaveChangesStateChanged`
-- API footprints: `AddPlot`, `GetAxis`, `GetNodeByID`, `GetPointer`, `IsBatchProcessing`, `RemovePlot`, `SetOverwriteProxyName`, `SetPlayback`, `SetRecording`, `SetSaveChanges`, `SetTitle`, `vtkMRMLSequenceBrowserNode::SafeDownCast`, `vtkMRMLSequenceNode::SafeDownCast`
+- Connected slots/functions: `checkStateChanged`, `setMRMLScene`, `synchronizedSequenceNodeOverwriteProxyNameStateChanged`, `synchronizedSequenceNodePlaybackStateChanged`, `synchronizedSequenceNodeRecordingStateChanged`, `synchronizedSequenceNodeSaveChangesStateChanged`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> MRMLNodeComboBox_ActiveBrowser.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLNodeComboBox_SynchronizeSequenceNode.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLNodeComboBox_MasterSequence.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLNodeComboBox_Sequence.setMRMLScene(vtkMRMLScene*)`
+- API footprints: `AddPlot`, `GetAxis`, `GetClassName`, `GetNodeByID`, `GetNthRegisteredNodeClass`, `GetNumberOfRegisteredNodeClasses`, `GetPointer`, `HasCopyContent`, `IsBatchProcessing`, `RemovePlot`, `SetOverwriteProxyName`, `SetPlayback`, `SetRecording`, `SetSaveChanges`, `SetTitle`, `vtkMRMLSequenceBrowserNode::SafeDownCast`, `vtkMRMLSequenceNode::SafeDownCast`
 
 ## widget: mainTabWidget
 
@@ -51,11 +52,25 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: label
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QLabel`
 - Search text: Sequence browser: | label | QLabel
 - Text: Sequence browser:
-- Implementation candidates: `Modules/Loadable/Sequences/qSlicerSequencesModuleWidget.cxx`, `Modules/Loadable/Sequences/qSlicerSequencesModuleWidget.h`
+- Implementation candidates: `Modules/Loadable/Sequences/qSlicerSequencesModuleWidget.cxx`, `Modules/Loadable/Sequences/qSlicerSequencesModuleWidget.h`, `Modules/Loadable/Sequences/Testing/Python/SequencesSelfTest.py`, `Modules/Loadable/Sequences/Widgets/qMRMLSequenceBrowserSeekWidget.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Sequences/Testing/Python/SequencesSelfTest.py:72: self.section_SaveVolumeSequence("label")`
+  - `Modules/Loadable/Sequences/Testing/Python/SequencesSelfTest.py:174: # Test saving and loading of sequence with volume type "scalar" or "label"`
+  - `Modules/Loadable/Sequences/Testing/Python/SequencesSelfTest.py:185: elif volumeType == "label":`
+  - `Modules/Loadable/Sequences/Testing/Python/SequencesSelfTest.py:188: volumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", f"labelmap_{i}")`
+  - `Modules/Loadable/Sequences/Testing/Python/SequencesSelfTest.py:192: # Add labelmap to sequence`
+  - `Modules/Loadable/Sequences/Testing/Python/SequencesSelfTest.py:202: elif volumeType == "label":`
+  - `Modules/Loadable/Sequences/Testing/Python/SequencesSelfTest.py:203: slicer.util.setSliceViewerLayers(label=browserNode.GetProxyNode(sequenceNode))`
+  - `Modules/Loadable/Sequences/Testing/Python/SequencesSelfTest.py:220: elif volumeType == "label":`
+  - `Modules/Loadable/Sequences/Widgets/qMRMLSequenceBrowserSeekWidget.cxx:59: this->label_IndexValue->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));`
+  - `Modules/Loadable/Sequences/Widgets/qMRMLSequenceBrowserSeekWidget.cxx:126: // Reset the fixed width of the label`
+  - `Modules/Loadable/Sequences/Widgets/qMRMLSequenceBrowserSeekWidget.cxx:127: QFontMetrics fontMetrics = QFontMetrics(d->label_IndexValue->font());`
+  - `Modules/Loadable/Sequences/Widgets/qMRMLSequenceBrowserSeekWidget.cxx:128: d->label_IndexValue->setFixedWidth(fontMetrics.horizontalAdvance(d->label_IndexValue->text()));`
+- API footprints: `AddNewNodeByClass`, `Clear`, `GetClassName`, `GetIndexName`, `GetProxyNode`, `SetDataNodeAtValue`
 
 ## widget: MRMLNodeComboBox_ActiveBrowser
 

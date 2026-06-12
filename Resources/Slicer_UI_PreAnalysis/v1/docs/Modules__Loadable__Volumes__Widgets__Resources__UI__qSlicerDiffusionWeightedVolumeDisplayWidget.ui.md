@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionWeightedVolumeDisplayWidget.cxx:60: void qSlicerDiffusionWeightedVolumeDisplayWidgetPrivate::init()`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionWeightedVolumeDisplayWidget.cxx:62: Q_Q(qSlicerDiffusionWeightedVolumeDisplayWidget);`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionWeightedVolumeDisplayWidget.cxx:70: qSlicerDiffusionWeightedVolumeDisplayWidget::qSlicerDiffusionWeightedVolumeDisplayWidget(QWidget* parentWidget)`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ScalarVolumeDisplayWidget.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `vtkMRMLDiffusionWeightedVolumeNode::SafeDownCast`
 
 ## widget: ScalarDisplayGroupBox
@@ -64,7 +66,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionWeightedVolumeDisplayWidget.cxx:140: d->DWIComponentSlider->blockSignals(sliderWasBlocking);`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionWeightedVolumeDisplayWidget.cxx:142: d->DWIComponentSlider->setValue(component);`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionWeightedVolumeDisplayWidget.cxx:154: d->DWIComponentSlider->setValue(displayNode->GetDiffusionComponent());`
-- Connected slots/functions: `setDWIComponent`
+- Connected slots/functions: `setDWIComponent`, `setValue`
+- Declared UI connections: `valueChanged(int) -> DWIComponentSpinBox.setValue(int)`
 - API footprints: `GetDiffusionComponent`, `SetDiffusionComponent`
 
 ## widget: DWIComponentSpinBox
@@ -77,4 +80,6 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionWeightedVolumeDisplayWidget.cxx:137: bool spinBoxWasBlocking = d->DWIComponentSpinBox->blockSignals(true);`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionWeightedVolumeDisplayWidget.cxx:139: d->DWIComponentSpinBox->setRange(0, maxRange);`
   - `Modules/Loadable/Volumes/Widgets/qSlicerDiffusionWeightedVolumeDisplayWidget.cxx:141: d->DWIComponentSpinBox->blockSignals(spinBoxWasBlocking);`
+- Connected slots/functions: `setValue`
+- Declared UI connections: `valueChanged(int) -> DWIComponentSlider.setValue(int)`
 - API footprints: `GetDiffusionComponent`

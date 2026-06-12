@@ -39,10 +39,12 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ButtonBox
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QDialogButtonBox`
 - Search text: ButtonBox | QDialogButtonBox
 - Implementation candidates: `Base/QTGUI/qSlicerSaveDataDialog.cxx`, `Base/QTGUI/qSlicerSaveDataDialog.h`, `Base/QTGUI/qSlicerSaveDataDialog_p.h`
+- Connected slots/functions: `accept`, `reject`
+- Declared UI connections: `accepted() -> qSlicerSaveDataDialog.accept()`; `rejected() -> qSlicerSaveDataDialog.reject()`
 
 ## widget: DirectoryButton
 

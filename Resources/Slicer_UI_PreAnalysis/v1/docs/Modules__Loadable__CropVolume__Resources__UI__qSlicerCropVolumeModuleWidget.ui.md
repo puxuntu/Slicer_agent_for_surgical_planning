@@ -24,8 +24,9 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:77: qSlicerCropVolumeModuleWidgetPrivate::~qSlicerCropVolumeModuleWidgetPrivate() = default;`
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:80: vtkSlicerCropVolumeLogic* qSlicerCropVolumeModuleWidgetPrivate::logic() const`
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:82: Q_Q(const qSlicerCropVolumeModuleWidget);`
-- Connected slots/functions: `mappedInt`, `setFitROIMode`
-- API footprints: `FitROI`, `GetClassName`, `GetInputVolumeNode`, `GetOutputVolumeNode`, `GetPointer`, `GetROINode`, `IsBatchProcessing`, `ReorientVolumeEnd`, `ReorientVolumeStart`, `SetFitROIMode`, `vtkMRMLCropVolumeParametersNode::FitROIKeepOrientation`, `vtkMRMLCropVolumeParametersNode::SafeDownCast`
+- Connected slots/functions: `mappedInt`, `setFitROIMode`, `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ParametersNodeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> InputVolumeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> InputROIComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> OutputVolumeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> InputSpacingWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> CroppedSpacingWidget.setMRMLScene(vtkMRMLScene*)`
+- API footprints: `FitROI`, `GetClassName`, `GetInputVolumeNode`, `GetOutputVolumeNode`, `GetPointer`, `GetROINode`, `IsBatchProcessing`, `ReorientVolumeEnd`, `ReorientVolumeStart`, `SetFitROIMode`, `vtkMRMLCropVolumeParametersNode::FitROIKeepOrientation`, `vtkMRMLCropVolumeParametersNode::SafeDownCast`, `vtkMRMLScene::EndBatchProcessEvent`, `vtkMRMLScene::EndCloseEvent`, `vtkMRMLScene::EndImportEvent`, `vtkMRMLScene::EndRestoreEvent`
 
 ## widget: ParameterSetCollapsibleButton
 
@@ -58,7 +59,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:440: // before ParametersNodeComboBox is initialized, so don't log a warning here`
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:454: vtkMRMLCropVolumeParametersNode* parametersNode = vtkMRMLCropVolumeParametersNode::SafeDownCast(d->ParametersNodeComboBox->currentNode());`
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:716: d->ParametersNodeComboBox->setCurrentNode(node);`
-- Connected slots/functions: `setParametersNode`
+- Connected slots/functions: `setEnabled`, `setParametersNode`
+- Declared UI connections: `currentNodeChanged(bool) -> InputOutputCollapsibleButton.setEnabled(bool)`; `currentNodeChanged(bool) -> InterpolationOptionsCollapsibleButton.setEnabled(bool)`; `currentNodeChanged(bool) -> VolumeInformationCollapsibleButton.setEnabled(bool)`; `currentNodeChanged(bool) -> CropButton.setEnabled(bool)`
 - API footprints: `GetFirstNodeByClass`, `GetPointer`, `vtkMRMLCropVolumeParametersNode::SafeDownCast`
 - Key UI properties: {"nodeTypes": ["vtkMRMLCropVolumeParametersNode"]}
 
@@ -114,7 +116,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:263: connect(d->InputROIComboBox, SIGNAL(nodeAdded(vtkMRMLNode*)), this, SLOT(onInputROIAdded(vtkMRMLNode*)));`
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:649: d->InputROIComboBox->setCurrentNode(nullptr);`
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:686: d->InputROIComboBox->setCurrentNode(d->ParametersNode->GetROINode());`
-- Connected slots/functions: `initializeInputROI`, `onInputROIAdded`, `setInputROI`
+- Connected slots/functions: `initializeInputROI`, `onInputROIAdded`, `setEnabled`, `setInputROI`
+- Declared UI connections: `currentNodeChanged(bool) -> VisibilityButton.setEnabled(bool)`
 - API footprints: `CreateDefaultDisplayNodes`, `GetDisplayNode`, `GetID`, `GetInputVolumeNode`, `GetOutputVolumeNode`, `GetPointer`, `GetROINode`, `GetVoxelBased`, `SetFillVisibility`, `SetHandlesInteractive`, `SetROINodeID`, `vtkMRMLMarkupsDisplayNode::SafeDownCast`, `vtkMRMLMarkupsROINode::SafeDownCast`, `vtkMRMLTransformableNode::SafeDownCast`
 - Key UI properties: {"nodeTypes": ["vtkMRMLMarkupsROINode"]}
 
@@ -269,7 +272,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:270: connect(d->InterpolationEnabledCheckBox, SIGNAL(toggled(bool)), this, SLOT(onInterpolationEnabled(bool)));`
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:654: d->InterpolationEnabledCheckBox->setChecked(true);`
   - `Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx:688: d->InterpolationEnabledCheckBox->setChecked(!d->ParametersNode->GetVoxelBased());`
-- Connected slots/functions: `onInterpolationEnabled`
+- Connected slots/functions: `onInterpolationEnabled`, `setEnabled`
+- Declared UI connections: `toggled(bool) -> IsotropicCheckbox.setEnabled(bool)`; `toggled(bool) -> SpacingScalingSpinBox.setEnabled(bool)`; `toggled(bool) -> NNRadioButton.setEnabled(bool)`; `toggled(bool) -> LinearRadioButton.setEnabled(bool)`; `toggled(bool) -> WSRadioButton.setEnabled(bool)`; `toggled(bool) -> BSRadioButton.setEnabled(bool)`
 - API footprints: `GetInterpolationMode`, `GetOutputVolumeNode`, `GetROINode`, `GetVoxelBased`, `SetVoxelBased`
 - Key UI properties: {"checked": "true"}
 

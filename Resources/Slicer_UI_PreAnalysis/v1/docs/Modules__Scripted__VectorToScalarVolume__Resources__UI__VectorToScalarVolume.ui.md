@@ -7,7 +7,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: VectorToScalarVolume
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `qMRMLWidget`
 - Search text: VectorToScalarVolume | qMRMLWidget
 - Implementation candidates: `Modules/Scripted/VectorToScalarVolume/VectorToScalarVolume.py`
@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Scripted/VectorToScalarVolume/VectorToScalarVolume.py:216: inputParameterNode = VectorToScalarVolumeParameterNode(inputParameterNode)`
   - `Modules/Scripted/VectorToScalarVolume/VectorToScalarVolume.py:295: # VectorToScalarVolumeLogic`
   - `Modules/Scripted/VectorToScalarVolume/VectorToScalarVolume.py:299: class VectorToScalarVolumeLogic(ScriptedLoadableModuleLogic):`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> inputSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> outputSelector.setMRMLScene(vtkMRMLScene*)`
 
 ## widget: selectionCollapsibleButton
 

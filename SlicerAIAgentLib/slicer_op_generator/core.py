@@ -9,6 +9,8 @@ class SlicerOpGeneratorCoreMixin:
         skill_path: Optional[str] = None,
         on_progress=None,
         debug_path: Optional[str] = None,
+        extension_name: str = "",
+        module_name: str = "",
     ):
         self.llm_client = llm_client
         self._executor = skill_executor
@@ -16,6 +18,10 @@ class SlicerOpGeneratorCoreMixin:
         self._executor_initialized = skill_executor is not None
         self._on_progress = on_progress
         self._debug_path = debug_path
+        # Extension identity, so grounding can steer searches to the extension's
+        # own source for named/custom artifacts instead of fabricating them.
+        self._extension_name = extension_name or ""
+        self._module_name = module_name or ""
         self.last_run_records = []
 
     # ------------------------------------------------------------------
@@ -26,15 +32,58 @@ class SlicerOpGeneratorCoreMixin:
         if self._executor_initialized:
             return
         self._executor_initialized = True
+        try:
+            from ..UIControlIndex import preanalysis_status
+            status = preanalysis_status()
+            if not status.get("ok"):
+                logger.warning(
+                    "Slicer UI pre-analysis missing/empty (%s) — UI-labeled "
+                    "grounding is degraded; run scripts/build_rag.py outside "
+                    "Slicer to rebuild.", status.get("reason", "unknown"),
+                )
+        except Exception:
+            logger.debug("UI pre-analysis status check failed", exc_info=True)
         if not self._skill_path or not os.path.isdir(self._skill_path):
             logger.warning("No skill_path for SlicerOpGenerator KB search")
             return
         try:
-            from ..SkillTools import SkillToolExecutor
+            from ..SkillTools import SkillToolExecutor, get_shared_executor
+            shared = get_shared_executor(self._skill_path)
+            if shared is not None:
+                # Reuse the main agent's executor (avoids a duplicate ONNX
+                # session + vector index load).
+                self._executor = shared
+                logger.info("SlicerOpGenerator: reusing shared SkillToolExecutor.")
+                return
             self._executor = SkillToolExecutor(self._skill_path)
             logger.info("SlicerOpGenerator: SkillToolExecutor loaded.")
         except Exception:
             logger.exception("SlicerOpGenerator: failed to load SkillToolExecutor")
+
+    @staticmethod
+    def _deterministic_ui_evidence(sub_op) -> Tuple[List[str], List[str]]:
+        """Top-matching core-UI control evidence for this sub-op.
+
+        Returns (prompt_lines, matched_object_names); ([], []) when the
+        pre-analysis index is unavailable or nothing matches. Pure function —
+        safe under the parallel per-op generation threads.
+        """
+        try:
+            from ..UIControlIndex import format_evidence_lines, get_index
+            index = get_index()
+            if index is None:
+                return [], []
+            query = " ".join([
+                getattr(sub_op, "description", "") or "",
+                " ".join(getattr(sub_op, "slicer_api_keywords", []) or []),
+            ])
+            matches = index.match(query, top_k=5)
+            lines = format_evidence_lines(matches, max_total_chars=1200)
+            matched = [m["record"].get("object_name", "") for m in matches]
+            return lines, matched
+        except Exception:
+            logger.debug("Deterministic UI evidence lookup failed", exc_info=True)
+            return [], []
 
     @staticmethod
     def _infer_category(sub_op) -> str:
@@ -81,8 +130,9 @@ class SlicerOpGeneratorCoreMixin:
     # Prompt construction
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _build_user_message(sub_op, category: str) -> str:
+    def _build_user_message(
+        self, sub_op, category: str, ui_evidence_lines: Optional[List[str]] = None,
+    ) -> str:
         """Build the user prompt for a single slicer_op sub-operation."""
         parts = [f"Generate a Python code template for this 3D Slicer operation:\n"]
         parts.append(sub_op.description)
@@ -90,7 +140,28 @@ class SlicerOpGeneratorCoreMixin:
             "\nEvery executable API call must use a receiver type derivable from retrieved "
             "source or wrapper evidence. Report uncertainty instead of inventing a method. "
             "Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior."
+            "\nNever fabricate values that an extension DEFINES IN ITS SOURCE — a custom-layout "
+            "ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, "
+            "or a magic constant must come from the extension's source, not be guessed. If, after "
+            "searching the extension source, you cannot find such a value, emit "
+            "`raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does "
+            "NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or "
+            "volume the user created) — resolve those at runtime from the scene; never emit "
+            "MISSING_EVIDENCE for them."
         )
+        ext_name = getattr(self, "_extension_name", "") or ""
+        if ext_name:
+            module_hint = (
+                f" (module `{self._module_name}`)" if getattr(self, "_module_name", "") else ""
+            )
+            parts.append(
+                f"\nThis operation belongs to the extension `{ext_name}`{module_hint}. If it "
+                f"reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + "
+                f"its ID/XML, or an `slicer.<Const>`), search `slicer-extensions/{ext_name}/` for "
+                f"the real definition or a helper that performs it (for example a `setX`/`addX` "
+                f"function) and use that rather than re-registering or guessing one. Ordinary scene "
+                f"nodes referenced by name are resolved at runtime, not from source."
+            )
         repair_context = getattr(sub_op, "repair_context", None)
         if isinstance(repair_context, dict) and repair_context:
             parts.append("\n\nThis is a targeted repair of a previously generated template.")
@@ -133,6 +204,22 @@ class SlicerOpGeneratorCoreMixin:
         keywords = getattr(sub_op, "slicer_api_keywords", []) or []
         if keywords:
             parts.append(f"\nAPI keyword hints: {', '.join(keywords[:8])}")
+
+        # Deterministic core-UI evidence: matched offline against the UI
+        # pre-analysis index, so the most relevant control records appear in
+        # every run regardless of tool-call ordering.
+        if ui_evidence_lines is None:
+            ui_evidence_lines, _ = self._deterministic_ui_evidence(sub_op)
+        if ui_evidence_lines:
+            parts.append(
+                "\n\nDETERMINISTIC CORE-UI EVIDENCE (from Slicer core UI "
+                "pre-analysis; matched offline, no search needed):\n"
+                + "\n".join(ui_evidence_lines)
+                + "\nThe `api:` names are method names observed near the "
+                "control's implementation — treat them as existing core "
+                "methods, but confirm the receiver class by reading the cited "
+                "doc/implementation file before emitting a state-changing call."
+            )
 
         display_text = " ".join([
             getattr(sub_op, "description", "") or "",
@@ -198,7 +285,10 @@ class SlicerOpGeneratorCoreMixin:
         _write_debug()
         t_prompt_start = _time.monotonic()
 
-        user_message = self._build_user_message(sub_op, category)
+        ui_evidence_lines, ui_evidence_matched = self._deterministic_ui_evidence(sub_op)
+        user_message = self._build_user_message(
+            sub_op, category, ui_evidence_lines=ui_evidence_lines,
+        )
         messages = [
             {"role": "system", "content": _SLICER_OP_SYSTEM_PROMPT},
             {"role": "user", "content": user_message},
@@ -207,6 +297,10 @@ class SlicerOpGeneratorCoreMixin:
         op_record["prompt_build_s"] = round(_time.monotonic() - t_prompt_start, 3)
         op_record["prompt_user_preview"] = user_message[:1500]
         op_record["prompt_includes_ui_analysis"] = "slicer-ui-analysis" in user_message
+        op_record["deterministic_ui_evidence"] = {
+            "matched": ui_evidence_matched,
+            "injected": bool(ui_evidence_lines),
+        }
         logger.info("[5T] '%s' prompt built", desc_short)
 
         # Step 2: Prepare tools and executor

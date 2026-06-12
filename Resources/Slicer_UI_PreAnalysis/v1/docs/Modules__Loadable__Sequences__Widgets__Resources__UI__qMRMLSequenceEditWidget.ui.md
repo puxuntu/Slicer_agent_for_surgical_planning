@@ -35,11 +35,15 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: label_IndexName
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QLabel`
 - Search text: Name: | label_IndexName | QLabel
 - Text: Name:
-- Implementation candidates: `Modules/Loadable/Sequences/Widgets/qMRMLSequenceEditWidget.cxx`, `Modules/Loadable/Sequences/Widgets/qMRMLSequenceEditWidget.h`
+- Implementation candidates: `Modules/Loadable/Sequences/Widgets/qMRMLSequenceEditWidget.cxx`, `Modules/Loadable/Sequences/Widgets/qMRMLSequenceEditWidget.h`, `Modules/Loadable/Sequences/Widgets/qMRMLSequenceBrowserSeekWidget.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/Sequences/Widgets/qMRMLSequenceBrowserSeekWidget.cxx:139: d->label_IndexName->setText("");`
+  - `Modules/Loadable/Sequences/Widgets/qMRMLSequenceBrowserSeekWidget.cxx:145: d->label_IndexName->setText(sequenceNode->GetIndexName().c_str());`
+- API footprints: `GetIndexName`
 
 ## widget: LineEdit_IndexName
 

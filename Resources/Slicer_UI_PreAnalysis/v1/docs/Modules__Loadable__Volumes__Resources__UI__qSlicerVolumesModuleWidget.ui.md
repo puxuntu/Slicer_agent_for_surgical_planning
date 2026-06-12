@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Volumes/qSlicerVolumesModuleWidget.cxx:92: void qSlicerVolumesModuleWidget::updateWidgetFromMRML()`
   - `Modules/Loadable/Volumes/qSlicerVolumesModuleWidget.cxx:94: Q_D(qSlicerVolumesModuleWidget);`
   - `Modules/Loadable/Volumes/qSlicerVolumesModuleWidget.cxx:145: void qSlicerVolumesModuleWidget::convertVolume()`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> MRMLVolumeInfoWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ConvertVolumeTargetSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ColorLegendDisplayNodeWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ActiveVolumeNodeSelector.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `vtkMRMLVolumeNode::SafeDownCast`
 
 ## widget: ResizableFrame_2

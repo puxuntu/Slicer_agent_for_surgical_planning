@@ -7,7 +7,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: qSlicerSegmentationsIOOptionsWidget
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `qSlicerWidget`
 - Search text: qSlicerSegmentationsIOOptionsWidget | qSlicerWidget
 - Implementation candidates: `Modules/Loadable/Segmentations/qSlicerSegmentationsIOOptionsWidget.cxx`, `Modules/Loadable/Segmentations/qSlicerSegmentationsIOOptionsWidget.h`
@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Segmentations/qSlicerSegmentationsIOOptionsWidget.cxx:75: Q_D(qSlicerSegmentationsIOOptionsWidget);`
   - `Modules/Loadable/Segmentations/qSlicerSegmentationsIOOptionsWidget.h:21: #ifndef __qSlicerSegmentationsIOOptionsWidget_h`
   - `Modules/Loadable/Segmentations/qSlicerSegmentationsIOOptionsWidget.h:22: #define __qSlicerSegmentationsIOOptionsWidget_h`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ColorNodeSelector.setMRMLScene(vtkMRMLScene*)`
 
 ## widget: AutoOpacitiesCheckBox
 

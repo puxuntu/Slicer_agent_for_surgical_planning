@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Libs/MRML/Widgets/qMRMLVolumeInfoWidget.cxx:110: qMRMLVolumeInfoWidget::qMRMLVolumeInfoWidget(QWidget* _parent)`
   - `Libs/MRML/Widgets/qMRMLVolumeInfoWidget.cxx:112: , d_ptr(new qMRMLVolumeInfoWidgetPrivate(*this))`
   - `Libs/MRML/Widgets/qMRMLVolumeInfoWidget.cxx:114: Q_D(qMRMLVolumeInfoWidget);`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ImageOriginWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ImageSpacingWidget.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetImageData`, `GetScalarVolumeDisplayNode`, `vtkMRMLScalarVolumeNode::SafeDownCast`, `vtkMRMLVolumeNode::ImageDataModifiedEvent`, `vtkMRMLVolumeNode::SafeDownCast`
 
 ## widget: ImageDimensionsLabel

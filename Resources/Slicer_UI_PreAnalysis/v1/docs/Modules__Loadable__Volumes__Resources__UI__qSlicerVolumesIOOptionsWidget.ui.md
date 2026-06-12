@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Volumes/qSlicerVolumesIOOptionsWidget.cxx:82: Q_D(qSlicerVolumesIOOptionsWidget);`
   - `Modules/Loadable/Volumes/qSlicerVolumesIOOptionsWidget.cxx:105: void qSlicerVolumesIOOptionsWidget::setFileName(const QString& fileName)`
   - `Modules/Loadable/Volumes/qSlicerVolumesIOOptionsWidget.cxx:111: void qSlicerVolumesIOOptionsWidget::setFileNames(const QStringList& fileNames)`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ColorTableComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetPointer`
 
 ## widget: NameLineEdit

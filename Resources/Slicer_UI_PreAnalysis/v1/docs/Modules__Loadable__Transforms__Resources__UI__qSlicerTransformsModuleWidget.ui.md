@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Transforms/qSlicerTransformsModuleWidget.cxx:94: QList<vtkSmartPointer<vtkMRMLTransformableNode>> qSlicerTransformsModuleWidgetPrivate::getSelectedNodes(qMRMLTreeView* tree)`
   - `Modules/Loadable/Transforms/qSlicerTransformsModuleWidget.cxx:111: qSlicerTransformsModuleWidget::qSlicerTransformsModuleWidget(QWidget* _parentWidget)`
   - `Modules/Loadable/Transforms/qSlicerTransformsModuleWidget.cxx:113: , d_ptr(new qSlicerTransformsModuleWidgetPrivate(*this))`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> TransformableTreeView.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> TransformedTreeView.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> TransformDisplayNodeWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> TranslationSliders.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> TransformInfoWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ConvertOutputDisplacementFieldNodeComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `GetTransformToParent`, `IsLinear`, `vtkMRMLTransformNode::SafeDownCast`
 
 ## widget: ResizableFrame
@@ -106,7 +108,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: TranslationSliders
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `qMRMLTransformSliders`
 - Search text: TranslationSliders | qMRMLTransformSliders
 - Implementation candidates: `Modules/Loadable/Transforms/qSlicerTransformsModuleWidget.cxx`, `Modules/Loadable/Transforms/qSlicerTransformsModuleWidget.h`
@@ -118,6 +120,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Transforms/qSlicerTransformsModuleWidget.cxx:413: d->TranslationSliders->setVisible(isLinearTransform);`
   - `Modules/Loadable/Transforms/qSlicerTransformsModuleWidget.cxx:475: d->TranslationSliders->resetUnactiveSliders();`
   - `Modules/Loadable/Transforms/qSlicerTransformsModuleWidget.cxx:492: d->TranslationSliders->resetUnactiveSliders();`
+- Connected slots/functions: `resetUnactiveSliders`
+- Declared UI connections: `valuesChanged() -> RotationSliders.resetUnactiveSliders()`
 
 ## widget: RotationSliders
 

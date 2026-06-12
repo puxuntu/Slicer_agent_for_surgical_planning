@@ -7,7 +7,7 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: qSlicerTextsModuleWidget
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `qSlicerWidget`
 - Search text: qSlicerTextsModuleWidget | qSlicerWidget
 - Implementation candidates: `Modules/Loadable/Texts/qSlicerTextsModuleWidget.cxx`, `Modules/Loadable/Texts/qSlicerTextsModuleWidget.h`
@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Texts/qSlicerTextsModuleWidget.cxx:58: qSlicerTextsModuleWidget::qSlicerTextsModuleWidget(QWidget* _parentWidget)`
   - `Modules/Loadable/Texts/qSlicerTextsModuleWidget.cxx:60: , d_ptr(new qSlicerTextsModuleWidgetPrivate(*this))`
   - `Modules/Loadable/Texts/qSlicerTextsModuleWidget.cxx:65: qSlicerTextsModuleWidget::~qSlicerTextsModuleWidget() = default;`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> TextNodeSelector.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> TextWidget.setMRMLScene(vtkMRMLScene*)`
 
 ## widget: TextNodeLabel
 
@@ -41,6 +43,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Implementation candidates: `Modules/Loadable/Texts/qSlicerTextsModuleWidget.cxx`, `Modules/Loadable/Texts/qSlicerTextsModuleWidget.h`
 - Matched implementation lines:
   - `Modules/Loadable/Texts/qSlicerTextsModuleWidget.cxx:83: d->TextNodeSelector->setCurrentNode(node);`
+- Connected slots/functions: `setMRMLNode`
+- Declared UI connections: `currentNodeChanged(vtkMRMLNode*) -> TextWidget.setMRMLNode(vtkMRMLNode*)`
 - API footprints: `vtkMRMLTextNode::SafeDownCast`
 - Key UI properties: {"nodeTypes": ["vtkMRMLTextNode"]}
 
@@ -54,10 +58,12 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: TextWidget
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `qMRMLTextWidget`
 - Search text: TextWidget | qMRMLTextWidget
 - Implementation candidates: `Modules/Loadable/Texts/qSlicerTextsModuleWidget.cxx`, `Modules/Loadable/Texts/qSlicerTextsModuleWidget.h`
+- Connected slots/functions: `setChecked`, `setDisabled`
+- Declared UI connections: `autoSaveChanged(bool) -> AutoSaveCheckBox.setChecked(bool)`; `editingChanged(bool) -> AutoSaveCheckBox.setDisabled(bool)`
 
 ## widget: CollapsibleButton
 
@@ -69,18 +75,22 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: AutoSaveCheckBox
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QCheckBox`
 - Search text: Auto-save edits to the text node | <html><head/><body><p>If checked, the text node is immediately updated as the contents are edited. If unchecked, text node is updated only when &quot;Save&quot; is clicked.</p></body></html> | AutoSaveCheckBox | QCheckBox
 - Text: Auto-save edits to the text node
 - Tooltip: <html><head/><body><p>If checked, the text node is immediately updated as the contents are edited. If unchecked, text node is updated only when &quot;Save&quot; is clicked.</p></body></html>
 - Implementation candidates: `Modules/Loadable/Texts/qSlicerTextsModuleWidget.cxx`, `Modules/Loadable/Texts/qSlicerTextsModuleWidget.h`
+- Connected slots/functions: `setAutoSave`
+- Declared UI connections: `toggled(bool) -> TextWidget.setAutoSave(bool)`
 
 ## widget: WordWrapCheckBox
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QCheckBox`
 - Search text: Enable word wrapping | WordWrapCheckBox | QCheckBox
 - Text: Enable word wrapping
 - Implementation candidates: `Modules/Loadable/Texts/qSlicerTextsModuleWidget.cxx`, `Modules/Loadable/Texts/qSlicerTextsModuleWidget.h`
+- Connected slots/functions: `setWordWrap`
+- Declared UI connections: `toggled(bool) -> TextWidget.setWordWrap(bool)`
 - Key UI properties: {"checked": "true"}

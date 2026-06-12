@@ -48,13 +48,15 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ButtonBox
 
-- Confidence: `linked_to_code`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QDialogButtonBox`
 - Search text: ButtonBox | QDialogButtonBox
 - Implementation candidates: `Base/QTGUI/qSlicerModuleFinderDialog.cxx`, `Base/QTGUI/qSlicerModuleFinderDialog.h`
 - Matched implementation lines:
   - `Base/QTGUI/qSlicerModuleFinderDialog.cxx:104: QPushButton* okButton = this->ButtonBox->button(QDialogButtonBox::Ok);`
   - `Base/QTGUI/qSlicerModuleFinderDialog.cxx:297: QPushButton* okButton = d->ButtonBox->button(QDialogButtonBox::Ok);`
+- Connected slots/functions: `accept`, `reject`
+- Declared UI connections: `accepted() -> qSlicerModuleFinderDialog.accept()`; `rejected() -> qSlicerModuleFinderDialog.reject()`
 
 ## widget: ModuleDescriptionBrowser
 

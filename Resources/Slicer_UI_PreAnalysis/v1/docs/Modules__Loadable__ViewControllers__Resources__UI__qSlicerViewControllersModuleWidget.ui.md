@@ -24,7 +24,9 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/ViewControllers/qSlicerViewControllersModuleWidget.cxx:85: void qSlicerViewControllersModuleWidgetPrivate::createController(vtkMRMLNode* n, qSlicerLayoutManager* layoutManager)`
   - `Modules/Loadable/ViewControllers/qSlicerViewControllersModuleWidget.cxx:87: Q_Q(qSlicerViewControllersModuleWidget);`
   - `Modules/Loadable/ViewControllers/qSlicerViewControllersModuleWidget.cxx:91: qDebug() << "qSlicerViewControllersModuleWidgetPrivate::createController - Node already added to module";`
-- API footprints: `GetLayoutName`, `GetName`, `IsBatchProcessing`, `vtkMRMLSliceNode::SafeDownCast`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> MRMLViewNodeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLSliceInformationWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLThreeDViewInformationWidget.setMRMLScene(vtkMRMLScene*)`
+- API footprints: `GetLayoutName`, `GetName`, `GetNodesByClass`, `IsBatchProcessing`, `vtkMRMLPlotViewNode::SafeDownCast`, `vtkMRMLScene::NodeAddedEvent`, `vtkMRMLScene::NodeRemovedEvent`, `vtkMRMLSliceNode::SafeDownCast`, `vtkMRMLViewNode::SafeDownCast`
 
 ## widget: SliceControllersCollapsibleButton
 
@@ -76,7 +78,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 - Implementation candidates: `Modules/Loadable/ViewControllers/qSlicerViewControllersModuleWidget.cxx`, `Modules/Loadable/ViewControllers/qSlicerViewControllersModuleWidget.h`
 - Matched implementation lines:
   - `Modules/Loadable/ViewControllers/qSlicerViewControllersModuleWidget.cxx:218: connect(d->MRMLViewNodeComboBox, SIGNAL(currentNodeChanged(vtkMRMLNode*)), this, SLOT(onAdvancedViewNodeChanged(vtkMRMLNode*)));`
-- Connected slots/functions: `onAdvancedViewNodeChanged`
+- Connected slots/functions: `onAdvancedViewNodeChanged`, `setMRMLSliceNode`, `setMRMLViewNode`
+- Declared UI connections: `currentNodeChanged(vtkMRMLNode*) -> MRMLSliceInformationWidget.setMRMLSliceNode(vtkMRMLNode*)`; `currentNodeChanged(vtkMRMLNode*) -> MRMLThreeDViewInformationWidget.setMRMLViewNode(vtkMRMLNode*)`
 - API footprints: `vtkMRMLSliceNode::SafeDownCast`, `vtkMRMLViewNode::SafeDownCast`
 - Key UI properties: {"nodeTypes": ["vtkMRMLSliceNode", "vtkMRMLViewNode", "vtkMRMLPlotViewNode"]}
 

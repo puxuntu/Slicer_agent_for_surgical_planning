@@ -24,7 +24,9 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/Models/qSlicerModelsModuleWidget.cxx:92: qSlicerModelsModuleWidget::~qSlicerModelsModuleWidget()`
   - `Modules/Loadable/Models/qSlicerModelsModuleWidget.cxx:94: Q_D(qSlicerModelsModuleWidget);`
   - `Modules/Loadable/Models/qSlicerModelsModuleWidget.cxx:106: void qSlicerModelsModuleWidget::setup()`
-- API footprints: `AddObserver`, `GetClipNode`, `SetCallback`, `SetClientData`, `vtkMRMLClipNode::SafeDownCast`, `vtkMRMLScene::EndImportEvent`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> ModelDisplayWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> SubjectHierarchyTreeView.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ColorLegendDisplayNodeWidget.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> ClipModelsNodeComboBox.setMRMLScene(vtkMRMLScene*)`; `mrmlSceneChanged(vtkMRMLScene*) -> MRMLClipNodeWidget.setMRMLScene(vtkMRMLScene*)`
+- API footprints: `AddObserver`, `GetClipNode`, `RemoveObserver`, `SetCallback`, `SetClientData`, `vtkMRMLClipNode::SafeDownCast`, `vtkMRMLScene::EndImportEvent`
 
 ## widget: ResizableFrame
 
@@ -45,19 +47,25 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: hideAllModelsButton
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QPushButton`
 - Search text: Turn the visibility off on all models (does not include hierarchies) | hideAllModelsButton | QPushButton
 - Tooltip: Turn the visibility off on all models (does not include hierarchies)
 - Implementation candidates: `Modules/Loadable/Models/qSlicerModelsModuleWidget.cxx`, `Modules/Loadable/Models/qSlicerModelsModuleWidget.h`
+- Connected slots/functions: `hideAllModels`
+- Declared UI connections: `clicked() -> qSlicerModelsModuleWidget.hideAllModels()`
+- API footprints: `SetAllModelsVisibility`
 
 ## widget: showAllModelsButton
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QPushButton`
 - Search text: Turns visibility on for all models (does not include hierarchies) | showAllModelsButton | QPushButton
 - Tooltip: Turns visibility on for all models (does not include hierarchies)
 - Implementation candidates: `Modules/Loadable/Models/qSlicerModelsModuleWidget.cxx`, `Modules/Loadable/Models/qSlicerModelsModuleWidget.h`
+- Connected slots/functions: `showAllModels`
+- Declared UI connections: `clicked() -> qSlicerModelsModuleWidget.showAllModels()`
+- API footprints: `SetAllModelsVisibility`
 
 ## widget: SubjectHierarchyTreeView
 

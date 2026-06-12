@@ -27,11 +27,13 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: RefreshPushButton
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QPushButton`
 - Search text: Refresh | RefreshPushButton | QPushButton
 - Text: Refresh
 - Implementation candidates: `Modules/Core/EventBroker/qSlicerEventBrokerModuleWidget.cxx`, `Modules/Core/EventBroker/qSlicerEventBrokerModuleWidget.h`
+- Connected slots/functions: `refresh`
+- Declared UI connections: `clicked() -> EventBrokerWidget.refresh()`
 
 ## widget: EventBrokerWidget
 
@@ -46,19 +48,23 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: ResetElapsedTimesPushButton
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QPushButton`
 - Search text: Reset Times | ResetElapsedTimesPushButton | QPushButton
 - Text: Reset Times
 - Implementation candidates: `Modules/Core/EventBroker/qSlicerEventBrokerModuleWidget.cxx`, `Modules/Core/EventBroker/qSlicerEventBrokerModuleWidget.h`
+- Connected slots/functions: `resetElapsedTimes`
+- Declared UI connections: `clicked() -> EventBrokerWidget.resetElapsedTimes()`
 
 ## widget: ShowElapsedTimesPushButton
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_slot`
 - Widget/action class: `QPushButton`
 - Search text: Show observations with Elapsed Times > 0 | ShowElapsedTimesPushButton | QPushButton
 - Text: Show observations with Elapsed Times > 0
 - Implementation candidates: `Modules/Core/EventBroker/qSlicerEventBrokerModuleWidget.cxx`, `Modules/Core/EventBroker/qSlicerEventBrokerModuleWidget.h`
+- Connected slots/functions: `expandElapsedTimeItems`
+- Declared UI connections: `clicked() -> EventBrokerWidget.expandElapsedTimeItems()`
 
 ## widget: TextEdit
 

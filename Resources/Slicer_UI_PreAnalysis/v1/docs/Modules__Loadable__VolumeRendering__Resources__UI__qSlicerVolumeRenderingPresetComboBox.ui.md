@@ -24,6 +24,8 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
   - `Modules/Loadable/VolumeRendering/Widgets/qSlicerVolumeRenderingPresetComboBox.cxx:79: qSlicerVolumeRenderingPresetComboBoxPrivate::~qSlicerVolumeRenderingPresetComboBoxPrivate() = default;`
   - `Modules/Loadable/VolumeRendering/Widgets/qSlicerVolumeRenderingPresetComboBox.cxx:82: void qSlicerVolumeRenderingPresetComboBoxPrivate::init()`
   - `Modules/Loadable/VolumeRendering/Widgets/qSlicerVolumeRenderingPresetComboBox.cxx:84: Q_Q(qSlicerVolumeRenderingPresetComboBox);`
+- Connected slots/functions: `setMRMLScene`
+- Declared UI connections: `mrmlSceneChanged(vtkMRMLScene*) -> PresetComboBox.setMRMLScene(vtkMRMLScene*)`
 - API footprints: `vtkMRMLVolumePropertyNode::SafeDownCast`
 
 ## widget: PresetsLabel
@@ -58,12 +60,22 @@ This document maps user-facing Slicer UI controls to nearby implementation evide
 
 ## widget: label
 
-- Confidence: `ui_only`
+- Confidence: `linked_to_api`
 - Widget/action class: `QLabel`
 - Search text: Shift: | Shift transfer functions | label | QLabel
 - Text: Shift:
 - Tooltip: Shift transfer functions
-- Implementation candidates: `Modules/Loadable/VolumeRendering/Widgets/qSlicerVolumeRenderingPresetComboBox.cxx`, `Modules/Loadable/VolumeRendering/Widgets/qSlicerVolumeRenderingPresetComboBox.h`
+- Implementation candidates: `Modules/Loadable/VolumeRendering/Widgets/qSlicerVolumeRenderingPresetComboBox.cxx`, `Modules/Loadable/VolumeRendering/Widgets/qSlicerVolumeRenderingPresetComboBox.h`, `Modules/Loadable/VolumeRendering/Logic/vtkSlicerVolumeRenderingLogic.h`, `Modules/Loadable/VolumeRendering/Testing/Cxx/qSlicerPresetComboBoxTest.cxx`
+- Matched implementation lines:
+  - `Modules/Loadable/VolumeRendering/Logic/vtkSlicerVolumeRenderingLogic.h:159: /// the labelmap display node to the volume rendering displaynode.`
+  - `Modules/Loadable/VolumeRendering/Logic/vtkSlicerVolumeRenderingLogic.h:160: /// If labelMapDisplayNode is 0, it uses the first displaynode.`
+  - `Modules/Loadable/VolumeRendering/Logic/vtkSlicerVolumeRenderingLogic.h:164: vtkMRMLLabelMapVolumeDisplayNode* labelMapDisplayNode = nullptr);`
+  - `Modules/Loadable/VolumeRendering/Logic/vtkSlicerVolumeRenderingLogic.h:213: /// transfer function from the labelmap LUT \a colors.`
+  - `Modules/Loadable/VolumeRendering/Testing/Cxx/qSlicerPresetComboBoxTest.cxx:115: QLabel label;`
+  - `Modules/Loadable/VolumeRendering/Testing/Cxx/qSlicerPresetComboBoxTest.cxx:119: label.setText(QString("<img src=\"%1\"/>").arg(ctk::base64HTMLImageTagSrc(image)));`
+  - `Modules/Loadable/VolumeRendering/Testing/Cxx/qSlicerPresetComboBoxTest.cxx:120: // label.setPixmap(pixmap); ok !`
+  - `Modules/Loadable/VolumeRendering/Testing/Cxx/qSlicerPresetComboBoxTest.cxx:121: label.show();`
+- API footprints: `GetPointer`
 
 ## widget: PresetOffsetSlider
 
