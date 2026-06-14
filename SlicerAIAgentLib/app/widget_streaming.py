@@ -646,6 +646,12 @@ class WidgetStreamingMixin:
             elif event_type == 'cli_revision_complete':
                 self._handleCliRevisionComplete(payload)
                 i += 1
+            elif event_type == 'cli_live_repair_complete':
+                self._handleCliLiveRepairComplete(payload)
+                i += 1
+            elif event_type == 'cli_repair_complete':
+                self._handleCliRepairComplete(payload)
+                i += 1
             elif event_type == 'cli_error':
                 self._handleCliError(payload)
                 i += 1

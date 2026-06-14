@@ -648,6 +648,14 @@ class AnalyzerValidationContractsMixin:
         instruction_contract = self._validate_user_instruction_text(code)
         result["errors"].extend(instruction_contract.get("errors", []))
         result["warnings"].extend(instruction_contract.get("warnings", []))
+        # Cause→effect fidelity: no invented/internally-produced roles, and
+        # parameter writes must reach their evidence-backed applier.
+        role_contract = self._validate_parameter_role_contract(code)
+        result["errors"].extend(role_contract.get("errors", []))
+        result["warnings"].extend(role_contract.get("warnings", []))
+        effect_contract = self._validate_parameter_effect_application(code)
+        result["errors"].extend(effect_contract.get("errors", []))
+        result["warnings"].extend(effect_contract.get("warnings", []))
         unresolved_placeholders = [
             p["name"] for p in self._find_template_placeholders(raw_code)
             if p["name"] != "vol_lookup" and not p["has_default"]

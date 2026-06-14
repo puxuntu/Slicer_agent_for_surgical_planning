@@ -458,16 +458,20 @@ class AnalyzerApiProbeMixin:
                     f"    __result = {{'error': f'{{type(_e).__name__}}: {{_e}}'}}"
                 )
             else:
-                # Method call probe: check hasattr and return available methods
+                # Method call probe: check hasattr AND callability — Qt
+                # wrappers expose Q_PROPERTYs as plain attributes, so an
+                # existing-but-not-callable attribute at a CALL site is the
+                # "'int' object is not callable" class of runtime failure.
                 probe_code = (
                     f"try:\n"
                     f"    _obj = {receiver_expr}\n"
                     f"    _exists = _obj is not None and hasattr(_obj, '{attr}')\n"
+                    f"    _callable = bool(_exists and callable(getattr(_obj, '{attr}')))\n"
                     f"    _available = []\n"
                     f"    if not _exists and _obj is not None:\n"
                     f"        _available = [m for m in dir(_obj) if not m.startswith('_')][:40]\n"
                     f"    _all_attrs = [m for m in dir(_obj) if not m.startswith('_')][:80] if _obj else []\n"
-                    f"    __result = {{'exists': _exists, 'is_none': _obj is None, 'type': type(_obj).__name__, 'available_methods': _available, 'all_attrs': _all_attrs}}\n"
+                    f"    __result = {{'exists': _exists, 'callable': _callable, 'is_none': _obj is None, 'type': type(_obj).__name__, 'available_methods': _available, 'all_attrs': _all_attrs}}\n"
                     f"except Exception as _e:\n"
                     f"    __result = {{'error': f'{{type(_e).__name__}}: {{_e}}'}}"
                 )
@@ -748,6 +752,25 @@ class AnalyzerApiProbeMixin:
                         "proof_kind": probe_meta.get("proof_kind", ""),
                         "receiver_is_none": probe_result.get("is_none"),
                         "available_methods": probe_result.get("available_methods", []),
+                    })
+                elif "callable" in probe_result and not probe_result.get("callable"):
+                    # The attribute exists but is NOT callable at a CALL site —
+                    # a Qt property accessed as a method ('int' object is not
+                    # callable at runtime). Loud at generation time instead.
+                    failures.append({
+                        "chain": chain_key,
+                        "error": (
+                            f"QtPropertyCalledAsMethod: '{chain_key}' resolves to a "
+                            f"non-callable {probe_result.get('type', 'value')} — it is a "
+                            "property; read it without parentheses or use the "
+                            "equivalent MRML-node getter"
+                        ),
+                        "receiver_expr": probe_meta.get("receiver_expr", ""),
+                        "original_receiver_expr": probe_meta.get("original_receiver_expr", ""),
+                        "expanded_receiver_expr": probe_meta.get("expanded_receiver_expr", ""),
+                        "attr": probe_meta.get("attr", ""),
+                        "receiver_type": probe_result.get("type", ""),
+                        "proof_kind": probe_meta.get("proof_kind", ""),
                     })
             elif isinstance(probe_result, str) and probe_result.startswith("EXCEPTION:"):
                 failures.append({

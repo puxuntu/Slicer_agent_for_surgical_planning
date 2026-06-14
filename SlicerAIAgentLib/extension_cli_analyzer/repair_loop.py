@@ -59,6 +59,17 @@ class AnalyzerRepairLoopMixin:
     def _classify_validation_issue(error: str) -> str:
         text = error or ""
         lowered = text.lower()
+        # Live-execution failures: a generated template raised when actually run
+        # in Slicer (a runtime defect static checks miss). These are concrete,
+        # traceback-backed template bugs — always repaired at template level, never
+        # routed upstream. Checked first so the marker wins over substring overlaps
+        # (e.g. an AttributeError traceback also matching api-existence patterns).
+        if "live execution failed" in lowered:
+            return "LiveExecutionError"
+        # User-reported behavior error: the step runs without raising but does the
+        # wrong thing. No traceback — the evidence is the user's description.
+        if "function behavior error" in lowered or "user-reported behavior" in lowered:
+            return "FunctionBehaviorError"
         if "contractfidelity" in lowered or "workflow contract audit failed" in lowered:
             return "ContractFidelity"
         if "workflowstate" in lowered:
@@ -69,6 +80,16 @@ class AnalyzerRepairLoopMixin:
             return "InvalidSlicerAPI"
         if "callablereferencemisuse" in lowered or "without calling it" in lowered:
             return "CallableReferenceMisuse"
+        if "inventedparameterrole" in lowered:
+            return "InventedParameterRole"
+        if "parametereffectnotapplied" in lowered:
+            return "ParameterEffectNotApplied"
+        if "interactionscopeexceeded" in lowered:
+            return "InteractionScopeExceeded"
+        if "pairedstepmechanismmismatch" in lowered:
+            return "PairedStepMechanismMismatch"
+        if "positionalviewresolution" in lowered:
+            return "PositionalViewResolution"
         if "badinstructiontext" in lowered or "invalid user-facing instruction" in lowered:
             return "BadInstructionText"
         if "low-confidence" in lowered and "default" in lowered:
@@ -107,12 +128,17 @@ class AnalyzerRepairLoopMixin:
             return "dataflow"
         if issue_type in {"InvalidSlicerAPI", "UnprovenReceiver"}:
             return "runtime_api"
-        if issue_type in {"SlicerSemanticError", "MissingOperationFootprint"}:
+        if issue_type in {
+            "SlicerSemanticError", "MissingOperationFootprint",
+            "PairedStepMechanismMismatch", "PositionalViewResolution",
+        }:
             return "grounding"
         if issue_type in {
             "CallableReferenceMisuse", "BadInstructionText",
             "ModuleEnterPreconditionMissing", "SyntaxError", "StubTemplate",
-            "NodeClassMismatch",
+            "NodeClassMismatch", "InventedParameterRole",
+            "ParameterEffectNotApplied", "InteractionScopeExceeded",
+            "LiveExecutionError", "FunctionBehaviorError",
         }:
             return "template"
         return "template"
@@ -354,7 +380,15 @@ class AnalyzerRepairLoopMixin:
             slicer_sub_ops
             and len(slicer_sub_ops) == len(gen.get("sub_operations", []) or [])
         )
-        if issue_type in {"InvalidSlicerAPI", "SlicerSemanticError", "MissingOperationFootprint"}:
+        if issue_type in {
+            "InvalidSlicerAPI", "SlicerSemanticError", "MissingOperationFootprint",
+            "PairedStepMechanismMismatch", "PositionalViewResolution",
+            # On a slicer_op step, both a user-reported behavior error and a runtime
+            # crash are best fixed by re-grounding (KB + extension-source search),
+            # not a blind rewrite. (LiveExecutionError only arises from runtime/live
+            # errors fed into the Repair flow, so this never affects generation.)
+            "FunctionBehaviorError", "LiveExecutionError",
+        }:
             return "reground_slicer_op" if pure_slicer_op else "contract_aware_template_repair"
         if issue_type == "UnprovenReceiver":
             # A state-changing call whose method cannot be proven on a KNOWN
@@ -381,6 +415,8 @@ class AnalyzerRepairLoopMixin:
         if issue_type in {
             "CallableReferenceMisuse", "BadInstructionText",
             "ModuleEnterPreconditionMissing", "SyntaxError",
+            "InventedParameterRole", "ParameterEffectNotApplied",
+            "InteractionScopeExceeded",
         }:
             return "targeted_template_repair"
         if issue_type in {"LowConfidenceFallback", "UnresolvedPlaceholder"}:
@@ -481,6 +517,17 @@ class AnalyzerRepairLoopMixin:
                     "state_reads": method.get("state_reads", []),
                     "state_writes": method.get("state_writes", []),
                 })
+        if not logic_methods and isinstance(self._workflow_metadata, dict):
+            # Fallback when logic_analysis isn't in memory (e.g. the Repair-button
+            # path loads from disk): use the proven method names persisted in the
+            # package's callable inventory so PROVEN TARGETS isn't wrongly empty.
+            logic_methods = [
+                {"name": n}
+                for n in (
+                    self._workflow_metadata.get("extension_callable_inventory", {})
+                    .get("logic_methods", []) or []
+                )
+            ]
         logic_attributes = []
         if isinstance(self._workflow_metadata, dict):
             logic_attributes = list(
@@ -488,6 +535,31 @@ class AnalyzerRepairLoopMixin:
                 .get("logic_attributes", []) or []
             )
         memory_examples = self._repair_memory_examples(issues)
+
+        # User-reported behavior errors execute WITHOUT raising — there is no
+        # traceback, only the user's description of the wrong behavior. Surface
+        # them explicitly so the LLM rewrites for correct behavior (not for a
+        # crash that never happened).
+        behavior_issues = [
+            i for i in issues if i.get("issue_type") == "FunctionBehaviorError"
+        ]
+        behavior_section = ""
+        if behavior_issues:
+            lines = []
+            for i in behavior_issues:
+                lines.append(
+                    f"- {i.get('template_key', '?')} (step {i.get('step_id', '?')}): "
+                    f"{i.get('message', '')}"
+                )
+            behavior_section = (
+                "\nUSER-REPORTED BEHAVIOR ERRORS (these steps run with NO exception "
+                "but do the WRONG thing — rewrite the template so the step achieves "
+                "the described correct behavior, grounded ONLY in the workflow "
+                "contract and extension/Slicer source evidence; do not invent APIs; "
+                "if the correct API cannot be found in evidence, emit "
+                "`raise RuntimeError(\"MISSING_EVIDENCE: <what>\")`):\n"
+                + "\n".join(lines) + "\n"
+            )
 
         prompt = textwrap.dedent(f"""\
 You are repairing generated 3D Slicer workflow templates for extension "{extension_name}".
@@ -497,6 +569,7 @@ Do not introduce extension-specific assumptions beyond the contract and source f
 
 VALIDATION ISSUES:
 {issue_text}
+{behavior_section}
 
 WORKFLOW CONTRACT STEPS:
 {json.dumps(contract_steps, indent=2)}
@@ -522,7 +595,13 @@ Rules:
 - Do not use blocked modules or functions: os, sys, subprocess, socket, eval, exec, open, getattr, setattr, globals, locals, vars, dir.
 - For node class conflicts, the workflow contract and parameter metadata win.
 - For API errors, replace only invalid Slicer API calls with APIs supported by the evidence in the issue.
+- A MISSING_EVIDENCE sentinel marks an extension-defined artifact (custom layout ID/XML, a `slicer.<Const>` the extension registers, a magic constant) that could not be found in source evidence. NEVER replace it with a guessed value, a name string passed where an ID is expected, or an invented constant. Resolve it ONLY from real evidence (the extension's source under `ext:<extension>/`, or an extension helper function that performs the operation). If no evidence is available, KEEP the sentinel — a loud failure is correct; a fabricated value is not.
 - For CallableReferenceMisuse, call the function explicitly (for example slicer.util.selectedModule()) when reading its value.
+- Never invent parameter/reference role names: only roles present in the supplied parameter metadata exist. For InventedParameterRole issues, REMOVE the invented SetParameter/SetNodeReferenceID block entirely — do not rename it to another role; the called method manages that state internally.
+- For ParameterEffectNotApplied, keep the SetParameter call and ADD a call to the listed evidence-backed applier method with the explicit final state; do not rely on GUI observers to apply parameter changes.
+- For InteractionScopeExceeded, remove the interaction/handle/interactive-mode calls that the step description does not request; keep only the contracted visibility/state change.
+- For PairedStepMechanismMismatch, both steps of the pair must change state through the SAME API — the one with the stronger evidence (core-UI control evidence or extension source); rewrite the weaker-evidenced step to use that mechanism with the opposite state value, never leave the pair split across different APIs.
+- For PositionalViewResolution, resolve the named view NODE by identity from layout evidence (GetSingletonNode with the evidenced singleton tag, or GetFirstNodeByName with the evidenced node name) — never by positional widget index; positional accessors change meaning with the active layout.
 - Module-enter lifecycle setup is handled deterministically outside this LLM repair.
 - For BadInstructionText, replace empty/None/null instructions with the cookbook step description from the workflow contract.
 - For LowConfidenceFallback, do not silently use 0/0.0/False typed fallback values for required logic inputs. Bind from a user/cookbook value, derive a source-backed default, or raise a clear RuntimeError that names the missing input.
@@ -676,9 +755,14 @@ Return:
                 "Verify And Repair Templates",
             )
 
+        # During generation the name comes from the parsed cookbook; the Repair
+        # path never parses the cookbook, so fall back to the repair-set name —
+        # otherwise the extension's own source would not be registered as a
+        # searchable `ext:` root and re-grounding couldn't find extension evidence.
         _ext_name = (
-            self._cookbook_def.extension_name
-            if getattr(self, "_cookbook_def", None) else ""
+            (self._cookbook_def.extension_name
+             if getattr(self, "_cookbook_def", None) else "")
+            or getattr(self, "_repair_extension_name", "")
         )
         generator = SlicerOpGenerator(
             llm_client=self.llm_client,
@@ -686,6 +770,7 @@ Return:
             on_progress=_progress,
             debug_path=debug_path,
             extension_name=_ext_name,
+            extension_source_path=getattr(self, "_source_path", ""),
         )
         step_match = _re.search(r"cb_step_(\d+)", issue.get("step_id", "") or template_key)
         step_number = int(step_match.group(1)) if step_match else 0
@@ -835,8 +920,16 @@ Return:
         logic_analysis: Optional[Dict],
         workflow_contract: Optional[Dict],
         workflow_graph: Optional[Dict],
+        seed_errors: Optional[List[str]] = None,
     ) -> Tuple[Dict[str, str], Dict]:
-        """Validate, live-probe, repair, and revalidate templates before packaging."""
+        """Validate, live-probe, repair, and revalidate templates before packaging.
+
+        seed_errors (optional): externally-reported failures — recorded runtime API
+        errors and user function-error descriptions — injected as first-iteration
+        issues so they are repaired WITH grounded re-search/validation alongside any
+        static issue, even when static validation alone would pass. Used by the
+        Repair button to give it the same capability as generation.
+        """
         repair_log = []
         repair_coordinator = RepairCoordinator(
             (
@@ -880,6 +973,25 @@ Return:
                 generators=generators,
                 workflow_contract=workflow_contract,
             )
+            # First-iteration seed injection: turn externally-reported failures into
+            # issues (same path → each gets a synthesized semantic_recipe with
+            # retrieval_queries that drives grounded re-search) and append them to
+            # the static issues. Force invalid so the loop repairs them even if
+            # static validation passed.
+            if attempt == 0 and seed_errors:
+                seed_issues = self._validation_issues_from_result(
+                    {"errors": list(seed_errors)},
+                    generators=generators,
+                    workflow_contract=workflow_contract,
+                )
+                seen = {
+                    (i.get("template_key"), i.get("issue_type")) for i in issues
+                }
+                for si in seed_issues:
+                    if (si.get("template_key"), si.get("issue_type")) not in seen:
+                        issues.append(si)
+                if seed_issues:
+                    validation_result["valid"] = False
             # Escalation ladder: a lineage that survived the strategy applied
             # in the previous cycle exhausts that rung — the next rung of its
             # issue-class ladder becomes mandatory. Lineages whose ladder ends

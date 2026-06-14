@@ -67,6 +67,68 @@ class AnalyzerTemplateHelpersMixin:
                     chains.add(".".join(reversed(parts)))
         return sorted(chains)
 
+    @staticmethod
+    def _collect_extension_runtime_constants(*sources) -> List[str]:
+        """Extension-defined runtime attributes: `slicer.X = <value>` at import.
+
+        These are extension-registered constants (custom layout IDs, singleton
+        tags, ...) that EXIST at runtime once the extension is loaded — the
+        evidence-backed way to reference extension artifacts instead of
+        fabricating names or IDs.
+        """
+        constants = {}
+        for source in sources:
+            if not source or not isinstance(source, str):
+                continue
+            try:
+                tree = ast.parse(textwrap.dedent(source))
+            except SyntaxError:
+                continue
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Assign):
+                    continue
+                for target in node.targets:
+                    if (
+                        isinstance(target, ast.Attribute)
+                        and isinstance(target.value, ast.Name)
+                        and target.value.id == "slicer"
+                    ):
+                        try:
+                            preview = ast.unparse(node.value)[:60]
+                        except Exception:
+                            value = node.value
+                            if isinstance(value, ast.Constant):
+                                preview = repr(value.value)[:60]
+                            elif hasattr(ast, "Num") and isinstance(value, ast.Num):
+                                preview = repr(value.n)[:60]
+                            elif hasattr(ast, "Str") and isinstance(value, ast.Str):
+                                preview = repr(value.s)[:60]
+                            else:
+                                preview = "..."
+                        constants[f"slicer.{target.attr}"] = preview
+        return [f"{name} = {value}" for name, value in sorted(constants.items())]
+
+    def _evidence_source_texts(self) -> List[str]:
+        """All extension source texts usable as API evidence.
+
+        The FULL entry module is included (not just the Logic class): module-
+        level code is where extensions register layouts, set slicer.<Const>
+        attributes, and define helper functions.
+        """
+        sources = []
+        logic_analysis = getattr(self, "_last_logic_analysis", None) or {}
+        logic_file = logic_analysis.get("_logic_file", "")
+        if logic_file and os.path.isfile(logic_file):
+            try:
+                with open(logic_file, "r", encoding="utf-8", errors="ignore") as f:
+                    sources.append(f.read())
+            except Exception:
+                pass
+        if not sources and logic_analysis.get("_logic_source"):
+            sources.append(logic_analysis["_logic_source"])
+        sources.extend((getattr(self, "_slicer_op_templates", {}) or {}).values())
+        return sources
+
     def _proven_api_chain_block(self) -> str:
         """Prompt section constraining state-changing Slicer calls to evidence.
 
@@ -77,13 +139,12 @@ class AnalyzerTemplateHelpersMixin:
         """
         chains = getattr(self, "_proven_api_chains", None)
         if chains is None:
-            sources = []
-            logic_analysis = getattr(self, "_last_logic_analysis", None) or {}
-            if logic_analysis.get("_logic_source"):
-                sources.append(logic_analysis["_logic_source"])
-            sources.extend((getattr(self, "_slicer_op_templates", {}) or {}).values())
+            sources = self._evidence_source_texts()
             chains = self._collect_source_api_chains(*sources)
             self._proven_api_chains = chains
+            self._extension_runtime_constants = (
+                self._collect_extension_runtime_constants(*sources)
+            )
         if not chains:
             return ""
         shown = chains[: self._PROVEN_CHAIN_PROMPT_LIMIT]
@@ -104,6 +165,15 @@ class AnalyzerTemplateHelpersMixin:
                 "verify the receiver from the cited implementation evidence "
                 "before use):\n"
                 + "\n".join(f"- {name}" for name in ui_methods)
+            )
+        constants = getattr(self, "_extension_runtime_constants", None) or []
+        if constants:
+            ui_subsection += (
+                "\n\nEXTENSION-DEFINED RUNTIME CONSTANTS (the extension sets "
+                "these `slicer.<Name>` attributes at module import — they exist "
+                "at runtime once the extension is loaded; reference them instead "
+                "of fabricating names, IDs, or values):\n"
+                + "\n".join(f"- {item}" for item in constants[:20])
             )
         return (
             "\nEVIDENCE-BACKED SLICER API CHAINS (observed in the extension's own "
@@ -657,6 +727,9 @@ class AnalyzerTemplateHelpersMixin:
             - Use `try/except NameError` to check if a variable exists, NOT `if 'var' in dir()`.
             - Do NOT use curly brace template placeholders. Write actual source-derived Python values. Do not invent or hardcode node names.
             - Escape all braces in f-strings and .format() calls by doubling them: use doubled-braces for literal braces in output strings.
+            - Use ONLY the parameter/reference role names listed in the supplied parameter metadata. NEVER invent a role name (for example from a helper-method name); a role that is not listed does not exist.
+            - Do NOT pre-set state the called method or its helper methods create or derive internally; set only the inputs the method reads.
+            - Never call a method on the direct result of an API that can return None (GetNodeReference, GetItemDataNode, GetDisplayNode, ...) without first checking the result for None.
             - Return ONLY raw Python code. Do NOT wrap it in markdown fences (```python ... ```).""")
 
         try:

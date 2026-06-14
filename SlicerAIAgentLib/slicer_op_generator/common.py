@@ -63,7 +63,7 @@ or an `slicer.<Const>`) and use that. Do NOT guess an ID, invent XML, or copy a
 placeholder value.
 
 This does NOT apply to ordinary MRML scene nodes the user/workflow creates and that
-are referenced by NAME or role (for example a "mandibular curve", a segmentation,
+are referenced by NAME or role (for example a named markups curve, a segmentation,
 or a volume). Those are resolved at RUNTIME from the scene by name/role lookup
 (parameter-node references, `GetFirstNodeByName`, fuzzy name match) — generate that
 lookup directly; do NOT treat them as missing source artifacts.
@@ -100,6 +100,30 @@ Once you have seen the target function's parameter list and at least one usage e
   call an API that sets the state to true/visible; if it says disable/off/hide,
   set the state to false/hidden. Do not use toggle APIs unless the request
   explicitly asks to invert the current state.
+- Implement ONLY the requested state change. Do not additionally enable
+  interaction modes, interaction handles, or editing affordances unless the
+  request explicitly asks for interaction.
+- When the request toggles a NAMED UI control or property on/off, identify the
+  control first (core-UI evidence, source) and change ITS backing property —
+  do not substitute a similarly-worded but different feature (e.g. another
+  object's "visibility"). If two candidate APIs both sound plausible, pick the
+  one tied to the evidenced control, not the one with the closer-sounding name.
+- When the request names a SPECIFIC view ("3D View 1", a named slice view),
+  resolve the view NODE by identity from layout evidence — its node name,
+  singleton tag, or view label (`GetSingletonNode(<tag>, "vtkMRMLViewNode")`,
+  `GetFirstNodeByName(...)`, `sliceWidget("Red").mrmlSliceNode()`). NEVER use
+  positional accessors like `threeDWidget(0)` for a named view: the index
+  depends on the active layout and widget creation order and silently targets
+  the wrong view after a layout change.
+- After setting a state, read it back via the matching getter when one exists
+  (SetX -> GetX, or the property itself) and raise
+  `RuntimeError("STATE_NOT_APPLIED: <property>")` if the value did not take
+  effect. Silent no-ops are bugs; a loud failure is repairable.
+- For read-back, prefer MRML-node getters over Qt-wrapped object properties.
+  Qt wrappers expose Q_PROPERTYs as plain attributes in Python — e.g. a
+  layout manager's current-layout property is an int attribute, and CALLING
+  it raises "'int' object is not callable". If you must read a Qt property,
+  access it without parentheses.
 - For slice-intersection operations, implement the requested intersection
   visibility and interaction state. Do not substitute crosshair visibility.
   Search source/docs for the appropriate state APIs and any required refresh.

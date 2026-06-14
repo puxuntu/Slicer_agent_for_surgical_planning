@@ -330,6 +330,9 @@ class WidgetCorrectionMixin:
                     )
                     history.extend(compressed)
 
+            # Remember what the correction fixed, so a subsequent successful
+            # execution can persist the repair back to the CLI package.
+            self._lastCorrectionError = error_detail
             self._autoExecuteCode(attempt + 1, max_attempts)
         else:
             raw_msg = response.get('message', '')[:300]

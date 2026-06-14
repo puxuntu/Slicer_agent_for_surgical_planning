@@ -48,7 +48,11 @@ When the prompt supplies a fixed METHOD UNIVERSE (enumerated from the AST), retu
 
 ## Code Style for Templates
 
-- Minimal and deterministic: implement exactly the contracted operation — no unrelated UI, icon, toolbar, module-switching, layout, or display behavior, no speculative defensive blocks.
+- Minimal and deterministic: implement exactly the contracted operation — no unrelated UI, icon, toolbar, module-switching, layout, or display behavior, no speculative defensive blocks. Never enable interaction modes, handles, or editing affordances unless the step text explicitly asks for interaction.
+- Reproduce the extension's own cause→effect chain: write the inputs a method reads, call the method, and call the extension's applier method (the method that reads and applies a parameter) when one is listed. Never manipulate internal state the extension manages itself — folder/hierarchy bookkeeping, derived references, observer-maintained flags. A bare SetParameter only records state; GUI observers may recompute it differently.
+- Use only parameter/reference role names present in the supplied metadata; a role not listed does not exist. Never call a method on the direct result of an API that can return None (GetNodeReference, GetItemDataNode, GetDisplayNode, ...) without a None check.
+- Respect API return shapes: `slicer.util.getNodesByClass(...)` and `slicer.mrmlScene.GetNodesByClass(...)` return a LIST (iterate directly); `slicer.util.getNodes(...)` returns a dict (use `.values()`). Never call `.values()` on a list.
+- Node-reference resolution order is strict: check `parameterNode.GetNodeReference(role)` FIRST (earlier steps usually set it); only when empty fall back to class+keyword search; never re-resolve an already-set reference by name — scene node names vary per dataset and keyword guesses fail at runtime.
 - Prefer the simplest evidenced API that produces the contracted effect over elaborate reconstructions.
 - Required inputs must never silently fall back to `0`/`0.0`/`False`/`""`: bind them from a provided value, derive a source-backed default, or `raise RuntimeError` naming the missing input.
 - User-facing instruction text (print statements relayed to the user) must be complete sentences derived from the cookbook step — never empty, `None`, or placeholder-like.

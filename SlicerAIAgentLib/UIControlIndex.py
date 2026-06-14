@@ -279,7 +279,7 @@ def preanalysis_status() -> Dict:
 
 
 def preanalysis_fingerprint() -> str:
-    """Content fingerprint for checkpoint keys; 'absent' when unavailable."""
+    """Content fingerprint of the pre-analysis artifacts; 'absent' when unavailable."""
     jsonl_path = os.path.join(PREANALYSIS_DIR, "ui_controls.jsonl")
     try:
         stat = os.stat(jsonl_path)

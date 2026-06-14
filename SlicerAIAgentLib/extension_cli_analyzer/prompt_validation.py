@@ -394,6 +394,14 @@ Return ONLY the sentence, nothing else.""")
         if generator_contract.get("warnings"):
             results["warnings"].extend(generator_contract["warnings"])
 
+        # Cross-template: opposite-polarity step pairs must share a mechanism.
+        paired = self._validate_paired_step_mechanisms(templates, generators)
+        if paired.get("errors"):
+            results["valid"] = False
+            results["errors"].extend(paired["errors"])
+        if paired.get("warnings"):
+            results["warnings"].extend(paired["warnings"])
+
         # Proof validation inventories every executable call. Absence of a
         # recognized live-probe failure is never treated as positive evidence.
         api_proof_report = self._build_api_proof_report(

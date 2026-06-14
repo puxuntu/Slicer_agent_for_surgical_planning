@@ -1,4 +1,5 @@
 from .common import *
+from .phases import PIPELINE_VERSION
 
 
 class AnalyzerSlicerOpManifestMixin:
@@ -54,9 +55,53 @@ class AnalyzerSlicerOpManifestMixin:
         except Exception:
             logger.debug("UI pre-analysis status check failed", exc_info=True)
 
+        # Scoped re-entry reuse: grounding is the most expensive phase, and
+        # after a scoped contract merge most sub-ops are byte-identical to
+        # the previous iteration. Reuse the cached grounded code when the
+        # sub-op's evidence-relevant inputs are unchanged and its step is not
+        # implicated in the failures driving this iteration. Failed
+        # groundings (MISSING_EVIDENCE) are never reused.
+        cache = getattr(self, "_slicer_op_template_cache", None)
+        if cache is None:
+            cache = {}
+            self._slicer_op_template_cache = cache
+        implicated_steps = getattr(self, "_reentry_implicated_steps", set()) or set()
+
+        def _sub_op_fingerprint(step_num, sub_op) -> str:
+            return self._content_fingerprint(step_num, [
+                getattr(sub_op, field, None) for field in (
+                    "description", "extension_method_hint", "slicer_api_keywords",
+                    "interaction_type", "node_class", "placement_instructions",
+                    "interaction_kind", "slicer_op_category",
+                )
+            ])
+
+        reused: Dict[str, str] = {}
+        to_ground = []
+        to_ground_meta = []  # (final_key, fingerprint) aligned with to_ground
+        for idx, (step_num, sub_op) in enumerate(slicer_ops):
+            final_key = f"cb_step_{step_num}_{idx}"
+            fingerprint = _sub_op_fingerprint(step_num, sub_op)
+            cached_code = cache.get(fingerprint)
+            if (
+                cached_code
+                and step_num not in implicated_steps
+                and "MISSING_EVIDENCE" not in cached_code
+            ):
+                reused[final_key] = cached_code
+            else:
+                to_ground.append((step_num, sub_op))
+                to_ground_meta.append((final_key, fingerprint))
+
+        if reused:
+            self.on_progress(
+                "ground", "Ground Slicer APIs",
+                f"Reusing {len(reused)} previously grounded template(s) "
+                f"(unchanged inputs); re-grounding {len(to_ground)}",
+            )
         self.on_progress(
             "ground", "Ground Slicer APIs",
-            f"Generating templates for {len(slicer_ops)} slicer_op operations..."
+            f"Generating templates for {len(to_ground)} slicer_op operations..."
         )
 
         # Determine skill_path for KB search
@@ -92,9 +137,21 @@ class AnalyzerSlicerOpManifestMixin:
             on_progress=_on_op_progress,
             debug_path=debug_path,
             extension_name=_ext_name,
+            extension_source_path=getattr(self, "_source_path", ""),
         )
 
-        templates = generator.generate(slicer_ops)
+        templates = dict(reused)
+        if to_ground:
+            # generator.generate keys results by position within the list it
+            # was given; remap subset positions back to the full-enumeration
+            # keys and refresh the reuse cache with the new groundings.
+            generated = generator.generate(to_ground)
+            for subset_idx, (final_key, fingerprint) in enumerate(to_ground_meta):
+                step_num = to_ground[subset_idx][0]
+                code = generated.get(f"cb_step_{step_num}_{subset_idx}", "")
+                if code:
+                    templates[final_key] = code
+                    cache[fingerprint] = code
         self._slicer_op_evidence = {}
         for idx, (step_num, sub_op) in enumerate(slicer_ops):
             key = f"cb_step_{step_num}_{idx}"
@@ -178,7 +235,7 @@ class AnalyzerSlicerOpManifestMixin:
 
         manifest = {
             "manifest_version": 3,
-            "pipeline_version": "agentic-cli-v2",
+            "pipeline_version": PIPELINE_VERSION,
             "extension_name": extension_name,
             "extension_module_name": os.path.splitext(os.path.basename(scan_result.get("entry_module", "")))[0],
             "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),

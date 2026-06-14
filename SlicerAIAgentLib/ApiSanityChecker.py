@@ -106,6 +106,11 @@ def extract_chains(code: str) -> List[Dict]:
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
             called_funcs.add(id(node.func))
 
+    call_args_by_func = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            call_args_by_func[id(node.func)] = node
+
     chains: Dict[str, Dict] = {}
     for node in ast.walk(tree):
         if not isinstance(node, ast.Attribute) or id(node) in inner_attrs:
@@ -128,12 +133,136 @@ def extract_chains(code: str) -> List[Dict]:
         )
         if id(node) in called_funcs:
             entry["is_called"] = True
+            # Capture literal positional argument types when ALL positional
+            # args are plain literals and no */** expansion is used — enables
+            # signature compatibility checking against the live callable.
+            call = call_args_by_func.get(id(node))
+            if call is not None and "literal_arg_types" not in entry:
+                literal_types = _literal_arg_types(call)
+                if literal_types is not None:
+                    entry["literal_arg_types"] = literal_types
         if len(chains) >= MAX_CHAINS:
             break
     return list(chains.values())
 
 
-def resolve_chain(chain: str, is_called: bool = False) -> Dict:
+def _literal_arg_types(call: ast.Call):
+    """Type names of positional args when all are plain literals, else None."""
+    if call.keywords:
+        return None
+    types = []
+    for arg in call.args:
+        if isinstance(arg, ast.Starred):
+            return None
+        if isinstance(arg, ast.Constant):
+            value = arg.value
+        elif hasattr(ast, "Str") and isinstance(arg, ast.Str):  # Python < 3.8
+            value = arg.s
+        elif hasattr(ast, "Num") and isinstance(arg, ast.Num):
+            value = arg.n
+        elif hasattr(ast, "NameConstant") and isinstance(arg, ast.NameConstant):
+            value = arg.value
+        else:
+            return None
+        if isinstance(value, bool):
+            types.append("bool")
+        elif isinstance(value, int):
+            types.append("int")
+        elif isinstance(value, float):
+            types.append("float")
+        elif isinstance(value, str):
+            types.append("str")
+        else:
+            return None
+    return types
+
+
+_SIG_PARAMS_RE = re.compile(r"\(([^()]*)\)")
+
+# Which Python literal types satisfy which declared parameter-type tokens
+# (PythonQt / VTK docstring conventions). Conservative: unknown tokens accept
+# anything.
+_TYPE_COMPAT = {
+    "int": {"int", "bool"},
+    "float": {"int", "float"},
+    "double": {"int", "float"},
+    "qreal": {"int", "float"},
+    "bool": {"bool", "int"},
+    "vtktypebool": {"bool", "int"},
+    "str": {"str"},
+    "qstring": {"str"},
+    "char*": {"str"},
+    "string": {"str"},
+}
+
+
+def _signature_overloads(callable_obj) -> List[List[str]]:
+    """Parse declared parameter-type lists from a live callable's doc/repr.
+
+    PythonQt slots expose signatures like ``setLayout(int newLayout)``; VTK
+    docstrings like ``SetVisibility(self, _arg:int) -> None``. Returns one
+    type-token list per overload line; [] when nothing parseable (caller
+    must then skip the check — fail-open).
+    """
+    try:
+        text = "\n".join(filter(None, [
+            str(getattr(callable_obj, "__doc__", "") or ""),
+            repr(callable_obj),
+        ]))
+    except Exception:
+        return []
+    overloads = []
+    for match in _SIG_PARAMS_RE.finditer(text):
+        inner = match.group(1).strip()
+        if inner == "":
+            overloads.append([])
+            continue
+        tokens = []
+        valid = True
+        for param in inner.split(","):
+            param = param.strip()
+            if not param or param in ("self",):
+                continue
+            # "int newLayout" -> int; "_arg:int" -> int; "QString name" -> QString
+            if ":" in param:
+                type_token = param.split(":", 1)[1].strip()
+            else:
+                type_token = param.split()[0].strip() if param.split() else ""
+            type_token = type_token.replace("const", "").replace("&", "").strip()
+            if not type_token:
+                valid = False
+                break
+            tokens.append(type_token.lower())
+        if valid:
+            overloads.append(tokens)
+    return overloads
+
+
+def _literals_compatible(literal_types: List[str], overloads: List[List[str]]) -> bool:
+    """True unless EVERY arity-matching overload provably conflicts.
+
+    Conservative: if no overload matches the call's arity, or any matching
+    overload contains a type token we don't know, the call is accepted.
+    """
+    arity_matches = [o for o in overloads if len(o) == len(literal_types)]
+    if not arity_matches:
+        return True
+    for overload in arity_matches:
+        compatible = True
+        for declared, literal in zip(overload, literal_types):
+            allowed = _TYPE_COMPAT.get(declared)
+            if allowed is None:
+                compatible = True
+                break
+            if literal not in allowed:
+                compatible = False
+                break
+        if compatible:
+            return True
+    return False
+
+
+def resolve_chain(chain: str, is_called: bool = False, literal_arg_types: Optional[List[str]] = None) -> Dict:
     """Resolve a dotted chain live. Never invokes anything.
 
     Returns {"status": "resolved" | "missing" | "skipped", ...}. Missing is
@@ -188,6 +317,29 @@ def resolve_chain(chain: str, is_called: bool = False) -> Dict:
             "missing_attr": parts[-1],
             "close_matches": [],
         }
+    # Signature compatibility: when the call passes only literal arguments
+    # and the live callable declares parseable parameter types, a provable
+    # type conflict (e.g. a str literal where every overload wants int) is
+    # caught before execution. Unparseable signatures are skipped (fail-open).
+    if is_called and literal_arg_types is not None:
+        try:
+            overloads = _signature_overloads(obj)
+            if overloads and not _literals_compatible(literal_arg_types, overloads):
+                signature_preview = (
+                    str(getattr(obj, "__doc__", "") or repr(obj)).strip().splitlines()[0][:160]
+                )
+                return {
+                    "status": "missing",
+                    "kind": "argument_mismatch",
+                    "chain": chain,
+                    "parent_chain": ".".join(parts[:-1]),
+                    "missing_attr": parts[-1],
+                    "literal_arg_types": literal_arg_types,
+                    "signature": signature_preview,
+                    "close_matches": [],
+                }
+        except Exception:
+            pass
     return {"status": "resolved", "chain": chain}
 
 
@@ -206,7 +358,11 @@ def check_code(code: str) -> Dict:
                 result["missing"] = []
                 result["ok"] = True
                 break
-            outcome = resolve_chain(entry["chain"], entry.get("is_called", False))
+            outcome = resolve_chain(
+                entry["chain"],
+                entry.get("is_called", False),
+                entry.get("literal_arg_types"),
+            )
             if outcome["status"] == "missing":
                 outcome["lineno"] = entry.get("lineno")
                 result["missing"].append(outcome)
@@ -227,6 +383,15 @@ def format_failures(missing: List[Dict]) -> str:
     """Human/LLM-readable evidence for confirmed-missing chains."""
     lines = ["[ApiSanityCheck] Pre-execution live check against this running Slicer:"]
     for item in missing[:8]:
+        if item.get("kind") == "argument_mismatch":
+            lines.append(
+                f"- '{item['chain']}' was called with literal argument type(s) "
+                f"{item.get('literal_arg_types')} but the live callable declares "
+                f"'{item.get('signature', '?')}' (line {item.get('lineno', '?')}). "
+                "Pass arguments matching the declared types — e.g. an integer ID "
+                "where an int is declared, not a name string."
+            )
+            continue
         if item.get("kind") == "not_callable":
             lines.append(
                 f"- '{item['chain']}' exists but is NOT callable "

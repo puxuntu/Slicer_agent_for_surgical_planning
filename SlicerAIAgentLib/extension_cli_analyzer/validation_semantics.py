@@ -81,6 +81,308 @@ class AnalyzerValidationSemanticsMixin:
             )
         return result
 
+    @staticmethod
+    def _expr_text(node) -> str:
+        """Best-effort source text of an expression node (receiver chains)."""
+        try:
+            return ast.unparse(node)
+        except Exception:
+            parts = []
+            cur = node
+            while isinstance(cur, ast.Attribute):
+                parts.append(cur.attr)
+                cur = cur.value
+            if isinstance(cur, ast.Call) and isinstance(cur.func, (ast.Attribute, ast.Name)):
+                return AnalyzerValidationSemanticsMixin._expr_text(cur.func) + "()"
+            if isinstance(cur, ast.Name):
+                parts.append(cur.id)
+            return ".".join(reversed(parts))
+
+    def _collect_parameter_writes(self, code: str) -> List[Tuple[str, str, int]]:
+        """Literal (kind, role, lineno) writes on the extension parameter node.
+
+        Only LITERAL string roles on parameter-node receivers are collected —
+        dynamic role names (variables, f-strings) are intentionally skipped to
+        avoid false positives.
+        """
+        writes: List[Tuple[str, str, int]] = []
+        try:
+            tree = ast.parse(code or "")
+        except SyntaxError:
+            return writes
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            attr = node.func.attr
+            if attr not in ("SetParameter", "SetNodeReferenceID"):
+                continue
+            receiver = self._expr_text(node.func.value)
+            if "parameterNode" not in receiver and "getParameterNode" not in receiver:
+                continue
+            if not node.args:
+                continue
+            role_arg = node.args[0]
+            role = None
+            if isinstance(role_arg, ast.Constant) and isinstance(role_arg.value, str):
+                role = role_arg.value
+            elif hasattr(ast, "Str") and isinstance(role_arg, ast.Str):  # py<3.8
+                role = role_arg.s
+            if role:
+                writes.append((attr, role, getattr(node, "lineno", 0)))
+        return writes
+
+    def _validate_parameter_role_contract(self, code: str) -> Dict[str, List[str]]:
+        """Reject writes to parameter/reference roles that don't exist or that
+        the called method produces internally.
+
+        Generic cause→effect fidelity: only roles present in the
+        source-derived metadata exist, and roles a called method derives
+        itself (requirement 'produced_by_method') must never be pre-set by
+        the caller — fabricated bookkeeping (e.g. seeding a folder reference
+        from the scene root) is how templates crash at runtime.
+        """
+        result = {"errors": [], "warnings": []}
+        metadata = self._workflow_metadata if isinstance(self._workflow_metadata, dict) else {}
+        bindings = metadata.get("parameter_bindings") or {}
+        if not bindings:
+            return result  # no source metadata available — cannot judge
+        writes = self._collect_parameter_writes(code)
+        if not writes:
+            return result
+        dependencies = metadata.get("parameter_method_dependencies") or {}
+        produced_roles: Dict[str, str] = {}
+        for method in self._extension_methods_called_by_template(code):
+            requirements = (dependencies.get(method) or {}).get("node_requirements") or {}
+            for role, requirement in requirements.items():
+                if (requirement or {}).get("requirement") == "produced_by_method":
+                    produced_roles[role] = method
+        for kind, role, lineno in writes:
+            if role not in bindings:
+                result["errors"].append(
+                    f"InventedParameterRole: template writes parameter/reference role "
+                    f"'{role}' (line {lineno}) that is not in source-derived metadata; "
+                    "remove the block — never invent role names"
+                )
+            elif role in produced_roles:
+                result["errors"].append(
+                    f"InventedParameterRole: role '{role}' is produced internally by "
+                    f"logic.{produced_roles[role]}(); remove the caller-side write "
+                    f"(line {lineno})"
+                )
+        return result
+
+    def _validate_parameter_effect_application(self, code: str) -> Dict[str, List[str]]:
+        """Require evidence-backed effect application after parameter writes.
+
+        A bare SetParameter only records state; when the metadata knows a
+        high-confidence applier method (a logic method that reads the
+        parameter and is name-similar to it), the template must call it with
+        the explicit final state. Satisfied automatically when any called
+        method reads the role (init-then-call and record-for-later patterns).
+        """
+        result = {"errors": [], "warnings": []}
+        metadata = self._workflow_metadata if isinstance(self._workflow_metadata, dict) else {}
+        appliers_by_role = metadata.get("parameter_appliers") or {}
+        if not appliers_by_role:
+            return result
+        effects = metadata.get("method_parameter_effects") or {}
+        writes = [
+            entry for entry in self._collect_parameter_writes(code)
+            if entry[0] == "SetParameter"
+        ]
+        if not writes:
+            return result
+        called_methods = set(self._extension_methods_called_by_template(code))
+        for _, role, lineno in writes:
+            if any(
+                role in set((effects.get(method) or {}).get("reads") or [])
+                for method in called_methods
+            ):
+                continue  # cause→effect satisfied by a called reader/applier
+            # Shared selection rule with the template emitter: BLOCK only on
+            # the one applier the emitter itself would emit. Demanding any
+            # other candidate creates an unfixable deadlock (the emitter
+            # refuses ambiguous evidence by design).
+            selected = self._select_unambiguous_applier(role)
+            if selected is not None:
+                if selected.get("method") in called_methods:
+                    continue  # cause→effect satisfied by the selected applier
+                result["errors"].append(
+                    f"ParameterEffectNotApplied: template sets parameter '{role}' "
+                    f"(line {lineno}) but never calls an evidence-backed applier; call "
+                    f"logic.{selected['method']}(<explicit final state>) after SetParameter "
+                    "— parameter writes alone only record state and GUI observers may "
+                    "recompute it differently"
+                )
+                continue
+            high = [
+                a for a in appliers_by_role.get(role, [])
+                if a.get("confidence") == "high"
+            ]
+            if high:
+                names = ", ".join(sorted(a.get("method", "") for a in high)[:4])
+                result["warnings"].append(
+                    f"Parameter '{role}' (line {lineno}) has ambiguous applier "
+                    f"evidence ({names}); no applier emitted or required — verify "
+                    "the parameter's effect is applied at runtime"
+                )
+        return result
+
+    _INTERACTION_ENABLE_RE = _re.compile(
+        r"\b(\w*Interactive\w*|\w*InteractionHandle\w*|\w*HandleVisibility\w*|\w*InteractiveHandles\w*)\s*\("
+    )
+    # Morpheme stems covering interaction vocabulary (interact/interactive,
+    # handle/handles, rotate/rotation, translate/translation, ...).
+    _INTERACTION_TEXT_TOKENS = (
+        "interact", "handle", "drag", "rotat", "translat", "manipulat",
+        "adjust", "edit", "move",
+    )
+
+    def _validate_interaction_scope(self, code: str, gen: Dict) -> Dict:
+        """Minimality backstop: interaction affordances need textual backing.
+
+        A template may enable interaction/handle modes only when the step's
+        own description/intents mention interaction. Doubly narrow trigger
+        (interaction-shaped API enabled AND no interaction vocabulary in the
+        step text) to avoid false positives.
+        """
+        result = {"errors": [], "warnings": []}
+        code = code or ""
+        offending = []
+        for match in self._INTERACTION_ENABLE_RE.finditer(code):
+            name = match.group(1)
+            if name.endswith("On"):
+                offending.append(name)
+                continue
+            rest = code[match.end():match.end() + 40]
+            if _re.match(r"\s*(True|[1-9])\b", rest):
+                offending.append(name)
+        if not offending:
+            return result
+        text = self._display_scope_text(gen)
+        if any(token in text for token in self._INTERACTION_TEXT_TOKENS):
+            return result
+        result["errors"].append(
+            "InteractionScopeExceeded: template enables interaction/handle modes ("
+            + ", ".join(sorted(set(offending))[:5])
+            + ") but the step description does not request interaction; "
+            "implement only the requested state change"
+        )
+        return result
+
+    # ── paired-step mechanism consistency ──
+    # Two steps that describe opposite states of the SAME control ("toggle on
+    # X" / "toggle off X") must change state through the SAME underlying API.
+    # When they diverge, at least one of them silently targets a similarly
+    # worded but different feature — a wrong-target bug that executes without
+    # error and so never reaches the repair loop on its own.
+
+    _PAIR_POSITIVE_TOKENS = {
+        "on", "enable", "enabled", "show", "shown", "visible", "true", "start",
+    }
+    _PAIR_NEGATIVE_TOKENS = {
+        "off", "disable", "disabled", "hide", "hidden", "invisible", "false", "stop",
+    }
+    _PAIR_GENERIC_TOKENS = {
+        "toggle", "turn", "switch", "set", "make", "the", "and", "for",
+        "step", "with", "from", "into",
+    }
+    # Generic state-carrier mechanisms present in most templates; they are
+    # never the distinguishing state-changing API of a step.
+    _PAIR_GENERIC_API_CORES = {"parameter", "attribute", "name", "modified"}
+
+    @classmethod
+    def _pair_subject_and_polarity(cls, text: str):
+        """(subject_tokens, polarity) for a step description; polarity is
+        +1/-1 or 0 when absent/ambiguous."""
+        tokens = {
+            t for t in _re.findall(r"[a-z0-9]+", _text_or_empty(text).lower())
+            if len(t) >= 2
+        }
+        positive = bool(tokens & cls._PAIR_POSITIVE_TOKENS)
+        negative = bool(tokens & cls._PAIR_NEGATIVE_TOKENS)
+        polarity = 0
+        if positive != negative:
+            polarity = 1 if positive else -1
+        subject = tokens - cls._PAIR_POSITIVE_TOKENS - cls._PAIR_NEGATIVE_TOKENS
+        subject -= cls._PAIR_GENERIC_TOKENS
+        return subject, polarity
+
+    @classmethod
+    def _pair_state_api_cores(cls, code: str) -> Dict[str, str]:
+        """Map normalized state-API core -> representative spelling.
+
+        Cores come from Set*/set* calls, trailing-On/Off calls, and boolean
+        property assignments — the shapes a state change takes in Slicer.
+        """
+        cores: Dict[str, str] = {}
+        code = code or ""
+        for match in _re.finditer(r"\.\s*([Ss]et[A-Za-z0-9_]+)\s*\(", code):
+            name = match.group(1)
+            cores.setdefault(name[3:].lower(), name)
+        for match in _re.finditer(r"\.\s*([A-Za-z0-9_]+?)(?:On|Off)\s*\(\s*\)", code):
+            name = match.group(1)
+            cores.setdefault(name.lower(), name)
+        for match in _re.finditer(
+            r"\.\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:True|False|0|1)\b", code
+        ):
+            name = match.group(1)
+            cores.setdefault(name.lower(), name)
+        return {
+            core: spelling for core, spelling in cores.items()
+            if core not in cls._PAIR_GENERIC_API_CORES
+        }
+
+    def _validate_paired_step_mechanisms(
+        self, templates: Dict[str, str], generators: List[Dict],
+    ) -> Dict[str, List[str]]:
+        """Blocking check: opposite-polarity step pairs over the same subject
+        must share at least one primary state-changing API core."""
+        result = {"errors": [], "warnings": []}
+        candidates = []
+        for gen in generators or []:
+            tpl_name = gen.get("template_file")
+            if not tpl_name or tpl_name not in templates:
+                continue
+            subject, polarity = self._pair_subject_and_polarity(gen.get("description"))
+            if polarity == 0 or not subject:
+                continue
+            cores = self._pair_state_api_cores(templates.get(tpl_name, ""))
+            candidates.append({
+                "gen": gen,
+                "template": tpl_name,
+                "subject": subject,
+                "polarity": polarity,
+                "cores": cores,
+            })
+
+        for i, a in enumerate(candidates):
+            for b in candidates[i + 1:]:
+                if a["polarity"] == b["polarity"]:
+                    continue
+                union = a["subject"] | b["subject"]
+                if not union:
+                    continue
+                jaccard = len(a["subject"] & b["subject"]) / len(union)
+                if jaccard < 0.7:
+                    continue
+                # Cannot judge a side with no detectable state API.
+                if not a["cores"] or not b["cores"]:
+                    continue
+                if set(a["cores"]) & set(b["cores"]):
+                    continue
+                apis_a = ", ".join(sorted(a["cores"].values())[:4])
+                apis_b = ", ".join(sorted(b["cores"].values())[:4])
+                for side, other in ((a, b), (b, a)):
+                    result["errors"].append(
+                        f"{side['template']}: PairedStepMechanismMismatch: this step and "
+                        f"'{other['template']}' describe opposite states of the same "
+                        f"control but use different state-changing APIs "
+                        f"({apis_a} vs {apis_b}); re-ground both steps against the "
+                        f"single evidenced mechanism for that control"
+                    )
+        return result
+
     def _operation_intents_for_generator(self, gen: Dict) -> List[str]:
         operation_model = gen.get("operation_model") or {}
         intents = list(operation_model.get("operation_intents") or [])
@@ -167,6 +469,13 @@ class AnalyzerValidationSemanticsMixin:
             return result
         if not self._display_scope_targets_slice_view(code, gen):
             return result
+        # Only steps that affirmatively SHOW something in a slice view must
+        # enable 2D visibility. Hide/invert/ambiguous intents are exempt —
+        # this gate mirrors the generator-side display-scope prompt gate
+        # (slicer_op_generator/core.py); both must stay in sync.
+        state_intent = _infer_final_state_intent(self._display_scope_text(gen))
+        if not (state_intent.get("mode") == "set" and state_intent.get("state") is True):
+            return result
 
         text = self._display_scope_text(gen)
         node_class = self._display_scope_node_class(gen)
@@ -227,9 +536,40 @@ class AnalyzerValidationSemanticsMixin:
             and name_l.startswith(("set", "switch", "activate", "restore", "show"))
         )
 
+    # A step that names a SPECIFIC 3D view ("3D View 1") must resolve the
+    # view node by identity (name/singleton tag/view label from layout
+    # evidence). Positional accessors like threeDWidget(0) depend on the
+    # active layout and widget creation order — the canonical wrong-view bug.
+    _NAMED_3D_VIEW_TEXT_RE = _re.compile(r"\b3-?d\s*view\s*\d+\b|\bview\s*\d+\b")
+    _POSITIONAL_3D_ACCESS_RE = _re.compile(r"\bthreeDWidget\s*\(\s*\d+\s*\)")
+
+    def _validate_named_view_resolution(self, code: str, gen: Dict) -> Dict:
+        result = {"errors": [], "warnings": []}
+        text = self._display_scope_text(gen)
+        if not self._NAMED_3D_VIEW_TEXT_RE.search(text):
+            return result
+        match = self._POSITIONAL_3D_ACCESS_RE.search(code or "")
+        if not match:
+            return result
+        result["errors"].append(
+            "PositionalViewResolution: the step names a specific 3D view but "
+            f"the template resolves a view positionally ({match.group(0)}), "
+            "which depends on the active layout and widget creation order; "
+            "resolve the named view NODE by its name, singleton tag, or view "
+            "label from layout evidence (e.g. GetSingletonNode / "
+            "GetFirstNodeByName) instead"
+        )
+        return result
+
     def _validate_slicer_operation_semantics(self, code: str, gen: Dict) -> Dict:
         """Validate generic Slicer UI-operation effects beyond API existence."""
         result = {"errors": [], "warnings": []}
+        interaction_scope = self._validate_interaction_scope(code, gen)
+        result["errors"].extend(interaction_scope["errors"])
+        result["warnings"].extend(interaction_scope["warnings"])
+        named_view = self._validate_named_view_resolution(code, gen)
+        result["errors"].extend(named_view["errors"])
+        result["warnings"].extend(named_view["warnings"])
         intents = set(self._operation_intents_for_generator(gen))
         if not intents:
             return result
@@ -384,7 +724,9 @@ class AnalyzerValidationSemanticsMixin:
             if (
                 isinstance(func, ast.Attribute)
                 and isinstance(func.value, ast.Name)
-                and func.value.id == "logic"
+                # "logic" is the extension logic instance; "_module_widget"
+                # is the module widget instance (widget-receiver appliers).
+                and func.value.id in ("logic", "_module_widget")
             ):
                 methods.append(func.attr)
         return sorted(set(methods))

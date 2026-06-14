@@ -607,6 +607,325 @@ class AnalyzerParameterMetadataMixin:
         return effects
 
     @staticmethod
+    def _extract_reader_call_chains(source: str) -> Dict[str, set]:
+        """Map parameter roles to methods whose call ARGUMENT derives from
+        reading that role.
+
+        The dominant Slicer pattern is: a GUI observer reads role R
+        (``GetParameter(R)``), computes a value from it, and calls
+        ``self.setX(value)`` / ``self.logic.setX(value)`` — the applier takes
+        the state as an ARGUMENT and never reads the parameter itself.
+
+        Evidence requires argument-level dataflow, not mere co-occurrence:
+        a global sync method may read dozens of roles and call dozens of
+        single-arg methods, and linking every role to every call would flood
+        the applier pool with garbage. A method is linked to R only when its
+        single argument is (a) an expression containing ``GetParameter(R)``
+        inline, or (b) a local variable whose assignment RHS contained
+        ``GetParameter(R)`` (covering ``v = p.GetParameter(R) == 'True'``).
+        """
+        chains: Dict[str, set] = {}
+        try:
+            tree = ast.parse(source or "")
+        except SyntaxError:
+            return chains
+
+        def _roles_in(expr: ast.AST) -> set:
+            """Roles read via GetParameter(<literal>) anywhere inside expr."""
+            roles = set()
+            for sub in ast.walk(expr):
+                if (
+                    isinstance(sub, ast.Call)
+                    and isinstance(sub.func, ast.Attribute)
+                    and sub.func.attr == "GetParameter"
+                    and sub.args
+                ):
+                    role_arg = sub.args[0]
+                    if isinstance(role_arg, ast.Constant) and isinstance(role_arg.value, str):
+                        roles.add(role_arg.value)
+                    elif hasattr(ast, "Str") and isinstance(role_arg, ast.Str):
+                        roles.add(role_arg.s)
+            return roles
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            # First pass: local names whose assigned value derives from a role
+            # read — TRANSITIVELY. Observers commonly compute an intermediate
+            # gate (`a = GetParameter(R) == 'True'; gate = a and b`) and pass
+            # the gate to the applier; one level of dataflow would miss it.
+            # Fixpoint propagation through Name→Name assignments keeps the
+            # evidence pure dataflow (never co-occurrence).
+            assignments = []
+            for child in ast.walk(node):
+                targets = []
+                if isinstance(child, ast.Assign):
+                    targets, value = child.targets, child.value
+                elif isinstance(child, ast.AnnAssign) and child.value is not None:
+                    targets, value = [child.target], child.value
+                else:
+                    continue
+                names = [t.id for t in targets if isinstance(t, ast.Name)]
+                if names:
+                    assignments.append((names, value))
+
+            derived_names: Dict[str, set] = {}
+            for _ in range(len(assignments) + 1):
+                changed = False
+                for names, value in assignments:
+                    roles = set(_roles_in(value))
+                    for sub in ast.walk(value):
+                        if isinstance(sub, ast.Name) and sub.id in derived_names:
+                            roles.update(derived_names[sub.id])
+                    if not roles:
+                        continue
+                    for name in names:
+                        known = derived_names.setdefault(name, set())
+                        if not roles <= known:
+                            known.update(roles)
+                            changed = True
+                if not changed:
+                    break
+
+            # Second pass: single-arg self/self.<attr> calls whose argument
+            # derives from a role read (inline or via a derived local).
+            for child in ast.walk(node):
+                if not isinstance(child, ast.Call):
+                    continue
+                func = child.func
+                if not isinstance(func, ast.Attribute) or func.attr == "GetParameter":
+                    continue
+                if len(child.args) != 1 or child.keywords:
+                    continue
+                receiver = func.value
+                is_self_chain = (
+                    isinstance(receiver, ast.Name) and receiver.id == "self"
+                ) or (
+                    isinstance(receiver, ast.Attribute)
+                    and isinstance(receiver.value, ast.Name)
+                    and receiver.value.id == "self"
+                )
+                if not is_self_chain:
+                    continue
+                arg = child.args[0]
+                arg_roles = set(_roles_in(arg))
+                for sub in ast.walk(arg):
+                    if isinstance(sub, ast.Name) and sub.id in derived_names:
+                        arg_roles.update(derived_names[sub.id])
+                for role in arg_roles:
+                    chains.setdefault(role, set()).add(func.attr)
+        return chains
+
+    @staticmethod
+    def _extract_widget_method_universe(source: str, logic_class_name: str) -> Dict[str, int]:
+        """Method name -> parameter count for entry-module non-logic classes.
+
+        Applier methods frequently live on the module WIDGET class (the GUI
+        observer computes a value and calls ``self.setX(value)`` where setX
+        is a widget method) — restricting applier candidates to the logic
+        class is a structural blind spot. Names already present on the logic
+        class are excluded so the logic receiver always wins collisions.
+        """
+        universe: Dict[str, int] = {}
+        try:
+            tree = ast.parse(source or "")
+        except SyntaxError:
+            return universe
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef) or node.name == logic_class_name:
+                continue
+            for item in node.body:
+                if not isinstance(item, ast.FunctionDef) or item.name.startswith("__"):
+                    continue
+                params = [a for a in item.args.args if a.arg != "self"]
+                universe[item.name] = len(params)
+        return universe
+
+    @staticmethod
+    def _compute_parameter_appliers(
+        bindings: Dict, method_parameter_effects: Dict, logic_analysis: Dict,
+        source: str = "",
+        widget_methods: Optional[Dict[str, int]] = None,
+    ) -> Dict[str, List[Dict]]:
+        """Evidence-backed applier methods per parameter role.
+
+        A bare ``SetParameter`` only records state; the visible effect comes
+        from the extension's own cause→effect chain. Three evidence tiers:
+        1. reads-parameter: a method reads the role itself.
+        2. called-by-reader: a function reading the role calls the method
+           with one argument derived from that read (dataflow evidence).
+        3. name-core: very high core-name similarity (state tokens stripped)
+           plus <=1 parameter — the conventional setX(state) naming.
+        Candidates may live on the LOGIC class or on the module WIDGET class;
+        each carries a "receiver" field ("logic" | "module_widget") so the
+        emitter can build the correct call.
+        """
+        logic_method_names = {
+            method.get("name")
+            for method in (logic_analysis or {}).get("methods", []) or []
+            if isinstance(method, dict) and method.get("name")
+        }
+        method_params = {
+            method.get("name"): [
+                p for p in method.get("parameters", []) or []
+                if isinstance(p, dict) and p.get("name") not in (None, "self")
+            ]
+            for method in (logic_analysis or {}).get("methods", []) or []
+            if isinstance(method, dict) and method.get("name")
+        }
+        widget_methods = {
+            name: count
+            for name, count in (widget_methods or {}).items()
+            if name not in logic_method_names
+        }
+
+        def _receiver_and_params(method: str):
+            """(receiver, parameter_count) or None when method is unknown."""
+            if method in logic_method_names:
+                return "logic", len(method_params.get(method, []))
+            if method in widget_methods:
+                return "module_widget", widget_methods[method]
+            return None
+        # State verbs/nouns dilute name similarity without carrying identity:
+        # the signal is the shared core ("WidgetHandles" in showWidgetHandles
+        # vs setWidgetHandlesVisibility). Strip them before comparing.
+        state_tokens = {
+            "show", "set", "get", "update", "toggle", "enable", "disable",
+            "on", "off", "visibility", "visible", "enabled", "state", "mode",
+        }
+
+        def _core_similarity(name_a: str, name_b: str) -> float:
+            tokens_a = _tokenize_name(name_a) - state_tokens
+            tokens_b = _tokenize_name(name_b) - state_tokens
+            if not tokens_a or not tokens_b:
+                return 0.0
+            return len(tokens_a & tokens_b) / len(tokens_a | tokens_b)
+
+        reader_chains = (
+            AnalyzerParameterMetadataMixin._extract_reader_call_chains(source)
+            if source else {}
+        )
+
+        appliers: Dict[str, List[Dict]] = {}
+        for role in bindings or {}:
+            candidates: Dict[str, Dict] = {}
+
+            # Tier 1: methods that READ the role themselves.
+            for method, effects in (method_parameter_effects or {}).items():
+                located = _receiver_and_params(method)
+                if located is None:
+                    continue
+                if role not in set(effects.get("reads") or []):
+                    continue
+                receiver, parameter_count = located
+                similarity = max(
+                    _name_similarity(role, method),
+                    _core_similarity(role, method),
+                )
+                candidates[method] = {
+                    "method": method,
+                    "receiver": receiver,
+                    "similarity": round(similarity, 3),
+                    "reads_parameter": True,
+                    "direct_read": role in set(effects.get("direct_reads") or []),
+                    "evidence": "reads_parameter",
+                    "parameter_count": parameter_count,
+                    "confidence": "high" if similarity >= 0.5 else "low",
+                }
+
+            # Tier 2: methods CALLED (single-arg, argument derived from the
+            # role's read) by a reader of the role — the observer applier
+            # pattern. High confidence: the source itself proves the
+            # role→method effect chain.
+            for method in reader_chains.get(role, set()):
+                located = _receiver_and_params(method)
+                if located is None or method in candidates:
+                    continue
+                receiver, parameter_count = located
+                similarity = max(
+                    _name_similarity(role, method),
+                    _core_similarity(role, method),
+                )
+                candidates[method] = {
+                    "method": method,
+                    "receiver": receiver,
+                    "similarity": round(similarity, 3),
+                    "reads_parameter": False,
+                    "direct_read": False,
+                    "evidence": "called_by_reader",
+                    "parameter_count": parameter_count,
+                    "confidence": "high",
+                }
+
+            # Tier 3: conventional setX(state) naming — very high core-name
+            # similarity with at most one parameter, even without read or
+            # call-chain evidence.
+            for method in list(logic_method_names) + list(widget_methods):
+                if not method or method in candidates:
+                    continue
+                receiver, parameter_count = _receiver_and_params(method)
+                if parameter_count > 1:
+                    continue
+                core = _core_similarity(role, method)
+                if core >= 0.75:
+                    candidates[method] = {
+                        "method": method,
+                        "receiver": receiver,
+                        "similarity": round(core, 3),
+                        "reads_parameter": False,
+                        "direct_read": False,
+                        "evidence": "name_core",
+                        "parameter_count": parameter_count,
+                        "confidence": "high",
+                    }
+
+            ranked = sorted(
+                candidates.values(), key=lambda c: (-c["similarity"], c["method"])
+            )
+            if ranked:
+                appliers[role] = ranked[:5]
+        return appliers
+
+    def _select_unambiguous_applier(self, role: str) -> Optional[Dict]:
+        """The single applier the emitter and the validator BOTH agree on.
+
+        The template emitter and the effect-application validator must share
+        this rule — a validator that demands an applier the emitter refuses
+        to emit creates an unfixable repair deadlock.
+
+        Selection over high-confidence <=1-parameter candidates:
+        - sole candidate: selected;
+        - several: the top-by-name-similarity candidate is selected only when
+          its name evidence DOMINATES (similarity >= 0.6 and at least 0.3
+          above the runner-up). Transitive dataflow legitimately links a
+          shared observer gate to sibling roles' appliers, so dominance by
+          the role's own name is the discriminator; anything closer is
+          genuine ambiguity and selects nothing (no guessing).
+        """
+        metadata = (
+            self._workflow_metadata
+            if isinstance(getattr(self, "_workflow_metadata", None), dict) else {}
+        )
+        appliers = (metadata.get("parameter_appliers") or {}).get(role, [])
+        high = [
+            a for a in appliers
+            if a.get("confidence") == "high" and a.get("parameter_count", 99) <= 1
+        ]
+        if not high:
+            return None
+        if len(high) == 1:
+            return high[0]
+        ranked = sorted(
+            high,
+            key=lambda a: (-float(a.get("similarity", 0.0)), a.get("method", "")),
+        )
+        top_similarity = float(ranked[0].get("similarity", 0.0))
+        runner_up_similarity = float(ranked[1].get("similarity", 0.0))
+        if top_similarity >= 0.6 and top_similarity - runner_up_similarity >= 0.3:
+            return ranked[0]
+        return None
+
+    @staticmethod
     def _merge_node_requirements(existing: Optional[Dict], incoming: Dict) -> Dict:
         """Merge node requirements, preserving the strongest pre-call contract."""
         if not existing:
@@ -872,6 +1191,13 @@ class AnalyzerParameterMetadataMixin:
             source, bindings
         )
         method_parameter_effects = self._extract_parameter_method_effects(source)
+        widget_method_universe = self._extract_widget_method_universe(
+            source, scan_result.get("logic_class", {}).get("class_name", "")
+        )
+        parameter_appliers = self._compute_parameter_appliers(
+            bindings, method_parameter_effects, logic_analysis, source,
+            widget_methods=widget_method_universe,
+        )
         ui_parameter_bindings = (
             getattr(self, "_ui_parameter_bindings", None)
             or scan_result.get("ui_parameter_bindings", {})
@@ -884,12 +1210,13 @@ class AnalyzerParameterMetadataMixin:
         metadata = {
             "extension_module_name": os.path.splitext(os.path.basename(entry_module))[0],
             "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
-            "metadata_version": 7,
+            "metadata_version": 10,
             "parameter_bindings": bindings,
             "parameter_defaults": parameter_defaults,
             "ui_parameter_bindings": ui_parameter_bindings,
             "parameter_method_dependencies": parameter_dependencies,
             "method_parameter_effects": method_parameter_effects,
+            "parameter_appliers": parameter_appliers,
             "choice_bindings": {},
             "interaction_bindings": {},
             "workflow_steps": [

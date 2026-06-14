@@ -60,6 +60,31 @@ def get_interaction_node_id(
     return _interaction_nodes.get(_key(extension_name, workflow_id, step_id, repeat_index), "")
 
 
+def latest_interaction_node_for_step(step_id: str):
+    """Most recently remembered MRML node for a step, across iterations.
+
+    Used by the runtime placement guard: when an interactive markup step is
+    waiting for the user but Slicer is no longer in place mode (a post
+    template, an extension callback, or a layout rebuild dropped it), the
+    guard re-arms placement on this node. Returns None when nothing is
+    remembered or the node is gone.
+    """
+    step = str(step_id or "")
+    if not step:
+        return None
+    node_id = ""
+    for key, value in _interaction_nodes.items():  # insertion order = recency
+        if key[2] == step:
+            node_id = value
+    if not node_id:
+        return None
+    try:
+        import slicer
+        return slicer.mrmlScene.GetNodeByID(node_id)
+    except Exception:
+        return None
+
+
 def resolve_interaction_node(
     extension_name: str,
     workflow_id: str,

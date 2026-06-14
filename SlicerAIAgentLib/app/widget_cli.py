@@ -85,24 +85,29 @@ class WidgetCLIMixin:
 
         cliLayout.addWidget(self._cliResultGroup)
 
-        # Row 7: Action buttons
-        actionLayout = qt.QHBoxLayout()
-        self._testCliButton = qt.QPushButton("Test CLI")
-        self._testCliButton.setToolTip("Validate generated templates with CodeValidator")
-        self._testCliButton.setEnabled(False)
-        actionLayout.addWidget(self._testCliButton)
+        # Row 7: Function-error chatbox (user-described behavior errors)
+        # For steps that run with NO exception but visibly do the wrong thing —
+        # the only signal is the user's description. Consumed by Repair.
+        funcLabel = qt.QLabel("Function-level errors (optional):")
+        cliLayout.addWidget(funcLabel)
+        self._cliFunctionErrorInput = qt.QTextEdit()
+        self._cliFunctionErrorInput.setMaximumHeight(70)
+        self._cliFunctionErrorInput.setPlaceholderText(
+            "Describe any step that runs without error but behaves incorrectly, e.g.\n"
+            "'step 12: curve shows in the wrong view; should be 3D View 1 + Red only'.\n"
+            "One per line. Used when you click Repair."
+        )
+        cliLayout.addWidget(self._cliFunctionErrorInput)
 
-        self._deleteCliButton = qt.QPushButton("Delete CLI")
-        self._deleteCliButton.setToolTip("Remove the generated CLI files")
-        self._deleteCliButton.setEnabled(False)
-        actionLayout.addWidget(self._deleteCliButton)
-
-        self._reviseCliButton = qt.QPushButton("Revise with LLM")
-        self._reviseCliButton.setToolTip("Fix failed validation using LLM revision")
-        self._reviseCliButton.setEnabled(False)
-        actionLayout.addWidget(self._reviseCliButton)
-
-        cliLayout.addLayout(actionLayout)
+        # Row 8: Repair button — fixes recorded runtime API errors + the
+        # function-level errors described above.
+        self._repairCliButton = qt.QPushButton("Repair Generated CLI")
+        self._repairCliButton.setToolTip(
+            "Fix the generated CLI from auto-recorded runtime API errors and the "
+            "function-level errors described above"
+        )
+        self._repairCliButton.setEnabled(False)
+        cliLayout.addWidget(self._repairCliButton)
 
         # Internal state
         self._cliGeneratorRunning = False
@@ -112,9 +117,7 @@ class WidgetCLIMixin:
         self._sourceSelector.currentIndexChanged.connect(self._onSourceSelectionChanged)
         self._extensionSelector.currentIndexChanged.connect(self._onExtensionSelectionChanged)
         self._analyzeGenerateButton.clicked.connect(self._onAnalyzeGenerateClicked)
-        self._testCliButton.clicked.connect(self._onTestCliClicked)
-        self._deleteCliButton.clicked.connect(self._onDeleteCliClicked)
-        self._reviseCliButton.clicked.connect(self._onReviseCliClicked)
+        self._repairCliButton.clicked.connect(self._onRepairCliClicked)
 
         # Populate initial extension list
         self._onRefreshExtensionsClicked()
@@ -183,11 +186,35 @@ class WidgetCLIMixin:
         # Enable the button if a valid selection exists after population
         has_selection = self._extensionSelector.currentIndex >= 0
         self._analyzeGenerateButton.setEnabled(has_selection and not self._cliGeneratorRunning)
+        self._refreshCliActionButtons()
 
     def _onExtensionSelectionChanged(self, index):
         """Enable/disable the Analyze button based on selection."""
         has_selection = index >= 0
         self._analyzeGenerateButton.setEnabled(has_selection and not self._cliGeneratorRunning)
+        self._refreshCliActionButtons()
+
+    def _refreshCliActionButtons(self):
+        """Enable Repair for a selected extension that already has a generated CLI.
+
+        Repair only makes sense once a CLI exists on disk; the manifest.json is the
+        source of truth. Generate is always available (gated only by selection),
+        since first-time generation is its job.
+        """
+        if getattr(self, "_cliGeneratorRunning", False):
+            return
+        data = self._getSelectedExtensionData()
+        has_cli = False
+        if data and data.get("name"):
+            try:
+                from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
+                manifest_path = os.path.join(
+                    get_cli_base_dir(), data["name"], "manifest.json"
+                )
+                has_cli = os.path.isfile(manifest_path)
+            except Exception:
+                has_cli = False
+        self._repairCliButton.setEnabled(has_cli)
 
     def _onAnalyzeGenerateClicked(self):
         """Start the analysis pipeline in a background thread."""
@@ -219,13 +246,29 @@ class WidgetCLIMixin:
         if self._cliGeneratorRunning:
             return
 
+        # Generate is for first-time creation. If a CLI already exists, a click
+        # would re-run the full (expensive) pipeline and overwrite it — confirm,
+        # and point the user at Repair for fixing issues.
+        from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
+        existing_manifest = os.path.join(get_cli_base_dir(), ext_name, "manifest.json")
+        if os.path.isfile(existing_manifest):
+            reply = qt.QMessageBox.question(
+                None, "Regenerate CLI",
+                f"A CLI for '{ext_name}' already exists.\n\n"
+                "Regenerate from scratch (overwrites it, runs the full pipeline)?\n"
+                "To fix runtime or behavior issues instead, use 'Repair Generated CLI'.",
+                qt.QMessageBox.Yes | qt.QMessageBox.No,
+            )
+            if reply != qt.QMessageBox.Yes:
+                return
+
         self._cliGeneratorRunning = True
         self._analyzeGenerateButton.setEnabled(False)
+        self._repairCliButton.setEnabled(False)
         self._cliStatusLabel.setText("Analyzing...")
         self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
         self._cliProgressDisplay.clear()
         self._cliResultGroup.setVisible(False)
-        self._reviseCliButton.setEnabled(False)
 
         self._cliProgressDisplay.append(f"Starting analysis of '{ext_name}'...")
         self._cliProgressDisplay.append(f"Source: {source_path}")
@@ -265,10 +308,12 @@ class WidgetCLIMixin:
                     live_probe_executor=_run_live_probe_on_main_thread,
                 )
 
+                # Clicking Analyze & Generate on an extension that already has
+                # a CLI is an explicit regeneration: overwrite in place.
                 result = analyzer.analyze_and_generate(
                     extension_name=ext_name,
                     source_path=source_path,
-                    force_overwrite=False,
+                    force_overwrite=True,
                 )
                 self._streamQueue.put(('cli_complete', result))
 
@@ -279,131 +324,61 @@ class WidgetCLIMixin:
         thread = threading.Thread(target=_run_analysis, daemon=True)
         thread.start()
 
-    def _onTestCliClicked(self):
-        """Validate generated templates with CodeValidator."""
+    def _onRepairCliClicked(self):
+        """Repair the generated CLI: recorded runtime API errors + function errors.
+
+        Runs the LLM template repair in a background thread (repair_generated_cli),
+        then — on the main thread (via cli_repair_complete) — live-validates the
+        rewritten templates to catch any API crash, auto-repairing those too.
+        """
         data = self._getSelectedExtensionData()
-        if not data:
-            return
-
-        ext_name = data["name"]
-        from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
-        cli_dir = os.path.join(get_cli_base_dir(), ext_name)
-        if not os.path.isdir(cli_dir):
-            self._cliProgressDisplay.append(f"No CLI directory found for {ext_name}")
-            return
-
-        # Load generators to find template files
-        gen_path = os.path.join(cli_dir, "code_generators.json")
-        if not os.path.isfile(gen_path):
-            self._cliProgressDisplay.append("No code_generators.json found")
-            return
-
-        with open(gen_path, "r") as f:
-            generators = json.load(f)
-
-        from SlicerAIAgentLib.CodeValidator import CodeValidator
-        validator = CodeValidator()
-        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
-
-        self._cliProgressDisplay.append("Running validation tests...")
-        all_pass = True
-
-        for gen in generators:
-            tpl_file = gen.get("template_file", "")
-            tpl_path = os.path.join(cli_dir, tpl_file)
-            if not os.path.isfile(tpl_path):
-                self._cliProgressDisplay.append(f"  SKIP: {tpl_file} not found")
-                continue
-
-            with open(tpl_path, "r") as f:
-                content = f.read()
-
-            sample = content.replace(
-                "{vol_lookup}",
-                "inputVolume = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScalarVolumeNode')"
-            )
-            sample = ExtensionCLIAnalyzer._fill_remaining_placeholders(sample)
-            result = validator.validate(sample)
-            if "SLICER_OP_GENERATION_FAILED" in sample:
-                result["valid"] = False
-                result["reason"] = (
-                    "Slicer-op template generation failed due to insufficient retrieval evidence"
-                )
-
-            status = "PASS" if result.get("valid", True) else "FAIL"
-            self._cliProgressDisplay.append(f"  {tpl_file}: {status}")
-            if not result.get("valid", True):
-                all_pass = False
-                self._cliProgressDisplay.append(f"    Error: {result.get('reason', 'unknown')}")
-            for w in result.get("warnings", []):
-                self._cliProgressDisplay.append(f"    Warning: {w}")
-
-        if all_pass:
-            self._cliStatusLabel.setText("Validated")
-            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: green;")
-            self._reviseCliButton.setEnabled(False)
-        else:
-            self._cliStatusLabel.setText("Validation Failed")
-            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
-            self._reviseCliButton.setEnabled(True)
-
-    def _onDeleteCliClicked(self):
-        """Delete the CLI for the selected extension."""
-        data = self._getSelectedExtensionData()
-        if not data:
-            return
-
-        ext_name = data["name"]
-
-        # Confirm
-        reply = qt.QMessageBox.question(
-            None, "Delete CLI",
-            f"Delete the generated CLI for '{ext_name}'?",
-            qt.QMessageBox.Yes | qt.QMessageBox.No,
-        )
-        if reply != qt.QMessageBox.Yes:
-            return
-
-        from SlicerAIAgentLib.ExtensionCLILoader import delete_cli
-        if delete_cli(ext_name):
-            self._cliProgressDisplay.append(f"Deleted CLI for '{ext_name}'")
-            self._cliStatusLabel.setText("Ready")
-            self._cliStatusLabel.setStyleSheet("font-weight: bold;")
-            self._cliResultGroup.setVisible(False)
-            self._testCliButton.setEnabled(False)
-            self._deleteCliButton.setEnabled(False)
-            self._reviseCliButton.setEnabled(False)
-            self._onRefreshExtensionsClicked()
-        else:
-            self._cliProgressDisplay.append(f"No CLI found for '{ext_name}'")
-
-    def _onReviseCliClicked(self):
-        """Revise failed templates using LLM feedback."""
-        data = self._getSelectedExtensionData()
-        if not data:
+        if not data or self._cliGeneratorRunning:
             return
 
         ext_name = data["name"]
         source_path = data.get("path", "")
-
-        if self._cliGeneratorRunning:
+        from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
+        cli_dir = os.path.join(get_cli_base_dir(), ext_name)
+        if not os.path.isdir(cli_dir):
+            self._cliProgressDisplay.append(
+                f"No CLI found for '{ext_name}'. Use Analyze & Generate first."
+            )
             return
 
-        self._cliGeneratorRunning = True
-        self._cliStatusLabel.setText("Revising...")
-        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
-        self._reviseCliButton.setEnabled(False)
+        # Function-level error descriptions from the chatbox (one per line).
+        func_text = (
+            self._cliFunctionErrorInput.toPlainText()
+            if self._cliFunctionErrorInput else ""
+        )
+        function_errors = [line.strip() for line in func_text.split("\n") if line.strip()]
 
-        # Collect errors from the progress display
-        progress_text = self._cliProgressDisplay.toPlainText()
-        errors = [
-            line.strip() for line in progress_text.split("\n")
-            if "Error:" in line or "FAIL" in line
-        ]
+        manifest = {}
+        manifest_path = os.path.join(cli_dir, "manifest.json")
+        if os.path.isfile(manifest_path):
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    manifest = json.load(f)
+            except Exception:
+                manifest = {}
+
+        self._cliGeneratorRunning = True
+        self._repairCliButton.setEnabled(False)
+        self._analyzeGenerateButton.setEnabled(False)
+        self._cliStatusLabel.setText("Repairing...")
+        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
+        self._cliProgressDisplay.append(
+            f"Repairing '{ext_name}': recorded runtime API errors"
+            + (f" + {len(function_errors)} function-error description(s)"
+               if function_errors else "")
+            + "..."
+        )
+
+        # Stash so _handleCliRepairComplete can launch live validation afterward.
+        self._cliRepairResult = {"cli_dir": cli_dir, "manifest": manifest}
 
         import threading
 
-        def _run_revision():
+        def _run_repair():
             try:
                 from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
                 from SlicerAIAgentLib.CodeValidator import CodeValidator
@@ -419,27 +394,21 @@ class WidgetCLIMixin:
                     ),
                     on_error=lambda e: self._streamQueue.put(('cli_error', e)),
                 )
-
-                result = analyzer.revise(
-                    ext_name,
-                    errors,
-                    source_path=source_path,
-                    logic_analysis=generation_result.get("logic_analysis"),
-                    api_probe_result=generation_result.get("api_probe_result"),
+                result = analyzer.repair_generated_cli(
+                    ext_name, function_errors, source_path=source_path,
                 )
-                self._streamQueue.put(('cli_revision_complete', result))
-
+                self._streamQueue.put(('cli_repair_complete', result))
             except Exception as e:
                 self._streamQueue.put(('cli_error', str(e)))
 
-        thread = threading.Thread(target=_run_revision, daemon=True)
+        thread = threading.Thread(target=_run_repair, daemon=True)
         thread.start()
 
     def _autoReviseCli(self, generation_result):
         """Automatically trigger LLM revision after generation validation fails."""
         data = self._getSelectedExtensionData()
         if not data:
-            self._reviseCliButton.setEnabled(True)
+            self._refreshCliActionButtons()
             return
 
         ext_name = data["name"]

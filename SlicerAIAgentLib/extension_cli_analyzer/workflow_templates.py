@@ -175,9 +175,16 @@ class AnalyzerWorkflowTemplatesMixin:
                         extension_name, step, logic_class_name, module_name,
                     )
                 else:
-                    tpl = self._generate_automated_workflow_template(
-                        extension_name, step, logic_class_name, module_name, logic_analysis,
+                    # Scoped re-entry reuse: this is the one branch whose
+                    # template is a single LLM generation, so an unchanged,
+                    # unimplicated step can keep its prior template verbatim.
+                    tpl = self._prev_template_for_reuse(
+                        f"templates/{step_id}.py.tpl", step
                     )
+                    if tpl is None:
+                        tpl = self._generate_automated_workflow_template(
+                            extension_name, step, logic_class_name, module_name, logic_analysis,
+                        )
                 templates[f"templates/{step_id}.py.tpl"] = tpl
                 step["code_template"] = f"templates/{step_id}.py.tpl"
 
@@ -614,6 +621,7 @@ class AnalyzerWorkflowTemplatesMixin:
             "parameterNode = logic.getParameterNode()",
         ]
 
+        applier_lines: List[str] = []
         for so in ops:
             role = so.get("parameter_name", "")
             mode = so.get("target_value_mode", "")
@@ -647,20 +655,28 @@ class AnalyzerWorkflowTemplatesMixin:
                     f"parameterNode.SetNodeReferenceID({role!r}, {placeholder}_node.GetID())",
                 ])
             elif target is True:
+                lines.extend(self._widget_sync_lines(so, module_name, True))
                 lines.append(f"parameterNode.SetParameter({role!r}, 'True')")
+                applier_lines.extend(self._applier_call_lines(role, "True", module_name))
             elif target is False:
+                lines.extend(self._widget_sync_lines(so, module_name, False))
                 lines.append(f"parameterNode.SetParameter({role!r}, 'False')")
+                applier_lines.extend(self._applier_call_lines(role, "False", module_name))
             elif mode == "invert":
                 lines.extend([
                     f"_current_{role} = parameterNode.GetParameter({role!r}) == 'True'",
                     f"parameterNode.SetParameter({role!r}, 'False' if _current_{role} else 'True')",
                 ])
+                applier_lines.extend(self._applier_call_lines(
+                    role, f"not _current_{role}", module_name
+                ))
             elif value_property in ("value", "currentText", "currentIndex"):
                 placeholder = self._parameter_placeholder_name(role)
                 default = (binding.get("properties") or {}).get(value_property)
                 default_literal = self._placeholder_default_literal(default, value_property)
                 lines.append(f"{placeholder} = {{{placeholder}: {default_literal}}}")
                 lines.append(f"parameterNode.SetParameter({role!r}, str({placeholder}))")
+                applier_lines.extend(self._applier_call_lines(role, placeholder, module_name))
             else:
                 default = (
                     role_info.get("true_value")
@@ -671,20 +687,127 @@ class AnalyzerWorkflowTemplatesMixin:
                     default_text = "True" if default else "False"
                 else:
                     default_text = str(default)
+                if default_text in ("True", "False"):
+                    lines.extend(self._widget_sync_lines(
+                        so, module_name, default_text == "True"
+                    ))
                 lines.append(
                     f"# Final state was not explicit; apply source-derived/default truthy state for {role}"
                 )
                 lines.append(f"parameterNode.SetParameter({role!r}, {default_text!r})")
+                applier_lines.extend(self._applier_call_lines(
+                    role,
+                    "True" if default_text == "True" else repr(default_text),
+                    module_name,
+                ))
 
+        # Order matters: Modified() fires the extension's GUI observer first
+        # (it recomputes any multi-parameter gates from the now-set values);
+        # the evidence-backed applier calls run LAST so the explicit final
+        # state always has the last word over observer recomputation.
         lines.extend([
             "try:",
             "    parameterNode.Modified()",
             "except Exception:",
             "    pass",
+        ])
+        lines.extend(applier_lines)
+        lines.extend([
             f"{logic_var} = logic",
             f"print(\"[{extension_name}] Step '{step_id}' completed.\")",
         ])
         return "\n".join(lines) + "\n"
+
+    @staticmethod
+    def _widget_sync_lines(so: Dict, module_name: str, target: bool) -> List[str]:
+        """Sync the bound UI control's checked state for boolean updates.
+
+        Extensions often write GUI control state back into parameters on
+        every sync (the ratchet: an unchecked button re-writes 'False' over a
+        programmatic 'True'). Mirroring the user's actual click — setting the
+        bound control's checked state — keeps GUI and parameter consistent so
+        later GUI-driven syncs cannot revert the value. Evidence-backed: the
+        widget name comes from the source-derived UI parameter binding.
+        """
+        binding = so.get("ui_parameter_binding") or {}
+        widget_name = binding.get("widget_name", "")
+        role_info = binding.get("role") or {}
+        value_property = so.get("value_property") or role_info.get("value_property", "")
+        has_checked_evidence = (
+            value_property == "checked"
+            or "checked" in (binding.get("properties") or {})
+        )
+        if not widget_name or not module_name or not has_checked_evidence:
+            return []
+        return [
+            "# Sync the bound UI control (mirrors the user's click) so",
+            "# GUI-driven parameter syncs cannot ratchet the value back.",
+            "try:",
+            f"    _module_widget = slicer.modules.{module_name.lower()}.widgetRepresentation().self()",
+            f"    _module_widget.ui.{widget_name}.checked = {target}",
+            "except Exception:",
+            "    pass",
+        ]
+
+    def _prev_template_for_reuse(self, key: str, step: Dict) -> Optional[str]:
+        """Prior iteration's template, when scoped-re-entry reuse is sound.
+
+        Eligible only when (a) this iteration IS a scoped upstream re-entry,
+        (b) the prior iteration produced this exact template key, and (c) the
+        step was neither re-derived (affected) nor named in any unresolved
+        validation error (implicated). Unaffected steps' contract dicts are
+        preserved verbatim by the scoped merge, so their prior templates were
+        generated from identical facts — regenerating them only spends time
+        and risks regression churn.
+        """
+        affected = getattr(self, "_reentry_affected_steps", None)
+        if not affected:
+            return None
+        prev = getattr(self, "_prev_templates", None) or {}
+        if key not in prev:
+            return None
+        step_numbers = {
+            int(m) for m in _re.findall(r"cb_step_(\d+)", str(step.get("step_id", "")))
+        }
+        if not step_numbers:
+            return None
+        blocked = set(affected) | set(
+            getattr(self, "_reentry_implicated_steps", set()) or set()
+        )
+        if step_numbers & blocked:
+            return None
+        return prev.get(key)
+
+    def _applier_call_lines(
+        self, role: str, state_expression: str, module_name: str = "",
+    ) -> List[str]:
+        """Emit the evidence-backed applier call for a parameter role, if any.
+
+        A bare SetParameter only records state — the user-visible effect comes
+        from the extension's own applier method (the method that reads and
+        applies the parameter). Emitted only when the shared selection rule
+        yields one dominant high-confidence applier; ambiguous evidence emits
+        nothing (no guessing). Appliers may live on the logic class or on the
+        module widget class (GUI observers commonly delegate to widget
+        methods); the receiver recorded in the evidence decides the call form.
+        """
+        applier = self._select_unambiguous_applier(role)
+        if applier is None:
+            return []
+        argument = state_expression if applier.get("parameter_count", 0) >= 1 else ""
+        lines = [
+            "# Apply the parameter via the extension's own applier method —",
+            "# a bare SetParameter only records state; GUI observers may",
+            "# recompute it differently.",
+        ]
+        if applier.get("receiver") == "module_widget" and module_name:
+            lines.extend([
+                f"_module_widget = slicer.modules.{module_name.lower()}.widgetRepresentation().self()",
+                f"_module_widget.{applier['method']}({argument})",
+            ])
+        else:
+            lines.append(f"logic.{applier['method']}({argument})")
+        return lines
 
     def _generate_extension_function_template(
         self, extension_name: str, step: Dict, module_name: str,
@@ -842,6 +965,7 @@ class AnalyzerWorkflowTemplatesMixin:
         if isinstance(self._workflow_metadata, dict):
             defaults = self._workflow_metadata.get("parameter_defaults", {}) or {}
             deps = self._workflow_metadata.get("parameter_method_dependencies", {}).get(method_name, {})
+            appliers_by_role = self._workflow_metadata.get("parameter_appliers", {}) or {}
             roles = deps.get("parameter_roles", []) or []
             if roles:
                 rows = []
@@ -855,6 +979,29 @@ class AnalyzerWorkflowTemplatesMixin:
                     else:
                         rows.append(f"  - {role}: no inferred default")
                 parameter_context = "Parameter-node dependencies:\n" + "\n".join(rows)
+            requirements = deps.get("node_requirements", {}) or {}
+            if requirements:
+                requirement_rows = [
+                    f"  - {role}: {(req or {}).get('requirement', 'optional_unknown')}"
+                    for role, req in sorted(requirements.items())
+                ]
+                parameter_context += (
+                    f"\nCaller-settable node-reference roles for {method_name} "
+                    "(EXHAUSTIVE — do not set any role not listed; roles marked "
+                    "produced_by_method are created by the method itself and must "
+                    "NOT be set by the caller):\n" + "\n".join(requirement_rows)
+                )
+            applier_rows = [
+                f"  - {role}: logic.{entries[0]['method']}(<final state>)"
+                for role, entries in sorted(appliers_by_role.items())
+                if entries and entries[0].get("confidence") == "high"
+            ]
+            if applier_rows:
+                parameter_context += (
+                    "\nEvidence-backed applier methods (a bare SetParameter only "
+                    "records state — call the applier with the explicit final "
+                    "state to make the effect happen):\n" + "\n".join(applier_rows)
+                )
 
         proven_block = self._proven_api_chain_block()
         prompt = textwrap.dedent(f"""\
@@ -881,7 +1028,12 @@ class AnalyzerWorkflowTemplatesMixin:
             3. Reuse the existing logic instance `_{extension_name.lower()}_logic` if it exists, otherwise create a new `{logic_class_name}()`
             4. Set up any required state on the logic instance BEFORE calling the method. Derive required roles, node classes, and lookup terms only from the provided parameter metadata and method source.
                If the method or its helper methods read scalar values from `parameterNode.GetParameter(...)`, initialize missing values using the provided source-derived defaults with `parameterNode.SetParameter(...)` before calling the method. Never overwrite a non-empty parameter value.
-            5. For parameter node references, first use the source-derived reference role. If no reference exists, search only by the source-derived node class and role keywords, then store the selected node reference. Do not invent fixed node names or anatomy/domain terms.
+            5. For parameter node references, resolution order is STRICT:
+               (a) `parameterNode.GetNodeReference(role)` FIRST — earlier workflow steps
+               usually set it already; if it returns a node, use it directly and do NOT
+               re-resolve by name or keyword. (b) Only when the reference is empty,
+               search by the source-derived node class and role keywords, then store the
+               selected node reference. Do not invent fixed node names or anatomy/domain terms.
             6. Call the method with correct arguments
             7. Store the logic instance as `_{extension_name.lower()}_logic` for subsequent steps
             8. Print a completion message
@@ -895,6 +1047,9 @@ class AnalyzerWorkflowTemplatesMixin:
             - Do NOT use curly brace template placeholders. Write actual source-derived Python values. Do not invent or hardcode node names.
             - Escape all braces in f-strings and .format() calls by doubling them: use doubled-braces for literal braces in output strings.
             - Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.
+            - Use ONLY the parameter/reference role names listed in the supplied parameter metadata. NEVER invent a role name (for example from a helper-method name); a role that is not listed does not exist.
+            - Do NOT pre-set state the called method or its helper methods create or derive internally (roles marked produced_by_method, folder/hierarchy bookkeeping, output references). Set only the inputs the method reads.
+            - Never call a method on the direct result of an API that can return None (GetNodeReference, GetItemDataNode, GetDisplayNode, ...) without first checking the result for None.
             - Return ONLY raw Python code. Do NOT wrap it in markdown fences (```python ... ```).""")
 
         try:

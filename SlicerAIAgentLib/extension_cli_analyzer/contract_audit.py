@@ -226,7 +226,11 @@ class AnalyzerContractAuditMixin:
         workflow_contract: Dict,
         workflow_graph: Optional[Dict] = None,
         logic_analysis: Optional[Dict] = None,
+        raise_on_fail: bool = True,
     ) -> Dict:
+        """Audit the contract. On failure: raise (raise_on_fail) or return the
+        report so the caller can drive a scoped contract re-entry instead of
+        hard-aborting on a recoverable LLM mislabel."""
         self._phase_progress(
             "audit_contract",
             "Auditing workflow contract against cookbook/source evidence...",
@@ -249,9 +253,11 @@ class AnalyzerContractAuditMixin:
             f"FAIL: {report.get('errors', [])}",
             "Audit Workflow Contract",
         )
-        raise RuntimeError(
-            "Workflow contract audit failed: " + "; ".join(report.get("errors", []))
-        )
+        if raise_on_fail:
+            raise RuntimeError(
+                "Workflow contract audit failed: " + "; ".join(report.get("errors", []))
+            )
+        return report
 
     def _final_package_audit(
         self,

@@ -1,7 +1,9 @@
 from .common import *
 
 
-PIPELINE_VERSION = "agentic-cli-v2"
+# Part of every checkpoint key: bump on behavior-changing pipeline revisions
+# so cached phase artifacts from older pipeline code are never reused.
+PIPELINE_VERSION = "agentic-cli-v3"
 MANIFEST_VERSION = 3
 
 

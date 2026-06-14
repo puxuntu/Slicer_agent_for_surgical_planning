@@ -1,7 +1,17 @@
 from .common import *
 
-_MEMORY_FILENAME = "_repair_memory.json"
+_MEMORY_FILENAME = "repair_memory.json"
+_LEGACY_FILENAME = "_repair_memory.json"
 _MAX_ENTRIES = 200
+
+
+def _memory_dir_for(base_dir: str) -> str:
+    """Cross-extension store lives OUTSIDE extension_CLI so that directory
+    contains only one folder per extension. Located at
+    <project>/Resources/agent_cache/ (gitignored)."""
+    # base_dir is .../Resources/extension_CLI — derive the sibling cache dir.
+    resources_dir = os.path.dirname(os.path.normpath(base_dir))
+    return os.path.join(resources_dir, "agent_cache")
 
 
 def _tokens(text: str) -> set:
@@ -19,7 +29,20 @@ class RepairMemory:
     """
 
     def __init__(self, base_dir: str):
-        self._path = os.path.join(base_dir, _MEMORY_FILENAME) if base_dir else ""
+        if base_dir:
+            memory_dir = _memory_dir_for(base_dir)
+            self._path = os.path.join(memory_dir, _MEMORY_FILENAME)
+            # One-time migration from the legacy in-extension_CLI location.
+            legacy = os.path.join(base_dir, _LEGACY_FILENAME)
+            if not os.path.isfile(self._path) and os.path.isfile(legacy):
+                try:
+                    os.makedirs(memory_dir, exist_ok=True)
+                    os.replace(legacy, self._path)
+                    logger.info("Repair memory migrated to %s", self._path)
+                except Exception:
+                    logger.debug("Repair memory migration failed", exc_info=True)
+        else:
+            self._path = ""
         self._entries: List[Dict] = []
         self._loaded = False
 
@@ -41,6 +64,7 @@ class RepairMemory:
         if not self._path:
             return
         try:
+            os.makedirs(os.path.dirname(self._path), exist_ok=True)
             if len(self._entries) > _MAX_ENTRIES:
                 # Evict least-useful first, then oldest
                 self._entries.sort(
@@ -104,6 +128,49 @@ class RepairMemory:
 
 
 class AnalyzerRepairMemoryMixin:
+    # ── pending upstream feedback (cross-run closed loop) ──
+    # When a revision of an existing CLI hits an upstream contract/dataflow
+    # root cause, the structured failure is persisted so the next full
+    # regeneration starts with it as contract-phase feedback instead of
+    # resampling blindly. Stored inside the extension's own CLI folder.
+
+    def _pending_feedback_path(self, extension_name: str) -> Optional[str]:
+        if not self.output_base_dir or not extension_name:
+            return None
+        return os.path.join(
+            self.output_base_dir, extension_name, "pending_upstream_feedback.json"
+        )
+
+    def _save_pending_upstream_feedback(self, extension_name: str, requests: List[Dict]) -> None:
+        path = self._pending_feedback_path(extension_name)
+        if not path or not requests:
+            return
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(requests, f, indent=2)
+        except Exception:
+            logger.debug("Failed to persist pending upstream feedback", exc_info=True)
+
+    def _take_pending_upstream_feedback(self, extension_name: str) -> List[Dict]:
+        """Load and consume (delete) persisted upstream feedback, if any."""
+        path = self._pending_feedback_path(extension_name)
+        if not path or not os.path.isfile(path):
+            return []
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                requests = json.load(f)
+            os.remove(path)
+            if isinstance(requests, list) and requests:
+                logger.info(
+                    "Seeding contract phase with %d persisted upstream "
+                    "failure(s) from a prior run", len(requests),
+                )
+                return requests
+        except Exception:
+            logger.debug("Failed to load pending upstream feedback", exc_info=True)
+        return []
+
     def _repair_memory(self) -> RepairMemory:
         memory = getattr(self, "_repair_memory_instance", None)
         if memory is None:

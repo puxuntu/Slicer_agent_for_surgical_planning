@@ -1,6 +1,5 @@
 from .common import *
 from .llm_calls import AnalyzerLLMCallsMixin
-from .checkpoints import AnalyzerCheckpointsMixin
 from .repair_memory import AnalyzerRepairMemoryMixin
 from .scan import AnalyzerScanMixin
 from .logic_analysis import AnalyzerLogicAnalysisMixin
@@ -29,7 +28,6 @@ from .api_proof import AnalyzerApiProofMixin
 
 class ExtensionCLIAnalyzer(
     AnalyzerLLMCallsMixin,
-    AnalyzerCheckpointsMixin,
     AnalyzerRepairMemoryMixin,
     AnalyzerScanMixin,
     AnalyzerLogicAnalysisMixin,
@@ -124,6 +122,7 @@ class ExtensionCLIAnalyzer(
         self._upstream_feedback: List[Dict] = []
         self._proven_api_chains: Optional[List[str]] = None
         self._ui_evidence_methods: Optional[List[str]] = None
+        self._source_path: str = ""
 
     @staticmethod
     def _default_base_dir() -> str:
@@ -161,6 +160,213 @@ class ExtensionCLIAnalyzer(
     def cancel(self):
         """Cancel the analysis pipeline."""
         self._cancelled = True
+
+    @staticmethod
+    def _content_fingerprint(*parts) -> str:
+        """Stable content hash over JSON-representable inputs.
+
+        Used by the upstream re-entry loop's monotone-progress rule: a
+        re-entry that leaves the contract facts' fingerprint unchanged made
+        no progress and terminates the loop.
+        """
+        import hashlib
+        try:
+            blob = json.dumps(parts, sort_keys=True, default=str).encode("utf-8")
+        except Exception:
+            blob = repr(parts).encode("utf-8")
+        return hashlib.sha256(blob).hexdigest()
+
+    # ================================================================
+    # Scoped upstream re-entry helpers
+    # ================================================================
+
+    @staticmethod
+    def _step_numbers_in_text(text: str) -> set:
+        """Step numbers referenced as cb_step_<N> in any identifier/message."""
+        return {int(m) for m in _re.findall(r"cb_step_(\d+)", str(text or ""))}
+
+    def _step_numbers_in_errors(self, errors) -> set:
+        steps = set()
+        for error in errors or []:
+            steps |= self._step_numbers_in_text(error)
+        return steps
+
+    def _affected_steps_from_requests(self, requests, cross_stage_map) -> set:
+        """Steps a re-entry must re-derive: the steps named by the upstream
+        requests plus their one-hop data-flow neighbors (a step whose
+        contract changes can invalidate what its readers/writers expect)."""
+        affected = set()
+        for request in requests or []:
+            for step_id in request.get("step_ids") or []:
+                affected |= self._step_numbers_in_text(step_id)
+                if str(step_id).isdigit():
+                    affected.add(int(step_id))
+            affected |= self._step_numbers_in_text(request.get("template_key", ""))
+        if not affected:
+            return affected
+        for conn in (cross_stage_map or {}).get("connections") or []:
+            from_step = conn.get("from_step")
+            to_step = conn.get("to_step")
+            if from_step in affected or to_step in affected:
+                if isinstance(from_step, int):
+                    affected.add(from_step)
+                if isinstance(to_step, int):
+                    affected.add(to_step)
+        return affected
+
+    def _attempt_contract_reentry_from_audit(
+        self,
+        contract_audit: Dict,
+        *,
+        reentry_count: int,
+        prev_contract_fingerprint,
+        contract_fingerprint,
+        reentry_trace: List[Dict],
+        cross_stage_map: Dict,
+        stage_map: Dict,
+        max_contract_reentries: int,
+        max_total_reentries: int,
+    ):
+        """Convert ContractFidelity audit findings into a scoped contract re-entry.
+
+        Mirrors the verify_repair upstream re-entry: bounded by the same budget and
+        a monotone-progress rule. Returns (action, reentry_count, prev_fingerprint)
+        where action is 'reenter' (caller `continue`s the loop) or 'stop' (caller
+        aborts). The audit finding's own `recommended_route: rebuild_contract` is
+        what asks for this — so a recoverable LLM mislabel self-heals instead of
+        hard-aborting the whole generation.
+        """
+        findings = [
+            f for f in (contract_audit.get("findings") or [])
+            if isinstance(f, dict) and f.get("verdict") == "fail"
+        ]
+        upstream_requests = [
+            {
+                "phase": "contract",
+                "issue_type": "ContractFidelity",
+                "issue_class": f.get("issue_class", "contract"),
+                "step_ids": [f.get("step_id")] if f.get("step_id") else [],
+                "template_key": "",
+                "message": f.get("message", ""),
+                "contract_step": {},
+                "repair_route": f.get("recommended_route", "rebuild_contract"),
+            }
+            for f in findings
+        ]
+        # Include any non-finding audit errors (e.g. workflow-state graph) too.
+        known = {r["message"] for r in upstream_requests}
+        for err in contract_audit.get("errors") or []:
+            if err not in known:
+                upstream_requests.append({
+                    "phase": "contract",
+                    "issue_type": "ContractFidelity",
+                    "issue_class": "contract",
+                    "step_ids": [],
+                    "template_key": "",
+                    "message": err,
+                    "contract_step": {},
+                    "repair_route": "rebuild_contract",
+                })
+        if not upstream_requests:
+            return ("stop", reentry_count, prev_contract_fingerprint)
+
+        # Monotone progress: a re-entry that left the contract facts unchanged
+        # would loop forever — stop instead.
+        if reentry_count > 0 and contract_fingerprint == prev_contract_fingerprint:
+            reentry_trace.append({
+                "event": "no_progress",
+                "trigger": "audit_contract",
+                "detail": (
+                    "Audit re-entry produced identical contract facts; stopping "
+                    "(monotone-progress rule)."
+                ),
+            })
+            return ("stop", reentry_count, prev_contract_fingerprint)
+        if reentry_count >= min(max_contract_reentries, max_total_reentries):
+            reentry_trace.append({
+                "event": "budget_exhausted",
+                "trigger": "audit_contract",
+                "detail": f"Re-entry budget exhausted after {reentry_count} re-entries.",
+            })
+            return ("stop", reentry_count, prev_contract_fingerprint)
+
+        reentry_count += 1
+        self._upstream_feedback.extend(upstream_requests)
+        affected_steps = self._affected_steps_from_requests(
+            upstream_requests, cross_stage_map
+        )
+        self._reentry_affected_steps = affected_steps or None
+        self._reentry_implicated_steps = (
+            set(affected_steps)
+            | self._step_numbers_in_errors(contract_audit.get("errors") or [])
+        )
+        self._prev_stage_map = stage_map
+        new_prev_fp = self._scoped_contract_fingerprint(
+            stage_map, cross_stage_map, self._reentry_affected_steps
+        )
+        reentry_trace.append({
+            "event": "reentry",
+            "attempt": reentry_count,
+            "phase": "contract",
+            "trigger": "audit_contract",
+            "affected_steps": sorted(affected_steps),
+            "requests": upstream_requests,
+        })
+        self.on_progress(
+            "contract", "Build Workflow Contract",
+            f"Audit re-entry {reentry_count}: re-deriving contract with "
+            f"{len(upstream_requests)} ContractFidelity finding(s) as feedback, "
+            f"scoped to step(s) {sorted(affected_steps) or 'ALL'}...",
+        )
+        return ("reenter", reentry_count, new_prev_fp)
+
+    @staticmethod
+    def _merge_stage_map_scoped(prior: Dict, new: Dict, affected_steps: set):
+        """Replace only affected steps' derivations; preserve the rest.
+
+        Returns (merged_stage_map, preserved_count). Stage dicts are aligned
+        by stage_index (cookbook step number - 1); the cookbook fixes the
+        step count, so indexes are stable across iterations. Steps missing
+        from the prior map fall back to the new derivation.
+        """
+        prior_by_index = {
+            stage.get("stage_index"): stage
+            for stage in (prior or {}).get("stages", [])
+            if isinstance(stage, dict)
+        }
+        merged = dict(new or {})
+        merged_stages = []
+        preserved = 0
+        for stage in (new or {}).get("stages", []):
+            index = stage.get("stage_index") if isinstance(stage, dict) else None
+            step_number = index + 1 if isinstance(index, int) else None
+            if (
+                step_number is not None
+                and step_number not in affected_steps
+                and index in prior_by_index
+            ):
+                merged_stages.append(prior_by_index[index])
+                preserved += 1
+            else:
+                merged_stages.append(stage)
+        merged["stages"] = merged_stages
+        return merged, preserved
+
+    def _scoped_contract_fingerprint(self, stage_map, cross_stage_map, affected_steps) -> str:
+        """Monotone-progress fingerprint; restricted to the affected steps on
+        a scoped re-entry so noise elsewhere cannot fake progress."""
+        if not affected_steps:
+            return self._content_fingerprint(
+                stage_map, cross_stage_map,
+                sorted(getattr(self, "_placement_starter_methods", []) or []),
+            )
+        scoped = [
+            stage for stage in (stage_map or {}).get("stages", [])
+            if isinstance(stage, dict)
+            and isinstance(stage.get("stage_index"), int)
+            and stage["stage_index"] + 1 in affected_steps
+        ]
+        return self._content_fingerprint(scoped)
 
     # ================================================================
     # Progress recording (UI output mirrored into the debug folder)
@@ -301,6 +507,9 @@ class ExtensionCLIAnalyzer(
 
         # Validate extension name (prevent path traversal)
         extension_name = _validate_extension_name(extension_name)
+        # Extension source becomes a first-class search root for grounding
+        # (registered as ext:<name>/ on the tool executor).
+        self._source_path = source_path or ""
 
         result = {
             "success": False,
@@ -405,21 +614,11 @@ class ExtensionCLIAnalyzer(
 
             # ── analyze: logic analysis + AST signature verification ──
             self._set_phase("analyze")
-            analyze_key = self._checkpoint_fingerprint(
-                PIPELINE_VERSION, "analyze",
-                self._file_content_hash(scan_result["logic_class"].get("file", "")),
-                scan_result["logic_class"].get("class_name", ""),
-                [(s.step_number, s.description) for s in self._cookbook_def.steps],
-                self._analyzer_prompt,
-            )
-            logic_analysis = self._checkpoint_load(extension_name, "analyze", analyze_key)
-            if logic_analysis is None:
-                logic_analysis = self._stage3_analyze_logic(scan_result)
-                if self._cancelled:
-                    result["error"] = "Cancelled during analyze"
-                    return result
-                self._verify_signatures_ast(logic_analysis, scan_result)
-                self._checkpoint_save(extension_name, "analyze", analyze_key, logic_analysis)
+            logic_analysis = self._stage3_analyze_logic(scan_result)
+            if self._cancelled:
+                result["error"] = "Cancelled during analyze"
+                return result
+            self._verify_signatures_ast(logic_analysis, scan_result)
             self._last_logic_analysis = logic_analysis
             result["logic_analysis"] = logic_analysis
             self._record_phase(result, "analyze")
@@ -439,35 +638,40 @@ class ExtensionCLIAnalyzer(
             reentry_count = 0
             prev_contract_fingerprint = None
             reentry_trace = []
+            # Scoped re-entry state: a re-entry re-derives the full contract
+            # (the LLM still needs full-workflow context) but only the steps
+            # implicated by the upstream feedback — plus their data-flow
+            # neighbors — are REPLACED; every other step keeps its previous
+            # derivation verbatim. This prevents regression churn on
+            # untouched steps and lets ground/generate reuse prior work.
+            self._reentry_affected_steps = None
+            self._reentry_implicated_steps = set()
+            self._prev_stage_map = None
+            self._prev_templates = None
+            self._slicer_op_template_cache = {}
 
             while True:
                 # ── contract: semantic decomposition + workflow contract ──
                 self._set_phase("contract")
-                contract_key = self._checkpoint_fingerprint(
-                    PIPELINE_VERSION, "contract",
-                    logic_analysis,
-                    [(s.step_number, s.description) for s in self._cookbook_def.steps],
-                    self._widget_connections,
-                    self._ui_parameter_bindings,
-                    self._upstream_feedback,
+                stage_map = self._stage4_cookbook_decomposition(
+                    self._cookbook_def, logic_analysis, scan_result
                 )
-                contract_cached = self._checkpoint_load(extension_name, "contract", contract_key)
-                if contract_cached is not None:
-                    stage_map, cross_stage_map = contract_cached
-                else:
-                    stage_map = self._stage4_cookbook_decomposition(
-                        self._cookbook_def, logic_analysis, scan_result
+                if self._cancelled:
+                    result["error"] = "Cancelled during contract"
+                    return result
+                if self._reentry_affected_steps and isinstance(self._prev_stage_map, dict):
+                    stage_map, preserved_count = self._merge_stage_map_scoped(
+                        self._prev_stage_map, stage_map, self._reentry_affected_steps
                     )
-                    if self._cancelled:
-                        result["error"] = "Cancelled during contract"
-                        return result
-                    cross_stage_map = self._stage4_5_cross_stage_mapping(
-                        stage_map, logic_analysis, extension_name
+                    self.on_progress(
+                        "contract", "Build Workflow Contract",
+                        f"Scoped re-entry: re-derived step(s) "
+                        f"{sorted(self._reentry_affected_steps)}; preserved "
+                        f"{preserved_count} unaffected step derivation(s) verbatim",
                     )
-                    self._checkpoint_save(
-                        extension_name, "contract", contract_key,
-                        (stage_map, cross_stage_map),
-                    )
+                cross_stage_map = self._stage4_5_cross_stage_mapping(
+                    stage_map, logic_analysis, extension_name
+                )
                 self._record_phase(result, "contract")
                 if self._cancelled:
                     result["error"] = "Cancelled during contract"
@@ -526,36 +730,55 @@ class ExtensionCLIAnalyzer(
                     workflow_contract,
                     workflow_graph=workflow_graph,
                     logic_analysis=logic_analysis,
+                    raise_on_fail=False,
                 )
                 result["contract_audit"] = contract_audit
                 self._record_phase(result, "audit_contract")
 
                 # Fingerprint of the facts a re-entry is supposed to change;
-                # used for the monotone-progress termination rule.
-                contract_fingerprint = self._checkpoint_fingerprint(
-                    stage_map, cross_stage_map, sorted(self._placement_starter_methods),
+                # used for the monotone-progress termination rule. On a scoped
+                # re-entry only the affected steps are fingerprinted — LLM
+                # noise on preserved steps (or in the re-derived cross-stage
+                # connections) must not defeat the no-progress check.
+                contract_fingerprint = self._scoped_contract_fingerprint(
+                    stage_map, cross_stage_map, self._reentry_affected_steps
                 )
+
+                # A failed contract audit (e.g. an LLM intent mislabel like tagging
+                # a "slice visibility in 3D" step as slice-intersection) is
+                # RECOVERABLE: re-enter the contract phase with the audit findings
+                # as feedback instead of hard-aborting. Bounded by the same budget +
+                # monotone-progress rule as verify_repair's upstream re-entry.
+                if not contract_audit.get("valid"):
+                    action, reentry_count, prev_contract_fingerprint = (
+                        self._attempt_contract_reentry_from_audit(
+                            contract_audit,
+                            reentry_count=reentry_count,
+                            prev_contract_fingerprint=prev_contract_fingerprint,
+                            contract_fingerprint=contract_fingerprint,
+                            reentry_trace=reentry_trace,
+                            cross_stage_map=cross_stage_map,
+                            stage_map=stage_map,
+                            max_contract_reentries=MAX_CONTRACT_REENTRIES,
+                            max_total_reentries=MAX_TOTAL_REENTRIES,
+                        )
+                    )
+                    if action == "reenter":
+                        continue
+                    # Budget/progress exhausted — fail the run through the existing
+                    # error handler (same outcome as before, after trying to heal).
+                    if reentry_trace and isinstance(self._workflow_metadata, dict):
+                        self._workflow_metadata["upstream_reentries"] = reentry_trace
+                    raise RuntimeError(
+                        "Workflow contract audit failed after re-entry attempts: "
+                        + "; ".join(contract_audit.get("errors", []))
+                    )
 
                 # ── ground: Slicer API evidence and slicer_op template grounding ──
                 self._set_phase("ground")
-                from ..UIControlIndex import preanalysis_fingerprint
-                ground_key = self._checkpoint_fingerprint(
-                    PIPELINE_VERSION, "ground", stage_map,
-                    # Grounding prompts embed core-UI pre-analysis evidence, so
-                    # refreshed artifacts must invalidate cached ground output.
-                    preanalysis_fingerprint(),
+                self._slicer_op_templates = self._generate_slicer_op_templates(
+                    stage_map
                 )
-                ground_cached = self._checkpoint_load(extension_name, "ground", ground_key)
-                if ground_cached is not None:
-                    self._slicer_op_templates, self._slicer_op_evidence = ground_cached
-                else:
-                    self._slicer_op_templates = self._generate_slicer_op_templates(
-                        stage_map
-                    )
-                    self._checkpoint_save(
-                        extension_name, "ground", ground_key,
-                        (self._slicer_op_templates, self._slicer_op_evidence),
-                    )
                 # Recompute the evidence-backed API chain set for this
                 # iteration's generation prompts (ground output changed).
                 self._proven_api_chains = None
@@ -664,19 +887,40 @@ class ExtensionCLIAnalyzer(
                     })
                     logger.warning("[upstream re-entry] budget exhausted; stopping")
                     break
-                prev_contract_fingerprint = contract_fingerprint
                 reentry_count += 1
                 self._upstream_feedback.extend(upstream_requests)
+                # Scope the upcoming re-entry: steps named by the upstream
+                # requests plus their one-hop data-flow neighbors get
+                # re-derived; everything else is preserved from this
+                # iteration. Steps named in ANY unresolved validation error
+                # also lose ground/generate reuse eligibility.
+                affected_steps = self._affected_steps_from_requests(
+                    upstream_requests, cross_stage_map
+                )
+                self._reentry_affected_steps = affected_steps or None
+                self._reentry_implicated_steps = (
+                    set(affected_steps)
+                    | self._step_numbers_in_errors(validation_result.get("errors") or [])
+                )
+                self._prev_stage_map = stage_map
+                self._prev_templates = dict(templates)
+                # Compare like with like next iteration: re-scope this
+                # iteration's fingerprint to the new affected set.
+                prev_contract_fingerprint = self._scoped_contract_fingerprint(
+                    stage_map, cross_stage_map, self._reentry_affected_steps
+                )
                 reentry_trace.append({
                     "event": "reentry",
                     "attempt": reentry_count,
                     "phase": "contract",
+                    "affected_steps": sorted(affected_steps),
                     "requests": upstream_requests,
                 })
                 self.on_progress(
                     "contract", "Build Workflow Contract",
                     f"Upstream re-entry {reentry_count}: re-deriving workflow contract "
-                    f"with {len(upstream_requests)} downstream failure(s) as feedback...",
+                    f"with {len(upstream_requests)} downstream failure(s) as feedback, "
+                    f"scoped to step(s) {sorted(affected_steps) or 'ALL'}...",
                 )
 
             if reentry_trace:
@@ -781,8 +1025,8 @@ class ExtensionCLIAnalyzer(
 
 
 def _patch_mixin_globals():
-    from . import llm_calls, checkpoints, repair_memory, scan, logic_analysis, stage4_decomposition, cross_stage, node_lifecycle, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest, phases, v2_contracts, repair_loop, contract_audit
-    for _module in [llm_calls, checkpoints, repair_memory, scan, logic_analysis, stage4_decomposition, cross_stage, node_lifecycle, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest, phases, v2_contracts, repair_loop, contract_audit]:
+    from . import llm_calls, repair_memory, scan, logic_analysis, stage4_decomposition, cross_stage, node_lifecycle, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest, phases, v2_contracts, repair_loop, contract_audit
+    for _module in [llm_calls, repair_memory, scan, logic_analysis, stage4_decomposition, cross_stage, node_lifecycle, schemas, workflow_templates, template_helpers, api_probe, template_generation, prompt_validation, validation_contracts, validation_semantics, live_revision, cookbook_mapping, parameter_metadata, workflow_contracts, slicer_op_manifest, phases, v2_contracts, repair_loop, contract_audit]:
         _module.ExtensionCLIAnalyzer = ExtensionCLIAnalyzer
 
 

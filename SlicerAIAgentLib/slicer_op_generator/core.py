@@ -11,6 +11,7 @@ class SlicerOpGeneratorCoreMixin:
         debug_path: Optional[str] = None,
         extension_name: str = "",
         module_name: str = "",
+        extension_source_path: str = "",
     ):
         self.llm_client = llm_client
         self._executor = skill_executor
@@ -22,14 +23,33 @@ class SlicerOpGeneratorCoreMixin:
         # own source for named/custom artifacts instead of fabricating them.
         self._extension_name = extension_name or ""
         self._module_name = module_name or ""
+        # Installed source dir of the extension being analyzed; registered as
+        # an `ext:<name>/` search root so grounding can find extension-defined
+        # artifacts (custom layout IDs, registered constants) instead of
+        # emitting MISSING_EVIDENCE or fabricating values.
+        self._extension_source_path = extension_source_path or ""
         self.last_run_records = []
 
     # ------------------------------------------------------------------
     # Lazy SkillToolExecutor initialization
     # ------------------------------------------------------------------
 
+    def _register_extension_root(self):
+        """Make the analyzed extension's own source searchable as ext:<name>/."""
+        if (
+            self._executor is not None
+            and self._extension_name
+            and self._extension_source_path
+            and os.path.isdir(self._extension_source_path)
+        ):
+            try:
+                self._executor.extra_roots[self._extension_name] = self._extension_source_path
+            except Exception:
+                logger.debug("Extension root registration failed", exc_info=True)
+
     def _ensure_executor(self):
         if self._executor_initialized:
+            self._register_extension_root()
             return
         self._executor_initialized = True
         try:
@@ -54,9 +74,10 @@ class SlicerOpGeneratorCoreMixin:
                 # session + vector index load).
                 self._executor = shared
                 logger.info("SlicerOpGenerator: reusing shared SkillToolExecutor.")
-                return
-            self._executor = SkillToolExecutor(self._skill_path)
-            logger.info("SlicerOpGenerator: SkillToolExecutor loaded.")
+            else:
+                self._executor = SkillToolExecutor(self._skill_path)
+                logger.info("SlicerOpGenerator: SkillToolExecutor loaded.")
+            self._register_extension_root()
         except Exception:
             logger.exception("SlicerOpGenerator: failed to load SkillToolExecutor")
 
@@ -154,10 +175,15 @@ class SlicerOpGeneratorCoreMixin:
             module_hint = (
                 f" (module `{self._module_name}`)" if getattr(self, "_module_name", "") else ""
             )
+            source_root_hint = (
+                f"ext:{ext_name}/" if getattr(self, "_extension_source_path", "")
+                else f"slicer-extensions/{ext_name}/"
+            )
             parts.append(
                 f"\nThis operation belongs to the extension `{ext_name}`{module_hint}. If it "
                 f"reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + "
-                f"its ID/XML, or an `slicer.<Const>`), search `slicer-extensions/{ext_name}/` for "
+                f"its ID/XML, or an `slicer.<Const>`), search `{source_root_hint}` (the "
+                f"extension's own source, registered as a search root for Grep/ReadFile) for "
                 f"the real definition or a helper that performs it (for example a `setX`/`addX` "
                 f"function) and use that rather than re-registering or guessing one. Ordinary scene "
                 f"nodes referenced by name are resolved at runtime, not from source."
@@ -231,7 +257,15 @@ class SlicerOpGeneratorCoreMixin:
             or "slice view" in display_text
             or "vtkmrmlslicenode" in display_text
         )
-        if category in ("markups_display", "node_display") and targets_slice_view:
+        if (
+            category in ("markups_display", "node_display")
+            and targets_slice_view
+            and state_intent.get("mode") == "set"
+            and state_intent.get("state") is True
+        ):
+            # Only steps that affirmatively SHOW something in a slice view get
+            # the 2D-visibility requirement (mirrored by the validator's gate
+            # in validation_semantics._validate_display_view_scope_semantics).
             parts.append(
                 "\nDisplay-scope requirement: adding `AddViewNodeID(...)` only restricts "
                 "which views may show the displayable. Because this operation targets a "
@@ -242,7 +276,9 @@ class SlicerOpGeneratorCoreMixin:
                 "be visible in the slice view even when it is not exactly on the current "
                 "slice. For Models, include `SetVisibility2D(True)`. For Segmentations, "
                 "enable 2D fill or outline visibility. Resolve view nodes from scene or "
-                "layout evidence when possible instead of hard-coding IDs."
+                "layout evidence when possible instead of hard-coding IDs. "
+                "Do NOT enable interaction handles, interactive modes, or persistent "
+                "handle visibility unless the step text explicitly asks for interaction."
             )
 
         if state_intent.get("mode") == "set":

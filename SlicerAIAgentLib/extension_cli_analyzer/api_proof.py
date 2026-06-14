@@ -913,12 +913,15 @@ class RepairCoordinator:
 
     # Generic per-issue-class escalation ladders (data, not per-error rules).
     # The final rung "upstream_request" hands the issue to the pipeline
-    # engine for upstream phase re-entry.
+    # engine for upstream phase re-entry. The template ladder deliberately
+    # does NOT escalate upstream: a template-class issue was diagnosed as
+    # fixable at template level, so re-deriving the contract cannot satisfy
+    # it — the exhausted lineage fails fast (package saved for revision)
+    # instead of burning a full contract→generate→verify iteration.
     STRATEGY_LADDERS = {
         "template": [
             "targeted_template_repair",
             "contract_aware_template_repair",
-            "upstream_request",
         ],
         "grounding": [
             "reground_slicer_op",

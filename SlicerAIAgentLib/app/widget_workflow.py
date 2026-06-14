@@ -315,9 +315,19 @@ class WidgetWorkflowMixin:
         self._workflowDoneButton.setText("Done")
 
     def _onWorkflowDoneClicked(self):
+        self._closeFloatingWorkflowControl()
         current_step = self._currentWorkflowUiState.get("current_step")
         if current_step:
             self.sendButton.setEnabled(False)
+            # The interaction for this step is over: drop any observers and
+            # debounce timers the runtime registered, so they cannot
+            # accumulate across repeat iterations and consecutive
+            # interactive steps (a generic cause of degraded/locked
+            # interaction state after several placements).
+            try:
+                self._interactionManager.cleanup()
+            except Exception:
+                logger.debug("Interaction cleanup on Done failed", exc_info=True)
             self._runWorkflowStepDirect(current_step, "proceed")
 
     def _onWorkflowSkipClicked(self):
@@ -327,6 +337,7 @@ class WidgetWorkflowMixin:
             self._runWorkflowStepDirect(current_step, "skip")
 
     def _onWorkflowCancelClicked(self):
+        self._closeFloatingWorkflowControl()
         current_step = self._currentWorkflowUiState.get("current_step")
         self.sendButton.setEnabled(False)
         self._runWorkflowStepDirect(current_step, "cancel")
@@ -362,15 +373,94 @@ class WidgetWorkflowMixin:
         self._waitingForUser = True
         self._currentWorkflowStepInfo = step_info
         self._showWorkflowInteraction(step_info)
+        # The interaction is shown ONLY in the inline workflow panel (module UI).
+        # The separate floating "AI Agent — workflow step" pop-up was removed at
+        # the user's request; the panel's Done/Cancel buttons drive the workflow.
+
+        # Placement guard: shortly after the wait state is shown (so the pre
+        # code has settled), verify Slicer is actually armed for the
+        # interaction; re-arm if anything upstream dropped placement mode.
+        try:
+            qt.QTimer.singleShot(600, lambda: self._ensurePlacementArmed(step_info))
+        except Exception:
+            logger.debug("Placement guard scheduling failed", exc_info=True)
 
         self._setAgentStatus("Workflow", f"Waiting: {step_desc}")
         logger.info(f"[Workflow] Entered wait state for step: {step_desc}")
+
+    def _ensurePlacementArmed(self, step_info):
+        """Re-arm markup placement if the waited-on step lost it.
+
+        Generic guard for interactive markup steps: a post template, an
+        extension callback, or a layout rebuild can leave Slicer outside
+        place mode while the workflow is waiting for the user to place
+        points — the visible symptom is "interaction tools hidden". When the
+        runtime knows the step's interaction node, placement is restored
+        deterministically (active list + single place mode). Fail-open.
+        """
+        try:
+            if not self._waitingForUser or not isinstance(step_info, dict):
+                return
+            current = getattr(self, "_currentWorkflowStepInfo", None)
+            if current is not step_info:
+                return  # a newer step superseded this wait
+            interaction = step_info.get("interaction") or {}
+            node_class = str(interaction.get("node_class") or "")
+            if not node_class.startswith("vtkMRMLMarkups") and step_info.get(
+                "interaction_type", ""
+            ) not in ("plane", "curve", "line", "fiducial"):
+                return
+
+            interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+            selectionNode = slicer.app.applicationLogic().GetSelectionNode()
+            in_place_mode = bool(
+                interactionNode
+                and interactionNode.GetCurrentInteractionMode() == interactionNode.Place
+            )
+            has_active_place_node = bool(
+                selectionNode and selectionNode.GetActivePlaceNodeID()
+            )
+            if in_place_mode and has_active_place_node:
+                return  # armed — nothing to do
+
+            from SlicerAIAgentLib.workflow_state import latest_interaction_node_for_step
+            node = latest_interaction_node_for_step(step_info.get("step_id", ""))
+            if node is None:
+                logger.info(
+                    "[Workflow] Placement not armed for step %s and no remembered "
+                    "node to re-arm with", step_info.get("step_id", "?"),
+                )
+                return
+            slicer.modules.markups.logic().SetActiveListID(node)
+            if interactionNode:
+                interactionNode.SwitchToSinglePlaceMode()
+            self._recordRoleEvent("Executor", "placement_rearmed", {
+                "step_id": step_info.get("step_id", ""),
+                "node": node.GetName(),
+            })
+            logger.info(
+                "[Workflow] Re-armed placement for step %s on node %s",
+                step_info.get("step_id", "?"), node.GetName(),
+            )
+        except Exception:
+            logger.debug("Placement guard failed open", exc_info=True)
 
     def _exitWorkflowWait(self):
         """Exit workflow wait state and restore normal state."""
         self._waitingForUser = False
         self._currentWorkflowStepInfo = None
+        self._closeFloatingWorkflowControl()
         self._setReadyStatus()
+
+    def _closeFloatingWorkflowControl(self):
+        window = getattr(self, "_floatingWorkflowControl", None)
+        self._floatingWorkflowControl = None
+        if window is not None:
+            try:
+                window.close()
+                window.deleteLater()
+            except Exception:
+                logger.debug("Floating workflow control close failed", exc_info=True)
 
     def _autoProceedWorkflowStep(self, next_step_info):
         """Automatically prompt the LLM to execute the next workflow step."""
@@ -548,7 +638,10 @@ class WidgetWorkflowMixin:
         self._analyzeGenerateButton.setEnabled(True)
 
         if result.get("success"):
-            self._finalizeCliValidation(result, live_results={})
+            # Generation is pure background analysis — it must NOT touch the live
+            # MRML scene/viewport. Runtime (live-execution) validation is deferred
+            # to the Repair button, which runs the steps deliberately and invisibly.
+            self._finalizeCliValidation(result, {})
 
         else:
             self._cliStatusLabel.setText("Failed")
@@ -567,40 +660,237 @@ class WidgetWorkflowMixin:
                 self._cliProgressDisplay.append("Auto-revising with LLM...")
                 self._autoReviseCli(result)
 
+    # Maximum live-exec → repair → re-exec passes before giving up on a defect.
+    _MAX_LIVE_REPAIR_PASSES = 3
+
+    def _runCliLiveValidation(self, result, outer_iter=0):
+        """Live-execute generated steps; repair runtime defects; re-validate.
+
+        Runs on the Qt main thread (SafeExecutor needs slicer.mrmlScene). Each
+        pass executes every runnable step's template for real; any step that
+        raises (status failed_bug) is sent to a targeted LLM repair, then this
+        method is re-entered to confirm the fix. Precondition-skipped steps never
+        block. Bounded by _MAX_LIVE_REPAIR_PASSES.
+        """
+        cli_dir = result.get("cli_dir")
+        if not cli_dir or not os.path.isdir(cli_dir):
+            self._finalizeCliValidation(result, {})
+            return
+
+        try:
+            from SlicerAIAgentLib.SafeExecutor import SafeExecutor
+            from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+            from SlicerAIAgentLib.CodeValidator import CodeValidator
+            executor = SafeExecutor()
+            analyzer = ExtensionCLIAnalyzer(
+                llm_client=self.logic.llmClient,
+                output_base_dir=os.path.join(
+                    SLICER_AI_AGENT_ROOT, "Resources", "extension_CLI"
+                ),
+                code_validator=CodeValidator(),
+            )
+            self._cliProgressDisplay.append(
+                f"Live-validating generated steps (pass {outer_iter + 1})..."
+            )
+            live_results = analyzer.live_validate_templates(cli_dir, executor)
+        except Exception as e:
+            self._cliProgressDisplay.append(f"Live validation error: {e}")
+            self._finalizeCliValidation(result, {})
+            return
+
+        self._writeLiveExecutionArtifact(cli_dir, live_results, outer_iter)
+
+        failures = [
+            r for r in live_results.values()
+            if r.get("status") == "failed_bug"
+        ]
+        n_valid = sum(1 for r in live_results.values() if r.get("status") == "live_valid")
+        n_skip = sum(
+            1 for r in live_results.values()
+            if str(r.get("status", "")).startswith("skipped")
+        )
+        self._cliProgressDisplay.append(
+            f"Live validation: {n_valid} ran clean, {len(failures)} failed, "
+            f"{n_skip} skipped (preconditions/interaction)."
+        )
+
+        if failures and outer_iter < self._MAX_LIVE_REPAIR_PASSES:
+            self._cliLiveResult = result
+            self._cliLiveIter = outer_iter
+            self._cliLiveResults = live_results
+            self._cliGeneratorRunning = True
+            self._cliStatusLabel.setText("Repairing live failures...")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
+
+            ext_name = (result.get("manifest", {}) or {}).get("extension_name", "")
+            data = self._getSelectedExtensionData() or {}
+            source_path = data.get("path", "")
+
+            def _run_live_repair():
+                try:
+                    from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+                    from SlicerAIAgentLib.CodeValidator import CodeValidator
+                    repair_analyzer = ExtensionCLIAnalyzer(
+                        llm_client=self.logic.llmClient,
+                        output_base_dir=os.path.join(
+                            SLICER_AI_AGENT_ROOT, "Resources", "extension_CLI"
+                        ),
+                        code_validator=CodeValidator(),
+                        on_progress=lambda n, s, d: self._streamQueue.put(
+                            ('cli_progress', {'stage': n, 'name': s, 'detail': d})
+                        ),
+                        on_error=lambda e: self._streamQueue.put(('cli_error', e)),
+                    )
+                    repair = repair_analyzer.repair_live_failures(
+                        ext_name, failures, source_path=source_path
+                    )
+                    self._streamQueue.put(('cli_live_repair_complete', repair))
+                except Exception as e:
+                    self._streamQueue.put(('cli_error', str(e)))
+
+            threading.Thread(target=_run_live_repair, daemon=True).start()
+            return
+
+        # No failures, or repair budget exhausted: finalize on these results.
+        self._finalizeCliValidation(result, live_results)
+
+    def _handleCliLiveRepairComplete(self, repair):
+        """Resume the live-validation loop after a targeted live repair."""
+        self._cliGeneratorRunning = False
+        result = getattr(self, "_cliLiveResult", None)
+        outer_iter = getattr(self, "_cliLiveIter", 0)
+        if not result:
+            return
+        if repair.get("success"):
+            self._cliProgressDisplay.append(
+                f"Live repair rewrote {len(repair.get('repaired', []))} "
+                f"template(s); re-validating..."
+            )
+            self._runCliLiveValidation(result, outer_iter + 1)
+        else:
+            # No change produced — re-validating again would loop on the same
+            # defect. Finalize honestly with the last known live results.
+            self._cliProgressDisplay.append(
+                f"Live repair produced no change ({repair.get('error', 'unknown')})."
+            )
+            self._finalizeCliValidation(
+                result, getattr(self, "_cliLiveResults", {})
+            )
+
+    def _writeLiveExecutionArtifact(self, cli_dir, live_results, outer_iter):
+        """Persist a per-step live-execution report under debug/ for transparency."""
+        try:
+            debug_dir = os.path.join(cli_dir, "debug")
+            os.makedirs(debug_dir, exist_ok=True)
+            steps = []
+            for tpl_key, rec in sorted(live_results.items()):
+                steps.append({
+                    "template_key": tpl_key,
+                    "step_id": rec.get("step_id", ""),
+                    "operation_type": rec.get("operation_type", ""),
+                    "status": rec.get("status", ""),
+                    "error": rec.get("error"),
+                    "execution_time": rec.get("execution_time", 0),
+                })
+            payload = {
+                "pass": outer_iter + 1,
+                "summary": {
+                    "live_valid": sum(1 for s in steps if s["status"] == "live_valid"),
+                    "failed_bug": sum(1 for s in steps if s["status"] == "failed_bug"),
+                    "skipped": sum(
+                        1 for s in steps if str(s["status"]).startswith("skipped")
+                    ),
+                },
+                "steps": steps,
+            }
+            with open(
+                os.path.join(debug_dir, "live_execution.json"), "w", encoding="utf-8"
+            ) as f:
+                json.dump(payload, f, indent=2)
+        except Exception:
+            logger.debug("Failed to write live_execution.json", exc_info=True)
+
+    def _persistLiveValidationStatus(self, result, failed_keys, n_valid, n_skipped):
+        """Reflect the live-execution outcome in the manifest status gate.
+
+        A package with any failed_bug step is downgraded to validation_failed so
+        the runtime loader does not surface a step that crashes on use. Skipped
+        (precondition/interaction) steps never block — they are validated by
+        static checks and recorded for transparency.
+        """
+        cli_dir = result.get("cli_dir")
+        if not cli_dir:
+            return
+        manifest_path = os.path.join(cli_dir, "manifest.json")
+        if not os.path.isfile(manifest_path):
+            return
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest = json.load(f)
+            manifest["live_validation"] = {
+                "passed": not failed_keys,
+                "live_valid_count": n_valid,
+                "failed_steps": sorted(failed_keys),
+                "skipped_count": n_skipped,
+            }
+            if failed_keys:
+                # Preserve the generation status once so a later clean pass can
+                # restore it rather than leaving the package stuck as failed.
+                if manifest.get("status") != "validation_failed":
+                    manifest["_pre_live_status"] = manifest.get("status")
+                manifest["status"] = "validation_failed"
+            else:
+                # Clean live pass: restore the generation status if a prior live
+                # run had downgraded it.
+                if manifest.get("status") == "validation_failed":
+                    manifest["status"] = manifest.pop(
+                        "_pre_live_status", "validated_with_warnings"
+                    )
+                else:
+                    manifest.pop("_pre_live_status", None)
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump(manifest, f, indent=2)
+        except Exception:
+            logger.debug("Failed to persist live validation status", exc_info=True)
+
     def _finalizeCliValidation(self, result, live_results):
-        """Finalize the CLI generation UI after validation (static + optional live).
+        """Finalize the CLI generation UI after validation (static + live).
 
         Args:
             result: The original generation result dict from the analyzer.
             live_results: Dict from live_validate_templates, or {} if live
-                validation was skipped.
+                validation was skipped. Only status == 'failed_bug' counts as a
+                failure; 'skipped_*' statuses do not block validation.
         """
-        # Check for live execution failures
-        live_errors = []
-        for tpl_key, tpl_res in live_results.items():
-            if not tpl_res.get("live_valid"):
-                live_errors.append(
-                    f"{tpl_key}: Live execution failed: {tpl_res.get('error', 'unknown')}"
-                )
+        failed_keys = [
+            tpl_key for tpl_key, tpl_res in live_results.items()
+            if tpl_res.get("status") == "failed_bug"
+        ]
+        n_valid = sum(
+            1 for r in live_results.values() if r.get("status") == "live_valid"
+        )
+        n_skipped = sum(
+            1 for r in live_results.values()
+            if str(r.get("status", "")).startswith("skipped")
+        )
+        # Only stamp a live-validation outcome when live execution actually ran;
+        # a background-only generation finalize (live_results == {}) must not claim
+        # a live result.
+        if live_results:
+            self._persistLiveValidationStatus(result, failed_keys, n_valid, n_skipped)
 
-        if live_errors:
-            self._cliStatusLabel.setText("Live validation failed")
+        if failed_keys:
+            self._cliStatusLabel.setText(
+                f"Live validation: {len(failed_keys)} step(s) failing"
+            )
             self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
             self._cliProgressDisplay.append(
-                f"Live validation: {len(live_errors)} template(s) failed."
+                "Live validation could not repair: " + ", ".join(sorted(failed_keys))
             )
-
-            # Combine static errors (if any) with live errors for revision
-            static_errors = []
-            val_result = result.get("validation_result", {})
-            if val_result and not val_result.get("valid"):
-                static_errors = val_result.get("errors", [])
-
-            all_errors = static_errors + live_errors
-            self._cliProgressDisplay.append("Auto-revising with live errors...")
-            self._autoReviseCli({
-                "validation_result": {"errors": all_errors, "valid": False},
-            })
+            self._cliResultGroup.setVisible(True)
+            self._cliGeneratorRunning = False
+            self._analyzeGenerateButton.setEnabled(True)
+            self._refreshCliActionButtons()
             return
 
         # All validations passed
@@ -609,13 +899,15 @@ class WidgetWorkflowMixin:
         self._cliStatusLabel.setText(status_text)
         self._cliStatusLabel.setStyleSheet("font-weight: bold; color: green;")
         self._cliResultGroup.setVisible(True)
-        self._testCliButton.setEnabled(True)
-        self._deleteCliButton.setEnabled(True)
-        self._reviseCliButton.setEnabled(False)
+        self._cliGeneratorRunning = False
+        self._analyzeGenerateButton.setEnabled(True)
+        self._refreshCliActionButtons()
 
         manifest = result.get("manifest", {})
         stages = manifest.get("stages", [])
-        live_info = f" ({len(live_results)} templates live-validated)" if has_live else ""
+        live_info = (
+            f" ({n_valid} steps live-executed, {n_skipped} skipped)" if has_live else ""
+        )
         self._cliResultSummary.setText(
             f"Generated CLI for {manifest.get('extension_name', '?')} "
             f"(workflow steps: {', '.join(stages)}).{live_info} "
@@ -633,9 +925,8 @@ class WidgetWorkflowMixin:
                     break
 
     def _handleCliRevisionComplete(self, result):
-        """Handle CLI revision completion on the main thread."""
+        """Handle automatic CLI revision completion (generation-failure fallback)."""
         self._cliGeneratorRunning = False
-        self._reviseCliButton.setEnabled(False)
         self._analyzeGenerateButton.setEnabled(True)
 
         if result.get("success"):
@@ -644,15 +935,42 @@ class WidgetWorkflowMixin:
             self._cliProgressDisplay.append(
                 f"Revision succeeded after {result.get('attempts', '?')} attempts."
             )
-            self._testCliButton.setEnabled(True)
-            self._deleteCliButton.setEnabled(True)
         else:
             self._cliStatusLabel.setText("Revision Failed")
             self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
             self._cliProgressDisplay.append(
                 f"Revision failed: {result.get('error', 'unknown')}"
             )
-            self._reviseCliButton.setEnabled(True)
+        self._refreshCliActionButtons()
+
+    def _handleCliRepairComplete(self, repair):
+        """Resume after the LLM template repair (Repair button), then live-validate.
+
+        The off-thread `repair_generated_cli` has rewritten templates from recorded
+        runtime API errors + the user's function-error descriptions. Now live-execute
+        the rewritten templates to catch any API crash (introduced or pre-existing
+        in a precondition-free step) and auto-repair it, then finalize.
+        """
+        result = getattr(self, "_cliRepairResult", None)
+        if repair.get("repaired"):
+            self._cliProgressDisplay.append(
+                f"Repair rewrote {len(repair.get('repaired', []))} template(s) "
+                f"(recorded API errors: {repair.get('runtime_error_count', 0)}, "
+                f"function errors: {repair.get('function_error_count', 0)}). "
+                "Live-validating…"
+            )
+            if getattr(self, "_cliFunctionErrorInput", None):
+                self._cliFunctionErrorInput.clear()
+        else:
+            self._cliProgressDisplay.append(
+                f"Repair made no template changes ({repair.get('error', 'nothing to fix')})."
+            )
+        self._cliGeneratorRunning = False
+        if result:
+            self._runCliLiveValidation(result, outer_iter=0)
+        else:
+            self._analyzeGenerateButton.setEnabled(True)
+            self._refreshCliActionButtons()
 
     def _handleCliError(self, error_msg):
         """Handle CLI generator error on the main thread."""
@@ -661,6 +979,7 @@ class WidgetWorkflowMixin:
         self._cliStatusLabel.setText("Error")
         self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
         self._cliProgressDisplay.append(f"ERROR: {error_msg}")
+        self._refreshCliActionButtons()
 
     def enter(self):
         if (hasattr(self, 'chatHistory') and self.chatHistory is not None and

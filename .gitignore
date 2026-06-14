@@ -71,6 +71,5 @@ EXECUTION_FLOW.md
 .*
 !.gitignore
 
-# CLI generation caches (content-keyed checkpoints + repair experience memory)
-Resources/extension_CLI/_checkpoints/
-Resources/extension_CLI/_repair_memory.json
+# CLI generation caches (repair experience memory)
+Resources/agent_cache/

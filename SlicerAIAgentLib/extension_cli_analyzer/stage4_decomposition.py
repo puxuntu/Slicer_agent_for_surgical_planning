@@ -711,6 +711,36 @@ class AnalyzerStage4DecompositionMixin:
             authoritative_type = expected_step.get("operation_type")
             if item.get("operation_type") != authoritative_type:
                 item["operation_type"] = authoritative_type
+
+            # Parameter-update intents only carry contract meaning when the
+            # step provides a value to bind (target_value / choice) or a UI
+            # binding. With the complete method universe in context the LLM
+            # truthfully tags plain button-click steps whose methods update
+            # parameter-node state INTERNALLY; demanding a UI binding for
+            # those dead-ends the contract. Drop the inferred intents instead
+            # — the method call itself performs the internal updates. Steps
+            # that DO carry a value still reach the validator's binding rule.
+            intents = item.get("operation_intents")
+            if isinstance(intents, list) and any(
+                intent in ("extension_parameter_update", "extension_node_reference_update")
+                for intent in intents
+            ):
+                has_binding = isinstance(item.get("ui_parameter_binding"), dict)
+                has_value = item.get("target_value") is not None or isinstance(
+                    item.get("choice"), dict
+                )
+                if not has_binding and not has_value:
+                    item["operation_intents"] = [
+                        intent for intent in intents
+                        if intent not in (
+                            "extension_parameter_update",
+                            "extension_node_reference_update",
+                        )
+                    ]
+                    notes.append(
+                        f"step {number}: dropped internal parameter-update intent(s) "
+                        "with no bindable value or UI binding"
+                    )
                 notes.append(f"step {number} restored authoritative operation_type")
 
             if authoritative_type == "user_choice":
@@ -1706,9 +1736,9 @@ class AnalyzerStage4DecompositionMixin:
             # - Extension module names not in Slicer core
             # Build the indicator set from ALL authoritative identifiers, not just
             # the repo/cookbook name: the cookbook name is often the repo name
-            # ("SlicerBoneReconstructionPlanner") while steps reference the module
-            # name ("BoneReconstructionPlanner"). The module name derives from the
-            # Logic class name minus the trailing "Logic".
+            # ("Slicer<ModuleName>") while steps reference the bare module name
+            # ("<ModuleName>"). The module name derives from the Logic class
+            # name minus the trailing "Logic".
             logic_class_name = _text_or_empty(logic_analysis.get("class_name"))
             module_name = (
                 logic_class_name[: -len("Logic")]

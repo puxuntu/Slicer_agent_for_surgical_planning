@@ -75,7 +75,26 @@ class AnalyzerTemplateGenerationMixin:
         reviewed = dict(templates)
         corrections_count = 0
 
+        # Scoped re-entry: a template byte-identical to the prior iteration's
+        # already passed this review once — re-reviewing identical content
+        # only spends LLM calls and risks churn.
+        unchanged_templates = set()
+        if getattr(self, "_reentry_affected_steps", None):
+            prior = getattr(self, "_prev_templates", None) or {}
+            unchanged_templates = {
+                tpl_name for tpl_name, tpl_code in templates.items()
+                if prior.get(tpl_name) == tpl_code
+            }
+            if unchanged_templates:
+                self.on_progress(
+                    "generate", "Generate Schemas And Templates",
+                    f"Review scope: skipping {len(unchanged_templates)} template(s) "
+                    "unchanged since the previously reviewed iteration",
+                )
+
         for tpl_name, tpl_code in templates.items():
+            if tpl_name in unchanged_templates:
+                continue
             # Extract stage name from template filename
             stage_name = tpl_name.replace(".py.tpl", "")
 
@@ -141,6 +160,11 @@ Verify the template for these issues ONLY:
 4. Is the try/except for cached logic correct? (logic should be assigned in the except block, not after it)
 5. For every executable API call, is the receiver type derivable from supplied
    source or node-lifecycle evidence? Distinguish a known-invalid call from missing proof.
+6. Does the template change ONLY the state the step requires? Flag any
+   state-changing call whose user-visible effect exceeds the step description
+   (for example enabling interaction handles, interactive modes, or persistent
+   handle visibility when only visibility was asked), and remove it in the
+   corrected template.
 
 Do NOT change: node creation mode, cross-stage wiring, or display setup code.
 Do NOT introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.

@@ -377,6 +377,94 @@ class WidgetExecutionFlowMixin:
 
         self._autoExecuteCodeConfirmed(attempt, max_attempts)
 
+    def _persistGeneratedTemplateRepair(
+        self, step_info, corrected_code, error_detail, resolved=True
+    ):
+        """Persist a runtime failure of a generated workflow step.
+
+        Writes <ext>/runtime_repairs.json (consumed by the Repair button and the
+        next revision as failure [+ working-fix] evidence) and records the
+        outcome in the cross-run repair memory. Generic: records the failure
+        shape and, when self-correction succeeded, the code that worked.
+
+        resolved=True  → self-correction fixed it; `corrected_code` is the fix.
+        resolved=False → the raw failure (no working fix yet); these are exactly
+            the errors the offline Repair must fix at the template level, and the
+            ones live-validation can't reach for data/interaction-gated steps.
+        An unresolved record is deduped per (step_id, error) so repeated turns
+        don't flood the log.
+        """
+        from datetime import datetime
+        from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
+
+        step_id = str(step_info.get("step_id", "") or "")
+        ext_name = str(
+            step_info.get("extension")
+            or step_info.get("tool")
+            or getattr(getattr(getattr(self, "_workflowRuntime", None), "session", None),
+                       "extension_name", "")
+            or ""
+        )
+        if not ext_name:
+            return
+        cli_dir = os.path.join(get_cli_base_dir(), ext_name)
+        if not os.path.isdir(cli_dir):
+            return
+
+        path = os.path.join(cli_dir, "runtime_repairs.json")
+        records = []
+        if os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    records = json.load(f)
+                if not isinstance(records, list):
+                    records = []
+            except Exception:
+                records = []
+        error_text = str(error_detail)[:1000]
+        # Dedup unresolved records by (step_id, error) so repeated failing turns
+        # don't flood the log; a later resolved record still appends its fix.
+        if not resolved:
+            records = [
+                r for r in records
+                if not (
+                    not r.get("resolved", True)
+                    and r.get("step_id") == step_id
+                    and r.get("error") == error_text
+                )
+            ]
+        records.append({
+            "step_id": step_id,
+            "error": error_text,
+            "corrected_code": str(corrected_code)[:20000],
+            "resolved": bool(resolved),
+            "timestamp": datetime.now().isoformat(),
+        })
+        records = records[-50:]
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(records, f, indent=2, ensure_ascii=False)
+
+        if resolved:
+            try:
+                from SlicerAIAgentLib.extension_cli_analyzer.repair_memory import RepairMemory
+                RepairMemory(get_cli_base_dir()).record(
+                    "RuntimeExecutionFailure", "runtime_api",
+                    str(error_detail)[:160],
+                    "main_agent_correction", "succeeded",
+                    f"step {step_id}: corrected at runtime; fix persisted to runtime_repairs.json",
+                )
+            except Exception:
+                logger.debug("Repair memory record for runtime repair failed", exc_info=True)
+
+        self._recordRoleEvent("Repairer", "runtime_repair_persisted", {
+            "extension": ext_name,
+            "step_id": step_id,
+        })
+        logger.info(
+            "Runtime repair persisted for %s/%s into runtime_repairs.json",
+            ext_name, step_id,
+        )
+
     def _autoExecuteCodeConfirmed(self, attempt=1, max_attempts=5):
         """Run already-validated code after optional confirmation has passed."""
         import time
@@ -457,6 +545,23 @@ class WidgetExecutionFlowMixin:
                     feedback_lines.append("Warning: execution output contains error indicators even though no uncaught exception was raised.")
                 self._lastExecutionResult = dict(result)
                 self._lastOutputHasErrors = output_has_errors
+                # Closed loop: a successful correction of a generated workflow
+                # step is persisted back to the CLI package so the next
+                # revision/regeneration learns from it instead of every future
+                # session re-paying the same runtime failure + correction.
+                if (
+                    attempt > 1
+                    and isinstance(step_info, dict)
+                    and step_info.get("origin") == "generated_template"
+                ):
+                    try:
+                        self._persistGeneratedTemplateRepair(
+                            step_info,
+                            self.currentCode or "",
+                            getattr(self, "_lastCorrectionError", ""),
+                        )
+                    except Exception:
+                        logger.debug("Runtime-repair feedback failed", exc_info=True)
             else:
                 # Execution failed
                 error_msg = result.get('error', 'Unknown error')
@@ -471,6 +576,21 @@ class WidgetExecutionFlowMixin:
                 feedback_lines.append(f"Status: failed\nExecution time: {execution_time:.2f}s\nError: {error_msg[:500]}")
                 self._lastExecutionResult = dict(result)
                 self._lastOutputHasErrors = True
+                # Record the raw runtime error of a generated-template step on the
+                # FIRST failure (before self-correction), so the offline Repair has
+                # the field error even when self-correction never succeeds. Resolved
+                # records (the working fix) are added separately by the success path.
+                if (
+                    attempt == 1
+                    and isinstance(step_info, dict)
+                    and step_info.get("origin") == "generated_template"
+                ):
+                    try:
+                        self._persistGeneratedTemplateRepair(
+                            step_info, "", error_msg, resolved=False,
+                        )
+                    except Exception:
+                        logger.debug("Runtime-failure feedback failed", exc_info=True)
 
             # Semantic scene verification: compare before/after snapshots against agent_plan expectations
             if result.get("success") and not result.get("timed_out", False) and before_snapshot:
