@@ -112,7 +112,21 @@ class WorkflowRuntime:
         ui_guidance = self._ui_guidance_from_result(source, current_meta)
         guidance_title = str(ui_guidance.get("title", "") or "").strip()
         guidance_instruction = str(ui_guidance.get("instruction", "") or "").strip()
-        if result_type == "user_choice":
+        is_repeat_decision = result_type == "user_choice" and bool(source.get("repeat_decision"))
+        if is_repeat_decision:
+            # A loop continue/exit decision: surface the decision's own question
+            # and instruction, NOT the underlying step's guidance. Otherwise the
+            # panel shows e.g. "Regenerate reconstruction / Repeat steps 27-30 if
+            # needed" — making the Yes/No buttons read as "Yes = repeat" when Yes
+            # actually accepts and exits the loop.
+            description = (
+                source.get("question")
+                or guidance_title
+                or current_meta.get("description")
+                or ""
+            )
+            instructions = source.get("instruction") or guidance_instruction
+        elif result_type == "user_choice":
             description = (
                 guidance_title
                 or source.get("question")
@@ -120,6 +134,7 @@ class WorkflowRuntime:
                 or current_meta.get("description")
                 or ""
             )
+            instructions = guidance_instruction or self._instructions_from_result(source)
         else:
             description = (
                 guidance_title
@@ -128,7 +143,7 @@ class WorkflowRuntime:
                 or current_meta.get("description")
                 or ""
             )
-        instructions = guidance_instruction or self._instructions_from_result(source)
+            instructions = guidance_instruction or self._instructions_from_result(source)
         choices = self._choices_from_result(source, current_meta)
         is_optional = bool(source.get("is_optional") or current_meta.get("is_optional"))
         choice_info = current_meta.get("choice_info", {}) if isinstance(current_meta, dict) else {}
@@ -297,6 +312,29 @@ class WorkflowRuntime:
             self.session.status = "waiting_for_choice"
             self.session.current_step = step_id
             self._write_event("step_waiting_for_choice", {"step_id": step_id})
+            return result
+
+        if result.get("repeat_decision"):
+            # A loop continue/exit decision result is already fully transitioned
+            # by _handle_pending_repeat_decision in run_step (body cleared +
+            # iteration advanced for "repeat", or exit target chosen). Re-marking
+            # its terminal step complete here would undo _clear_repeat_body and
+            # make the loop skip its own body on the next pass. Just advance to
+            # the already-computed next_step.
+            next_step = result.get("next_step")
+            if next_step:
+                self.session.current_step = next_step.get("step_id")
+                self.session.status = "running"
+            else:
+                self.session.current_step = None
+                self.session.status = "completed"
+                result["workflow_completed"] = True
+            self._write_event("step_execution_completed", {
+                "step_id": step_id,
+                "result_type": result_type,
+                "next_step": next_step,
+                "workflow_completed": result.get("workflow_completed", False),
+            })
             return result
 
         if result_type in COMPLETE_TYPES and step_id:
@@ -532,13 +570,34 @@ class WorkflowRuntime:
                 state["waiting_for_decision"] = True
                 self._sync_repeat_state(repeat_id)
                 prompt = controller.get("prompt") or "Continue the repeated workflow?"
+                choices = [
+                    {"label": "Yes", "value": True},
+                    {"label": "No", "value": False},
+                ]
+                # Derive which answer exits vs repeats from the controller, so the
+                # instruction is correct for both until_choice (exit on the exit
+                # value) and while_choice. This makes the Yes/No meaning explicit
+                # instead of leaving the user to guess.
+                exit_value = self._normalize_control_value(controller.get("exit_value"))
+                exit_label = next(
+                    (c["label"] for c in choices
+                     if self._normalize_control_value(c["value"]) == exit_value),
+                    "Yes",
+                )
+                loop_label = next(
+                    (c["label"] for c in choices
+                     if self._normalize_control_value(c["value"]) != exit_value),
+                    "No",
+                )
+                decision_instruction = (
+                    f'Choose "{loop_label}" to repeat this section and refine the '
+                    f'result; choose "{exit_label}" to accept it and continue.'
+                )
                 return {
                     "type": "user_choice",
                     "question": prompt,
-                    "choices": [
-                        {"label": "Yes", "value": True},
-                        {"label": "No", "value": False},
-                    ],
+                    "instruction": decision_instruction,
+                    "choices": choices,
                     "parameter_name": f"repeat_decision:{repeat_id}",
                     "repeat_decision": repeat_id,
                     "repeat_progress": {

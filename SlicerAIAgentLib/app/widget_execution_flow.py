@@ -545,6 +545,14 @@ class WidgetExecutionFlowMixin:
                     feedback_lines.append("Warning: execution output contains error indicators even though no uncaught exception was raised.")
                 self._lastExecutionResult = dict(result)
                 self._lastOutputHasErrors = output_has_errors
+                # Re-assert the chosen scalar volume as the slice background after
+                # this workflow step. Extension steps (e.g. "Create bone models")
+                # re-run the extension's enter()/GUI sync, which can default-select
+                # the first volume (the fibula) and leave the user's chosen volume
+                # unshown. This puts the chosen volume back — background layer only,
+                # so interaction handles/lock state are untouched.
+                if runtime_managed:
+                    self._applyChosenVolumeBackground()
                 # Closed loop: a successful correction of a generated workflow
                 # step is persisted back to the CLI package so the next
                 # revision/regeneration learns from it instead of every future
@@ -836,8 +844,80 @@ class WidgetExecutionFlowMixin:
         # without round-tripping them through source text.
         self._applyPreludeGlobals()
 
+        # Keep the agent IN its own module. Generated steps carry a
+        # `selectModule('<Ext>')` precondition (only there to fire the extension's
+        # enter() lifecycle); executing it makes the extension the active module,
+        # and SafeExecutor's restore then switches back — firing the extension's
+        # exit(), which for BoneReconstructionPlanner HIDES the plane interaction
+        # handles and LOCKS the planes (BoneReconstructionPlanner.py exit(), lines
+        # ~500-504). That breaks later interactive adjustment (step 29). So fire
+        # enter() once invisibly and strip the switch, so exit() never runs.
+        exec_code = self._prepareGeneratedStepCode(self.currentCode)
+
         # Execute asynchronously
-        self.logic.executeCodeAsync(self.currentCode, onExecutionComplete)
+        self.logic.executeCodeAsync(exec_code, onExecutionComplete)
+
+    def _prepareGeneratedStepCode(self, code):
+        """Strip a generated step's module-switch precondition (and fire the
+        extension's enter() once, invisibly), so the active module never changes
+        and the extension's exit() lifecycle never runs.
+
+        The precondition is a marker-delimited block that runs
+        `slicer.util.selectModule('<Ext>')` purely to trigger the extension
+        module's enter(). We extract the module name from it, fire enter() once
+        per session WITHOUT switching the visible/active module, then remove the
+        block. Code without the marker is returned unchanged.
+        """
+        if not isinstance(code, str) or "# precondition:begin" not in code:
+            return code
+        try:
+            match = re.search(r"selectModule\(\s*['\"]([^'\"]+)['\"]\s*\)", code)
+            if match:
+                self._ensureModuleEnteredInvisibly(match.group(1))
+            stripped = re.sub(
+                r"[ \t]*#\s*precondition:begin.*?#\s*precondition:end[ \t]*\n?",
+                "",
+                code,
+                flags=re.DOTALL,
+            )
+            return stripped
+        except Exception:
+            logger.debug("Precondition strip failed; running code as-is", exc_info=True)
+            return code
+
+    def _ensureModuleEnteredInvisibly(self, module_name):
+        """Fire a module's enter() lifecycle once per session WITHOUT switching
+        the visible/active module.
+
+        `getModuleWidget` creates/sets up the module's widget without showing it;
+        calling enter() on it runs the extension's setup (parameter node, plane
+        observers) so its steps behave as after a normal entry. Crucially, because
+        the active module never changes, Slicer never calls the extension's exit()
+        — so it never tears down the interaction handles / lock state. Fail-open:
+        if enter() cannot run out of context, the step's own logic usually copes.
+        """
+        if not module_name:
+            return
+        entered = getattr(self, "_invisiblyEnteredModules", None)
+        if entered is None:
+            entered = self._invisiblyEnteredModules = set()
+        if module_name in entered:
+            return
+        # Mark first so a partial failure never retries on every step.
+        entered.add(module_name)
+        try:
+            module_widget = slicer.util.getModuleWidget(module_name)
+            if module_widget is not None and hasattr(module_widget, "enter"):
+                module_widget.enter()
+                logger.info(
+                    "[Workflow] Fired %s.enter() without switching the active module",
+                    module_name,
+                )
+        except Exception:
+            logger.debug(
+                "Invisible enter() failed for %s (continuing without it)",
+                module_name, exc_info=True,
+            )
 
     def _applyPreludeGlobals(self):
         """Inject the current workflow step's _prelude_globals into __main__.

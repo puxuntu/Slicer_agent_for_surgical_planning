@@ -197,10 +197,24 @@ class WidgetWorkflowMixin:
             status = "Waiting for your choice"
         elif result.get("workflow_completed"):
             status = "Completed"
-        if result_type == "user_choice":
+        is_repeat_decision = result_type == "user_choice" and bool(result.get("repeat_decision"))
+        if is_repeat_decision:
+            # Loop continue/exit decision: show its own question/instruction so
+            # the Yes/No buttons are unambiguous (not the step's guidance).
+            description = result.get("question") or guidance.get("title") or ""
+        elif result_type == "user_choice":
             description = guidance.get("title") or result.get("question") or ""
         else:
             description = guidance.get("title") or result.get("explanation") or result.get("instruction") or ""
+        if is_repeat_decision:
+            instructions = result.get("instruction") or guidance.get("instruction") or ""
+        else:
+            instructions = (
+                guidance.get("instruction")
+                or (result.get("interaction") or {}).get("placement_instructions")
+                or result.get("interaction_instructions")
+                or ""
+            )
         return {
             "active": True,
             "workflow_title": result.get("tool", "Workflow"),
@@ -210,12 +224,7 @@ class WidgetWorkflowMixin:
             "total_steps": 0,
             "status": status,
             "description": description,
-            "instructions": (
-                guidance.get("instruction")
-                or (result.get("interaction") or {}).get("placement_instructions")
-                or result.get("interaction_instructions")
-                or ""
-            ),
+            "instructions": instructions,
             "choices": choices,
             "default_value": result.get("default_value"),
             "parameter_name": result.get("parameter_name", ""),

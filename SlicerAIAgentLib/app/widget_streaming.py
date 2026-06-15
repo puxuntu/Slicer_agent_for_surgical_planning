@@ -359,6 +359,15 @@ class WidgetStreamingMixin:
             "action": action,
         })
         result = self._workflowRuntime.run_step(step_id, action, args=args)
+        if action == "choice_made":
+            # The choice is now recorded; reflect a chosen scalar volume (e.g.
+            # "Current Scalar Volume") in the slice views immediately. Guided
+            # extensions normally do this through their own parameter-node sync,
+            # which the agent does not drive reliably (the per-step module switch
+            # is stripped to preserve interaction handles). We apply it the
+            # extension-agnostic way — background layer only, never markup
+            # handles/lock — so the chosen volume is shown.
+            self._applyChosenVolumeBackground()
         self._handleWorkflowRuntimeResult(result)
 
     def _handleWorkflowRuntimeResult(self, result):
@@ -506,6 +515,115 @@ class WidgetStreamingMixin:
         except Exception as exc:
             logger.warning(f"Failed to collect workflow node candidates for {node_class}: {exc}")
         return candidates
+
+    def _applyChosenVolumeBackground(self):
+        """Show the active workflow's chosen scalar volume as the slice background.
+
+        A guided extension keeps its slice background synced to a chosen "current
+        volume" via a parameter-node observer wired in enter(). The agent cannot
+        rely on that: the extension is never the active module (the per-step
+        module switch is stripped so its exit() never hides the interaction
+        handles), so the observer may not fire — and the extension's enter() can
+        even default-select the first scalar volume (often the wrong one, e.g.
+        the fibula). We therefore re-apply the recorded scalar-volume choice to
+        the views ourselves, the extension-agnostic way: Slicer's slice-viewer
+        layers, background layer only. This never touches markup handles or lock
+        state, so the handle behavior is unaffected. Called both when a choice is
+        made and after each workflow code step, so the chosen volume survives the
+        extension's own enter()/processing churn. No-op when no scalar-volume
+        choice is recorded; fail-open.
+        """
+        try:
+            runtime = getattr(self, "_workflowRuntime", None)
+            session = getattr(runtime, "session", None) if runtime else None
+            ext_name = getattr(session, "extension_name", None) if session else None
+            if not ext_name:
+                return
+            from SlicerAIAgentLib.extension_cli_loader.templates import _workflow_choices
+            from SlicerAIAgentLib.extension_cli_loader.cache import get_validated_extensions
+            choices = _workflow_choices.get(ext_name, {}) or {}
+            if not choices:
+                return
+            metadata = (get_validated_extensions().get(ext_name) or {}).get("workflow_metadata", {}) or {}
+            bindings = metadata.get("parameter_bindings", {}) or {}
+            for role, value in choices.items():
+                if not value:
+                    continue
+                # Only a scalar-volume choice drives the slice background.
+                if (bindings.get(role) or {}).get("node_class") != "vtkMRMLScalarVolumeNode":
+                    continue
+                node = self._findSceneNodeByNameOrId(value, "vtkMRMLScalarVolumeNode")
+                # Skip label maps (a ScalarVolume subclass) — not a background.
+                if node is None or node.IsA("vtkMRMLLabelMapVolumeNode"):
+                    continue
+                # Apply and fit only when the background actually changes, so the
+                # volume is optimally framed when first shown (matching the
+                # extension's own resetSliceViews()) without resetting the user's
+                # manual zoom/pan on the later re-assertions.
+                if self._setSliceBackgroundIfChanged(node):
+                    logger.info(
+                        "[Workflow] Slice background set to chosen volume '%s' (views fit)",
+                        node.GetName(),
+                    )
+                return
+        except Exception:
+            logger.debug("Applying chosen volume to slice display failed", exc_info=True)
+
+    def _setSliceBackgroundIfChanged(self, node):
+        """Set the slice background to ``node`` and fit the views when needed.
+
+        Fits the field of view (reproducing the extension's resetSliceViews()
+        framing) when the displayed background changes OR the layout changes —
+        the latter because a layout switch reveals slice views (e.g. Green/Yellow
+        in the Conventional layout) whose framing is stale. When the background
+        and layout are both unchanged, the views are left alone, so a user's
+        manual zoom/pan during a stable interactive step is preserved. Returns
+        True when it applied a change.
+        """
+        layout_manager = slicer.app.layoutManager()
+        if layout_manager is None:
+            return False
+        node_id = node.GetID()
+        background_differs = False
+        slice_logics = layout_manager.mrmlSliceLogics()
+        for index in range(slice_logics.GetNumberOfItems()):
+            slice_logic = slice_logics.GetItemAsObject(index)
+            if slice_logic is None:
+                continue
+            composite_node = slice_logic.GetSliceCompositeNode()
+            if composite_node is not None and composite_node.GetBackgroundVolumeID() != node_id:
+                background_differs = True
+                break
+        try:
+            layout_id = layout_manager.layout
+        except Exception:
+            layout_id = None
+        # First call (attribute absent) counts as a layout change, so the initial
+        # application always fits.
+        layout_changed = getattr(self, "_lastSliceFitLayout", "__unset__") != layout_id
+        if not (background_differs or layout_changed):
+            return False
+        slicer.util.setSliceViewerLayers(background=node, fit=True)
+        self._lastSliceFitLayout = layout_id
+        return True
+
+    def _findSceneNodeByNameOrId(self, value, node_class):
+        """Resolve a choice value (a node ID or name) to an MRML node."""
+        try:
+            node = slicer.mrmlScene.GetNodeByID(value)
+            if node is not None:
+                return node
+        except Exception:
+            pass
+        try:
+            nodes = slicer.mrmlScene.GetNodesByClass(node_class)
+            for index in range(nodes.GetNumberOfItems()):
+                node = nodes.GetItemAsObject(index)
+                if node is not None and node.GetName() == value:
+                    return node
+        except Exception:
+            pass
+        return None
 
     def _completeWorkflowResultWithoutCode(self, result):
         """Advance deterministic workflow state for a no-code control result."""
