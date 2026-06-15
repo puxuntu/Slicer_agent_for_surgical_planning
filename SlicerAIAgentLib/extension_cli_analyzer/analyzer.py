@@ -24,6 +24,12 @@ from .v2_contracts import AnalyzerV2ContractsMixin
 from .repair_loop import AnalyzerRepairLoopMixin
 from .contract_audit import AnalyzerContractAuditMixin
 from .api_proof import AnalyzerApiProofMixin
+from ..cli_artifacts import (
+    GENERATION_ROUND,
+    debug_round_dir,
+    next_repair_round_label,
+    snapshot_package_version,
+)
 
 
 class ExtensionCLIAnalyzer(
@@ -102,6 +108,7 @@ class ExtensionCLIAnalyzer(
         # original generation run's log (see live_revision.revise).
         self._progress_log_name = "ui_output.log"
         self._progress_json_name = "progress_events.json"
+        self._ui_round_header: List[str] = []
         self._method_keyword_map = {}
         self._live_probe_executor = live_probe_executor
         self._analyzer_prompt = self._load_analyzer_prompt()
@@ -399,6 +406,67 @@ class ExtensionCLIAnalyzer(
         except Exception:
             logger.debug("UI error callback failed", exc_info=True)
 
+    def _begin_ui_output_round(
+        self, round_label: str, extension_name: str = "",
+        source_path: str = "", source_type: str = "",
+    ) -> None:
+        """Write a self-describing header to this round's ui_output.log.
+
+        Stored on the instance so _flush_progress_artifacts (which rewrites the
+        file from the event list at the end) re-emits it instead of dropping it.
+        """
+        started = datetime.now().isoformat(timespec="seconds")
+        if source_path:
+            origin = f"{source_path} ({source_type})" if source_type else str(source_path)
+        else:
+            origin = "(repair round — no cookbook parse)"
+        self._ui_round_header = [
+            "=" * 78,
+            f"Extension CLI pipeline  |  round: {round_label}",
+            f"  extension : {extension_name}",
+            f"  source    : {origin}",
+            f"  started   : {started}",
+            "=" * 78,
+        ]
+        if not self._debug_dir:
+            return
+        try:
+            os.makedirs(self._debug_dir, exist_ok=True)
+            with open(
+                os.path.join(self._debug_dir, self._progress_log_name),
+                "a", encoding="utf-8",
+            ) as f:
+                f.write("\n".join(self._ui_round_header) + "\n")
+        except Exception:
+            logger.debug("ui_output header write failed", exc_info=True)
+
+    def _ui_output_footer(self, result: Dict) -> List[str]:
+        """Build the closing summary block for this round's ui_output.log."""
+        llm_calls = sum(
+            1 for e in self._progress_events if e.get("phase") == "llm_call"
+        )
+        durations = "  ".join(
+            f"{phase}={round(d, 1)}s"
+            for phase, d in self._phase_durations.items()
+        )
+        repaired = result.get("repaired")
+        footer = [
+            "-" * 78,
+            "SUMMARY",
+            f"  success         : {bool(result.get('success'))}",
+            f"  phases_completed: {', '.join(result.get('phases_completed', []) or []) or '(none)'}",
+            f"  llm_calls       : {llm_calls}",
+            f"  events          : {len(self._progress_events)}",
+        ]
+        if isinstance(repaired, list):
+            footer.append(f"  templates_changed: {len(repaired)}  {repaired}")
+        if durations:
+            footer.append(f"  phase_durations : {durations}")
+        if result.get("error"):
+            footer.append(f"  error           : {str(result.get('error'))[:400]}")
+        footer.append("-" * 78)
+        return footer
+
     def _append_ui_output_line(self, event: Dict) -> None:
         """Incrementally mirror one event to debug/ui_output.log.
 
@@ -430,14 +498,17 @@ class ExtensionCLIAnalyzer(
             return
         try:
             os.makedirs(self._debug_dir, exist_ok=True)
+            lines = list(self._ui_round_header)
+            lines.extend(
+                self._format_ui_output_line(event)
+                for event in self._progress_events
+            )
+            lines.extend(self._ui_output_footer(result))
             with open(
                 os.path.join(self._debug_dir, self._progress_log_name),
                 "w", encoding="utf-8",
             ) as f:
-                f.write("\n".join(
-                    self._format_ui_output_line(event)
-                    for event in self._progress_events
-                ) + "\n")
+                f.write("\n".join(lines) + "\n")
             with open(
                 os.path.join(self._debug_dir, self._progress_json_name),
                 "w", encoding="utf-8",
@@ -541,8 +612,10 @@ class ExtensionCLIAnalyzer(
         self._upstream_feedback = self._take_pending_upstream_feedback(extension_name)
 
         try:
-            # Set up debug directory (lazily created on first LLM call)
-            self._debug_dir = os.path.join(ext_dir, "debug")
+            # First-generation debug artifacts live in their own round folder so a
+            # later Repair round never clobbers them (debug/generation/).
+            self._debug_dir = debug_round_dir(ext_dir, GENERATION_ROUND)
+            self._begin_ui_output_round(GENERATION_ROUND, extension_name, source_path, source_type)
 
             # ── discover: source scan + cookbook parsing ──
             self._set_phase("discover")

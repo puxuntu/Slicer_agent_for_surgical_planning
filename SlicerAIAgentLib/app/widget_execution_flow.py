@@ -382,10 +382,11 @@ class WidgetExecutionFlowMixin:
     ):
         """Persist a runtime failure of a generated workflow step.
 
-        Writes <ext>/runtime_repairs.json (consumed by the Repair button and the
-        next revision as failure [+ working-fix] evidence) and records the
-        outcome in the cross-run repair memory. Generic: records the failure
-        shape and, when self-correction succeeded, the code that worked.
+        Writes <ext>/runtime_errors/<run_id>.json — one file per workflow run, so
+        the Repair button loads the MOST RECENT run's failures (consumed as
+        failure [+ working-fix] evidence) — and records the outcome in the
+        cross-run repair memory. Generic: records the failure shape and, when
+        self-correction succeeded, the code that worked.
 
         resolved=True  → self-correction fixed it; `corrected_code` is the fix.
         resolved=False → the raw failure (no working fix yet); these are exactly
@@ -396,13 +397,14 @@ class WidgetExecutionFlowMixin:
         """
         from datetime import datetime
         from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
+        from SlicerAIAgentLib.cli_artifacts import runtime_error_file
 
         step_id = str(step_info.get("step_id", "") or "")
+        session = getattr(getattr(self, "_workflowRuntime", None), "session", None)
         ext_name = str(
             step_info.get("extension")
             or step_info.get("tool")
-            or getattr(getattr(getattr(self, "_workflowRuntime", None), "session", None),
-                       "extension_name", "")
+            or getattr(session, "extension_name", "")
             or ""
         )
         if not ext_name:
@@ -411,7 +413,12 @@ class WidgetExecutionFlowMixin:
         if not os.path.isdir(cli_dir):
             return
 
-        path = os.path.join(cli_dir, "runtime_repairs.json")
+        # Separate runtime errors per workflow run (keyed by the run's workflow_id),
+        # so the offline Repair loads the MOST RECENT run's failures rather than a
+        # pile accumulated across every session.
+        run_id = str(getattr(session, "workflow_id", "") or "unknown_run")
+        path = runtime_error_file(cli_dir, run_id)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         records = []
         if os.path.isfile(path):
             try:
@@ -451,7 +458,7 @@ class WidgetExecutionFlowMixin:
                     "RuntimeExecutionFailure", "runtime_api",
                     str(error_detail)[:160],
                     "main_agent_correction", "succeeded",
-                    f"step {step_id}: corrected at runtime; fix persisted to runtime_repairs.json",
+                    f"step {step_id}: corrected at runtime; fix persisted to runtime_errors/<run>.json",
                 )
             except Exception:
                 logger.debug("Repair memory record for runtime repair failed", exc_info=True)
@@ -461,8 +468,8 @@ class WidgetExecutionFlowMixin:
             "step_id": step_id,
         })
         logger.info(
-            "Runtime repair persisted for %s/%s into runtime_repairs.json",
-            ext_name, step_id,
+            "Runtime repair persisted for %s/%s into runtime_errors/%s.json",
+            ext_name, step_id, run_id,
         )
 
     def _autoExecuteCodeConfirmed(self, attempt=1, max_attempts=5):

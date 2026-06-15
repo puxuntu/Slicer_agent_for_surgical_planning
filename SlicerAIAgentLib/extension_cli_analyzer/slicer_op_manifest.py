@@ -574,6 +574,21 @@ class AnalyzerSlicerOpManifestMixin:
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(debug_entry, f, indent=2, ensure_ascii=False)
 
+        # Surface each LLM call in the readable ui_output.log so the round's log
+        # shows the call sequence (and rough cost), not just phase transitions.
+        try:
+            usage = response.get("usage", {}) or {}
+            out_len = len(str(response.get("message", "") or ""))
+            tok = usage.get("total_tokens")
+            detail = (
+                f"call {call_index:03d} -> {filename} (out {out_len} chars"
+                + (f", {tok} tok" if tok else "")
+                + ")"
+            )
+            self._emit_progress("llm_call", self._current_stage_label or "llm", detail)
+        except Exception:
+            logger.debug("llm_call progress emit failed", exc_info=True)
+
     @staticmethod
     def _parse_json_response(text: str) -> Any:
         """Extract and parse JSON from an LLM response."""

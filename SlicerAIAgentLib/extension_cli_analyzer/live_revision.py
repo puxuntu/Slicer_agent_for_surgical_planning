@@ -1,5 +1,12 @@
 from .common import *
 from .phases import PIPELINE_VERSION
+from ..cli_artifacts import (
+    archive_runtime_error_file,
+    debug_round_dir,
+    latest_runtime_error_file,
+    next_repair_round_label,
+    snapshot_package_version,
+)
 
 
 class AnalyzerLiveRevisionMixin:
@@ -485,12 +492,13 @@ class AnalyzerLiveRevisionMixin:
             except Exception:
                 workflow_metadata = {}
         self._workflow_metadata = workflow_metadata
-        self._debug_dir = os.path.join(cli_dir, "debug")
         # Lets _reground_slicer_template register the extension's source as a
         # searchable `ext:` root even though the Repair path never parses the cookbook.
         self._repair_extension_name = extension_name
         if source_path:
             self._source_path = source_path
+        # Isolated debug folder for this repair round (debug/repair_NNN/).
+        repair_round = self._begin_repair_round(cli_dir, extension_name)
 
         manifest = {}
         manifest_path = os.path.join(cli_dir, "manifest.json")
@@ -564,13 +572,19 @@ class AnalyzerLiveRevisionMixin:
         except Exception:
             logger.debug("live-repair contract sync failed", exc_info=True)
 
+        # Archive the now-current package as this repair round's version snapshot.
+        if changed:
+            snapshot_package_version(cli_dir, repair_round)
+
         invalidate_cache()
-        return {
+        live_repair_result = {
             "success": bool(changed),
             "repaired": changed,
             "valid": bool(validation_result.get("valid")),
             "fix_description": getattr(self, "_last_fix_description", ""),
         }
+        self._flush_progress_artifacts(live_repair_result)
+        return live_repair_result
 
     # ================================================================
     # Two-source repair: recorded runtime API errors + user behavior reports
@@ -588,20 +602,25 @@ class AnalyzerLiveRevisionMixin:
         return mapping
 
     def _runtime_repair_error_strings(self, cli_dir: str, generators: List[Dict]) -> List[str]:
-        """Turn recorded runtime API errors (runtime_repairs.json) into repair strings.
+        """Turn the most recent run's recorded API errors into repair strings.
 
-        The 'Live execution failed' marker routes these as template-class
-        LiveExecutionError. Latest record per step wins; resolved records also
-        carry the runtime-working fix as adaptation evidence.
+        Runtime errors are separated per workflow run under runtime_errors/. This
+        loads the MOST RECENT run's file (falling back to the legacy flat
+        runtime_repairs.json) and remembers its path so _clear_runtime_repairs can
+        archive exactly the file it consumed. The 'Live execution failed' marker
+        routes these as template-class LiveExecutionError. Latest record per step
+        wins; resolved records also carry the runtime-working fix as evidence.
         """
-        path = os.path.join(cli_dir, "runtime_repairs.json")
-        if not os.path.isfile(path):
+        self._last_runtime_error_path = None
+        path = latest_runtime_error_file(cli_dir)
+        if not path or not os.path.isfile(path):
             return []
         try:
             with open(path, "r", encoding="utf-8") as f:
                 records = json.load(f)
         except Exception:
             return []
+        self._last_runtime_error_path = path
         if not isinstance(records, list) or not records:
             return []
         by_step = {}
@@ -710,21 +729,34 @@ class AnalyzerLiveRevisionMixin:
             logger.debug("LLM step mapping failed", exc_info=True)
             return ""
 
-    @staticmethod
-    def _clear_runtime_repairs(cli_dir: str) -> None:
-        """Archive and clear runtime_repairs.json once its errors have been repaired."""
-        path = os.path.join(cli_dir, "runtime_repairs.json")
-        if not os.path.isfile(path):
+    def _clear_runtime_repairs(self, cli_dir: str) -> None:
+        """Consume the runtime-error file a repair just used.
+
+        Moves the most recent per-run file (the one _runtime_repair_error_strings
+        loaded, remembered on self._last_runtime_error_path) into
+        runtime_errors/consumed/ so a second Repair click does not re-apply it.
+        For a legacy flat runtime_repairs.json, archives its records to
+        debug/runtime_repairs.consumed.json and empties it (old behavior).
+        """
+        path = getattr(self, "_last_runtime_error_path", None)
+        if path and os.path.basename(path) != "runtime_repairs.json":
+            archive_runtime_error_file(cli_dir, path)
+            self._last_runtime_error_path = None
+            return
+
+        # Legacy flat-file fallback.
+        legacy = path or os.path.join(cli_dir, "runtime_repairs.json")
+        if not os.path.isfile(legacy):
             return
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(legacy, "r", encoding="utf-8") as f:
                 consumed = json.load(f)
         except Exception:
             consumed = []
         try:
-            debug_dir = os.path.join(cli_dir, "debug")
-            os.makedirs(debug_dir, exist_ok=True)
-            archive = os.path.join(debug_dir, "runtime_repairs.consumed.json")
+            archive_dir = os.path.join(cli_dir, "debug")
+            os.makedirs(archive_dir, exist_ok=True)
+            archive = os.path.join(archive_dir, "runtime_repairs.consumed.json")
             existing = []
             if os.path.isfile(archive):
                 try:
@@ -741,10 +773,11 @@ class AnalyzerLiveRevisionMixin:
         except Exception:
             logger.debug("archive runtime_repairs failed", exc_info=True)
         try:
-            with open(path, "w", encoding="utf-8") as f:
+            with open(legacy, "w", encoding="utf-8") as f:
                 json.dump([], f)
         except Exception:
             logger.debug("clear runtime_repairs failed", exc_info=True)
+        self._last_runtime_error_path = None
 
     def _reconstruct_logic_analysis_from_metadata(self) -> Optional[Dict]:
         """Rebuild a minimal logic_analysis from persisted workflow_metadata.
@@ -774,6 +807,31 @@ class AnalyzerLiveRevisionMixin:
                 "state_writes": list((eff or {}).get("writes", []) or []),
             })
         return {"methods": methods}
+
+    def _begin_repair_round(self, cli_dir: str, extension_name: str = "") -> str:
+        """Set up an isolated debug folder for one repair round; return its label.
+
+        Each repair round gets debug/repair_NNN/ with its own LLM-call files and a
+        fresh ui_output.log, so it never clobbers the first generation's debug or a
+        prior round's. The returned label is reused for the version snapshot so the
+        debug and versions folders line up.
+        """
+        import time as _time
+        round_label = next_repair_round_label(cli_dir)
+        self._debug_dir = debug_round_dir(cli_dir, round_label)
+        self._llm_call_counter = 0
+        self._progress_events = []
+        self._phase_durations = {}
+        self._phase_start_times = {}
+        self._pipeline_start = _time.time()
+        self._progress_log_name = "ui_output.log"
+        self._progress_json_name = "progress_events.json"
+        ext_name = extension_name or getattr(self, "_repair_extension_name", "") or os.path.basename(cli_dir)
+        try:
+            self._begin_ui_output_round(round_label, ext_name, "", "repair")
+        except Exception:
+            logger.debug("repair-round ui_output header failed", exc_info=True)
+        return round_label
 
     def repair_generated_cli(
         self,
@@ -821,12 +879,13 @@ class AnalyzerLiveRevisionMixin:
             except Exception:
                 workflow_metadata = {}
         self._workflow_metadata = workflow_metadata
-        self._debug_dir = os.path.join(cli_dir, "debug")
         # Lets _reground_slicer_template register the extension's source as a
         # searchable `ext:` root even though the Repair path never parses the cookbook.
         self._repair_extension_name = extension_name
         if source_path:
             self._source_path = source_path
+        # Isolated debug folder for this repair round (debug/repair_NNN/).
+        repair_round = self._begin_repair_round(cli_dir, extension_name)
 
         manifest = {}
         manifest_path = os.path.join(cli_dir, "manifest.json")
@@ -916,13 +975,17 @@ class AnalyzerLiveRevisionMixin:
         except Exception:
             logger.debug("repair_generated_cli contract sync failed", exc_info=True)
 
+        # Archive the now-current package as this repair round's version snapshot.
+        if changed:
+            snapshot_package_version(cli_dir, repair_round)
+
         # Consume the recorded runtime errors we just addressed so a second Repair
         # click does not re-apply them. Function errors come fresh from the chatbox.
         if changed and runtime_error_strings:
             self._clear_runtime_repairs(cli_dir)
 
         invalidate_cache()
-        return {
+        repair_result = {
             "success": bool(changed),
             "repaired": changed,
             "valid": bool(validation_result.get("valid")),
@@ -930,6 +993,8 @@ class AnalyzerLiveRevisionMixin:
             "runtime_error_count": len(runtime_error_strings),
             "function_error_count": len(function_error_strings),
         }
+        self._flush_progress_artifacts(repair_result)
+        return repair_result
 
     # ================================================================
     # Revision System
@@ -1146,18 +1211,13 @@ class AnalyzerLiveRevisionMixin:
         if not os.path.isdir(cli_dir):
             return {"success": False, "error": f"No CLI found for {extension_name}"}
 
-        # Revisions previously ran without a debug dir, losing their LLM-call
-        # artifacts and UI output. Record everything alongside the original
-        # generation artifacts — under revision-specific file names so the
-        # original generation run's log is never clobbered.
+        # Each revision is its own repair round (debug/repair_NNN/) with its own
+        # LLM-call artifacts and ui_output.log, so it never clobbers the first
+        # generation's debug or a prior round's.
         import time as _time
-        self._debug_dir = os.path.join(cli_dir, "debug")
-        self._progress_log_name = "ui_output_revision.log"
-        self._progress_json_name = "progress_events_revision.json"
         if source_path:
             self._source_path = source_path
-        if self._pipeline_start is None:
-            self._pipeline_start = _time.time()
+        repair_round = self._begin_repair_round(cli_dir, extension_name)
         self.on_progress(
             "verify_repair", "Verify And Repair Templates",
             f"Revision started for '{extension_name}' with {len(errors or [])} "
@@ -1184,12 +1244,12 @@ class AnalyzerLiveRevisionMixin:
                 workflow_metadata = {}
         self._workflow_metadata = workflow_metadata
 
-        # Merge persisted runtime repairs (successful main-agent corrections of
-        # this package's steps) into the revision inputs: the verified failure
-        # plus the code that actually worked are the strongest available
-        # evidence for fixing the template generically.
-        runtime_repairs_path = os.path.join(cli_dir, "runtime_repairs.json")
-        if os.path.isfile(runtime_repairs_path):
+        # Merge the most recent workflow run's persisted runtime errors (the main
+        # agent's corrections of this package's steps) into the revision inputs:
+        # the verified failure plus the code that actually worked are the strongest
+        # available evidence for fixing the template generically.
+        runtime_repairs_path = latest_runtime_error_file(cli_dir)
+        if runtime_repairs_path and os.path.isfile(runtime_repairs_path):
             try:
                 with open(runtime_repairs_path, "r", encoding="utf-8") as f:
                     runtime_repairs = json.load(f)
@@ -1382,6 +1442,8 @@ class AnalyzerLiveRevisionMixin:
                     json.dump(manifest, f, indent=2)
                 with open(workflow_metadata_path, "w", encoding="utf-8") as f:
                     json.dump(self._workflow_metadata, f, indent=2)
+                # Archive this revision round's validated package snapshot.
+                snapshot_package_version(cli_dir, repair_round)
                 result["success"] = True
                 result["validation_result"] = current_validation
                 return result

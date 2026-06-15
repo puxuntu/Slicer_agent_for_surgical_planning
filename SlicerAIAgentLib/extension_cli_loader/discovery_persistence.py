@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .cache import *
+from ..cli_artifacts import GENERATION_ROUND, snapshot_package_version
 
 
 def get_workflow_choice(ext_name: str, parameter_name: str) -> Optional[Any]:
@@ -261,6 +262,10 @@ def save_cli_package(
         log_entries.append(generation_log_entry)
         with open(log_path, "w", encoding="utf-8") as f:
             json.dump(log_entries, f, indent=2, ensure_ascii=False)
+
+    # Archive the first-generation package as a version snapshot (the active
+    # package stays at the root, which is what the agent loads).
+    snapshot_package_version(ext_dir, GENERATION_ROUND)
 
     # Invalidate cache so the new CLI is picked up
     invalidate_cache()
