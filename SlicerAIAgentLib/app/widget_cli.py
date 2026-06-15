@@ -26,7 +26,10 @@ class WidgetCLIMixin:
 
         self._sourceSelector = qt.QComboBox()
         self._sourceSelector.setToolTip("Select the extension source to browse")
-        self._sourceSelector.setMinimumWidth(200)
+        # No hard minimum width — the combo fills the row via its layout stretch;
+        # a fixed 200px here would push the module panel wider when this section
+        # is expanded.
+        self._sourceSelector.setMinimumWidth(0)
         self._sourceSelector.addItems(["Extension Manager", "Additional Module Paths", "Loaded Modules"])
         sourceLayout.addWidget(self._sourceSelector, 1)
 
@@ -44,7 +47,7 @@ class WidgetCLIMixin:
 
         self._extensionSelector = qt.QComboBox()
         self._extensionSelector.setToolTip("Select an extension from the chosen source")
-        self._extensionSelector.setMinimumWidth(200)
+        self._extensionSelector.setMinimumWidth(0)
         extLayout.addWidget(self._extensionSelector, 1)
 
         cliLayout.addLayout(extLayout)

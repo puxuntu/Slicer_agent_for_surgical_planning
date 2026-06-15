@@ -24,6 +24,9 @@ class WidgetCoreMixin:
         # Interactive workflow UI
         self._setupWorkflowUI()
 
+        # Keep the module from forcing the panel wider when first opened.
+        self._relaxContentWidth()
+
         self._streamPollTimer = qt.QTimer()
         self._streamPollTimer.setInterval(50)
         self._streamPollTimer.timeout.connect(self._drainStreamQueue)
@@ -37,6 +40,40 @@ class WidgetCoreMixin:
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
         logger.info("SlicerAIAgent widget setup complete")
+
+    def _relaxContentWidth(self):
+        """Stop the agent from widening Slicer's module panel when opened.
+
+        Slicer sizes the panel to the module's content width on show. Several
+        agent widgets report a wide preferred/minimum width — the long
+        model-name combo, the chat/code QTabWidget, the prompt box, the CLI
+        fields — and, crucially, a collapsed ctkCollapsibleGroupBox still
+        propagates its children's WIDTH (it collapses height only), so even the
+        hidden Settings / Debug / Extension-CLI fields push the panel wide.
+
+        Setting every field widget's HORIZONTAL size policy to ``Ignored`` makes
+        each one demand no width of its own and simply fill whatever width the
+        panel already has. The only remaining width floor is the (small, fixed)
+        labels and buttons, so opening the agent leaves the panel at the user's
+        width — matching other modules. Vertical behaviour is left untouched.
+        """
+        root = getattr(self, "ui", None)
+        if root is None:
+            return
+        try:
+            import slicer
+            targets = []
+            for class_name in ("QComboBox", "QTextEdit", "QLineEdit", "QTabWidget", "QPlainTextEdit"):
+                targets += list(slicer.util.findChildren(root, className=class_name) or [])
+            for widget in targets:
+                try:
+                    vertical = widget.sizePolicy().verticalPolicy()
+                    widget.setMinimumWidth(0)
+                    widget.setSizePolicy(qt.QSizePolicy.Ignored, vertical)
+                except Exception:
+                    pass
+        except Exception:
+            logger.debug("relax content width failed", exc_info=True)
 
     def _connectUIWidgets(self):
         self.providerSelector = self.ui.findChild(qt.QComboBox, "providerSelector")

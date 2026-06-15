@@ -84,6 +84,35 @@ class WidgetWorkflowMixin:
 
         self._positionWorkflowUserPanel()
         self._clearWorkflowPanel()
+        self._applyWidthSafeLabels()
+
+    def _applyWidthSafeLabels(self):
+        """Stop variable-length labels from forcing the module panel wider.
+
+        A QLabel with word-wrap OFF reports its full text width as its minimum
+        size hint, and Slicer's module panel grows (and then locks) to satisfy
+        the widest child's minimum. The workflow header's title + status are the
+        offenders: when the status becomes its longest value ("Waiting for your
+        interaction" at the first interaction step, right after step 9) the panel
+        jumps wider and can no longer be dragged narrower. Word-wrapping drops
+        each label's minimum width to its widest single word, so the panel stops
+        auto-widening and the width the user set sticks. Applied at runtime so it
+        covers both the .ui-loaded and the programmatic-fallback widgets.
+        """
+        labels = [
+            getattr(self, "_workflowTitleLabel", None),
+            getattr(self, "_workflowStatusLabel", None),
+            getattr(self, "_workflowStepLabel", None),
+            getattr(self, "statusLabel", None),  # main agent status row
+        ]
+        for label in labels:
+            if label is None:
+                continue
+            try:
+                label.setWordWrap(True)
+                label.setMinimumWidth(0)
+            except Exception:
+                logger.debug("width-safe label setup failed", exc_info=True)
 
     def _positionWorkflowUserPanel(self):
         """Place the workflow panel below Debug and above the prompt input area."""
@@ -288,8 +317,12 @@ class WidgetWorkflowMixin:
         for choice in choices:
             label = str(choice.get("label") or choice.get("value") or "Choice")
             value = choice.get("value", label)
-            button = qt.QPushButton(label)
-            button.setToolTip(f"Select {label}")
+            # Cap the visible label so a long choice (e.g. a long node name) can't
+            # make a wide button that forces the whole module panel wider; the
+            # full text stays available in the tooltip.
+            display = label if len(label) <= 40 else (label[:39] + "…")
+            button = qt.QPushButton(display)
+            button.setToolTip(label if display != label else f"Select {label}")
             button.clicked.connect(lambda checked=False, sid=step_id, val=value: self._onWorkflowChoiceClicked(sid, val))
             self._workflowChoiceLayout.addWidget(button)
             button.setVisible(True)
