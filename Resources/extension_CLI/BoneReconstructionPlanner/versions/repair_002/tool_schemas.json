@@ -1,0 +1,72 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "BoneReconstructionPlanner",
+      "description": "Guided interactive workflow for BoneReconstructionPlanner. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': If the fibula is from the right leg, tick the \"Right side leg\" checkbox.; 'cb_step_2': In the \"Select mandibular segmentation\" section, choose the mandibular segmentation.; 'cb_step_3': In the \"Select fibula segmentation\" section, choose the fibula segmentation.; 'cb_step_4': In the \"Current Scalar Volume\" option, choose the Mandible Volume.; 'cb_step_5': Click \"Create bone models from segmentations\" button.; 'cb_step_6': Change the layout to \"Conventional\".; 'cb_step_7': For the R (red) slice view, toggle ON \"slice visibility in 3D view\": render the red 2D slice plane inside the 3D view (the slice controller's eye/visibility button that shows the slice in 3D). This is a per-slice 3D-display toggle on the slice node.; 'cb_step_8': For the R (red) view, toggle on \"FOV, Spacing match 2D\" (adjusts slice resolution to match the 2D viewport pixel spacing).; 'cb_step_9': In the toolbar, turn on \"slice intersection visibility\". In the slice intersection interaction options, turn on \"set interaction\", then enable both \"Translate\" and \"Rotate\".; 'cb_step_10': Manually adjust the slice intersection position by translate and rotate of the cross lines in each view. (interactive: generic)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workflow_step": {
+            "type": "string",
+            "enum": [
+              "cb_step_1",
+              "cb_step_2",
+              "cb_step_3",
+              "cb_step_4",
+              "cb_step_5",
+              "cb_step_6",
+              "cb_step_7",
+              "cb_step_8",
+              "cb_step_9",
+              "cb_step_10",
+              "cb_step_11",
+              "cb_step_12",
+              "cb_step_13",
+              "cb_step_14",
+              "cb_step_15",
+              "cb_step_16",
+              "cb_step_17",
+              "cb_step_18",
+              "cb_step_19",
+              "cb_step_20",
+              "cb_step_21",
+              "cb_step_22",
+              "cb_step_23",
+              "cb_step_24",
+              "cb_step_25",
+              "cb_step_26",
+              "cb_step_27",
+              "cb_step_28",
+              "cb_step_29",
+              "cb_step_30",
+              "cb_step_31",
+              "cb_step_32",
+              "cb_step_33"
+            ],
+            "description": "Which workflow step to execute"
+          },
+          "user_action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "proceed",
+              "skip",
+              "cancel",
+              "choice_made"
+            ],
+            "description": "Action: 'start' to begin a step, 'proceed' after user completes interaction, 'skip' for optional steps, 'cancel' to abort workflow, 'choice_made' for user_choice steps"
+          },
+          "choice_value": {
+            "type": "string",
+            "description": "Value selected by the user for user_choice steps. Required when user_action is 'choice_made'."
+          }
+        },
+        "required": [
+          "workflow_step",
+          "user_action"
+        ]
+      }
+    }
+  }
+]

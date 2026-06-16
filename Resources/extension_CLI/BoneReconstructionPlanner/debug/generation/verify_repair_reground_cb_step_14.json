@@ -1,0 +1,192 @@
+{
+  "stage": "5T",
+  "debug_schema_version": 2,
+  "debug_features": [
+    "slicer_op_classification",
+    "slicer_ui_analysis_evidence_audit",
+    "source_verification_summary",
+    "generated_code_preview",
+    "final_state_intent"
+  ],
+  "total_operations": 1,
+  "started": 1,
+  "finished": 1,
+  "errors_count": 0,
+  "operations": [
+    {
+      "step": 14,
+      "key": "cb_step_14_0",
+      "description": "Change layout to BoneReconstructionPlanner",
+      "keywords": [
+        "layout",
+        "setLayout"
+      ],
+      "category": "layout_slice_view",
+      "final_state_intent": {
+        "mode": "unspecified",
+        "state": null,
+        "confidence": "none",
+        "source": ""
+      },
+      "classification": {
+        "op_type": "slicer_op",
+        "evidence_type": "verify_repair_reground",
+        "evidence_id": "api_proof_a0073e09af459a3548f0",
+        "confidence": "high",
+        "interaction_kind": "none",
+        "node_class": null,
+        "slicer_op_category": "layout_slice_view"
+      },
+      "search_policy": {
+        "preferred_root": "slicer-ui-analysis",
+        "requires_ui_first_when_ui_labeled": true,
+        "category_hints": [
+          "slicer-ui-analysis",
+          "qMRMLSliceControllerWidget",
+          "actionShow_in_3D",
+          "layoutManager",
+          "vtkMRMLLayoutNode",
+          "sliceWidget",
+          "mrmlSliceNode",
+          "sliceController",
+          "setSliceVisible",
+          "SetSliceResolutionMode"
+        ],
+        "category_hint_provenance": "generic_slicer_search_hint"
+      },
+      "status": "done",
+      "total_time_s": 24.33,
+      "code_chars": 359,
+      "tool_rounds": 2,
+      "api_calls": 3,
+      "error": null,
+      "progress_events": [
+        {
+          "round": 1,
+          "phase": "search",
+          "message": "[Search] Round 1: |   Grep: \"BRPLayout\" \u2192 ext:BoneReconstructionPlanner/ |   Grep: \"AddLayoutDescription\" \u2192 ext:BoneReconstructionPlanner/"
+        },
+        {
+          "round": 2,
+          "phase": "read",
+          "message": "[Read] Round 2: |   ReadFile: ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+        }
+      ],
+      "prompt_build_s": 0.032,
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nChange layout to BoneReconstructionPlanner\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `BoneReconstructionPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:BoneReconstructionPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\n\nThis is a targeted repair",
+      "prompt_includes_ui_analysis": true,
+      "deterministic_ui_evidence": {
+        "matched": [],
+        "injected": false
+      },
+      "executor_ready": true,
+      "tool_count": 3,
+      "last_progress": {
+        "round": 2,
+        "phase": "read",
+        "message": "[Read] Round 2: |   ReadFile: ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+      },
+      "tool_loop_s": 22.16,
+      "total_tokens": 22423,
+      "total_api_time_s": 15.065,
+      "total_tool_time_s": 5.937,
+      "tool_names_called": [
+        "Grep",
+        "ReadFile"
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "phase": "search",
+          "api_time_s": 3.809,
+          "tool_time_s": 2.018,
+          "round_time_s": 5.827,
+          "tools": [
+            "Grep",
+            "Grep"
+          ],
+          "tokens": 4168
+        },
+        {
+          "round": 2,
+          "phase": "read",
+          "api_time_s": 3.518,
+          "tool_time_s": 3.918,
+          "round_time_s": 7.438,
+          "tools": [
+            "ReadFile"
+          ],
+          "tokens": 6998
+        },
+        {
+          "round": 3,
+          "phase": "generate",
+          "api_time_s": 7.738,
+          "tool_time_s": 0.0,
+          "round_time_s": 7.738,
+          "tools": [],
+          "tokens": 11257
+        }
+      ],
+      "tool_calls_history": [
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "BRPLayout",
+            "path": "ext:BoneReconstructionPlanner/"
+          },
+          "result_preview": "Grep: 14 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (14)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "AddLayoutDescription",
+            "path": "ext:BoneReconstructionPlanner/"
+          },
+          "result_preview": "Grep: 1 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (1)"
+        },
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py",
+            "query": "addBRPLayout"
+          },
+          "result_preview": "import os\nimport unittest\nimport logging\nimport vtk, qt, ctk, slicer, math\nimport numpy as np\nfrom slicer.ScriptedLoadableModule import *\nfrom slicer.util import VTKObservationMixin\nfrom BRPLib.helperFunctions import *\nfrom BRPLib.guiWidgets import *\n\n#\n# BoneReconstructionPlanner\n#\n\nclass BoneReconstructionPlanner(ScriptedLoadableModule):\n  \"\"\"Uses ScriptedLoadableModule base class, available at:\n  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py\n  \"\"\"\n\n  def __init__(self, parent):\n    ScriptedLoadableModule.__init__(self, parent)\n    self.parent.title = \"BoneReconstructionPlanner\"  # TODO: make this more human readable by adding spaces\n    self.parent.categories = [\"Planning\"]  # TODO: set categories (folders where the module shows up in the module selector)\n    self.parent.dependencies = []  # TODO: add here list of module names that this module requires\n    self.parent.contributors = [\"Mauro I. Dominguez, Andras Lasso, Manjula Herath\"]  # TODO: replace with \"Firstname Lastname (Organization)\"\n    # TODO: update with short description of the module and a link to online module documentation\n    self.parent.helpText = \"\"\"\nA 3D Slicer module for virtual surgical planning of mandibular reconstruction with vascularized fibula free flap and generation of patient-specific surgical guides.\nSee the whole project in <a href=\"https://github.com/SlicerIGT/SlicerBoneReconstructionPlanner\">this link</a>.\n\"\"\"\n    # TODO: replace with organization, grant and thanks\n    self.parent.acknowledgementText = \"\"\"\nMauro I. Dominguez developed this module for his final project of engineering studies \u200bat FCEIA-UNR under the supervision and advice of PhD. Andras Lasso at PerkLab, and the clinical inputs of Dr. Manjula Herath.\n\"\"\"\n\n    # Additional initialization step after application startup is complete\n    slicer.app.connect(\"startupCompleted()\", registerSampleData)\n    slicer.app.connect(\"startupCompleted()\", addBRPLayout)\n\n#\n# Register sample d..."
+        }
+      ],
+      "evidence_audit": {
+        "ui_analysis": {
+          "used": false,
+          "query_paths": [],
+          "result_files": [],
+          "matched_lines_preview": [],
+          "connected_slots": [],
+          "api_footprints": [],
+          "implementation_candidates": []
+        },
+        "source_verification": {
+          "non_ui_result_files": [
+            "ext:BoneReconstructionPlanner/.",
+            "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+          ],
+          "source_type_counts": {
+            "source": 3
+          }
+        },
+        "searches": {
+          "vector_queries": [],
+          "grep_patterns": [
+            "BRPLayout",
+            "AddLayoutDescription"
+          ],
+          "read_paths": [
+            "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+          ]
+        }
+      },
+      "reasoning_chars": 2518,
+      "reasoning_preview": "[Round 1]\nThe user wants me to fix the code template for changing the layout to \"BoneReconstructionPlanner\" which belongs to the `BoneReconstructionPlanner` extension. The key issue is that I'm fabricating the layout XML and the `slicer.BRPLayoutId` value. I need to search the extension source for the real definition.\n\nLet me search for the extension source to find the actual layout ID and XML.\n\n[Round 2]\nI found the extension source. Let me read the relevant section to get the full layout XML and the exact code pattern used by the extension.\n\n[Round 3]\nNow I have all the information I need. The extension defines:\n\n1. `slicer.BRPLayoutId = 101` - the custom layout ID\n2. The layout XML uses f-string with `slicer.MANDIBLE_VIEW_SINGLETON_TAG` and `slicer.FIBULA_VIEW_SINGLETON_TAG`\n3. There's a `setBRPLayout()` function that does `layoutManager.setLayout(slicer.BRPLayoutId)`\n4. The extension has a `addBRPLayout()` function that registers the layout\n\nThe operation specifically says \"Change layout to BoneReconstructionPlanner\" - this means activate the layout, not register it. The `setBRPLayout()` function is exactly what we need.\n\nBut I need to decide: should I also ensure the layout is registered (like addBRPLayout does)? The operation is \"Change layout\" - so the primary action is activation. But if the layout isn't registered, it won't work. Let me look at what the extension does: it registers the layout on startup via `slicer.app.connect(\"startupCompleted()\", addBRPLayout)`.\n\nSince the layout should already be registered if the extension is loaded (it registers on startup), the operation to change to it is simply:\n\n```python\nlayoutManager = slicer.app.layoutManager()\nlayoutManager.setLayout(slicer.BRPLayoutId)\n```\n\nBut to be safe, I should also handle the case where it's not registered yet. However, the user's request is specifically \"Change layout to BoneReconstructionPlanner\" - just the activation step. Let me also verify.\n\nThe existing api_chains show:\n- `slicer.app.layoutManager().setLayout`\n- `slicer.app.layoutManager.setLayout`\n\nLet me use the proper pattern from the extension source: `layoutManager = slicer.app.layoutManager()` and `layoutManager.setLayout(slicer.BRPLayoutId)`.\n\nAnd I need to verify the layout was applied. The extension source's `setBRPLayout()` doesn't verify, but the validation requirement says to read back and verify. The accepted api_chains include `layoutManager.layout` (which is a property, not a callable). \n\nLet me generate the correct code now.",
+      "generated_code_preview": "# Change layout to BoneReconstructionPlanner\n\n# Activate the BoneReconstructionPlanner custom layout\nlayoutManager = slicer.app.layoutManager()\nlayoutManager.setLayout(slicer.BRPLayoutId)\n\n# Verify\ncurrentLayout = layoutManager.layout\nif currentLayout != slicer.BRPLayoutId:\n    raise RuntimeError(\"STATE_NOT_APPLIED: layout set to BoneReconstructionPlanner\")"
+    }
+  ]
+}

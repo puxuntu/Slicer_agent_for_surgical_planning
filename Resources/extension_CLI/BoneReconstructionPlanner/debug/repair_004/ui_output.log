@@ -1,0 +1,63 @@
+==============================================================================
+Extension CLI pipeline  |  round: repair_004
+  extension : BoneReconstructionPlanner
+  source    : (repair round — no cookbook parse)
+  started   : 2026-06-15T00:51:54
+==============================================================================
+[2026-06-15T00:52:05 +   11.0s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
+[2026-06-15T00:52:08 +   14.0s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-15T00:52:12 +   17.9s] [verify_repair] Verify And Repair Templates — All 63 API probes passed
+[2026-06-15T00:52:15 +   20.9s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-15T00:52:24 +   30.7s] [verify_repair] Verify And Repair Templates — PASS
+[2026-06-15T00:52:25 +   31.0s] [verify_repair] Verify And Repair Templates — Attempt 1 found 1 repairable issue(s) [LiveExecutionErrorx1]
+[2026-06-15T00:52:25 +   31.4s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_12:LiveExecutionError -> reground_slicer_op
+[2026-06-15T00:52:27 +   33.4s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: starting 1 slicer_op templates
+[2026-06-15T00:52:28 +   33.9s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: started Configure mandibular curve display views (3D View 1 and Red)
+[2026-06-15T00:52:38 +   44.3s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 1 search: [Search] Round 1: |   Grep: "mandibular|Mandibular|mandib" → slicer-extensions/BoneReconstructionPlanner |   VectorSearch: "BoneReconstructionPlanner mandibular curve node name Add Mandibular Curve button"
+[2026-06-15T00:52:47 +   53.6s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 2 search: [Search] Round 2: |   Grep: "mandibular|Mandibular|mandib|Mandib" → slicer-source |   VectorSearch: "BoneReconstructionPlanner mandibular curve add mandibular curve button"
+[2026-06-15T00:52:54 +   59.8s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 3 search: [Search] Round 3: |   Grep: "BoneReconstructionPlanner|BoneReconstruction" → slicer-source |   Grep: "Mandibular|mandibular|mandib|mandibCurve|mandibularCurve" → slicer-ui-analysis
+[2026-06-15T00:53:01 +   66.9s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 4 search: [Search] Round 4: |   Grep: "Add Mandibular|addMandibular|add_mandibular|mandibular_curve" → slicer-source |   VectorSearch: "displayNode SetViewNodeIDs RemoveAllViewNodeIDs AddViewNodeID vtkMRMLDisplayNode view filter combo box"
+[2026-06-15T00:53:16 +   82.3s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 5 read: [Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md |   ReadFile: slicer-ui-analysis/Modules__Loadable__Markups__Widgets__Resources__UI__qMRMLMarkupsDisplayNodeWidget.ui.md
+[2026-06-15T00:53:39 +  105.4s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 6 search: [Search] Round 6: |   Grep: "BoneReconstructionPlanner" → slicer-extensions |   VectorSearch: "BoneReconstructionPlanner Slicer extension mandibular curve Python scripted module"
+[2026-06-15T00:53:58 +  123.9s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 7 search: [Search] Round 7: |   VectorSearch: "GetSingletonNode 1 vtkMRMLViewNode 3D View 1"
+[2026-06-15T00:54:02 +  128.5s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 8 read: [Read] Round 8: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md
+[2026-06-15T00:54:32 +  158.6s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: done Configure mandibular curve display views (3D View 1 and Red)
+[2026-06-15T00:54:33 +  159.7s] [verify_repair] Verify And Repair Templates — Repairs applied: 1 change(s) via reground_slicer_op
+[2026-06-15T00:54:34 +  160.0s] [verify_repair] Verify And Repair Templates — Validation attempt 2/5
+[2026-06-15T00:54:37 +  163.0s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-15T00:54:41 +  167.1s] [verify_repair] Verify And Repair Templates — All 52 API probes passed
+[2026-06-15T00:54:44 +  170.7s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-15T00:54:53 +  179.5s] [verify_repair] Verify And Repair Templates — FAIL: ['templates/cb_step_12_slicer.py.tpl: Markups display step targets a slice view but only restricts view IDs; expected SetVisibility2D/Visibility2DOn or SetSliceProjection/SliceProjectionOn so the markup is actually visible in slice views; Required template is a stub (only pass/comments/prints)']
+[2026-06-15T00:54:54 +  180.6s] [verify_repair] Verify And Repair Templates — Attempt 2 found 1 repairable issue(s) [SlicerSemanticErrorx1]
+[2026-06-15T00:54:55 +  180.9s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_12:SlicerSemanticError -> reground_slicer_op
+[2026-06-15T00:54:57 +  182.9s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: starting 1 slicer_op templates
+[2026-06-15T00:54:57 +  183.5s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: started Configure mandibular curve display views (3D View 1 and Red)
+[2026-06-15T00:55:10 +  195.8s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 1 search: [Search] Round 1: |   VectorSearch: "vtkMRMLMarkupsDisplayNode SetViewNodeIDs AddViewNodeID RemoveAllViewNodeIDs configure display views markups curve" |   Grep: "SetViewNodeIDs|AddViewNodeID|RemoveAllViewNodeIDs" → slicer-source/Libs/MRML/Core
+[2026-06-15T00:55:29 +  215.4s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 2 read: [Read] Round 2: |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.h |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.h |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.h
+[2026-06-15T00:55:45 +  231.1s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: done Configure mandibular curve display views (3D View 1 and Red)
+[2026-06-15T00:55:46 +  232.1s] [verify_repair] Verify And Repair Templates — Repairs applied: 1 change(s) via reground_slicer_op
+[2026-06-15T00:55:46 +  232.4s] [verify_repair] Verify And Repair Templates — Validation attempt 3/5
+[2026-06-15T00:55:49 +  235.4s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-15T00:56:13 +  259.2s] [llm_call] llm — call 000 -> _call_000.json (out 3461 chars)
+[2026-06-15T00:56:16 +  261.9s] [verify_repair] Verify And Repair Templates — Found 0 API issues, revised 1 templates
+[2026-06-15T00:56:19 +  265.5s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-15T00:56:29 +  275.0s] [verify_repair] Verify And Repair Templates — FAIL: ["templates/cb_step_12_slicer.py.tpl: Template reports MISSING_EVIDENCE: an extension-specific artifact could not be grounded against source evidence; re-ground against the extension's own source rather than fabricating a value."]
+[2026-06-15T00:56:30 +  275.7s] [verify_repair] Verify And Repair Templates — Attempt 3 found 1 repairable issue(s) [ValidationErrorx1]
+[2026-06-15T00:56:30 +  276.2s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_12:ValidationError -> contract_aware_template_repair
+[2026-06-15T00:56:50 +  296.1s] [llm_call] llm — call 001 -> _call_001.json (out 3669 chars)
+[2026-06-15T00:56:51 +  297.1s] [verify_repair] Verify And Repair Templates — Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair
+[2026-06-15T00:56:51 +  297.5s] [verify_repair] Verify And Repair Templates — Validation attempt 4/5
+[2026-06-15T00:56:54 +  300.5s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-15T00:57:32 +  338.6s] [llm_call] llm — call 002 -> _call_002.json (out 3129 chars)
+[2026-06-15T00:57:35 +  341.2s] [verify_repair] Verify And Repair Templates — Found 0 API issues, revised 1 templates
+[2026-06-15T00:57:38 +  344.3s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-15T00:57:47 +  353.6s] [verify_repair] Verify And Repair Templates — PASS
+[2026-06-15T00:57:48 +  354.2s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 4 validation attempt(s)
+------------------------------------------------------------------------------
+SUMMARY
+  success         : True
+  phases_completed: (none)
+  llm_calls       : 3
+  events          : 49
+  templates_changed: 1  ['templates/cb_step_12_slicer.py.tpl']
+------------------------------------------------------------------------------

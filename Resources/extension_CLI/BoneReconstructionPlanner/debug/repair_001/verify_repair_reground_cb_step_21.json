@@ -1,0 +1,181 @@
+{
+  "stage": "5T",
+  "debug_schema_version": 2,
+  "debug_features": [
+    "slicer_op_classification",
+    "slicer_ui_analysis_evidence_audit",
+    "source_verification_summary",
+    "generated_code_preview",
+    "final_state_intent"
+  ],
+  "total_operations": 1,
+  "started": 1,
+  "finished": 1,
+  "errors_count": 0,
+  "operations": [
+    {
+      "step": 21,
+      "key": "cb_step_21_0",
+      "description": "Reset field of view for red slice",
+      "keywords": [
+        "BoneReconstructionPlanner",
+        "BoneReconstructionPlannerLogic",
+        "BoneReconstructionPlanner_1781498038669",
+        "GetFieldOfView",
+        "NameError",
+        "ResetFieldOfView",
+        "SlicerAIAgentLib.workflow_state",
+        "cb_step_21_slicer.py.tpl",
+        "click reset field view button slice",
+        "layoutManager"
+      ],
+      "category": "layout_slice_view",
+      "final_state_intent": {
+        "mode": "unspecified",
+        "state": null,
+        "confidence": "none",
+        "source": ""
+      },
+      "classification": {
+        "op_type": "slicer_op",
+        "evidence_type": "verify_repair_reground",
+        "evidence_id": "issue_2",
+        "confidence": "high",
+        "interaction_kind": "none",
+        "node_class": null,
+        "slicer_op_category": "layout_slice_view"
+      },
+      "search_policy": {
+        "preferred_root": "slicer-ui-analysis",
+        "requires_ui_first_when_ui_labeled": true,
+        "category_hints": [
+          "slicer-ui-analysis",
+          "qMRMLSliceControllerWidget",
+          "actionShow_in_3D",
+          "layoutManager",
+          "vtkMRMLLayoutNode",
+          "sliceWidget",
+          "mrmlSliceNode",
+          "sliceController",
+          "setSliceVisible",
+          "SetSliceResolutionMode"
+        ],
+        "category_hint_provenance": "generic_slicer_search_hint"
+      },
+      "status": "done",
+      "total_time_s": 20.64,
+      "code_chars": 989,
+      "tool_rounds": 1,
+      "api_calls": 2,
+      "error": null,
+      "progress_events": [
+        {
+          "round": 1,
+          "phase": "search+read",
+          "message": "[Search+Read] Round 1: |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h |   Grep: \"GetFieldOfView\" \u2192 slicer-source/Libs/MRML/Core"
+        }
+      ],
+      "prompt_build_s": 0.031,
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nReset field of view for red slice\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `BoneReconstructionPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:BoneReconstructionPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\n\nThis is a targeted repair of a pre",
+      "prompt_includes_ui_analysis": true,
+      "deterministic_ui_evidence": {
+        "matched": [
+          "FileCloseSceneAction",
+          "actionSliceModelModeVolumes_2D",
+          "actionSliceModelMode2D",
+          "actionSliceModelMode2D_Volumes",
+          "actionSliceModelModeVolumes"
+        ],
+        "injected": true
+      },
+      "executor_ready": true,
+      "tool_count": 3,
+      "last_progress": {
+        "round": 1,
+        "phase": "search+read",
+        "message": "[Search+Read] Round 1: |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h |   Grep: \"GetFieldOfView\" \u2192 slicer-source/Libs/MRML/Core"
+      },
+      "tool_loop_s": 18.88,
+      "total_tokens": 16862,
+      "total_api_time_s": 15.253,
+      "total_tool_time_s": 3.245,
+      "tool_names_called": [
+        "ReadFile",
+        "Grep"
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "phase": "search+read",
+          "api_time_s": 6.245,
+          "tool_time_s": 3.245,
+          "round_time_s": 9.491,
+          "tools": [
+            "ReadFile",
+            "Grep"
+          ],
+          "tokens": 6048
+        },
+        {
+          "round": 2,
+          "phase": "generate",
+          "api_time_s": 9.008,
+          "tool_time_s": 0.0,
+          "round_time_s": 9.009,
+          "tools": [],
+          "tokens": 10814
+        }
+      ],
+      "tool_calls_history": [
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h",
+            "query": "GetFieldOfView"
+          },
+          "result_preview": "/*=auto=========================================================================\n\n  Portions (c) Copyright 2005 Brigham and Women's Hospital (BWH) All Rights Reserved.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Program:   3D Slicer\n  Module:    $RCSfile: vtkMRMLSliceNode.h,v $\n  Date:      $Date: 2006/03/19 17:12:29 $\n  Version:   $Revision: 1.3 $\n\n=========================================================================auto=*/\n\n#ifndef __vtkMRMLSliceNode_h\n#define __vtkMRMLSliceNode_h\n\n// MRML includes\n#include \"vtkMRMLAbstractViewNode.h\"\nclass vtkMRMLVolumeNode;\n\n// VTK includes\nclass vtkImplicitFunction;\nclass vtkMatrix3x3;\nclass vtkMatrix4x4;\nclass vtkPlane;\n\n/// \\brief MRML node for storing a slice through RAS space.\n///\n/// This node stores the information about how to map from RAS space to\n/// the desired slice plane.\n/// \\li SliceToRAS is the matrix that rotates and translates the slice plane\n/// \\li FieldOfView tells the size of slice plane\nclass VTK_MRML_EXPORT vtkMRMLSliceNode : public vtkMRMLAbstractViewNode\n{\npublic:\n  /// \\brief Instantiate a new Slice node without any orientation presets.\n  ///\n  /// \\note To instantiate a vtkMRMLSliceNode with preconfigured\n  /// orientation preset matrices (the default presets are: Axial,\n  /// Sagittal and Coronal in default), it is necessary to use\n  /// vtkMRMLScene::CreateNodeByClass(const char*)\n  static vtkMRMLSliceNode* New();\n  vtkTypeMacro(vtkMRMLSliceNode, vtkMRMLAbstractViewNode);\n  void PrintSelf(ostream& os, vtkIndent indent) override;\n\n  vtkMRMLNode* CreateNodeInstance() override;\n\n  ///\n  /// Set node attributes\n  void ReadXMLAttributes(const char** atts) override;\n\n  ///\n  /// Write this node's information to a MRML file in XML format.\n  void WriteXML(ostream& of, int indent) override;\n\n  /// Copy node content (excludes basic data, such as name and node references).\n  /// \\sa vtkMRMLNode::CopyContent\n  vtkMRMLCopyContentMacro(vtkMRMLSliceNode);\n\n  /// \\bri..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "GetFieldOfView",
+            "path": "slicer-source/Libs/MRML/Core"
+          },
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+        }
+      ],
+      "evidence_audit": {
+        "ui_analysis": {
+          "used": false,
+          "query_paths": [],
+          "result_files": [],
+          "matched_lines_preview": [],
+          "connected_slots": [],
+          "api_footprints": [],
+          "implementation_candidates": []
+        },
+        "source_verification": {
+          "non_ui_result_files": [
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h",
+            "slicer-source/Libs/MRML/Core"
+          ],
+          "source_type_counts": {
+            "mrml_definition": 1
+          }
+        },
+        "searches": {
+          "vector_queries": [],
+          "grep_patterns": [
+            "GetFieldOfView"
+          ],
+          "read_paths": [
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h"
+          ]
+        }
+      },
+      "reasoning_chars": 3931,
+      "reasoning_preview": "[Round 1]\nLet me analyze the failure and the correction evidence carefully.\n\nThe failure was: `GetFieldOfView() takes exactly 0 arguments (1 given)`\n\nThis means in the VTK Python wrapping, `GetFieldOfView()` returns a tuple (3 doubles) and takes zero arguments. So calling `sliceNode.GetFieldOfView(oldFov)` (passing a list as an argument) fails.\n\nThe correction evidence shows the corrected approach:\n```python\n# GetFieldOfView() in VTK Python wrapping returns a tuple (3 doubles), takes zero arguments\noldFov = sliceNode.GetFieldOfView()\n```\n\nSo the fix is straightforward: change `sliceNode.GetFieldOfView(oldFov)` to `oldFov = sliceNode.GetFieldOfView()`, and same for the verification read-back.\n\nLet me also look at the full corrected code more carefully:\n\n```python\n\"\"\"Reset field of view for the Red slice view.\"\"\"\n\nimport slicer\nimport vtk\n\nlayoutManager = slicer.app.layoutManager()\n\n# Get the \"Red\" slice widget and its logic\nsliceWidget = layoutManager.sliceWidget(\"Red\")\nsliceLogic = sliceWidget.sliceLogic()\nsliceNode = slicer.util.getNode('vtkMRMLSliceNodeRed')\n\n# Save current field of view for verification\n# GetFieldOfView() in VTK Python wrapping returns a tuple (3 doubles), takes zero arguments\noldFov = sliceNode.GetFieldOfView()\n\n# Reset field of view to fit background volume\n# (equivalent to clicking the \"Fit to window\" button in the slice controller)\nsliceLogic.StartSliceN\n```\n\nThe correction got cut off at `StartSliceN` but we can reconstruct the full corrected code based on the failing code and the correction evidence.\n\nLet me verify the GetFieldOfView API signature is correct by searching the slicer source.\n\n[Round 2]\nFrom the header, I can see:\n\n1. `vtkGetVector3Macro(FieldOfView, double);` - this macro generates `GetFieldOfView()` which returns a `double*` (3 values). In VTK Python wrapping, this returns a tuple of 3 doubles and takes ZERO arguments.\n\n2. `void SetFieldOfView(double x, double y, double z);` - takes 3 doubles.\n\nSo the fix is clear: the failing code called `sliceNode.GetFieldOfView(oldFov)` passing a list as argument, but the VTK-Python wrapper of `GetFieldOfView()` returns a tuple and takes zero arguments.\n\nThe corrected code from the evidence uses:\n```python\noldFov = sliceNode.GetFieldOfView()  # returns tuple of 3 doubles\n```\n\nAnd for the verification:\n```python\nnewFov = sliceNode.GetFieldOfView()  # returns tuple of 3 doubles\n```\n\nLet me also look for the `FitSliceToBackground` method to make sure that's the right way to reset field of view.\n\nActually, I have enough evidence. The correction is clear. Let me generate the fixed template.\n\nThe correct code is:\n\n```python\n\"\"\"Reset field of view for the Red slice view.\"\"\"\n\nimport slicer\nimport vtk\n\nlayoutManager = slicer.app.layoutManager()\n\n# Get the \"Red\" slice widget and its logic\nsliceWidget = layoutManager.sliceWidget(\"Red\")\nsliceLogic = sliceWidget.sliceLogic()\nsliceNode = slicer.util.getNode('vtkMRMLSliceNodeRed')\n\n# Save current field of view for verification\n# GetF",
+      "generated_code_preview": "\"\"\"Reset field of view for the Red slice view.\"\"\"\n\nimport slicer\nimport vtk\n\nlayoutManager = slicer.app.layoutManager()\n\n# Get the \"Red\" slice widget and its logic\nsliceWidget = layoutManager.sliceWidget(\"Red\")\nsliceLogic = sliceWidget.sliceLogic()\nsliceNode = slicer.util.getNode('vtkMRMLSliceNodeRed')\n\n# Save current field of view for verification\n# GetFieldOfView() in VTK Python wrapping returns a tuple (3 doubles), takes zero arguments\noldFov = sliceNode.GetFieldOfView()\n\n# Reset field of view to fit background volume\n# (equivalent to clicking the \"Fit to window\" button in the slice controller)\nsliceLogic.StartSliceNodeInteraction(slicer.vtkMRMLSliceNode.FieldOfViewFlag)\nsliceLogic.FitSliceToBackground()\nsliceNode.UpdateMatrices()\nsliceLogic.EndSliceNodeInteraction()\n\n# Verify that field of view was updated\nnewFov = sliceNode.GetFieldOfView()\nif newFov[0] <= 0.0 or newFov[1] <= 0.0:\n    raise RuntimeError(\"STATE_NOT_APPLIED: FieldOfView (non-positive values after reset)\")"
+    }
+  ]
+}

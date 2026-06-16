@@ -1,0 +1,114 @@
+{
+  "success": true,
+  "error": null,
+  "phases_completed": [],
+  "phase_durations_s": {},
+  "event_count": 15,
+  "events": [
+    {
+      "timestamp": "2026-06-15T10:46:02",
+      "elapsed_s": 0.2,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "Validation attempt 1/5"
+    },
+    {
+      "timestamp": "2026-06-15T10:46:03",
+      "elapsed_s": 1.9,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "Verifying template API calls against running Slicer..."
+    },
+    {
+      "timestamp": "2026-06-15T10:46:05",
+      "elapsed_s": 4.1,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "All 65 API probes passed"
+    },
+    {
+      "timestamp": "2026-06-15T10:46:11",
+      "elapsed_s": 9.5,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "Running CodeValidator..."
+    },
+    {
+      "timestamp": "2026-06-15T10:46:18",
+      "elapsed_s": 16.5,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "PASS"
+    },
+    {
+      "timestamp": "2026-06-15T10:46:18",
+      "elapsed_s": 16.8,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "Attempt 1 found 1 repairable issue(s) [FunctionBehaviorErrorx1]"
+    },
+    {
+      "timestamp": "2026-06-15T10:46:18",
+      "elapsed_s": 17.1,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "Repair ladder: cb_step_32:FunctionBehaviorError -> contract_aware_template_repair"
+    },
+    {
+      "timestamp": "2026-06-15T10:46:32",
+      "elapsed_s": 30.6,
+      "phase": "llm_call",
+      "title": "llm",
+      "detail": "call 000 -> _call_000.json (out 1907 chars)"
+    },
+    {
+      "timestamp": "2026-06-15T10:46:33",
+      "elapsed_s": 31.4,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair"
+    },
+    {
+      "timestamp": "2026-06-15T10:46:33",
+      "elapsed_s": 31.8,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "Validation attempt 2/5"
+    },
+    {
+      "timestamp": "2026-06-15T10:46:37",
+      "elapsed_s": 35.9,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "Verifying template API calls against running Slicer..."
+    },
+    {
+      "timestamp": "2026-06-15T10:46:43",
+      "elapsed_s": 42.1,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "All 65 API probes passed"
+    },
+    {
+      "timestamp": "2026-06-15T10:46:45",
+      "elapsed_s": 44.1,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "Running CodeValidator..."
+    },
+    {
+      "timestamp": "2026-06-15T10:46:50",
+      "elapsed_s": 49.0,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "PASS"
+    },
+    {
+      "timestamp": "2026-06-15T10:46:51",
+      "elapsed_s": 49.7,
+      "phase": "verify_repair",
+      "title": "Verify And Repair Templates",
+      "detail": "verify_repair finished: PASS after 2 validation attempt(s)"
+    }
+  ]
+}

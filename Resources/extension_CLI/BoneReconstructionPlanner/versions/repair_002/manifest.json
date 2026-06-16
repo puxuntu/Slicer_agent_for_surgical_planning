@@ -1,0 +1,194 @@
+{
+  "manifest_version": 3,
+  "pipeline_version": "agentic-cli-v3",
+  "extension_name": "BoneReconstructionPlanner",
+  "extension_module_name": "BoneReconstructionPlanner",
+  "logic_class_name": "BoneReconstructionPlannerLogic",
+  "version": "1.0.0",
+  "status": "validated_with_warnings",
+  "workflow_type": "interactive",
+  "workflow_graph_file": "workflow.json",
+  "workflow_metadata_file": "workflow_metadata.json",
+  "stages": [
+    "cb_step_1",
+    "cb_step_2",
+    "cb_step_3",
+    "cb_step_4",
+    "cb_step_5",
+    "cb_step_6",
+    "cb_step_7",
+    "cb_step_8",
+    "cb_step_9",
+    "cb_step_10",
+    "cb_step_11",
+    "cb_step_12",
+    "cb_step_13",
+    "cb_step_14",
+    "cb_step_15",
+    "cb_step_16",
+    "cb_step_17",
+    "cb_step_18",
+    "cb_step_19",
+    "cb_step_20",
+    "cb_step_21",
+    "cb_step_22",
+    "cb_step_23",
+    "cb_step_24",
+    "cb_step_25",
+    "cb_step_26",
+    "cb_step_27",
+    "cb_step_28",
+    "cb_step_29",
+    "cb_step_30",
+    "cb_step_31",
+    "cb_step_32",
+    "cb_step_33"
+  ],
+  "cookbook_driven": true,
+  "cookbook_file": "SlicerBoneReconstructionPlanner.md",
+  "operation_types": [
+    "extension_op",
+    "slicer_op",
+    "user_choice",
+    "user_interaction"
+  ],
+  "step_validation": {
+    "cb_step_5": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_6": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_7": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_8": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_9": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_10": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_11": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_12": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_13": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_14": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_15": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_17": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_18": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_19": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_20": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_21": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_22": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_23": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_24": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_25": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_26": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_27": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_30": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_31": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_32": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_33": {
+      "valid": true,
+      "issues": []
+    }
+  },
+  "partial_valid_step_count": 26,
+  "validation_state": {
+    "static_valid": true,
+    "api_probe_valid": true,
+    "contract_valid": true,
+    "prelude_valid": true,
+    "contract_audit_valid": true,
+    "workflow_state_valid": true,
+    "prelude_bytes_max": 29084,
+    "overall_valid": true,
+    "api_proof_valid": true,
+    "api_inventory_complete": true,
+    "generate_syntax_valid_at_generate": false,
+    "final_syntax_valid": true,
+    "placeholder_closure_valid": true,
+    "generator_template_sync_valid": true
+  },
+  "api_proof_coverage": {
+    "total_calls": 434,
+    "state_changing_calls": 123,
+    "proven_calls": 376,
+    "invalid_calls": 0,
+    "blocking_unproven_calls": 0,
+    "warning_unproven_reads": 58,
+    "inventory_complete": true
+  },
+  "workflow_contract_file": "workflow_contract.json",
+  "live_validation": {
+    "passed": true,
+    "live_valid_count": 8,
+    "failed_steps": [],
+    "skipped_count": 25
+  }
+}

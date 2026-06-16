@@ -1,0 +1,372 @@
+{
+  "stage": "5T",
+  "debug_schema_version": 2,
+  "debug_features": [
+    "slicer_op_classification",
+    "slicer_ui_analysis_evidence_audit",
+    "source_verification_summary",
+    "generated_code_preview",
+    "final_state_intent"
+  ],
+  "total_operations": 1,
+  "started": 1,
+  "finished": 1,
+  "errors_count": 0,
+  "operations": [
+    {
+      "step": 12,
+      "key": "cb_step_12_0",
+      "description": "Configure mandibular curve display views (3D View 1 and Red)",
+      "keywords": [
+        "BoneReconstructionPlanner",
+        "BoneReconstructionPlannerLogic",
+        "BoneReconstructionPlanner_1781498038669",
+        "NameError",
+        "RuntimeError",
+        "SetDisplayNode",
+        "SetViewNodeIDs",
+        "SlicerAIAgentLib.workflow_state",
+        "box.",
+        "button."
+      ],
+      "category": "markups_display",
+      "final_state_intent": {
+        "mode": "unspecified",
+        "state": null,
+        "confidence": "none",
+        "source": ""
+      },
+      "classification": {
+        "op_type": "slicer_op",
+        "evidence_type": "verify_repair_reground",
+        "evidence_id": "issue_1",
+        "confidence": "high",
+        "interaction_kind": "none",
+        "node_class": "vtkMRMLMarkupsCurveNode",
+        "slicer_op_category": "markups_display"
+      },
+      "search_policy": {
+        "preferred_root": "slicer-ui-analysis",
+        "requires_ui_first_when_ui_labeled": true,
+        "category_hints": [
+          "slicer-ui-analysis",
+          "qSlicerMarkupsModule.ui",
+          "qMRMLDisplayNodeViewComboBox",
+          "vtkMRMLMarkupsDisplayNode",
+          "AddViewNodeID",
+          "SetActiveListID",
+          "Markups display advanced view",
+          "SetVisibility2D",
+          "SetSliceProjection",
+          "SliceProjection"
+        ],
+        "category_hint_provenance": "generic_slicer_search_hint"
+      },
+      "status": "done",
+      "total_time_s": 55.94,
+      "code_chars": 2206,
+      "tool_rounds": 5,
+      "api_calls": 6,
+      "error": null,
+      "progress_events": [
+        {
+          "round": 1,
+          "phase": "search",
+          "message": "[Search] Round 1: |   Grep: \"SetViewNodeIDs\" \u2192 slicer-source/Libs/MRML/Core |   Grep: \"SetViewNodeIDs\" \u2192 slicer-source/Modules/Loadable/Markups"
+        },
+        {
+          "round": 2,
+          "phase": "search+read",
+          "message": "[Search+Read] Round 2: |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.h |   Grep: \"view.*combo.*box|ViewComboBox|viewNodeIDs|AddViewNodeID\" \u2192 slicer-ui-analysis"
+        },
+        {
+          "round": 3,
+          "phase": "read",
+          "message": "[Read] Round 3: |   ReadFile: slicer-ui-analysis/Modules__Loadable__Markups__Widgets__Resources__UI__qMRMLMarkupsDisplayNodeWidget.ui.md |   ReadFile: slicer-ui-analysis/Modules__Loadable__Markups__Resources__UI__qSlicerMarkupsModule.ui.md"
+        },
+        {
+          "round": 4,
+          "phase": "search",
+          "message": "[Search] Round 4: |   VectorSearch: \"mrmlSliceNode qMRMLSliceWidget Python API\" |   Grep: \"mrmlSliceNode\" \u2192 slicer-source/Docs/developer_guide/script_repository"
+        },
+        {
+          "round": 5,
+          "phase": "read",
+          "message": "[Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+        }
+      ],
+      "prompt_build_s": 0.063,
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nConfigure mandibular curve display views (3D View 1 and Red)\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `BoneReconstructionPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:BoneReconstructionPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\n\nThis is",
+      "prompt_includes_ui_analysis": true,
+      "deterministic_ui_evidence": {
+        "matched": [
+          "PreserveCLIModuleDataFilesCheckBox",
+          "pushButton_ClearSelection",
+          "ConvertReferenceVolumeNodeComboBox",
+          "IncludeChildrenCheckBox",
+          "pushButton_Snapshot"
+        ],
+        "injected": true
+      },
+      "executor_ready": true,
+      "tool_count": 3,
+      "last_progress": {
+        "round": 5,
+        "phase": "read",
+        "message": "[Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+      },
+      "tool_loop_s": 53.78,
+      "total_tokens": 203074,
+      "total_api_time_s": 34.872,
+      "total_tool_time_s": 15.875,
+      "tool_names_called": [
+        "Grep",
+        "ReadFile",
+        "VectorSearch"
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "phase": "search",
+          "api_time_s": 4.463,
+          "tool_time_s": 2.719,
+          "round_time_s": 7.182,
+          "tools": [
+            "Grep",
+            "Grep"
+          ],
+          "tokens": 6224
+        },
+        {
+          "round": 2,
+          "phase": "search+read",
+          "api_time_s": 3.511,
+          "tool_time_s": 6.56,
+          "round_time_s": 10.071,
+          "tools": [
+            "ReadFile",
+            "Grep"
+          ],
+          "tokens": 8258
+        },
+        {
+          "round": 3,
+          "phase": "read",
+          "api_time_s": 4.323,
+          "tool_time_s": 0.748,
+          "round_time_s": 5.071,
+          "tools": [
+            "ReadFile",
+            "ReadFile"
+          ],
+          "tokens": 19470
+        },
+        {
+          "round": 4,
+          "phase": "search",
+          "api_time_s": 6.323,
+          "tool_time_s": 5.027,
+          "round_time_s": 11.351,
+          "tools": [
+            "VectorSearch",
+            "Grep"
+          ],
+          "tokens": 46645
+        },
+        {
+          "round": 5,
+          "phase": "read",
+          "api_time_s": 9.557,
+          "tool_time_s": 0.822,
+          "round_time_s": 10.379,
+          "tools": [
+            "ReadFile"
+          ],
+          "tokens": 60616
+        },
+        {
+          "round": 6,
+          "phase": "generate",
+          "api_time_s": 6.694,
+          "tool_time_s": 0.0,
+          "round_time_s": 6.694,
+          "tools": [],
+          "tokens": 61861
+        }
+      ],
+      "tool_calls_history": [
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "SetViewNodeIDs",
+            "path": "slicer-source/Libs/MRML/Core"
+          },
+          "result_preview": "Grep: 2 hit(s) in 2 file(s): slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.h (1), slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.cxx (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "SetViewNodeIDs",
+            "path": "slicer-source/Modules/Loadable/Markups"
+          },
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+        },
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.h",
+            "query": "SetViewNodeIDs"
+          },
+          "result_preview": "  /// Get the texture interpolation of the display node.\n  /// \\sa InterpolateTexture, SetInterpolateTexture(), InterpolateTextureOn(),\n  /// InterpolateTextureOff()\n  vtkGetMacro(InterpolateTexture, int);\n  /// Set the texture interpolation of the display node.\n  /// \\sa InterpolateTexture, SetInterpolateTexture(), GetInterpolateTexture()\n  vtkBooleanMacro(InterpolateTexture, int);\n\n  /// Set and observe color node of the display node.\n  /// \\sa ColorNodeID, GetColorNodeID()\n  virtual void SetAndObserveColorNodeID(const char* ColorNodeID);\n  /// Set and observe color node of the display node.\n  /// Utility method that conveniently takes a string instead of a char*\n  /// \\sa ColorNodeID, GetColorNodeID()\n  void SetAndObserveColorNodeID(const std::string& ColorNodeID);\n  /// Get color node ID of the display node.\n  /// \\sa ColorNodeID, SetAndObserveColorNodeID()\n  vtkGetStringMacro(ColorNodeID);\n\n  /// Get associated color MRML node. Search the node into the scene if the node\n  /// hasn't been cached yet. This can be a slow call.\n  /// \\sa ColorNodeID, SetAndObserveColorNodeID, GetColorNodeID()\n  virtual vtkMRMLColorNode* GetColorNode();\n\n  /// Set the active scalar name of the display node.\n  /// \\sa ActiveScalarName, GetActiveScalarName()\n  vtkSetStringMacro(ActiveScalarName);\n  /// Return the name of the currently active scalar field for this model.\n  /// \\sa ActiveScalarName, SetActiveScalarName()\n  vtkGetStringMacro(ActiveScalarName);\n\n  /// Set the active attribute location of the display node.\n  /// vtkAssignAttribute::POINT_DATA by default.\n  /// \\sa ActiveAttributeLocation, GetActiveAttributeLocation(), SetActiveAttributeLocationFromString()\n  vtkSetMacro(ActiveAttributeLocation, int);\n  /// Get the active attribute location of the display node.\n  /// \\sa ActiveAttributeLocation, SetActiveAttributeLocation(), GetActiveAttributeLocationAsString()\n  vtkGetMacro(ActiveAttributeLocation, int);\n  /// Get the active attribute location of the display node as string..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "view.*combo.*box|ViewComboBox|viewNodeIDs|AddViewNodeID",
+            "path": "slicer-ui-analysis"
+          },
+          "result_preview": "Grep: 129 hit(s) in 21 file(s): slicer-ui-analysis/Base__QTGUI__Resources__UI__qSlicerSettingsViewsPanel.ui.md (45), slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLPlotViewControllerWidget.ui.md (32), slicer-ui-analysis/Modules__Loadable__VolumeRendering__Resources__UI__qSlicerVolumeRenderingModuleWidget.ui.md (8), slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLTableViewControllerWidget.ui.md (5), slicer-ui-analysis/Modules__Loadable__Colors__Widgets__Resources__UI__qMRMLColorLegendDisplayNodeWidget.ui.md (5)"
+        },
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "slicer-ui-analysis/Modules__Loadable__Markups__Widgets__Resources__UI__qMRMLMarkupsDisplayNodeWidget.ui.md"
+          },
+          "result_preview": "# Slicer UI Analysis: Modules/Loadable/Markups/Widgets/Resources/UI/qMRMLMarkupsDisplayNodeWidget.ui\n\n- Owner class: `qMRMLMarkupsDisplayNodeWidget`\n- UI file: `Modules/Loadable/Markups/Widgets/Resources/UI/qMRMLMarkupsDisplayNodeWidget.ui`\n\nThis document maps user-facing Slicer UI controls to nearby implementation evidence. Use UI evidence to identify intent, then verify executable code against implementation/API evidence.\n\n## widget: qMRMLMarkupsDisplayNodeWidget\n\n- Confidence: `linked_to_api`\n- Widget/action class: `qMRMLWidget`\n- Search text: qMRMLMarkupsDisplayNodeWidget | qMRMLWidget\n- Implementation candidates: `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx`, `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.h`\n- Matched implementation lines:\n  - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:25: #include \"qMRMLMarkupsDisplayNodeWidget.h\"`\n  - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:26: #include \"ui_qMRMLMarkupsDisplayNodeWidget.h\"`\n  - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:47: class qMRMLMarkupsDisplayNodeWidgetPrivate`\n  - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:49: , public Ui_qMRMLMarkupsDisplayNodeWidget`\n  - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:51: Q_DECLARE_PUBLIC(qMRMLMarkupsDisplayNodeWidget);`\n  - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:54: qMRMLMarkupsDisplayNodeWidget* const q_ptr;`\n  - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:58: qMRMLMarkupsDisplayNodeWidgetPrivate(qMRMLMarkupsDisplayNodeWidget& object);`\n  - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:65: qMRMLMarkupsDisplayNodeWidgetPrivate::qMRMLMarkupsDisplayNodeWidgetPrivate(qMRMLMarkupsDisplayNodeWidget& object)`\n  - `Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx:71: void qMRMLMarkupsDisplayNodeWidgetPrivate::init()`\n  - ..."
+        },
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "slicer-ui-analysis/Modules__Loadable__Markups__Resources__UI__qSlicerMarkupsModule.ui.md"
+          },
+          "result_preview": "# Slicer UI Analysis: Modules/Loadable/Markups/Resources/UI/qSlicerMarkupsModule.ui\n\n- Owner class: `qSlicerMarkupsModule`\n- UI file: `Modules/Loadable/Markups/Resources/UI/qSlicerMarkupsModule.ui`\n\nThis document maps user-facing Slicer UI controls to nearby implementation evidence. Use UI evidence to identify intent, then verify executable code against implementation/API evidence.\n\n## widget: qSlicerMarkupsModule\n\n- Confidence: `linked_to_api`\n- Widget/action class: `qSlicerWidget`\n- Search text: qSlicerMarkupsModule | qSlicerWidget\n- Implementation candidates: `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx`, `Modules/Loadable/Markups/qSlicerMarkupsModule.h`, `Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.cxx`, `Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.h`\n- Matched implementation lines:\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:46: #include \"qSlicerMarkupsModule.h\"`\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:47: #include \"qSlicerMarkupsModuleWidget.h\"`\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:81: class qSlicerMarkupsModulePrivate`\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:84: Q_DECLARE_PUBLIC(qSlicerMarkupsModule);`\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:87: qSlicerMarkupsModule* const q_ptr;`\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:90: qSlicerMarkupsModulePrivate(qSlicerMarkupsModule& object);`\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:95: virtual ~qSlicerMarkupsModulePrivate();`\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:103: // qSlicerMarkupsModulePrivate methods`\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:106: qSlicerMarkupsModulePrivate::qSlicerMarkupsModulePrivate(qSlicerMarkupsModule& object)`\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:116: qSlicerMarkupsModulePrivate::~qSlicerMarkupsModulePrivate()`\n  - `Modules/Loadable/Markups/qSlicerMarkupsModule.cxx:135: void qSlicerMarkupsModulePrivate::addToolBar()`\n ..."
+        },
+        {
+          "tool": "VectorSearch",
+          "args": {
+            "query": "mrmlSliceNode qMRMLSliceWidget Python API",
+            "top_k": 5
+          },
+          "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 943-952) [doc_example] similarity:0.764 boosted:0.994\n```markdown\n# Create widget\nviewWidget = slicer.qMRMLSliceWidget()\nviewWidget.setMRMLScene(slicer.mrmlScene)\nviewWidget.setMRMLSliceNode(viewNode)\nsliceLogics = slicer.app.applicationLogic().GetSliceLogics()\nviewWidget.setSliceLogics(sliceLogics)\nsliceLogics.AddItem(viewWidget.sliceLogic())\nviewWidget.show()\n```\n```\n\n[2] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 1136-1143) [doc_example] similarity:0.725 boosted:0.943\n```markdown\n# Red slice view\nsliceViewLabel = \"Red\"\nsliceViewNode = slicer.mrmlScene.GetNodeByID(f\"vtkMRMLSliceNode{sliceViewLabel}\")\nappLogic = slicer.app.applicationLogic()\ndisplayableManager = appLogic.GetViewDisplayableManagerByClassName(sliceViewNode, \"vtkMRMLCrosshairDisplayableManager\")\n\nwidget = displayableManager.GetSliceIntersectionWidget()\n```\n\n[3] slicer-ui-analysis/Modules__Loadable__Reformat__Resources__UI__qSlicerReformatModuleWidget.ui.md (lines 47-61) [ui_analysis] similarity:0.713 boosted:0.821\n```markdown\n## widget: SliceNodeSelector\n\n- Confidence: `linked_to_api`\n- Widget/action class: `qMRMLNodeComboBox`\n- Search text: SliceNodeSelector | qMRMLNodeComboBox\n- Implementation candidates: `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.cxx`, `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.h`\n- Matched implementation lines:\n  - `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.cxx:312: this->connect(d->SliceNodeSelector, SIGNAL(currentNodeChanged(vtkMRMLNode*)), SLOT(onNodeSelected(vtkMRMLNode*)));`\n  - `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.cxx:682: d->SliceNodeSelector->setCurrentNode(node);`\n  - `Modules/Loadable/Reformat/qSlicerReformatModuleWidget.cxx:694: d->SliceNodeSelector->setCurrentNode(sliceNode);`\n- Connected slots/functions: `onNodeSelected`, `setEnabled`\n- Declared UI connections: `currentNodeC..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "mrmlSliceNode",
+            "path": "slicer-source/Docs/developer_guide/script_repository"
+          },
+          "result_preview": "Grep: 31 hit(s) in 5 file(s): slicer-source/Docs/developer_guide/script_repository/gui.md (17), slicer-source/Docs/developer_guide/script_repository/volumes.md (5), slicer-source/Docs/developer_guide/script_repository/screencapture.md (4), slicer-source/Docs/developer_guide/script_repository/markups.md (3), slicer-source/Docs/developer_guide/script_repository/segmentations.md (2)"
+        },
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "slicer-source/Docs/developer_guide/script_repository/gui.md",
+            "query": "SetViewNodeIDs"
+          },
+          "result_preview": "### Display a node in only some views\n\nShow a displayable node in a predefined set of views. Here, show a markups line only in `Red+`, `Green+` and `Yellow+` views.\n\n```python\ndisplayableNode = getNode(\"L\")\n\nviewNodeIDs = [\n  slicer.app.layoutManager().sliceWidget(viewName).mrmlSliceNode().GetID()\n  for viewName in [\"Red+\", \"Green+\", \"Yellow+\"]\n]\n\ndisplayableNode.GetDisplayNode().SetViewNodeIDs(viewNodeIDs)\n```\n\n"
+        }
+      ],
+      "evidence_audit": {
+        "ui_analysis": {
+          "used": true,
+          "query_paths": [
+            "slicer-ui-analysis",
+            "slicer-ui-analysis/Modules__Loadable__Markups__Widgets__Resources__UI__qMRMLMarkupsDisplayNodeWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Markups__Resources__UI__qSlicerMarkupsModule.ui.md"
+          ],
+          "result_files": [
+            "slicer-ui-analysis/.",
+            "slicer-ui-analysis/Base__QTGUI__Resources__UI__qSlicerSettingsViewsPanel.ui.md",
+            "slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLPlotViewControllerWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__VolumeRendering__Resources__UI__qSlicerVolumeRenderingModuleWidget.ui.md",
+            "slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLTableViewControllerWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Colors__Widgets__Resources__UI__qMRMLColorLegendDisplayNodeWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Segmentations__Widgets__Resources__UI__qMRMLSegmentationDisplayNodeWidget.ui.md",
+            "slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLDisplayNodeWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Markups__Widgets__Resources__UI__qMRMLMarkupsDisplayNodeWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Models__Widgets__Resources__UI__qMRMLModelDisplayNodeWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__ViewControllers__Resources__UI__qSlicerViewControllersModuleWidget.ui.md",
+            "slicer-ui-analysis/Applications__SlicerApp__Testing__Python__Resources__UI__ScenePerformance.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Markups__Resources__UI__qSlicerMarkupsModule.ui.md",
+            "slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLTestModelViews.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Cameras__Resources__UI__qSlicerCamerasModuleWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Models__Resources__UI__qSlicerModelsModuleWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Plots__Widgets__Resources__UI__qMRMLPlotSeriesPropertiesWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Transforms__Resources__UI__qSlicerTransformsModuleWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Transforms__Widgets__Resources__UI__qMRMLTransformDisplayNodeWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__VolumeRendering__Resources__UI__qSlicerCPURayCastVolumeRenderingPropertiesWidget.ui.md"
+          ],
+          "matched_lines_preview": [
+            "- `Base/QTGUI/qSlicerSettingsViewsPanel.cxx:77: QObject::connect(this->MSAAComboBox, &QComboBox::currentTextChanged, q, &qSlicerSettingsViewsPanel::onMSAAChanged);`",
+            "- `Base/QTGUI/qSlicerSettingsViewsPanel.cxx:82: this->SliceOrientationMarkerTypeComboBox->addItem(qSlicerSettingsViewsPanel::tr(\"none\"), QString(/*no tr*/ \"none\"));`",
+            "- `Base/QTGUI/qSlicerSettingsViewsPanel.cxx:83: this->SliceOrientationMarkerTypeComboBox->addItem(qSlicerSettingsViewsPanel::tr(\"cube\"), QString(/*no tr*/ \"cube\"));`",
+            "- `Base/QTGUI/qSlicerSettingsViewsPanel.cxx:84: this->SliceOrientationMarkerTypeComboBox->addItem(qSlicerSettingsViewsPanel::tr(\"human\"), QString(/*no tr*/ \"human\"));`",
+            "- `Base/QTGUI/qSlicerSettingsViewsPanel.cxx:85: this->SliceOrientationMarkerTypeComboBox->addItem(qSlicerSettingsViewsPanel::tr(\"axes\"), QString(/*no tr*/ \"axes\"));`",
+            "- `Base/QTGUI/qSlicerSettingsViewsPanel.cxx:87: QObject::connect(this->SliceOrientationMarkerTypeComboBox, &QComboBox::currentTextChanged, q, &qSlicerSettingsViewsPanel::currentSliceOrientationMarkerTypeChanged);`",
+            "- `Base/QTGUI/qSlicerSettingsViewsPanel.cxx:249: return d->SliceOrientationMarkerTypeComboBox->currentText();`",
+            "- `Base/QTGUI/qSlicerSettingsViewsPanel.cxx:257: d->SliceOrientationMarkerTypeComboBox->setCurrentIndex(qMax(d->SliceOrientationMarkerTypeComboBox->findText(text), 0));`",
+            "- `Libs/MRML/Widgets/qMRMLPlotViewControllerWidget.cxx:84: this->connect(this->plotChartComboBox, SIGNAL(currentNodeChanged(vtkMRMLNode*)), SLOT(onPlotChartNodeSelected(vtkMRMLNode*)));`",
+            "- `Libs/MRML/Widgets/qMRMLPlotViewControllerWidget.cxx:96: QObject::connect(q, SIGNAL(mrmlSceneChanged(vtkMRMLScene*)), this->plotChartComboBox, SLOT(setMRMLScene(vtkMRMLScene*)));`",
+            "- `Libs/MRML/Widgets/qMRMLPlotViewControllerWidget.cxx:358: bool wasBlocked = d->plotChartComboBox->blockSignals(true);`",
+            "- `Libs/MRML/Widgets/qMRMLPlotViewControllerWidget.cxx:359: d->plotChartComboBox->setCurrentNode(mrmlPlotChartNode);`",
+            "- `Libs/MRML/Widgets/qMRMLPlotViewControllerWidget.cxx:360: d->plotChartComboBox->blockSignals(wasBlocked);`",
+            "- `Libs/MRML/Widgets/qMRMLPlotViewControllerWidget.cxx:431: bool plotChartBlockSignals = d->plotChartComboBox->blockSignals(true);`",
+            "- `Libs/MRML/Widgets/qMRMLPlotViewControllerWidget.cxx:436: d->plotChartComboBox->blockSignals(plotChartBlockSignals);`",
+            "## widget: ViewCheckableNodeComboBox",
+            "- Search text: ViewCheckableNodeComboBox | qMRMLDisplayNodeViewComboBox",
+            "- `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:183: this->ViewCheckableNodeComboBox->setNodeTypes(QStringList(QString(\"vtkMRMLViewNode\")));`",
+            "- `Modules/Loadable/VolumeRendering/qSlicerVolumeRenderingModuleWidget.cxx:243: for (vtkMRMLAbstractViewNode* const viewNode : this->ViewCheckableNodeComboBox->checkedViewNodes())`",
+            "- `Libs/MRML/Widgets/qMRMLTableViewControllerWidget.cxx:101: this->connect(this->tableComboBox, SIGNAL(currentNodeChanged(vtkMRMLNode*)), SLOT(onTableNodeSelected(vtkMRMLNode*)));`",
+            "- `Libs/MRML/Widgets/qMRMLTableViewControllerWidget.cxx:121: QObject::connect(q, SIGNAL(mrmlSceneChanged(vtkMRMLScene*)), this->tableComboBox, SLOT(setMRMLScene(vtkMRMLScene*)));`",
+            "- `Libs/MRML/Widgets/qMRMLTableViewControllerWidget.cxx:351: d->tableComboBox->setCurrentNodeID(tableNode ? tableNode->GetID() : nullptr);`",
+            "- `Libs/MRML/Widgets/qMRMLTableViewControllerWidget.cxx:407: bool tableBlockSignals = d->tableComboBox->blockSignals(true);`",
+            "- `Libs/MRML/Widgets/qMRMLTableViewControllerWidget.cxx:412: d->tableComboBox->blockSignals(tableBlockSignals);`",
+            "## widget: DisplayNodeViewComboBox"
+          ],
+          "connected_slots": [],
+          "api_footprints": [],
+          "implementation_candidates": []
+        },
+        "source_verification": {
+          "non_ui_result_files": [
+            "slicer-source/Libs/MRML/Core",
+            "slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.cxx",
+            "slicer-source/Modules/Loadable/Markups",
+            "slicer-source/Docs/developer_guide/script_repository/gui.md",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.cxx",
+            "slicer-source/Docs/developer_guide/script_repository",
+            "slicer-source/Docs/developer_guide/script_repository/volumes.md",
+            "slicer-source/Docs/developer_guide/script_repository/screencapture.md",
+            "slicer-source/Docs/developer_guide/script_repository/markups.md",
+            "slicer-source/Docs/developer_guide/script_repository/segmentations.md"
+          ],
+          "source_type_counts": {
+            "mrml_definition": 4,
+            "ui_analysis": 24,
+            "doc_example": 8
+          }
+        },
+        "searches": {
+          "vector_queries": [
+            "mrmlSliceNode qMRMLSliceWidget Python API"
+          ],
+          "grep_patterns": [
+            "SetViewNodeIDs",
+            "view.*combo.*box|ViewComboBox|viewNodeIDs|AddViewNodeID",
+            "mrmlSliceNode"
+          ],
+          "read_paths": [
+            "slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.h",
+            "slicer-ui-analysis/Modules__Loadable__Markups__Widgets__Resources__UI__qMRMLMarkupsDisplayNodeWidget.ui.md",
+            "slicer-ui-analysis/Modules__Loadable__Markups__Resources__UI__qSlicerMarkupsModule.ui.md",
+            "slicer-source/Docs/developer_guide/script_repository/gui.md"
+          ]
+        }
+      },
+      "reasoning_chars": 5745,
+      "reasoning_preview": "[Round 1]\nLet me analyze the failure and the behavioral contract carefully.\n\nThe previous code failed because:\n1. The curve node search used `\"Mandibular\"` (case-sensitive) but the actual node name might have different casing (e.g., \"mandibular\")\n2. The corrected code uses `\"mandibular\" in nodeName.lower()` which is case-insensitive\n\nLet me now search for the actual API evidence for configuring view display on markups display nodes, especially the correct way to restrict visibility to specific views.\n\nLet me search for the relevant evidence.\n\n[Round 2]\nGood, `SetViewNodeIDs` is confirmed on `vtkMRMLDisplayNode`. Let me also verify the correct approach for getting the view node IDs - the \"View\" combo box in the Markups module Advanced section. Let me also check for `AddViewNodeID` and how the view combo box works.\n\n[Round 3]\nI see that `qMRMLDisplayNodeViewComboBox` is the widget class used for the \"View\" combo box in the Markups module's Advanced section. Let me look at the Markups module's UI file to understand how this combo box works, and look for the actual implementation details on how it interacts with the display node.\n\nLet me also look at the Markups module's display node widget UI analysis for more details.\n\n[Round 4]\nI see that the `DisplayNodeViewComboBox` in the markups display node widget is a `qMRMLDisplayNodeViewComboBox` class. This widget connects to the display node via `setMRMLDisplayNode`. The underlying MRML API that this widget manipulates is indeed `SetViewNodeIDs` on `vtkMRMLDisplayNode`.\n\nNow, the key issue I need to fix from the previous failure:\n1. The case-insensitive search for \"mandibular\" - the failing code uses `\"mandibular\" in nodeName.lower()` which is correct.\n2. The previous code used `slicer.app.layoutManager().sliceWidget(\"Red\").mrmlSliceNode()` but the GetID call needs to be correct.\n\nWait, actually looking at the failing code more carefully, the original failure was:\n`MANDIBULAR_CURVE_NOT_FOUND: No markups curve node with 'Mandibular' in its name`\n\nThe fix was to use case-insensitive matching. But the correction that succeeded added workflow metadata logic that isn't needed here. I need to adapt the fix - just the case-insensitive search part.\n\nLet me now look more carefully at the correction. The actual fix is:\n1. Case-insensitive search with `\"mandibular\" in nodeName.lower()`\n2. That's the main fix\n\nNow, I also need to make sure I'm looking at the right APIs. Let me verify the slice widget API for getting the red slice node ID.\n\nLet me check if `mrmlSliceNode` is a method or property.\n\n[Round 5]\nNow I have all the evidence I need. Let me look at the key reference from the Slicer documentation:\n\nFrom `slicer-source/Docs/developer_guide/script_repository/gui.md` (line 443-451):\n```python\ndisplayableNode = getNode(\"L\")\nviewNodeIDs = [\n  slicer.app.layoutManager().sliceWidget(viewName).mrmlSliceNode().GetID()\n  for viewName in [\"Red+\", \"Green+\", \"Yellow+\"]\n]\ndisplayableNode.GetDisplayNode().SetViewNodeIDs(vie",
+      "generated_code_preview": "\"\"\"\nConfigure mandibular curve display views (3D View 1 and Red).\nRestricts visibility of the curve markups node to only these two views.\n\"\"\"\n\n# Find the mandibular curve node by fuzzy name match (case-insensitive)\ncurveNode = None\nfor node in slicer.mrmlScene.GetNodesByClass(\"vtkMRMLMarkupsCurveNode\"):\n    nodeName = node.GetName()\n    if nodeName and \"mandibular\" in nodeName.lower():\n        curveNode = node\n        break\n\nif curveNode is None:\n    raise RuntimeError(\"MANDIBULAR_CURVE_NOT_FOUND: No markups curve node with 'mandibular' in its name (case-insensitive search)\")\n\n# Get the display node\ndisplayNode = curveNode.GetDisplayNode()\nif displayNode is None:\n    raise RuntimeError(\"DISPLAY_NODE_NOT_FOUND: Curve node has no display node\")\n\n# Resolve view node IDs for the two target views\n\n# \"3D View 1\" -> singleton tag \"1\" for vtkMRMLViewNode\nview3DNode = slicer.mrmlScene.GetSingletonNode(\"1\", \"vtkMRMLViewNode\")\nif view3DNode is None:\n    raise RuntimeError(\"VIEW_1_NOT_FOUND: 3D View 1 (singleton tag '1') not found in scene\")\n\n# \"Red\" slice view\nredSliceNode = slicer.app.layoutManager().sliceWidget(\"Red\").mrmlSliceNode()\nredSliceNodeId = redSliceNode.GetID()\n\nview3DNodeId = view3DNode.GetID()\n\n# Configure display: restrict to only the specified views\ndisplayNode.SetViewNodeIDs([view3DNodeId, redSliceNodeId])\n\n# Ensure the curve is visible in both view types\n# Visibility2D must be on for the Red slice view\ndisplayNode.SetVisibility2D(1)\n# Visibility3D must be on for the 3D view\ndisplayNode.SetVisibility3D(1)\n# Overall visibility must also be on\ndisplayNode.SetVisibility(1)\n\n# Read back and verify each state\nactualViewNodeIDs = displayNode.GetViewNodeIDs()\nexpectedIDs = [view3DNodeId, redSliceNodeId]\nfor expected in expectedIDs:\n    if expected not in actualViewNodeIDs:\n        raise RuntimeError(\"STATE_NOT_APPLIED: ViewNodeID %s not found in display node's view node list\" % expected)\n\nif not displayNode.GetVisibility2D():\n    raise RuntimeError(\"STATE_NOT_APPLIED"
+    }
+  ]
+}

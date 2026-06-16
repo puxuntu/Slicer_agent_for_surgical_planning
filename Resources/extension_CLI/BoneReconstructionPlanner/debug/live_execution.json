@@ -1,0 +1,274 @@
+{
+  "pass": 1,
+  "summary": {
+    "live_valid": 7,
+    "failed_bug": 0,
+    "skipped": 26
+  },
+  "steps": [
+    {
+      "template_key": "cb_step_1",
+      "step_id": "cb_step_1",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_10",
+      "step_id": "cb_step_10",
+      "operation_type": "user_interaction",
+      "status": "skipped_interaction",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_13",
+      "step_id": "cb_step_13",
+      "operation_type": "user_interaction",
+      "status": "skipped_interaction",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_16",
+      "step_id": "cb_step_16",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_18",
+      "step_id": "cb_step_18",
+      "operation_type": "user_interaction",
+      "status": "skipped_interaction",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_2",
+      "step_id": "cb_step_2",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_20",
+      "step_id": "cb_step_20",
+      "operation_type": "user_interaction",
+      "status": "skipped_interaction",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_28",
+      "step_id": "cb_step_28",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_29",
+      "step_id": "cb_step_29",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_3",
+      "step_id": "cb_step_3",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_30",
+      "step_id": "cb_step_30",
+      "operation_type": "user_interaction",
+      "status": "skipped_interaction",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_4",
+      "step_id": "cb_step_4",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_11.py.tpl",
+      "step_id": "cb_step_11",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_12_slicer.py.tpl",
+      "step_id": "cb_step_12",
+      "operation_type": "slicer_op",
+      "status": "skipped_precondition",
+      "error": "No markups curve node found in the scene. Ensure step 11 was executed.",
+      "execution_time": 0.005002
+    },
+    {
+      "template_key": "templates/cb_step_14_slicer.py.tpl",
+      "step_id": "cb_step_14",
+      "operation_type": "slicer_op",
+      "status": "live_valid",
+      "error": null,
+      "execution_time": 0.066999
+    },
+    {
+      "template_key": "templates/cb_step_15_slicer.py.tpl",
+      "step_id": "cb_step_15",
+      "operation_type": "slicer_op",
+      "status": "live_valid",
+      "error": null,
+      "execution_time": 0.007
+    },
+    {
+      "template_key": "templates/cb_step_17.py.tpl",
+      "step_id": "cb_step_17",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_19.py.tpl",
+      "step_id": "cb_step_19",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_21_slicer.py.tpl",
+      "step_id": "cb_step_21",
+      "operation_type": "slicer_op",
+      "status": "live_valid",
+      "error": null,
+      "execution_time": 0.004
+    },
+    {
+      "template_key": "templates/cb_step_22.py.tpl",
+      "step_id": "cb_step_22",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_23.py.tpl",
+      "step_id": "cb_step_23",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_24.py.tpl",
+      "step_id": "cb_step_24",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_25.py.tpl",
+      "step_id": "cb_step_25",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_26.py.tpl",
+      "step_id": "cb_step_26",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_27.py.tpl",
+      "step_id": "cb_step_27",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_31.py.tpl",
+      "step_id": "cb_step_31",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_32.py.tpl",
+      "step_id": "cb_step_32",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_33.py.tpl",
+      "step_id": "cb_step_33",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_5.py.tpl",
+      "step_id": "cb_step_5",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_6_slicer.py.tpl",
+      "step_id": "cb_step_6",
+      "operation_type": "slicer_op",
+      "status": "live_valid",
+      "error": null,
+      "execution_time": 0.005001
+    },
+    {
+      "template_key": "templates/cb_step_7_slicer.py.tpl",
+      "step_id": "cb_step_7",
+      "operation_type": "slicer_op",
+      "status": "live_valid",
+      "error": null,
+      "execution_time": 0.006034
+    },
+    {
+      "template_key": "templates/cb_step_8_slicer.py.tpl",
+      "step_id": "cb_step_8",
+      "operation_type": "slicer_op",
+      "status": "live_valid",
+      "error": null,
+      "execution_time": 0.001965
+    },
+    {
+      "template_key": "templates/cb_step_9_slicer.py.tpl",
+      "step_id": "cb_step_9",
+      "operation_type": "slicer_op",
+      "status": "live_valid",
+      "error": null,
+      "execution_time": 0.085377
+    }
+  ]
+}
