@@ -86,6 +86,60 @@ def set_workflow_repeat_state(
     _workflow_repeat_state.setdefault(extension_name, {})[repeat_id] = dict(state or {})
 
 
+# =====================================================================
+# Replay-timeline rewind helpers
+#
+# The replay timeline rewinds a workflow to an earlier checkpoint and
+# re-executes downstream. The deterministic dispatch path keeps step
+# completions, user choices, and repeat progress in these module-global
+# dicts (mirrors of WorkflowSession). On rewind every dict must be
+# truncated to the checkpoint's prefix or replay would skip an already
+# "completed" step, reuse a stale choice, or resume a loop at the wrong
+# iteration. These overwrite (not merge) to that exact prefix.
+# =====================================================================
+
+def truncate_workflow_completions(
+    extension_name: str,
+    keep_steps,
+) -> None:
+    """Overwrite the completed-step set to exactly ``keep_steps`` (replay rewind)."""
+    if not extension_name:
+        return
+    _workflow_completed_steps[extension_name] = set(keep_steps or set())
+
+
+def get_workflow_choices(extension_name: str) -> Dict[str, Any]:
+    """Return a copy of the stored user-choice values for an extension."""
+    return dict(_workflow_choices.get(extension_name, {}) or {})
+
+
+def set_workflow_choices(
+    extension_name: str,
+    choices: Dict[str, Any],
+) -> None:
+    """Overwrite stored user-choice values for an extension (replay rewind)."""
+    if not extension_name:
+        return
+    _workflow_choices[extension_name] = dict(choices or {})
+
+
+def set_all_workflow_repeat_states(
+    extension_name: str,
+    states: Dict[str, Dict[str, Any]],
+) -> None:
+    """Overwrite ALL repeat progress for an extension (replay rewind).
+
+    Replaces the per-extension repeat-state map wholesale so a loop that
+    only existed on the discarded (post-rewind) branch leaves no stale
+    iteration/target behind.
+    """
+    if not extension_name:
+        return
+    _workflow_repeat_state[extension_name] = {
+        str(rid): dict(state or {}) for rid, state in (states or {}).items()
+    }
+
+
 def _find_next_step_local(
     workflow_graph: Dict, completed: set
 ) -> Optional[Dict]:

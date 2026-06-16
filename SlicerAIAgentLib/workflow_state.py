@@ -60,6 +60,31 @@ def get_interaction_node_id(
     return _interaction_nodes.get(_key(extension_name, workflow_id, step_id, repeat_index), "")
 
 
+def prune_missing_interaction_nodes(extension_name: Optional[str] = None) -> None:
+    """Drop remembered interaction nodes whose MRML node no longer exists.
+
+    Called after a replay rewind restores an earlier scene state, which
+    removes nodes created by later (now-discarded) steps. Keeping the
+    interaction-node memory consistent with the live scene stops the
+    placement guard from re-arming on a deleted node. Fail-open.
+    """
+    try:
+        import slicer
+    except Exception:
+        return
+    ext = str(extension_name) if extension_name else None
+    for key in list(_interaction_nodes):
+        if ext is not None and key[0] != ext:
+            continue
+        node_id = _interaction_nodes.get(key)
+        try:
+            missing = not node_id or slicer.mrmlScene.GetNodeByID(node_id) is None
+        except Exception:
+            missing = True
+        if missing:
+            _interaction_nodes.pop(key, None)
+
+
 def latest_interaction_node_for_step(step_id: str):
     """Most recently remembered MRML node for a step, across iterations.
 

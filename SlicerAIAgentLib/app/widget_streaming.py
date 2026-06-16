@@ -205,14 +205,27 @@ class WidgetStreamingMixin:
         if hasattr(self.logic, "_lastWorkflowStep"):
             self.logic._lastWorkflowStep = None
 
-    def _clearCompletedWorkflowState(self):
-        """Drop transient generated-CLI workflow state after completion or cancel."""
+    def _clearCompletedWorkflowState(self, clear_replay=False):
+        """Drop transient generated-CLI workflow state after completion or cancel.
+
+        The replay timeline (and its scene snapshots) is KEPT after a normal
+        completion so the user can still rewind and re-run from any step. It is
+        only torn down on an explicit cancel (``clear_replay=True``) or when a
+        new workflow session starts.
+        """
         self._clearWorkflowResultMarkers()
         self._currentWorkflowStepInfo = None
         self._waitingForUser = False
         self._autoAdvanceWorkflowStep = None
         self._activeWorkflowId = None
         self._taskWorkflowPanelActive = False
+        if clear_replay:
+            try:
+                if self._workflowRuntime:
+                    self._workflowRuntime.clear_checkpoints()
+            except Exception:
+                logger.debug("Clearing replay checkpoints failed", exc_info=True)
+            self._updateReplayControls({})
 
     def _registerWorkflowRuntimeResult(self, step_info):
         """Ensure generated CLI workflow results are tracked by the runtime."""
@@ -402,7 +415,7 @@ class WidgetStreamingMixin:
         if result_type == "cancelled":
             self.appendToChat("System", result.get("message", "Workflow cancelled."))
             self._updateWorkflowPanel(result)
-            self._clearCompletedWorkflowState()
+            self._clearCompletedWorkflowState(clear_replay=True)
             self._recordRoleEvent("Workflow", "cancelled", {})
             self._saveRoleTraceToFile()
             self._setReadyStatus()

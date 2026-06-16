@@ -220,6 +220,212 @@ class WorkflowTestsMixin:
         finally:
             wf_mod.get_workflow_graph = original_get_workflow_graph
 
+    def test_WorkflowReplayCheckpoints(self):
+        """Replay timeline: live checkpoint recording, rewind truncation, loop resume."""
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+        from SlicerAIAgentLib.ExtensionCLILoader import reset_workflow_session
+
+        graph = {
+            "step_count": 4,
+            "steps": [
+                {"step_id": "s1", "step_type": "user_choice", "operation_type": "user_choice",
+                 "description": "Pick count",
+                 "choice_info": {"parameter_name": "numCuts", "choices": []}},
+                {"step_id": "s2", "step_type": "extension_op", "operation_type": "extension_op",
+                 "description": "Body A"},
+                {"step_id": "s3", "step_type": "extension_op", "operation_type": "extension_op",
+                 "description": "Body B"},
+                {"step_id": "s4", "step_type": "extension_op", "operation_type": "extension_op",
+                 "description": "After loop"},
+            ],
+            "repeat_blocks": [
+                {"repeat_id": "loop", "body_steps": ["s2", "s3"], "entry_step": "s2",
+                 "terminal_step": "s3", "exit_step": "s4",
+                 "controller": {"kind": "count", "source_step": "s1"}, "max_iterations": 5},
+            ],
+        }
+        original_get_workflow_graph = wf_mod.get_workflow_graph
+        wf_mod.get_workflow_graph = lambda extension_name: graph
+
+        def _new_runtime():
+            runtime = WorkflowRuntime()
+            runtime.session = WorkflowSession(
+                extension_name="FakeReplayExt", tool_name="FakeReplayExt",
+                workflow_id="replay_1", current_step="s1",
+            )
+            # Stub all scene ops so the test is pure state logic and never
+            # touches the live Slicer scene (capture/restore/delete/commit).
+            runtime._scene_node_ids = lambda: set()
+            runtime._capture_sceneview = lambda step_id: None
+            runtime._delete_sceneview = lambda nid: None
+            runtime._delete_all_replay_sceneviews = lambda: None
+            runtime._restore_to_view = lambda index: None
+            runtime._commit_node_state = lambda index: None
+            return runtime
+
+        def _run_count_loop(runtime, target):
+            """Drive s1(count)->[s2,s3]xN->s4, mirroring run_step's pending capture."""
+            reset_workflow_session("FakeReplayExt")
+            runtime._begin_pending_checkpoint("s1", {"user_action": "choice_made",
+                                                     "choice_value": str(target)})
+            runtime.handle_execution_result(
+                {"type": "choice_made", "step_id": "s1", "choice_value": str(target),
+                 "next_step": {"step_id": "s2"}},
+                {"success": True},
+            )
+            for _ in range(target):
+                runtime._begin_pending_checkpoint("s2", {"user_action": "start"})
+                runtime.handle_execution_result(
+                    {"type": "automated", "step_id": "s2"}, {"success": True})
+                runtime._begin_pending_checkpoint("s3", {"user_action": "start"})
+                runtime.handle_execution_result(
+                    {"type": "automated", "step_id": "s3"}, {"success": True})
+            runtime._begin_pending_checkpoint("s4", {"user_action": "start"})
+            runtime.handle_execution_result(
+                {"type": "automated", "step_id": "s4"}, {"success": True})
+
+        try:
+            # --- Recording: target=2 produces s1 + 2x(s2,s3) + s4 = 6 checkpoints ---
+            runtime = _new_runtime()
+            _run_count_loop(runtime, 2)
+            cps = runtime.session.checkpoints
+            self.assertEqual([cp.step_id for cp in cps],
+                             ["s1", "s2", "s3", "s2", "s3", "s4"])
+            self.assertEqual(cps[0].kind, "loop_count")
+            self.assertTrue(cps[0].editable)
+            self.assertEqual(cps[0].args, {"choice_value": "2"})
+            self.assertEqual(cps[0].parameter_name, "numCuts")
+            # Automated body steps are not editable but carry loop iteration info.
+            self.assertFalse(cps[1].editable)
+            self.assertEqual(cps[1].repeat.get("repeat_id"), "loop")
+            self.assertEqual(cps[1].repeat.get("iteration"), 1)
+            self.assertEqual(cps[3].repeat.get("iteration"), 2)
+            self.assertEqual(cps[5].kind, "automated")
+            # Timeline UI projection mirrors the checkpoints.
+            ui = runtime.state_for_ui({"type": "automated", "step_id": "s4"})
+            self.assertTrue(ui["can_replay"])
+            self.assertEqual(len(ui["timeline"]), 6)
+            self.assertEqual(ui["timeline"][0]["editable"], True)
+
+            # --- Rewind into iteration 2 (checkpoint index 3 = s2, iteration 2) ---
+            descriptor = runtime.rewind_to_checkpoint(3)
+            self.assertEqual(descriptor["step_id"], "s2")
+            self.assertEqual(descriptor["action"], "start")
+            self.assertEqual(runtime.session.completed_steps, ["s1"])
+            self.assertEqual(runtime.session.repeat_states["loop"]["iteration"], 2)
+            self.assertEqual(runtime.session.repeat_states["loop"]["target"], 2)
+            self.assertEqual(len(runtime.session.checkpoints), 3)
+            self.assertEqual(runtime.session.active_checkpoint_index, 2)
+            # Module-global mirror truncated to the same prefix.
+            from SlicerAIAgentLib.ExtensionCLILoader import get_workflow_choices
+            self.assertEqual(
+                runtime.session.completed_instances,
+                [{"step_id": "s1", "repeat": {}},
+                 {"step_id": "s2", "repeat": {"repeat_id": "loop", "iteration": 1}},
+                 {"step_id": "s3", "repeat": {"repeat_id": "loop", "iteration": 1}}],
+            )
+
+            # --- Rewind to the loop-count source with a MODIFIED value ---
+            runtime2 = _new_runtime()
+            _run_count_loop(runtime2, 2)
+            descriptor2 = runtime2.rewind_to_checkpoint(0, {"choice_value": "4"})
+            self.assertEqual(descriptor2["step_id"], "s1")
+            self.assertEqual(descriptor2["action"], "choice_made")
+            self.assertEqual(descriptor2["args"], {"choice_value": "4"})
+            self.assertEqual(runtime2.session.completed_steps, [])
+            self.assertEqual(runtime2.session.checkpoints, [])
+            self.assertIsNone(runtime2.session.active_checkpoint_index)
+
+            # --- Invalid index is rejected, not crashing ---
+            self.assertIn("error", runtime2.rewind_to_checkpoint(9))
+        finally:
+            wf_mod.get_workflow_graph = original_get_workflow_graph
+            reset_workflow_session("FakeReplayExt")
+
+    def test_WorkflowReplayNavigation(self):
+        """Back/Forward stepper: non-destructive scene+guidance navigation."""
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+        from SlicerAIAgentLib.ExtensionCLILoader import reset_workflow_session
+
+        graph = {
+            "step_count": 3,
+            "steps": [
+                {"step_id": "s1", "step_type": "extension_op", "operation_type": "extension_op",
+                 "description": "Step One"},
+                {"step_id": "s2", "step_type": "extension_op", "operation_type": "extension_op",
+                 "description": "Step Two"},
+                {"step_id": "s3", "step_type": "extension_op", "operation_type": "extension_op",
+                 "description": "Step Three"},
+            ],
+        }
+        original_get_workflow_graph = wf_mod.get_workflow_graph
+        wf_mod.get_workflow_graph = lambda extension_name: graph
+        try:
+            reset_workflow_session("FakeNavExt")
+            runtime = WorkflowRuntime()
+            runtime.session = WorkflowSession(
+                extension_name="FakeNavExt", tool_name="FakeNavExt",
+                workflow_id="nav_1", current_step="s1",
+            )
+            # Stub all scene ops so navigation is pure state logic.
+            runtime._scene_node_ids = lambda: set()
+            runtime._capture_sceneview = lambda step_id: None
+            runtime._delete_sceneview = lambda nid: None
+            runtime._delete_all_replay_sceneviews = lambda: None
+            runtime._restore_to_view = lambda index: None
+            runtime._commit_node_state = lambda index: None
+
+            for sid in ("s1", "s2", "s3"):
+                runtime._begin_pending_checkpoint(sid, {"user_action": "start"})
+                runtime.handle_execution_result(
+                    {"type": "automated", "step_id": sid}, {"success": True})
+
+            self.assertEqual(len(runtime.session.checkpoints), 3)
+            self.assertEqual(runtime.session.completed_steps, ["s1", "s2", "s3"])
+            self.assertIsNone(runtime.session.preview_index)
+
+            # Back from live -> last step; non-destructive (nothing deleted).
+            st = runtime.navigate_back()
+            self.assertEqual(runtime.session.preview_index, 2)
+            self.assertEqual(st["description"], "Step Three")
+            self.assertTrue(st["replay_previewing"])
+            self.assertEqual(len(runtime.session.checkpoints), 3)         # unchanged
+            self.assertEqual(runtime.session.completed_steps, ["s1", "s2", "s3"])
+
+            st = runtime.navigate_back()
+            self.assertEqual(runtime.session.preview_index, 1)
+            self.assertEqual(st["description"], "Step Two")
+
+            st = runtime.navigate_back()
+            self.assertEqual(runtime.session.preview_index, 0)
+            self.assertEqual(st["description"], "Step One")
+            self.assertFalse(st["replay_can_back"])                       # at the first step
+
+            # Forward returns step by step, then back to the live state.
+            st = runtime.navigate_forward()
+            self.assertEqual(runtime.session.preview_index, 1)
+            self.assertEqual(st["description"], "Step Two")
+            runtime.navigate_forward()                                    # -> index 2
+            st = runtime.navigate_forward()                              # -> live
+            self.assertIsNone(runtime.session.preview_index)
+            self.assertFalse(st.get("replay_previewing"))
+            # Still non-destructive after the full round trip.
+            self.assertEqual(len(runtime.session.checkpoints), 3)
+            self.assertEqual(runtime.session.completed_steps, ["s1", "s2", "s3"])
+
+            # Still non-destructive after a full round trip.
+            self.assertEqual(len(runtime.session.checkpoints), 3)
+            self.assertEqual(runtime.session.completed_steps, ["s1", "s2", "s3"])
+        finally:
+            wf_mod.get_workflow_graph = original_get_workflow_graph
+            reset_workflow_session("FakeNavExt")
+
     def test_WorkflowRuntimeUiStateMapping(self):
         """Test compact workflow UI state for progress and controls."""
         import importlib
