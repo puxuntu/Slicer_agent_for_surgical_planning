@@ -82,6 +82,12 @@ class WidgetWorkflowMixin:
         if getattr(self, "_workflowCancelButton", None):
             self._workflowCancelButton.clicked.connect(self._onWorkflowCancelClicked)
 
+        # Build the replay stepper unconditionally: the workflow frame can be
+        # loaded from the .ui file (widget_core.py) instead of built here, in
+        # which case the programmatic block above is skipped. This wraps the
+        # progress bar with the Back / Forward / Run-from-here buttons.
+        self._setupReplayControls()
+
         self._positionWorkflowUserPanel()
         self._clearWorkflowPanel()
         self._applyWidthSafeLabels()
@@ -197,6 +203,7 @@ class WidgetWorkflowMixin:
         self._workflowInstructionLabel.setVisible(bool(instructions))
 
         self._renderWorkflowChoices(self._currentWorkflowUiState)
+        self._updateReplayControls(self._currentWorkflowUiState)
 
         self._workflowDoneButton.setVisible(bool(self._currentWorkflowUiState.get("can_done")))
         self._workflowSkipButton.setVisible(bool(self._currentWorkflowUiState.get("can_skip")))
@@ -351,6 +358,7 @@ class WidgetWorkflowMixin:
         self._workflowActionLabel.setText("")
         self._workflowInstructionLabel.setText("")
         self._renderWorkflowChoices({})
+        self._updateReplayControls({})
         self._workflowDoneButton.setVisible(False)
         self._workflowSkipButton.setVisible(False)
         self._workflowCancelButton.setVisible(False)

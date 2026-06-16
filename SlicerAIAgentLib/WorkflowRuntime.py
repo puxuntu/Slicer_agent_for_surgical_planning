@@ -4,21 +4,28 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import os
 import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+logger = logging.getLogger(__name__)
+
 from .ExtensionCLILoader import (
     clear_workflow_step_completions,
     dispatch_extension_cli_tool,
     find_next_workflow_step,
     get_validated_extensions,
+    get_workflow_choices,
     get_workflow_graph,
     mark_workflow_step_completed,
     reset_workflow_session,
+    set_all_workflow_repeat_states,
+    set_workflow_choices,
     set_workflow_repeat_state,
+    truncate_workflow_completions,
 )
 
 
@@ -31,6 +38,42 @@ COMPLETE_TYPES = {
     "choice_made",
     "skipped",
 }
+
+
+@dataclass
+class WorkflowCheckpoint:
+    """One rewindable point in a workflow run, recorded live as it executes.
+
+    Back/Forward navigation shows/hides workflow nodes by step using
+    ``before_node_ids`` / ``created_node_ids`` (never deletes, so display state
+    is preserved). The commit (rewind_to_checkpoint) deletes the downstream
+    ``created_node_ids``, truncates session/global state to the captured prefix,
+    then re-dispatches ``step_id`` with ``action``/``args``. ``sceneview_node_id``
+    is unused (kept only so older saved snapshots are cleaned up).
+    """
+
+    index: int
+    step_id: str
+    kind: str                       # automated | choice | interaction | loop_count | loop_decision
+    action: str                     # replay user_action: start | proceed | choice_made | skip
+    args: Dict[str, Any] = field(default_factory=dict)
+    recorded_value: Any = None      # captured choice / placement summary (shown + editable)
+    parameter_name: str = ""        # choice parameter name, "" when none
+    editable: bool = False          # True for choice / loop_count / loop_decision
+    choices: List[Dict[str, Any]] = field(default_factory=list)    # enumerated choices, [] = free-form
+    guidance_description: str = ""  # the step's description shown in the panel (Back/Forward)
+    guidance_instructions: str = "" # the step's instruction shown in the panel (Back/Forward)
+    repeat: Dict[str, Any] = field(default_factory=dict)            # {"repeat_id", "iteration"} or {}
+    repeat_states_snapshot: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    completed_prefix: List[str] = field(default_factory=list)       # completed_steps BEFORE this step
+    completed_instances_len: int = 0                                # len(completed_instances) BEFORE this step
+    choices_prefix: Dict[str, Any] = field(default_factory=dict)    # _workflow_choices[ext] BEFORE this step
+    before_node_ids: List[str] = field(default_factory=list)        # scene node IDs BEFORE this step (clean-slate target)
+    created_node_ids: List[str] = field(default_factory=list)       # scene nodes this step produced
+    layout_before: int = -1                                         # layoutManager.layout BEFORE this step (-1 = unknown)
+    sceneview_node_id: Optional[str] = None                         # vtkMRMLSceneViewNode (scene before step)
+    summary: str = ""
+    timestamp: float = 0.0
 
 
 @dataclass
@@ -48,6 +91,12 @@ class WorkflowSession:
     completed_instances: List[Dict[str, Any]] = field(default_factory=list)
     last_result: Optional[Dict[str, Any]] = None
     started_at: float = field(default_factory=time.time)
+    checkpoints: List[WorkflowCheckpoint] = field(default_factory=list)
+    active_checkpoint_index: Optional[int] = None
+    baseline_node_ids: List[str] = field(default_factory=list)   # scene nodes before step 1 (loaded inputs)
+    preview_index: Optional[int] = None          # None = live; i = previewing step i
+    live_layout: int = -1                        # layoutManager.layout at the live state (captured on first Back)
+    live_sceneview_id: Optional[str] = None      # full snapshot of the live scene (captured on first Back)
 
     @property
     def active(self) -> bool:
@@ -60,6 +109,10 @@ class WorkflowRuntime:
     def __init__(self, log_dir: Optional[str] = None):
         self.session: Optional[WorkflowSession] = None
         self.log_dir = log_dir
+        # Snapshot captured at run_step (before dispatch), finalized into a
+        # WorkflowCheckpoint when the step completes. One step is in flight at
+        # a time, so a single pending slot is sufficient.
+        self._pending_checkpoint: Optional[Dict[str, Any]] = None
 
     def has_active_workflow(self) -> bool:
         return bool(self.session and self.session.active)
@@ -181,6 +234,13 @@ class WorkflowRuntime:
             "can_done": self.session.status == "waiting_for_user",
             "can_skip": self.session.active and is_optional,
             "can_cancel": self.session.active,
+            "timeline": self._timeline_for_ui(),
+            "active_checkpoint_index": self.session.active_checkpoint_index,
+            "can_replay": bool(self.session.checkpoints),
+            "replay_can_back": bool(self.session.checkpoints),
+            "replay_can_forward": self.session.preview_index is not None,
+            "replay_can_action": self.session.preview_index is not None,
+            "replay_previewing": self.session.preview_index is not None,
         }
 
     def start_from_result(self, result: Dict[str, Any]) -> Optional[WorkflowSession]:
@@ -198,6 +258,9 @@ class WorkflowRuntime:
             return self.session
         workflow_id = f"{ext_name}_{int(time.time() * 1000)}"
         reset_workflow_session(ext_name)
+        # Drop any prior session's replay snapshots before starting fresh.
+        self._delete_all_replay_sceneviews()
+        self._pending_checkpoint = None
         self.session = WorkflowSession(
             extension_name=ext_name,
             tool_name=tool_name,
@@ -205,6 +268,14 @@ class WorkflowRuntime:
             current_step=result.get("step_id"),
         )
         self._apply_pre_execution_state(result)
+        # The first step is dispatched via the LLM tool path (not run_step), so
+        # capture its before-scene snapshot here so it is rewindable too. A
+        # later run_step for the same step (a user_choice answer / interactive
+        # Done) refreshes the args while keeping this before-scene.
+        if result.get("step_id"):
+            self._begin_pending_checkpoint(
+                result.get("step_id"), {"user_action": "start"}
+            )
         self._write_event("workflow_started", {"initial_result": self._compact_result(result)})
         return self.session
 
@@ -216,6 +287,8 @@ class WorkflowRuntime:
         resolved_tool = tool_name or self._tool_name_for_extension(ext_data) or extension_name
         workflow_id = f"{extension_name}_{int(time.time() * 1000)}"
         reset_workflow_session(extension_name)
+        self._delete_all_replay_sceneviews()
+        self._pending_checkpoint = None
         graph = get_workflow_graph(extension_name)
         first_step = find_next_workflow_step(extension_name, set())
         self.session = WorkflowSession(
@@ -248,10 +321,16 @@ class WorkflowRuntime:
 
         self.session.current_step = target_step
         self.session.status = "running"
+        # Record a replay checkpoint snapshot of the scene/state BEFORE this
+        # step runs. Idempotent across an interactive step's start->proceed
+        # pair (keeps the before-placement scene). Finalized in _mark_completed
+        # (or for a loop decision, just below).
+        self._begin_pending_checkpoint(target_step, call_args)
         repeat_decision = self._handle_pending_repeat_decision(
             target_step, action, call_args
         )
         if repeat_decision is not None:
+            self._finalize_loop_decision_checkpoint(target_step, call_args, repeat_decision)
             self.session.last_result = repeat_decision
             self._apply_pre_execution_state(repeat_decision)
             next_step = repeat_decision.get("next_step")
@@ -430,6 +509,7 @@ class WorkflowRuntime:
                 "repeat": self._repeat_instance_for_step(step_id),
             })
         mark_workflow_step_completed(self.session.extension_name, step_id)
+        self._finalize_checkpoint(step_id)
 
     def _next_step(self) -> Optional[Dict[str, Any]]:
         if not self.session:
@@ -803,6 +883,731 @@ class WorkflowRuntime:
         if result.get("code"):
             compact["code_chars"] = len(result.get("code") or "")
         return compact
+
+    # =====================================================================
+    # Replay timeline — live checkpoint recording, rewind, scene snapshots
+    # =====================================================================
+
+    def _begin_pending_checkpoint(self, step_id: str, call_args: Dict[str, Any]) -> None:
+        """Snapshot the scene + state BEFORE ``step_id`` dispatches.
+
+        Idempotent across an interactive step's start->proceed pair: the second
+        call keeps the before-placement scene captured at start and only
+        refreshes the recorded args.
+        """
+        if not self.session or not step_id:
+            return
+        if self._pending_checkpoint and self._pending_checkpoint.get("step_id") == step_id:
+            self._pending_checkpoint["call_args"] = dict(call_args or {})
+            return
+        # A different step's pending was never finalized (prior step failed or
+        # was retried by self-correction); drop it first.
+        self._discard_pending_checkpoint()
+        self._pending_checkpoint = {
+            "step_id": step_id,
+            "call_args": dict(call_args or {}),
+            "completed_prefix": list(self.session.completed_steps),
+            "completed_instances_len": len(self.session.completed_instances),
+            "repeat_states_snapshot": copy.deepcopy(self.session.repeat_states),
+            "choices_prefix": get_workflow_choices(self.session.extension_name),
+            "node_ids_before": self._scene_node_ids(),
+            "layout_before": self._current_layout(),
+            # Full before-step snapshot; restored by property-copy (never
+            # delete) so ALL node state recovers without losing display nodes.
+            "sceneview_node_id": self._capture_sceneview(step_id),
+        }
+
+    def _discard_pending_checkpoint(self) -> None:
+        """Drop an un-finalized pending checkpoint and its orphan snapshot."""
+        pending = self._pending_checkpoint
+        self._pending_checkpoint = None
+        if pending:
+            self._delete_sceneview(pending.get("sceneview_node_id"))
+
+    def _finalize_checkpoint(self, step_id: str) -> None:
+        """Promote the pending snapshot for ``step_id`` into a WorkflowCheckpoint."""
+        pending = self._pending_checkpoint
+        if not pending or pending.get("step_id") != step_id:
+            return
+        self._pending_checkpoint = None
+        self._record_checkpoint(pending)
+
+    def _finalize_loop_decision_checkpoint(
+        self,
+        step_id: str,
+        call_args: Dict[str, Any],
+        repeat_decision: Dict[str, Any],
+    ) -> None:
+        """Record a checkpoint for a loop continue/exit decision (run_step path)."""
+        if not self.session:
+            return
+        pending = self._pending_checkpoint
+        if not pending or pending.get("step_id") != step_id:
+            pending = {
+                "step_id": step_id,
+                "call_args": dict(call_args or {}),
+                "completed_prefix": list(self.session.completed_steps),
+                "completed_instances_len": len(self.session.completed_instances),
+                "repeat_states_snapshot": copy.deepcopy(self.session.repeat_states),
+                "choices_prefix": get_workflow_choices(self.session.extension_name),
+                "node_ids_before": self._scene_node_ids(),
+                "layout_before": self._current_layout(),
+                "sceneview_node_id": self._capture_sceneview(step_id),
+            }
+        self._pending_checkpoint = None
+        progress = repeat_decision.get("repeat_progress") or {}
+        repeat = {
+            "repeat_id": progress.get("repeat_id", "") or "",
+            "iteration": progress.get("current") or progress.get("completed") or 0,
+        }
+        self._record_checkpoint(pending, force_kind="loop_decision", repeat=repeat)
+
+    def _record_checkpoint(
+        self,
+        pending: Dict[str, Any],
+        force_kind: Optional[str] = None,
+        repeat: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if not self.session:
+            return
+        step_id = pending["step_id"]
+        meta = self._step_meta(step_id)
+        op = (
+            meta.get("operation_type")
+            or meta.get("op_type")
+            or meta.get("step_type")
+            or "extension_op"
+        )
+        call_args = pending.get("call_args") or {}
+        choice_value = call_args.get("choice_value")
+        repeat_info = repeat if repeat is not None else self._repeat_instance_for_step(step_id)
+
+        choices: List[Dict[str, Any]] = []
+        if force_kind == "loop_decision":
+            kind = "loop_decision"
+            action = "choice_made"
+            args = {"choice_value": choice_value}
+            editable = True
+            recorded_value = choice_value
+            parameter_name = f"repeat_decision:{(repeat_info or {}).get('repeat_id', '')}"
+            choices = [{"label": "Yes", "value": True}, {"label": "No", "value": False}]
+        elif op == "user_choice" or choice_value is not None:
+            kind = "loop_count" if self._is_loop_count_source(step_id) else "choice"
+            action = "choice_made"
+            args = {"choice_value": choice_value}
+            editable = True
+            recorded_value = choice_value
+            choice_info = meta.get("choice_info") or {}
+            parameter_name = choice_info.get("parameter_name", "") or ""
+            choices = self._normalize_choices(choice_info.get("choices") or [])
+        elif op == "user_interaction" or meta.get("step_type") in (
+            "interactive", "mixed", "user_interaction",
+        ):
+            kind = "interaction"
+            action = "start"
+            args = {}
+            editable = False
+            recorded_value = self._interaction_summary(step_id)
+            parameter_name = ""
+        else:
+            kind = "automated"
+            action = "start"
+            args = {}
+            editable = False
+            recorded_value = None
+            parameter_name = ""
+
+        before = pending.get("node_ids_before") or set()
+        created = [nid for nid in self._scene_node_ids() if nid not in before]
+        index = len(self.session.checkpoints)
+        if index == 0 and not self.session.baseline_node_ids:
+            # Scene before the first step = loaded inputs (e.g. the CT volume);
+            # used by the UI to avoid warning about deleting them on rewind.
+            self.session.baseline_node_ids = sorted(before)
+        summary = self._checkpoint_summary(meta, kind, recorded_value, repeat_info)
+        guidance = self._ui_guidance_from_result(self.session.last_result or {}, meta)
+        guidance_description = (
+            str(guidance.get("title", "") or "").strip()
+            or str(meta.get("description", "") or "").strip()
+        )
+        guidance_instructions = (
+            str(guidance.get("instruction", "") or "").strip()
+            or self._instructions_from_result(self.session.last_result or {})
+        )
+        checkpoint = WorkflowCheckpoint(
+            index=index,
+            step_id=step_id,
+            kind=kind,
+            action=action,
+            args=args,
+            recorded_value=recorded_value,
+            parameter_name=parameter_name,
+            editable=editable,
+            choices=choices,
+            guidance_description=guidance_description,
+            guidance_instructions=guidance_instructions,
+            repeat=dict(repeat_info or {}),
+            repeat_states_snapshot=pending.get("repeat_states_snapshot") or {},
+            completed_prefix=list(pending.get("completed_prefix") or []),
+            completed_instances_len=int(pending.get("completed_instances_len") or 0),
+            choices_prefix=dict(pending.get("choices_prefix") or {}),
+            before_node_ids=sorted(before),
+            created_node_ids=created,
+            layout_before=int(pending.get("layout_before", -1)),
+            sceneview_node_id=pending.get("sceneview_node_id"),
+            summary=summary,
+            timestamp=round(time.time(), 3),
+        )
+        self.session.checkpoints.append(checkpoint)
+        self.session.active_checkpoint_index = index
+        self._write_event("checkpoint_recorded", {
+            "index": index,
+            "step_id": step_id,
+            "kind": kind,
+            "editable": editable,
+            "repeat": repeat_info,
+        })
+
+    def _timeline_for_ui(self) -> List[Dict[str, Any]]:
+        if not self.session:
+            return []
+        active = self.session.active_checkpoint_index
+        items = []
+        for cp in self.session.checkpoints:
+            cp_repeat = cp.repeat or {}
+            items.append({
+                "index": cp.index,
+                "step_id": cp.step_id,
+                "kind": cp.kind,
+                "summary": cp.summary,
+                "repeat_id": cp_repeat.get("repeat_id", "") or "",
+                "iteration": int(cp_repeat.get("iteration", 0) or 0),
+                "is_current": cp.index == active,
+                "recorded_value": cp.recorded_value,
+                "parameter_name": cp.parameter_name,
+                "editable": bool(cp.editable),
+                "choices": list(cp.choices or []),
+                "can_restore": bool(cp.sceneview_node_id),
+            })
+        return items
+
+    # ---- Back/Forward navigation: full property recovery, never delete ----
+    #
+    # "Recover" means recover EVERYTHING at that step, not just node existence:
+    # baseline-node display (e.g. the loaded segmentation's 3D surface/contours),
+    # the layout, slice/view state, transforms, colors. We capture a full
+    # vtkMRMLSceneViewNode per step but RESTORE it by COPYING the stored node
+    # properties onto the matching live nodes (by ID) — never deleting or
+    # re-creating a node, so display nodes are never lost. Nodes that did not
+    # exist yet at that step are simply hidden. Slicer's own RestoreScene can't
+    # be used here: removeNodes=False aborts when later nodes are present, and
+    # removeNodes=True deletes+recreates (which is what drops display nodes).
+
+    def navigate_back(self) -> Dict[str, Any]:
+        """Step one step back: recover that step's full scene state. Non-destructive."""
+        if not self.session or not self.session.checkpoints:
+            return self._preview_ui_state()
+        if self.session.preview_index is None:
+            # Leaving the live state: snapshot it (scene + layout) so Forward can
+            # return to it exactly.
+            self.session.live_layout = self._current_layout()
+            self.session.live_sceneview_id = self._capture_sceneview("live")
+            self.session.preview_index = len(self.session.checkpoints) - 1
+        elif self.session.preview_index > 0:
+            self.session.preview_index -= 1
+        else:
+            return self._preview_ui_state()  # already at the first checkpoint
+        self._restore_to_view(self.session.preview_index)
+        self._write_event("replay_navigate", {
+            "direction": "back", "preview_index": self.session.preview_index,
+        })
+        return self._preview_ui_state()
+
+    def navigate_forward(self) -> Dict[str, Any]:
+        """Step one step forward, or back to the live state. Non-destructive."""
+        if not self.session or self.session.preview_index is None:
+            return self._preview_ui_state()  # already live
+        last = len(self.session.checkpoints) - 1
+        if self.session.preview_index < last:
+            self.session.preview_index += 1
+            self._restore_to_view(self.session.preview_index)
+        else:
+            # Past the last checkpoint: recover the live state and exit preview.
+            self._restore_to_view(None)
+            self._delete_sceneview(self.session.live_sceneview_id)
+            self.session.live_sceneview_id = None
+            self.session.preview_index = None
+        self._write_event("replay_navigate", {
+            "direction": "forward", "preview_index": self.session.preview_index,
+        })
+        return self._preview_ui_state()
+
+    def _restore_to_view(self, index: Optional[int]) -> None:
+        """Recover the full scene state at step ``index`` (None = live)."""
+        if not self.session:
+            return
+        if index is None:
+            self._restore_scene_properties(self.session.live_sceneview_id)
+            self._set_layout(self.session.live_layout)
+            return
+        cp = self.session.checkpoints[index]
+        # 1. Copy every stored node's properties onto its live counterpart —
+        #    recovers baseline-node display, transforms, slice/view state, etc.
+        self._restore_scene_properties(cp.sceneview_node_id)
+        # 2. Hide nodes that did not exist yet at this step (the snapshot can't
+        #    set their visibility because it doesn't contain them).
+        self._hide_nodes_after(index)
+        # 3. Restore the layout ("overlay").
+        self._set_layout(cp.layout_before)
+
+    def _all_workflow_node_ids(self) -> set:
+        """All MRML node IDs the workflow has created across all checkpoints."""
+        ids = set()
+        if self.session:
+            for cp in self.session.checkpoints:
+                ids.update(cp.created_node_ids or [])
+        return ids
+
+    def _restore_scene_properties(self, sceneview_id: Optional[str]) -> None:
+        """Copy stored node properties onto matching live nodes (never delete/add).
+
+        This recovers ALL node state (display visibility/color/view assignments,
+        transforms, slice/view nodes, layout node) to the snapshot without
+        removing or re-creating any node, so no display node is ever lost.
+        """
+        if not sceneview_id:
+            return
+        try:
+            import slicer
+        except Exception:
+            return
+        try:
+            sv = slicer.mrmlScene.GetNodeByID(sceneview_id)
+            if sv is None:
+                return
+            stored = sv.GetStoredScene()
+            if stored is None:
+                return
+            for i in range(stored.GetNumberOfNodes()):
+                snode = stored.GetNthNode(i)
+                if snode is None or not snode.GetID():
+                    continue
+                if snode.IsA("vtkMRMLSceneViewNode"):
+                    continue
+                live = slicer.mrmlScene.GetNodeByID(snode.GetID())
+                if live is None or live is snode:
+                    continue
+                try:
+                    live.Copy(snode)
+                except Exception:
+                    pass
+        except Exception:
+            logger.debug("Scene property restore failed", exc_info=True)
+
+    def _hide_nodes_after(self, index: int) -> None:
+        """Hide workflow nodes created at/after step ``index`` (not in its snapshot)."""
+        try:
+            import slicer
+        except Exception:
+            return
+        if not self.session:
+            return
+        keep = set(self.session.checkpoints[index].before_node_ids or [])
+        try:
+            for node_id in self._all_workflow_node_ids():
+                if node_id in keep:
+                    continue  # existed at this step; its state came from the snapshot
+                node = slicer.mrmlScene.GetNodeByID(node_id)
+                if node is not None:
+                    self._set_node_visibility(node, False)
+        except Exception:
+            logger.debug("Hide-after toggle failed", exc_info=True)
+
+    @staticmethod
+    def _set_node_visibility(node, visible: bool) -> None:
+        """Toggle a node's display visibility; create a display node if missing."""
+        try:
+            if not hasattr(node, "GetNumberOfDisplayNodes"):
+                return
+            count = node.GetNumberOfDisplayNodes()
+            if count == 0 and visible:
+                try:
+                    node.CreateDefaultDisplayNodes()
+                    count = node.GetNumberOfDisplayNodes()
+                except Exception:
+                    count = 0
+            for i in range(count):
+                dn = node.GetNthDisplayNode(i)
+                if dn is not None:
+                    dn.SetVisibility(1 if visible else 0)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _current_layout() -> int:
+        """Return the current Slicer layout id, or -1 if unavailable."""
+        try:
+            import slicer
+            return int(slicer.app.layoutManager().layout)
+        except Exception:
+            return -1
+
+    @staticmethod
+    def _set_layout(layout_id: int) -> None:
+        """Restore the Slicer layout (the conventional/extension view 'overlay')."""
+        try:
+            if layout_id is None or int(layout_id) < 0:
+                return
+            import slicer
+            lm = slicer.app.layoutManager()
+            if lm is not None and lm.layout != int(layout_id):
+                lm.setLayout(int(layout_id))
+        except Exception:
+            logger.debug("Layout restore failed", exc_info=True)
+
+    def _commit_node_state(self, index: int) -> None:
+        """Recover the before-step state, then DELETE downstream nodes for a clean re-run."""
+        try:
+            import slicer
+        except Exception:
+            return
+        if not self.session:
+            return
+        cp = self.session.checkpoints[index]
+        # Recover all upstream/baseline node state to the before-step snapshot
+        # (display, transforms, layout, slice/view) without deleting anything.
+        self._restore_scene_properties(cp.sceneview_node_id)
+        keep = set(cp.before_node_ids or [])
+        try:
+            removed = 0
+            for node_id in self._all_workflow_node_ids():
+                if node_id in keep:
+                    continue
+                node = slicer.mrmlScene.GetNodeByID(node_id)
+                if node is not None:
+                    try:
+                        slicer.mrmlScene.RemoveNode(node)    # downstream: delete for re-run
+                        removed += 1
+                    except Exception:
+                        pass
+            if removed:
+                logger.info("[Replay] Removed %d downstream node(s) for re-run", removed)
+        except Exception:
+            logger.debug("Commit node state failed", exc_info=True)
+        self._set_layout(cp.layout_before)
+
+    def _preview_ui_state(self) -> Dict[str, Any]:
+        """UI-state dict for the current navigation position.
+
+        When live (preview_index is None) this is the normal state_for_ui. When
+        previewing checkpoint i it returns that step's guidance + progress with
+        the normal controls disabled so only Back/Forward/Action drive.
+        """
+        if not self.session:
+            return {"active": False}
+        if self.session.preview_index is None:
+            return self.state_for_ui()
+        cp = self.session.checkpoints[self.session.preview_index]
+        graph = get_workflow_graph(self.session.extension_name) or {}
+        steps = graph.get("steps", []) if isinstance(graph, dict) else []
+        step_ids = [s.get("step_id") for s in steps if s.get("step_id")]
+        total_steps = graph.get("step_count") or len(steps)
+        current_index = (step_ids.index(cp.step_id) + 1) if cp.step_id in step_ids else 0
+        return {
+            "active": True,
+            "extension_name": self.session.extension_name,
+            "workflow_title": self._display_name(self.session.extension_name),
+            "current_step": cp.step_id,
+            "current_index": current_index,
+            "completed_steps": self.session.preview_index,
+            "total_steps": int(total_steps or 0),
+            "status": f"Reviewing step {self.session.preview_index + 1}",
+            "description": cp.guidance_description or cp.summary,
+            "instructions": cp.guidance_instructions,
+            "choices": [],
+            "repeat_progress": cp.repeat or {},
+            "can_done": False,
+            "can_skip": False,
+            "can_cancel": True,
+            "replay_can_back": self.session.preview_index > 0,
+            "replay_can_forward": True,
+            "replay_can_action": True,
+            "replay_previewing": True,
+        }
+
+    @staticmethod
+    def _normalize_choices(source_choices) -> List[Dict[str, Any]]:
+        choices = []
+        for choice in source_choices or []:
+            if not isinstance(choice, dict):
+                continue
+            label = str(choice.get("label", choice.get("value", ""))).strip()
+            value = choice.get("value", label)
+            if label or (value not in (None, "")):
+                choices.append({"label": label or str(value), "value": value})
+        return choices
+
+    def rewind_to_checkpoint(
+        self,
+        index: int,
+        modified_args: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Restore scene + truncate all state to BEFORE checkpoint ``index``.
+
+        Returns a {step_id, action, args} descriptor for the widget to feed to
+        _runWorkflowStepDirect; this method does not execute step code itself.
+        """
+        if not self.session:
+            return {"error": "No active workflow session"}
+        checkpoints = self.session.checkpoints
+        if not isinstance(index, int) or index < 0 or index >= len(checkpoints):
+            return {"error": f"Invalid checkpoint index: {index}"}
+        cp = checkpoints[index]
+        ext = self.session.extension_name
+
+        # 1. Recover the before-step state (property-copy, no delete) then delete
+        #    the downstream nodes so the re-run recreates them on a clean scene.
+        self._commit_node_state(index)
+
+        # 2. Truncate the in-memory session to the checkpoint prefix.
+        self.session.completed_steps = list(cp.completed_prefix)
+        self.session.completed_instances = (
+            self.session.completed_instances[: cp.completed_instances_len]
+        )
+        self.session.repeat_states = copy.deepcopy(cp.repeat_states_snapshot)
+        self.session.current_step = cp.step_id
+        self.session.status = "running"
+        self.session.last_result = None
+        self._discard_pending_checkpoint()
+
+        # 3. Truncate the module-global mirrors to the same prefix.
+        truncate_workflow_completions(ext, set(cp.completed_prefix))
+        set_workflow_choices(ext, dict(cp.choices_prefix))
+        set_all_workflow_repeat_states(ext, cp.repeat_states_snapshot)
+
+        # 4. Drop interaction-node memory for nodes the restore removed.
+        try:
+            from .workflow_state import prune_missing_interaction_nodes
+            prune_missing_interaction_nodes(ext)
+        except Exception:
+            logger.debug("prune_missing_interaction_nodes failed", exc_info=True)
+
+        # 5. Truncate the checkpoint list to the prefix and delete the discarded
+        #    snapshots (and the live snapshot); re-running records new ones.
+        for stale in checkpoints[index:]:
+            self._delete_sceneview(stale.sceneview_node_id)
+        self._delete_sceneview(self.session.live_sceneview_id)
+        self.session.live_sceneview_id = None
+        self.session.checkpoints = checkpoints[:index]
+        self.session.active_checkpoint_index = index - 1 if index > 0 else None
+        self.session.preview_index = None
+
+        args = dict(modified_args) if modified_args else dict(cp.args)
+        self._write_event("rewind_to_checkpoint", {
+            "index": index,
+            "step_id": cp.step_id,
+            "action": cp.action,
+            "modified": modified_args is not None,
+        })
+        return {"step_id": cp.step_id, "action": cp.action, "args": args}
+
+    def clear_checkpoints(self) -> None:
+        """Reset the timeline (cancel/complete). Recovers the live state if mid-navigation."""
+        if self.session:
+            # If the user was mid-navigation, restore the live scene first.
+            if self.session.preview_index is not None and self.session.live_sceneview_id:
+                self._restore_to_view(None)
+            for cp in self.session.checkpoints:
+                self._delete_sceneview(getattr(cp, "sceneview_node_id", None))
+            self._delete_sceneview(self.session.live_sceneview_id)
+            self.session.live_sceneview_id = None
+            self.session.checkpoints = []
+            self.session.active_checkpoint_index = None
+            self.session.preview_index = None
+        self._pending_checkpoint = None
+        self._delete_all_replay_sceneviews()
+
+    def _step_meta(self, step_id: str) -> Dict[str, Any]:
+        if not self.session or not step_id:
+            return {}
+        graph = get_workflow_graph(self.session.extension_name) or {}
+        for step in graph.get("steps", []) or []:
+            if step.get("step_id") == step_id:
+                return step
+        return {}
+
+    def _is_loop_count_source(self, step_id: str) -> bool:
+        for block in self._repeat_blocks():
+            controller = block.get("controller", {}) or {}
+            if controller.get("kind") == "count" and controller.get("source_step") == step_id:
+                return True
+        return False
+
+    def _interaction_summary(self, step_id: str) -> str:
+        try:
+            from .workflow_state import latest_interaction_node_for_step
+            node = latest_interaction_node_for_step(step_id)
+            if node is not None:
+                try:
+                    return f"Placed {node.GetName()}"
+                except Exception:
+                    return "Placed markup"
+        except Exception:
+            pass
+        return "Interaction"
+
+    @staticmethod
+    def _checkpoint_summary(
+        meta: Dict[str, Any],
+        kind: str,
+        value: Any,
+        repeat: Optional[Dict[str, Any]],
+    ) -> str:
+        desc = str(meta.get("description") or meta.get("step_id") or "Step").strip()
+        if kind in ("choice", "loop_count"):
+            label = (meta.get("choice_info") or {}).get("parameter_name") or desc
+            return f"{label}: {value}"
+        if kind == "loop_decision":
+            return f"Loop decision: {value}"
+        return desc
+
+    @staticmethod
+    def _scene_node_ids() -> set:
+        ids = set()
+        try:
+            import slicer
+            for i in range(slicer.mrmlScene.GetNumberOfNodes()):
+                node = slicer.mrmlScene.GetNthNode(i)
+                if node is None or not node.GetID():
+                    continue
+                if node.IsA("vtkMRMLSceneViewNode"):
+                    continue
+                ids.add(node.GetID())
+        except Exception:
+            pass
+        return ids
+
+    def _prune_to_node_ids(self, keep_ids) -> None:
+        """Delete storable, non-singleton nodes not in ``keep_ids`` after a restore.
+
+        Belt-and-braces for RestoreScene: it should remove nodes created after a
+        snapshot, but interactively-created markup/display nodes can survive,
+        which breaks generated templates that assume a clean node set on re-run
+        (e.g. a step that does GetFirstNodeByClass and expects exactly one
+        curve). This removes those leftovers while preserving infrastructure
+        (singletons such as views/slices/selection, replay snapshots) and the
+        baseline inputs (which are in keep_ids). Node IDs are preserved across
+        StoreScene/RestoreScene, so a restored node keeps its original ID and
+        stays in keep_ids; only genuinely newer nodes are dropped.
+        """
+        try:
+            import slicer
+        except Exception:
+            return
+        keep = set(keep_ids or [])
+        try:
+            doomed = []
+            for i in range(slicer.mrmlScene.GetNumberOfNodes()):
+                node = slicer.mrmlScene.GetNthNode(i)
+                if node is None or not node.GetID():
+                    continue
+                if node.GetID() in keep:
+                    continue
+                if node.IsA("vtkMRMLSceneViewNode"):
+                    continue
+                if node.GetSingletonTag():
+                    continue
+                try:
+                    if not node.GetSaveWithScene():
+                        continue
+                except Exception:
+                    continue
+                doomed.append(node)
+            for node in doomed:
+                try:
+                    slicer.mrmlScene.RemoveNode(node)
+                except Exception:
+                    pass
+            if doomed:
+                logger.info(
+                    "[Replay] Pruned %d stale node(s) after scene restore", len(doomed)
+                )
+        except Exception:
+            logger.debug("Replay node prune failed", exc_info=True)
+
+    def _capture_sceneview(self, step_id: str) -> Optional[str]:
+        try:
+            import slicer
+        except Exception:
+            return None
+        try:
+            ext = self.session.extension_name if self.session else "wf"
+            name = f"_wfReplay_{ext}_{step_id}_{int(time.time() * 1000)}"
+            sv = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSceneViewNode", name)
+            if sv is None:
+                return None
+            sv.SetHideFromEditors(True)
+            sv.SetAttribute("SlicerAIAgentReplay", "1")
+            # Keep replay snapshots out of saved scenes / node selectors; they
+            # are transient, in-memory, current-session only.
+            try:
+                sv.SetSaveWithScene(False)
+            except Exception:
+                pass
+            sv.StoreScene()
+            return sv.GetID()
+        except Exception:
+            logger.debug("Replay scene snapshot failed", exc_info=True)
+            return None
+
+    def _restore_sceneview(self, sceneview_node_id: Optional[str]) -> bool:
+        if not sceneview_node_id:
+            return False
+        try:
+            import slicer
+        except Exception:
+            return False
+        try:
+            sv = slicer.mrmlScene.GetNodeByID(sceneview_node_id)
+            if sv is None:
+                return False
+            sv.RestoreScene()
+            return True
+        except Exception:
+            logger.debug("Replay scene restore failed", exc_info=True)
+            return False
+
+    def _delete_sceneview(self, sceneview_node_id: Optional[str]) -> None:
+        if not sceneview_node_id:
+            return
+        try:
+            import slicer
+            sv = slicer.mrmlScene.GetNodeByID(sceneview_node_id)
+            if sv is not None:
+                slicer.mrmlScene.RemoveNode(sv)
+        except Exception:
+            logger.debug("Replay scene snapshot delete failed", exc_info=True)
+
+    @staticmethod
+    def _delete_all_replay_sceneviews() -> None:
+        try:
+            import slicer
+        except Exception:
+            return
+        try:
+            collection = slicer.mrmlScene.GetNodesByClass("vtkMRMLSceneViewNode")
+            if collection is None:
+                return
+            collection.UnRegister(None)
+            doomed = []
+            for i in range(collection.GetNumberOfItems()):
+                node = collection.GetItemAsObject(i)
+                if node is not None and node.GetAttribute("SlicerAIAgentReplay") == "1":
+                    doomed.append(node)
+            for node in doomed:
+                slicer.mrmlScene.RemoveNode(node)
+        except Exception:
+            logger.debug("Replay scene snapshot bulk delete failed", exc_info=True)
 
     def _write_event(self, event: str, payload: Dict[str, Any]) -> None:
         if not self.log_dir or not self.session:

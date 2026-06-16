@@ -3,6 +3,7 @@ from .logic import SlicerAIAgentLogic
 from .widget_core import WidgetCoreMixin
 from .widget_cli import WidgetCLIMixin
 from .widget_workflow import WidgetWorkflowMixin
+from .widget_replay import WidgetReplayMixin
 from .widget_streaming import WidgetStreamingMixin
 from .widget_execution import WidgetExecutionMixin
 from .widget_settings import WidgetSettingsMixin
@@ -12,6 +13,7 @@ class SlicerAIAgentWidget(
     WidgetCoreMixin,
     WidgetCLIMixin,
     WidgetWorkflowMixin,
+    WidgetReplayMixin,
     WidgetStreamingMixin,
     WidgetExecutionMixin,
     WidgetSettingsMixin,
@@ -64,4 +66,9 @@ class SlicerAIAgentWidget(
         self._taskWorkflowPanelActive = False
         self._announcedWorkflowIds = set()
         self._currentWorkflowStepInfo = None
+        # Replay stepper UI (Back / Forward / Run-from-here around the progress bar)
+        self._replayControlsRow = None
+        self._replayBackButton = None
+        self._replayForwardButton = None
+        self._replayActionButton = None
         self._lastInjectedPreludeKeys = []
