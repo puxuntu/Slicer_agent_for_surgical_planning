@@ -126,12 +126,22 @@ class WidgetReplayMixin:
         self._updateWorkflowPanel(runtime.navigate_forward())
 
     def _onReplayAction(self):
-        """Re-run the workflow from the previewed step (commits the rewind)."""
+        """Re-run the workflow from the previewed step with its recorded choice."""
         runtime = getattr(self, "_workflowRuntime", None)
         if runtime is None or runtime.session is None:
             return
-        index = runtime.session.preview_index
-        if index is None:
+        self._rerunFromCheckpoint(runtime.session.preview_index)
+
+    def _rerunFromCheckpoint(self, index, modified_args=None):
+        """Rewind to checkpoint ``index`` and re-execute the workflow from there.
+
+        ``modified_args`` overrides the recorded args (e.g. a different choice
+        the user clicked while scrubbing). The checkpoint's own action drives
+        the re-dispatch: "choice_made" for choice/loop steps (so the value is
+        applied), "start" for interactive/automated steps (re-present/re-run).
+        """
+        runtime = getattr(self, "_workflowRuntime", None)
+        if runtime is None or runtime.session is None or index is None:
             return
         if not self._confirmReplayRewind(index):
             return
@@ -141,8 +151,10 @@ class WidgetReplayMixin:
             logger.debug("Interaction cleanup before rewind failed", exc_info=True)
 
         self.sendButton.setEnabled(False)
-        self._recordRoleEvent("Workflow", "replay_action", {"index": index})
-        descriptor = runtime.rewind_to_checkpoint(index)
+        self._recordRoleEvent("Workflow", "replay_action", {
+            "index": index, "modified": modified_args is not None,
+        })
+        descriptor = runtime.rewind_to_checkpoint(index, modified_args)
         if not isinstance(descriptor, dict) or descriptor.get("error"):
             self.appendToChat("Error", (descriptor or {}).get("error", "Replay failed."))
             self._setReadyStatus()
@@ -158,9 +170,11 @@ class WidgetReplayMixin:
             "System",
             f"Re-running workflow from step '{descriptor.get('step_id')}'.",
         )
-        # action="start" re-presents the step (re-arm placement / re-ask choice)
-        # so the normal Done/choice flow resumes from here.
-        self._runWorkflowStepDirect(descriptor.get("step_id"), "start", args={})
+        self._runWorkflowStepDirect(
+            descriptor.get("step_id"),
+            descriptor.get("action", "start"),
+            args=descriptor.get("args") or {},
+        )
 
     def _confirmReplayRewind(self, index):
         """Confirm when re-running would delete scene nodes added outside the workflow."""

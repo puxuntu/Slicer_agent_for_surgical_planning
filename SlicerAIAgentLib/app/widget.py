@@ -58,10 +58,11 @@ class SlicerAIAgentWidget(
         self._workflowBannerLabel = None
         self._autoAdvanceWorkflowStep = None
         self._workflowInstructionsLabel = None
-        self._nodeChoiceResolver = None
         self._workflowChoiceButtons = []
         self._workflowChoiceInput = None
         self._workflowChoiceSubmitButton = None
+        self._workflowNodeCombo = None
+        self._workflowNodeSelectButton = None
         self._currentWorkflowUiState = {"active": False}
         self._taskWorkflowPanelActive = False
         self._announcedWorkflowIds = set()

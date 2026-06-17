@@ -294,72 +294,8 @@ def _build_choice_parameter_update_code(
     ])
 
 
-def _try_auto_select_choice(ctx: _WorkflowContext, choice_desc: Dict) -> Optional[Dict]:
-    """Auto-select a scene node for high-confidence node-binding choices."""
-    if slicer is None or ctx.user_action != "start":
-        return None
-
-    choices = choice_desc.get("choices", [])
-    if _choice_is_closed_form(choices) or _choice_is_count_question(choice_desc, ctx.target_step):
-        return None
-
-    binding = (
-        choice_desc.get("binding")
-        or ctx.target_step.get("choice_binding")
-        or ctx.metadata.get("choice_bindings", {}).get(ctx.workflow_step, {})
-    )
-    node_class = binding.get("node_class", "") if binding else ""
-    if not node_class:
-        return None
-
-    param_name = (
-        binding.get("choice_parameter_name")
-        or choice_desc.get("parameter_name")
-        or binding.get("parameter_name", "")
-    )
-    binding_param = binding.get("parameter_name", param_name)
-    keywords = set(binding.get("keywords", []))
-    question_tokens = _semantic_tokens(
-        " ".join([
-            param_name,
-            choice_desc.get("question", ""),
-            ctx.target_step.get("description", ""),
-        ])
-    )
-    target_tokens = keywords | question_tokens
-
-    nodes = slicer.mrmlScene.GetNodesByClass(node_class)
-    candidates = []
-    for i in range(nodes.GetNumberOfItems()):
-        node = nodes.GetItemAsObject(i)
-        if node is None:
-            continue
-        name = node.GetName() or ""
-        node_tokens = _semantic_tokens(name)
-        score = len(target_tokens & node_tokens)
-        if str(name).lower() == str(param_name).lower():
-            score += 5
-        if keywords and keywords <= node_tokens:
-            score += 2
-        candidates.append((score, name, node))
-
-    if not candidates:
-        return None
-    candidates.sort(key=lambda item: (item[0], len(item[1])), reverse=True)
-    best = candidates[0]
-    second_score = candidates[1][0] if len(candidates) > 1 else -1
-
-    # High confidence means either there is only one class-compatible node, or
-    # the best semantic name match is clearly separated from the next candidate.
-    if not (len(candidates) == 1 or (best[0] >= 1 and best[0] >= second_score + 1)):
-        return None
-
-    # Store both the user-facing cookbook parameter and the actual parameter-node
-    # role when they differ, so template prelude can bind the Slicer parameter node.
-    ext_choices = _workflow_choices.setdefault(ctx.ext_name, {})
-    if binding_param and binding_param != param_name:
-        ext_choices[binding_param] = best[1]
-    return _record_choice_and_advance(ctx, param_name, best[1], auto_selected=True)
+# Automatic node selection was removed: node/option choices are always made
+# manually by the user via the selection dropdown in the agent panel.
 
 
 def _build_choice_prelude(ctx: _WorkflowContext) -> str:

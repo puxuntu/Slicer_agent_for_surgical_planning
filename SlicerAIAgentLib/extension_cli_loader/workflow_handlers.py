@@ -304,11 +304,8 @@ def _handle_user_choice_step(ctx: _WorkflowContext) -> Dict:
             _workflow_choices.setdefault(ctx.ext_name, {})[binding["parameter_name"]] = choice_value
         return _record_choice_and_advance(ctx, param_name, choice_value)
 
-    auto_result = _try_auto_select_choice(ctx, choice_desc)
-    if auto_result:
-        return auto_result
-
-    # Initial start — return the question for the LLM to relay
+    # Node/option selection is always manual — no automatic node matching.
+    # Initial start — return the question/choices for the panel to present.
     options_text = "\n".join(
         f"  {i+1}. {c['label']}" for i, c in enumerate(choices)
     )
@@ -374,16 +371,8 @@ def _handle_mixed_step(ctx: _WorkflowContext) -> Dict:
         return _handle_mixed_interaction_proceed(ctx, pre_code)
 
     if has_choice and not has_interaction:
-        auto_result = _try_auto_select_choice(ctx, choice_desc)
-        if auto_result:
-            if pre_code:
-                auto_result["pre_code"] = pre_code
-                auto_result["code"] = pre_code
-                auto_result["instruction"] = (
-                    "Execute the code above. " + auto_result["instruction"]
-                )
-            return auto_result
-        # Mixed auto+choice: execute auto code, then present choice
+        # Choice selection is always manual: execute the auto code, then present
+        # the choice (no automatic node matching).
         return _build_mixed_choice_response(ctx, pre_code, choice_desc)
 
     # Pure-automated mixed step (no interaction, no choice) — treat as automated.

@@ -74,6 +74,8 @@ class WidgetWorkflowMixin:
         self._workflowChoiceButtons = []
         self._workflowChoiceInput = None
         self._workflowChoiceSubmitButton = None
+        self._workflowNodeCombo = None
+        self._workflowNodeSelectButton = None
 
         if getattr(self, "_workflowDoneButton", None):
             self._workflowDoneButton.clicked.connect(self._onWorkflowDoneClicked)
@@ -287,6 +289,16 @@ class WidgetWorkflowMixin:
                 self._workflowChoiceLayout.removeWidget(self._workflowChoiceSubmitButton)
             self._workflowChoiceSubmitButton.setParent(None)
             self._workflowChoiceSubmitButton = None
+        if getattr(self, "_workflowNodeCombo", None) is not None:
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowNodeCombo)
+            self._workflowNodeCombo.setParent(None)
+            self._workflowNodeCombo = None
+        if getattr(self, "_workflowNodeSelectButton", None) is not None:
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowNodeSelectButton)
+            self._workflowNodeSelectButton.setParent(None)
+            self._workflowNodeSelectButton = None
         for button in getattr(self, "_workflowChoiceButtons", []):
             if self._workflowChoiceLayout is not None:
                 self._workflowChoiceLayout.removeWidget(button)
@@ -302,6 +314,13 @@ class WidgetWorkflowMixin:
             return
         if not choices and needs_input:
             default_value = state.get("default_value")
+            # Node-selection step: offer a dropdown of the matching scene nodes
+            # instead of a free-text box. Falls back to the text box only if no
+            # matching node exists. (The LLM auto-match still runs first and may
+            # auto-advance before this UI is ever shown.)
+            node_class = state.get("node_class")
+            if node_class and self._renderWorkflowNodeCombo(state, node_class, default_value):
+                return
             self._workflowChoiceInput = qt.QLineEdit()
             input_label = state.get("input_label") or state.get("choice_label") or "value"
             self._workflowChoiceInput.setPlaceholderText(f"Enter {input_label}")
@@ -393,6 +412,13 @@ class WidgetWorkflowMixin:
         self._runWorkflowStepDirect(current_step, "cancel")
 
     def _onWorkflowChoiceClicked(self, step_id, value):
+        # While scrubbing the replay, the choices belong to a past step: clicking
+        # one re-runs the workflow from that step with the chosen value.
+        if self._currentWorkflowUiState.get("replay_previewing"):
+            index = self._currentWorkflowUiState.get("preview_index")
+            if index is not None:
+                self._rerunFromCheckpoint(index, {"choice_value": value})
+            return
         if step_id:
             self.sendButton.setEnabled(False)
             self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": value})
@@ -406,8 +432,95 @@ class WidgetWorkflowMixin:
             value = str(self._currentWorkflowUiState.get("default_value") or "").strip()
         if not value:
             return
+        if self._currentWorkflowUiState.get("replay_previewing"):
+            index = self._currentWorkflowUiState.get("preview_index")
+            if index is not None:
+                self._rerunFromCheckpoint(index, {"choice_value": value})
+            return
         self.sendButton.setEnabled(False)
         self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": value})
+
+    def _renderWorkflowNodeCombo(self, state, node_class, default_value):
+        """Show a dropdown of scene nodes of ``node_class`` plus a Select button.
+
+        Returns True if it rendered (matching nodes exist), or False to let the
+        caller fall back to the free-text box (e.g. an empty scene).
+        """
+        candidates = []
+        try:
+            candidates = self._collectWorkflowNodeCandidates(node_class)
+        except Exception:
+            logger.debug("Collecting node candidates failed", exc_info=True)
+        if not candidates:
+            return False
+        self._workflowNodeCombo = qt.QComboBox()
+        for cand in candidates:
+            name = cand.get("name") or cand.get("id") or ""
+            store = cand.get("storageFileName")
+            label = f"{name} — {store}" if store else name
+            self._workflowNodeCombo.addItem(label, name)   # display label, data = node name
+        idx = self._bestNodeMatchIndex(
+            candidates, default_value, state.get("node_keywords") or []
+        )
+        if 0 <= idx < self._workflowNodeCombo.count:
+            self._workflowNodeCombo.setCurrentIndex(idx)
+
+        self._workflowNodeSelectButton = qt.QPushButton("Select")
+        self._workflowNodeSelectButton.setToolTip("Use the selected node")
+        self._workflowNodeSelectButton.clicked.connect(self._onWorkflowNodeSelected)
+
+        self._workflowChoiceLayout.addWidget(self._workflowNodeCombo, 1)
+        self._workflowChoiceLayout.addWidget(self._workflowNodeSelectButton)
+        self._workflowNodeCombo.setVisible(True)
+        self._workflowNodeSelectButton.setVisible(True)
+        return True
+
+    def _bestNodeMatchIndex(self, candidates, default_value, keywords):
+        """Best candidate index: exact recorded name → keyword substring → first.
+
+        Keyword scoring uses substring containment (case-insensitive) so prefix
+        keywords like 'mandib' match the node name 'MandibleSegmentation'; the
+        distinctive keywords then break the tie against shared words like
+        'segmentation'. It is only a default guess — the user picks from the
+        dropdown.
+        """
+        names = [str(c.get("name") or "") for c in candidates]
+        dv = str(default_value or "").strip()
+        if dv:
+            for i, name in enumerate(names):
+                if name == dv:
+                    return i
+        kws = [str(k).strip().lower() for k in (keywords or []) if len(str(k).strip()) >= 3]
+        if kws:
+            best_i, best_score = 0, 0
+            for i, name in enumerate(names):
+                low = name.lower()
+                score = sum(1 for k in kws if k in low)
+                if score > best_score:
+                    best_i, best_score = i, score
+            if best_score > 0:
+                return best_i
+        return 0
+
+    def _onWorkflowNodeSelected(self):
+        if getattr(self, "_workflowNodeCombo", None) is None:
+            return
+        try:
+            name = self._workflowNodeCombo.itemData(self._workflowNodeCombo.currentIndex)
+        except Exception:
+            name = None
+        name = str(name or self._workflowNodeCombo.currentText or "").strip()
+        if not name:
+            return
+        if self._currentWorkflowUiState.get("replay_previewing"):
+            index = self._currentWorkflowUiState.get("preview_index")
+            if index is not None:
+                self._rerunFromCheckpoint(index, {"choice_value": name})
+            return
+        step_id = self._currentWorkflowUiState.get("current_step")
+        if step_id:
+            self.sendButton.setEnabled(False)
+            self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": name})
 
     def _enterWorkflowWait(self, step_info):
         """

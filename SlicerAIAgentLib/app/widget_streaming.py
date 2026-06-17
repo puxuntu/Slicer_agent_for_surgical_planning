@@ -423,34 +423,9 @@ class WidgetStreamingMixin:
             return
 
         if result_type == "user_choice":
-            resolved = self._tryResolveWorkflowNodeChoice(result)
-            if resolved.get("selected"):
-                self.appendToChat(
-                    "System",
-                    "Automatically selected "
-                    f"'{resolved.get('selected_node_name')}' for workflow step "
-                    f"{result.get('step_id')} using LLM name matching "
-                    f"(confidence {resolved.get('confidence', 0):.2f}).",
-                )
-                self._recordRoleEvent("Workflow", "llm_node_choice_resolved", {
-                    "step_id": result.get("step_id"),
-                    "selected_node_id": resolved.get("selected_node_id"),
-                    "selected_node_name": resolved.get("selected_node_name"),
-                    "confidence": resolved.get("confidence"),
-                    "reason": resolved.get("reason"),
-                })
-                self._runWorkflowStepDirect(
-                    result.get("step_id"),
-                    "choice_made",
-                    args={"choice_value": resolved.get("choice_value")},
-                )
-                return
-            if resolved.get("attempted"):
-                self._recordRoleEvent("Workflow", "llm_node_choice_unresolved", {
-                    "step_id": result.get("step_id"),
-                    "reason": resolved.get("reason"),
-                    "confidence": resolved.get("confidence"),
-                })
+            # Node selection is always manual: show the choice (a dropdown of
+            # the matching scene nodes, built in _renderWorkflowChoices) and wait
+            # for the user. No automatic LLM node matching.
             self._displayWorkflowChoice(result)
             self._recordRoleEvent("Workflow", "waiting_for_choice", {
                 "step_id": result.get("step_id"),
@@ -479,33 +454,11 @@ class WidgetStreamingMixin:
         self._completeWorkflowResultWithoutCode(result)
 
     def _displayWorkflowChoice(self, step_info):
-        """Show a generated CLI user-choice question without asking the LLM."""
+        """Show a generated CLI user-choice question (buttons / node dropdown)."""
         self._showWorkflowChoice(step_info)
 
-    def _tryResolveWorkflowNodeChoice(self, step_info):
-        """Use a narrow LLM call to resolve ambiguous scene-node choices."""
-        node_class = step_info.get("node_class") or (step_info.get("binding") or {}).get("node_class")
-        if not node_class or step_info.get("choices"):
-            return {"selected": False, "attempted": False, "reason": "not_open_scene_node_choice"}
-        candidates = self._collectWorkflowNodeCandidates(node_class)
-        if len(candidates) <= 1:
-            return {"selected": False, "attempted": False, "reason": "not_ambiguous_candidate_set"}
-        if not self.logic or not self.logic.llmClient:
-            return {"selected": False, "attempted": False, "reason": "llm_unavailable"}
-        try:
-            if self._nodeChoiceResolver is None:
-                from SlicerAIAgentLib.NodeChoiceResolver import NodeChoiceResolver
-                self._nodeChoiceResolver = NodeChoiceResolver(self.logic.llmClient)
-            self._setAgentStatus("Workflow", "Resolving node choice...")
-            resolved = self._nodeChoiceResolver.resolve(step_info, candidates)
-            resolved["attempted"] = True
-            return resolved
-        except Exception as exc:
-            logger.warning(f"Workflow node-choice resolver failed: {exc}")
-            return {"selected": False, "attempted": True, "reason": str(exc)}
-
     def _collectWorkflowNodeCandidates(self, node_class):
-        """Collect existing MRML nodes for LLM name-only matching."""
+        """Collect existing MRML nodes of ``node_class`` for the selection dropdown."""
         candidates = []
         try:
             nodes = slicer.mrmlScene.GetNodesByClass(node_class)

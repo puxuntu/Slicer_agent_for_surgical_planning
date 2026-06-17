@@ -51,10 +51,6 @@ class SlicerAIAgentTest(AnalyzerContractsMixin, WorkflowTestsMixin, ScriptedLoad
         self.tearDown()
 
         self.setUp()
-        self.test_NodeChoiceResolverContracts()
-        self.tearDown()
-
-        self.setUp()
         self.test_SafeExecutor()
         self.tearDown()
 
@@ -95,7 +91,6 @@ class SlicerAIAgentTest(AnalyzerContractsMixin, WorkflowTestsMixin, ScriptedLoad
                 SlicerCodeTemplates,
                 TurnRouter,
                 WorkflowRuntime,
-                NodeChoiceResolver,
                 WorkflowIntentResolver,
             )
             self.delayDisplay("All module components imported successfully")

@@ -205,6 +205,12 @@ class WorkflowRuntime:
             default_value = choice_info.get("default_value")
         parameter_name = source.get("parameter_name") or choice_info.get("parameter_name") or ""
         repeat_progress = source.get("repeat_progress") or {}
+        # Node-selection steps bind a parameter to a node class; surface it (and
+        # its keywords) so the panel can offer a dropdown of matching scene
+        # nodes instead of a free-text box.
+        binding = source.get("binding") or self._node_binding_for_param(parameter_name)
+        node_class = source.get("node_class") or binding.get("node_class", "")
+        node_keywords = binding.get("keywords", []) or []
         active = self.session.active or self.session.status in {"completed", "cancelled"}
 
         return {
@@ -225,6 +231,8 @@ class WorkflowRuntime:
             "choices": choices,
             "default_value": default_value,
             "parameter_name": parameter_name,
+            "node_class": node_class,
+            "node_keywords": node_keywords,
             "choice_label": ui_guidance.get("choice_label", ""),
             "input_label": ui_guidance.get("input_label", ""),
             "done_label": ui_guidance.get("done_label", "Done") or "Done",
@@ -1300,39 +1308,59 @@ class WorkflowRuntime:
         """UI-state dict for the current navigation position.
 
         When live (preview_index is None) this is the normal state_for_ui. When
-        previewing checkpoint i it returns that step's guidance + progress with
-        the normal controls disabled so only Back/Forward/Action drive.
+        previewing checkpoint i it returns that step's guidance + progress AND
+        the choice buttons / parameter input that the step originally showed, so
+        the user can see (and re-pick) the recorded choice; clicking one re-runs
+        from that step. Done/Skip stay hidden so only Back/Forward/Action and the
+        choices drive.
         """
         if not self.session:
             return {"active": False}
         if self.session.preview_index is None:
             return self.state_for_ui()
-        cp = self.session.checkpoints[self.session.preview_index]
+        idx = self.session.preview_index
+        cp = self.session.checkpoints[idx]
         graph = get_workflow_graph(self.session.extension_name) or {}
         steps = graph.get("steps", []) if isinstance(graph, dict) else []
         step_ids = [s.get("step_id") for s in steps if s.get("step_id")]
         total_steps = graph.get("step_count") or len(steps)
         current_index = (step_ids.index(cp.step_id) + 1) if cp.step_id in step_ids else 0
+        # Re-surface the step's interactive elements from the checkpoint so they
+        # reappear while scrubbing. Free-form params (no enumerated choices) show
+        # a prefilled input; clicking/submitting re-runs from here with that value.
+        meta = self._step_meta(cp.step_id)
+        guidance = (meta.get("ui_guidance") or {}) if isinstance(meta, dict) else {}
+        choices = list(cp.choices or [])
+        needs_input = bool(cp.editable) and not choices
+        binding = self._node_binding_for_param(cp.parameter_name)
         return {
             "active": True,
             "extension_name": self.session.extension_name,
             "workflow_title": self._display_name(self.session.extension_name),
             "current_step": cp.step_id,
             "current_index": current_index,
-            "completed_steps": self.session.preview_index,
+            "completed_steps": idx,
             "total_steps": int(total_steps or 0),
-            "status": f"Reviewing step {self.session.preview_index + 1}",
+            "status": f"Reviewing step {idx + 1}",
             "description": cp.guidance_description or cp.summary,
             "instructions": cp.guidance_instructions,
-            "choices": [],
+            "choices": choices,
+            "needs_choice_input": needs_input,
+            "default_value": cp.recorded_value,
+            "parameter_name": cp.parameter_name,
+            "node_class": binding.get("node_class", ""),
+            "node_keywords": binding.get("keywords", []) or [],
+            "choice_label": guidance.get("choice_label", ""),
+            "input_label": guidance.get("input_label", ""),
             "repeat_progress": cp.repeat or {},
             "can_done": False,
             "can_skip": False,
             "can_cancel": True,
-            "replay_can_back": self.session.preview_index > 0,
+            "replay_can_back": idx > 0,
             "replay_can_forward": True,
             "replay_can_action": True,
             "replay_previewing": True,
+            "preview_index": idx,
         }
 
     @staticmethod
@@ -1435,6 +1463,23 @@ class WorkflowRuntime:
             if step.get("step_id") == step_id:
                 return step
         return {}
+
+    def _node_binding_for_param(self, parameter_name: str) -> Dict[str, Any]:
+        """Return the parameter binding ({node_class, keywords, ...}) from metadata.
+
+        Node-selection steps bind a parameter (e.g. mandibularSegmentation) to a
+        node class; that mapping lives in workflow_metadata.parameter_bindings.
+        Used to offer a dropdown of matching scene nodes. Fail-soft to {}.
+        """
+        if not self.session or not parameter_name:
+            return {}
+        try:
+            ext_data = get_validated_extensions().get(self.session.extension_name) or {}
+            metadata = ext_data.get("workflow_metadata", {}) or {}
+            bindings = metadata.get("parameter_bindings", {}) or {}
+            return dict(bindings.get(parameter_name, {}) or {})
+        except Exception:
+            return {}
 
     def _is_loop_count_source(self, step_id: str) -> bool:
         for block in self._repeat_blocks():

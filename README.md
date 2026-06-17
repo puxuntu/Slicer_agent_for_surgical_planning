@@ -250,9 +250,8 @@ When a validated Extension CLI is active, the system switches from the autonomou
   - *Interactive* — the system creates markup nodes, enters Slicer placement mode, and waits for the user to place points or draw curves.
   - *Mixed* — automated setup runs first, then the system pauses for user interaction.
   - *Branch* — conditional paths based on user choice.
-  - *User Choice* — the LLM or a lightweight resolver selects from scene nodes or predefined options.
+  - *User Choice* — the user selects from scene nodes (a dropdown of the matching nodes) or predefined options.
 - **InteractionManager**: Handles low-level Slicer 3D coordination: markup node creation, placement mode entry/exit, debounced VTK observers, and validation (e.g., minimum control point counts).
-- **NodeChoiceResolver**: When a workflow step needs to choose between multiple scene nodes (e.g., "which volume to use?"), a narrow LLM call resolves the ambiguity by matching node names against the step's described role.
 
 This design means a complex 10-step surgical planning workflow can run with minimal LLM overhead: the planning and code generation happened offline; online execution is fast, deterministic, and interruptible.
 

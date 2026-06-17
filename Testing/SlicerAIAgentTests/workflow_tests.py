@@ -426,6 +426,66 @@ class WorkflowTestsMixin:
             wf_mod.get_workflow_graph = original_get_workflow_graph
             reset_workflow_session("FakeNavExt")
 
+    def test_WorkflowNodeSelectionBinding(self):
+        """Node-selection steps surface node_class/keywords for the dropdown."""
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+        WorkflowCheckpoint = wf_mod.WorkflowCheckpoint
+        from SlicerAIAgentLib.ExtensionCLILoader import reset_workflow_session
+
+        graph = {"step_count": 2, "steps": [
+            {"step_id": "cb_step_2", "operation_type": "user_choice", "step_type": "user_choice",
+             "description": "Choose the mandibular segmentation",
+             "choice_info": {"parameter_name": "mandibularSegmentation", "choices": []}},
+            {"step_id": "cb_step_16", "operation_type": "user_choice", "step_type": "user_choice",
+             "description": "How many cut planes?",
+             "choice_info": {"parameter_name": "numberOfCutPlanes", "choices": []}}]}
+        meta = {"FakeNodeExt": {"workflow_metadata": {"parameter_bindings": {
+            "mandibularSegmentation": {"node_class": "vtkMRMLSegmentationNode",
+                                       "keywords": ["mandibular", "segmentation"]},
+            "numberOfCutPlanes": {"node_class": "", "keywords": []}}}}}
+        orig_graph = wf_mod.get_workflow_graph
+        orig_ext = wf_mod.get_validated_extensions
+        wf_mod.get_workflow_graph = lambda extension_name: graph
+        wf_mod.get_validated_extensions = lambda: meta
+        try:
+            reset_workflow_session("FakeNodeExt")
+            runtime = WorkflowRuntime()
+            runtime.session = WorkflowSession(
+                extension_name="FakeNodeExt", tool_name="FakeNodeExt",
+                workflow_id="node_1", current_step="cb_step_2")
+
+            b = runtime._node_binding_for_param("mandibularSegmentation")
+            self.assertEqual(b.get("node_class"), "vtkMRMLSegmentationNode")
+            self.assertIn("mandibular", b.get("keywords", []))
+
+            # node-selection step → node_class carried; free-form param → empty
+            st = runtime.state_for_ui({"type": "user_choice", "step_id": "cb_step_2",
+                                       "parameter_name": "mandibularSegmentation", "choices": []})
+            self.assertEqual(st["node_class"], "vtkMRMLSegmentationNode")
+            self.assertTrue(st["needs_choice_input"])
+            st2 = runtime.state_for_ui({"type": "user_choice", "step_id": "cb_step_16",
+                                        "parameter_name": "numberOfCutPlanes", "choices": []})
+            self.assertEqual(st2["node_class"], "")
+
+            # replay preview carries node_class via the checkpoint's parameter_name
+            cp = WorkflowCheckpoint(index=0, step_id="cb_step_2", kind="choice",
+                                    action="choice_made", args={"choice_value": "MandibleSegmentation"},
+                                    recorded_value="MandibleSegmentation",
+                                    parameter_name="mandibularSegmentation", editable=True, choices=[])
+            runtime.session.checkpoints = [cp]
+            runtime.session.preview_index = 0
+            pv = runtime._preview_ui_state()
+            self.assertEqual(pv["node_class"], "vtkMRMLSegmentationNode")
+            self.assertEqual(pv["default_value"], "MandibleSegmentation")
+            self.assertTrue(pv["needs_choice_input"])
+        finally:
+            wf_mod.get_workflow_graph = orig_graph
+            wf_mod.get_validated_extensions = orig_ext
+            reset_workflow_session("FakeNodeExt")
+
     def test_WorkflowRuntimeUiStateMapping(self):
         """Test compact workflow UI state for progress and controls."""
         import importlib
@@ -605,36 +665,6 @@ class WorkflowTestsMixin:
         self.assertIsNone(widget._autoAdvanceWorkflowStep)
         self.assertIsNone(widget._activeWorkflowId)
         self.assertFalse(widget._taskWorkflowPanelActive)
-
-    def test_NodeChoiceResolverContracts(self):
-        """Test narrow LLM node-choice resolver validation behavior."""
-        from SlicerAIAgentLib.NodeChoiceResolver import NodeChoiceResolver
-
-        class FakeClient:
-            api_key = "test"
-
-        resolver = NodeChoiceResolver(FakeClient())
-        step_info = {
-            "type": "user_choice",
-            "question": "Which scalar volume is the Mandible Volume?",
-            "choices": [],
-            "node_class": "vtkMRMLScalarVolumeNode",
-        }
-        candidates = [
-            {"id": "vtkMRMLScalarVolumeNode1", "name": "CTFibula"},
-            {"id": "vtkMRMLScalarVolumeNode2", "name": "CTMandible"},
-        ]
-        self.assertTrue(resolver.should_resolve(step_info, candidates))
-        parsed = resolver._extract_json(
-            "```json\n"
-            "{\"selected_node_id\":\"vtkMRMLScalarVolumeNode2\","
-            "\"selected_node_name\":\"CTMandible\",\"confidence\":0.91,"
-            "\"reason\":\"matches mandible\"}\n"
-            "```"
-        )
-        self.assertEqual(parsed["selected_node_name"], "CTMandible")
-        self.assertEqual(resolver._coerce_confidence("1.5"), 1.0)
-        self.assertEqual(resolver._coerce_confidence("bad"), 0.0)
 
     def test_SafeExecutor(self):
         """Test SafeExecutor functionality."""

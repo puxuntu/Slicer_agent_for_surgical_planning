@@ -28,7 +28,6 @@ __all__ = [
     'WorkflowOrchestrator',
     'TurnRouter',
     'WorkflowRuntime',
-    'NodeChoiceResolver',
     'WorkflowIntentResolver',
 ]
 
@@ -53,5 +52,4 @@ from .InteractionManager import InteractionManager
 from .WorkflowOrchestrator import WorkflowOrchestrator
 from .TurnRouter import TurnRouter, TurnRoute
 from .WorkflowRuntime import WorkflowRuntime
-from .NodeChoiceResolver import NodeChoiceResolver
 from .WorkflowIntentResolver import WorkflowIntentResolver
