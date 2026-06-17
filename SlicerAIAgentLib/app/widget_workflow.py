@@ -53,6 +53,19 @@ class WidgetWorkflowMixin:
             layout.addWidget(self._workflowActionLabel)
             layout.addWidget(self._workflowInstructionLabel)
 
+            # "Show details" toggle + the detailed (clinical) instruction body,
+            # hidden until the toggle is clicked.
+            self._workflowDetailToggle = qt.QToolButton()
+            self._workflowDetailToggle.setText("Show details ▸")
+            self._workflowDetailToggle.setAutoRaise(True)
+            self._workflowDetailToggle.setStyleSheet("color: #3b6f9e; border: none; padding: 0;")
+            self._workflowDetailToggle.clicked.connect(self._onToggleWorkflowDetails)
+            self._workflowDetailLabel = qt.QLabel("")
+            self._workflowDetailLabel.setWordWrap(True)
+            self._workflowDetailLabel.setStyleSheet("color: #444;")
+            layout.addWidget(self._workflowDetailToggle)
+            layout.addWidget(self._workflowDetailLabel)
+
             self._workflowChoiceContainer = qt.QWidget()
             self._workflowChoiceLayout = qt.QHBoxLayout(self._workflowChoiceContainer)
             self._workflowChoiceLayout.setContentsMargins(0, 0, 0, 0)
@@ -203,6 +216,7 @@ class WidgetWorkflowMixin:
         self._workflowActionLabel.setVisible(bool(description))
         self._workflowInstructionLabel.setText(str(instructions))
         self._workflowInstructionLabel.setVisible(bool(instructions))
+        self._renderWorkflowDetails(self._currentWorkflowUiState.get("instructions_detailed") or "")
 
         self._renderWorkflowChoices(self._currentWorkflowUiState)
         self._updateReplayControls(self._currentWorkflowUiState)
@@ -354,6 +368,33 @@ class WidgetWorkflowMixin:
             button.setVisible(True)
             self._workflowChoiceButtons.append(button)
 
+    def _renderWorkflowDetails(self, detailed):
+        """Show the 'Show details' toggle when a detailed instruction exists."""
+        toggle = getattr(self, "_workflowDetailToggle", None)
+        label = getattr(self, "_workflowDetailLabel", None)
+        if toggle is None or label is None:
+            return
+        detailed = str(detailed or "")
+        self._workflowDetailText = detailed
+        if not detailed:
+            toggle.setVisible(False)
+            label.setVisible(False)
+            return
+        # New step: show the toggle collapsed (details hidden) by default.
+        toggle.setVisible(True)
+        toggle.setText("Show details ▸")
+        label.setText(detailed)
+        label.setVisible(False)
+
+    def _onToggleWorkflowDetails(self):
+        label = getattr(self, "_workflowDetailLabel", None)
+        toggle = getattr(self, "_workflowDetailToggle", None)
+        if label is None or toggle is None:
+            return
+        expanded = not label.visible
+        label.setVisible(expanded)
+        toggle.setText("Hide details ▾" if expanded else "Show details ▸")
+
     def _showWorkflowInteraction(self, result):
         """Show an interactive or mixed workflow wait state."""
         self._updateWorkflowPanel(result)
@@ -376,6 +417,7 @@ class WidgetWorkflowMixin:
         self._workflowStepLabel.setText("Step 0 of 0")
         self._workflowActionLabel.setText("")
         self._workflowInstructionLabel.setText("")
+        self._renderWorkflowDetails("")
         self._renderWorkflowChoices({})
         self._updateReplayControls({})
         self._workflowDoneButton.setVisible(False)

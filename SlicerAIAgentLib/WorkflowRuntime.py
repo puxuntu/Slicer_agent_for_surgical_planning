@@ -211,6 +211,15 @@ class WorkflowRuntime:
         binding = source.get("binding") or self._node_binding_for_param(parameter_name)
         node_class = source.get("node_class") or binding.get("node_class", "")
         node_keywords = binding.get("keywords", []) or []
+        # Clinically-informed instructions override the terse ui_guidance when
+        # present: title -> description, simple -> instructions, detailed -> the
+        # "Show details" body. Re-looked up live so manual edits show at once.
+        instr = self._step_instructions_for(current_step)
+        if instr.get("title"):
+            description = instr["title"]
+        if instr.get("simple"):
+            instructions = instr["simple"]
+        instructions_detailed = instr.get("detailed", "")
         active = self.session.active or self.session.status in {"completed", "cancelled"}
 
         return {
@@ -228,6 +237,7 @@ class WorkflowRuntime:
             "result_type": result_type,
             "description": description,
             "instructions": instructions,
+            "instructions_detailed": instructions_detailed,
             "choices": choices,
             "default_value": default_value,
             "parameter_name": parameter_name,
@@ -1333,6 +1343,9 @@ class WorkflowRuntime:
         choices = list(cp.choices or [])
         needs_input = bool(cp.editable) and not choices
         binding = self._node_binding_for_param(cp.parameter_name)
+        # Clinically-informed instructions override the recorded guidance (live
+        # lookup so manual edits show in replay too).
+        instr = self._step_instructions_for(cp.step_id)
         return {
             "active": True,
             "extension_name": self.session.extension_name,
@@ -1342,8 +1355,9 @@ class WorkflowRuntime:
             "completed_steps": idx,
             "total_steps": int(total_steps or 0),
             "status": f"Reviewing step {idx + 1}",
-            "description": cp.guidance_description or cp.summary,
-            "instructions": cp.guidance_instructions,
+            "description": instr.get("title") or cp.guidance_description or cp.summary,
+            "instructions": instr.get("simple") or cp.guidance_instructions,
+            "instructions_detailed": instr.get("detailed", ""),
             "choices": choices,
             "needs_choice_input": needs_input,
             "default_value": cp.recorded_value,
@@ -1478,6 +1492,21 @@ class WorkflowRuntime:
             metadata = ext_data.get("workflow_metadata", {}) or {}
             bindings = metadata.get("parameter_bindings", {}) or {}
             return dict(bindings.get(parameter_name, {}) or {})
+        except Exception:
+            return {}
+
+    def _step_instructions_for(self, step_id: str) -> Dict[str, Any]:
+        """Return the clinically-informed {title, simple, detailed} for a step, or {}.
+
+        Read live from the loaded step_instructions.json so manual edits take
+        effect on the next render (live and replay) without restarting.
+        """
+        if not self.session or not step_id:
+            return {}
+        try:
+            ext_data = get_validated_extensions().get(self.session.extension_name) or {}
+            steps = (ext_data.get("step_instructions", {}) or {}).get("steps", {}) or {}
+            return dict(steps.get(step_id, {}) or {})
         except Exception:
             return {}
 

@@ -739,6 +739,9 @@ class WidgetStreamingMixin:
             elif event_type == 'cli_error':
                 self._handleCliError(payload)
                 i += 1
+            elif event_type == 'cli_instructions_regenerated':
+                self._handleInstructionsRegenerated(payload)
+                i += 1
             elif event_type == 'cli_probe_request':
                 self._handleCliProbeRequest(payload)
                 i += 1

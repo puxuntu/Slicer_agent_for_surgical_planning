@@ -112,6 +112,36 @@ class WidgetCLIMixin:
         self._repairCliButton.setEnabled(False)
         cliLayout.addWidget(self._repairCliButton)
 
+        # Row 9: Per-step instruction editor (clinical simple/detailed text).
+        instrGroup = ctk.ctkCollapsibleGroupBox()
+        instrGroup.title = "Step instructions"
+        instrGroup.collapsed = True
+        instrLayout = qt.QVBoxLayout(instrGroup)
+        instrLayout.addWidget(qt.QLabel("Step:"))
+        self._stepInstrStepCombo = qt.QComboBox()
+        instrLayout.addWidget(self._stepInstrStepCombo)
+        instrLayout.addWidget(qt.QLabel("Title:"))
+        self._stepInstrTitle = qt.QLineEdit()
+        instrLayout.addWidget(self._stepInstrTitle)
+        instrLayout.addWidget(qt.QLabel("Simple (shown by default):"))
+        self._stepInstrSimple = qt.QTextEdit()
+        self._stepInstrSimple.setMaximumHeight(50)
+        instrLayout.addWidget(self._stepInstrSimple)
+        instrLayout.addWidget(qt.QLabel("Detailed (Show details):"))
+        self._stepInstrDetailed = qt.QTextEdit()
+        self._stepInstrDetailed.setMaximumHeight(90)
+        instrLayout.addWidget(self._stepInstrDetailed)
+        instrButtons = qt.QHBoxLayout()
+        self._stepInstrSaveButton = qt.QPushButton("Save step")
+        self._stepInstrSaveButton.setToolTip("Save this step's instructions (marks it as checked)")
+        self._regenInstructionsButton = qt.QPushButton("Regenerate instructions")
+        self._regenInstructionsButton.setToolTip("Regenerate all step instructions with the LLM (keeps edited steps)")
+        instrButtons.addWidget(self._stepInstrSaveButton)
+        instrButtons.addWidget(self._regenInstructionsButton)
+        instrButtons.addStretch(1)
+        instrLayout.addLayout(instrButtons)
+        cliLayout.addWidget(instrGroup)
+
         # Internal state
         self._cliGeneratorRunning = False
 
@@ -119,8 +149,12 @@ class WidgetCLIMixin:
         self._refreshExtensionsButton.clicked.connect(self._onRefreshExtensionsClicked)
         self._sourceSelector.currentIndexChanged.connect(self._onSourceSelectionChanged)
         self._extensionSelector.currentIndexChanged.connect(self._onExtensionSelectionChanged)
+        self._extensionSelector.currentIndexChanged.connect(self._populateStepInstructionCombo)
         self._analyzeGenerateButton.clicked.connect(self._onAnalyzeGenerateClicked)
         self._repairCliButton.clicked.connect(self._onRepairCliClicked)
+        self._stepInstrStepCombo.currentIndexChanged.connect(self._onStepInstrStepChanged)
+        self._stepInstrSaveButton.clicked.connect(self._onSaveStepInstructions)
+        self._regenInstructionsButton.clicked.connect(self._onRegenerateInstructions)
 
         # Populate initial extension list
         self._onRefreshExtensionsClicked()
@@ -467,3 +501,166 @@ class WidgetCLIMixin:
         if not current_text:
             return None
         return self._extensionDataMap.get(current_text)
+
+    # ----------------------------- per-step instruction editor -----------------
+
+    def _selectedExtCliDir(self):
+        """Resolve the selected extension's CLI directory, or None."""
+        data = self._getSelectedExtensionData()
+        name = data.get("name") if data else None
+        if not name:
+            return None
+        from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
+        cli_dir = os.path.join(get_cli_base_dir(), name)
+        return cli_dir if os.path.isdir(cli_dir) else None
+
+    def _loadStepInstructionsFile(self):
+        """Load the extension's step_instructions.json -> {step_id: {...}}, or {}."""
+        cli_dir = self._selectedExtCliDir()
+        if not cli_dir:
+            return {}
+        path = os.path.join(cli_dir, "step_instructions.json")
+        if not os.path.isfile(path):
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return (json.load(f) or {}).get("steps", {}) or {}
+        except Exception:
+            return {}
+
+    def _populateStepInstructionCombo(self, *args):
+        """Fill the step dropdown from the selected extension's workflow.json."""
+        combo = getattr(self, "_stepInstrStepCombo", None)
+        if combo is None:
+            return
+        combo.blockSignals(True)
+        combo.clear()
+        cli_dir = self._selectedExtCliDir()
+        if cli_dir:
+            wf_path = os.path.join(cli_dir, "workflow.json")
+            if os.path.isfile(wf_path):
+                try:
+                    with open(wf_path, "r", encoding="utf-8") as f:
+                        graph = json.load(f)
+                    for step in graph.get("steps", []) or []:
+                        sid = step.get("step_id", "")
+                        if not sid:
+                            continue
+                        title = (step.get("ui_guidance", {}) or {}).get("title", "") or step.get("description", "")
+                        combo.addItem(f"{sid} — {str(title)[:40]}", sid)
+                except Exception:
+                    logger.debug("Failed to populate step instruction combo", exc_info=True)
+        combo.blockSignals(False)
+        self._onStepInstrStepChanged()
+
+    def _onStepInstrStepChanged(self, *args):
+        """Load the selected step's instructions into the editor fields."""
+        combo = getattr(self, "_stepInstrStepCombo", None)
+        if combo is None or combo.count == 0:
+            return
+        step_id = combo.itemData(combo.currentIndex)
+        steps = self._loadStepInstructionsFile()
+        entry = steps.get(step_id, {}) or {}
+        # Fall back to workflow.json ui_guidance when no saved instruction yet.
+        if not entry:
+            cli_dir = self._selectedExtCliDir()
+            if cli_dir:
+                try:
+                    with open(os.path.join(cli_dir, "workflow.json"), "r", encoding="utf-8") as f:
+                        for step in (json.load(f).get("steps", []) or []):
+                            if step.get("step_id") == step_id:
+                                g = step.get("ui_guidance", {}) or {}
+                                entry = {"title": g.get("title", ""),
+                                         "simple": g.get("instruction", "") or step.get("description", ""),
+                                         "detailed": step.get("description", "")}
+                                break
+                except Exception:
+                    pass
+        self._stepInstrTitle.setText(str(entry.get("title", "")))
+        self._stepInstrSimple.setPlainText(str(entry.get("simple", "")))
+        self._stepInstrDetailed.setPlainText(str(entry.get("detailed", "")))
+
+    def _onSaveStepInstructions(self):
+        """Write the edited step back to step_instructions.json (edited=true)."""
+        combo = getattr(self, "_stepInstrStepCombo", None)
+        cli_dir = self._selectedExtCliDir()
+        if combo is None or combo.count == 0 or not cli_dir:
+            return
+        step_id = combo.itemData(combo.currentIndex)
+        path = os.path.join(cli_dir, "step_instructions.json")
+        doc = {"version": 1, "steps": {}}
+        if os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    doc = json.load(f) or doc
+            except Exception:
+                pass
+        doc.setdefault("steps", {})[step_id] = {
+            "title": self._stepInstrTitle.text.strip(),
+            "simple": self._stepInstrSimple.toPlainText().strip(),
+            "detailed": self._stepInstrDetailed.toPlainText().strip(),
+            "edited": True,
+        }
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(doc, f, indent=2)
+            from SlicerAIAgentLib.ExtensionCLILoader import invalidate_cache
+            invalidate_cache()
+            self._cliStatusLabel.setText(f"Saved instructions for {step_id}")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: green;")
+        except Exception as exc:
+            self._cliStatusLabel.setText(f"Save failed: {exc}")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
+
+    def _onRegenerateInstructions(self):
+        """Regenerate all step instructions off-thread (keeps user-edited steps)."""
+        data = self._getSelectedExtensionData()
+        ext_name = data.get("name") if data else None
+        cli_dir = self._selectedExtCliDir()
+        if not ext_name or not cli_dir:
+            return
+        if not (self.logic and self.logic.llmClient):
+            self._cliStatusLabel.setText("Configure an API key first")
+            return
+        self._cliStatusLabel.setText("Regenerating instructions...")
+        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
+
+        def _run():
+            try:
+                from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+                from SlicerAIAgentLib.CodeValidator import CodeValidator
+                from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir, invalidate_cache
+                with open(os.path.join(cli_dir, "workflow.json"), "r", encoding="utf-8") as f:
+                    wf = json.load(f)
+                md = {}
+                md_path = os.path.join(cli_dir, "workflow_metadata.json")
+                if os.path.isfile(md_path):
+                    with open(md_path, "r", encoding="utf-8") as f:
+                        md = json.load(f)
+                ipath = os.path.join(cli_dir, "step_instructions.json")
+                existing = {}
+                if os.path.isfile(ipath):
+                    with open(ipath, "r", encoding="utf-8") as f:
+                        existing = json.load(f)
+                analyzer = ExtensionCLIAnalyzer(
+                    llm_client=self.logic.llmClient,
+                    output_base_dir=get_cli_base_dir(),
+                    code_validator=CodeValidator(),
+                )
+                result = analyzer.generate_step_instructions(
+                    wf, md, {"module_name": ext_name}, {}, cookbook_def=None, existing=existing,
+                )
+                with open(ipath, "w", encoding="utf-8") as f:
+                    json.dump(result, f, indent=2)
+                invalidate_cache()
+                self._streamQueue.put(('cli_instructions_regenerated', {"ext": ext_name}))
+            except Exception as exc:
+                self._streamQueue.put(('cli_error', str(exc)))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _handleInstructionsRegenerated(self, payload):
+        """Main-thread completion of a regenerate: refresh editor + status."""
+        self._cliStatusLabel.setText("Instructions regenerated ✓")
+        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: green;")
+        self._onStepInstrStepChanged()

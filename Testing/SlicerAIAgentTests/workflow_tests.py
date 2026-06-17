@@ -486,6 +486,75 @@ class WorkflowTestsMixin:
             wf_mod.get_validated_extensions = orig_ext
             reset_workflow_session("FakeNodeExt")
 
+    def test_WorkflowStepInstructions(self):
+        """Clinical step instructions override the panel + the generation stage."""
+        import importlib, json
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+        from SlicerAIAgentLib.ExtensionCLILoader import reset_workflow_session
+
+        graph = {"step_count": 1, "steps": [
+            {"step_id": "cb_step_10", "operation_type": "user_interaction", "step_type": "interactive",
+             "description": "Adjust slice intersection",
+             "ui_guidance": {"title": "Adjust slice intersection", "instruction": "Drag the cross lines."}}]}
+        ext = {"BRP": {"workflow_metadata": {}, "step_instructions": {"version": 1, "steps": {
+            "cb_step_10": {"title": "Position the cutting plane",
+                           "simple": "Drag the crosshair to set the cut.",
+                           "detailed": "Defines the osteotomy plane.", "edited": False}}}}}
+        og, oe = wf_mod.get_workflow_graph, wf_mod.get_validated_extensions
+        wf_mod.get_workflow_graph = lambda e: graph
+        wf_mod.get_validated_extensions = lambda: ext
+        try:
+            reset_workflow_session("BRP")
+            r = WorkflowRuntime()
+            r.session = WorkflowSession(extension_name="BRP", tool_name="BRP",
+                                        workflow_id="1", current_step="cb_step_10")
+            st = r.state_for_ui({"type": "interactive", "step_id": "cb_step_10",
+                                 "interaction": {"placement_instructions": "Drag the cross lines."}})
+            self.assertEqual(st["description"], "Position the cutting plane")
+            self.assertEqual(st["instructions"], "Drag the crosshair to set the cut.")
+            self.assertEqual(st["instructions_detailed"], "Defines the osteotomy plane.")
+            # No saved instructions -> fall back to ui_guidance
+            ext["BRP"]["step_instructions"] = {"version": 1, "steps": {}}
+            st2 = r.state_for_ui({"type": "interactive", "step_id": "cb_step_10",
+                                  "interaction": {"placement_instructions": "Drag the cross lines."}})
+            self.assertEqual(st2["description"], "Adjust slice intersection")
+            self.assertEqual(st2["instructions_detailed"], "")
+        finally:
+            wf_mod.get_workflow_graph = og
+            wf_mod.get_validated_extensions = oe
+            reset_workflow_session("BRP")
+
+        # Generation stage: LLM result, edit-preservation, and fallback.
+        from SlicerAIAgentLib.extension_cli_analyzer.step_instructions import AnalyzerStepInstructionsMixin
+
+        class _FakeAnalyzer(AnalyzerStepInstructionsMixin):
+            llm_client = object()
+            def _build_guidance_context(self, step, md, g):
+                return {"step_id": step.get("step_id", ""), "description": step.get("description", "")}
+            def _clean_guidance_title(self, t):
+                return t
+            def _call_llm(self, prompt, call_class=None):
+                return '{"steps":[{"step_id":"s1","title":"T1","simple":"S1","detailed":"D1"}]}'
+            def _parse_json_response(self, raw):
+                return json.loads(raw)
+
+        wfg = {"steps": [
+            {"step_id": "s1", "description": "do A", "ui_guidance": {"title": "A"}},
+            {"step_id": "s2", "description": "do B"},
+            {"step_id": "s3", "description": "do C", "ui_guidance": {"title": "C", "instruction": "click C"}}]}
+        existing = {"version": 1, "steps": {"s2": {"title": "kept", "simple": "kept",
+                                                   "detailed": "kept", "edited": True}}}
+        res = _FakeAnalyzer().generate_step_instructions(
+            wfg, {}, {"module_name": "X"}, {}, cookbook_def=None, existing=existing)
+        steps = res["steps"]
+        self.assertEqual(steps["s1"], {"title": "T1", "simple": "S1", "detailed": "D1", "edited": False})
+        self.assertEqual(steps["s2"]["edited"], True)          # preserved
+        self.assertEqual(steps["s2"]["title"], "kept")
+        self.assertEqual(steps["s3"]["simple"], "click C")     # fallback from ui_guidance
+        self.assertEqual(steps["s3"]["edited"], False)
+
     def test_WorkflowRuntimeUiStateMapping(self):
         """Test compact workflow UI state for progress and controls."""
         import importlib

@@ -63,6 +63,14 @@ class SlicerAIAgentWidget(
         self._workflowChoiceSubmitButton = None
         self._workflowNodeCombo = None
         self._workflowNodeSelectButton = None
+        self._workflowDetailToggle = None
+        self._workflowDetailLabel = None
+        self._workflowDetailText = ""
+        # Per-step instruction editor (CLI generator panel)
+        self._stepInstrStepCombo = None
+        self._stepInstrTitle = None
+        self._stepInstrSimple = None
+        self._stepInstrDetailed = None
         self._currentWorkflowUiState = {"active": False}
         self._taskWorkflowPanelActive = False
         self._announcedWorkflowIds = set()

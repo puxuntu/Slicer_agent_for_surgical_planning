@@ -18,6 +18,7 @@ from .live_revision import AnalyzerLiveRevisionMixin
 from .cookbook_mapping import AnalyzerCookbookMappingMixin
 from .parameter_metadata import AnalyzerParameterMetadataMixin
 from .workflow_contracts import AnalyzerWorkflowContractsMixin
+from .step_instructions import AnalyzerStepInstructionsMixin
 from .slicer_op_manifest import AnalyzerSlicerOpManifestMixin
 from .phases import AnalyzerPhaseMixin, MANIFEST_VERSION, PIPELINE_VERSION
 from .v2_contracts import AnalyzerV2ContractsMixin
@@ -52,6 +53,7 @@ class ExtensionCLIAnalyzer(
     AnalyzerCookbookMappingMixin,
     AnalyzerParameterMetadataMixin,
     AnalyzerWorkflowContractsMixin,
+    AnalyzerStepInstructionsMixin,
     AnalyzerSlicerOpManifestMixin,
     AnalyzerPhaseMixin,
     AnalyzerV2ContractsMixin,
@@ -118,6 +120,7 @@ class ExtensionCLIAnalyzer(
         self._llm_call_counter: int = 0
         self._current_stage_label: str = ""
         self._cookbook_def = None                # Parsed CookbookDef when cookbook found
+        self._step_instructions = None           # {version, steps} dual instructions
         self._widget_connections: List[Dict] = []
         self._ui_parameter_bindings: Dict[str, Dict] = {}
         self._slicer_op_templates: Dict = {}     # Pre-generated slicer_op templates
@@ -564,6 +567,7 @@ class ExtensionCLIAnalyzer(
         self._progress_log_name = "ui_output.log"
         self._progress_json_name = "progress_events.json"
         self._cookbook_def = None
+        self._step_instructions = None
         self._slicer_op_templates = {}
         self._slicer_op_evidence = {}
         self._placement_starter_methods = {}
@@ -789,6 +793,13 @@ class ExtensionCLIAnalyzer(
                 )
                 self._synthesize_workflow_ui_guidance(
                     workflow_graph, self._workflow_metadata, scan_result, logic_analysis
+                )
+                # Clinically-informed simple/detailed instructions per step
+                # (preserve any user-edited steps from a prior generation).
+                self._step_instructions = self.generate_step_instructions(
+                    workflow_graph, self._workflow_metadata, scan_result, logic_analysis,
+                    cookbook_def=self._cookbook_def,
+                    existing=self._load_existing_step_instructions(extension_name),
                 )
                 if self._cancelled:
                     result["error"] = "Cancelled during contract"
@@ -1029,6 +1040,9 @@ class ExtensionCLIAnalyzer(
             manifest["workflow_contract_file"] = "workflow_contract.json"
             templates["workflow_contract.json"] = self._workflow_contract_to_json(workflow_contract)
             templates["workflow_metadata.json"] = json.dumps(self._workflow_metadata or {}, indent=2)
+            templates["step_instructions.json"] = json.dumps(
+                self._step_instructions or {"version": 1, "steps": {}}, indent=2
+            )
 
             # Save CLI package
             from ..ExtensionCLILoader import save_cli_package
