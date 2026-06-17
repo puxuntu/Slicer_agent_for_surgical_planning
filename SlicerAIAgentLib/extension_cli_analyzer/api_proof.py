@@ -176,6 +176,14 @@ class TemplateApiAnalyzer:
 class TypeProvenanceGraph:
     """Infer receiver types through generic AST dataflow with provenance."""
 
+    # Scene/util accessors that return a collection of nodes whose element type
+    # is named by a string-literal *first* positional argument. Keyed on the API
+    # shape, not on any extension or specific node class, so iterating the result
+    # (directly or via an intermediate variable) yields a typed loop receiver.
+    _CLASS_COLLECTION_ACCESSORS = frozenset({
+        "getNodesByClass", "GetNodesByClass", "GetNodesByClassByName",
+    })
+
     def __init__(
         self,
         code: str,
@@ -207,6 +215,25 @@ class TypeProvenanceGraph:
             "confidence": confidence,
             "provenance": provenance,
         }
+
+    @classmethod
+    def _collection_element_class(cls, node: Optional[ast.AST]) -> str:
+        """Element class for a class-collection accessor call, else "".
+
+        Recognizes the generic node-collection APIs
+        (``slicer.util.getNodesByClass`` / ``scene.GetNodesByClass[ByName]``)
+        whose first positional argument is the node class name.
+        """
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in cls._CLASS_COLLECTION_ACCESSORS
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            return node.args[0].value
+        return ""
 
     @staticmethod
     def _dedupe(items: Iterable[Dict]) -> List[Dict]:
@@ -436,6 +463,7 @@ class TypeProvenanceGraph:
                     )
                 if isinstance(node, ast.Assign):
                     candidates = self.infer_expr(node.value)
+                    collection_class = self._collection_element_class(node.value)
                     for target in node.targets:
                         if isinstance(target, ast.Name):
                             self._assign(target.id, candidates)
@@ -445,16 +473,9 @@ class TypeProvenanceGraph:
                                     for element in node.value.elts
                                     for candidate in self.infer_expr(element)
                                 )
-                            elif (
-                                isinstance(node.value, ast.Call)
-                                and isinstance(node.value.func, ast.Attribute)
-                                and node.value.func.attr == "getNodesByClass"
-                                and node.value.args
-                                and isinstance(node.value.args[0], ast.Constant)
-                                and isinstance(node.value.args[0].value, str)
-                            ):
+                            elif collection_class:
                                 self.collections[target.id] = [self._evidence(
-                                    node.value.args[0].value,
+                                    collection_class,
                                     "high",
                                     "typed_collection_api_contract",
                                 )]
@@ -473,8 +494,13 @@ class TypeProvenanceGraph:
                     self._assign(node.target.id, candidates)
                 elif isinstance(node, ast.For) and isinstance(node.target, ast.Name):
                     candidates = []
+                    element_class = self._collection_element_class(node.iter)
                     if isinstance(node.iter, ast.Name):
                         candidates = self.collections.get(node.iter.id, [])
+                    elif element_class:
+                        candidates = [self._evidence(
+                            element_class, "high", "typed_collection_api_contract"
+                        )]
                     else:
                         candidates = self.infer_expr(node.iter)
                     self._assign(node.target.id, candidates)

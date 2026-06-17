@@ -3,6 +3,107 @@ import json
 
 
 class AnalyzerContractsMixin:
+    def test_GetNodesByClassReceiverTyping(self):
+        """A receiver bound by a `GetNodesByClass` loop is typed and provable.
+
+        Regression for the BoneReconstructionPlanner cb_step_8 failure: the
+        generator's own slice-node idiom — iterate `scene.GetNodesByClass(<cls>)`
+        and keep the match — left the receiver untyped, so every state-changing
+        call on it was permanently `method_unproven` and the package failed even
+        though the method was real. Both the static proof graph and the live-probe
+        receiver inference must resolve the element class generically.
+        """
+        from SlicerAIAgentLib.extension_cli_analyzer.api_proof import (
+            ApiProofValidator,
+            TemplateApiAnalyzer,
+            TypeProvenanceGraph,
+        )
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+
+        # The exact failing shape: None-init + direct iteration + alias + break.
+        code = (
+            "import slicer\n"
+            "sliceNode = None\n"
+            "for node in slicer.mrmlScene.GetNodesByClass('vtkMRMLSliceNode'):\n"
+            "    if 'Red' in node.GetName():\n"
+            "        sliceNode = node\n"
+            "        break\n"
+            "sliceNode.SetSliceResolutionMode(2)\n"
+        )
+        contracts = {
+            "vtkMRMLSliceNode": {
+                "methods": {
+                    "GetName": {"exists": True, "effect": "read_only", "source": "syn"},
+                    "SetSliceResolutionMode": {
+                        "exists": True, "effect": "state_change", "source": "syn",
+                    },
+                    "SetBogusMethod": {
+                        "exists": False, "effect": "state_change", "source": "syn",
+                    },
+                },
+            },
+        }
+
+        # 1) Static graph: the loop var and its alias both resolve to the class.
+        graph = TypeProvenanceGraph(code, return_contracts=contracts)
+        self.assertIn(
+            "vtkMRMLSliceNode",
+            {c["type"] for c in graph.receiver_candidates("node")},
+        )
+        self.assertIn(
+            "vtkMRMLSliceNode",
+            {c["type"] for c in graph.receiver_candidates("sliceNode")},
+        )
+
+        # 2) End-to-end proof: the real state-changing method now clears (no
+        #    blocking issues) instead of being a fatal method_unproven.
+        proof = ApiProofValidator(type_contracts=contracts).validate_inventory(
+            TemplateApiAnalyzer().analyze("templates/cb_step_8.py.tpl", code),
+            graph,
+        )
+        self.assertFalse(
+            [i for i in proof["issues"] if i.get("blocking")],
+            proof["issues"],
+        )
+
+        # 3) Typing also enables correct rejection of a genuinely-missing method.
+        bogus = code.replace("SetSliceResolutionMode(2)", "SetBogusMethod(2)")
+        bogus_graph = TypeProvenanceGraph(bogus, return_contracts=contracts)
+        bogus_proof = ApiProofValidator(type_contracts=contracts).validate_inventory(
+            TemplateApiAnalyzer().analyze("templates/bogus.py.tpl", bogus),
+            bogus_graph,
+        )
+        self.assertTrue(any(
+            i["issue_type"] == "InvalidApiCall" and i["blocking"]
+            for i in bogus_proof["issues"]
+        ), bogus_proof["issues"])
+
+        # 4) Assign-then-iterate form types the element too (no regression to the
+        #    lowercase slicer.util.getNodesByClass path).
+        assign_iter = (
+            "import slicer\n"
+            "coll = slicer.mrmlScene.GetNodesByClass('vtkMRMLModelNode')\n"
+            "for m in coll:\n"
+            "    chosen = m\n"
+        )
+        ai_graph = TypeProvenanceGraph(assign_iter)
+        self.assertIn(
+            "vtkMRMLModelNode",
+            {c["type"] for c in ai_graph.receiver_candidates("chosen")},
+        )
+
+        # 5) Live-probe receiver inference resolves the same receiver and emits a
+        #    class-targeted probe spec for the call.
+        inferred = ExtensionCLIAnalyzer._infer_probe_receiver_types(code)
+        self.assertEqual(inferred.get("node"), "vtkMRMLSliceNode")
+        self.assertEqual(inferred.get("sliceNode"), "vtkMRMLSliceNode")
+        specs = ExtensionCLIAnalyzer._extract_api_probe_specs(code)
+        self.assertTrue(any(
+            s.get("attr") == "SetSliceResolutionMode"
+            and s.get("receiver_expr") == "slicer.vtkMRMLSliceNode"
+            for s in specs
+        ), specs)
+
     def test_ExtensionCLIAnalyzerContracts(self):
         """Test generic workflow-generation validation contracts."""
         from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer

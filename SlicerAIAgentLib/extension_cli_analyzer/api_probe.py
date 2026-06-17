@@ -169,22 +169,74 @@ class AnalyzerApiProbeMixin:
 
     @staticmethod
     def _infer_probe_receiver_types(code: str) -> Dict[str, str]:
-        """Infer local receiver variable classes from source-backed Slicer idioms."""
+        """Infer local receiver variable classes from source-backed Slicer idioms.
+
+        Covers single-node constructors/casts (``_slicer_class_from_expr``) plus
+        the generic node-collection iteration idiom — ``for node in
+        scene.GetNodesByClass('vtkMRML...')`` (directly or via an intermediate
+        collection variable) — and simple ``x = y`` aliases that re-bind such a
+        receiver. Keyed on the API shape, not on any specific extension/class.
+        """
         import ast as _ast
         try:
             tree = _ast.parse(code)
         except (SyntaxError, IndentationError):
             return {}
 
+        def _collection_element_class(call) -> str:
+            if (
+                isinstance(call, _ast.Call)
+                and isinstance(call.func, _ast.Attribute)
+                and call.func.attr in {
+                    "getNodesByClass", "GetNodesByClass", "GetNodesByClassByName",
+                }
+                and call.args
+                and isinstance(call.args[0], _ast.Constant)
+                and isinstance(call.args[0].value, str)
+                and call.args[0].value.startswith("vtkMRML")
+            ):
+                return call.args[0].value
+            return ""
+
         inferred: Dict[str, str] = {}
+        collections: Dict[str, str] = {}
         for node in _ast.walk(tree):
-            if not isinstance(node, _ast.Assign):
-                continue
-            if len(node.targets) != 1 or not isinstance(node.targets[0], _ast.Name):
-                continue
-            class_name = ExtensionCLIAnalyzer._slicer_class_from_expr(node.value)
-            if class_name:
-                inferred[node.targets[0].id] = class_name
+            if (
+                isinstance(node, _ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], _ast.Name)
+            ):
+                target = node.targets[0].id
+                class_name = ExtensionCLIAnalyzer._slicer_class_from_expr(node.value)
+                if class_name:
+                    inferred[target] = class_name
+                else:
+                    coll_cls = _collection_element_class(node.value)
+                    if coll_cls:
+                        collections[target] = coll_cls
+            elif isinstance(node, _ast.For) and isinstance(node.target, _ast.Name):
+                coll_cls = _collection_element_class(node.iter)
+                if not coll_cls and isinstance(node.iter, _ast.Name):
+                    coll_cls = collections.get(node.iter.id, "")
+                if coll_cls:
+                    inferred[node.target.id] = coll_cls
+
+        # Propagate simple Name aliases (e.g. `sliceNode = node`) to a fixpoint.
+        for _ in range(4):
+            changed = False
+            for node in _ast.walk(tree):
+                if (
+                    isinstance(node, _ast.Assign)
+                    and len(node.targets) == 1
+                    and isinstance(node.targets[0], _ast.Name)
+                    and isinstance(node.value, _ast.Name)
+                    and node.value.id in inferred
+                    and inferred.get(node.targets[0].id) != inferred[node.value.id]
+                ):
+                    inferred[node.targets[0].id] = inferred[node.value.id]
+                    changed = True
+            if not changed:
+                break
         return inferred
 
     @staticmethod
