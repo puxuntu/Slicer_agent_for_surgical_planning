@@ -198,6 +198,13 @@ def apply_workflow_metadata(parameterNode, choices, bindings, defaults):
     """
     if parameterNode is None:
         return
+    # A @parameterNodeWrapper parameter node exposes typed properties, not the
+    # classic SetParameter/SetNodeReferenceID API this helper uses — calling it
+    # would raise AttributeError. Wrapper extensions skip this prelude at
+    # generation (see choice_helpers._build_choice_prelude); this guard is
+    # defense-in-depth for any package/path that still reaches here.
+    if not hasattr(parameterNode, "SetParameter"):
+        return
     if not bindings:
         return
     # Defaults first — only fill empty slots.

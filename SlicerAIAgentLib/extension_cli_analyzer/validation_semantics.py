@@ -1273,13 +1273,41 @@ class AnalyzerValidationSemanticsMixin:
                     if handler.name:
                         defined.add(handler.name)
 
+        # Generated templates execute at MODULE level in __main__ (not inside a
+        # class), so a module-level `self`/`cls` is always a bug — usually code
+        # copied verbatim from the extension's widget/logic source. Collect the
+        # `self`/`cls` Load references that sit outside any def/lambda so we can
+        # flag them; references nested inside a function definition stay valid.
+        module_self_cls = set()
+
+        def _scan_self_cls(node, in_func):
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                    _scan_self_cls(child, True)
+                    continue
+                if (
+                    isinstance(child, ast.Name)
+                    and isinstance(child.ctx, ast.Load)
+                    and child.id in ("self", "cls")
+                    and not in_func
+                ):
+                    module_self_cls.add(id(child))
+                _scan_self_cls(child, in_func)
+
+        _scan_self_cls(tree, False)
+
         # Find undefined variables (names used but never defined)
         for node in ast.walk(tree):
             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                if node.id in ("self", "cls"):
+                    if id(node) in module_self_cls:
+                        result["errors"].append(
+                            f"Undefined variable: '{node.id}' — generated templates run at "
+                            "module level; access the parameter node via 'paramNode' / "
+                            "'logic.getParameterNode()', not 'self'/'cls'"
+                        )
+                    continue
                 if node.id not in defined and not node.id.startswith("_"):
-                    # Skip common patterns
-                    if node.id in ("self", "cls"):
-                        continue
                     result["errors"].append(f"Undefined variable: '{node.id}'")
 
         # Check method call arg counts

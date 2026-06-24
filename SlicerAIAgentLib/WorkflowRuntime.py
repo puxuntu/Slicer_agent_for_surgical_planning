@@ -210,10 +210,16 @@ class WorkflowRuntime:
         # nodes instead of a free-text box.
         binding = source.get("binding") or self._node_binding_for_param(parameter_name)
         node_class = source.get("node_class") or binding.get("node_class", "")
+        if not node_class and result_type == "user_choice":
+            # No binding was inferred (e.g. a subject-hierarchy selector or a
+            # parameterNodeWrapper-bound field): fall back to the node class the
+            # step graph records so the panel still offers a node dropdown.
+            node_class = self._node_class_from_step_meta(current_meta)
         node_keywords = binding.get("keywords", []) or []
         # Clinically-informed instructions override the terse ui_guidance when
-        # present: title -> description, simple -> instructions, detailed -> the
-        # "Show details" body. Re-looked up live so manual edits show at once.
+        # present: title -> description, detailed -> the primary instruction text
+        # (shown by default), simple -> the terse "Show brief" body. The widget
+        # picks which to show. Re-looked up live so manual edits show at once.
         instr = self._step_instructions_for(current_step)
         if instr.get("title"):
             description = instr["title"]
@@ -1343,6 +1349,11 @@ class WorkflowRuntime:
         choices = list(cp.choices or [])
         needs_input = bool(cp.editable) and not choices
         binding = self._node_binding_for_param(cp.parameter_name)
+        node_class = binding.get("node_class", "")
+        if not node_class and needs_input:
+            # Mirror the live path: surface the step graph's node class when the
+            # pipeline inferred no binding, so replayed node steps keep a dropdown.
+            node_class = self._node_class_from_step_meta(meta)
         # Clinically-informed instructions override the recorded guidance (live
         # lookup so manual edits show in replay too).
         instr = self._step_instructions_for(cp.step_id)
@@ -1362,7 +1373,7 @@ class WorkflowRuntime:
             "needs_choice_input": needs_input,
             "default_value": cp.recorded_value,
             "parameter_name": cp.parameter_name,
-            "node_class": binding.get("node_class", ""),
+            "node_class": node_class,
             "node_keywords": binding.get("keywords", []) or [],
             "choice_label": guidance.get("choice_label", ""),
             "input_label": guidance.get("input_label", ""),
@@ -1477,6 +1488,41 @@ class WorkflowRuntime:
             if step.get("step_id") == step_id:
                 return step
         return {}
+
+    @staticmethod
+    def _node_class_from_step_meta(meta: Dict[str, Any]) -> str:
+        """Node class for a node-selection choice taken from the step graph itself.
+
+        The pipeline's UI->parameter binding inference only recognizes the
+        classic ``qMRMLNodeComboBox`` + ``parameterNode.SetNodeReferenceID``
+        pattern. Selectors using a ``qMRMLSubjectHierarchyComboBox`` or the
+        ``parameterNodeWrapper`` / ``connectGui`` declarative style yield no
+        binding, so ``parameter_bindings`` / ``choice_binding`` carry no node
+        class and the panel would fall back to a free-text box. The LLM
+        decomposition still tags the choice's node class on the step's
+        ``node_roles`` / ``sub_operations``; surface that as a fallback so any
+        node-selection step still offers a dropdown of matching scene nodes.
+        Returns "" for non-node choices (e.g. a boolean checkbox).
+        """
+        if not isinstance(meta, dict):
+            return ""
+        roles = meta.get("node_roles") or []
+        for role in roles:
+            if isinstance(role, dict) and role.get("role_kind") == "choice_input":
+                nc = str(role.get("node_class") or "").strip()
+                if nc:
+                    return nc
+        for so in meta.get("sub_operations") or []:
+            if isinstance(so, dict) and str(so.get("value_kind") or "").strip() == "node":
+                nc = str(so.get("node_class") or "").strip()
+                if nc:
+                    return nc
+        for role in roles:
+            if isinstance(role, dict):
+                nc = str(role.get("node_class") or "").strip()
+                if nc:
+                    return nc
+        return ""
 
     def _node_binding_for_param(self, parameter_name: str) -> Dict[str, Any]:
         """Return the parameter binding ({node_class, keywords, ...}) from metadata.

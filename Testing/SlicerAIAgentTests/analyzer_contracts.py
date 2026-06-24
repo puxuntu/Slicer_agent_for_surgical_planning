@@ -3,6 +3,470 @@ import json
 
 
 class AnalyzerContractsMixin:
+    def test_Stage4UnboundParameterStepDegrades(self):
+        """A parameter-update step the source cannot bind degrades, not dead-ends.
+
+        Regression for SlicerOrbitSurgerySim's 'Enable 3D interaction transform
+        handle' checkbox: it is wired to a handler method, not a parameter, so no
+        source-derived UI binding exists. The LLM oscillates between omitting the
+        binding ('parameter update intent requires a UI binding') and inventing
+        one ('references unknown UI parameter binding'); both used to hard-fail
+        the run. Normalize now strips an ungrounded binding and drops the
+        parameter-update intent so the step validates as a plain step, while a
+        source-grounded binding is preserved.
+        """
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+
+        context = {
+            "steps": [
+                {"step_number": 7, "operation_type": "user_choice", "description": "Tick the checkbox"},
+                {"step_number": 8, "operation_type": "user_choice", "description": "Pick the segmentation"},
+            ],
+            "logic_methods": [],
+            "extension_functions": [],
+            "widgets": [
+                {"widget_name": "interactionTransformCheckbox"},
+                {"widget_name": "segSelector"},
+            ],
+            # Only step 8's binding is source-derived.
+            "ui_parameter_bindings": [{"widget_name": "segSelector", "parameter_name": "seg"}],
+            "parameter_roles": [],
+            "allowed_slicer_op_categories": [],
+            "allowed_interaction_kinds": ["none"],
+            "allowed_node_classes": [],
+            "allowed_operation_intents": [
+                "extension_parameter_update", "extension_node_reference_update",
+            ],
+            "allowed_node_role_kinds": ["choice_input"],
+        }
+        base = {"confidence": "high", "interaction_kind": "none", "choice": None, "node_roles": []}
+        grounded_step8 = {
+            **base, "step_number": 8, "operation_type": "user_choice", "widget_name": "segSelector",
+            "operation_intents": ["extension_node_reference_update"],
+            "ui_parameter_binding": {"widget_name": "segSelector", "parameter_name": "seg"},
+        }
+
+        def _run(step7):
+            normalized, _notes = analyzer._normalize_stage4_semantic_result(
+                {"steps": [step7, dict(grounded_step8)], "repeat_blocks": []}, context
+            )
+            errors = analyzer._validate_stage4_semantic_result(normalized, context)
+            by_num = {s["step_number"]: s for s in normalized["steps"]}
+            return by_num, errors
+
+        # Case 1: intent + INVENTED binding (the 'unknown UI parameter binding' path).
+        by_num, errors = _run({
+            **base, "step_number": 7, "operation_type": "user_choice",
+            "widget_name": "interactionTransformCheckbox", "target_value": True,
+            "operation_intents": ["extension_parameter_update"],
+            "ui_parameter_binding": {
+                "widget_name": "interactionTransformCheckbox",
+                "parameter_name": "InteractionTransformEnabled",
+            },
+        })
+        self.assertIsNone(by_num[7]["ui_parameter_binding"])
+        self.assertNotIn("extension_parameter_update", by_num[7]["operation_intents"])
+        self.assertFalse(any("binding" in e for e in errors), errors)
+        # The grounded step keeps its binding and intent (no regression).
+        self.assertEqual(by_num[8]["ui_parameter_binding"]["parameter_name"], "seg")
+        self.assertIn("extension_node_reference_update", by_num[8]["operation_intents"])
+
+        # Case 2: intent + OMITTED binding (the 'requires a UI binding' gate).
+        by_num2, errors2 = _run({
+            **base, "step_number": 7, "operation_type": "user_choice",
+            "widget_name": "interactionTransformCheckbox", "target_value": True,
+            "operation_intents": ["extension_parameter_update"],
+            "ui_parameter_binding": None,
+        })
+        self.assertEqual(by_num2[7]["operation_intents"], [])
+        self.assertFalse(any("requires a UI binding" in e for e in errors2), errors2)
+
+        self.delayDisplay("Stage 4 unbound parameter step degrades gracefully")
+
+    def test_Stage4InvalidTargetValueModeCoerced(self):
+        """An invalid target_value_mode (a value TYPE like 'boolean') is coerced.
+
+        Regression for SlicerOrbitSurgerySim's 'Enable 3D interaction transform
+        handle' checkbox: the LLM emitted target_value_mode 'boolean'/'exact'
+        (value types, not the allowed modes), hard-failing Stage 4. Normalize now
+        coerces an out-of-set mode to 'set' (value present) or None.
+        """
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+        context = {
+            "steps": [{"step_number": 7, "operation_type": "extension_op", "description": "Tick the checkbox"}],
+            "logic_methods": [], "extension_functions": [],
+            "widgets": [{"widget_name": "interactionTransformCheckbox"}],
+            "ui_parameter_bindings": [], "parameter_roles": [],
+            "allowed_slicer_op_categories": [], "allowed_interaction_kinds": ["none"],
+            "allowed_node_classes": [], "allowed_operation_intents": [],
+            "allowed_node_role_kinds": ["choice_input"],
+        }
+        result = {"steps": [{
+            "step_number": 7, "operation_type": "extension_op", "confidence": "high",
+            "interaction_kind": "none", "operation_intents": [], "node_roles": [],
+            "widget_name": "interactionTransformCheckbox",
+            "target_value": True, "target_value_mode": "boolean",
+            "ui_parameter_binding": None,
+        }], "repeat_blocks": []}
+        normalized, _notes = analyzer._normalize_stage4_semantic_result(result, context)
+        self.assertEqual(normalized["steps"][0]["target_value_mode"], "set")
+        errors = analyzer._validate_stage4_semantic_result(normalized, context)
+        self.assertFalse(any("target_value_mode" in e for e in errors), errors)
+        self.delayDisplay("Invalid target_value_mode coerced, not rejected")
+
+    def test_ModuleLevelSelfRejected(self):
+        """Generated templates run at module level — a module-level `self` is a bug.
+
+        Regression for the SlicerOrbitSurgerySim auto-correction that copied
+        `self._parameterNode.orbitLm` from the widget source and crashed with
+        'name self is not defined'. _semantic_validate now flags module-level
+        self/cls but still allows them inside a function/method definition.
+        """
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+
+        flagged = analyzer._semantic_validate(
+            "logic = something()\nx = self._parameterNode.orbitLm\n", {"methods": []}
+        )
+        self.assertTrue(
+            any("self" in e for e in flagged["errors"]),
+            f"module-level self should be flagged: {flagged['errors']}",
+        )
+        allowed = analyzer._semantic_validate(
+            "def _helper(self):\n    return self.value\ny = _helper\n", {"methods": []}
+        )
+        self.assertFalse(
+            any("self" in e for e in allowed["errors"]),
+            f"self inside a def must NOT be flagged: {allowed['errors']}",
+        )
+        self.delayDisplay("Module-level self rejected; in-function self allowed")
+
+    def test_ParameterNodeWrapperDetectionAndTyping(self):
+        """Detect @parameterNodeWrapper classes and type getParameterNode() to them.
+
+        Regression for SlicerOrbitSurgerySim crashing with
+        '<ParameterNode> object has no attribute GetNodeReference': the param node
+        is a parameterNodeWrapper (typed properties), not the classic VTK API.
+        """
+        import os
+        import tempfile
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+        from SlicerAIAgentLib.extension_cli_analyzer.api_proof import TypeProvenanceGraph
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+
+        src = (
+            "from slicer.parameterNodeWrapper import parameterNodeWrapper\n"
+            "from slicer import vtkMRMLModelNode, vtkMRMLMarkupsFiducialNode\n"
+            "from typing import Optional\n"
+            "@parameterNodeWrapper\n"
+            "class WidgetParameterNode:\n"
+            "    orbitModel: vtkMRMLModelNode\n"
+            "    orbitLm: Optional[vtkMRMLMarkupsFiducialNode]\n"
+            "    rightSide: bool\n"
+            "class WidgetLogic(ScriptedLoadableModuleLogic):\n"
+            "    def process(self):\n"
+            "        pass\n"
+        )
+        tmp = tempfile.mkdtemp(prefix="cli_wrapper_test_")
+        with open(os.path.join(tmp, "Widget.py"), "w", encoding="utf-8") as f:
+            f.write(src)
+        scan = analyzer._stage1_scan(tmp)
+        wrapper = scan.get("parameter_node_wrapper")
+        self.assertIsNotNone(wrapper, "parameterNodeWrapper class not detected")
+        self.assertEqual(wrapper["class_name"], "WidgetParameterNode")
+        self.assertEqual(wrapper["fields"].get("orbitModel"), "vtkMRMLModelNode")
+        # Optional[...] is unwrapped to the node class.
+        self.assertEqual(wrapper["fields"].get("orbitLm"), "vtkMRMLMarkupsFiducialNode")
+
+        # getParameterNode() now types to the wrapper class, not vtkMRMLScriptedModuleNode.
+        code = (
+            "logic = WidgetLogic()\n"
+            "paramNode = logic.getParameterNode()\n"
+            "n = paramNode.orbitModel\n"
+        )
+        graph = TypeProvenanceGraph(
+            code, logic_class_name="WidgetLogic",
+            parameter_node_wrapper_class="WidgetParameterNode",
+        )
+        cands = graph.receiver_candidates("paramNode")
+        self.assertTrue(cands and cands[0]["type"] == "WidgetParameterNode", cands)
+        self.delayDisplay("parameterNodeWrapper detected and typed")
+
+    def test_WidgetClassMatchesLogicModule(self):
+        """Widget class is selected from the same module file as the logic class.
+
+        Regression: a repo bundling two modules (PlateRegistration +
+        MirrorOrbitRecon) picked the sibling module's widget, so the scanned
+        button->handler connections were wrong and handler-invocation generation
+        silently could not fire.
+        """
+        import os
+        import tempfile
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+        tmp = tempfile.mkdtemp(prefix="cli_widgetsel_")
+        # Sibling module with a larger widget (wins the old size-based heuristic).
+        with open(os.path.join(tmp, "Sibling.py"), "w", encoding="utf-8") as f:
+            f.write(
+                "class SiblingWidget(ScriptedLoadableModuleWidget):\n"
+                "    def setup(self): pass\n"
+                + "".join(f"    def m{i}(self): pass\n" for i in range(25))
+            )
+        # Main module: logic + its widget in ONE file.
+        with open(os.path.join(tmp, "Main.py"), "w", encoding="utf-8") as f:
+            f.write(
+                "class MainLogic(ScriptedLoadableModuleLogic):\n"
+                "    def process(self): pass\n"
+                "class MainWidget(ScriptedLoadableModuleWidget):\n"
+                "    def setup(self): pass\n"
+            )
+        scan = analyzer._stage1_scan(tmp)
+        self.assertEqual(scan["logic_class"]["class_name"], "MainLogic")
+        self.assertEqual(scan["widget_class"]["class_name"], "MainWidget")
+        self.delayDisplay("Widget class matches the logic class's module")
+
+    def test_ExtensionMethodExistenceGuard(self):
+        """Pre-execution guard flags a method absent from the runtime class.
+
+        Regression: the runtime PlateRegistrationLogic lacked rotation_p_stop
+        (present only in the newer knowledge-base copy), so the correction loop
+        repeatedly called a non-existent method. check_extension_methods now
+        catches it before execution; check_code only covered slicer/vtk/qt/ctk.
+        """
+        import sys
+        import types
+        from SlicerAIAgentLib.ApiSanityChecker import check_extension_methods
+
+        mod = types.ModuleType("FakeExtMod")
+
+        class FakeLogic:
+            def real_method(self, a):
+                pass
+
+        mod.FakeLogic = FakeLogic
+        sys.modules["FakeExtMod"] = mod
+        try:
+            bad = (
+                "from FakeExtMod import FakeLogic\n"
+                "logic = FakeLogic()\n"
+                "logic.real_method(1)\n"
+                "logic.hallucinated_method(1)\n"
+            )
+            res = check_extension_methods(bad)
+            self.assertFalse(res["ok"])
+            self.assertTrue(any(m["missing_attr"] == "hallucinated_method" for m in res["missing"]))
+            self.assertFalse(any(m["missing_attr"] == "real_method" for m in res["missing"]))
+            ok = "from FakeExtMod import FakeLogic\nlogic = FakeLogic()\nlogic.real_method(1)\n"
+            self.assertTrue(check_extension_methods(ok)["ok"])
+        finally:
+            sys.modules.pop("FakeExtMod", None)
+        self.delayDisplay("Extension method existence guard works")
+
+    def test_ButtonClickStepInvokesHandler(self):
+        """A button-click step drives the widget handler, not the low-level logic method."""
+        import ast as _ast
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+        # This case represents SlicerOrbitSurgerySim, a @parameterNodeWrapper /
+        # handler-driven extension: the handler is the correct entry point even
+        # though the step has a method hint. The paradigm gate keys on this flag.
+        analyzer._parameter_node_wrapper = {
+            "class_name": "PlateRegistrationParameterNode", "fields": {},
+        }
+        analyzer._widget_connections = [{
+            "button_widget_name": "initialRegistrationPushButton",
+            "signal": "clicked(bool)",
+            "handler_method": "onInitialRegistrationPushButton",
+            "logic_methods": ["rigid_transform"],
+        }]
+        step = {
+            "step_id": "cb_step_5",
+            "description": 'Click "Initial registration" button.',
+            "sub_operations": [{
+                "op_type": "extension_op",
+                "widget_name": "initialRegistrationPushButton",
+                "extension_method_hint": "rigid_transform",
+            }],
+        }
+        tpl = analyzer._maybe_generate_button_handler_template(
+            "SlicerOrbitSurgerySim", step, "PlateRegistrationLogic", "PlateRegistration"
+        )
+        self.assertIsNotNone(tpl)
+        self.assertIn("onInitialRegistrationPushButton()", tpl)
+        self.assertNotIn("rigid_transform", tpl)   # not the low-level helper
+        self.assertNotIn("getattr(", tpl)          # CodeValidator-blocked
+        _ast.parse(tpl)                             # valid Python
+
+        # A step whose button has no scanned connection -> no override (falls back).
+        plain = {
+            "step_id": "cb_step_9",
+            "description": "do x",
+            "sub_operations": [{
+                "op_type": "extension_op", "widget_name": "unconnectedButton",
+                "extension_method_hint": "foo",
+            }],
+        }
+        self.assertIsNone(
+            analyzer._maybe_generate_button_handler_template("X", plain, "XLogic", "X")
+        )
+
+        # A toggled CHECKBOX step (no method hint) drives the handler and sets the
+        # control — instead of becoming a stub the LLM fills with a bogus
+        # destructive call (the cb_step_7 writeParameterDict failure).
+        analyzer._widget_connections.append({
+            "button_widget_name": "interactionTransformCheckbox",
+            "signal": "toggled(bool)",
+            "handler_method": "onInteractionTransform",
+            "logic_methods": [],
+        })
+        cb_step = {
+            "step_id": "cb_step_7",
+            "description": "Tick the Enable 3D interaction transform handle checkbox.",
+            "sub_operations": [{
+                "op_type": "extension_op",
+                "widget_name": "interactionTransformCheckbox",
+                "target_value": True,
+            }],
+        }
+        cb_tpl = analyzer._maybe_generate_button_handler_template(
+            "SlicerOrbitSurgerySim", cb_step, "PlateRegistrationLogic", "PlateRegistration"
+        )
+        self.assertIsNotNone(cb_tpl)
+        self.assertIn("onInteractionTransform", cb_tpl)
+        self.assertIn("interactionTransformCheckbox", cb_tpl)  # sets the control state
+        self.assertIn("checked = True", cb_tpl)
+        self.assertNotIn("writeParameterDict", cb_tpl)
+        self.assertNotIn("getattr(", cb_tpl)
+        _ast.parse(cb_tpl)
+
+        self.delayDisplay("Button-click and checkbox-toggle steps invoke the widget handler")
+
+    def test_ClassicStepKeepsLogicMethodPath(self):
+        """A classic extension's button step with a logic method is NOT handler-driven.
+
+        Regression for BoneReconstructionPlanner: the handler-invocation feature
+        (added for the wrapper-based Orbit extension) was firing on EVERY button
+        step, so classic BRP steps like centerFibulaLine flipped from
+        `logic.centerFibulaLine()` to `_widget.onCenterFibulaLineButton()`,
+        dropping the param-node reference plumbing the logic method depends on
+        (fibulaLine reference -> None -> crash). The paradigm gate keeps classic
+        extensions on the logic-method path, while still driving the handler for
+        UI-only toggles that have no logic method.
+        """
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+        # Classic extension: no @parameterNodeWrapper.
+        analyzer._parameter_node_wrapper = None
+        analyzer._widget_connections = [
+            {
+                "button_widget_name": "centerFibulaLineButton",
+                "signal": "clicked(bool)",
+                "handler_method": "onCenterFibulaLineButton",
+                "logic_methods": ["centerFibulaLine"],
+            },
+            {
+                "button_widget_name": "showHideButton",
+                "signal": "toggled(bool)",
+                "handler_method": "onShowHide",
+                "logic_methods": [],
+            },
+        ]
+        # Step WITH a resolvable logic method -> keep the logic-method path (None).
+        method_step = {
+            "step_id": "cb_step_22",
+            "description": "Click 'Center fibula line' button.",
+            "method_name": "centerFibulaLine",
+            "sub_operations": [{
+                "op_type": "extension_op",
+                "widget_name": "centerFibulaLineButton",
+                "extension_method_hint": "centerFibulaLine",
+            }],
+        }
+        self.assertIsNone(
+            analyzer._maybe_generate_button_handler_template(
+                "BoneReconstructionPlanner", method_step,
+                "BoneReconstructionPlannerLogic", "BoneReconstructionPlanner",
+            )
+        )
+        # UI-only toggle with NO logic method -> the handler is the only entry
+        # point, so it IS driven even for a classic extension.
+        toggle_step = {
+            "step_id": "cb_step_25",
+            "description": "Toggle visibility.",
+            "sub_operations": [{
+                "op_type": "extension_op",
+                "widget_name": "showHideButton",
+                "target_value": True,
+            }],
+        }
+        toggle_tpl = analyzer._maybe_generate_button_handler_template(
+            "BoneReconstructionPlanner", toggle_step,
+            "BoneReconstructionPlannerLogic", "BoneReconstructionPlanner",
+        )
+        self.assertIsNotNone(toggle_tpl)
+        self.assertIn("onShowHide", toggle_tpl)
+        self.delayDisplay("Classic logic-method step keeps the logic path; UI-only toggle drives the handler")
+
+    def test_WidgetHandlerStepPassesContractAndProof(self):
+        """Driving the widget handler is a first-class extension op in both validators.
+
+        Regression for cb_step_7 (a no-logic-method checkbox step whose template
+        drives _widget.onInteractionTransform()): the contract validator rejected
+        it ('extension_op without an extension method contains Slicer API calls')
+        and api_proof flagged the _widget.<handler>() call as an unproven receiver,
+        so the repair loop kept rewriting the correct handler step into invented
+        APIs (writeParameterDict / an 'InteractionFlag' role).
+        """
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+        from SlicerAIAgentLib.extension_cli_analyzer.api_proof import TypeProvenanceGraph
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+
+        # Contract validator: a no-method extension_op that drives the widget
+        # handler is NOT flagged as 'Slicer API without an extension method'.
+        context = {"generator": {"sub_operations": [{"op_type": "extension_op"}], "operation_model": {}}}
+        handler_code = (
+            "import slicer\n"
+            "_widget = slicer.util.getModuleWidget('PlateRegistration')\n"
+            "_widget.onInteractionTransform()\n"
+        )
+        res = analyzer._validate_template_contract(
+            "templates/cb_step_7.py.tpl", handler_code, context, {}
+        )
+        self.assertFalse(
+            any("without an extension method" in e for e in res["errors"]), res["errors"]
+        )
+        # Sanity: raw Slicer API with no handler-drive is still flagged.
+        raw = "import slicer\nslicer.mrmlScene.GetNodeByID('x')\n"
+        res2 = analyzer._validate_template_contract("t.py.tpl", raw, context, {})
+        self.assertTrue(
+            any("without an extension method" in e for e in res2["errors"]), res2["errors"]
+        )
+
+        # api_proof: getModuleWidget() types to the module-widget marker, so a
+        # handler call on it is provable (not an unproven receiver).
+        graph = TypeProvenanceGraph(handler_code)
+        cands = graph.receiver_candidates("_widget")
+        self.assertTrue(cands and cands[0]["type"] == "_module_widget", cands)
+        self.delayDisplay("Widget-handler step passes contract + api_proof")
+
     def test_GetNodesByClassReceiverTyping(self):
         """A receiver bound by a `GetNodesByClass` loop is typed and provable.
 

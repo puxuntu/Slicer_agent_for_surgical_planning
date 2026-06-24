@@ -457,31 +457,6 @@ class WidgetStreamingMixin:
         """Show a generated CLI user-choice question (buttons / node dropdown)."""
         self._showWorkflowChoice(step_info)
 
-    def _collectWorkflowNodeCandidates(self, node_class):
-        """Collect existing MRML nodes of ``node_class`` for the selection dropdown."""
-        candidates = []
-        try:
-            nodes = slicer.mrmlScene.GetNodesByClass(node_class)
-            for index in range(nodes.GetNumberOfItems()):
-                node = nodes.GetItemAsObject(index)
-                if node is None:
-                    continue
-                item = {
-                    "id": node.GetID() or "",
-                    "name": node.GetName() or "",
-                    "class": node.GetClassName() if hasattr(node, "GetClassName") else node_class,
-                }
-                try:
-                    storage = node.GetStorageNode()
-                    if storage and storage.GetFileName():
-                        item["storageFileName"] = os.path.basename(storage.GetFileName())
-                except Exception:
-                    pass
-                candidates.append(item)
-        except Exception as exc:
-            logger.warning(f"Failed to collect workflow node candidates for {node_class}: {exc}")
-        return candidates
-
     def _applyChosenVolumeBackground(self):
         """Show the active workflow's chosen scalar volume as the slice background.
 

@@ -43,6 +43,29 @@ class AnalyzerCrossStageMixin:
                 for so in sub_ops
                 if isinstance(so, dict)
             ]
+            # Node DATAFLOW endpoints, so the LLM can connect a user-choice node
+            # pick to the later logic-method parameter that consumes it (even when
+            # the two have different names):
+            #   node_outputs  — nodes this step PRODUCES (a user_choice node pick,
+            #                   stored under its choice parameter name).
+            #   node_inputs   — logic-method parameter names this step CONSUMES.
+            node_outputs = []
+            for so in sub_ops:
+                if not isinstance(so, dict):
+                    continue
+                if str(so.get("value_kind") or "") == "node" and so.get("parameter_name"):
+                    node_outputs.append({
+                        "param": so.get("parameter_name"),
+                        "node_class": so.get("node_class") or "",
+                    })
+            node_inputs = []
+            for m in methods:
+                if not isinstance(m, dict):
+                    continue
+                for p in m.get("parameters") or []:
+                    pname = p.get("name") if isinstance(p, dict) else p
+                    if pname and pname != "self":
+                        node_inputs.append(pname)
             step_summaries.append({
                 "step_number": idx + 1,
                 "step_id": f"cb_step_{idx + 1}",
@@ -51,6 +74,8 @@ class AnalyzerCrossStageMixin:
                 "state_reads": list(set(state_reads)),
                 "state_writes": list(set(state_writes)),
                 "sub_operations": sub_ops_desc,
+                "node_outputs": node_outputs,
+                "node_inputs": sorted(set(node_inputs)),
             })
 
         state_fields = logic_analysis.get("state_fields", [])
@@ -84,8 +109,15 @@ class AnalyzerCrossStageMixin:
 
         Connections can be:
         - **state_field**: Step N writes self.fieldX, and Step M reads self.fieldX.
-        - **output_node**: Step N creates a vtkMRML node (via parameter or state write),
-          and Step M needs that node as input.
+        - **output_node**: Step N produces a vtkMRML node, and Step M needs that node
+          as input. This INCLUDES a user_choice step where the user picks a node (its
+          `node_outputs`) that a later step's logic method consumes (its `node_inputs`).
+          For output_node connections you MUST set:
+            "from_param": the producer's output name (a `node_outputs[].param` of from_step,
+                          or the self.field it creates),
+            "to_param":   the consumer's input name (a `node_inputs[]` parameter of to_step).
+          These may differ (e.g. from_param "orbitLandmarksNode" -> to_param "source_lm_node").
+          Only connect node classes that are compatible.
         - **scene_state**: Step N changes the scene (selects a node, changes layout),
           and Step M relies on that state.
 
@@ -97,7 +129,9 @@ class AnalyzerCrossStageMixin:
               "to_step": 4,
               "type": "state_field" | "output_node" | "scene_state",
               "field": "self.outputNode",
-              "description": "Step 2 creates an output node which Step 4 reads"
+              "from_param": "orbitLandmarksNode",
+              "to_param": "source_lm_node",
+              "description": "Step 2's chosen node feeds Step 4's method parameter"
             }}
           ]
         }}
@@ -108,6 +142,10 @@ class AnalyzerCrossStageMixin:
         state_field_names = {
             _text_or_empty(item.get("name") if isinstance(item, dict) else item).replace("self.", "")
             for item in state_fields
+        }
+        node_inputs_by_step = {
+            s["step_number"]: set(s.get("node_inputs", []))
+            for s in step_summaries
         }
 
         def _validate(candidate, raw):
@@ -130,6 +168,17 @@ class AnalyzerCrossStageMixin:
                 field = _text_or_empty(conn.get("field")).replace("self.", "")
                 if conn.get("type") == "state_field" and field not in state_field_names:
                     validation_errors.append(f"{label} references an unknown state field")
+                # Lenient grounding for node dataflow: when an output_node names a
+                # consumer parameter, it must be one of that step's known method
+                # node inputs (only enforced when we have the method signatures).
+                if conn.get("type") == "output_node":
+                    to_param = _text_or_empty(conn.get("to_param"))
+                    known_inputs = node_inputs_by_step.get(to_step, set())
+                    if to_param and known_inputs and to_param not in known_inputs:
+                        validation_errors.append(
+                            f"{label} to_param {to_param!r} is not a node input parameter "
+                            f"of step {to_step} (expected one of {sorted(known_inputs)})"
+                        )
             return candidate, validation_errors
 
         result = self._call_llm_structured(
@@ -244,13 +293,21 @@ class AnalyzerCrossStageMixin:
                 field = conn.get("field", "")
                 desc = conn.get("description", "")
                 conn_type = conn.get("type", "state_field")
+                field_key = field.replace("self.", "") if field else ""
+                # The CONSUMER key (what the downstream step reads under) and the
+                # PRODUCER source (what the upstream step stored under) may differ
+                # — e.g. a user_choice node 'orbitLandmarksNode' feeding a logic
+                # method parameter 'source_lm_node'. to_param/from_param carry the
+                # two names; fall back to the shared field for state_field edges.
+                to_param = _text_or_empty(conn.get("to_param"))
+                from_param = _text_or_empty(conn.get("from_param"))
+                param_key = to_param or field_key or f"step_{from_idx + 1}_output"
+                source_param = from_param or field_key or param_key
 
                 stage_map_entry = cross_map.setdefault(to_idx, {})
-                # Use the field name as the parameter key
-                param_key = field.replace("self.", "") if field else f"step_{from_idx + 1}_output"
                 stage_map_entry[param_key] = {
                     "source_stage": from_idx,
-                    "source_param": param_key,
+                    "source_param": source_param,
                     "type": conn_type,
                     "description": desc,
                 }

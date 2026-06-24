@@ -958,6 +958,212 @@ class WorkflowTestsMixin:
 
         self.delayDisplay("GenerateSegmentationCode tests passed")
 
+    def test_NodeSelectionFallbackNodeClass(self):
+        """Node-selection steps without an inferred binding still expose a node class.
+
+        Regression: SlicerOrbitSurgerySim's node selectors use a
+        qMRMLSubjectHierarchyComboBox / parameterNodeWrapper pattern the pipeline's
+        binding inference does not recognize, so no binding (and thus no node
+        class) reached the panel and it showed a free-text box instead of a node
+        dropdown. The runtime now falls back to the node class the step graph
+        already records on its node_roles / sub_operations.
+        """
+        from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime
+
+        fn = WorkflowRuntime._node_class_from_step_meta
+
+        # Orbit-style: node choice with no binding; class on node_roles + sub_op.
+        orbit_step = {
+            "node_roles": [
+                {"role_kind": "choice_input", "node_class": "vtkMRMLModelNode", "parameter_name": ""}
+            ],
+            "sub_operations": [{"value_kind": "node", "node_class": "vtkMRMLModelNode"}],
+        }
+        self.assertEqual(fn(orbit_step), "vtkMRMLModelNode")
+
+        # Class only on the sub-operation (node_roles class blank).
+        sub_only = {
+            "node_roles": [{"role_kind": "choice_input", "node_class": ""}],
+            "sub_operations": [{"value_kind": "node", "node_class": "vtkMRMLSegmentationNode"}],
+        }
+        self.assertEqual(fn(sub_only), "vtkMRMLSegmentationNode")
+
+        # Boolean checkbox choice (e.g. BRP "right side leg"): no node class, so
+        # the panel keeps its button/free-text rendering, not a node dropdown.
+        bool_step = {
+            "node_roles": [{"role_kind": "choice_input", "node_class": "", "parameter_name": "rightSideLegFibula"}],
+            "sub_operations": [{"value_kind": "bool", "node_class": None}],
+        }
+        self.assertEqual(fn(bool_step), "")
+
+        # Defensive: malformed input never raises.
+        self.assertEqual(fn(None), "")
+        self.assertEqual(fn({}), "")
+
+        self.delayDisplay("Node-selection fallback node class resolves correctly")
+
+    def test_UnboundNodeChoiceMaterialization(self):
+        """Unbound node choices are materialized into the globals templates read.
+
+        Companion to the UI fallback: when a node selector has no inferred binding
+        (subject-hierarchy combo / parameterNodeWrapper), the recorded choice was
+        never applied, so a downstream template reading the cached node id raised
+        "Missing required input". The choice handler now emits code that resolves
+        the node by name and sets both the namespace variable and the
+        `_<ext_slug>_<param>_id` cross-stage global. Bound and non-node choices
+        emit nothing (the prelude / button path handles those).
+        """
+        from SlicerAIAgentLib.extension_cli_loader.choice_helpers import (
+            _build_node_choice_materialization_code,
+        )
+
+        class _Ctx:
+            def __init__(self, ext, step, target_step, metadata, target_gen=None):
+                self.ext_name = ext
+                self.workflow_step = step
+                self.target_step = target_step
+                self.target_gen = target_gen or {}
+                self.metadata = metadata or {}
+
+        # Orbit-style unbound node choice -> materialize, valid Python, exact global.
+        orbit_step = {
+            "step_id": "cb_step_1",
+            "node_roles": [{"role_kind": "choice_input", "node_class": "vtkMRMLModelNode", "parameter_name": ""}],
+            "sub_operations": [{"value_kind": "node", "node_class": "vtkMRMLModelNode"}],
+            "choice_info": {"parameter_name": "orbit_model_node"},
+        }
+        ctx = _Ctx("SlicerOrbitSurgerySim", "cb_step_1", orbit_step,
+                   {"parameter_bindings": {}, "choice_bindings": {}})
+        code = _build_node_choice_materialization_code(ctx, "orbit_model_node", "SkullModel")
+        self.assertTrue(code)
+        # Cross-stage global name must match the generator convention (and so the
+        # name cb_step_9's template reads).
+        self.assertIn("_slicerorbitsurgerysim_orbit_model_node_id = _chosen_node.GetID()", code)
+        self.assertIn("orbit_model_node = _chosen_node", code)
+        compile(code, "<gen>", "exec")  # raises if the emitted code is not valid Python
+
+        # Bound node choice (BRP) -> applied by the prelude, so no materialization.
+        bound_step = {
+            "step_id": "cb_step_2",
+            "node_roles": [{"role_kind": "choice_input", "node_class": "vtkMRMLSegmentationNode", "parameter_name": "mandibularSegmentation"}],
+        }
+        ctx2 = _Ctx("BoneReconstructionPlanner", "cb_step_2", bound_step,
+                    {"parameter_bindings": {"mandibularSegmentation": {"node_class": "vtkMRMLSegmentationNode"}}})
+        self.assertEqual(_build_node_choice_materialization_code(ctx2, "mandibularSegmentation", "MandibleSegmentation"), "")
+
+        # Boolean choice -> no node class -> no materialization.
+        bool_step = {"step_id": "cb_step_1", "sub_operations": [{"value_kind": "bool"}], "node_roles": []}
+        ctx3 = _Ctx("BoneReconstructionPlanner", "cb_step_1", bool_step, {})
+        self.assertEqual(_build_node_choice_materialization_code(ctx3, "rightSideLegFibula", True), "")
+
+        self.delayDisplay("Unbound node choice materialization verified")
+
+    def test_InstalledExtensionSearchRedirect(self):
+        """Search/read of an installed extension resolves to the runtime copy, not the KB.
+
+        Regression for the knowledge-base-vs-installed version skew (a method like
+        rotation_p_stop present only in the newer KB copy but absent at runtime).
+        _resolve_path redirects an installed extension's slicer-extensions/<Ext>/
+        and ext:<Ext>/ paths to the installed source registered in extra_roots,
+        with a basename fallback through the differing installed subtree.
+        """
+        import os
+        import tempfile
+        from SlicerAIAgentLib import SkillTools
+
+        work = tempfile.mkdtemp(prefix="cli_resolve_")
+        skill = os.path.join(work, "kb")
+        os.makedirs(os.path.join(skill, "slicer-extensions", "OtherExt"))
+        installed = os.path.join(work, "inst", "SlicerOrbitSurgerySim")
+        deep = os.path.join(installed, "lib", "qt-scripted-modules")
+        os.makedirs(deep)
+        open(os.path.join(deep, "PlateRegistration.py"), "w").close()
+
+        ex = SkillTools.SkillToolExecutor(skill)
+        ex.extra_roots["SlicerOrbitSurgerySim"] = installed
+
+        def _norm(p):
+            return os.path.normpath(p)
+
+        runtime_file = _norm(os.path.join(deep, "PlateRegistration.py"))
+        # KB-style path of an installed extension -> redirected to runtime copy.
+        self.assertEqual(
+            _norm(ex._resolve_path(
+                "slicer-extensions/SlicerOrbitSurgerySim/PlateRegistration/PlateRegistration.py"
+            )),
+            runtime_file,
+        )
+        # ext:<Ext>/ form too.
+        self.assertEqual(
+            _norm(ex._resolve_path("ext:SlicerOrbitSurgerySim/PlateRegistration.py")),
+            runtime_file,
+        )
+        # Directory (grep root) -> installed root.
+        self.assertEqual(
+            _norm(ex._resolve_path("slicer-extensions/SlicerOrbitSurgerySim")),
+            _norm(installed),
+        )
+        # A non-installed extension stays in the knowledge base.
+        self.assertEqual(
+            _norm(ex._resolve_path("slicer-extensions/OtherExt/Foo.py")),
+            _norm(os.path.join(skill, "slicer-extensions", "OtherExt", "Foo.py")),
+        )
+        self.delayDisplay("Installed extension search redirects to the runtime copy")
+
+    def test_WrapperExtensionSkipsClassicPrelude(self):
+        """A parameterNodeWrapper extension skips the classic param-node prelude.
+
+        Regression: the prelude's apply_workflow_metadata crashed on the wrapper
+        with 'no attribute SetParameter'. For wrappers the data flows via the UI
+        selectors (set by the choice steps) + the button/checkbox handlers, so the
+        classic plumbing is both useless and harmful — it is skipped.
+        """
+        from SlicerAIAgentLib.extension_cli_loader.choice_helpers import _build_choice_prelude
+        from SlicerAIAgentLib.extension_cli_loader.workflow_handlers import _WorkflowContext
+
+        def _ctx(metadata):
+            return _WorkflowContext(
+                "X", "", "X", {}, {"step_id": "cb_step_5"}, {}, {}, "start", set(), metadata
+            )
+
+        classic = {
+            "parameter_bindings": {"r": {"node_class": ""}},
+            "parameter_defaults": {"r": {"value": "1"}},
+            "extension_module_name": "X",
+            "logic_class_name": "XLogic",
+        }
+        self.assertIn("apply_workflow_metadata", _build_choice_prelude(_ctx(classic)))
+
+        wrapper = dict(classic)
+        wrapper["parameter_node_wrapper"] = {"class_name": "XParameterNode", "fields": {}}
+        self.assertEqual(_build_choice_prelude(_ctx(wrapper)), "")
+        self.delayDisplay("Wrapper extension skips the classic param-node prelude")
+
+    def test_ApplyWorkflowMetadataWrapperSafe(self):
+        """apply_workflow_metadata no-ops on a wrapper, still applies on a classic node."""
+        from SlicerAIAgentLib.workflow_state import apply_workflow_metadata
+
+        class Wrapper:  # parameterNodeWrapper: no classic SetParameter
+            orbitLm = None
+
+        # Must not raise (defense-in-depth hasattr guard).
+        apply_workflow_metadata(Wrapper(), {"r": "v"}, {"r": {"node_class": ""}}, {})
+
+        class Classic:
+            def __init__(self):
+                self.params = {}
+
+            def GetParameter(self, k):
+                return self.params.get(k, "")
+
+            def SetParameter(self, k, v):
+                self.params[k] = v
+
+        node = Classic()
+        apply_workflow_metadata(node, {"r": "v"}, {"r": {"node_class": ""}}, {})
+        self.assertEqual(node.params.get("r"), "v")
+        self.delayDisplay("apply_workflow_metadata is wrapper-safe and classic-preserving")
+
     def test_Integration(self):
         """Integration test of multiple components."""
         from SlicerAIAgent import SlicerAIAgentLogic

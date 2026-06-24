@@ -43,17 +43,35 @@ def get_all_cli_manifests() -> List[Dict]:
 
 
 def delete_cli(extension_name: str) -> bool:
-    """Delete an extension CLI directory."""
+    """Delete an extension CLI directory, recoverably.
+
+    Moves the directory into a sibling trash folder
+    (``Resources/.extension_CLI_deleted/<extension_name>/``) instead of
+    hard-removing it, so an accidental delete — or a delete followed by a failed
+    regeneration — never permanently loses a known-good CLI. The trash lives
+    OUTSIDE the ``extension_CLI`` base dir so discovery never re-loads it. A
+    prior backup for the same extension is replaced. Falls back to a hard delete
+    only if the move fails.
+    """
     import shutil
 
     base_dir = get_cli_base_dir()
     ext_dir = os.path.join(base_dir, extension_name)
-    if os.path.isdir(ext_dir):
-        shutil.rmtree(ext_dir)
-        invalidate_cache()
+    if not os.path.isdir(ext_dir):
+        return False
+    try:
+        trash_root = os.path.join(os.path.dirname(base_dir), ".extension_CLI_deleted")
+        os.makedirs(trash_root, exist_ok=True)
+        dest = os.path.join(trash_root, extension_name)
+        if os.path.isdir(dest):
+            shutil.rmtree(dest, ignore_errors=True)
+        shutil.move(ext_dir, dest)
+        logger.info("Deleted extension CLI (recoverable in %s): %s", trash_root, extension_name)
+    except Exception:
+        shutil.rmtree(ext_dir, ignore_errors=True)
         logger.info("Deleted extension CLI: %s", extension_name)
-        return True
-    return False
+    invalidate_cache()
+    return True
 
 
 def discover_installed_extensions() -> List[Dict]:
@@ -234,8 +252,12 @@ def save_cli_package(
 
     # Write templates
     for tpl_name, tpl_content in templates.items():
-        if tpl_name in ("workflow.json", "workflow_metadata.json", "workflow_contract.json"):
-            # Workflow graph/metadata go at CLI root, not in templates/
+        if tpl_name in (
+            "workflow.json", "workflow_metadata.json", "workflow_contract.json",
+            "step_instructions.json",
+        ):
+            # Workflow graph/metadata + per-step instructions go at the CLI root
+            # (where the loader and the instruction editor read them), not in templates/.
             tpl_path = os.path.join(ext_dir, tpl_name)
         else:
             # tpl_name may already include "templates/" prefix — strip it

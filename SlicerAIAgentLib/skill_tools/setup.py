@@ -252,10 +252,14 @@ class SkillToolSetupMixin:
     def _resolve_path(self, path: str) -> str:
         """Resolve a tool path argument to an absolute filesystem path.
 
-        Handles three cases:
         - Absolute path: used as-is
-        - ext:<prefix>/...: resolved against extra_roots
-        - Relative path: resolved against skill_path
+        - slicer-ui-analysis/...: UI-analysis docs dir
+        - ext:<prefix>/...: resolved against extra_roots (the INSTALLED extension)
+        - slicer-extensions/<Ext>/...: when <Ext> is an installed extension (in
+          extra_roots), redirected to its INSTALLED copy so the agent reads the
+          same version it runs — avoids the knowledge-base-vs-installed version
+          skew. Non-installed extensions stay in the knowledge base.
+        - Relative path: resolved against skill_path (knowledge base)
         """
         if os.path.isabs(path):
             return path
@@ -268,9 +272,45 @@ class SkillToolSetupMixin:
             if slash >= 0:
                 prefix, sub = rest[:slash], rest[slash + 1:]
                 if prefix in self.extra_roots:
-                    return os.path.join(self.extra_roots[prefix], sub)
+                    return self._resolve_in_extension_root(self.extra_roots[prefix], sub)
             return path
+        # Redirect an installed extension's knowledge-base path to its installed
+        # source (the version the runtime imports). Path form:
+        # "slicer-extensions/<Ext>/<sub>".
+        marker = "slicer-extensions/"
+        norm = path.replace("\\", "/")
+        if norm.startswith(marker):
+            rest = norm[len(marker):]
+            slash = rest.find('/')
+            ext_name = rest[:slash] if slash >= 0 else rest
+            sub = rest[slash + 1:] if slash >= 0 else ""
+            if ext_name in self.extra_roots:
+                return self._resolve_in_extension_root(self.extra_roots[ext_name], sub)
         return os.path.join(self.skill_path, path)
+
+    def _resolve_in_extension_root(self, root: str, sub: str) -> str:
+        """Resolve ``sub`` under an installed extension root, with basename fallback.
+
+        Installed extensions place their modules under a build-specific subtree
+        (e.g. ``lib/Slicer-X.Y/qt-scripted-modules/``) that differs from the
+        knowledge-base layout, so an exact relative path often does not exist.
+        Fall back to the first file with the same basename anywhere under the
+        installed root.
+        """
+        if not sub:
+            return root
+        direct = os.path.join(root, sub)
+        if os.path.exists(direct):
+            return direct
+        base = os.path.basename(sub.replace("\\", "/"))
+        if base:
+            try:
+                for dirpath, _dirs, files in os.walk(root):
+                    if base in files:
+                        return os.path.join(dirpath, base)
+            except Exception:
+                pass
+        return direct
 
     def _init_vector_retriever(self) -> Any:
         """

@@ -53,10 +53,11 @@ class WidgetWorkflowMixin:
             layout.addWidget(self._workflowActionLabel)
             layout.addWidget(self._workflowInstructionLabel)
 
-            # "Show details" toggle + the detailed (clinical) instruction body,
-            # hidden until the toggle is clicked.
+            # "Show brief" toggle + the terse instruction body, hidden until the
+            # toggle is clicked. The primary label shows the detailed (clinical)
+            # instruction by default; this reveals the terse "what to do" version.
             self._workflowDetailToggle = qt.QToolButton()
-            self._workflowDetailToggle.setText("Show details ▸")
+            self._workflowDetailToggle.setText("Show brief ▸")
             self._workflowDetailToggle.setAutoRaise(True)
             self._workflowDetailToggle.setStyleSheet("color: #3b6f9e; border: none; padding: 0;")
             self._workflowDetailToggle.clicked.connect(self._onToggleWorkflowDetails)
@@ -211,12 +212,19 @@ class WidgetWorkflowMixin:
             self._workflowStepLabel.setVisible(False)
 
         description = self._currentWorkflowUiState.get("description") or ""
-        instructions = self._currentWorkflowUiState.get("instructions") or ""
+        simple = self._currentWorkflowUiState.get("instructions") or ""
+        detailed = self._currentWorkflowUiState.get("instructions_detailed") or ""
+        # Show the detailed (clinical) instruction as the primary text by default;
+        # fall back to the terse simple text when a step has no detailed version.
+        primary = detailed or simple
+        # Offer the terse "brief" version behind the toggle, only when it adds
+        # something (a detailed version exists and the simple text differs).
+        brief = simple if (detailed and simple and simple.strip() != detailed.strip()) else ""
         self._workflowActionLabel.setText(str(description))
         self._workflowActionLabel.setVisible(bool(description))
-        self._workflowInstructionLabel.setText(str(instructions))
-        self._workflowInstructionLabel.setVisible(bool(instructions))
-        self._renderWorkflowDetails(self._currentWorkflowUiState.get("instructions_detailed") or "")
+        self._workflowInstructionLabel.setText(str(primary))
+        self._workflowInstructionLabel.setVisible(bool(primary))
+        self._renderWorkflowDetails(brief)
 
         self._renderWorkflowChoices(self._currentWorkflowUiState)
         self._updateReplayControls(self._currentWorkflowUiState)
@@ -368,22 +376,26 @@ class WidgetWorkflowMixin:
             button.setVisible(True)
             self._workflowChoiceButtons.append(button)
 
-    def _renderWorkflowDetails(self, detailed):
-        """Show the 'Show details' toggle when a detailed instruction exists."""
+    def _renderWorkflowDetails(self, brief):
+        """Show the 'Show brief' toggle when a terse instruction is available.
+
+        The primary instruction label now shows the detailed (clinical) text by
+        default; this toggle reveals the terse "what to do now" version.
+        """
         toggle = getattr(self, "_workflowDetailToggle", None)
         label = getattr(self, "_workflowDetailLabel", None)
         if toggle is None or label is None:
             return
-        detailed = str(detailed or "")
-        self._workflowDetailText = detailed
-        if not detailed:
+        brief = str(brief or "")
+        self._workflowDetailText = brief
+        if not brief:
             toggle.setVisible(False)
             label.setVisible(False)
             return
-        # New step: show the toggle collapsed (details hidden) by default.
+        # New step: show the toggle collapsed (brief hidden) by default.
         toggle.setVisible(True)
-        toggle.setText("Show details ▸")
-        label.setText(detailed)
+        toggle.setText("Show brief ▸")
+        label.setText(brief)
         label.setVisible(False)
 
     def _onToggleWorkflowDetails(self):
@@ -393,7 +405,7 @@ class WidgetWorkflowMixin:
             return
         expanded = not label.visible
         label.setVisible(expanded)
-        toggle.setText("Hide details ▾" if expanded else "Show details ▸")
+        toggle.setText("Hide brief ▾" if expanded else "Show brief ▸")
 
     def _showWorkflowInteraction(self, result):
         """Show an interactive or mixed workflow wait state."""
@@ -483,29 +495,49 @@ class WidgetWorkflowMixin:
         self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": value})
 
     def _renderWorkflowNodeCombo(self, state, node_class, default_value):
-        """Show a dropdown of scene nodes of ``node_class`` plus a Select button.
+        """Show a real qMRMLNodeComboBox filtered to ``node_class`` + a Select button.
 
-        Returns True if it rendered (matching nodes exist), or False to let the
-        caller fall back to the free-text box (e.g. an empty scene).
+        Using the MRML node combo box (instead of a plain QComboBox populated from
+        GetNodesByClass) reproduces exactly what the extension's own selector shows:
+        the same ``setNodeTypes([node_class])`` filter PLUS the combo's built-in
+        exclusions — it hides ``HideFromEditors``/internal helper nodes (e.g. the
+        ``parameterNodeWrapper`` placeholder models an extension creates), which a
+        raw GetNodesByClass would wrongly list. Returns True if it rendered
+        (selectable nodes exist), or False to fall back to the free-text box.
         """
-        candidates = []
+        combo = slicer.qMRMLNodeComboBox()
+        combo.nodeTypes = [node_class]
+        combo.addEnabled = False
+        combo.removeEnabled = False
+        combo.renameEnabled = False
+        combo.noneEnabled = False
+        combo.showChildNodeTypes = True
+        combo.showHidden = False            # exclude HideFromEditors/internal nodes
+        combo.setMRMLScene(slicer.mrmlScene)
+        # No selectable node of this type (after the combo's own exclusions): let
+        # the caller fall back to the free-text box.
         try:
-            candidates = self._collectWorkflowNodeCandidates(node_class)
+            count = combo.nodeCount()
         except Exception:
-            logger.debug("Collecting node candidates failed", exc_info=True)
-        if not candidates:
+            count = 0
+        if not count:
+            combo.setParent(None)
             return False
-        self._workflowNodeCombo = qt.QComboBox()
-        for cand in candidates:
-            name = cand.get("name") or cand.get("id") or ""
-            store = cand.get("storageFileName")
-            label = f"{name} — {store}" if store else name
-            self._workflowNodeCombo.addItem(label, name)   # display label, data = node name
-        idx = self._bestNodeMatchIndex(
-            candidates, default_value, state.get("node_keywords") or []
-        )
-        if 0 <= idx < self._workflowNodeCombo.count:
-            self._workflowNodeCombo.setCurrentIndex(idx)
+        self._workflowNodeCombo = combo
+        # Default to the best keyword/name match (only a guess; user can change).
+        try:
+            cand = []
+            for i in range(count):
+                node = combo.nodeFromIndex(i)
+                if node is not None:
+                    cand.append({"id": node.GetID(), "name": node.GetName()})
+            idx = self._bestNodeMatchIndex(
+                cand, default_value, state.get("node_keywords") or []
+            )
+            if 0 <= idx < len(cand):
+                combo.setCurrentNodeID(cand[idx]["id"])
+        except Exception:
+            logger.debug("Defaulting node combo selection failed", exc_info=True)
 
         self._workflowNodeSelectButton = qt.QPushButton("Select")
         self._workflowNodeSelectButton.setToolTip("Use the selected node")
@@ -545,13 +577,16 @@ class WidgetWorkflowMixin:
         return 0
 
     def _onWorkflowNodeSelected(self):
-        if getattr(self, "_workflowNodeCombo", None) is None:
+        combo = getattr(self, "_workflowNodeCombo", None)
+        if combo is None:
             return
+        name = ""
         try:
-            name = self._workflowNodeCombo.itemData(self._workflowNodeCombo.currentIndex)
+            node = combo.currentNode()
+            if node is not None:
+                name = str(node.GetName() or "").strip()
         except Exception:
-            name = None
-        name = str(name or self._workflowNodeCombo.currentText or "").strip()
+            name = ""
         if not name:
             return
         if self._currentWorkflowUiState.get("replay_previewing"):

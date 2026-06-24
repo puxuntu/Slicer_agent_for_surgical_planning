@@ -189,6 +189,16 @@ class WidgetCorrectionMixin:
                         "call again.\n\n"
                         if attempt >= 2 else ""
                     )
+                    + (
+                        "EXECUTION CONTEXT: this code runs at MODULE level in __main__, NOT "
+                        "inside a class or method. Never reference `self` or `cls` — obtain the "
+                        "parameter node through a local variable, e.g. "
+                        "`paramNode = logic.getParameterNode()`. If the parameter node is a "
+                        "parameterNodeWrapper (e.g. error \"object has no attribute "
+                        "'GetNodeReference'\"), access its node references as typed PROPERTIES "
+                        "(e.g. `paramNode.orbitLm`), NOT via GetNodeReference/SetNodeReferenceID/"
+                        "GetParameter/SetParameter.\n\n"
+                    )
                     +
                     "You have Grep, ReadFile, and VectorSearch tools available. "
                     "If the error is caused by an incorrect API signature, missing parameter, or wrong module path, "
@@ -341,21 +351,17 @@ class WidgetCorrectionMixin:
                 "attempt": attempt + 1,
                 "raw_preview": raw_msg,
             })
-            workflow_repair_active = False
-            try:
-                workflow_repair_active = bool(
-                    self._workflowRuntime and self._workflowRuntime.has_active_workflow()
-                )
-            except Exception:
-                workflow_repair_active = False
-            if workflow_repair_active:
-                self._stopThinkingTimer("Failed")
-                self._setReadyStatus()
-                return
+            # A no-code response is usually the model emitting a tool call (which
+            # can leak as raw text and parse to no code) instead of the fix.
+            # Retry with an explicit instruction to write the corrected code
+            # directly and not call tools. This applies during a generated-CLI
+            # workflow too: a single no-code response must NOT halt the whole
+            # workflow — only give up after exhausting max_attempts.
             if attempt + 1 < max_attempts:
                 retry_error = (
                     f"{error_detail}\n\n"
-                    "The previous correction response contained no executable ```python block. "
+                    "The previous correction response contained no executable ```python block "
+                    "(do not call tools — write the corrected code directly as a ```python block). "
                     f"Raw preview: {raw_msg}"
                 )
                 self._selfCorrectCode(retry_error, attempt + 1, max_attempts)

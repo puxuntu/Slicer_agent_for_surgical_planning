@@ -123,11 +123,11 @@ class WidgetCLIMixin:
         instrLayout.addWidget(qt.QLabel("Title:"))
         self._stepInstrTitle = qt.QLineEdit()
         instrLayout.addWidget(self._stepInstrTitle)
-        instrLayout.addWidget(qt.QLabel("Simple (shown by default):"))
+        instrLayout.addWidget(qt.QLabel("Simple (terse — behind 'Show brief'):"))
         self._stepInstrSimple = qt.QTextEdit()
         self._stepInstrSimple.setMaximumHeight(50)
         instrLayout.addWidget(self._stepInstrSimple)
-        instrLayout.addWidget(qt.QLabel("Detailed (Show details):"))
+        instrLayout.addWidget(qt.QLabel("Detailed (clinical — shown by default):"))
         self._stepInstrDetailed = qt.QTextEdit()
         self._stepInstrDetailed.setMaximumHeight(90)
         instrLayout.addWidget(self._stepInstrDetailed)
@@ -521,6 +521,12 @@ class WidgetCLIMixin:
             return {}
         path = os.path.join(cli_dir, "step_instructions.json")
         if not os.path.isfile(path):
+            # Older packages wrote it under templates/ — fall back so the editor
+            # shows the real instructions instead of the description fallback.
+            legacy = os.path.join(cli_dir, "templates", "step_instructions.json")
+            if os.path.isfile(legacy):
+                path = legacy
+        if not os.path.isfile(path):
             return {}
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -587,11 +593,18 @@ class WidgetCLIMixin:
         if combo is None or combo.count == 0 or not cli_dir:
             return
         step_id = combo.itemData(combo.currentIndex)
+        # Always write to the canonical root location; seed from whichever copy
+        # exists (root, or a legacy templates/ copy) so an edit migrates it.
         path = os.path.join(cli_dir, "step_instructions.json")
+        read_path = path
+        if not os.path.isfile(read_path):
+            legacy = os.path.join(cli_dir, "templates", "step_instructions.json")
+            if os.path.isfile(legacy):
+                read_path = legacy
         doc = {"version": 1, "steps": {}}
-        if os.path.isfile(path):
+        if os.path.isfile(read_path):
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(read_path, "r", encoding="utf-8") as f:
                     doc = json.load(f) or doc
             except Exception:
                 pass

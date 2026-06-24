@@ -27,8 +27,11 @@ from .contract_audit import AnalyzerContractAuditMixin
 from .api_proof import AnalyzerApiProofMixin
 from ..cli_artifacts import (
     GENERATION_ROUND,
+    backup_active_package,
     debug_round_dir,
+    discard_active_backup,
     next_repair_round_label,
+    restore_active_package,
     snapshot_package_version,
 )
 
@@ -133,6 +136,10 @@ class ExtensionCLIAnalyzer(
         self._proven_api_chains: Optional[List[str]] = None
         self._ui_evidence_methods: Optional[List[str]] = None
         self._source_path: str = ""
+        # Set from scan_result when the extension's parameter node is a
+        # slicer.parameterNodeWrapper: {"class_name", "fields": {name: type}, ...}.
+        # None for classic vtkMRMLScriptedModuleNode parameter nodes.
+        self._parameter_node_wrapper: Optional[Dict] = None
 
     @staticmethod
     def _default_base_dir() -> str:
@@ -610,6 +617,12 @@ class ExtensionCLIAnalyzer(
             result["error"] = f"CLI for '{extension_name}' already exists. Use force_overwrite=True."
             return result
 
+        # Regeneration safety ("swap on success"): snapshot the existing active
+        # package before this run touches anything, so a hard failure restores
+        # the known-good CLI instead of leaving a half-written or empty package.
+        # No-op when there is no existing package. Discarded on success.
+        backed_up = bool(backup_active_package(ext_dir))
+
         # Cross-run closed loop: a prior revision that hit an upstream
         # contract/dataflow root cause persisted its diagnosis; seed the
         # contract phase with it so regeneration addresses the failure.
@@ -635,6 +648,18 @@ class ExtensionCLIAnalyzer(
                     "The extension may be C++-only or have no Python logic class."
                 )
                 return result
+
+            # Parameter-node paradigm: classic vtkMRMLScriptedModuleNode vs the
+            # modern @parameterNodeWrapper (typed property access). Drives API
+            # typing/validation and node-reference codegen in later stages.
+            self._parameter_node_wrapper = scan_result.get("parameter_node_wrapper")
+            if self._parameter_node_wrapper:
+                self.on_progress(
+                    "discover", "Discover Source And Cookbook",
+                    f"parameterNodeWrapper detected: "
+                    f"{self._parameter_node_wrapper.get('class_name')} "
+                    f"({len(self._parameter_node_wrapper.get('fields') or {})} node fields)"
+                )
 
             # Extract Widget button→logic-method connections for post-classification verification
             self._widget_connections = []
@@ -770,6 +795,12 @@ class ExtensionCLIAnalyzer(
                 self._workflow_metadata = self._build_workflow_metadata(
                     scan_result, logic_analysis, workflow_graph
                 )
+                # Persist parameterNodeWrapper detection into runtime metadata so
+                # the dispatch-time prelude builder (which only sees ctx.metadata,
+                # not the analyzer) can skip the classic param-node plumbing that
+                # crashes on a wrapper. Absent for classic extensions.
+                if self._parameter_node_wrapper:
+                    self._workflow_metadata["parameter_node_wrapper"] = self._parameter_node_wrapper
                 if prior_repair_history:
                     self._workflow_metadata["repair_strategy_history"] = prior_repair_history
                 if prior_repair_trace:
@@ -1038,6 +1069,13 @@ class ExtensionCLIAnalyzer(
             manifest["manifest_version"] = MANIFEST_VERSION
             manifest["pipeline_version"] = PIPELINE_VERSION
             manifest["workflow_contract_file"] = "workflow_contract.json"
+            # The on-disk source the runtime actually imports. The agent
+            # registers this as an ext:<name>/ search root and redirects
+            # knowledge-base lookups to it, so it reads the SAME version it runs
+            # (avoids the KB-copy-vs-installed version skew — a method present
+            # only in the newer knowledge-base copy that doesn't exist at runtime).
+            if self._source_path and os.path.isdir(self._source_path):
+                manifest["source_path"] = self._source_path
             templates["workflow_contract.json"] = self._workflow_contract_to_json(workflow_contract)
             templates["workflow_metadata.json"] = json.dumps(self._workflow_metadata or {}, indent=2)
             templates["step_instructions.json"] = json.dumps(
@@ -1105,6 +1143,20 @@ class ExtensionCLIAnalyzer(
             except Exception:
                 logger.debug("Run summary emission failed", exc_info=True)
             self._flush_progress_artifacts(result)
+            # Regeneration safety ("swap on success"): a run that produced a
+            # package (success, or saved-invalid-for-revise) keeps it and drops
+            # the backup; any other exit — exception or an early error return
+            # before the package was written — restores the previously-active
+            # package so a known-good CLI is never lost. Runs in finally so it
+            # also covers the early `return result` paths above.
+            if backed_up:
+                if result.get("cli_dir"):
+                    discard_active_backup(ext_dir)
+                elif restore_active_package(ext_dir):
+                    logger.info(
+                        "Restored previous '%s' CLI after a failed regeneration.",
+                        extension_name,
+                    )
             self._debug_dir = None
 
         return result

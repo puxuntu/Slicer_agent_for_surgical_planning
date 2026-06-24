@@ -190,11 +190,15 @@ class TypeProvenanceGraph:
         workflow_roles: Optional[Dict[str, Dict]] = None,
         return_contracts: Optional[Dict[str, Any]] = None,
         logic_class_name: str = "",
+        parameter_node_wrapper_class: str = "",
     ):
         self.code = code
         self.workflow_roles = workflow_roles or {}
         self.return_contracts = return_contracts or {}
         self.logic_class_name = logic_class_name
+        # When set, logic.getParameterNode() returns this @parameterNodeWrapper
+        # class (typed property access) rather than vtkMRMLScriptedModuleNode.
+        self.parameter_node_wrapper_class = parameter_node_wrapper_class or ""
         self.variables: Dict[str, List[Dict]] = {}
         self.collections: Dict[str, List[Dict]] = {}
         self.function_returns: Dict[str, List[Dict]] = {}
@@ -387,7 +391,18 @@ class TypeProvenanceGraph:
                     )]
             if func.attr == "getParameterNode":
                 return [self._evidence(
-                    "vtkMRMLScriptedModuleNode", "high", "extension_logic_contract"
+                    self.parameter_node_wrapper_class or "vtkMRMLScriptedModuleNode",
+                    "high",
+                    "parameter_node_wrapper_contract" if self.parameter_node_wrapper_class
+                    else "extension_logic_contract",
+                )]
+            # slicer.util.getModuleWidget(...) -> the live module widget. Handler
+            # calls on it (the agent's button/checkbox handler-driver) are valid
+            # by construction (the handler was scanned from the widget's own
+            # connections), so type it to a marker the prover trusts.
+            if func.attr == "getModuleWidget":
+                return [self._evidence(
+                    "_module_widget", "high", "module_widget_accessor"
                 )]
             if (
                 func.attr == "logic"
@@ -767,6 +782,21 @@ class ApiProofValidator:
             item.get("type") for item in candidates
             if _confidence_rank(item.get("confidence", "")) >= _confidence_rank("medium")
         }
+        # A method call on the live module widget (obtained via getModuleWidget())
+        # is the agent's deterministic button/checkbox handler-driver — the
+        # handler was scanned from the widget's own connections, so it exists by
+        # construction. Prove it so the repair loop does not rewrite the (correct)
+        # handler step into invented APIs.
+        if "_module_widget" in high_types:
+            obligation["proof_status"] = "proven"
+            obligation["evidence"].append({
+                "kind": "module_widget_handler",
+                "receiver_type": "_module_widget",
+                "method_exists": True,
+                "effect": self.effect_for_method(method),
+                "source": "module_widget_handler_invocation",
+            })
+            return obligation, None
         method_evidence = []
         invalid_evidence = []
         effects = set()
@@ -1232,6 +1262,27 @@ class AnalyzerApiProofMixin:
                     "source": "live_probe_failure",
                     "confidence": "high",
                 }
+        # parameterNodeWrapper parameter nodes expose typed PROPERTIES, not the
+        # classic VTK node-reference / parameter methods. Record that those
+        # methods do NOT exist on the wrapper class so api_proof flags any
+        # generated/LLM-written GetNodeReference/SetNodeReferenceID/GetParameter/
+        # SetParameter call on it at generation time (instead of crashing at run).
+        wrapper = self._parameter_node_wrapper or {}
+        wrapper_class = _text_or_empty(wrapper.get("class_name"))
+        if wrapper_class:
+            wc_methods = type_contracts.setdefault(wrapper_class, {}).setdefault("methods", {})
+            for _absent in (
+                "GetNodeReference", "GetNodeReferenceID", "SetNodeReferenceID",
+                "SetAndObserveNodeReferenceID", "AddNodeReferenceID",
+                "GetParameter", "SetParameter",
+            ):
+                wc_methods.setdefault(_absent, {
+                    "exists": False,
+                    "effect": "unknown",
+                    "source": "parameter_node_wrapper",
+                    "confidence": "high",
+                })
+
         if isinstance(self._workflow_metadata, dict):
             self._workflow_metadata["api_type_contracts"] = type_contracts
         inventory_analyzer = TemplateApiAnalyzer()
@@ -1307,6 +1358,7 @@ class AnalyzerApiProofMixin:
                     workflow_roles=roles,
                     return_contracts=contracts,
                     logic_class_name=logic_class_name,
+                    parameter_node_wrapper_class=wrapper_class,
                 )
                 proof = validator.validate_inventory(inventory, graph)
                 pass_obligations.extend(proof["obligations"])

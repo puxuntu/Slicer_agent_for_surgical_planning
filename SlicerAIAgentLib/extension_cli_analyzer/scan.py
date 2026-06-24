@@ -30,6 +30,12 @@ class AnalyzerScanMixin:
         file_inventory = {}
         logic_candidates = []
         widget_candidates = []
+        # Extensions using the modern slicer.parameterNodeWrapper expose their
+        # parameter node as a typed class whose node references are PROPERTIES
+        # (e.g. paramNode.orbitLm), not the classic GetNodeReference/SetNodeReferenceID
+        # VTK methods. Detecting these lets later stages generate property access
+        # and reject the classic API (which does not exist on a wrapper).
+        parameter_node_wrappers = []
 
         for fpath in py_files:
             try:
@@ -54,6 +60,25 @@ class AnalyzerScanMixin:
                         "methods": methods,
                         "line": node.lineno,
                     })
+                    # Detect a parameterNodeWrapper parameter-node class and
+                    # capture its annotated fields ({field_name: type_string}).
+                    decorators = [self._ast_name(d) for d in getattr(node, "decorator_list", [])]
+                    if any(
+                        d == "parameterNodeWrapper" or d.endswith(".parameterNodeWrapper")
+                        for d in decorators
+                    ):
+                        fields = {}
+                        for stmt in node.body:
+                            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                                type_str = self._annotation_node_class(stmt.annotation)
+                                if type_str:
+                                    fields[stmt.target.id] = type_str
+                        parameter_node_wrappers.append({
+                            "file": fpath,
+                            "class_name": node.name,
+                            "fields": fields,
+                            "line": node.lineno,
+                        })
                     # Detect Logic class
                     is_logic = (
                         "ScriptedLoadableModuleLogic" in bases
@@ -112,6 +137,12 @@ class AnalyzerScanMixin:
         # Pick best Widget candidate (prefer ScriptedLoadableModuleWidget subclass)
         widget_class = None
         if widget_candidates:
+            # The widget MUST come from the same module file as the chosen logic
+            # class — they are one module. An extension repo can bundle several
+            # modules (e.g. PlateRegistration + MirrorOrbitRecon); picking a
+            # sibling module's widget yields the wrong button→handler
+            # connections, which silently breaks handler-invocation generation.
+            logic_file = logic_class["file"] if logic_class else None
             scored_w = []
             for cand in widget_candidates:
                 score = 0
@@ -120,9 +151,20 @@ class AnalyzerScanMixin:
                 score += min(len(cand["methods"]), 20)
                 if "setup" in cand["methods"]:
                     score += 50
+                if logic_file and cand["file"] == logic_file:
+                    score += 500
                 scored_w.append((score, cand))
             scored_w.sort(key=lambda x: x[0], reverse=True)
             widget_class = scored_w[0][1]
+
+        # The parameter-node wrapper relevant to the selected logic class is the
+        # one defined in the same module file (an extension repo may bundle
+        # several modules, each with its own wrapper). Fall back to any wrapper.
+        parameter_node_wrapper = None
+        if parameter_node_wrappers:
+            logic_file = logic_class["file"] if logic_class else None
+            same_file = [w for w in parameter_node_wrappers if w["file"] == logic_file]
+            parameter_node_wrapper = (same_file or parameter_node_wrappers)[0]
 
         # Find the entry point module (the main module file)
         entry_module = None
@@ -145,7 +187,34 @@ class AnalyzerScanMixin:
             "logic_class": logic_class,
             "widget_class": widget_class,
             "entry_module": entry_module,
+            "parameter_node_wrapper": parameter_node_wrapper,
+            "parameter_node_wrappers": parameter_node_wrappers,
         }
+
+    @staticmethod
+    def _annotation_node_class(annotation) -> str:
+        """Return the node-class string from a parameterNodeWrapper field annotation.
+
+        Unwraps ``Optional[X]`` / ``Union[X, None]`` / ``Annotated[X, ...]`` and
+        string annotations. Returns "" for non-node (scalar) types so callers can
+        keep only node-reference fields.
+        """
+        if annotation is None:
+            return ""
+        if isinstance(annotation, ast.Name):
+            return annotation.id
+        if isinstance(annotation, ast.Attribute):
+            return annotation.attr
+        if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
+            return annotation.value
+        if isinstance(annotation, ast.Subscript):
+            sl = annotation.slice
+            if hasattr(ast, "Index") and isinstance(sl, ast.Index):  # py<3.9
+                sl = sl.value
+            if isinstance(sl, ast.Tuple) and sl.elts:
+                return ExtensionCLIAnalyzer._annotation_node_class(sl.elts[0])
+            return ExtensionCLIAnalyzer._annotation_node_class(sl)
+        return ""
 
     @staticmethod
     def _ast_name(node) -> str:

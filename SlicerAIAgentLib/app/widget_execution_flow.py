@@ -312,8 +312,18 @@ class WidgetExecutionFlowMixin:
         # self-correction with close-match evidence, skipping the doomed
         # execute/rollback cycle a runtime AttributeError would cost.
         try:
-            from ..ApiSanityChecker import check_code, format_failures
+            from ..ApiSanityChecker import check_code, check_extension_methods, format_failures
             sanity = check_code(self.currentCode or "")
+            # Also verify methods called on extension Logic/Widget instances
+            # exist on the live runtime class (check_code only covers
+            # slicer/vtk/qt/ctk roots). Catches a hallucinated extension method
+            # — e.g. logic.rotation_p_stop() absent from the installed version —
+            # before execution and before the correction loop re-invents it.
+            ext_sanity = check_extension_methods(self.currentCode or "")
+            if not ext_sanity.get("ok"):
+                sanity = dict(sanity)
+                sanity["missing"] = list(sanity.get("missing", [])) + ext_sanity["missing"]
+                sanity["ok"] = False
             if self._timing is not None:
                 self._timing['api_sanity'] = {
                     'elapsed': sanity.get('elapsed', 0.0),

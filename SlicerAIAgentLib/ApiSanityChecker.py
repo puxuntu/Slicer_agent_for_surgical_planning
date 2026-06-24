@@ -379,6 +379,108 @@ def check_code(code: str) -> Dict:
     return result
 
 
+def check_extension_methods(code: str) -> Dict:
+    """Verify ``<var>.<method>()`` calls on extension-class instances exist live.
+
+    :func:`check_code` only resolves slicer/vtk/qt/ctk roots, so a method
+    hallucinated on an extension Logic/Widget object — e.g.
+    ``logic.rotation_p_stop()`` when the runtime class has no such method —
+    slips past the pre-execution gate and crashes (and the self-correction loop
+    keeps re-hallucinating it). This resolves each receiver variable to its
+    runtime CLASS, via either ``from <module> import <Class>`` + ``var = Class(...)``
+    or an alias to a live object already in ``__main__`` (e.g. a cached
+    ``_<ext>_logic``), then flags a called method the class does not define.
+
+    Class-attribute reads only — never instantiates or calls anything. Fail-open
+    (any internal failure returns ok=True), so it can never block valid code.
+    """
+    result = {"ok": True, "missing": [], "checked": 0, "skipped": 0}
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return result
+    try:
+        try:
+            import __main__ as _main
+            ns = vars(_main)
+        except Exception:
+            ns = {}
+
+        # Receiver variable -> runtime class.
+        imported_classes: Dict[str, type] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                mod = sys.modules.get(node.module)
+                if mod is None:
+                    continue
+                for alias in node.names:
+                    obj = getattr(mod, alias.name, None)
+                    if isinstance(obj, type):
+                        imported_classes[alias.asname or alias.name] = obj
+
+        var_class: Dict[str, type] = {}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign):
+                continue
+            targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            if not targets:
+                continue
+            value = node.value
+            cls: Optional[type] = None
+            if isinstance(value, ast.Call) and isinstance(value.func, ast.Name):
+                cls = imported_classes.get(value.func.id)
+            elif isinstance(value, ast.Name):
+                live = ns.get(value.id)
+                if live is not None and not isinstance(live, type) and not _is_module(live):
+                    cls = type(live)
+            if cls is not None:
+                for name in targets:
+                    var_class[name] = cls
+
+        seen = set()
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+                continue
+            recv = node.func.value
+            if not isinstance(recv, ast.Name):
+                continue
+            cls = var_class.get(recv.id)
+            if cls is None:
+                continue
+            method = node.func.attr
+            key = (recv.id, method)
+            if key in seen:
+                continue
+            seen.add(key)
+            result["checked"] += 1
+            if not hasattr(cls, method):
+                try:
+                    candidates = [n for n in dir(cls) if not n.startswith("__")]
+                except Exception:
+                    candidates = []
+                result["missing"].append({
+                    "status": "missing",
+                    "kind": "missing_attribute",
+                    "chain": f"{recv.id}.{method}",
+                    "parent_chain": getattr(cls, "__name__", recv.id),
+                    "missing_attr": method,
+                    "close_matches": difflib.get_close_matches(
+                        method, candidates, n=_CLOSE_MATCH_LIMIT, cutoff=0.6
+                    ),
+                    "lineno": node.lineno,
+                })
+        result["ok"] = not result["missing"]
+    except Exception:
+        logger.debug("check_extension_methods failed open", exc_info=True)
+        return {"ok": True, "missing": [], "checked": 0, "skipped": 0}
+    return result
+
+
+def _is_module(obj) -> bool:
+    import types as _types
+    return isinstance(obj, _types.ModuleType)
+
+
 def format_failures(missing: List[Dict]) -> str:
     """Human/LLM-readable evidence for confirmed-missing chains."""
     lines = ["[ApiSanityCheck] Pre-execution live check against this running Slicer:"]

@@ -699,6 +699,16 @@ class AnalyzerStage4DecompositionMixin:
         allowed_parameters = AnalyzerStage4DecompositionMixin._stage4_allowed_parameter_names(
             context
         )
+        # The source-derived set of valid (widget, parameter) bindings. Used to
+        # detect a UI binding the LLM invented for a widget the binding
+        # inference could not ground (e.g. an action checkbox wired to a handler
+        # method, or a parameterNodeWrapper field), so the step can degrade
+        # instead of dead-ending the gate in _validate_stage4_semantic_result.
+        binding_pairs = {
+            (b.get("widget_name"), b.get("parameter_name"))
+            for b in context.get("ui_parameter_bindings", []) or []
+            if isinstance(b, dict)
+        }
 
         for item in normalized.get("steps", []) or []:
             if not isinstance(item, dict):
@@ -711,6 +721,19 @@ class AnalyzerStage4DecompositionMixin:
             authoritative_type = expected_step.get("operation_type")
             if item.get("operation_type") != authoritative_type:
                 item["operation_type"] = authoritative_type
+
+            # target_value_mode names HOW a value is applied; the contract allows
+            # only a small set of modes. The LLM sometimes emits a value TYPE
+            # instead (e.g. "boolean", "exact") — especially for a checkbox step.
+            # Coerce an out-of-set mode deterministically rather than dead-ending
+            # the gate: "set" when a concrete value is supplied, else clear it.
+            if item.get("target_value_mode") not in (
+                None, "set", "invert", "node_reference", "runtime_value"
+            ):
+                item["target_value_mode"] = (
+                    "set" if item.get("target_value") is not None else None
+                )
+                notes.append(f"step {number}: coerced invalid target_value_mode")
 
             # Parameter-update intents only carry contract meaning when the
             # step provides a value to bind (target_value / choice) or a UI
@@ -725,11 +748,30 @@ class AnalyzerStage4DecompositionMixin:
                 intent in ("extension_parameter_update", "extension_node_reference_update")
                 for intent in intents
             ):
+                # Strip a UI binding the LLM invented for a widget the source
+                # could not ground (its (widget, parameter) pair is not in the
+                # source-derived bindings). The validator would hard-reject it;
+                # dropping it lets the step degrade to a plain step.
+                binding = item.get("ui_parameter_binding")
+                if isinstance(binding, dict) and (
+                    binding.get("widget_name"), binding.get("parameter_name")
+                ) not in binding_pairs:
+                    item["ui_parameter_binding"] = None
+                    notes.append(
+                        f"step {number}: stripped ungrounded UI parameter binding "
+                        f"{binding.get('parameter_name')!r}"
+                    )
                 has_binding = isinstance(item.get("ui_parameter_binding"), dict)
-                has_value = item.get("target_value") is not None or isinstance(
-                    item.get("choice"), dict
-                )
-                if not has_binding and not has_value:
+                # A parameter/node-reference update can only be honored when it
+                # binds to a source-derived UI parameter. Without one — e.g. an
+                # action checkbox wired to a handler method, or a
+                # parameterNodeWrapper field the binding inference cannot model —
+                # drop the intent so the step degrades gracefully instead of
+                # dead-ending the gate in _validate_stage4_semantic_result. Any
+                # internal parameter writes are still performed by the step's own
+                # method call. (Previously kept when a target_value was present,
+                # which is what let such steps reach the gate and hard-fail.)
+                if not has_binding:
                     item["operation_intents"] = [
                         intent for intent in intents
                         if intent not in (
@@ -738,8 +780,8 @@ class AnalyzerStage4DecompositionMixin:
                         )
                     ]
                     notes.append(
-                        f"step {number}: dropped internal parameter-update intent(s) "
-                        "with no bindable value or UI binding"
+                        f"step {number}: dropped parameter-update intent(s) with "
+                        "no source-derived UI binding"
                     )
                 notes.append(f"step {number} restored authoritative operation_type")
 

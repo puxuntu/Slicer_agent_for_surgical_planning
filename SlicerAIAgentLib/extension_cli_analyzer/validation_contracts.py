@@ -471,6 +471,18 @@ class AnalyzerValidationContractsMixin:
                 return True
         return False
 
+    @staticmethod
+    def _drives_widget_handler(code: str) -> bool:
+        """True when the template drives the extension's own module-widget handler.
+
+        Generated button-click / checkbox-toggle steps obtain the live module
+        widget (``slicer.util.getModuleWidget`` / ``widgetRepresentation().self()``)
+        and invoke a connected handler on it (e.g. ``_widget.onInitialRegistrationPushButton()``).
+        That IS the extension operation — the widget API calls it makes must not
+        be flagged as 'Slicer API calls without an extension method'.
+        """
+        return "getModuleWidget(" in code or "widgetRepresentation()" in code
+
     def _validate_template_contract(
         self,
         tpl_name: str,
@@ -491,6 +503,10 @@ class AnalyzerValidationContractsMixin:
         operation_code = self._strip_precondition_regions(code)
         api_chains = self._extract_api_chains(operation_code)
         code_has_slicer_api = bool(api_chains)
+        # A button/checkbox step that drives the widget's own handler is a valid
+        # extension operation even with no logic-method hint — its getModuleWidget
+        # / handler calls are not "raw Slicer API without an extension method".
+        drives_widget_handler = self._drives_widget_handler(operation_code)
         extension_call_contract = self._validate_extension_callable_contract(code)
         result["errors"].extend(extension_call_contract["errors"])
         for so in sub_ops:
@@ -507,6 +523,7 @@ class AnalyzerValidationContractsMixin:
                     "extension_node_reference_update",
                 )
                 and code_has_slicer_api
+                and not drives_widget_handler
             ):
                 result["errors"].append(
                     "extension_op without an extension method contains Slicer API calls; "
@@ -523,6 +540,7 @@ class AnalyzerValidationContractsMixin:
                 or gen.get("extension_function_name")
                 or any(so.get("extension_method_hint") for so in sub_ops)
                 or any(so.get("extension_function_hint") for so in sub_ops)
+                or drives_widget_handler
             )
             if not has_extension_callable:
                 result["errors"].append(

@@ -92,6 +92,83 @@ def snapshot_package_version(ext_dir: str, round_label: str) -> Optional[str]:
         return None
 
 
+# ── active-package backup (regeneration "swap on success" safety) ────────────
+
+_ACTIVE_BACKUP_DIR = ".active_backup"
+_BACKUP_EXTRAS = ("prompt_fragment.md", "generation_log.json")
+
+
+def backup_active_package(ext_dir: str) -> Optional[str]:
+    """Snapshot the current active package so a failed regeneration can restore it.
+
+    Copies the package JSON/markdown files plus ``templates/`` into
+    ``<ext_dir>/.active_backup/``. This gives regeneration "swap on success"
+    semantics: if the run errors out, :func:`restore_active_package` puts the
+    previously-active package back so a known-good CLI is never lost. Returns the
+    backup dir, or ``None`` when there is no active package to protect.
+    Fail-soft.
+    """
+    if not os.path.isfile(os.path.join(ext_dir, "manifest.json")):
+        return None
+    backup = os.path.join(ext_dir, _ACTIVE_BACKUP_DIR)
+    try:
+        if os.path.isdir(backup):
+            shutil.rmtree(backup, ignore_errors=True)
+        os.makedirs(backup, exist_ok=True)
+        for name in _PACKAGE_FILES + _BACKUP_EXTRAS:
+            src = os.path.join(ext_dir, name)
+            if os.path.isfile(src):
+                shutil.copy2(src, os.path.join(backup, name))
+        templates_src = os.path.join(ext_dir, "templates")
+        if os.path.isdir(templates_src):
+            shutil.copytree(templates_src, os.path.join(backup, "templates"))
+        return backup
+    except Exception:
+        shutil.rmtree(backup, ignore_errors=True)
+        return None
+
+
+def restore_active_package(ext_dir: str) -> bool:
+    """Restore the active package from ``<ext_dir>/.active_backup/``.
+
+    Replaces whatever a failed regeneration left at the package root with the
+    snapshot taken by :func:`backup_active_package`, then removes the backup.
+    Returns True if a backup existed and was restored. Fail-soft.
+    """
+    backup = os.path.join(ext_dir, _ACTIVE_BACKUP_DIR)
+    if not os.path.isdir(backup):
+        return False
+    try:
+        for name in _PACKAGE_FILES + _BACKUP_EXTRAS:
+            stale = os.path.join(ext_dir, name)
+            if os.path.isfile(stale):
+                os.remove(stale)
+        active_templates = os.path.join(ext_dir, "templates")
+        if os.path.isdir(active_templates):
+            shutil.rmtree(active_templates, ignore_errors=True)
+        for name in os.listdir(backup):
+            src = os.path.join(backup, name)
+            dst = os.path.join(ext_dir, name)
+            if os.path.isdir(src):
+                shutil.copytree(src, dst)
+            else:
+                shutil.copy2(src, dst)
+        shutil.rmtree(backup, ignore_errors=True)
+        return True
+    except Exception:
+        return False
+
+
+def discard_active_backup(ext_dir: str) -> None:
+    """Drop the regeneration backup after a successful run. Fail-soft."""
+    backup = os.path.join(ext_dir, _ACTIVE_BACKUP_DIR)
+    try:
+        if os.path.isdir(backup):
+            shutil.rmtree(backup, ignore_errors=True)
+    except Exception:
+        pass
+
+
 # ── per-run runtime errors ───────────────────────────────────────────────────
 
 _LEGACY_RUNTIME_FILE = "runtime_repairs.json"

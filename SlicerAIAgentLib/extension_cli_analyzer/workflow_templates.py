@@ -633,6 +633,16 @@ class AnalyzerWorkflowTemplatesMixin:
                 placeholder = self._parameter_placeholder_name(role)
                 node_class = self._node_class_for_reference_role(role, binding)
                 keywords = self._node_reference_keywords(role, step)
+                # A @parameterNodeWrapper has no SetNodeReferenceID; its node
+                # references are typed properties. Assign the property directly
+                # when the role names a wrapper field, else use the classic API.
+                wrapper_fields = set((self._parameter_node_wrapper or {}).get("fields") or {})
+                if role in wrapper_fields:
+                    assign_line = f"parameterNode.{role} = {placeholder}_node"
+                else:
+                    assign_line = (
+                        f"parameterNode.SetNodeReferenceID({role!r}, {placeholder}_node.GetID())"
+                    )
                 lines.extend([
                     f"{placeholder}_node_name = {{{placeholder}_node_name: ''}}",
                     f"{placeholder}_node = None",
@@ -652,7 +662,7 @@ class AnalyzerWorkflowTemplatesMixin:
                     "            break",
                     f"if {placeholder}_node is None:",
                     f"    raise RuntimeError('Could not find node for parameter reference {role}')",
-                    f"parameterNode.SetNodeReferenceID({role!r}, {placeholder}_node.GetID())",
+                    assign_line,
                 ])
             elif target is True:
                 lines.extend(self._widget_sync_lines(so, module_name, True))
@@ -829,6 +839,126 @@ class AnalyzerWorkflowTemplatesMixin:
         ]
         return "\n".join(lines) + "\n"
 
+    def _maybe_generate_button_handler_template(
+        self, extension_name, step, logic_class_name, module_name,
+    ) -> Optional[str]:
+        """Drive the widget's connected handler for a button-click or checkbox step.
+
+        A cookbook "Click the X button" / "Tick the Y checkbox" step's real unit
+        of work is the widget handler (e.g. ``onInitialRegistrationPushButton`` /
+        ``onInteractionTransform``): it reads the selected nodes, CREATES the
+        output nodes downstream steps consume, and toggles dependent UI. A
+        low-level logic call does neither, and an LLM left to guess invents wrong
+        APIs (e.g. a destructive ``writeParameterDict`` with the wrong arity).
+        When the step's widget maps to a clicked OR toggled handler in the scanned
+        widget connections, emit a deterministic template that drives it on the
+        live module widget. Returns None when there is no such connection (the
+        caller falls back to its normal generation).
+        """
+        # Paradigm gate. The bare handler call carries no param-node setup, so it
+        # only works when the extension drives its data through the UI/wrapper
+        # (connectGui populates the wrapper from the selectors the choice steps
+        # set). A CLASSIC extension's logic method instead reads param-node
+        # references that the logic-method template + cross-stage dataflow bind
+        # (e.g. centerFibulaLine reads a fibulaLine reference); driving the
+        # handler bypasses that plumbing -> the reference is None at runtime. So
+        # use the handler path ONLY for a wrapper/handler-driven extension, or
+        # when the step has no callable logic method (a UI-only toggle, where the
+        # handler is the only entry point). Classic + resolvable logic method ->
+        # fall back to the proven logic-method path.
+        is_wrapper = bool(getattr(self, "_parameter_node_wrapper", None))
+        has_logic_method = bool(step.get("method_name")) or any(
+            isinstance(so, dict)
+            and (so.get("extension_method_hint") or so.get("extension_function_hint"))
+            for so in step.get("sub_operations", []) or []
+        )
+        if not is_wrapper and has_logic_method:
+            return None
+        connections = getattr(self, "_widget_connections", None) or []
+        if not connections:
+            return None
+        # widget_name -> target_value (target_value matters only for a toggle).
+        widget_targets = {}
+        for so in step.get("sub_operations", []) or []:
+            if isinstance(so, dict) and so.get("widget_name"):
+                widget_targets.setdefault(so["widget_name"], so.get("target_value"))
+        if step.get("widget_name"):
+            widget_targets.setdefault(step["widget_name"], step.get("target_value"))
+        if not widget_targets:
+            return None
+
+        _TOGGLE = ("toggled", "stateChanged", "checkBoxToggled")
+        handler = widget = None
+        is_toggle = False
+        for conn in connections:
+            sig = str(conn.get("signal", ""))
+            wn = conn.get("button_widget_name")
+            if wn not in widget_targets or not conn.get("handler_method"):
+                continue
+            if "clicked" in sig:
+                handler, widget, is_toggle = conn["handler_method"], wn, False
+                break
+            if any(s in sig for s in _TOGGLE):
+                handler, widget, is_toggle = conn["handler_method"], wn, True
+                break
+        if not handler:
+            return None
+        step_id = step.get("step_id", "")
+        mod_attr = module_name.lower()
+        lines = list(self._template_header_lines(extension_name, step, "")) + [
+            "import slicer",
+            *self._emit_module_enter_precondition(module_name),
+            "# Drive the extension's own widget handler on the live module widget:",
+            "# it performs the full action (reads selected nodes, creates the",
+            "# output nodes downstream steps depend on, toggles dependent UI).",
+            "_widget = None",
+            "try:",
+            f"    _widget = slicer.util.getModuleWidget({module_name!r})",
+            "except Exception:",
+            "    _widget = None",
+            "if _widget is None:",
+            "    try:",
+            f"        _widget = slicer.modules.{mod_attr}.widgetRepresentation().self()",
+            "    except Exception:",
+            "        _widget = None",
+            "if _widget is None:",
+            f"    raise RuntimeError(\"Could not obtain the {module_name} module widget for '{widget}'.\")",
+            f"if not hasattr(_widget, {handler!r}):",
+            f"    raise RuntimeError(\"{module_name} widget has no handler '{handler}' for '{widget}'; regenerate the CLI.\")",
+        ]
+        if is_toggle and widget.isidentifier():
+            checked = "False" if widget_targets.get(widget) is False else "True"
+            lines += [
+                "# Set the control's checked state (signals blocked to avoid a",
+                "# double-fire), then invoke the handler once. The handler may read",
+                "# the widget state (no arg) or accept the new bool — try the bool.",
+                "_ctrl = None",
+                "try:",
+                f"    _ctrl = _widget.ui.{widget}",
+                "except Exception:",
+                "    _ctrl = None",
+                "if _ctrl is not None:",
+                "    try:",
+                "        _ctrl.blockSignals(True)",
+                f"        _ctrl.checked = {checked}",
+                "        _ctrl.blockSignals(False)",
+                "    except Exception:",
+                "        pass",
+                "try:",
+                f"    _widget.{handler}({checked})",
+                "except TypeError:",
+                f"    _widget.{handler}()",
+                f"print(\"[{extension_name}] Step '{step_id}': set '{widget}' = {checked} via {handler}.\")",
+                "",
+            ]
+        else:
+            lines += [
+                f"_widget.{handler}()",
+                f"print(\"[{extension_name}] Step '{step_id}': clicked '{widget}' via {handler}().\")",
+                "",
+            ]
+        return "\n".join(lines) + "\n"
+
     def _generate_automated_workflow_template(
         self, extension_name, step, logic_class_name, module_name, logic_analysis,
     ) -> str:
@@ -840,6 +970,14 @@ class AnalyzerWorkflowTemplatesMixin:
         method_name = step.get("method_name", "")
         step_id = step.get("step_id", "")
         description = step.get("description", step_id)
+
+        # A 'Click the X button' step's real action is the widget handler, which
+        # also creates the output nodes later steps need — prefer driving it.
+        handler_tpl = self._maybe_generate_button_handler_template(
+            extension_name, step, logic_class_name, module_name,
+        )
+        if handler_tpl:
+            return handler_tpl
 
         # Try LLM-assisted generation
         tpl = self._generate_automated_template_llm(

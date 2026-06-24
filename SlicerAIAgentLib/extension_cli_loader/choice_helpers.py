@@ -189,6 +189,13 @@ def _record_choice_and_advance(
             "from the loaded scene."
         )
     choice_code = _build_choice_parameter_update_code(ctx, param_name, choice_value)
+    if not choice_code:
+        # No scalar parameter-update binding matched. If this is a node choice
+        # whose selector the pipeline could not bind (subject-hierarchy combo /
+        # parameterNodeWrapper), nothing else applies the picked node — emit code
+        # that materializes it into the cross-stage globals downstream templates
+        # read, so a later step does not raise "Missing required input".
+        choice_code = _build_node_choice_materialization_code(ctx, param_name, choice_value)
     if choice_code:
         result["type"] = "choice_made"
         result["code"] = choice_code
@@ -294,6 +301,175 @@ def _build_choice_parameter_update_code(
     ])
 
 
+def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
+    """Node class for a node-valued choice, read from the step graph itself.
+
+    Mirrors WorkflowRuntime._node_class_from_step_meta: prefers a ``choice_input``
+    node role, then a ``value_kind == "node"`` sub-operation. Returns "" for a
+    non-node choice (boolean/int/float), or when the role/sub-op is bound to a
+    different parameter than ``param_name``.
+    """
+    for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
+        for role in src.get("node_roles") or []:
+            if not isinstance(role, dict) or role.get("role_kind") != "choice_input":
+                continue
+            rp = role.get("parameter_name")
+            if param_name and rp not in (None, "", param_name):
+                continue
+            nc = str(role.get("node_class") or "").strip()
+            if nc:
+                return nc
+    for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
+        for so in src.get("sub_operations") or []:
+            if not isinstance(so, dict) or str(so.get("value_kind") or "").strip() != "node":
+                continue
+            sp = so.get("parameter_name")
+            if param_name and sp not in (None, "", param_name):
+                continue
+            nc = str(so.get("node_class") or "").strip()
+            if nc:
+                return nc
+    return ""
+
+
+def _choice_selector_widget(ctx: _WorkflowContext, param_name: str) -> str:
+    """Name of the extension UI selector widget bound to this node choice, or ''.
+
+    Used to mirror a user's node pick into the extension's own selector so a
+    later button-click step (which drives the widget handler) sees it as input.
+    """
+    for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
+        for so in src.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            sp = so.get("parameter_name")
+            if param_name and sp not in (None, "", param_name):
+                continue
+            wn = str(so.get("widget_name") or "").strip()
+            if wn:
+                return wn
+    return ""
+
+
+def _choice_has_node_binding(ctx: _WorkflowContext, param_name: str) -> bool:
+    """True when the pipeline inferred a node binding for this choice.
+
+    A bound node choice is applied to the parameter node by the prelude's
+    ``apply_workflow_metadata``; only UNBOUND node choices need explicit
+    materialization. Checks the same binding sources the dispatch handler does.
+    """
+    binding = (
+        ((ctx.target_gen or {}).get("choice_descriptor", {}) or {}).get("binding")
+        or ctx.target_step.get("choice_binding")
+        or (ctx.metadata.get("choice_bindings", {}) or {}).get(ctx.workflow_step, {})
+    )
+    if isinstance(binding, dict) and binding.get("node_class"):
+        return True
+    pb = (ctx.metadata.get("parameter_bindings", {}) or {}).get(param_name, {})
+    return bool(isinstance(pb, dict) and pb.get("node_class"))
+
+
+def _build_node_choice_materialization_code(
+    ctx: _WorkflowContext,
+    param_name: str,
+    choice_value: Any,
+) -> str:
+    """Materialize an UNBOUND node choice into the globals downstream templates read.
+
+    The pipeline's UI->parameter binding inference only recognizes the classic
+    ``qMRMLNodeComboBox`` + ``SetNodeReferenceID(...currentNodeID)`` pattern.
+    Selectors using a ``qMRMLSubjectHierarchyComboBox`` or the
+    ``parameterNodeWrapper`` / ``connectGui`` style yield no binding, so for those
+    node choices nothing applies the picked node: ``apply_workflow_metadata``
+    skips it (empty bindings) and no scalar apply code is emitted. A later
+    template that resolves the node by its cached id
+    (``_<ext_slug>_<param>_id``, see template_generation.py:290/503) then raises
+    "Missing required input". Resolve the chosen node by name and set both the
+    namespace variable and the cached-id global the cross-stage wiring expects,
+    so downstream steps find it. Returns "" when this is not an unbound node
+    choice (bound choices are handled by the prelude instead).
+    """
+    if not param_name or not param_name.isidentifier():
+        return ""
+    node_class = _node_class_for_choice(ctx, param_name)
+    if not node_class:
+        return ""
+    if _choice_has_node_binding(ctx, param_name):
+        return ""
+    ext_slug = ctx.ext_name.lower()
+    id_global = f"_{ext_slug}_{param_name}_id"
+    err_msg = (
+        f"Could not resolve the selected {node_class} node "
+        f"{choice_value!r} in the scene for '{param_name}'."
+    )
+    log_prefix = (
+        f"[{ctx.ext_name}] Step '{ctx.workflow_step}': "
+        f"selected node for '{param_name}': "
+    )
+    # Resolve by name with only ``slicer`` (no library import) so the emitted code
+    # passes CodeValidator and runs in the sandboxed __main__ namespace: exact
+    # getNode() first, then a name match within the node class. Sets both the
+    # namespace variable and the cross-stage cached-id global the generator's
+    # GetNodeByID wiring expects (template_generation.py:290/503).
+    lines = [
+        f"# --- {ctx.ext_name}: {ctx.workflow_step} node selection (unbound choice) ---",
+        "import slicer",
+        f"_sel_name = {choice_value!r}",
+        f"_sel_class = {node_class!r}",
+        "_chosen_node = None",
+        "try:",
+        "    _cand = slicer.util.getNode(_sel_name)",
+        "    if _cand is not None and _cand.IsA(_sel_class):",
+        "        _chosen_node = _cand",
+        "except Exception:",
+        "    _chosen_node = None",
+        "if _chosen_node is None:",
+        "    _nodes = slicer.mrmlScene.GetNodesByClass(_sel_class)",
+        "    for _i in range(_nodes.GetNumberOfItems()):",
+        "        _cand = _nodes.GetItemAsObject(_i)",
+        "        if _cand is not None and _cand.GetName() == _sel_name:",
+        "            _chosen_node = _cand",
+        "            break",
+        "if _chosen_node is None:",
+        f"    raise RuntimeError({err_msg!r})",
+        f"{param_name} = _chosen_node",
+        f"{id_global} = _chosen_node.GetID()",
+        f"print({log_prefix!r} + _chosen_node.GetName())",
+    ]
+    # Also mirror the pick into the extension's own selector widget, so a later
+    # button-click step (which drives the widget handler) reads the chosen node
+    # as its input. Fail-soft and additive — the cached-id channel above still
+    # serves the low-level cross-stage consumers. Handles both qMRMLNodeComboBox
+    # (setCurrentNode) and qMRMLSubjectHierarchyComboBox (setCurrentItem).
+    module_name = str((ctx.metadata or {}).get("extension_module_name") or "").strip()
+    selector = _choice_selector_widget(ctx, param_name)
+    if module_name and selector.isidentifier():
+        lines.extend([
+            "_choice_widget = None",
+            "try:",
+            f"    _choice_widget = slicer.util.getModuleWidget({module_name!r})",
+            "except Exception:",
+            "    _choice_widget = None",
+            "if _choice_widget is not None:",
+            "    _choice_sel = None",
+            "    try:",
+            f"        _choice_sel = _choice_widget.ui.{selector}",
+            "    except Exception:",
+            "        _choice_sel = None",
+            "    if _choice_sel is not None:",
+            "        try:",
+            "            _choice_sel.setCurrentNode(_chosen_node)",
+            "        except Exception:",
+            "            try:",
+            "                _choice_shn = slicer.mrmlScene.GetSubjectHierarchyNode()",
+            "                _choice_sel.setCurrentItem(_choice_shn.GetItemByDataNode(_chosen_node))",
+            "            except Exception:",
+            "                pass",
+        ])
+    lines.append("")
+    return "\n".join(lines)
+
+
 # Automatic node selection was removed: node/option choices are always made
 # manually by the user via the selection dropdown in the agent panel.
 
@@ -307,6 +483,14 @@ def _build_choice_prelude(ctx: _WorkflowContext) -> str:
     Python source per dispatch into ~10, and eliminates the json.dumps-vs-Python
     literal class of bugs (booleans like ``false`` are not Python literals).
     """
+    # A @parameterNodeWrapper parameter node has no classic Get/SetParameter /
+    # Get/SetNodeReferenceID API, so apply_workflow_metadata would crash on it.
+    # For these extensions the data flows the extension's own way — choice steps
+    # set the real UI selectors (which connectGui syncs into the wrapper) and the
+    # button/checkbox handlers read them — so the classic prelude is both useless
+    # and harmful. Skip it entirely.
+    if ctx.metadata.get("parameter_node_wrapper"):
+        return ""
     choices = _workflow_choices.get(ctx.ext_name, {})
     bindings = ctx.metadata.get("parameter_bindings", {}) or {}
     defaults = ctx.metadata.get("parameter_defaults", {}) or {}
@@ -477,7 +661,12 @@ def _build_prelude_globals(ctx: _WorkflowContext) -> Dict[str, Any]:
     defaults = ctx.metadata.get("parameter_defaults", {}) or {}
     module_name = ctx.metadata.get("extension_module_name", "")
     logic_class_name = ctx.metadata.get("logic_class_name", "")
-    if (choices or defaults) and bindings and module_name and logic_class_name:
+    # Wrapper extensions skip the classic-plumbing prelude (see
+    # _build_choice_prelude), so its globals are unused — don't inject them.
+    if (
+        not ctx.metadata.get("parameter_node_wrapper")
+        and (choices or defaults) and bindings and module_name and logic_class_name
+    ):
         globals_dict["_workflow_choices"] = dict(choices)
         globals_dict["_workflow_bindings"] = dict(bindings)
         globals_dict["_workflow_defaults"] = dict(defaults)
