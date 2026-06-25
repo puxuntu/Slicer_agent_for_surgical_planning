@@ -1,13 +1,7 @@
-# Toggle on slice visibility in 3D for red slice
-
-# Get the Red slice node by its known node ID
-redSliceNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSliceNodeRed")
-if redSliceNode is None:
-    raise RuntimeError("Red slice node not found (vtkMRMLSliceNodeRed)")
-
-# Set slice visible in 3D views
-redSliceNode.SetSliceVisible(True)
-
-# Read back the state to confirm it was applied
-if not redSliceNode.GetSliceVisible():
-    raise RuntimeError("STATE_NOT_APPLIED: SliceVisible")
+# Toggle on slice visibility in 3D view for Red slice
+sliceNode = slicer.mrmlScene.GetNodeByID("vtkMRMLSliceNodeRed")
+if sliceNode is None:
+    raise RuntimeError("Red slice node not found")
+sliceNode.SetSliceVisible(1)
+if sliceNode.GetSliceVisible() != 1:
+    raise RuntimeError("STATE_NOT_APPLIED: sliceNode.SliceVisible")

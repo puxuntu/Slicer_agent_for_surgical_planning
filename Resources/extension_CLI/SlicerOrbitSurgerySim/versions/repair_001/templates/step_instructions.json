@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "steps": {
+    "cb_step_1": {
+      "title": "Select Orbit Model",
+      "simple": "Choose the orbit model from the available models.",
+      "detailed": "This step identifies the anatomical target \u2014 the orbital cavity \u2014 onto which the surgical plate will be aligned. The orbit model is typically derived from a CT segmentation and represents the patient's bony orbit. Select the appropriate model from the list to begin.",
+      "edited": false
+    },
+    "cb_step_2": {
+      "title": "Select Plate Model",
+      "simple": "Choose the plate model from the available models.",
+      "detailed": "This step selects the implant that will be positioned onto the orbit. The plate model is often a preformed titanium mesh or custom plate that will be used for reconstruction. Choose the correct plate model that corresponds to your surgical plan.",
+      "edited": false
+    },
+    "cb_step_3": {
+      "title": "Select Orbit Landmarks",
+      "simple": "Choose the orbit landmarks fiducial set.",
+      "detailed": "Landmarks define the desired anatomical position and orientation for the plate. These reference points (placed on key orbital structures such as the rim or defect margins) guide the initial alignment. Pick the landmark set that was placed on the orbit model.",
+      "edited": false
+    },
+    "cb_step_4": {
+      "title": "Select Plate Landmarks",
+      "simple": "Choose the plate landmarks fiducial set.",
+      "detailed": "These landmarks correspond one-to-one with the orbit landmarks and represent where the plate should be positioned relative to the anatomy. The algorithm uses these paired points to compute the initial plate placement. Choose the landmark set that was placed on the plate model.",
+      "edited": false
+    },
+    "cb_step_5": {
+      "title": "Initial Registration",
+      "simple": "Click the 'Initial registration' button.",
+      "detailed": "This step computes an initial rigid alignment of the plate to the orbit using the corresponding landmark pairs you provided. The result positions the plate approximately over the intended area, which you can then fine-tune manually. Click the button to run the automatic registration.",
+      "edited": false
+    },
+    "cb_step_6": {
+      "title": "Align Posterior and AP Stops",
+      "simple": "Click the 'Posterior stop and antero-posterior stops alignment' button.",
+      "detailed": "This step adjusts the plate so that it aligns with key anatomical constraints \u2014 the posterior orbital rim and anterior-posterior (AP) boundaries \u2014 ensuring the implant fits within the orbital cavity without protruding. Click the button to apply this alignment.",
+      "edited": false
+    },
+    "cb_step_7": {
+      "title": "Enable 3D Transform Handle",
+      "simple": "Check the box to enable the 3D interaction transform handle.",
+      "detailed": "Enabling the transform handle allows you to manually drag, rotate, and fine-tune the plate's position in the 3D view. This is necessary for the next step where you will adjust the plate by hand. Tick the checkbox to activate the handle.",
+      "edited": false
+    },
+    "cb_step_8": {
+      "title": "Adjust Plate Position",
+      "simple": "Use the transform handle to adjust the position and rotation of the plate until it looks correct.",
+      "detailed": "Fine-tune the plate's placement using the transform widget in the 3D viewer. This manual adjustment compensates for any anatomical variations not captured by the automated landmarks. Use the colored arrows and circles to translate and rotate the plate until it sits optimally over the orbital defect or intended location.",
+      "edited": false
+    },
+    "cb_step_9": {
+      "title": "Mark Intersection",
+      "simple": "Click the 'Mark intersection' button.",
+      "detailed": "This step computes and visualizes the area where the plate intersects the orbital model. It helps you assess how well the plate conforms to the underlying bone surface \u2014 whether there are gaps or intrusions. Click the button to generate the intersection outline.",
+      "edited": false
+    },
+    "cb_step_10": {
+      "title": "Create Distance Heatmap",
+      "simple": "Click the 'Create Distance Heatmap' button.",
+      "detailed": "This step produces a color-coded heatmap on the plate (or orbit) indicating the distance between the two surfaces. Green areas indicate close contact, while red or blue show larger gaps or overlapping regions. This visualization helps you evaluate the fit quality before finalizing the implant position. Click the button to generate the heatmap.",
+      "edited": false
+    }
+  }
+}

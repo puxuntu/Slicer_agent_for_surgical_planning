@@ -1,0 +1,284 @@
+{
+  "stage": "5T",
+  "debug_schema_version": 2,
+  "debug_features": [
+    "slicer_op_classification",
+    "slicer_ui_analysis_evidence_audit",
+    "source_verification_summary",
+    "generated_code_preview",
+    "final_state_intent"
+  ],
+  "total_operations": 1,
+  "started": 1,
+  "finished": 1,
+  "errors_count": 0,
+  "operations": [
+    {
+      "step": 12,
+      "key": "cb_step_12_0",
+      "description": "Configure mandibular curve display to show in 3D View 1 and Red slice",
+      "keywords": [
+        "Markups",
+        "SetViewNodeIDs",
+        "display",
+        "view"
+      ],
+      "category": "markups_display",
+      "final_state_intent": {
+        "mode": "set",
+        "state": true,
+        "confidence": "high",
+        "source": "show"
+      },
+      "classification": {
+        "op_type": "slicer_op",
+        "evidence_type": "verify_repair_reground",
+        "evidence_id": "validation_error_1",
+        "confidence": "high",
+        "interaction_kind": "none",
+        "node_class": null,
+        "slicer_op_category": "markups_display"
+      },
+      "search_policy": {
+        "preferred_root": "slicer-ui-analysis",
+        "requires_ui_first_when_ui_labeled": true,
+        "category_hints": [
+          "slicer-ui-analysis",
+          "qSlicerMarkupsModule.ui",
+          "qMRMLDisplayNodeViewComboBox",
+          "vtkMRMLMarkupsDisplayNode",
+          "AddViewNodeID",
+          "SetActiveListID",
+          "Markups display advanced view",
+          "SetVisibility2D",
+          "SetSliceProjection",
+          "SliceProjection"
+        ],
+        "category_hint_provenance": "generic_slicer_search_hint"
+      },
+      "status": "done",
+      "total_time_s": 62.5,
+      "code_chars": 2096,
+      "tool_rounds": 5,
+      "api_calls": 6,
+      "error": null,
+      "progress_events": [
+        {
+          "round": 1,
+          "phase": "search",
+          "message": "[Search] Round 1: |   Grep: \"MANDIBLE_VIEW_SINGLETON_TAG\" \u2192 ext:BoneReconstructionPlanner/ |   Grep: \"MANDIBLE_VIEW_SINGLETON_TAG\" \u2192 slicer-source/"
+        },
+        {
+          "round": 2,
+          "phase": "read",
+          "message": "[Read] Round 2: |   ReadFile: ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+        },
+        {
+          "round": 3,
+          "phase": "search",
+          "message": "[Search] Round 3: |   VectorSearch: \"vtkMRMLMarkupsDisplayNode SetViewNodeIDs view node IDs\""
+        },
+        {
+          "round": 4,
+          "phase": "search",
+          "message": "[Search] Round 4: |   Grep: \"mandibularCurve|mandibleCurve\" \u2192 ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+        },
+        {
+          "round": 5,
+          "phase": "read",
+          "message": "[Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+        }
+      ],
+      "prompt_build_s": 0.062,
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nConfigure mandibular curve display to show in 3D View 1 and Red slice\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `BoneReconstructionPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:BoneReconstructionPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.",
+      "prompt_includes_ui_analysis": true,
+      "deterministic_ui_evidence": {
+        "matched": [
+          "ViewLayoutOneUpRedSliceAction",
+          "redSliceViewRadio",
+          "RedSliceCheckBox",
+          "MRMLViewNodeComboBox",
+          "actionSwitchToRedBlueStereo"
+        ],
+        "injected": true
+      },
+      "executor_ready": true,
+      "tool_count": 3,
+      "last_progress": {
+        "round": 5,
+        "phase": "read",
+        "message": "[Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+      },
+      "tool_loop_s": 60.33,
+      "total_tokens": 265231,
+      "total_api_time_s": 47.44,
+      "total_tool_time_s": 10.165,
+      "tool_names_called": [
+        "Grep",
+        "ReadFile",
+        "VectorSearch"
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "phase": "search",
+          "api_time_s": 6.688,
+          "tool_time_s": 1.941,
+          "round_time_s": 8.629,
+          "tools": [
+            "Grep",
+            "Grep"
+          ],
+          "tokens": 5432
+        },
+        {
+          "round": 2,
+          "phase": "read",
+          "api_time_s": 8.201,
+          "tool_time_s": 4.024,
+          "round_time_s": 12.225,
+          "tools": [
+            "ReadFile"
+          ],
+          "tokens": 8791
+        },
+        {
+          "round": 3,
+          "phase": "search",
+          "api_time_s": 15.206,
+          "tool_time_s": 1.895,
+          "round_time_s": 17.101,
+          "tools": [
+            "VectorSearch"
+          ],
+          "tokens": 49666
+        },
+        {
+          "round": 4,
+          "phase": "search",
+          "api_time_s": 5.271,
+          "tool_time_s": 1.749,
+          "round_time_s": 7.019,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 64496
+        },
+        {
+          "round": 5,
+          "phase": "read",
+          "api_time_s": 4.745,
+          "tool_time_s": 0.556,
+          "round_time_s": 5.301,
+          "tools": [
+            "ReadFile"
+          ],
+          "tokens": 67753
+        },
+        {
+          "round": 6,
+          "phase": "generate",
+          "api_time_s": 7.33,
+          "tool_time_s": 0.0,
+          "round_time_s": 7.33,
+          "tools": [],
+          "tokens": 69093
+        }
+      ],
+      "tool_calls_history": [
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "MANDIBLE_VIEW_SINGLETON_TAG",
+            "path": "ext:BoneReconstructionPlanner/"
+          },
+          "result_preview": "Grep: 18 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (18)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "MANDIBLE_VIEW_SINGLETON_TAG",
+            "path": "slicer-source/"
+          },
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+        },
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py",
+            "query": "mandibleViewNode"
+          },
+          "result_preview": "    if not parameterNode.GetParameter(\"showFibulaSegmentsLengths\"):\n      parameterNode.SetParameter(\"showFibulaSegmentsLengths\",\"True\")\n    if not parameterNode.GetParameter(\"showOriginalMandible\"):\n      parameterNode.SetParameter(\"showOriginalMandible\",\"True\")\n    if not parameterNode.GetParameter(\"showBiggerSawBoxesInteractionHandles\"):\n      parameterNode.SetParameter(\"showBiggerSawBoxesInteractionHandles\",\"False\")\n    if not parameterNode.GetParameter(\"showMandiblePlanes\"):\n      parameterNode.SetParameter(\"showMandiblePlanes\",\"True\") \n    if not parameterNode.GetParameter(\"showMandiblePlanesInteractionHandles\"):\n      parameterNode.SetParameter(\"showMandiblePlanesInteractionHandles\",\"True\")  \n    if not parameterNode.GetParameter(\"lockVSP\"):\n      parameterNode.SetParameter(\"lockVSP\",\"False\")\n    if not parameterNode.GetParameter(\"mandiblePlanesPositioningForMaximumBoneContact\"):\n      parameterNode.SetParameter(\"mandiblePlanesPositioningForMaximumBoneContact\",\"True\")\n    if not parameterNode.GetParameter(\"makeAllMandiblePlanesRotateTogether\"):\n      parameterNode.SetParameter(\"makeAllMandiblePlanesRotateTogether\",\"True\")\n\n  def getParentFolderItemID(self):\n    shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)\n    sceneItemID = shNode.GetSceneItemID()\n    folderSubjectHierarchyID = shNode.GetItemByName(\"BoneReconstructionPlanner\")\n    if folderSubjectHierarchyID:\n      return folderSubjectHierarchyID\n    else:\n      return shNode.CreateFolderItem(sceneItemID,\"BoneReconstructionPlanner\")\n\n  def getMandibleReconstructionFolderItemID(self):\n    shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)\n    parentItemID = self.getParentFolderItemID()\n    folderSubjectHierarchyID = shNode.GetItemByName(\"Mandible reconstruction\")\n    if folderSubjectHierarchyID:\n      return folderSubjectHierarchyID\n    else:\n      return shNode.CreateFolderItem(parentItemID,\"Mandible reconstruction\")\n\n  def getInverseM..."
+        },
+        {
+          "tool": "VectorSearch",
+          "args": {
+            "query": "vtkMRMLMarkupsDisplayNode SetViewNodeIDs view node IDs",
+            "top_k": 5
+          },
+          "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 439-453) [doc_example] similarity:0.680 boosted:0.884\n```markdown\n### Display a node in only some views\n\nShow a displayable node in a predefined set of views. Here, show a markups line only in `Red+`, `Green+` and `Yellow+` views.\n\n```python\ndisplayableNode = getNode(\"L\")\n\nviewNodeIDs = [\n  slicer.app.layoutManager().sliceWidget(viewName).mrmlSliceNode().GetID()\n  for viewName in [\"Red+\", \"Green+\", \"Yellow+\"]\n]\n\ndisplayableNode.GetDisplayNode().SetViewNodeIDs(viewNodeIDs)\n```\n```\n\n[2] slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.h (lines 1-247) [mrml_definition] [Full file included \u2014 no need to ReadFile or VectorSearch this file]\n```\n/*=auto=========================================================================\n\n  Portions (c) Copyright 2005 Brigham and Women's Hospital (BWH) All Rights Reserved.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Program:   3D Slicer\n  Module:    $RCSfile: vtkMRMLDisplayableNode.h,v $\n  Date:      $Date: 2006/03/19 17:12:28 $\n  Version:   $Revision: 1.6 $\n\n=========================================================================auto=*/\n\n#ifndef __vtkMRMLDisplayableNode_h\n#define __vtkMRMLDisplayableNode_h\n\n// MRML includes\n#include \"vtkMRMLStorageNode.h\"\n#include \"vtkMRMLTransformableNode.h\"\nclass vtkMRMLDisplayNode;\n\n// STD includes\n#include <vector>\n\n/// \\brief MRML node to represent an item that can be rendered in a view.\n///\n/// It is the base class for models, volumes etc.\n/// A displayable node points to a list of display nodes that control graphical\n/// properties to render the displayable node. For example, if a displayable\n/// node is a 3D surface/mesh, a first display node of the mesh can have a\n/// red color attribute, while another display node for the mesh has a blue\n/// color attribute. Both red and blue display nodes will be rendered using\n/// the same 3D ..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "mandibularCurve|mandibleCurve",
+            "path": "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+          },
+          "result_preview": "Grep: 75 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (75)"
+        },
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "slicer-source/Docs/developer_guide/script_repository/gui.md",
+            "query": "SetViewNodeIDs"
+          },
+          "result_preview": "### Display a node in only some views\n\nShow a displayable node in a predefined set of views. Here, show a markups line only in `Red+`, `Green+` and `Yellow+` views.\n\n```python\ndisplayableNode = getNode(\"L\")\n\nviewNodeIDs = [\n  slicer.app.layoutManager().sliceWidget(viewName).mrmlSliceNode().GetID()\n  for viewName in [\"Red+\", \"Green+\", \"Yellow+\"]\n]\n\ndisplayableNode.GetDisplayNode().SetViewNodeIDs(viewNodeIDs)\n```\n\n"
+        }
+      ],
+      "evidence_audit": {
+        "ui_analysis": {
+          "used": false,
+          "query_paths": [],
+          "result_files": [],
+          "matched_lines_preview": [],
+          "connected_slots": [],
+          "api_footprints": [],
+          "implementation_candidates": []
+        },
+        "source_verification": {
+          "non_ui_result_files": [
+            "ext:BoneReconstructionPlanner/.",
+            "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py",
+            "slicer-source",
+            "slicer-source/Docs/developer_guide/script_repository/gui.md",
+            "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsFiducialNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsROIDisplayNode.cxx"
+          ],
+          "source_type_counts": {
+            "source": 3,
+            "doc_example": 2,
+            "mrml_definition": 4
+          }
+        },
+        "searches": {
+          "vector_queries": [
+            "vtkMRMLMarkupsDisplayNode SetViewNodeIDs view node IDs"
+          ],
+          "grep_patterns": [
+            "MANDIBLE_VIEW_SINGLETON_TAG",
+            "mandibularCurve|mandibleCurve"
+          ],
+          "read_paths": [
+            "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py",
+            "slicer-source/Docs/developer_guide/script_repository/gui.md"
+          ]
+        }
+      },
+      "reasoning_chars": 10235,
+      "reasoning_preview": "[Round 1]\nLet me analyze the validation failure and the existing API evidence carefully.\n\nThe operation is: \"Configure mandibular curve display to show in 3D View 1 and Red slice\"\n\nLooking at the accepted footprints and API chains from the ground truth:\n\n1. `slicer.MANDIBLE_VIEW_SINGLETON_TAG` - This is a custom singleton tag defined by the extension. I need to search for it in the extension source.\n2. `slicer.mrmlScene.GetSingletonNode('Red', 'vtkMRMLSliceNode').GetID` - This is how to get the Red slice node ID.\n3. `slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, 'vtkMRMLViewNode').GetID` - This is how to get the mandible view node.\n\nThe key differences from the failing code:\n- The failing code uses `slicer.app.layoutManager().threeDWidget(0).mrmlViewNode()` to get \"3D View 1\"\n- The API evidence says to use `slicer.MANDIBLE_VIEW_SINGLETON_TAG` with `GetSingletonNode` to get the mandible view node\n- The API evidence says to use `slicer.util.getNode('Red').GetID` or `slicer.mrmlScene.GetSingletonNode('Red', 'vtkMRMLSliceNode').GetID` for the Red slice view\n\nSo \"3D View 1\" in this extension's context might refer to a specific view registered with `MANDIBLE_VIEW_SINGLETON_TAG`. Let me search for this in the extension source.\n\nAlso, I note the API chain shows `slicer.util.getNode('Red').GetID` as one option for the Red slice.\n\nLet me search for the MANDIBLE_VIEW_SINGLETON_TAG in the extension source.\n\n[Round 2]\nNow I have the key evidence from the extension source:\n\n1. `slicer.MANDIBLE_VIEW_SINGLETON_TAG = \"1\"` - line 149\n2. The mandible view is a `vtkMRMLViewNode` with singleton tag \"1\"\n3. In the extension code (line 1250-1252), they use `AddViewNodeID` (not `SetViewNodeIDs`):\n   ```python\n   displayNode = curveNode.GetDisplayNode()\n   mandibleViewNode = slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, \"vtkMRMLViewNode\")\n   displayNode.AddViewNodeID(mandibleViewNode.GetID())\n   ```\n\n4. The extension uses `AddViewNodeID` - which doesn't replace but adds to the view list. Since we want to configure the display to show ONLY in these two views (3D View 1 / mandible view and Red slice), we might need to either:\n   - Use `SetViewNodeIDs` to replace the list, OR\n   - Use `AddViewNodeID` twice and ensure no other view IDs are in the list\n\nActually, looking at the accepted API chains more carefully:\n- `displayNode.SetViewNodeIDs` is accepted\n- `displayNode.AddViewNodeID` is NOT in the accepted API chains\n\nAnd the accepted chain shows:\n- `slicer.mrmlScene.GetSingletonNode('Red', 'vtkMRMLSliceNode').GetID`\n- `slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, 'vtkMRMLViewNode').GetID`\n- `slicer.util.getNode('Red').GetID`\n\nSo the evidence says to use `SetViewNodeIDs`, not `AddViewNodeID`. Let me use `SetViewNodeIDs` as per the accepted API chains.\n\nLet me also check how the extension gets the mandible curve node. The extension code creates a curve and names it with `slicer.mrmlScene.GetUniqueNameBySt",
+      "generated_code_preview": "# Configure mandibular curve display to show in 3D View 1 (mandible view) and Red slice view\n\n# (1) Find the mandibular curve node by name pattern matching\ncurveNode = None\nnodeIter = iter([slicer.mrmlScene.GetNthNodeByClass(i, \"vtkMRMLMarkupsCurveNode\")\n                 for i in range(slicer.mrmlScene.GetNumberOfNodesByClass(\"vtkMRMLMarkupsCurveNode\"))])\nfor node in nodeIter:\n    name = node.GetName() or \"\"\n    if \"mandibular\" in name.lower() or \"mandiblecurve\" in name.lower():\n        curveNode = node\n        break\nif not curveNode:\n    raise RuntimeError(\"Could not find mandibular curve node in the scene\")\n\n# (2) Get the display node\ndisplayNode = curveNode.GetDisplayNode()\nif not displayNode:\n    raise RuntimeError(\"Display node is None for mandibular curve node\")\n\n# (3) Resolve \"3D View 1\" (the mandible view via its singleton tag \"1\") and \"Red\" slice node\nmandibleViewNode = slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, \"vtkMRMLViewNode\")\nif not mandibleViewNode:\n    raise RuntimeError(\"Could not find 3D View 1 (mandible view) node using MANDIBLE_VIEW_SINGLETON_TAG\")\nredSliceNode = slicer.mrmlScene.GetSingletonNode(\"Red\", \"vtkMRMLSliceNode\")\nif not redSliceNode:\n    raise RuntimeError(\"Could not find Red slice node\")\n\n# (4) Build list of view IDs \u2014 show only in these two views\nviewNodeIDs = [mandibleViewNode.GetID(), redSliceNode.GetID()]\n\n# (5) Apply view restriction (replaces existing view node ID list)\ndisplayNode.SetViewNodeIDs(viewNodeIDs)\n\n# (6) Enable overall visibility (3D and 2D/slice)\ndisplayNode.SetVisibility(1)\ndisplayNode.SetVisibility2D(1)\n\n# (7) Read-back verification\nactualViewIDs = displayNode.GetViewNodeIDs()\nfor vid in viewNodeIDs:\n    if vid not in actualViewIDs:\n        raise RuntimeError(\"STATE_NOT_APPLIED: view node ID %s not in display node's view list\" % vid)\nif not displayNode.GetVisibility():\n    raise RuntimeError(\"STATE_NOT_APPLIED: Visibility is False after SetVisibility(1)\")\nif not displayNode.GetVisibility2"
+    }
+  ]
+}

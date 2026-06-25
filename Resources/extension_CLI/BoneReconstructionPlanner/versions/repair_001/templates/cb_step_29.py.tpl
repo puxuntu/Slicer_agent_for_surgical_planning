@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: Enter the desired value in "Between space (mm)". ---
+# --- BoneReconstructionPlanner: In the same "Mandible planes" row, toggle on the axes-icon tool button to show the plane interaction handles. ---
 import slicer
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
@@ -19,11 +19,22 @@ except NameError:
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
-additional_between_space_of_fibula_planes = {additional_between_space_of_fibula_planes: 1.5}
-parameterNode.SetParameter('additionalBetweenSpaceOfFibulaPlanes', str(additional_between_space_of_fibula_planes))
+# Sync the bound UI control (mirrors the user's click) so
+# GUI-driven parameter syncs cannot ratchet the value back.
+try:
+    _module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
+    _module_widget.ui.showMandiblePlanesInteractionHandlesToolButton.checked = True
+except Exception:
+    pass
+parameterNode.SetParameter('showMandiblePlanesInteractionHandles', 'True')
 try:
     parameterNode.Modified()
 except Exception:
     pass
+# Apply the parameter via the extension's own applier method —
+# a bare SetParameter only records state; GUI observers may
+# recompute it differently.
+_module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
+_module_widget.setMandiblePlanesInteractionHandlesVisibility(True)
 _bonereconstructionplanner_logic = logic
 print("[BoneReconstructionPlanner] Step 'cb_step_29' completed.")

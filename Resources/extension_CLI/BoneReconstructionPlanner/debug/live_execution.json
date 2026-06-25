@@ -63,16 +63,16 @@
       "execution_time": 0
     },
     {
-      "template_key": "cb_step_28",
-      "step_id": "cb_step_28",
+      "template_key": "cb_step_25",
+      "step_id": "cb_step_25",
       "operation_type": "user_choice",
       "status": "skipped_no_template",
       "error": null,
       "execution_time": 0
     },
     {
-      "template_key": "cb_step_29",
-      "step_id": "cb_step_29",
+      "template_key": "cb_step_26",
+      "step_id": "cb_step_26",
       "operation_type": "user_choice",
       "status": "skipped_no_template",
       "error": null,
@@ -115,8 +115,8 @@
       "step_id": "cb_step_12",
       "operation_type": "slicer_op",
       "status": "skipped_precondition",
-      "error": "No markups curve node found in the scene. Ensure step 11 was executed.",
-      "execution_time": 0.005002
+      "error": "Could not find mandibular curve node in the scene",
+      "execution_time": 0.005003
     },
     {
       "template_key": "templates/cb_step_14_slicer.py.tpl",
@@ -124,7 +124,7 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.066999
+      "execution_time": 0.042993
     },
     {
       "template_key": "templates/cb_step_15_slicer.py.tpl",
@@ -132,7 +132,7 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.007
+      "execution_time": 0.005032
     },
     {
       "template_key": "templates/cb_step_17.py.tpl",
@@ -156,14 +156,14 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.004
+      "execution_time": 0.002964
     },
     {
       "template_key": "templates/cb_step_22.py.tpl",
       "step_id": "cb_step_22",
       "operation_type": "extension_op",
       "status": "skipped_precondition",
-      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "error": "required input nodes absent: vtkMRMLMarkupsLineNode",
       "execution_time": 0
     },
     {
@@ -183,24 +183,24 @@
       "execution_time": 0
     },
     {
-      "template_key": "templates/cb_step_25.py.tpl",
-      "step_id": "cb_step_25",
-      "operation_type": "extension_op",
-      "status": "skipped_precondition",
-      "error": "extension_op inputs (user-loaded data) not present in scene",
-      "execution_time": 0
-    },
-    {
-      "template_key": "templates/cb_step_26.py.tpl",
-      "step_id": "cb_step_26",
-      "operation_type": "extension_op",
-      "status": "skipped_precondition",
-      "error": "extension_op inputs (user-loaded data) not present in scene",
-      "execution_time": 0
-    },
-    {
       "template_key": "templates/cb_step_27.py.tpl",
       "step_id": "cb_step_27",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "required input nodes absent: vtkMRMLMarkupsCurveNode, vtkMRMLMarkupsLineNode",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_28.py.tpl",
+      "step_id": "cb_step_28",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_29.py.tpl",
+      "step_id": "cb_step_29",
       "operation_type": "extension_op",
       "status": "skipped_precondition",
       "error": "extension_op inputs (user-loaded data) not present in scene",
@@ -211,7 +211,7 @@
       "step_id": "cb_step_31",
       "operation_type": "extension_op",
       "status": "skipped_precondition",
-      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "error": "required input nodes absent: vtkMRMLMarkupsCurveNode, vtkMRMLMarkupsLineNode",
       "execution_time": 0
     },
     {
@@ -235,7 +235,7 @@
       "step_id": "cb_step_5",
       "operation_type": "extension_op",
       "status": "skipped_precondition",
-      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "error": "required input nodes absent: vtkMRMLSegmentationNode",
       "execution_time": 0
     },
     {
@@ -244,7 +244,7 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.005001
+      "execution_time": 0.004033
     },
     {
       "template_key": "templates/cb_step_7_slicer.py.tpl",
@@ -252,7 +252,7 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.006034
+      "execution_time": 0.005012
     },
     {
       "template_key": "templates/cb_step_8_slicer.py.tpl",
@@ -260,7 +260,7 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.001965
+      "execution_time": 0.003
     },
     {
       "template_key": "templates/cb_step_9_slicer.py.tpl",
@@ -268,7 +268,7 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.085377
+      "execution_time": 0.501093
     }
   ]
 }

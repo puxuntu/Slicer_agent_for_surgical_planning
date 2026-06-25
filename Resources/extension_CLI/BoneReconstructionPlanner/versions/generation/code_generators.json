@@ -10,7 +10,7 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Is the fibula from the right leg?",
+      "title": "Select fibula side",
       "instruction": "Choose one option.",
       "done_label": "Done",
       "choice_label": "Side",
@@ -55,9 +55,9 @@
         }
       ],
       "parameter_name": "rightSideLegFibula",
-      "default_value": false,
+      "default_value": null,
       "ui_guidance": {
-        "title": "Is the fibula from the right leg?",
+        "title": "Select fibula side",
         "instruction": "Choose one option.",
         "done_label": "Done",
         "choice_label": "Side",
@@ -126,7 +126,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Choose right or left leg fibula",
+        "description": "Indicate whether the fibula is from the right leg",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "rightSideLegFibulaCheckBox",
@@ -180,8 +180,8 @@
             "value": false
           }
         ],
-        "default_value": false,
-        "value_kind": "bool"
+        "default_value": null,
+        "value_kind": "boolean"
       }
     ]
   },
@@ -196,11 +196,11 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select the mandibular segmentation",
-      "instruction": "Choose a mandibular segmentation node from the scene.",
+      "title": "Choose mandibular segmentation",
+      "instruction": "Select a segmentation.",
       "done_label": "Done",
-      "choice_label": "Mandible",
-      "input_label": "Choice",
+      "choice_label": "Mandibular segmentation",
+      "input_label": "Mandibular segmentation",
       "object_label": "segmentation",
       "repeat": {}
     },
@@ -229,16 +229,16 @@
       }
     ],
     "choice_descriptor": {
-      "question": "Select the mandibular segmentation",
+      "question": "Choose the mandibular segmentation",
       "choices": [],
       "parameter_name": "mandibularSegmentation",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select the mandibular segmentation",
-        "instruction": "Choose a mandibular segmentation node from the scene.",
+        "title": "Choose mandibular segmentation",
+        "instruction": "Select a segmentation.",
         "done_label": "Done",
-        "choice_label": "Mandible",
-        "input_label": "Choice",
+        "choice_label": "Mandibular segmentation",
+        "input_label": "Mandibular segmentation",
         "object_label": "segmentation",
         "repeat": {}
       },
@@ -293,7 +293,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Choose mandibular segmentation",
+        "description": "Select the mandibular segmentation node",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "mandibularSegmentationSelector",
@@ -318,12 +318,10 @@
         "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLSegmentationNode",
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          1
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -344,7 +342,7 @@
         "operation_intent": "extension_node_reference_update",
         "parameter_name": "mandibularSegmentation",
         "value_property": "currentNodeID",
-        "question": "Select the mandibular segmentation",
+        "question": "Choose the mandibular segmentation",
         "choices": [],
         "default_value": null,
         "value_kind": "node"
@@ -362,11 +360,11 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select the fibula segmentation",
-      "instruction": "Choose a fibula segmentation node from the scene.",
+      "title": "Choose fibula segmentation",
+      "instruction": "Select a segmentation.",
       "done_label": "Done",
-      "choice_label": "Fibula",
-      "input_label": "Choice",
+      "choice_label": "Fibula segmentation",
+      "input_label": "Fibula segmentation",
       "object_label": "segmentation",
       "repeat": {}
     },
@@ -395,16 +393,16 @@
       }
     ],
     "choice_descriptor": {
-      "question": "Select the fibula segmentation",
+      "question": "Choose the fibula segmentation",
       "choices": [],
       "parameter_name": "fibulaSegmentation",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select the fibula segmentation",
-        "instruction": "Choose a fibula segmentation node from the scene.",
+        "title": "Choose fibula segmentation",
+        "instruction": "Select a segmentation.",
         "done_label": "Done",
-        "choice_label": "Fibula",
-        "input_label": "Choice",
+        "choice_label": "Fibula segmentation",
+        "input_label": "Fibula segmentation",
         "object_label": "segmentation",
         "repeat": {}
       },
@@ -458,7 +456,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Choose fibula segmentation",
+        "description": "Select the fibula segmentation node",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "fibulaSegmentationSelector",
@@ -483,7 +481,7 @@
         "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLSegmentationNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -509,7 +507,7 @@
         "operation_intent": "extension_node_reference_update",
         "parameter_name": "fibulaSegmentation",
         "value_property": "currentNodeID",
-        "question": "Select the fibula segmentation",
+        "question": "Choose the fibula segmentation",
         "choices": [],
         "default_value": null,
         "value_kind": "node"
@@ -527,11 +525,11 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select the mandible scalar volume",
-      "instruction": "Choose a scalar volume node for the mandible.",
+      "title": "Choose mandible scalar volume",
+      "instruction": "Select a volume.",
       "done_label": "Done",
-      "choice_label": "Volume",
-      "input_label": "Choice",
+      "choice_label": "Mandible volume",
+      "input_label": "Mandible volume",
       "object_label": "volume",
       "repeat": {}
     },
@@ -560,16 +558,16 @@
       }
     ],
     "choice_descriptor": {
-      "question": "Select the mandible scalar volume",
+      "question": "Choose the mandible scalar volume",
       "choices": [],
       "parameter_name": "currentScalarVolume",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select the mandible scalar volume",
-        "instruction": "Choose a scalar volume node for the mandible.",
+        "title": "Choose mandible scalar volume",
+        "instruction": "Select a volume.",
         "done_label": "Done",
-        "choice_label": "Volume",
-        "input_label": "Choice",
+        "choice_label": "Mandible volume",
+        "input_label": "Mandible volume",
         "object_label": "volume",
         "repeat": {}
       },
@@ -639,7 +637,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Choose mandible scalar volume",
+        "description": "Select the mandible volume node",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "scalarVolumeSelector",
@@ -664,7 +662,7 @@
         "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLScalarVolumeNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -690,7 +688,7 @@
         "operation_intent": "extension_node_reference_update",
         "parameter_name": "currentScalarVolume",
         "value_property": "currentNodeID",
-        "question": "Select the mandible scalar volume",
+        "question": "Choose the mandible scalar volume",
         "choices": [],
         "default_value": null,
         "value_kind": "node"
@@ -708,12 +706,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Create bone models from segmentations",
-      "instruction": "Click the button.",
+      "title": "Create bone models",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "models",
+      "object_label": "interaction",
       "repeat": {}
     },
     "method_name": "makeModels",
@@ -731,6 +729,32 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "node_roles": [
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLSegmentationNode",
+        "parameter_name": "mandibularSegmentation",
+        "step_id": "cb_step_5"
+      },
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLSegmentationNode",
+        "parameter_name": "fibulaSegmentation",
+        "step_id": "cb_step_5"
+      },
+      {
+        "role_kind": "extension_output",
+        "node_class": "",
+        "parameter_name": "decimatedMandibleModelNode",
+        "step_id": "cb_step_5"
+      },
+      {
+        "role_kind": "extension_output",
+        "node_class": "",
+        "parameter_name": "decimatedFibulaModelNode",
+        "step_id": "cb_step_5"
+      }
+    ],
     "template_file": "templates/cb_step_5.py.tpl",
     "sub_operations": [
       {
@@ -748,16 +772,43 @@
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
-        "creates_node": false,
+        "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
+          2,
+          3,
           4
         ],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [],
+        "node_roles": [
+          {
+            "role_kind": "extension_input",
+            "node_class": "vtkMRMLSegmentationNode",
+            "parameter_name": "mandibularSegmentation",
+            "step_id": "cb_step_5"
+          },
+          {
+            "role_kind": "extension_input",
+            "node_class": "vtkMRMLSegmentationNode",
+            "parameter_name": "fibulaSegmentation",
+            "step_id": "cb_step_5"
+          },
+          {
+            "role_kind": "extension_output",
+            "node_class": "",
+            "parameter_name": "decimatedMandibleModelNode",
+            "step_id": "cb_step_5"
+          },
+          {
+            "role_kind": "extension_output",
+            "node_class": "",
+            "parameter_name": "decimatedFibulaModelNode",
+            "step_id": "cb_step_5"
+          }
+        ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -814,12 +865,12 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Change layout to Conventional",
-      "instruction": "Switch to the Conventional layout.",
+      "title": "Switch layout to Conventional",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "layout",
+      "object_label": "interaction",
       "repeat": {}
     },
     "api_evidence": {
@@ -827,30 +878,24 @@
       "accepted_footprints": [
         "GetLayoutNode",
         "GetViewArrangement",
-        "SetViewArrangement",
         "SlicerLayoutConventionalView",
         "app",
         "layoutLogic",
         "layoutManager",
-        "vtkMRMLLayoutNode",
-        "layout",
-        "setLayout"
+        "setLayout",
+        "vtkMRMLLayoutNode"
       ],
       "api_chains": [
         "layoutManager.layoutLogic",
         "layoutManager.layoutLogic().GetLayoutNode",
+        "layoutManager.setLayout",
         "layoutNode.GetViewArrangement",
-        "layoutNode.SetViewArrangement",
         "slicer.app.layoutManager",
         "slicer.app.layoutManager().layoutLogic",
         "slicer.app.layoutManager().layoutLogic().GetLayoutNode",
         "slicer.app.layoutManager().layoutLogic().GetLayoutNode().GetViewArrangement",
-        "slicer.app.layoutManager().layoutLogic().GetLayoutNode().SetViewArrangement",
-        "slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView",
-        "layoutManager.layout",
-        "layoutManager.setLayout",
-        "slicer.app.layoutManager().layout",
-        "slicer.app.layoutManager().setLayout"
+        "slicer.app.layoutManager().setLayout",
+        "slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView"
       ],
       "operation_descriptions": [
         "Change layout to Conventional"
@@ -860,7 +905,8 @@
       ],
       "slicer_api_keywords": [
         "layout",
-        "setLayout"
+        "setLayout",
+        "Conventional"
       ]
     },
     "operation_model": {
@@ -894,7 +940,8 @@
         "slicer_op_category": "layout_slice_view",
         "slicer_api_keywords": [
           "layout",
-          "setLayout"
+          "setLayout",
+          "Conventional"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -916,431 +963,7 @@
         "evidence_id": "",
         "operation_intent": "layout_activate"
       }
-    ],
-    "semantic_recipe_id": "",
-    "behavior_requirements": [],
-    "invalid_substitutions": [],
-    "repair_evidence": {
-      "source": "verify_repair_reground",
-      "issue_id": "api_proof_9b68dde941e73ba0b45a",
-      "semantic_recipe_id": "",
-      "behavior_requirements": [],
-      "invalid_substitutions": [],
-      "evidence_policy": "",
-      "generator_records": [
-        {
-          "step": 6,
-          "key": "cb_step_6_0",
-          "description": "Change layout to Conventional",
-          "keywords": [
-            "layout",
-            "setLayout"
-          ],
-          "category": "layout_slice_view",
-          "final_state_intent": {
-            "mode": "unspecified",
-            "state": null,
-            "confidence": "none",
-            "source": ""
-          },
-          "classification": {
-            "op_type": "slicer_op",
-            "evidence_type": "verify_repair_reground",
-            "evidence_id": "api_proof_9b68dde941e73ba0b45a",
-            "confidence": "high",
-            "interaction_kind": "none",
-            "node_class": null,
-            "slicer_op_category": "layout_slice_view"
-          },
-          "search_policy": {
-            "preferred_root": "slicer-ui-analysis",
-            "requires_ui_first_when_ui_labeled": true,
-            "category_hints": [
-              "slicer-ui-analysis",
-              "qMRMLSliceControllerWidget",
-              "actionShow_in_3D",
-              "layoutManager",
-              "vtkMRMLLayoutNode",
-              "sliceWidget",
-              "mrmlSliceNode",
-              "sliceController",
-              "setSliceVisible",
-              "SetSliceResolutionMode"
-            ],
-            "category_hint_provenance": "generic_slicer_search_hint"
-          },
-          "status": "done",
-          "total_time_s": 62.41,
-          "code_chars": 327,
-          "tool_rounds": 7,
-          "api_calls": 8,
-          "error": null,
-          "progress_events": [
-            {
-              "round": 1,
-              "phase": "search+read",
-              "message": "[Search+Read] Round 1: |   ReadFile: slicer-ui-analysis/Base__QTApp__Resources__UI__qSlicerMainWindow.ui.md |   Grep: \"SlicerLayoutConventionalView\" → slicer-source/Libs/MRML/Core"
-            },
-            {
-              "round": 2,
-              "phase": "read",
-              "message": "[Read] Round 2: |   ReadFile: slicer-source/Base/QTApp/qSlicerMainWindow.cxx |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLLayoutNode.h"
-            },
-            {
-              "round": 3,
-              "phase": "search",
-              "message": "[Search] Round 3: |   Grep: \"setLayout\" → slicer-source/Base/QTGUI |   VectorSearch: \"slicer.app.layoutManager().setLayout\""
-            },
-            {
-              "round": 4,
-              "phase": "search",
-              "message": "[Search] Round 4: |   Grep: \"Q_PROPERTY.*layout\" → slicer-source/Base/QTGUI |   VectorSearch: \"qSlicerLayoutManager layout property setLayout\""
-            },
-            {
-              "round": 5,
-              "phase": "search+read",
-              "message": "[Search+Read] Round 5: |   Grep: \"class qSlicerLayoutManager\" → slicer-source/Base/QTGUI/qSlicerLayoutManager.h |   ReadFile: slicer-source/Base/QTGUI/qSlicerLayoutManager.h"
-            },
-            {
-              "round": 6,
-              "phase": "read",
-              "message": "[Read] Round 6: |   ReadFile: slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h"
-            },
-            {
-              "round": 7,
-              "phase": "read",
-              "message": "[Read] Round 7: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
-            }
-          ],
-          "prompt_build_s": 0.062,
-          "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nChange layout to Conventional\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE — a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) — resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `BoneReconstructionPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:BoneReconstructionPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\n\nThis is a targeted repair of a previou",
-          "prompt_includes_ui_analysis": true,
-          "deterministic_ui_evidence": {
-            "matched": [
-              "ViewLayoutConventionalAction",
-              "ViewLayoutConventionalPlotAction",
-              "ViewLayoutConventionalWidescreenAction"
-            ],
-            "injected": true
-          },
-          "executor_ready": true,
-          "tool_count": 3,
-          "last_progress": {
-            "round": 7,
-            "phase": "read",
-            "message": "[Read] Round 7: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
-          },
-          "tool_loop_s": 60.17,
-          "total_tokens": 191070,
-          "total_api_time_s": 40.856,
-          "total_tool_time_s": 15.649,
-          "tool_names_called": [
-            "ReadFile",
-            "Grep",
-            "VectorSearch"
-          ],
-          "rounds": [
-            {
-              "round": 1,
-              "phase": "search+read",
-              "api_time_s": 5.152,
-              "tool_time_s": 2.021,
-              "round_time_s": 7.173,
-              "tools": [
-                "ReadFile",
-                "Grep"
-              ],
-              "tokens": 4309
-            },
-            {
-              "round": 2,
-              "phase": "read",
-              "api_time_s": 3.644,
-              "tool_time_s": 3.707,
-              "round_time_s": 7.351,
-              "tools": [
-                "ReadFile",
-                "ReadFile"
-              ],
-              "tokens": 7794
-            },
-            {
-              "round": 3,
-              "phase": "search",
-              "api_time_s": 4.058,
-              "tool_time_s": 4.82,
-              "round_time_s": 8.878,
-              "tools": [
-                "Grep",
-                "VectorSearch"
-              ],
-              "tokens": 20382
-            },
-            {
-              "round": 4,
-              "phase": "search",
-              "api_time_s": 8.935,
-              "tool_time_s": 2.292,
-              "round_time_s": 11.227,
-              "tools": [
-                "Grep",
-                "VectorSearch"
-              ],
-              "tokens": 27124
-            },
-            {
-              "round": 5,
-              "phase": "search+read",
-              "api_time_s": 3.257,
-              "tool_time_s": 1.591,
-              "round_time_s": 4.847,
-              "tools": [
-                "Grep",
-                "ReadFile"
-              ],
-              "tokens": 29136
-            },
-            {
-              "round": 6,
-              "phase": "read",
-              "api_time_s": 3.402,
-              "tool_time_s": 0.494,
-              "round_time_s": 3.896,
-              "tools": [
-                "ReadFile"
-              ],
-              "tokens": 30577
-            },
-            {
-              "round": 7,
-              "phase": "read",
-              "api_time_s": 6.72,
-              "tool_time_s": 0.725,
-              "round_time_s": 7.445,
-              "tools": [
-                "ReadFile"
-              ],
-              "tokens": 34521
-            },
-            {
-              "round": 8,
-              "phase": "generate",
-              "api_time_s": 5.688,
-              "tool_time_s": 0.0,
-              "round_time_s": 5.688,
-              "tools": [],
-              "tokens": 37227
-            }
-          ],
-          "tool_calls_history": [
-            {
-              "tool": "ReadFile",
-              "args": {
-                "path": "slicer-ui-analysis/Base__QTApp__Resources__UI__qSlicerMainWindow.ui.md",
-                "query": "Conventional"
-              },
-              "result_preview": "## widget: qSlicerMainWindow\n\n- Confidence: `linked_to_api`\n- Widget/action class: `QMainWindow`\n- Search text: qSlicerMainWindow | QMainWindow\n- Implementation candidates: `Base/QTApp/qSlicerMainWindow.cxx`, `Base/QTApp/qSlicerMainWindow.h`, `Base/QTApp/qSlicerMainWindow_p.h`\n- Matched implementation lines:\n  - `Base/QTApp/qSlicerMainWindow.cxx:21: #include \"qSlicerMainWindow_p.h\"`\n  - `Base/QTApp/qSlicerMainWindow.cxx:108: // qSlicerMainWindowPrivate methods`\n  - `Base/QTApp/qSlicerMainWindow.cxx:110: qSlicerMainWindowPrivate::qSlicerMainWindowPrivate(qSlicerMainWindow& object)`\n  - `Base/QTApp/qSlicerMainWindow.cxx:116: qSlicerMainWindowPrivate::~qSlicerMainWindowPrivate() {}`\n  - `Base/QTApp/qSlicerMainWindow.cxx:119: void qSlicerMainWindowPrivate::init()`\n  - `Base/QTApp/qSlicerMainWindow.cxx:121: Q_Q(qSlicerMainWindow);`\n  - `Base/QTApp/qSlicerMainWindow.cxx:131: void qSlicerMainWindowPrivate::setupUi(QMainWindow* mainWindow)`\n  - `Base/QTApp/qSlicerMainWindow.cxx:133: Q_Q(qSlicerMainWindow);`\n  - `Base/QTApp/qSlicerMainWindow.cxx:135: this->Ui_qSlicerMainWindow::setupUi(mainWindow);`\n  - `Base/QTApp/qSlicerMainWindow.cxx:155: this->PanelDockWidget->toggleViewAction()->setText(qSlicerMainWindow::tr(\"Show &Module Panel\"));`\n  - `Base/QTApp/qSlicerMainWindow.cxx:156: this->PanelDockWidget->toggleViewAction()->setToolTip(qSlicerMainWindow::tr(\"Collapse/Expand the GUI panel and allows Slicer's viewers to occupy \"`\n  - `Base/QTApp/qSlicerMainWindow.cxx:179: this->ModuleSelectorToolBar = new qSlicerModuleSelectorToolBar(qSlicerMainWindow::tr(\"Module Selection\"), q);`\n- Connected slots/functions: `onFileRecentLoadedActionTriggered`\n- API footprints: `Redo`, `Undo`, `vtkMRMLLayoutNode::SlicerLayoutConventionalView`, `vtkMRMLScene::SafeDownCast`\n\n\n\n... [other sections omitted] ...\n\n## action: ViewLayoutConventionalAction\n\n- Confidence: `linked_to_api`\n- Widget/action class: `action`\n- Search text: Conventional | ViewLayoutConventionalAction\n- Text: Conventional\n- Imple..."
-            },
-            {
-              "tool": "Grep",
-              "args": {
-                "pattern": "SlicerLayoutConventionalView",
-                "path": "slicer-source/Libs/MRML/Core"
-              },
-              "result_preview": "Grep: 1 hit(s) in 1 file(s): slicer-source/Libs/MRML/Core/vtkMRMLLayoutNode.h (1)"
-            },
-            {
-              "tool": "ReadFile",
-              "args": {
-                "path": "slicer-source/Base/QTApp/qSlicerMainWindow.cxx",
-                "query": "setLayout"
-              },
-              "result_preview": "  //----------------------------------------------------------------------------\n#ifndef Slicer_BUILD_DICOM_SUPPORT\n  this->LoadDICOMAction->setVisible(false);\n#endif\n\n  //----------------------------------------------------------------------------\n  // ModulePanel\n  //----------------------------------------------------------------------------\n  this->PanelDockWidget->toggleViewAction()->setText(qSlicerMainWindow::tr(\"Show &Module Panel\"));\n  this->PanelDockWidget->toggleViewAction()->setToolTip(qSlicerMainWindow::tr(\"Collapse/Expand the GUI panel and allows Slicer's viewers to occupy \"\n                                                                              \"the entire application window\"));\n  this->PanelDockWidget->toggleViewAction()->setShortcut(QKeySequence(\"Ctrl+5\"));\n  this->AppearanceMenu->insertAction(this->ShowStatusBarAction, this->PanelDockWidget->toggleViewAction());\n\n  //----------------------------------------------------------------------------\n  // ModuleManager\n  //----------------------------------------------------------------------------\n  // Update the list of modules when they are loaded\n  qSlicerModuleManager* moduleManager = qSlicerApplication::application()->moduleManager();\n  if (!moduleManager)\n  {\n    qWarning() << \"No module manager is created.\";\n  }\n\n  QObject::connect(moduleManager, SIGNAL(moduleLoaded(QString)), q, SLOT(onModuleLoaded(QString)));\n\n  QObject::connect(moduleManager, SIGNAL(moduleAboutToBeUnloaded(QString)), q, SLOT(onModuleAboutToBeUnloaded(QString)));\n\n  //----------------------------------------------------------------------------\n  // ModuleSelector ToolBar\n  //----------------------------------------------------------------------------\n  // Create a Module selector\n  this->ModuleSelectorToolBar = new qSlicerModuleSelectorToolBar(qSlicerMainWindow::tr(\"Module Selection\"), q);\n  this->ModuleSelectorToolBar->setObjectName(QString::fromUtf8(\"ModuleSelectorToolBar\"));\n  this->ModuleSelectorToolBar->setAllowedAreas(..."
-            },
-            {
-              "tool": "ReadFile",
-              "args": {
-                "path": "slicer-source/Libs/MRML/Core/vtkMRMLLayoutNode.h",
-                "query": "SetViewArrangement"
-              },
-              "result_preview": "#ifndef __vtkMRMLLayoutNode_h\n#define __vtkMRMLLayoutNode_h\n\n// MRML includes\n#include \"vtkMRMLAbstractLayoutNode.h\"\n\nclass vtkXMLDataElement;\nclass vtkMRMLAbstractViewNode;\n\n/// \\brief Node that describes the view layout of the application.\n///\n/// When the scene is closing (vtkMRMLScene::Clear), the view arrangement is\n/// set to none due to the Copy() call on an empty node.\nclass VTK_MRML_EXPORT vtkMRMLLayoutNode : public vtkMRMLAbstractLayoutNode\n{\npublic:\n  static vtkMRMLLayoutNode* New();\n  vtkTypeMacro(vtkMRMLLayoutNode, vtkMRMLAbstractLayoutNode);\n  vtkMRMLNode* CreateNodeInstance() override;\n  void PrintSelf(ostream& os, vtkIndent indent) override;\n\n  //--------------------------------------------------------------------------\n  /// MRML methods\n  //--------------------------------------------------------------------------\n\n  /// Set node attributes\n  void ReadXMLAttributes(const char** atts) override;\n\n  /// Write this node's information to a MRML file in XML format.\n  void WriteXML(ostream& of, int indent) override;\n\n  /// Copy the node's attributes to this object\n  void CopyContent(vtkMRMLNode* node, bool deepCopy = true) override;\n\n  /// \\brief Reimplemented to reset maximized view node.\n  void Reset(vtkMRMLNode* defaultNode) override;\n\n  /// Get/Set for Current layout\n  vtkGetMacro(ViewArrangement, int);\n  virtual void SetViewArrangement(int);\n\n  vtkGetMacro(GUIPanelVisibility, int);\n  vtkSetMacro(GUIPanelVisibility, int);\n\n  vtkGetMacro(BottomPanelVisibility, int);\n  vtkSetMacro(BottomPanelVisibility, int);\n\n  /// 0 is left side, 1 is right side\n  vtkGetMacro(GUIPanelLR, int);\n  vtkSetMacro(GUIPanelLR, int);\n\n  /// Control the collapse state of the SliceControllers\n  vtkGetMacro(CollapseSliceControllers, int);\n  vtkSetMacro(CollapseSliceControllers, int);\n\n  /// CompareView configuration Get/Set methods\n  vtkGetMacro(NumberOfCompareViewRows, int);\n  vtkSetClampMacro(NumberOfCompareViewRows, int, 1, 50);\n  vtkGetMacro(NumberOfCompareViewColumns, int);\n..."
-            },
-            {
-              "tool": "Grep",
-              "args": {
-                "pattern": "setLayout",
-                "path": "slicer-source/Base/QTGUI"
-              },
-              "result_preview": "Grep: 9 hit(s) in 8 file(s): slicer-source/Base/QTGUI/qSlicerWebDownloadWidget.cxx (2), slicer-source/Base/QTGUI/qSlicerApplication.cxx (1), slicer-source/Base/QTGUI/qSlicerApplication.h (1), slicer-source/Base/QTGUI/qSlicerDirectoryListView.cxx (1), slicer-source/Base/QTGUI/qSlicerExportNodeDialog.cxx (1)"
-            },
-            {
-              "tool": "VectorSearch",
-              "args": {
-                "query": "slicer.app.layoutManager().setLayout",
-                "top_k": 5
-              },
-              "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/plots.md (lines 54-57) [doc_example] similarity:0.716 boosted:0.931\n```markdown\n# Show plot in layout\nslicer.modules.plots.logic().ShowChartInLayout(plotChartNode)\n```\n```\n\n[2] slicer-source/Docs/developer_guide/script_repository/models.md (lines 268-288) [doc_example] similarity:0.702 boosted:0.912\n```markdown\n# Create a custom layout\nnumberOfRows = int(math.ceil(len(modelFiles)/numberOfColumns))\ncustomLayoutId=567  # we pick a random id that is not used by others\nslicer.app.setRenderPaused(True)\ncustomLayout = '<layout type=\"vertical\">'\nviewIndex = 0\nfor rowIndex in range(numberOfRows):\n  customLayout += '<item><layout type=\"horizontal\">'\n  for colIndex in range(numberOfColumns):\n    name = os.path.basename(modelFiles[viewIndex]) if viewIndex < len(modelFiles) else \"compare \" + str(viewIndex)\n    customLayout += '<item><view class=\"vtkMRMLViewNode\" singletontag=\"'+name\n    customLayout += '\"><property name=\"viewlabel\" action=\"default\">'+name+'</property></view></item>'\n    viewIndex += 1\n  customLayout += '</layout></item>'\n\ncustomLayout += '</layout>'\nif not slicer.app.layoutManager().layoutLogic().GetLayoutNode().SetLayoutDescription(customLayoutId, customLayout):\n    slicer.app.layoutManager().layoutLogic().GetLayoutNode().AddLayoutDescription(customLayoutId, customLayout)\n\nslicer.app.layoutManager().setLayout(customLayoutId)\n```\n\n[3] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 310-319) [doc_example] similarity:0.686 boosted:0.892\n```markdown\n# Update the view\nview.forceRender()\n```\n\nTo display text in slice views, replace the first line by this line (and consider hiding slice view annotations, to prevent them from overwriting the text you place there):\n\n```python\nview=slicer.app.layoutManager().sliceWidget(\"Red\").sliceView()\n```\n```\n\n[4] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 401-405) [doc_example] similari..."
-            },
-            {
-              "tool": "Grep",
-              "args": {
-                "pattern": "Q_PROPERTY.*layout",
-                "path": "slicer-source/Base/QTGUI"
-              },
-              "result_preview": "Grep: 0 hit(s) in 0 file(s): "
-            },
-            {
-              "tool": "VectorSearch",
-              "args": {
-                "query": "qSlicerLayoutManager layout property setLayout",
-                "top_k": 5
-              },
-              "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 636-641) [doc_example] similarity:0.637 boosted:0.828\n```markdown\n# for your custom layout ID.\ncustomLayoutId=501\n\nlayoutManager = slicer.app.layoutManager()\nlayoutManager.layoutLogic().GetLayoutNode().AddLayoutDescription(customLayoutId, customLayout)\n```\n\n[2] slicer-source/Docs/developer_guide/script_repository/plots.md (lines 54-57) [doc_example] similarity:0.631 boosted:0.820\n```markdown\n# Show plot in layout\nslicer.modules.plots.logic().ShowChartInLayout(plotChartNode)\n```\n```\n\n[3] slicer-source/Docs/developer_guide/script_repository/models.md (lines 268-288) [doc_example] similarity:0.618 boosted:0.803\n```markdown\n# Create a custom layout\nnumberOfRows = int(math.ceil(len(modelFiles)/numberOfColumns))\ncustomLayoutId=567  # we pick a random id that is not used by others\nslicer.app.setRenderPaused(True)\ncustomLayout = '<layout type=\"vertical\">'\nviewIndex = 0\nfor rowIndex in range(numberOfRows):\n  customLayout += '<item><layout type=\"horizontal\">'\n  for colIndex in range(numberOfColumns):\n    name = os.path.basename(modelFiles[viewIndex]) if viewIndex < len(modelFiles) else \"compare \" + str(viewIndex)\n    customLayout += '<item><view class=\"vtkMRMLViewNode\" singletontag=\"'+name\n    customLayout += '\"><property name=\"viewlabel\" action=\"default\">'+name+'</property></view></item>'\n    viewIndex += 1\n  customLayout += '</layout></item>'\n\ncustomLayout += '</layout>'\nif not slicer.app.layoutManager().layoutLogic().GetLayoutNode().SetLayoutDescription(customLayoutId, customLayout):\n    slicer.app.layoutManager().layoutLogic().GetLayoutNode().AddLayoutDescription(customLayoutId, customLayout)\n\nslicer.app.layoutManager().setLayout(customLayoutId)\n```\n\n[4] slicer-ui-analysis/Base__QTApp__Resources__UI__qSlicerMainWindow.ui.md (lines 962-972) [ui_analysis] similarity:0.617 boosted:0.709\n```markdown\n## action: ViewLayoutSideBySideAction\n\n- Confidence: `linked..."
-            },
-            {
-              "tool": "Grep",
-              "args": {
-                "pattern": "class qSlicerLayoutManager",
-                "path": "slicer-source/Base/QTGUI/qSlicerLayoutManager.h"
-              },
-              "result_preview": "Grep: 1 hit(s) in 1 file(s): slicer-source/Base/QTGUI/qSlicerLayoutManager.h (1)"
-            },
-            {
-              "tool": "ReadFile",
-              "args": {
-                "path": "slicer-source/Base/QTGUI/qSlicerLayoutManager.h",
-                "query": "setLayout"
-              },
-              "result_preview": "/*==============================================================================\n\n  Program: 3D Slicer\n\n  Copyright (c) Kitware Inc.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Unless required by applicable law or agreed to in writing, software\n  distributed under the License is distributed on an \"AS IS\" BASIS,\n  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n  See the License for the specific language governing permissions and\n  limitations under the License.\n\n  This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc.\n  and was partially funded by NIH grant 3P41RR013218-12S1\n\n==============================================================================*/\n\n#ifndef __qSlicerLayoutManager_h\n#define __qSlicerLayoutManager_h\n\n// CTK includes\n#include \"qSlicerBaseQTGUIExport.h\"\n\n// MRMLWidgets includes\n#include <qMRMLLayoutManager.h>\n\nclass qSlicerLayoutManagerPrivate;\n\nclass Q_SLICER_BASE_QTGUI_EXPORT qSlicerLayoutManager : public qMRMLLayoutManager\n{\n  Q_OBJECT\npublic:\n  /// Constructors\n  explicit qSlicerLayoutManager(QWidget* widget = nullptr);\n\n  /// Set the directory from which built-in scripted\n  /// displayableManagers should be sourced from.\n  Q_INVOKABLE void setScriptedDisplayableManagerDirectory(const QString& scriptedDisplayableManagerDirectory);\n\n  void setCurrentModule(const QString& moduleName);\n\nsignals:\n  void selectModule(const QString& moduleName);\n\nprivate:\n  Q_DECLARE_PRIVATE(qSlicerLayoutManager);\n  Q_DISABLE_COPY(qSlicerLayoutManager);\n};\n\n#endif\n"
-            },
-            {
-              "tool": "ReadFile",
-              "args": {
-                "path": "slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h",
-                "query": "setLayout"
-              },
-              "result_preview": "/*==============================================================================\n\n  Program: 3D Slicer\n\n  Copyright (c) Kitware Inc.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Unless required by applicable law or agreed to in writing, software\n  distributed under the License is distributed on an \"AS IS\" BASIS,\n  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n  See the License for the specific language governing permissions and\n  limitations under the License.\n\n  This file was originally developed by Julien Finet, Kitware Inc.\n  and was partially funded by NIH grant 3P41RR013218-12S1\n\n==============================================================================*/\n\n#ifndef __qMRMLLayoutManager_h\n#define __qMRMLLayoutManager_h\n\n// Qt includes\n#include <QStringList>\nclass QWidget;\n\n// CTK includes\n#include <ctkLayoutFactory.h>\n\n// qMRML includes\n#include \"qMRMLWidgetsExport.h\"\n#include \"qMRMLLayoutViewFactory.h\"\n\nclass qMRMLPlotWidget;\nclass qMRMLTableWidget;\nclass qMRMLThreeDWidget;\nclass qMRMLSliceWidget;\nclass qMRMLLayoutManagerPrivate;\nclass qMRMLLayoutViewFactory;\n\nclass vtkMRMLAbstractViewNode;\nclass vtkMRMLColorLogic;\nclass vtkMRMLLayoutLogic;\nclass vtkMRMLScene;\nclass vtkMRMLNode;\nclass vtkMRMLTableNode;\nclass vtkMRMLTableViewNode;\nclass vtkMRMLViewNode;\nclass vtkMRMLPlotViewNode;\n\nclass vtkCollection;\nclass vtkRenderer;\n\n/// MRML layout manager that instantiates the Qt widgets and layouts from the\n/// layout node and the view nodes in the scene.\n/// The management (creation, configuration and deletion) of the view widgets\n/// are delegated to qMRMLLayoutViewFactory.\n/// Example to change a default factory:\n/// \\code\n/// qMRMLLayoutSliceViewFactory* mrmlSliceViewFactory =\n///   qobject_cast<qMRMLLayoutSliceViewFactory*>(\n///     app->layoutManager()->mrmlViewFactory(\"vtkMRMLSliceNode\"));\n/// MySliceViewFactory* mySliceViewFactory =\n///   new MySliceViewFactory(app->layoutManager());\n/// mySl..."
-            },
-            {
-              "tool": "ReadFile",
-              "args": {
-                "path": "slicer-source/Docs/developer_guide/script_repository/gui.md",
-                "query": "setLayout"
-              },
-              "result_preview": "### Activate hanging protocol by keyboard shortcut\n\nThis code snippet shows how to specify a hanging protocol for PET/CT with the following properties:\n- window/level and colormap is set to standardized values\n- any acquisition transforms hardened on the images (these transforms are created for example when the image is acquired with varying slice spacing)\n- show PET/CT images fused in slice views\n- show PET image and fused image slices in 3D view\n\nThe hanging protocol can be activated using the Ctrl+9 keyboard shortcut.\n\n```python\ndef useHangingProtocolPetCt():\n    ctImage = None\n    petImage = None\n\n    shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)\n    petColor = slicer.mrmlScene.GetFirstNodeByName('PET-Heat')\n    for imageNode in slicer.util.getNodesByClass('vtkMRMLScalarVolumeNode'):\n        # Harden any transform (in case the image is stored non-uniform spacing, etc.\n        # hardening the acquisition transforms creates a single Cartesian volume)\n        imageNode.HardenTransform()\n\n        # Set window/level and colormap for recognized image types\n        imageItem = shNode.GetItemByDataNode(imageNode)\n        modality = shNode.GetItemAttribute(imageItem, 'DICOM.Modality')\n        if modality == \"CT\":\n            ctImage = imageNode\n            ctImage.GetVolumeDisplayNode().SetAndObserveColorNodeID(petColor.GetID())\n            slicer.modules.volumes.logic().ApplyVolumeDisplayPreset(ctImage.GetVolumeDisplayNode(), \"CT_ABDOMEN\")\n        elif modality == \"PT\":\n            petImage = imageNode\n            petImage.GetVolumeDisplayNode().SetAndObserveColorNodeID(petColor.GetID())\n            petImage.GetVolumeDisplayNode().SetWindowLevelMinMax(0, 20)\n\n    # Set up view layout and content\n    slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)\n    slicer.util.setSliceViewerLayers(background=ctImage, foreground=petImage, foregroundOpacity=0.3, fit=True)\n\n    # Show the PET image in 3D view u..."
-            }
-          ],
-          "evidence_audit": {
-            "ui_analysis": {
-              "used": true,
-              "query_paths": [
-                "slicer-ui-analysis/Base__QTApp__Resources__UI__qSlicerMainWindow.ui.md"
-              ],
-              "result_files": [
-                "slicer-ui-analysis/Base__QTApp__Resources__UI__qSlicerMainWindow.ui.md"
-              ],
-              "matched_lines_preview": [
-                "## widget: qSlicerMainWindow",
-                "- Confidence: `linked_to_api`",
-                "- Search text: qSlicerMainWindow | QMainWindow",
-                "- Implementation candidates: `Base/QTApp/qSlicerMainWindow.cxx`, `Base/QTApp/qSlicerMainWindow.h`, `Base/QTApp/qSlicerMainWindow_p.h`",
-                "- Matched implementation lines:",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:21: #include \"qSlicerMainWindow_p.h\"`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:108: // qSlicerMainWindowPrivate methods`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:110: qSlicerMainWindowPrivate::qSlicerMainWindowPrivate(qSlicerMainWindow& object)`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:116: qSlicerMainWindowPrivate::~qSlicerMainWindowPrivate() {}`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:119: void qSlicerMainWindowPrivate::init()`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:121: Q_Q(qSlicerMainWindow);`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:131: void qSlicerMainWindowPrivate::setupUi(QMainWindow* mainWindow)`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:133: Q_Q(qSlicerMainWindow);`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:135: this->Ui_qSlicerMainWindow::setupUi(mainWindow);`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:155: this->PanelDockWidget->toggleViewAction()->setText(qSlicerMainWindow::tr(\"Show &Module Panel\"));`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:156: this->PanelDockWidget->toggleViewAction()->setToolTip(qSlicerMainWindow::tr(\"Collapse/Expand the GUI panel and allows Slicer's viewers to occupy \"`",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:179: this->ModuleSelectorToolBar = new qSlicerModuleSelectorToolBar(qSlicerMainWindow::tr(\"Module Selection\"), q);`",
-                "- Connected slots/functions: `onFileRecentLoadedActionTriggered`",
-                "- API footprints: `Redo`, `Undo`, `vtkMRMLLayoutNode::SlicerLayoutConventionalView`, `vtkMRMLScene::SafeDownCast`",
-                "## action: ViewLayoutConventionalAction",
-                "## action: ViewLayoutSideBySideAction",
-                "- Search text: Side by side | ViewLayoutSideBySideAction",
-                "- Text: Side by side",
-                "- `Base/QTApp/qSlicerMainWindow.cxx:1327: d->ViewLayoutSideBySideAction->setData(vtkMRMLLayoutNode::SlicerLayoutSideBySideView);`",
-                "- API footprints: `vtkMRMLLayoutNode::SlicerLayoutFourByThreeSliceView`, `vtkMRMLLayoutNode::SlicerLayoutFourByTwoSliceView`, `vtkMRMLLayoutNode::SlicerLayoutFourOverFourView`, `vtkMRMLLayoutNode::SlicerLayoutSideBySideView`, `vtkMRMLLayoutNode::SlicerLayoutTwoOverTwoView`"
-              ],
-              "connected_slots": [
-                "onFileRecentLoadedActionTriggered"
-              ],
-              "api_footprints": [
-                "Redo",
-                "Undo",
-                "vtkMRMLLayoutNode::SlicerLayoutConventionalView",
-                "vtkMRMLScene::SafeDownCast",
-                "vtkMRMLLayoutNode::SlicerLayoutFourByThreeSliceView",
-                "vtkMRMLLayoutNode::SlicerLayoutFourByTwoSliceView",
-                "vtkMRMLLayoutNode::SlicerLayoutFourOverFourView",
-                "vtkMRMLLayoutNode::SlicerLayoutSideBySideView",
-                "vtkMRMLLayoutNode::SlicerLayoutTwoOverTwoView"
-              ],
-              "implementation_candidates": [
-                "Base/QTApp/qSlicerMainWindow.cxx",
-                "Base/QTApp/qSlicerMainWindow.h",
-                "Base/QTApp/qSlicerMainWindow_p.h"
-              ]
-            },
-            "source_verification": {
-              "non_ui_result_files": [
-                "slicer-source/Libs/MRML/Core",
-                "slicer-source/Libs/MRML/Core/vtkMRMLLayoutNode.h",
-                "slicer-source/Base/QTApp/qSlicerMainWindow.cxx",
-                "slicer-source/Base/QTGUI",
-                "slicer-source/Base/QTGUI/qSlicerWebDownloadWidget.cxx",
-                "slicer-source/Base/QTGUI/qSlicerApplication.cxx",
-                "slicer-source/Base/QTGUI/qSlicerApplication.h",
-                "slicer-source/Base/QTGUI/qSlicerDirectoryListView.cxx",
-                "slicer-source/Base/QTGUI/qSlicerExportNodeDialog.cxx",
-                "slicer-source/Base/QTGUI/qSlicerExtensionsLocalWidget.cxx",
-                "slicer-source/Base/QTGUI/qSlicerModulePanel.cxx",
-                "slicer-source/Base/QTGUI/Testing/Cxx/qSlicerWidgetTest2.cxx",
-                "slicer-source/Docs/developer_guide/script_repository/plots.md",
-                "slicer-source/Docs/developer_guide/script_repository/models.md",
-                "slicer-source/Docs/developer_guide/script_repository/gui.md",
-                "slicer-source/Base/QTGUI/qSlicerLayoutManager.h",
-                "slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h"
-              ],
-              "source_type_counts": {
-                "ui_analysis": 3,
-                "mrml_definition": 2,
-                "source": 11,
-                "doc_example": 9,
-                "ui_implementation": 1
-              }
-            },
-            "searches": {
-              "vector_queries": [
-                "slicer.app.layoutManager().setLayout",
-                "qSlicerLayoutManager layout property setLayout"
-              ],
-              "grep_patterns": [
-                "SlicerLayoutConventionalView",
-                "setLayout",
-                "Q_PROPERTY.*layout",
-                "class qSlicerLayoutManager"
-              ],
-              "read_paths": [
-                "slicer-ui-analysis/Base__QTApp__Resources__UI__qSlicerMainWindow.ui.md",
-                "slicer-source/Base/QTApp/qSlicerMainWindow.cxx",
-                "slicer-source/Libs/MRML/Core/vtkMRMLLayoutNode.h",
-                "slicer-source/Base/QTGUI/qSlicerLayoutManager.h",
-                "slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h",
-                "slicer-source/Docs/developer_guide/script_repository/gui.md"
-              ]
-            }
-          },
-          "reasoning_chars": 5942,
-          "reasoning_preview": "[Round 1]\nLet me analyze the situation carefully.\n\nThe operation is: \"Change layout to Conventional\" - this is a simple layout change operation.\n\nThe validation failure is about \"method_unproven\" - the previous code used `layoutManager.setLayout(...)` and `layoutManager.layout` but these may not be proven APIs.\n\nLet me look at the evidence provided:\n\nFrom the deterministic core-UI evidence:\n- The layout action \"Conventional\" is linked to `vtkMRMLLayoutNode::SlicerLayoutConventionalView`\n- This is a core Slicer operation, NOT an extension-specific operation\n\nThe API chains suggest multiple valid paths:\n1. `slicer.app.layoutManager().setLayout(...)` \n2. `slicer.app.layoutManager().layoutLogic().GetLayoutNode().SetViewArrangement(...)` with the constant `slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView`\n\nLet me search for evidence to confirm which API is the correct one.\n\n[Round 2]\nNow let me look at how the layout is actually set in the qSlicerMainWindow implementation - specifically the action trigger that handles the layout change from the UI.\n\n[Round 3]\nNow I have strong evidence. Let me also look at how the `qSlicerLayoutManager` exposes `setLayout` in its Python wrapper to be sure.\n\n[Round 4]\nNow I have very strong evidence. Let me look at the official documentation to see what the recommended Python API is for changing layout.\n\nFrom the VectorSearch results, I see at line 288 of `models.md`:\n```python\nslicer.app.layoutManager().setLayout(customLayoutId)\n```\n\nAnd the C++ source confirms `qSlicerLayoutManager::setLayout(int)` is the method. The layout manager is accessible via `slicer.app.layoutManager()`.\n\nAlso, looking at `qSlicerMainWindow.cxx`:\n- `layoutManager->setLayout(layout)` is used\n- `layoutManager->layout()` is used for reading\n\nThe confirmations:\n1. `slicer.app.layoutManager()` returns a `qSlicerLayoutManager` - confirmed from `qSlicerApplication.h`\n2. `qSlicerLayoutManager::setLayout(int)` - confirmed from usage in `qSlicerMainWindow.cxx`\n3. `slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView` = 2 - confirmed from `vtkMRMLLayoutNode.h`\n\nSo the previously failing code actually looks correct based on the evidence! The issue is the \"method_unproven\" validation failure. Let me provide a clean, well-structured code.\n\nActually, looking more carefully at the API chains provided in the validation failure:\n\n```\n\"slicer.app.layoutManager().setLayout\"\n```\n\nThis is listed as an accepted API chain. And the code:\n```python\nlayoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)\n```\n\nis also listed in the accepted footprints.\n\nBut for the read-back verification, the code uses:\n```python\nif layoutManager.layout != slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView:\n```\n\nHere `layoutManager.layout` accesses a Qt property. Let me check if `qSlicerLayoutManager` has a `layout` property or a `GetLayout` method.\n\nFrom the C++ source in `qSlicerMainWindow.cxx`:\n- `layoutManager->layout()` is used to read the layout (li",
-          "generated_code_preview": "# Change layout to Conventional\nlayoutManager = slicer.app.layoutManager()\nlayoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)\n\n# Verify the state change\nif layoutManager.layout != slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView:\n    raise RuntimeError(\"STATE_NOT_APPLIED: Conventional layout\")"
-        }
-      ]
-    }
+    ]
   },
   {
     "tool_name": "BoneReconstructionPlanner",
@@ -1354,7 +977,7 @@
     "operation_type": "slicer_op",
     "ui_guidance": {
       "title": "Show red slice in 3D view",
-      "instruction": "Toggle on 3D visibility for the Red slice view.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1371,22 +994,23 @@
         "vtkMRMLSliceNodeRed"
       ],
       "api_chains": [
-        "redSliceNode.GetSliceVisible",
-        "redSliceNode.SetSliceVisible",
+        "sliceNode.GetSliceVisible",
+        "sliceNode.SetSliceVisible",
         "slicer.mrmlScene.GetNodeByID",
         "slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed').GetSliceVisible",
         "slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed').SetSliceVisible"
       ],
       "operation_descriptions": [
-        "Toggle on slice visibility in 3D for red slice"
+        "Toggle on slice visibility in 3D view for Red slice"
       ],
       "slicer_op_categories": [
-        "node_display"
+        "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "vtkMRMLSliceNode",
-        "SetSliceVisible",
-        "slice visibility"
+        "sliceNode",
+        "SliceVisible",
+        "Red slice",
+        "slice visibility in 3D"
       ]
     },
     "operation_model": {
@@ -1410,18 +1034,19 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Toggle on slice visibility in 3D for red slice",
+        "description": "Toggle on slice visibility in 3D view for Red slice",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
         "ui_parameter_binding": null,
-        "target_value": null,
-        "target_value_mode": null,
-        "slicer_op_category": "node_display",
+        "target_value": true,
+        "target_value_mode": "set",
+        "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "vtkMRMLSliceNode",
-          "SetSliceVisible",
-          "slice visibility"
+          "sliceNode",
+          "SliceVisible",
+          "Red slice",
+          "slice visibility in 3D"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -1438,7 +1063,7 @@
           "view_display_scope"
         ],
         "node_roles": [],
-        "confidence": "medium",
+        "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
         "operation_intent": "view_display_scope"
@@ -1456,8 +1081,8 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Match 2D view spacing",
-      "instruction": "Toggle on FOV/Spacing match 2D for the Red slice.",
+      "title": "Match FOV/spacing to 2D (Red)",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1473,26 +1098,29 @@
         "app",
         "layoutManager",
         "mrmlSliceNode",
-        "sliceWidget"
+        "sliceWidget",
+        "vtkMRMLSliceNode"
       ],
       "api_chains": [
-        "redSliceNode.GetSliceResolutionMode",
-        "redSliceNode.SetSliceResolutionMode",
+        "sliceNode.GetSliceResolutionMode",
+        "sliceNode.SetSliceResolutionMode",
+        "sliceWidget.mrmlSliceNode",
         "slicer.app.layoutManager",
         "slicer.app.layoutManager().sliceWidget",
         "slicer.app.layoutManager().sliceWidget('Red').mrmlSliceNode",
-        "slicer.app.layoutManager().sliceWidget('Red').mrmlSliceNode().SliceResolutionMatch2DView"
+        "slicer.vtkMRMLSliceNode.SliceResolutionMatch2DView"
       ],
       "operation_descriptions": [
-        "Toggle on FOV/Spacing match 2D for red slice"
+        "Toggle on FOV and spacing match 2D for Red slice"
       ],
       "slicer_op_categories": [
-        "layout_slice_view"
+        "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "vtkMRMLSliceNode",
-        "SetSliceResolutionMode",
-        "FOV"
+        "sliceNode",
+        "SpacingMode",
+        "FOV",
+        "match 2D"
       ]
     },
     "operation_model": {
@@ -1516,18 +1144,19 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Toggle on FOV/Spacing match 2D for red slice",
+        "description": "Toggle on FOV and spacing match 2D for Red slice",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
         "ui_parameter_binding": null,
-        "target_value": null,
-        "target_value_mode": null,
-        "slicer_op_category": "layout_slice_view",
+        "target_value": true,
+        "target_value_mode": "set",
+        "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "vtkMRMLSliceNode",
-          "SetSliceResolutionMode",
-          "FOV"
+          "sliceNode",
+          "SpacingMode",
+          "FOV",
+          "match 2D"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -1562,8 +1191,8 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Enable slice intersection interaction",
-      "instruction": "Turn on slice intersection visibility, set interaction to Translate and Rotate.",
+      "title": "Enable slice intersection tools",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1595,17 +1224,17 @@
         "slicer.vtkMRMLApplicationLogic.IntersectingSlicesVisibility"
       ],
       "operation_descriptions": [
-        "Enable slice intersection visibility and interaction with translate/rotate"
+        "Enable slice intersection visibility and interaction (Translate and Rotate)"
       ],
       "slicer_op_categories": [
         "crosshair"
       ],
       "slicer_api_keywords": [
-        "vtkMRMLCrosshairNode",
-        "SetSliceIntersectionVisibility",
-        "SetInteractiveMode",
+        "crosshair",
+        "slice intersection",
         "Translate",
-        "Rotate"
+        "Rotate",
+        "InteractiveMode"
       ]
     },
     "operation_model": {
@@ -1630,7 +1259,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Enable slice intersection visibility and interaction with translate/rotate",
+        "description": "Enable slice intersection visibility and interaction (Translate and Rotate)",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1639,11 +1268,11 @@
         "target_value_mode": null,
         "slicer_op_category": "crosshair",
         "slicer_api_keywords": [
-          "vtkMRMLCrosshairNode",
-          "SetSliceIntersectionVisibility",
-          "SetInteractiveMode",
+          "crosshair",
+          "slice intersection",
           "Translate",
-          "Rotate"
+          "Rotate",
+          "InteractiveMode"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -1678,12 +1307,12 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust slice intersection",
-      "instruction": "Drag the cross lines to adjust position and orientation.",
+      "title": "Adjust slice intersections",
+      "instruction": "Translate and rotate cross lines in each view.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "crosshair",
+      "object_label": "view",
       "repeat": {}
     },
     "operation_model": {
@@ -1702,28 +1331,20 @@
         "interaction"
       ]
     },
-    "node_roles": [
-      {
-        "role_kind": "interaction_output",
-        "step_id": "cb_step_10",
-        "node_class": "vtkMRMLCrosshairNode",
-        "parameter_name": ""
-      }
-    ],
     "pre_template_file": "templates/cb_step_10_pre.py.tpl",
     "post_template_file": "templates/cb_step_10_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
-      "node_class": "vtkMRMLCrosshairNode",
+      "node_class": "",
       "placement_instructions": null,
       "ui_guidance": {
-        "title": "Adjust slice intersection",
-        "instruction": "Drag the cross lines to adjust position and orientation.",
+        "title": "Adjust slice intersections",
+        "instruction": "Translate and rotate cross lines in each view.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "crosshair",
+        "object_label": "view",
         "repeat": {}
       }
     },
@@ -1759,7 +1380,7 @@
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Add mandibular curve",
-      "instruction": "Click the button to start curve placement.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1781,12 +1402,20 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "node_roles": [
+      {
+        "role_kind": "extension_output",
+        "node_class": "vtkMRMLMarkupsCurveNode",
+        "parameter_name": "mandibleCurve",
+        "step_id": "cb_step_11"
+      }
+    ],
     "template_file": "templates/cb_step_11.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Add mandibular curve",
+        "description": "Add mandibular curve node and activate place mode",
         "extension_method_hint": "addMandibularCurve",
         "extension_function_hint": null,
         "widget_name": "addMandibularCurveButton",
@@ -1798,7 +1427,7 @@
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
-        "creates_node": false,
+        "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
           10
@@ -1807,7 +1436,14 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [],
+        "node_roles": [
+          {
+            "role_kind": "extension_output",
+            "node_class": "vtkMRMLMarkupsCurveNode",
+            "parameter_name": "mandibleCurve",
+            "step_id": "cb_step_11"
+          }
+        ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -1842,7 +1478,7 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Add mandibular curve"
+        "Add mandibular curve node and activate place mode"
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -1853,14 +1489,14 @@
     "param_signature": {
       "workflow_step": "cb_step_12"
     },
-    "description": "Configure the display settings of the mandibular curve created by the \"Add Mandibular Curve\" button. Specifically, in the \"Markups\" module, under the \"Advanced\" collapsible section, select \"3D View 1\" and \"Red\" in the \"View\" combo box.",
+    "description": "Configure the display settings of the mandibular curve created by the \"Add Mandibular Curve\" button. Specifically, in the \"Markups\" module, under the \"Advanced\" collapsible section, select \"3D View 1\" and \"Red\" in the \"View\" combo box.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Configure curve display",
-      "instruction": "Set curve view options to 3D View 1 and Red.",
+      "title": "Set curve display views",
+      "instruction": "Select 3D View 1 and Red in the Markups Advanced section.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1873,53 +1509,67 @@
         "GetDisplayNode",
         "GetID",
         "GetName",
-        "GetNodesByClass",
+        "GetNthNodeByClass",
+        "GetNumberOfNodesByClass",
         "GetSingletonNode",
         "GetViewNodeIDs",
         "GetVisibility",
         "GetVisibility2D",
-        "GetVisibility3D",
+        "MANDIBLE_VIEW_SINGLETON_TAG",
         "SetViewNodeIDs",
         "SetVisibility",
         "SetVisibility2D",
-        "SetVisibility3D",
-        "app",
-        "layoutManager",
         "mrmlScene",
-        "mrmlSliceNode",
-        "sliceWidget",
         "vtkMRMLMarkupsCurveNode",
-        "vtkMRMLViewNode"
+        "vtkMRMLSliceNode",
+        "vtkMRMLViewNode",
+        "GetFirstNodeByClass",
+        "app",
+        "getNode",
+        "layoutManager",
+        "mrmlViewNode",
+        "threeDWidget",
+        "util",
+        "lower"
       ],
       "api_chains": [
+        "candidate.GetName",
         "curveNode.GetDisplayNode",
         "displayNode.GetViewNodeIDs",
         "displayNode.GetVisibility",
         "displayNode.GetVisibility2D",
-        "displayNode.GetVisibility3D",
         "displayNode.SetViewNodeIDs",
         "displayNode.SetVisibility",
         "displayNode.SetVisibility2D",
-        "displayNode.SetVisibility3D",
-        "node.GetName",
         "redSliceNode.GetID",
-        "slicer.app.layoutManager",
-        "slicer.app.layoutManager().sliceWidget",
-        "slicer.app.layoutManager().sliceWidget('Red').mrmlSliceNode",
-        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.MANDIBLE_VIEW_SINGLETON_TAG",
+        "slicer.mrmlScene.GetNthNodeByClass",
+        "slicer.mrmlScene.GetNumberOfNodesByClass",
         "slicer.mrmlScene.GetSingletonNode",
-        "slicer.mrmlScene.GetSingletonNode('1', 'vtkMRMLViewNode').GetID",
-        "view3DNode.GetID"
+        "slicer.mrmlScene.GetSingletonNode('Red', 'vtkMRMLSliceNode').GetID",
+        "slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, 'vtkMRMLViewNode').GetID",
+        "threeDView1.GetID",
+        "slicer.app.layoutManager",
+        "slicer.app.layoutManager().threeDWidget",
+        "slicer.app.layoutManager().threeDWidget(0).mrmlViewNode",
+        "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.util.getNode",
+        "slicer.util.getNode('Red').GetID",
+        "threeDWidget.mrmlViewNode",
+        "mandibleViewNode.GetID",
+        "name.lower",
+        "node.GetName"
       ],
       "operation_descriptions": [
-        "Configure mandibular curve display views (3D View 1 and Red)"
+        "Configure mandibular curve display to show in 3D View 1 and Red slice"
       ],
       "slicer_op_categories": [
         "markups_display"
       ],
       "slicer_api_keywords": [
-        "vtkMRMLMarkupsCurveNode",
-        "SetDisplayNode",
+        "Markups",
+        "display",
+        "view",
         "SetViewNodeIDs"
       ]
     },
@@ -1928,9 +1578,7 @@
       "op_types": [
         "slicer_op"
       ],
-      "operation_intents": [
-        "view_display_scope"
-      ],
+      "operation_intents": [],
       "invokes_extension_method": false,
       "invokes_extension_function": false,
       "invokes_slicer_api": true,
@@ -1944,7 +1592,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Configure mandibular curve display views (3D View 1 and Red)",
+        "description": "Configure mandibular curve display to show in 3D View 1 and Red slice",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1953,13 +1601,14 @@
         "target_value_mode": null,
         "slicer_op_category": "markups_display",
         "slicer_api_keywords": [
-          "vtkMRMLMarkupsCurveNode",
-          "SetDisplayNode",
+          "Markups",
+          "display",
+          "view",
           "SetViewNodeIDs"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": "vtkMRMLMarkupsCurveNode",
+        "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -1968,16 +1617,293 @@
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
-        "operation_intents": [
-          "view_display_scope"
-        ],
+        "operation_intents": [],
         "node_roles": [],
         "confidence": "medium",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "",
-        "operation_intent": "view_display_scope"
+        "evidence_id": ""
       }
-    ]
+    ],
+    "semantic_recipe_id": "",
+    "behavior_requirements": [],
+    "invalid_substitutions": [],
+    "repair_evidence": {
+      "source": "verify_repair_reground",
+      "issue_id": "validation_error_1",
+      "semantic_recipe_id": "",
+      "behavior_requirements": [],
+      "invalid_substitutions": [],
+      "evidence_policy": "",
+      "generator_records": [
+        {
+          "step": 12,
+          "key": "cb_step_12_0",
+          "description": "Configure mandibular curve display to show in 3D View 1 and Red slice",
+          "keywords": [
+            "Markups",
+            "SetViewNodeIDs",
+            "display",
+            "view"
+          ],
+          "category": "markups_display",
+          "final_state_intent": {
+            "mode": "set",
+            "state": true,
+            "confidence": "high",
+            "source": "show"
+          },
+          "classification": {
+            "op_type": "slicer_op",
+            "evidence_type": "verify_repair_reground",
+            "evidence_id": "validation_error_1",
+            "confidence": "high",
+            "interaction_kind": "none",
+            "node_class": null,
+            "slicer_op_category": "markups_display"
+          },
+          "search_policy": {
+            "preferred_root": "slicer-ui-analysis",
+            "requires_ui_first_when_ui_labeled": true,
+            "category_hints": [
+              "slicer-ui-analysis",
+              "qSlicerMarkupsModule.ui",
+              "qMRMLDisplayNodeViewComboBox",
+              "vtkMRMLMarkupsDisplayNode",
+              "AddViewNodeID",
+              "SetActiveListID",
+              "Markups display advanced view",
+              "SetVisibility2D",
+              "SetSliceProjection",
+              "SliceProjection"
+            ],
+            "category_hint_provenance": "generic_slicer_search_hint"
+          },
+          "status": "done",
+          "total_time_s": 62.5,
+          "code_chars": 2096,
+          "tool_rounds": 5,
+          "api_calls": 6,
+          "error": null,
+          "progress_events": [
+            {
+              "round": 1,
+              "phase": "search",
+              "message": "[Search] Round 1: |   Grep: \"MANDIBLE_VIEW_SINGLETON_TAG\" → ext:BoneReconstructionPlanner/ |   Grep: \"MANDIBLE_VIEW_SINGLETON_TAG\" → slicer-source/"
+            },
+            {
+              "round": 2,
+              "phase": "read",
+              "message": "[Read] Round 2: |   ReadFile: ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+            },
+            {
+              "round": 3,
+              "phase": "search",
+              "message": "[Search] Round 3: |   VectorSearch: \"vtkMRMLMarkupsDisplayNode SetViewNodeIDs view node IDs\""
+            },
+            {
+              "round": 4,
+              "phase": "search",
+              "message": "[Search] Round 4: |   Grep: \"mandibularCurve|mandibleCurve\" → ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+            },
+            {
+              "round": 5,
+              "phase": "read",
+              "message": "[Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+            }
+          ],
+          "prompt_build_s": 0.062,
+          "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nConfigure mandibular curve display to show in 3D View 1 and Red slice\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE — a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) — resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `BoneReconstructionPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:BoneReconstructionPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.",
+          "prompt_includes_ui_analysis": true,
+          "deterministic_ui_evidence": {
+            "matched": [
+              "ViewLayoutOneUpRedSliceAction",
+              "redSliceViewRadio",
+              "RedSliceCheckBox",
+              "MRMLViewNodeComboBox",
+              "actionSwitchToRedBlueStereo"
+            ],
+            "injected": true
+          },
+          "executor_ready": true,
+          "tool_count": 3,
+          "last_progress": {
+            "round": 5,
+            "phase": "read",
+            "message": "[Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+          },
+          "tool_loop_s": 60.33,
+          "total_tokens": 265231,
+          "total_api_time_s": 47.44,
+          "total_tool_time_s": 10.165,
+          "tool_names_called": [
+            "Grep",
+            "ReadFile",
+            "VectorSearch"
+          ],
+          "rounds": [
+            {
+              "round": 1,
+              "phase": "search",
+              "api_time_s": 6.688,
+              "tool_time_s": 1.941,
+              "round_time_s": 8.629,
+              "tools": [
+                "Grep",
+                "Grep"
+              ],
+              "tokens": 5432
+            },
+            {
+              "round": 2,
+              "phase": "read",
+              "api_time_s": 8.201,
+              "tool_time_s": 4.024,
+              "round_time_s": 12.225,
+              "tools": [
+                "ReadFile"
+              ],
+              "tokens": 8791
+            },
+            {
+              "round": 3,
+              "phase": "search",
+              "api_time_s": 15.206,
+              "tool_time_s": 1.895,
+              "round_time_s": 17.101,
+              "tools": [
+                "VectorSearch"
+              ],
+              "tokens": 49666
+            },
+            {
+              "round": 4,
+              "phase": "search",
+              "api_time_s": 5.271,
+              "tool_time_s": 1.749,
+              "round_time_s": 7.019,
+              "tools": [
+                "Grep"
+              ],
+              "tokens": 64496
+            },
+            {
+              "round": 5,
+              "phase": "read",
+              "api_time_s": 4.745,
+              "tool_time_s": 0.556,
+              "round_time_s": 5.301,
+              "tools": [
+                "ReadFile"
+              ],
+              "tokens": 67753
+            },
+            {
+              "round": 6,
+              "phase": "generate",
+              "api_time_s": 7.33,
+              "tool_time_s": 0.0,
+              "round_time_s": 7.33,
+              "tools": [],
+              "tokens": 69093
+            }
+          ],
+          "tool_calls_history": [
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "MANDIBLE_VIEW_SINGLETON_TAG",
+                "path": "ext:BoneReconstructionPlanner/"
+              },
+              "result_preview": "Grep: 18 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (18)"
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "MANDIBLE_VIEW_SINGLETON_TAG",
+                "path": "slicer-source/"
+              },
+              "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+            },
+            {
+              "tool": "ReadFile",
+              "args": {
+                "path": "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py",
+                "query": "mandibleViewNode"
+              },
+              "result_preview": "    if not parameterNode.GetParameter(\"showFibulaSegmentsLengths\"):\n      parameterNode.SetParameter(\"showFibulaSegmentsLengths\",\"True\")\n    if not parameterNode.GetParameter(\"showOriginalMandible\"):\n      parameterNode.SetParameter(\"showOriginalMandible\",\"True\")\n    if not parameterNode.GetParameter(\"showBiggerSawBoxesInteractionHandles\"):\n      parameterNode.SetParameter(\"showBiggerSawBoxesInteractionHandles\",\"False\")\n    if not parameterNode.GetParameter(\"showMandiblePlanes\"):\n      parameterNode.SetParameter(\"showMandiblePlanes\",\"True\") \n    if not parameterNode.GetParameter(\"showMandiblePlanesInteractionHandles\"):\n      parameterNode.SetParameter(\"showMandiblePlanesInteractionHandles\",\"True\")  \n    if not parameterNode.GetParameter(\"lockVSP\"):\n      parameterNode.SetParameter(\"lockVSP\",\"False\")\n    if not parameterNode.GetParameter(\"mandiblePlanesPositioningForMaximumBoneContact\"):\n      parameterNode.SetParameter(\"mandiblePlanesPositioningForMaximumBoneContact\",\"True\")\n    if not parameterNode.GetParameter(\"makeAllMandiblePlanesRotateTogether\"):\n      parameterNode.SetParameter(\"makeAllMandiblePlanesRotateTogether\",\"True\")\n\n  def getParentFolderItemID(self):\n    shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)\n    sceneItemID = shNode.GetSceneItemID()\n    folderSubjectHierarchyID = shNode.GetItemByName(\"BoneReconstructionPlanner\")\n    if folderSubjectHierarchyID:\n      return folderSubjectHierarchyID\n    else:\n      return shNode.CreateFolderItem(sceneItemID,\"BoneReconstructionPlanner\")\n\n  def getMandibleReconstructionFolderItemID(self):\n    shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)\n    parentItemID = self.getParentFolderItemID()\n    folderSubjectHierarchyID = shNode.GetItemByName(\"Mandible reconstruction\")\n    if folderSubjectHierarchyID:\n      return folderSubjectHierarchyID\n    else:\n      return shNode.CreateFolderItem(parentItemID,\"Mandible reconstruction\")\n\n  def getInverseM..."
+            },
+            {
+              "tool": "VectorSearch",
+              "args": {
+                "query": "vtkMRMLMarkupsDisplayNode SetViewNodeIDs view node IDs",
+                "top_k": 5
+              },
+              "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 439-453) [doc_example] similarity:0.680 boosted:0.884\n```markdown\n### Display a node in only some views\n\nShow a displayable node in a predefined set of views. Here, show a markups line only in `Red+`, `Green+` and `Yellow+` views.\n\n```python\ndisplayableNode = getNode(\"L\")\n\nviewNodeIDs = [\n  slicer.app.layoutManager().sliceWidget(viewName).mrmlSliceNode().GetID()\n  for viewName in [\"Red+\", \"Green+\", \"Yellow+\"]\n]\n\ndisplayableNode.GetDisplayNode().SetViewNodeIDs(viewNodeIDs)\n```\n```\n\n[2] slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.h (lines 1-247) [mrml_definition] [Full file included — no need to ReadFile or VectorSearch this file]\n```\n/*=auto=========================================================================\n\n  Portions (c) Copyright 2005 Brigham and Women's Hospital (BWH) All Rights Reserved.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Program:   3D Slicer\n  Module:    $RCSfile: vtkMRMLDisplayableNode.h,v $\n  Date:      $Date: 2006/03/19 17:12:28 $\n  Version:   $Revision: 1.6 $\n\n=========================================================================auto=*/\n\n#ifndef __vtkMRMLDisplayableNode_h\n#define __vtkMRMLDisplayableNode_h\n\n// MRML includes\n#include \"vtkMRMLStorageNode.h\"\n#include \"vtkMRMLTransformableNode.h\"\nclass vtkMRMLDisplayNode;\n\n// STD includes\n#include <vector>\n\n/// \\brief MRML node to represent an item that can be rendered in a view.\n///\n/// It is the base class for models, volumes etc.\n/// A displayable node points to a list of display nodes that control graphical\n/// properties to render the displayable node. For example, if a displayable\n/// node is a 3D surface/mesh, a first display node of the mesh can have a\n/// red color attribute, while another display node for the mesh has a blue\n/// color attribute. Both red and blue display nodes will be rendered using\n/// the same 3D ..."
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "mandibularCurve|mandibleCurve",
+                "path": "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+              },
+              "result_preview": "Grep: 75 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (75)"
+            },
+            {
+              "tool": "ReadFile",
+              "args": {
+                "path": "slicer-source/Docs/developer_guide/script_repository/gui.md",
+                "query": "SetViewNodeIDs"
+              },
+              "result_preview": "### Display a node in only some views\n\nShow a displayable node in a predefined set of views. Here, show a markups line only in `Red+`, `Green+` and `Yellow+` views.\n\n```python\ndisplayableNode = getNode(\"L\")\n\nviewNodeIDs = [\n  slicer.app.layoutManager().sliceWidget(viewName).mrmlSliceNode().GetID()\n  for viewName in [\"Red+\", \"Green+\", \"Yellow+\"]\n]\n\ndisplayableNode.GetDisplayNode().SetViewNodeIDs(viewNodeIDs)\n```\n\n"
+            }
+          ],
+          "evidence_audit": {
+            "ui_analysis": {
+              "used": false,
+              "query_paths": [],
+              "result_files": [],
+              "matched_lines_preview": [],
+              "connected_slots": [],
+              "api_footprints": [],
+              "implementation_candidates": []
+            },
+            "source_verification": {
+              "non_ui_result_files": [
+                "ext:BoneReconstructionPlanner/.",
+                "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py",
+                "slicer-source",
+                "slicer-source/Docs/developer_guide/script_repository/gui.md",
+                "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.h",
+                "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsFiducialNode.h",
+                "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.h",
+                "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsROIDisplayNode.cxx"
+              ],
+              "source_type_counts": {
+                "source": 3,
+                "doc_example": 2,
+                "mrml_definition": 4
+              }
+            },
+            "searches": {
+              "vector_queries": [
+                "vtkMRMLMarkupsDisplayNode SetViewNodeIDs view node IDs"
+              ],
+              "grep_patterns": [
+                "MANDIBLE_VIEW_SINGLETON_TAG",
+                "mandibularCurve|mandibleCurve"
+              ],
+              "read_paths": [
+                "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py",
+                "slicer-source/Docs/developer_guide/script_repository/gui.md"
+              ]
+            }
+          },
+          "reasoning_chars": 10235,
+          "reasoning_preview": "[Round 1]\nLet me analyze the validation failure and the existing API evidence carefully.\n\nThe operation is: \"Configure mandibular curve display to show in 3D View 1 and Red slice\"\n\nLooking at the accepted footprints and API chains from the ground truth:\n\n1. `slicer.MANDIBLE_VIEW_SINGLETON_TAG` - This is a custom singleton tag defined by the extension. I need to search for it in the extension source.\n2. `slicer.mrmlScene.GetSingletonNode('Red', 'vtkMRMLSliceNode').GetID` - This is how to get the Red slice node ID.\n3. `slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, 'vtkMRMLViewNode').GetID` - This is how to get the mandible view node.\n\nThe key differences from the failing code:\n- The failing code uses `slicer.app.layoutManager().threeDWidget(0).mrmlViewNode()` to get \"3D View 1\"\n- The API evidence says to use `slicer.MANDIBLE_VIEW_SINGLETON_TAG` with `GetSingletonNode` to get the mandible view node\n- The API evidence says to use `slicer.util.getNode('Red').GetID` or `slicer.mrmlScene.GetSingletonNode('Red', 'vtkMRMLSliceNode').GetID` for the Red slice view\n\nSo \"3D View 1\" in this extension's context might refer to a specific view registered with `MANDIBLE_VIEW_SINGLETON_TAG`. Let me search for this in the extension source.\n\nAlso, I note the API chain shows `slicer.util.getNode('Red').GetID` as one option for the Red slice.\n\nLet me search for the MANDIBLE_VIEW_SINGLETON_TAG in the extension source.\n\n[Round 2]\nNow I have the key evidence from the extension source:\n\n1. `slicer.MANDIBLE_VIEW_SINGLETON_TAG = \"1\"` - line 149\n2. The mandible view is a `vtkMRMLViewNode` with singleton tag \"1\"\n3. In the extension code (line 1250-1252), they use `AddViewNodeID` (not `SetViewNodeIDs`):\n   ```python\n   displayNode = curveNode.GetDisplayNode()\n   mandibleViewNode = slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, \"vtkMRMLViewNode\")\n   displayNode.AddViewNodeID(mandibleViewNode.GetID())\n   ```\n\n4. The extension uses `AddViewNodeID` - which doesn't replace but adds to the view list. Since we want to configure the display to show ONLY in these two views (3D View 1 / mandible view and Red slice), we might need to either:\n   - Use `SetViewNodeIDs` to replace the list, OR\n   - Use `AddViewNodeID` twice and ensure no other view IDs are in the list\n\nActually, looking at the accepted API chains more carefully:\n- `displayNode.SetViewNodeIDs` is accepted\n- `displayNode.AddViewNodeID` is NOT in the accepted API chains\n\nAnd the accepted chain shows:\n- `slicer.mrmlScene.GetSingletonNode('Red', 'vtkMRMLSliceNode').GetID`\n- `slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, 'vtkMRMLViewNode').GetID`\n- `slicer.util.getNode('Red').GetID`\n\nSo the evidence says to use `SetViewNodeIDs`, not `AddViewNodeID`. Let me use `SetViewNodeIDs` as per the accepted API chains.\n\nLet me also check how the extension gets the mandible curve node. The extension code creates a curve and names it with `slicer.mrmlScene.GetUniqueNameBySt",
+          "generated_code_preview": "# Configure mandibular curve display to show in 3D View 1 (mandible view) and Red slice view\n\n# (1) Find the mandibular curve node by name pattern matching\ncurveNode = None\nnodeIter = iter([slicer.mrmlScene.GetNthNodeByClass(i, \"vtkMRMLMarkupsCurveNode\")\n                 for i in range(slicer.mrmlScene.GetNumberOfNodesByClass(\"vtkMRMLMarkupsCurveNode\"))])\nfor node in nodeIter:\n    name = node.GetName() or \"\"\n    if \"mandibular\" in name.lower() or \"mandiblecurve\" in name.lower():\n        curveNode = node\n        break\nif not curveNode:\n    raise RuntimeError(\"Could not find mandibular curve node in the scene\")\n\n# (2) Get the display node\ndisplayNode = curveNode.GetDisplayNode()\nif not displayNode:\n    raise RuntimeError(\"Display node is None for mandibular curve node\")\n\n# (3) Resolve \"3D View 1\" (the mandible view via its singleton tag \"1\") and \"Red\" slice node\nmandibleViewNode = slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, \"vtkMRMLViewNode\")\nif not mandibleViewNode:\n    raise RuntimeError(\"Could not find 3D View 1 (mandible view) node using MANDIBLE_VIEW_SINGLETON_TAG\")\nredSliceNode = slicer.mrmlScene.GetSingletonNode(\"Red\", \"vtkMRMLSliceNode\")\nif not redSliceNode:\n    raise RuntimeError(\"Could not find Red slice node\")\n\n# (4) Build list of view IDs — show only in these two views\nviewNodeIDs = [mandibleViewNode.GetID(), redSliceNode.GetID()]\n\n# (5) Apply view restriction (replaces existing view node ID list)\ndisplayNode.SetViewNodeIDs(viewNodeIDs)\n\n# (6) Enable overall visibility (3D and 2D/slice)\ndisplayNode.SetVisibility(1)\ndisplayNode.SetVisibility2D(1)\n\n# (7) Read-back verification\nactualViewIDs = displayNode.GetViewNodeIDs()\nfor vid in viewNodeIDs:\n    if vid not in actualViewIDs:\n        raise RuntimeError(\"STATE_NOT_APPLIED: view node ID %s not in display node's view list\" % vid)\nif not displayNode.GetVisibility():\n    raise RuntimeError(\"STATE_NOT_APPLIED: Visibility is False after SetVisibility(1)\")\nif not displayNode.GetVisibility2"
+        }
+      ]
+    }
   },
   {
     "tool_name": "BoneReconstructionPlanner",
@@ -1991,7 +1917,7 @@
     "operation_type": "user_interaction",
     "ui_guidance": {
       "title": "Draw mandibular curve",
-      "instruction": "Click points on the Red slice to draw the curve, then click Done.",
+      "instruction": "Click points along the mandible in the Red view, then click Done.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -2028,10 +1954,10 @@
       "interaction_type": "curve",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsCurveNode",
-      "placement_instructions": null,
+      "placement_instructions": "Click and draw on Red view to create a curve along the mandible",
       "ui_guidance": {
         "title": "Draw mandibular curve",
-        "instruction": "Click points on the Red slice to draw the curve, then click Done.",
+        "instruction": "Click points along the mandible in the Red view, then click Done.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -2111,41 +2037,41 @@
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
+        "GetDisplayNode",
         "GetID",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNumberOfItems",
+        "SetVisibility",
+        "mrmlScene",
+        "vtkMRMLMarkupsCurveNode",
         "GetNodeByID",
         "GetNumberOfControlPoints",
         "SetNodeReferenceID",
         "SwitchToViewTransformMode",
         "getParameterNode",
-        "mrmlScene",
         "selectModule",
         "selectedModule",
         "util",
-        "vtkMRMLInteractionNodeSingleton",
-        "vtkMRMLMarkupsCurveNode",
-        "GetDisplayNode",
-        "GetItemAsObject",
-        "GetNodesByClass",
-        "GetNumberOfItems",
-        "SetVisibility"
+        "vtkMRMLInteractionNodeSingleton"
       ],
       "api_chains": [
+        "displayNode.SetVisibility",
+        "node.GetDisplayNode",
+        "node.GetID",
+        "nodes.GetItemAsObject",
+        "nodes.GetNumberOfItems",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsCurveNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsCurveNode').GetNumberOfItems",
         "interactionNode.SwitchToViewTransformMode",
         "logic.getParameterNode",
-        "node.GetID",
         "node.GetNumberOfControlPoints",
         "parameterNode.SetNodeReferenceID",
         "slicer.mrmlScene.GetNodeByID",
         "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
         "slicer.util.selectModule",
-        "slicer.util.selectedModule",
-        "displayNode.SetVisibility",
-        "node.GetDisplayNode",
-        "nodes.GetItemAsObject",
-        "nodes.GetNumberOfItems",
-        "slicer.mrmlScene.GetNodesByClass",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsCurveNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsCurveNode').GetNumberOfItems"
+        "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
         "Manually click and draw on the \"Red\" view to create a curve along the mandible."
@@ -2165,12 +2091,12 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Change layout to BoneReconstructionPlanner",
-      "instruction": "Switch to the BoneReconstructionPlanner layout.",
+      "title": "Switch to BoneReconstructionPlanner layout",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "layout",
+      "object_label": "interaction",
       "repeat": {}
     },
     "api_evidence": {
@@ -2183,35 +2109,39 @@
         "layout",
         "layoutLogic",
         "layoutManager",
-        "setLayout"
+        "GetLayoutName",
+        "GetNumberOfLayouts",
+        "setLayout",
+        "GetCurrentLayoutName"
       ],
       "api_chains": [
-        "layoutManager.layoutLogic",
-        "layoutManager.layoutLogic().GetLayoutNode",
-        "layoutManager.setLayout",
-        "layoutNode.AddLayoutDescription",
+        "_lm.layout",
+        "lm.layoutLogic",
+        "lm.layoutLogic().GetLayoutNode",
+        "lm.layoutLogic().GetLayoutNode().AddLayoutDescription",
         "slicer.BRPLayoutId",
         "slicer.app.layoutManager",
         "slicer.app.layoutManager().layout",
+        "layoutNode.GetLayoutName",
+        "layoutNode.GetNumberOfLayouts",
+        "lm.setLayout",
         "slicer.app.layoutManager().layoutLogic",
         "slicer.app.layoutManager().layoutLogic().GetLayoutNode",
-        "slicer.app.layoutManager().layoutLogic().GetLayoutNode().AddLayoutDescription",
+        "slicer.app.layoutManager().layoutLogic().GetLayoutNode().GetLayoutName",
+        "slicer.app.layoutManager().layoutLogic().GetLayoutNode().GetNumberOfLayouts",
         "slicer.app.layoutManager().setLayout",
-        "slicer.app.layoutManager.layout",
-        "slicer.app.layoutManager.layoutLogic",
-        "slicer.app.layoutManager.layoutLogic().GetLayoutNode",
-        "slicer.app.layoutManager.layoutLogic().GetLayoutNode().AddLayoutDescription",
-        "slicer.app.layoutManager.setLayout"
+        "lmLogic.GetCurrentLayoutName",
+        "slicer.app.layoutManager().layoutLogic().GetCurrentLayoutName"
       ],
       "operation_descriptions": [
         "Change layout to BoneReconstructionPlanner"
       ],
       "slicer_op_categories": [
-        "layout_slice_view"
+        "generic_slicer_api"
       ],
       "slicer_api_keywords": [
         "layout",
-        "setLayout"
+        "setBRPLayout"
       ]
     },
     "operation_model": {
@@ -2242,10 +2172,10 @@
         "ui_parameter_binding": null,
         "target_value": null,
         "target_value_mode": null,
-        "slicer_op_category": "layout_slice_view",
+        "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
           "layout",
-          "setLayout"
+          "setBRPLayout"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -2273,7 +2203,7 @@
     "invalid_substitutions": [],
     "repair_evidence": {
       "source": "verify_repair_reground",
-      "issue_id": "api_proof_a0073e09af459a3548f0",
+      "issue_id": "api_proof_a1215b76716128d90718",
       "semantic_recipe_id": "",
       "behavior_requirements": [],
       "invalid_substitutions": [],
@@ -2285,9 +2215,9 @@
           "description": "Change layout to BoneReconstructionPlanner",
           "keywords": [
             "layout",
-            "setLayout"
+            "setBRPLayout"
           ],
-          "category": "layout_slice_view",
+          "category": "generic_slicer_api",
           "final_state_intent": {
             "mode": "unspecified",
             "state": null,
@@ -2297,48 +2227,57 @@
           "classification": {
             "op_type": "slicer_op",
             "evidence_type": "verify_repair_reground",
-            "evidence_id": "api_proof_a0073e09af459a3548f0",
+            "evidence_id": "api_proof_a1215b76716128d90718",
             "confidence": "high",
             "interaction_kind": "none",
             "node_class": null,
-            "slicer_op_category": "layout_slice_view"
+            "slicer_op_category": "generic_slicer_api"
           },
           "search_policy": {
             "preferred_root": "slicer-ui-analysis",
             "requires_ui_first_when_ui_labeled": true,
-            "category_hints": [
-              "slicer-ui-analysis",
-              "qMRMLSliceControllerWidget",
-              "actionShow_in_3D",
-              "layoutManager",
-              "vtkMRMLLayoutNode",
-              "sliceWidget",
-              "mrmlSliceNode",
-              "sliceController",
-              "setSliceVisible",
-              "SetSliceResolutionMode"
-            ],
+            "category_hints": [],
             "category_hint_provenance": "generic_slicer_search_hint"
           },
           "status": "done",
-          "total_time_s": 24.33,
-          "code_chars": 359,
-          "tool_rounds": 2,
-          "api_calls": 3,
+          "total_time_s": 46.7,
+          "code_chars": 396,
+          "tool_rounds": 6,
+          "api_calls": 7,
           "error": null,
           "progress_events": [
             {
               "round": 1,
               "phase": "search",
-              "message": "[Search] Round 1: |   Grep: \"BRPLayout\" → ext:BoneReconstructionPlanner/ |   Grep: \"AddLayoutDescription\" → ext:BoneReconstructionPlanner/"
+              "message": "[Search] Round 1: |   Grep: \"BRPLayoutId|setBRPLayout|BoneReconstructionPlanner.*layout|BRP.*Layout\" → ext:BoneReconstructionPlanner/"
             },
             {
               "round": 2,
               "phase": "read",
               "message": "[Read] Round 2: |   ReadFile: ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+            },
+            {
+              "round": 3,
+              "phase": "search",
+              "message": "[Search] Round 3: |   Grep: \"def setBRPLayout|setLayout\" → ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+            },
+            {
+              "round": 4,
+              "phase": "search",
+              "message": "[Search] Round 4: |   Grep: \"setLayout\\(slicer\\.BRPLayoutId\\)|lm\\.layout\" → ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+            },
+            {
+              "round": 5,
+              "phase": "search",
+              "message": "[Search] Round 5: |   VectorSearch: \"slicer.app.layoutManager layout property read current layout ID int\""
+            },
+            {
+              "round": 6,
+              "phase": "search",
+              "message": "[Search] Round 6: |   Grep: \"slicer\\.BRPLayoutId\\s*=\" → ext:BoneReconstructionPlanner/"
             }
           ],
-          "prompt_build_s": 0.032,
+          "prompt_build_s": 0.062,
           "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nChange layout to BoneReconstructionPlanner\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE — a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) — resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `BoneReconstructionPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:BoneReconstructionPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\n\nThis is a targeted repair",
           "prompt_includes_ui_analysis": true,
           "deterministic_ui_evidence": {
@@ -2348,68 +2287,104 @@
           "executor_ready": true,
           "tool_count": 3,
           "last_progress": {
-            "round": 2,
-            "phase": "read",
-            "message": "[Read] Round 2: |   ReadFile: ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+            "round": 6,
+            "phase": "search",
+            "message": "[Search] Round 6: |   Grep: \"slicer\\.BRPLayoutId\\s*=\" → ext:BoneReconstructionPlanner/"
           },
-          "tool_loop_s": 22.16,
-          "total_tokens": 22423,
-          "total_api_time_s": 15.065,
-          "total_tool_time_s": 5.937,
+          "tool_loop_s": 44.86,
+          "total_tokens": 71257,
+          "total_api_time_s": 28.134,
+          "total_tool_time_s": 13.225,
           "tool_names_called": [
             "Grep",
-            "ReadFile"
+            "ReadFile",
+            "VectorSearch"
           ],
           "rounds": [
             {
               "round": 1,
               "phase": "search",
-              "api_time_s": 3.809,
-              "tool_time_s": 2.018,
-              "round_time_s": 5.827,
+              "api_time_s": 3.375,
+              "tool_time_s": 1.81,
+              "round_time_s": 5.185,
               "tools": [
-                "Grep",
                 "Grep"
               ],
-              "tokens": 4168
+              "tokens": 3789
             },
             {
               "round": 2,
               "phase": "read",
-              "api_time_s": 3.518,
-              "tool_time_s": 3.918,
-              "round_time_s": 7.438,
+              "api_time_s": 2.51,
+              "tool_time_s": 4.456,
+              "round_time_s": 6.967,
               "tools": [
                 "ReadFile"
               ],
-              "tokens": 6998
+              "tokens": 5670
             },
             {
               "round": 3,
+              "phase": "search",
+              "api_time_s": 7.468,
+              "tool_time_s": 1.379,
+              "round_time_s": 8.848,
+              "tools": [
+                "Grep"
+              ],
+              "tokens": 9820
+            },
+            {
+              "round": 4,
+              "phase": "search",
+              "api_time_s": 4.26,
+              "tool_time_s": 1.643,
+              "round_time_s": 5.903,
+              "tools": [
+                "Grep"
+              ],
+              "tokens": 11131
+            },
+            {
+              "round": 5,
+              "phase": "search",
+              "api_time_s": 4.058,
+              "tool_time_s": 2.075,
+              "round_time_s": 6.133,
+              "tools": [
+                "VectorSearch"
+              ],
+              "tokens": 12284
+            },
+            {
+              "round": 6,
+              "phase": "search",
+              "api_time_s": 3.327,
+              "tool_time_s": 1.86,
+              "round_time_s": 5.187,
+              "tools": [
+                "Grep"
+              ],
+              "tokens": 13750
+            },
+            {
+              "round": 7,
               "phase": "generate",
-              "api_time_s": 7.738,
+              "api_time_s": 3.136,
               "tool_time_s": 0.0,
-              "round_time_s": 7.738,
+              "round_time_s": 3.136,
               "tools": [],
-              "tokens": 11257
+              "tokens": 14813
             }
           ],
           "tool_calls_history": [
             {
               "tool": "Grep",
               "args": {
-                "pattern": "BRPLayout",
+                "pattern": "BRPLayoutId|setBRPLayout|BoneReconstructionPlanner.*layout|BRP.*Layout",
                 "path": "ext:BoneReconstructionPlanner/"
               },
-              "result_preview": "Grep: 14 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (14)"
-            },
-            {
-              "tool": "Grep",
-              "args": {
-                "pattern": "AddLayoutDescription",
-                "path": "ext:BoneReconstructionPlanner/"
-              },
-              "result_preview": "Grep: 1 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (1)"
+              "result_preview": "Grep: 15 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (15)"
             },
             {
               "tool": "ReadFile",
@@ -2418,6 +2393,38 @@
                 "query": "addBRPLayout"
               },
               "result_preview": "import os\nimport unittest\nimport logging\nimport vtk, qt, ctk, slicer, math\nimport numpy as np\nfrom slicer.ScriptedLoadableModule import *\nfrom slicer.util import VTKObservationMixin\nfrom BRPLib.helperFunctions import *\nfrom BRPLib.guiWidgets import *\n\n#\n# BoneReconstructionPlanner\n#\n\nclass BoneReconstructionPlanner(ScriptedLoadableModule):\n  \"\"\"Uses ScriptedLoadableModule base class, available at:\n  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py\n  \"\"\"\n\n  def __init__(self, parent):\n    ScriptedLoadableModule.__init__(self, parent)\n    self.parent.title = \"BoneReconstructionPlanner\"  # TODO: make this more human readable by adding spaces\n    self.parent.categories = [\"Planning\"]  # TODO: set categories (folders where the module shows up in the module selector)\n    self.parent.dependencies = []  # TODO: add here list of module names that this module requires\n    self.parent.contributors = [\"Mauro I. Dominguez, Andras Lasso, Manjula Herath\"]  # TODO: replace with \"Firstname Lastname (Organization)\"\n    # TODO: update with short description of the module and a link to online module documentation\n    self.parent.helpText = \"\"\"\nA 3D Slicer module for virtual surgical planning of mandibular reconstruction with vascularized fibula free flap and generation of patient-specific surgical guides.\nSee the whole project in <a href=\"https://github.com/SlicerIGT/SlicerBoneReconstructionPlanner\">this link</a>.\n\"\"\"\n    # TODO: replace with organization, grant and thanks\n    self.parent.acknowledgementText = \"\"\"\nMauro I. Dominguez developed this module for his final project of engineering studies ​at FCEIA-UNR under the supervision and advice of PhD. Andras Lasso at PerkLab, and the clinical inputs of Dr. Manjula Herath.\n\"\"\"\n\n    # Additional initialization step after application startup is complete\n    slicer.app.connect(\"startupCompleted()\", registerSampleData)\n    slicer.app.connect(\"startupCompleted()\", addBRPLayout)\n\n#\n# Register sample d..."
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "def setBRPLayout|setLayout",
+                "path": "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+              },
+              "result_preview": "Grep: 2 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (2)"
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "setLayout\\(slicer\\.BRPLayoutId\\)|lm\\.layout",
+                "path": "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+              },
+              "result_preview": "Grep: 1 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (1)"
+            },
+            {
+              "tool": "VectorSearch",
+              "args": {
+                "query": "slicer.app.layoutManager layout property read current layout ID int",
+                "top_k": 5
+              },
+              "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 636-641) [doc_example] similarity:0.674 boosted:0.876\n```markdown\n# for your custom layout ID.\ncustomLayoutId=501\n\nlayoutManager = slicer.app.layoutManager()\nlayoutManager.layoutLogic().GetLayoutNode().AddLayoutDescription(customLayoutId, customLayout)\n```\n\n[2] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 642-650) [doc_example] similarity:0.600 boosted:0.780\n```markdown\n# Switch to the new custom layout\nlayoutManager.setLayout(customLayoutId)\n```\n\nSee description of standard layouts (that can be used as examples) here: https://github.com/Slicer/Slicer/blob/main/Libs/MRML/Logic/vtkMRMLLayoutLogic.cxx\n\nYou can use this code snippet to add a button to the layout selector toolbar:\n\n```python\n```\n\n[3] slicer-source/Docs/developer_guide/script_repository/models.md (lines 268-288) [doc_example] similarity:0.568 boosted:0.739\n```markdown\n# Create a custom layout\nnumberOfRows = int(math.ceil(len(modelFiles)/numberOfColumns))\ncustomLayoutId=567  # we pick a random id that is not used by others\nslicer.app.setRenderPaused(True)\ncustomLayout = '<layout type=\"vertical\">'\nviewIndex = 0\nfor rowIndex in range(numberOfRows):\n  customLayout += '<item><layout type=\"horizontal\">'\n  for colIndex in range(numberOfColumns):\n    name = os.path.basename(modelFiles[viewIndex]) if viewIndex < len(modelFiles) else \"compare \" + str(viewIndex)\n    customLayout += '<item><view class=\"vtkMRMLViewNode\" singletontag=\"'+name\n    customLayout += '\"><property name=\"viewlabel\" action=\"default\">'+name+'</property></view></item>'\n    viewIndex += 1\n  customLayout += '</layout></item>'\n\ncustomLayout += '</layout>'\nif not slicer.app.layoutManager().layoutLogic().GetLayoutNode().SetLayoutDescription(customLayoutId, customLayout):\n    slicer.app.layoutManager().layoutLogic().GetLayoutNode().AddLayoutDescription(customLayoutId, customLayout)\n\nslicer.app.layoutManager().set..."
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "slicer\\.BRPLayoutId\\s*=",
+                "path": "ext:BoneReconstructionPlanner/"
+              },
+              "result_preview": "Grep: 1 hit(s) in 1 file(s): ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py (1)"
             }
           ],
           "evidence_audit": {
@@ -2433,26 +2440,34 @@
             "source_verification": {
               "non_ui_result_files": [
                 "ext:BoneReconstructionPlanner/.",
-                "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
+                "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py",
+                "slicer-source/Docs/developer_guide/script_repository/gui.md",
+                "slicer-source/Docs/developer_guide/script_repository/models.md",
+                "slicer-source/Docs/developer_guide/script_repository/plots.md"
               ],
               "source_type_counts": {
-                "source": 3
+                "source": 5,
+                "doc_example": 5
               }
             },
             "searches": {
-              "vector_queries": [],
+              "vector_queries": [
+                "slicer.app.layoutManager layout property read current layout ID int"
+              ],
               "grep_patterns": [
-                "BRPLayout",
-                "AddLayoutDescription"
+                "BRPLayoutId|setBRPLayout|BoneReconstructionPlanner.*layout|BRP.*Layout",
+                "def setBRPLayout|setLayout",
+                "setLayout\\(slicer\\.BRPLayoutId\\)|lm\\.layout",
+                "slicer\\.BRPLayoutId\\s*="
               ],
               "read_paths": [
                 "ext:BoneReconstructionPlanner/lib/Slicer-5.10/qt-scripted-modules/BoneReconstructionPlanner.py"
               ]
             }
           },
-          "reasoning_chars": 2518,
-          "reasoning_preview": "[Round 1]\nThe user wants me to fix the code template for changing the layout to \"BoneReconstructionPlanner\" which belongs to the `BoneReconstructionPlanner` extension. The key issue is that I'm fabricating the layout XML and the `slicer.BRPLayoutId` value. I need to search the extension source for the real definition.\n\nLet me search for the extension source to find the actual layout ID and XML.\n\n[Round 2]\nI found the extension source. Let me read the relevant section to get the full layout XML and the exact code pattern used by the extension.\n\n[Round 3]\nNow I have all the information I need. The extension defines:\n\n1. `slicer.BRPLayoutId = 101` - the custom layout ID\n2. The layout XML uses f-string with `slicer.MANDIBLE_VIEW_SINGLETON_TAG` and `slicer.FIBULA_VIEW_SINGLETON_TAG`\n3. There's a `setBRPLayout()` function that does `layoutManager.setLayout(slicer.BRPLayoutId)`\n4. The extension has a `addBRPLayout()` function that registers the layout\n\nThe operation specifically says \"Change layout to BoneReconstructionPlanner\" - this means activate the layout, not register it. The `setBRPLayout()` function is exactly what we need.\n\nBut I need to decide: should I also ensure the layout is registered (like addBRPLayout does)? The operation is \"Change layout\" - so the primary action is activation. But if the layout isn't registered, it won't work. Let me look at what the extension does: it registers the layout on startup via `slicer.app.connect(\"startupCompleted()\", addBRPLayout)`.\n\nSince the layout should already be registered if the extension is loaded (it registers on startup), the operation to change to it is simply:\n\n```python\nlayoutManager = slicer.app.layoutManager()\nlayoutManager.setLayout(slicer.BRPLayoutId)\n```\n\nBut to be safe, I should also handle the case where it's not registered yet. However, the user's request is specifically \"Change layout to BoneReconstructionPlanner\" - just the activation step. Let me also verify.\n\nThe existing api_chains show:\n- `slicer.app.layoutManager().setLayout`\n- `slicer.app.layoutManager.setLayout`\n\nLet me use the proper pattern from the extension source: `layoutManager = slicer.app.layoutManager()` and `layoutManager.setLayout(slicer.BRPLayoutId)`.\n\nAnd I need to verify the layout was applied. The extension source's `setBRPLayout()` doesn't verify, but the validation requirement says to read back and verify. The accepted api_chains include `layoutManager.layout` (which is a property, not a callable). \n\nLet me generate the correct code now.",
-          "generated_code_preview": "# Change layout to BoneReconstructionPlanner\n\n# Activate the BoneReconstructionPlanner custom layout\nlayoutManager = slicer.app.layoutManager()\nlayoutManager.setLayout(slicer.BRPLayoutId)\n\n# Verify\ncurrentLayout = layoutManager.layout\nif currentLayout != slicer.BRPLayoutId:\n    raise RuntimeError(\"STATE_NOT_APPLIED: layout set to BoneReconstructionPlanner\")"
+          "reasoning_chars": 4227,
+          "reasoning_preview": "[Round 1]\nLet me search for the BoneReconstructionPlanner extension's layout ID and how to switch to it. I need to find the actual `BRPLayoutId` constant or `setBRPLayout` function in the extension source.\n\n[Round 2]\nI found the key evidence. Let me read the full `addBRPLayout` function and the definition of `slicer.BRPLayoutId` to understand the layout registration and how to activate it.\n\n[Round 3]\nI found the exact evidence. The extension defines:\n\n1. `slicer.BRPLayoutId = 101` (line 151)\n2. `def setBRPLayout()` (lines 196-199) which does:\n   ```python\n   layoutManager = slicer.app.layoutManager()\n   layoutManager.setLayout(slicer.BRPLayoutId)\n   ```\n\nSo the correct way to change layout to BoneReconstructionPlanner is:\n- Use `slicer.app.layoutManager().setLayout(slicer.BRPLayoutId)` \n\nThis uses `slicer.BRPLayoutId` which is the constant the extension defines (not a guessed value). The `setLayout` method takes the layout ID (int), not a string name. The failure in the previous code was using `setLayout(\"BoneReconstructionPlanner\")` (a string) instead of `setLayout(slicer.BRPLayoutId)` (an integer).\n\nFor read-back verification, I should check if `setLayout` was applied correctly. I can use `slicer.app.layoutManager().layout` to get the current layout integer and compare with `slicer.BRPLayoutId`. Or use `layoutLogic().GetCurrentLayoutName()` but that returns a string name. Actually, the most direct read-back is to check the layout value itself.\n\nLet me check how to read the current layout. Looking at the API chains:\n- `lm.layout` - this is a property (int)\n- `lm.layoutLogic().GetCurrentLayoutName()` - returns string name\n\nSince `setLayout` takes an int ID, I should verify by reading back the layout value. But the layout node's `GetLayoutName` method takes a layout ID. Let me use `lm.layout` property to check.\n\nActually, looking at the accepted footprints more carefully:\n- `lm.setLayout` - takes layout ID\n- `lm.layout` - read current layout (property, returns int)\n- `lm.layoutLogic().GetCurrentLayoutName()` - returns current layout name\n\nI'll use `lm.layout` (property) for read-back since it directly reflects what was set via `setLayout`.\n\nLet me generate the code now.\n\n[Round 4]\nI now have all the evidence I need. The extension defines:\n\n1. `slicer.BRPLayoutId = 101` — the custom layout ID (extension-defined constant)\n2. `def setBRPLayout()` which does:\n   ```python\n   layoutManager = slicer.app.layoutManager()\n   layoutManager.setLayout(slicer.BRPLayoutId)\n   ```\n\nThe correct way to change to this layout is to use `slicer.app.layoutManager().setLayout(slicer.BRPLayoutId)`.\n\nFor read-back verification, I can use `slicer.app.layoutManager().layout` which returns the current layout ID as an integer property. I'll compare it with `slicer.BRPLayoutId`.\n\nNote: The previous code used `setLayout(\"BoneReconstructionPlanner\")` (string), but the API takes an integer layout ID. The extension sets `slicer.BRPLayoutId = 101`. The correct call is `setLayout(s",
+          "generated_code_preview": "# Change layout to BoneReconstructionPlanner\n\nlm = slicer.app.layoutManager()\n\n# Activate the custom BRP layout using the extension-defined layout ID constant\nlm.setLayout(slicer.BRPLayoutId)\n\n# Read-back verification: layout property returns the current layout ID (int)\nif lm.layout != slicer.BRPLayoutId:\n    raise RuntimeError(\"STATE_NOT_APPLIED: BoneReconstructionPlanner layout was not set\")"
         }
       ]
     }
@@ -2469,7 +2484,7 @@
     "operation_type": "slicer_op",
     "ui_guidance": {
       "title": "Hide red slice in 3D view",
-      "instruction": "Toggle off 3D visibility for the Red slice view.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -2480,35 +2495,29 @@
       "source": "ground_api",
       "accepted_footprints": [
         "GetSliceVisible",
+        "SetSliceVisible",
         "app",
         "layoutManager",
         "mrmlSliceNode",
-        "setSliceVisible",
-        "sliceController",
         "sliceWidget"
       ],
       "api_chains": [
-        "controller.mrmlSliceNode",
-        "controller.setSliceVisible",
-        "layoutManager.sliceWidget",
         "sliceNode.GetSliceVisible",
-        "sliceWidget.sliceController",
+        "sliceNode.SetSliceVisible",
         "slicer.app.layoutManager",
         "slicer.app.layoutManager().sliceWidget",
-        "slicer.app.layoutManager().sliceWidget('Red').sliceController",
-        "slicer.app.layoutManager().sliceWidget('Red').sliceController().mrmlSliceNode",
-        "slicer.app.layoutManager().sliceWidget('Red').sliceController().setSliceVisible"
+        "slicer.app.layoutManager().sliceWidget('Red').mrmlSliceNode"
       ],
       "operation_descriptions": [
-        "Toggle off slice visibility in 3D for red slice"
+        "Toggle off slice visibility in 3D view for Red slice"
       ],
       "slicer_op_categories": [
-        "node_display"
+        "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "vtkMRMLSliceNode",
-        "SetSliceVisible",
-        "slice visibility"
+        "sliceNode",
+        "SliceVisible",
+        "Red slice"
       ]
     },
     "operation_model": {
@@ -2532,18 +2541,18 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Toggle off slice visibility in 3D for red slice",
+        "description": "Toggle off slice visibility in 3D view for Red slice",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
         "ui_parameter_binding": null,
-        "target_value": null,
-        "target_value_mode": null,
-        "slicer_op_category": "node_display",
+        "target_value": false,
+        "target_value_mode": "set",
+        "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "vtkMRMLSliceNode",
-          "SetSliceVisible",
-          "slice visibility"
+          "sliceNode",
+          "SliceVisible",
+          "Red slice"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -2561,7 +2570,7 @@
           "view_display_scope"
         ],
         "node_roles": [],
-        "confidence": "medium",
+        "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
         "operation_intent": "view_display_scope"
@@ -2579,17 +2588,17 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Number of cut planes",
-      "instruction": "Enter the number of cutting planes you need.",
+      "title": "Enter number of cut planes",
+      "instruction": "Enter a number.",
       "done_label": "Done",
-      "choice_label": "Number",
+      "choice_label": "Number of cutting planes",
       "input_label": "Number of cutting planes",
       "object_label": "cutting plane",
       "repeat": {
         "summary": "Cutting Plane {current} of {total}",
         "current": null,
         "total_source": "cb_step_16",
-        "group_id": "cut_planes_repeat"
+        "group_id": "cut_plane_placement"
       }
     },
     "operation_model": {
@@ -2610,23 +2619,23 @@
       "question": "How many cut planes do you want?",
       "choices": [],
       "parameter_name": "numberOfCutPlanes",
-      "default_value": 1,
+      "default_value": null,
       "ui_guidance": {
-        "title": "Number of cut planes",
-        "instruction": "Enter the number of cutting planes you need.",
+        "title": "Enter number of cut planes",
+        "instruction": "Enter a number.",
         "done_label": "Done",
-        "choice_label": "Number",
+        "choice_label": "Number of cutting planes",
         "input_label": "Number of cutting planes",
         "object_label": "cutting plane",
         "repeat": {
           "summary": "Cutting Plane {current} of {total}",
           "current": null,
           "total_source": "cb_step_16",
-          "group_id": "cut_planes_repeat"
+          "group_id": "cut_plane_placement"
         }
       },
       "repeat_group": {
-        "group_id": "cut_planes_repeat",
+        "group_id": "cut_plane_placement",
         "count_parameter": "numberOfCutPlanes",
         "count_step": "cb_step_16",
         "start_step": "cb_step_17",
@@ -2659,18 +2668,18 @@
         "is_optional": false,
         "operation_intents": [],
         "node_roles": [],
-        "confidence": "high",
+        "confidence": "medium",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
         "question": "How many cut planes do you want?",
         "choices": [],
         "parameter_name": "numberOfCutPlanes",
-        "default_value": 1,
-        "value_kind": "int"
+        "default_value": null,
+        "value_kind": "number"
       }
     ],
     "repeat_group": {
-      "group_id": "cut_planes_repeat",
+      "group_id": "cut_plane_placement",
       "count_parameter": "numberOfCutPlanes",
       "count_step": "cb_step_16",
       "start_step": "cb_step_17",
@@ -2688,8 +2697,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Add cut plane",
-      "instruction": "Click the button to start placing a cut plane.",
+      "title": "Add a cut plane",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -2698,7 +2707,7 @@
         "summary": "Cutting Plane {current} of {total}",
         "current": null,
         "total_source": "cb_step_16",
-        "group_id": "cut_planes_repeat"
+        "group_id": "cut_plane_placement"
       }
     },
     "method_name": "addCutPlane",
@@ -2716,12 +2725,20 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "node_roles": [
+      {
+        "role_kind": "extension_output",
+        "node_class": "vtkMRMLMarkupsPlaneNode",
+        "parameter_name": null,
+        "step_id": "cb_step_17"
+      }
+    ],
     "template_file": "templates/cb_step_17.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Add cut plane",
+        "description": "Add cut plane node and activate place mode",
         "extension_method_hint": "addCutPlane",
         "extension_function_hint": null,
         "widget_name": "addCutPlaneButton",
@@ -2733,7 +2750,7 @@
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
-        "creates_node": false,
+        "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
           16
@@ -2742,21 +2759,28 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [],
+        "node_roles": [
+          {
+            "role_kind": "extension_output",
+            "node_class": "vtkMRMLMarkupsPlaneNode",
+            "parameter_name": null,
+            "step_id": "cb_step_17"
+          }
+        ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
       }
     ],
     "repeat_group": {
-      "group_id": "cut_planes_repeat",
+      "group_id": "cut_plane_placement",
       "count_parameter": "numberOfCutPlanes",
       "count_step": "cb_step_16",
       "start_step": "cb_step_17",
       "interaction_step": "cb_step_18"
     },
     "repeat_block": {
-      "repeat_id": "cut_planes_repeat",
+      "repeat_id": "cut_plane_placement",
       "body_steps": [
         "cb_step_17",
         "cb_step_18"
@@ -2767,7 +2791,7 @@
       "controller": {
         "kind": "count",
         "source_step": "cb_step_16",
-        "prompt": "How many cut planes to add?",
+        "prompt": "How many cut planes to place?",
         "exit_value": null
       },
       "max_iterations": 100,
@@ -2810,7 +2834,7 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Add cut plane"
+        "Add cut plane node and activate place mode"
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -2827,8 +2851,8 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Place cut plane",
-      "instruction": "Position the cut plane, then click Done.",
+      "title": "Place cutting plane",
+      "instruction": "Position this cutting plane, then click Done.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -2837,7 +2861,7 @@
         "summary": "Cutting Plane {current} of {total}",
         "current": null,
         "total_source": "cb_step_16",
-        "group_id": "cut_planes_repeat"
+        "group_id": "cut_plane_placement"
       }
     },
     "operation_model": {
@@ -2860,7 +2884,7 @@
       {
         "role_kind": "interaction_output",
         "node_class": "vtkMRMLMarkupsPlaneNode",
-        "parameter_name": "",
+        "parameter_name": null,
         "step_id": "cb_step_18"
       }
     ],
@@ -2872,8 +2896,8 @@
       "node_class": "vtkMRMLMarkupsPlaneNode",
       "placement_instructions": "Place this plane, then click Done.",
       "ui_guidance": {
-        "title": "Place cut plane",
-        "instruction": "Position the cut plane, then click Done.",
+        "title": "Place cutting plane",
+        "instruction": "Position this cutting plane, then click Done.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -2882,7 +2906,7 @@
           "summary": "Cutting Plane {current} of {total}",
           "current": null,
           "total_source": "cb_step_16",
-          "group_id": "cut_planes_repeat"
+          "group_id": "cut_plane_placement"
         }
       },
       "interaction_owner": "previous_extension_method",
@@ -2896,7 +2920,7 @@
         "created_node_source": "previous_extension_method"
       },
       "repeat_group": {
-        "group_id": "cut_planes_repeat",
+        "group_id": "cut_plane_placement",
         "count_parameter": "numberOfCutPlanes",
         "count_step": "cb_step_16",
         "start_step": "cb_step_17",
@@ -2904,14 +2928,14 @@
       }
     },
     "repeat_group": {
-      "group_id": "cut_planes_repeat",
+      "group_id": "cut_plane_placement",
       "count_parameter": "numberOfCutPlanes",
       "count_step": "cb_step_16",
       "start_step": "cb_step_17",
       "interaction_step": "cb_step_18"
     },
     "repeat_block": {
-      "repeat_id": "cut_planes_repeat",
+      "repeat_id": "cut_plane_placement",
       "body_steps": [
         "cb_step_17",
         "cb_step_18"
@@ -2922,7 +2946,7 @@
       "controller": {
         "kind": "count",
         "source_step": "cb_step_16",
-        "prompt": "How many cut planes to add?",
+        "prompt": "How many cut planes to place?",
         "exit_value": null
       },
       "max_iterations": 100,
@@ -2985,7 +3009,7 @@
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Add fibula line",
-      "instruction": "Click the button to start drawing the fibula line.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -3007,12 +3031,20 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "node_roles": [
+      {
+        "role_kind": "extension_output",
+        "node_class": "vtkMRMLMarkupsLineNode",
+        "parameter_name": "fibulaLine",
+        "step_id": "cb_step_19"
+      }
+    ],
     "template_file": "templates/cb_step_19.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Add fibula line",
+        "description": "Add fibula line node",
         "extension_method_hint": "addFibulaLine",
         "extension_function_hint": null,
         "widget_name": "addFibulaLineButton",
@@ -3024,7 +3056,7 @@
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
-        "creates_node": false,
+        "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
           18
@@ -3033,7 +3065,14 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [],
+        "node_roles": [
+          {
+            "role_kind": "extension_output",
+            "node_class": "vtkMRMLMarkupsLineNode",
+            "parameter_name": "fibulaLine",
+            "step_id": "cb_step_19"
+          }
+        ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -3068,7 +3107,7 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Add fibula line"
+        "Add fibula line node"
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -3086,7 +3125,7 @@
     "operation_type": "user_interaction",
     "ui_guidance": {
       "title": "Draw fibula line",
-      "instruction": "Place two points (first distal, last proximal) in 3D View 2, then click Done.",
+      "instruction": "Place first point distally, last point proximally in 3D View 2, then click Done.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -3123,10 +3162,10 @@
       "interaction_type": "line",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsLineNode",
-      "placement_instructions": null,
+      "placement_instructions": "Draw a line over the fibula in 3D View 2, first point distally, last point proximally.",
       "ui_guidance": {
         "title": "Draw fibula line",
-        "instruction": "Place two points (first distal, last proximal) in 3D View 2, then click Done.",
+        "instruction": "Place first point distally, last point proximally in 3D View 2, then click Done.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -3197,41 +3236,41 @@
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
+        "GetDisplayNode",
         "GetID",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNumberOfItems",
+        "SetVisibility",
+        "mrmlScene",
+        "vtkMRMLMarkupsLineNode",
         "GetNodeByID",
         "GetNumberOfControlPoints",
         "SetNodeReferenceID",
         "SwitchToViewTransformMode",
         "getParameterNode",
-        "mrmlScene",
         "selectModule",
         "selectedModule",
         "util",
-        "vtkMRMLInteractionNodeSingleton",
-        "vtkMRMLMarkupsLineNode",
-        "GetDisplayNode",
-        "GetItemAsObject",
-        "GetNodesByClass",
-        "GetNumberOfItems",
-        "SetVisibility"
+        "vtkMRMLInteractionNodeSingleton"
       ],
       "api_chains": [
+        "displayNode.SetVisibility",
+        "node.GetDisplayNode",
+        "node.GetID",
+        "nodes.GetItemAsObject",
+        "nodes.GetNumberOfItems",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsLineNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsLineNode').GetNumberOfItems",
         "interactionNode.SwitchToViewTransformMode",
         "logic.getParameterNode",
-        "node.GetID",
         "node.GetNumberOfControlPoints",
         "parameterNode.SetNodeReferenceID",
         "slicer.mrmlScene.GetNodeByID",
         "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
         "slicer.util.selectModule",
-        "slicer.util.selectedModule",
-        "displayNode.SetVisibility",
-        "node.GetDisplayNode",
-        "nodes.GetItemAsObject",
-        "nodes.GetNumberOfItems",
-        "slicer.mrmlScene.GetNodesByClass",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsLineNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsLineNode').GetNumberOfItems"
+        "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
         "Draw a line over the fibula in \"3D View 2\", starting with the first point distally and the last point proximally."
@@ -3251,8 +3290,8 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Reset red slice view",
-      "instruction": "Click the Reset field of view button on the Red slice.",
+      "title": "Reset field of view (Red)",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -3269,14 +3308,10 @@
         "StartSliceNodeInteraction",
         "UpdateMatrices",
         "app",
-        "getNode",
         "layoutManager",
+        "mrmlSliceNode",
         "sliceLogic",
-        "sliceWidget",
-        "util",
-        "vtkMRMLSliceNode",
-        "vtkMRMLSliceNodeRed",
-        "FieldOfViewFlag"
+        "sliceWidget"
       ],
       "api_chains": [
         "layoutManager.sliceWidget",
@@ -3285,27 +3320,24 @@
         "sliceLogic.StartSliceNodeInteraction",
         "sliceNode.GetFieldOfView",
         "sliceNode.UpdateMatrices",
+        "sliceWidget.mrmlSliceNode",
         "sliceWidget.sliceLogic",
         "slicer.app.layoutManager",
         "slicer.app.layoutManager().sliceWidget",
+        "slicer.app.layoutManager().sliceWidget('Red').mrmlSliceNode",
         "slicer.app.layoutManager().sliceWidget('Red').sliceLogic",
         "slicer.app.layoutManager().sliceWidget('Red').sliceLogic().EndSliceNodeInteraction",
         "slicer.app.layoutManager().sliceWidget('Red').sliceLogic().FitSliceToBackground",
-        "slicer.app.layoutManager().sliceWidget('Red').sliceLogic().StartSliceNodeInteraction",
-        "slicer.util.getNode",
-        "slicer.util.getNode('vtkMRMLSliceNodeRed').GetFieldOfView",
-        "slicer.util.getNode('vtkMRMLSliceNodeRed').UpdateMatrices",
-        "vtk.vtkMRMLSliceNode.ResetFieldOfViewFlag",
-        "slicer.vtkMRMLSliceNode.FieldOfViewFlag"
+        "slicer.app.layoutManager().sliceWidget('Red').sliceLogic().StartSliceNodeInteraction"
       ],
       "operation_descriptions": [
-        "Reset field of view for red slice"
+        "Reset field of view in Red slice view"
       ],
       "slicer_op_categories": [
-        "layout_slice_view"
+        "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "vtkMRMLSliceNode",
+        "sliceNode",
         "ResetFieldOfView"
       ]
     },
@@ -3330,16 +3362,16 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Reset field of view for red slice",
+        "description": "Reset field of view in Red slice view",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
         "ui_parameter_binding": null,
         "target_value": null,
         "target_value_mode": null,
-        "slicer_op_category": "layout_slice_view",
+        "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "vtkMRMLSliceNode",
+          "sliceNode",
           "ResetFieldOfView"
         ],
         "interaction_kind": "none",
@@ -3375,8 +3407,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Center fibula line",
-      "instruction": "Click the button to align the line with the fibula axis.",
+      "title": "Center fibula line on model",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -3398,6 +3430,14 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "node_roles": [
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLMarkupsLineNode",
+        "parameter_name": "fibulaLine",
+        "step_id": "cb_step_22"
+      }
+    ],
     "template_file": "templates/cb_step_22.py.tpl",
     "sub_operations": [
       {
@@ -3424,7 +3464,14 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [],
+        "node_roles": [
+          {
+            "role_kind": "extension_input",
+            "node_class": "vtkMRMLMarkupsLineNode",
+            "parameter_name": "fibulaLine",
+            "step_id": "cb_step_22"
+          }
+        ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -3434,13 +3481,11 @@
       "source": "ground_api",
       "accepted_footprints": [
         "GetID",
-        "GetName",
         "GetNodeReference",
         "SetNodeReferenceID",
         "centerFibulaLine",
         "getNodesByClass",
         "getParameterNode",
-        "lower",
         "selectModule",
         "selectedModule",
         "util",
@@ -3448,12 +3493,10 @@
         "vtkMRMLModelNode"
       ],
       "api_chains": [
-        "keyword.lower",
+        "fibulaLine.GetID",
+        "fibulaModelNode.GetID",
         "logic.centerFibulaLine",
         "logic.getParameterNode",
-        "n.GetName",
-        "n.GetName().lower",
-        "node.GetID",
         "parameterNode.GetNodeReference",
         "parameterNode.SetNodeReferenceID",
         "slicer.util.getNodesByClass",
@@ -3478,8 +3521,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Auto position mandibular planes",
-      "instruction": "Check the checkbox for automatic positioning.",
+      "title": "Enable automatic plane positioning",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -3526,8 +3569,8 @@
             "false_value": null
           }
         },
-        "target_value": null,
-        "target_value_mode": null,
+        "target_value": true,
+        "target_value_mode": "set",
         "slicer_op_category": null,
         "slicer_api_keywords": [],
         "interaction_kind": "none",
@@ -3599,8 +3642,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Sync plane rotation",
-      "instruction": "Check the checkbox to rotate all mandible planes together.",
+      "title": "Lock planes to rotate together",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -3628,7 +3671,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Enable 'Make all mandible planes rotate together'",
+        "description": "Enable make all mandible planes rotate together",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "makeAllMandiblePlanesRotateTogetherCheckBox",
@@ -3647,8 +3690,8 @@
             "false_value": null
           }
         },
-        "target_value": null,
-        "target_value_mode": null,
+        "target_value": true,
+        "target_value_mode": "set",
         "slicer_op_category": null,
         "slicer_api_keywords": [],
         "interaction_kind": "none",
@@ -3701,7 +3744,7 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Enable 'Make all mandible planes rotate together'"
+        "Enable make all mandible planes rotate together"
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -3712,371 +3755,18 @@
     "param_signature": {
       "workflow_step": "cb_step_25"
     },
-    "description": "Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to generate the reconstruction and create the fibula cut planes.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "operation_type": "extension_op",
-    "ui_guidance": {
-      "title": "Generate reconstruction",
-      "instruction": "Click the button to compute the fibula reconstruction.",
-      "done_label": "Done",
-      "choice_label": "",
-      "input_label": "",
-      "object_label": "reconstruction",
-      "repeat": {}
-    },
-    "method_name": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
-    "operation_model": {
-      "step_type": "extension_op",
-      "op_types": [
-        "extension_op"
-      ],
-      "operation_intents": [],
-      "invokes_extension_method": true,
-      "invokes_extension_function": false,
-      "invokes_slicer_api": true,
-      "implementation_uses_slicer_api": true,
-      "allow_module_switch": false,
-      "produces_interaction_state": false,
-      "interaction_kinds": []
-    },
-    "template_file": "templates/cb_step_25.py.tpl",
-    "sub_operations": [
-      {
-        "op_type": "extension_op",
-        "operation_type": "extension_op",
-        "description": "Generate reconstruction: update fibula planes, bone pieces, transform to mandible",
-        "extension_method_hint": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
-        "extension_function_hint": null,
-        "widget_name": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandibleButton",
-        "ui_parameter_binding": null,
-        "target_value": null,
-        "target_value_mode": null,
-        "slicer_op_category": null,
-        "slicer_api_keywords": [],
-        "interaction_kind": "none",
-        "interaction_type": null,
-        "node_class": null,
-        "creates_node": false,
-        "requires_place_mode": false,
-        "setup_dependencies": [
-          24
-        ],
-        "placement_instructions": null,
-        "min_control_points": 0,
-        "is_optional": false,
-        "operation_intents": [],
-        "node_roles": [],
-        "confidence": "high",
-        "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": ""
-      }
-    ],
-    "api_evidence": {
-      "source": "ground_api",
-      "accepted_footprints": [
-        "GetParameter",
-        "SetParameter",
-        "app",
-        "bonereconstructionplanner",
-        "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
-        "getParameterNode",
-        "items",
-        "layoutManager",
-        "modules",
-        "onEnter",
-        "selectModule",
-        "selectedModule",
-        "util",
-        "widgetRepresentation"
-      ],
-      "api_chains": [
-        "logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
-        "logic.getParameterNode",
-        "parameterNode.GetParameter",
-        "parameterNode.SetParameter",
-        "params_to_set.items",
-        "slicer.app.layoutManager",
-        "slicer.modules.bonereconstructionplanner",
-        "slicer.modules.bonereconstructionplanner.widgetRepresentation",
-        "slicer.modules.bonereconstructionplanner.widgetRepresentation().onEnter",
-        "slicer.util.selectModule",
-        "slicer.util.selectedModule"
-      ],
-      "operation_descriptions": [
-        "Generate reconstruction: update fibula planes, bone pieces, transform to mandible"
-      ],
-      "slicer_op_categories": [],
-      "slicer_api_keywords": []
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "cb_step_26"
-    },
-    "description": "In the BoneReconstructionPlanner module, in the \"Mandible planes\" row, toggle on the eye-icon tool button to show the mandibular cut planes.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "operation_type": "extension_op",
-    "ui_guidance": {
-      "title": "Show mandibular cut planes",
-      "instruction": "Toggle on the eye icon to make cut planes visible.",
-      "done_label": "Done",
-      "choice_label": "",
-      "input_label": "",
-      "object_label": "cutting plane",
-      "repeat": {}
-    },
-    "extension_function_name": "setFolderItemVisibility",
-    "operation_model": {
-      "step_type": "extension_op",
-      "op_types": [
-        "extension_op"
-      ],
-      "operation_intents": [
-        "extension_parameter_update"
-      ],
-      "invokes_extension_method": false,
-      "invokes_extension_function": true,
-      "invokes_slicer_api": true,
-      "implementation_uses_slicer_api": true,
-      "allow_module_switch": false,
-      "produces_interaction_state": false,
-      "interaction_kinds": []
-    },
-    "template_file": "templates/cb_step_26.py.tpl",
-    "sub_operations": [
-      {
-        "op_type": "extension_op",
-        "operation_type": "extension_op",
-        "description": "Toggle on visibility of mandibular cut planes (eye icon)",
-        "extension_method_hint": null,
-        "extension_function_hint": "setFolderItemVisibility",
-        "widget_name": "showMandiblePlanesToolButton",
-        "ui_parameter_binding": {
-          "widget_name": "showMandiblePlanesToolButton",
-          "widget_class": "QToolButton",
-          "ui_text": "",
-          "properties": {
-            "text": "",
-            "checkable": true
-          },
-          "role": {
-            "parameter_name": "showMandiblePlanes",
-            "access": "parameter_write",
-            "value_property": "checked",
-            "true_value": "True",
-            "false_value": null
-          }
-        },
-        "target_value": null,
-        "target_value_mode": null,
-        "slicer_op_category": null,
-        "slicer_api_keywords": [],
-        "interaction_kind": "none",
-        "interaction_type": null,
-        "node_class": null,
-        "creates_node": false,
-        "requires_place_mode": false,
-        "setup_dependencies": [
-          25
-        ],
-        "placement_instructions": null,
-        "min_control_points": 0,
-        "is_optional": false,
-        "operation_intents": [
-          "extension_parameter_update"
-        ],
-        "node_roles": [],
-        "confidence": "high",
-        "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "",
-        "operation_intent": "extension_parameter_update",
-        "parameter_name": "showMandiblePlanes",
-        "value_property": "checked"
-      }
-    ],
-    "api_evidence": {
-      "source": "ground_api",
-      "accepted_footprints": [
-        "Modified",
-        "SetParameter",
-        "bonereconstructionplanner",
-        "checked",
-        "getParameterNode",
-        "modules",
-        "selectModule",
-        "selectedModule",
-        "self",
-        "setMandiblePlanesVisibility",
-        "showMandiblePlanesToolButton",
-        "ui",
-        "util",
-        "widgetRepresentation"
-      ],
-      "api_chains": [
-        "_module_widget.setMandiblePlanesVisibility",
-        "logic.getParameterNode",
-        "parameterNode.Modified",
-        "parameterNode.SetParameter",
-        "slicer.modules.bonereconstructionplanner.widgetRepresentation",
-        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self",
-        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().setMandiblePlanesVisibility",
-        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().ui.showMandiblePlanesToolButton.checked",
-        "slicer.util.selectModule",
-        "slicer.util.selectedModule"
-      ],
-      "operation_descriptions": [
-        "Toggle on visibility of mandibular cut planes (eye icon)"
-      ],
-      "slicer_op_categories": [],
-      "slicer_api_keywords": []
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "cb_step_27"
-    },
-    "description": "In the same \"Mandible planes\" row, toggle on the axes-icon tool button to show the plane interaction handles.",
-    "requirements": [
-      "BoneReconstructionPlanner extension must be installed"
-    ],
-    "operation_type": "extension_op",
-    "ui_guidance": {
-      "title": "Show plane handles",
-      "instruction": "Toggle on the axes icon to enable handle interaction.",
-      "done_label": "Done",
-      "choice_label": "",
-      "input_label": "",
-      "object_label": "plane",
-      "repeat": {}
-    },
-    "operation_model": {
-      "step_type": "extension_op",
-      "op_types": [
-        "extension_op"
-      ],
-      "operation_intents": [
-        "extension_parameter_update"
-      ],
-      "invokes_extension_method": false,
-      "invokes_extension_function": false,
-      "invokes_slicer_api": true,
-      "implementation_uses_slicer_api": true,
-      "allow_module_switch": false,
-      "produces_interaction_state": false,
-      "interaction_kinds": []
-    },
-    "template_file": "templates/cb_step_27.py.tpl",
-    "sub_operations": [
-      {
-        "op_type": "extension_op",
-        "operation_type": "extension_op",
-        "description": "Toggle on plane interaction handles (axes icon)",
-        "extension_method_hint": null,
-        "extension_function_hint": null,
-        "widget_name": "showMandiblePlanesInteractionHandlesToolButton",
-        "ui_parameter_binding": {
-          "widget_name": "showMandiblePlanesInteractionHandlesToolButton",
-          "widget_class": "QToolButton",
-          "ui_text": "",
-          "properties": {
-            "text": "",
-            "checkable": true
-          },
-          "role": {
-            "parameter_name": "showMandiblePlanesInteractionHandles",
-            "access": "parameter_write",
-            "value_property": "checked",
-            "true_value": "True",
-            "false_value": null
-          }
-        },
-        "target_value": null,
-        "target_value_mode": null,
-        "slicer_op_category": null,
-        "slicer_api_keywords": [],
-        "interaction_kind": "none",
-        "interaction_type": null,
-        "node_class": null,
-        "creates_node": false,
-        "requires_place_mode": false,
-        "setup_dependencies": [
-          26
-        ],
-        "placement_instructions": null,
-        "min_control_points": 0,
-        "is_optional": false,
-        "operation_intents": [
-          "extension_parameter_update"
-        ],
-        "node_roles": [],
-        "confidence": "high",
-        "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "",
-        "operation_intent": "extension_parameter_update",
-        "parameter_name": "showMandiblePlanesInteractionHandles",
-        "value_property": "checked"
-      }
-    ],
-    "api_evidence": {
-      "source": "ground_api",
-      "accepted_footprints": [
-        "Modified",
-        "SetParameter",
-        "bonereconstructionplanner",
-        "checked",
-        "getParameterNode",
-        "modules",
-        "selectModule",
-        "selectedModule",
-        "self",
-        "setMandiblePlanesInteractionHandlesVisibility",
-        "showMandiblePlanesInteractionHandlesToolButton",
-        "ui",
-        "util",
-        "widgetRepresentation"
-      ],
-      "api_chains": [
-        "_module_widget.setMandiblePlanesInteractionHandlesVisibility",
-        "logic.getParameterNode",
-        "parameterNode.Modified",
-        "parameterNode.SetParameter",
-        "slicer.modules.bonereconstructionplanner.widgetRepresentation",
-        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self",
-        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().setMandiblePlanesInteractionHandlesVisibility",
-        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().ui.showMandiblePlanesInteractionHandlesToolButton.checked",
-        "slicer.util.selectModule",
-        "slicer.util.selectedModule"
-      ],
-      "operation_descriptions": [
-        "Toggle on plane interaction handles (axes icon)"
-      ],
-      "slicer_op_categories": [],
-      "slicer_api_keywords": []
-    }
-  },
-  {
-    "tool_name": "BoneReconstructionPlanner",
-    "param_signature": {
-      "workflow_step": "cb_step_28"
-    },
     "description": "Enter the desired value in \"Initial space (mm)\".",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Initial space (mm)",
-      "instruction": "Enter the initial spacing value in millimeters.",
+      "title": "Enter initial space (mm)",
+      "instruction": "Enter a value.",
       "done_label": "Done",
-      "choice_label": "Space",
+      "choice_label": "Initial space (mm)",
       "input_label": "Initial space (mm)",
-      "object_label": "spacing",
+      "object_label": "plane",
       "repeat": {}
     },
     "operation_model": {
@@ -4098,23 +3788,23 @@
     "node_roles": [
       {
         "role_kind": "choice_input",
-        "step_id": "cb_step_28",
+        "step_id": "cb_step_25",
         "node_class": "",
         "parameter_name": "initialSpace"
       }
     ],
     "choice_descriptor": {
-      "question": "Enter initial space in mm",
+      "question": "Enter initial space (mm)",
       "choices": [],
       "parameter_name": "initialSpace",
-      "default_value": 0.0,
+      "default_value": null,
       "ui_guidance": {
-        "title": "Initial space (mm)",
-        "instruction": "Enter the initial spacing value in millimeters.",
+        "title": "Enter initial space (mm)",
+        "instruction": "Enter a value.",
         "done_label": "Done",
-        "choice_label": "Space",
+        "choice_label": "Initial space (mm)",
         "input_label": "Initial space (mm)",
-        "object_label": "spacing",
+        "object_label": "plane",
         "repeat": {}
       },
       "binding": {
@@ -4163,7 +3853,7 @@
       "node_roles": [
         {
           "role_kind": "choice_input",
-          "step_id": "cb_step_28",
+          "step_id": "cb_step_25",
           "node_class": "",
           "parameter_name": "initialSpace"
         }
@@ -4173,7 +3863,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Enter initial space in mm",
+        "description": "Enter initial space between planes in mm",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "initialSpinBox",
@@ -4200,7 +3890,7 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          27
+          24
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -4215,46 +3905,17 @@
         "operation_intent": "extension_parameter_update",
         "parameter_name": "initialSpace",
         "value_property": "value",
-        "question": "Enter initial space in mm",
+        "question": "Enter initial space (mm)",
         "choices": [],
-        "default_value": 0.0,
+        "default_value": null,
         "value_kind": "float"
       }
-    ],
-    "repeat_block": {
-      "repeat_id": "reconstruction_tune_repeat",
-      "body_steps": [
-        "cb_step_28",
-        "cb_step_29",
-        "cb_step_30",
-        "cb_step_31"
-      ],
-      "entry_step": "cb_step_28",
-      "terminal_step": "cb_step_31",
-      "exit_step": "cb_step_32",
-      "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_31",
-        "prompt": "Is the reconstruction satisfactory?",
-        "exit_value": true
-      },
-      "max_iterations": 20,
-      "inference": {
-        "source": "llm_semantic_decomposition",
-        "evidence_step_ids": [
-          28,
-          29,
-          30,
-          31
-        ],
-        "confidence": "medium"
-      }
-    }
+    ]
   },
   {
     "tool_name": "BoneReconstructionPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_29"
+      "workflow_step": "cb_step_26"
     },
     "description": "Enter the desired value in \"Between space (mm)\".",
     "requirements": [
@@ -4262,12 +3923,12 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Between space (mm)",
-      "instruction": "Enter the spacing between planes in millimeters.",
+      "title": "Enter between space (mm)",
+      "instruction": "Enter a value.",
       "done_label": "Done",
-      "choice_label": "Space",
+      "choice_label": "Between space (mm)",
       "input_label": "Between space (mm)",
-      "object_label": "spacing",
+      "object_label": "plane",
       "repeat": {}
     },
     "operation_model": {
@@ -4289,23 +3950,23 @@
     "node_roles": [
       {
         "role_kind": "choice_input",
-        "step_id": "cb_step_29",
+        "step_id": "cb_step_26",
         "node_class": "",
         "parameter_name": "additionalBetweenSpaceOfFibulaPlanes"
       }
     ],
     "choice_descriptor": {
-      "question": "Enter between space in mm",
+      "question": "Enter between space (mm)",
       "choices": [],
       "parameter_name": "additionalBetweenSpaceOfFibulaPlanes",
-      "default_value": 0.0,
+      "default_value": null,
       "ui_guidance": {
-        "title": "Between space (mm)",
-        "instruction": "Enter the spacing between planes in millimeters.",
+        "title": "Enter between space (mm)",
+        "instruction": "Enter a value.",
         "done_label": "Done",
-        "choice_label": "Space",
+        "choice_label": "Between space (mm)",
         "input_label": "Between space (mm)",
-        "object_label": "spacing",
+        "object_label": "plane",
         "repeat": {}
       },
       "binding": {
@@ -4358,7 +4019,7 @@
       "node_roles": [
         {
           "role_kind": "choice_input",
-          "step_id": "cb_step_29",
+          "step_id": "cb_step_26",
           "node_class": "",
           "parameter_name": "additionalBetweenSpaceOfFibulaPlanes"
         }
@@ -4368,7 +4029,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Enter between space in mm",
+        "description": "Enter between space between planes in mm",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "betweenSpinBox",
@@ -4396,7 +4057,7 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          28
+          25
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -4411,40 +4072,401 @@
         "operation_intent": "extension_parameter_update",
         "parameter_name": "additionalBetweenSpaceOfFibulaPlanes",
         "value_property": "value",
-        "question": "Enter between space in mm",
+        "question": "Enter between space (mm)",
         "choices": [],
-        "default_value": 0.0,
+        "default_value": null,
         "value_kind": "float"
       }
+    ]
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_27"
+    },
+    "description": "Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to generate the reconstruction and create the fibula cut planes.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
     ],
-    "repeat_block": {
-      "repeat_id": "reconstruction_tune_repeat",
-      "body_steps": [
-        "cb_step_28",
-        "cb_step_29",
-        "cb_step_30",
-        "cb_step_31"
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Update reconstruction",
+      "instruction": "",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "cutting plane",
+      "repeat": {}
+    },
+    "method_name": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
       ],
-      "entry_step": "cb_step_28",
-      "terminal_step": "cb_step_31",
-      "exit_step": "cb_step_32",
-      "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_31",
-        "prompt": "Is the reconstruction satisfactory?",
-        "exit_value": true
+      "operation_intents": [],
+      "invokes_extension_method": true,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "node_roles": [
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLMarkupsLineNode",
+        "parameter_name": "fibulaLine",
+        "step_id": "cb_step_27"
       },
-      "max_iterations": 20,
-      "inference": {
-        "source": "llm_semantic_decomposition",
-        "evidence_step_ids": [
-          28,
-          29,
-          30,
-          31
-        ],
-        "confidence": "medium"
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLMarkupsCurveNode",
+        "parameter_name": "mandibleCurve",
+        "step_id": "cb_step_27"
+      },
+      {
+        "role_kind": "extension_output",
+        "node_class": "",
+        "parameter_name": "mandibleReconstructionModel",
+        "step_id": "cb_step_27"
       }
+    ],
+    "template_file": "templates/cb_step_27.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Generate fibula planes, bone pieces, and transform to mandible",
+        "extension_method_hint": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+        "extension_function_hint": null,
+        "widget_name": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandibleButton",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": true,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          24,
+          25,
+          26
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [
+          {
+            "role_kind": "extension_input",
+            "node_class": "vtkMRMLMarkupsLineNode",
+            "parameter_name": "fibulaLine",
+            "step_id": "cb_step_27"
+          },
+          {
+            "role_kind": "extension_input",
+            "node_class": "vtkMRMLMarkupsCurveNode",
+            "parameter_name": "mandibleCurve",
+            "step_id": "cb_step_27"
+          },
+          {
+            "role_kind": "extension_output",
+            "node_class": "",
+            "parameter_name": "mandibleReconstructionModel",
+            "step_id": "cb_step_27"
+          }
+        ],
+        "confidence": "medium",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetID",
+        "GetNodeByID",
+        "GetNodeReference",
+        "GetParameter",
+        "SetNodeReferenceID",
+        "SetParameter",
+        "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+        "getParameterNode",
+        "mrmlScene",
+        "selectModule",
+        "selectedModule",
+        "util"
+      ],
+      "api_chains": [
+        "logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+        "logic.getParameterNode",
+        "node.GetID",
+        "parameterNode.GetNodeReference",
+        "parameterNode.GetParameter",
+        "parameterNode.SetNodeReferenceID",
+        "parameterNode.SetParameter",
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Generate fibula planes, bone pieces, and transform to mandible"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_28"
+    },
+    "description": "In the BoneReconstructionPlanner module, in the \"Mandible planes\" row, toggle on the eye-icon tool button to show the mandibular cut planes.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Show mandible planes",
+      "instruction": "",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "cutting plane",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [
+        "extension_parameter_update"
+      ],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_28.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Show mandibular cut planes in 3D view",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "showMandiblePlanesToolButton",
+        "ui_parameter_binding": {
+          "widget_name": "showMandiblePlanesToolButton",
+          "widget_class": "QToolButton",
+          "ui_text": "",
+          "properties": {
+            "text": "",
+            "checkable": true
+          },
+          "role": {
+            "parameter_name": "showMandiblePlanes",
+            "access": "parameter_write",
+            "value_property": "checked",
+            "true_value": "True",
+            "false_value": null
+          }
+        },
+        "target_value": true,
+        "target_value_mode": "set",
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          27
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [
+          "extension_parameter_update"
+        ],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "operation_intent": "extension_parameter_update",
+        "parameter_name": "showMandiblePlanes",
+        "value_property": "checked"
+      }
+    ],
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "Modified",
+        "SetParameter",
+        "bonereconstructionplanner",
+        "checked",
+        "getParameterNode",
+        "modules",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "setMandiblePlanesVisibility",
+        "showMandiblePlanesToolButton",
+        "ui",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_module_widget.setMandiblePlanesVisibility",
+        "logic.getParameterNode",
+        "parameterNode.Modified",
+        "parameterNode.SetParameter",
+        "slicer.modules.bonereconstructionplanner.widgetRepresentation",
+        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self",
+        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().setMandiblePlanesVisibility",
+        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().ui.showMandiblePlanesToolButton.checked",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Show mandibular cut planes in 3D view"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "BoneReconstructionPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_29"
+    },
+    "description": "In the same \"Mandible planes\" row, toggle on the axes-icon tool button to show the plane interaction handles.",
+    "requirements": [
+      "BoneReconstructionPlanner extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Show plane interaction handles",
+      "instruction": "",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "plane",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [
+        "extension_parameter_update"
+      ],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_29.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Show mandibular plane interaction handles",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "showMandiblePlanesInteractionHandlesToolButton",
+        "ui_parameter_binding": {
+          "widget_name": "showMandiblePlanesInteractionHandlesToolButton",
+          "widget_class": "QToolButton",
+          "ui_text": "",
+          "properties": {
+            "text": "",
+            "checkable": true
+          },
+          "role": {
+            "parameter_name": "showMandiblePlanesInteractionHandles",
+            "access": "parameter_write",
+            "value_property": "checked",
+            "true_value": "True",
+            "false_value": null
+          }
+        },
+        "target_value": true,
+        "target_value_mode": "set",
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          28
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [
+          "extension_parameter_update"
+        ],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "operation_intent": "extension_parameter_update",
+        "parameter_name": "showMandiblePlanesInteractionHandles",
+        "value_property": "checked"
+      }
+    ],
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "Modified",
+        "SetParameter",
+        "bonereconstructionplanner",
+        "checked",
+        "getParameterNode",
+        "modules",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "setMandiblePlanesInteractionHandlesVisibility",
+        "showMandiblePlanesInteractionHandlesToolButton",
+        "ui",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_module_widget.setMandiblePlanesInteractionHandlesVisibility",
+        "logic.getParameterNode",
+        "parameterNode.Modified",
+        "parameterNode.SetParameter",
+        "slicer.modules.bonereconstructionplanner.widgetRepresentation",
+        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self",
+        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().setMandiblePlanesInteractionHandlesVisibility",
+        "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().ui.showMandiblePlanesInteractionHandlesToolButton.checked",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Show mandibular plane interaction handles"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
     }
   },
   {
@@ -4452,14 +4474,14 @@
     "param_signature": {
       "workflow_step": "cb_step_30"
     },
-    "description": "Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles until the positions and rotations look correct.",
+    "description": "Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust cut planes",
-      "instruction": "Drag the plane handles to fine-tune positions and rotations.",
+      "title": "Adjust mandible cut planes",
+      "instruction": "Drag the handles to position each plane, then click Done.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -4482,58 +4504,21 @@
         "interaction"
       ]
     },
-    "node_roles": [
-      {
-        "role_kind": "interaction_output",
-        "step_id": "cb_step_30",
-        "node_class": "vtkMRMLMarkupsPlaneNode",
-        "parameter_name": ""
-      }
-    ],
     "pre_template_file": "templates/cb_step_30_pre.py.tpl",
     "post_template_file": "templates/cb_step_30_post.py.tpl",
     "interaction_descriptor": {
-      "interaction_type": "plane",
+      "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
-      "node_class": "vtkMRMLMarkupsPlaneNode",
-      "placement_instructions": null,
+      "node_class": "",
+      "placement_instructions": "Drag the visible plane interaction handles to adjust cut plane positions",
       "ui_guidance": {
-        "title": "Adjust cut planes",
-        "instruction": "Drag the plane handles to fine-tune positions and rotations.",
+        "title": "Adjust mandible cut planes",
+        "instruction": "Drag the handles to position each plane, then click Done.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "cutting plane",
         "repeat": {}
-      }
-    },
-    "repeat_block": {
-      "repeat_id": "reconstruction_tune_repeat",
-      "body_steps": [
-        "cb_step_28",
-        "cb_step_29",
-        "cb_step_30",
-        "cb_step_31"
-      ],
-      "entry_step": "cb_step_28",
-      "terminal_step": "cb_step_31",
-      "exit_step": "cb_step_32",
-      "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_31",
-        "prompt": "Is the reconstruction satisfactory?",
-        "exit_value": true
-      },
-      "max_iterations": 20,
-      "inference": {
-        "source": "llm_semantic_decomposition",
-        "evidence_step_ids": [
-          28,
-          29,
-          30,
-          31
-        ],
-        "confidence": "medium"
       }
     },
     "api_evidence": {
@@ -4550,7 +4535,7 @@
         "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
       ],
       "operation_descriptions": [
-        "Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles until the positions and rotations look correct."
+        "Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -4561,18 +4546,18 @@
     "param_signature": {
       "workflow_step": "cb_step_31"
     },
-    "description": "Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to regenerate the reconstruction. Review the result; if it is not satisfactory, repeat steps 28-31 until the reconstruction is satisfactory.",
+    "description": "Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to regenerate the reconstruction.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Regenerate reconstruction",
-      "instruction": "Click the update button to rebuild with adjusted parameters.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "reconstruction",
+      "object_label": "plane",
       "repeat": {}
     },
     "method_name": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
@@ -4590,12 +4575,32 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "node_roles": [
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLMarkupsLineNode",
+        "parameter_name": "fibulaLine",
+        "step_id": "cb_step_31"
+      },
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLMarkupsCurveNode",
+        "parameter_name": "mandibleCurve",
+        "step_id": "cb_step_31"
+      },
+      {
+        "role_kind": "extension_output",
+        "node_class": "",
+        "parameter_name": "mandibleReconstructionModel",
+        "step_id": "cb_step_31"
+      }
+    ],
     "template_file": "templates/cb_step_31.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Regenerate reconstruction by updating fibula planes and transforming pieces",
+        "description": "Regenerate fibula planes, bone pieces, and transform after adjustments",
         "extension_method_hint": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
         "extension_function_hint": null,
         "widget_name": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandibleButton",
@@ -4607,7 +4612,7 @@
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
-        "creates_node": false,
+        "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
           30
@@ -4616,55 +4621,48 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [],
-        "confidence": "high",
+        "node_roles": [
+          {
+            "role_kind": "extension_input",
+            "node_class": "vtkMRMLMarkupsLineNode",
+            "parameter_name": "fibulaLine",
+            "step_id": "cb_step_31"
+          },
+          {
+            "role_kind": "extension_input",
+            "node_class": "vtkMRMLMarkupsCurveNode",
+            "parameter_name": "mandibleCurve",
+            "step_id": "cb_step_31"
+          },
+          {
+            "role_kind": "extension_output",
+            "node_class": "",
+            "parameter_name": "mandibleReconstructionModel",
+            "step_id": "cb_step_31"
+          }
+        ],
+        "confidence": "medium",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
       }
     ],
-    "repeat_block": {
-      "repeat_id": "reconstruction_tune_repeat",
-      "body_steps": [
-        "cb_step_28",
-        "cb_step_29",
-        "cb_step_30",
-        "cb_step_31"
-      ],
-      "entry_step": "cb_step_28",
-      "terminal_step": "cb_step_31",
-      "exit_step": "cb_step_32",
-      "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_31",
-        "prompt": "Is the reconstruction satisfactory?",
-        "exit_value": true
-      },
-      "max_iterations": 20,
-      "inference": {
-        "source": "llm_semantic_decomposition",
-        "evidence_step_ids": [
-          28,
-          29,
-          30,
-          31
-        ],
-        "confidence": "medium"
-      }
-    },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
         "GetID",
+        "GetItemAsObject",
         "GetName",
         "GetNodeReference",
+        "GetNodesByClass",
+        "GetNumberOfItems",
         "GetParameter",
         "SetNodeReferenceID",
         "SetParameter",
         "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
-        "getNodesByClass",
         "getParameterNode",
         "items",
         "lower",
+        "mrmlScene",
         "selectModule",
         "selectedModule",
         "util",
@@ -4675,23 +4673,27 @@
         "vtkMRMLScalarVolumeNode"
       ],
       "api_chains": [
-        "kw.lower",
+        "candidate.GetID",
+        "candidate.GetName",
         "logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
         "logic.getParameterNode",
-        "n.GetID",
-        "n.GetName",
-        "n.GetName().lower",
+        "name.lower",
+        "nodes.GetItemAsObject",
+        "nodes.GetNumberOfItems",
+        "optional_roles.items",
         "parameterNode.GetNodeReference",
         "parameterNode.GetParameter",
         "parameterNode.SetNodeReferenceID",
         "parameterNode.SetParameter",
-        "parameter_defaults.items",
-        "slicer.util.getNodesByClass",
+        "role.lower",
+        "role_to_class.items",
+        "scalar_defaults.items",
+        "slicer.mrmlScene.GetNodesByClass",
         "slicer.util.selectModule",
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Regenerate reconstruction by updating fibula planes and transforming pieces"
+        "Regenerate fibula planes, bone pieces, and transform after adjustments"
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -4702,21 +4704,20 @@
     "param_signature": {
       "workflow_step": "cb_step_32"
     },
-    "description": "When the reconstruction is satisfactory, in the BoneReconstructionPlanner module's \"Mandible planes\" row, toggle off the eye-icon tool button to hide the mandibular cut planes.",
+    "description": "In the \"Mandible planes\" row, toggle off the eye-icon tool button to hide the mandibular cut planes.",
     "requirements": [
       "BoneReconstructionPlanner extension must be installed"
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Hide mandibular cut planes",
-      "instruction": "Toggle off the eye icon to hide the cut planes.",
+      "title": "Hide mandible planes",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
       "object_label": "cutting plane",
       "repeat": {}
     },
-    "extension_function_name": "setFolderItemVisibility",
     "operation_model": {
       "step_type": "extension_op",
       "op_types": [
@@ -4726,7 +4727,7 @@
         "extension_parameter_update"
       ],
       "invokes_extension_method": false,
-      "invokes_extension_function": true,
+      "invokes_extension_function": false,
       "invokes_slicer_api": true,
       "implementation_uses_slicer_api": true,
       "allow_module_switch": false,
@@ -4738,9 +4739,9 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Toggle off visibility of mandibular cut planes (eye icon)",
+        "description": "Hide mandibular cut planes in 3D view",
         "extension_method_hint": null,
-        "extension_function_hint": "setFolderItemVisibility",
+        "extension_function_hint": null,
         "widget_name": "showMandiblePlanesToolButton",
         "ui_parameter_binding": {
           "widget_name": "showMandiblePlanesToolButton",
@@ -4758,8 +4759,8 @@
             "false_value": null
           }
         },
-        "target_value": null,
-        "target_value_mode": null,
+        "target_value": false,
+        "target_value_mode": "set",
         "slicer_op_category": null,
         "slicer_api_keywords": [],
         "interaction_kind": "none",
@@ -4816,7 +4817,7 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Toggle off visibility of mandibular cut planes (eye icon)"
+        "Hide mandibular cut planes in 3D view"
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -4833,8 +4834,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Hide original mandible",
-      "instruction": "Uncheck the box to hide the original mandible model.",
+      "title": "Hide original mandible model",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -4862,7 +4863,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Clear 'Show original mandible model' checkbox",
+        "description": "Clear show original mandible model checkbox",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "showOriginalMandibleCheckBox",
@@ -4881,8 +4882,8 @@
             "false_value": null
           }
         },
-        "target_value": null,
-        "target_value_mode": null,
+        "target_value": false,
+        "target_value_mode": "set",
         "slicer_op_category": null,
         "slicer_api_keywords": [],
         "interaction_kind": "none",
@@ -4939,7 +4940,7 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Clear 'Show original mandible model' checkbox"
+        "Clear show original mandible model checkbox"
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []

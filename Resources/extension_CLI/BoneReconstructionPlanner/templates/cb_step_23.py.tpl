@@ -26,7 +26,6 @@ try:
     _module_widget.ui.mandiblePlanesPositioningForMaximumBoneContactCheckBox.checked = True
 except Exception:
     pass
-# Final state was not explicit; apply source-derived/default truthy state for mandiblePlanesPositioningForMaximumBoneContact
 parameterNode.SetParameter('mandiblePlanesPositioningForMaximumBoneContact', 'True')
 try:
     parameterNode.Modified()

@@ -1,0 +1,85 @@
+{
+  "manifest_version": 3,
+  "pipeline_version": "agentic-cli-v3",
+  "extension_name": "SlicerOrbitSurgerySim",
+  "extension_module_name": "PlateRegistration",
+  "logic_class_name": "PlateRegistrationLogic",
+  "version": "1.0.0",
+  "status": "validated_with_warnings",
+  "workflow_type": "interactive",
+  "workflow_graph_file": "workflow.json",
+  "workflow_metadata_file": "workflow_metadata.json",
+  "stages": [
+    "cb_step_1",
+    "cb_step_2",
+    "cb_step_3",
+    "cb_step_4",
+    "cb_step_5",
+    "cb_step_6",
+    "cb_step_7",
+    "cb_step_8",
+    "cb_step_9",
+    "cb_step_10"
+  ],
+  "cookbook_driven": true,
+  "cookbook_file": "SlicerOrbitSurgerySim.md",
+  "operation_types": [
+    "extension_op",
+    "user_choice",
+    "user_interaction"
+  ],
+  "step_validation": {
+    "cb_step_5": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_6": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_7": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_8": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_9": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_10": {
+      "valid": true,
+      "issues": []
+    }
+  },
+  "partial_valid_step_count": 6,
+  "validation_state": {
+    "static_valid": true,
+    "api_probe_valid": true,
+    "contract_valid": true,
+    "prelude_valid": true,
+    "contract_audit_valid": true,
+    "workflow_state_valid": true,
+    "prelude_bytes_max": 2370,
+    "overall_valid": true,
+    "api_proof_valid": true,
+    "api_inventory_complete": true,
+    "generate_syntax_valid_at_generate": true,
+    "final_syntax_valid": true,
+    "placeholder_closure_valid": true,
+    "generator_template_sync_valid": true
+  },
+  "api_proof_coverage": {
+    "total_calls": 57,
+    "state_changing_calls": 16,
+    "proven_calls": 55,
+    "invalid_calls": 0,
+    "blocking_unproven_calls": 0,
+    "warning_unproven_reads": 2,
+    "inventory_complete": true
+  },
+  "workflow_contract_file": "workflow_contract.json",
+  "source_path": "C:/0APP_install/slicer/3D Slicer 5.10.0/slicer.org/Extensions-34045/SlicerOrbitSurgerySim"
+}

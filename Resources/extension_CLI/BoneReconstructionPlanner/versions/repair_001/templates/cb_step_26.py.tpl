@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: In the BoneReconstructionPlanner module, in the "Mandible planes" row, toggle on the eye-icon tool button to show the mandibular cut planes. ---
+# --- BoneReconstructionPlanner: Enter the desired value in "Between space (mm)". ---
 import slicer
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
@@ -19,23 +19,11 @@ except NameError:
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
-# Sync the bound UI control (mirrors the user's click) so
-# GUI-driven parameter syncs cannot ratchet the value back.
-try:
-    _module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
-    _module_widget.ui.showMandiblePlanesToolButton.checked = True
-except Exception:
-    pass
-# Final state was not explicit; apply source-derived/default truthy state for showMandiblePlanes
-parameterNode.SetParameter('showMandiblePlanes', 'True')
+additional_between_space_of_fibula_planes = {additional_between_space_of_fibula_planes: 1.5}
+parameterNode.SetParameter('additionalBetweenSpaceOfFibulaPlanes', str(additional_between_space_of_fibula_planes))
 try:
     parameterNode.Modified()
 except Exception:
     pass
-# Apply the parameter via the extension's own applier method —
-# a bare SetParameter only records state; GUI observers may
-# recompute it differently.
-_module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
-_module_widget.setMandiblePlanesVisibility(True)
 _bonereconstructionplanner_logic = logic
 print("[BoneReconstructionPlanner] Step 'cb_step_26' completed.")

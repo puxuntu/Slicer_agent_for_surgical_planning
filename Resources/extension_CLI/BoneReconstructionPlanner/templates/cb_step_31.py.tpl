@@ -1,6 +1,5 @@
 import slicer
 # precondition:begin
-# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'BoneReconstructionPlanner':
     try:
@@ -18,73 +17,17 @@ except NameError:
 
 parameterNode = logic.getParameterNode()
 
-# Set scalar parameters with default values only if not already set
-parameter_defaults = {
-    "additionalBetweenSpaceOfFibulaPlanes": "1.5",
-    "fibulaCentroidX": "0.0",
-    "fibulaCentroidY": "0.0",
-    "fibulaCentroidZ": "0.0",
-    "fibulaSegmentsMeasurementMode": "center2center",
-    "fixCutGoesThroughTheMandibleTwice": "False",
-    "fixCutGoesThroughTheMandibleTwiceCheckBoxChanged": "False",
-    "initialSpace": "0.0",
-    "kindOfMandibleResection": "Segmental Mandibulectomy",
-    "mandibleCentroidX": "0.0",
-    "mandibleCentroidY": "0.0",
-    "mandibleCentroidZ": "0.0",
-    "mandibleSideToRemove": "Removing right side",
-    "rightSideLegFibula": "False",
-    "useMoreExactVersionOfPositioningAlgorithm": "False",
-    "useNonDecimatedBoneModelsForPreview": "True",
+# Set defaults for scalar parameters relevant to this step (only from contract)
+scalar_defaults = {
+    'kindOfMandibleResection': 'Segmental Mandibulectomy',
+    'useNonDecimatedBoneModelsForPreview': 'True'
 }
-for param, default in parameter_defaults.items():
-    if not parameterNode.GetParameter(param):
+for param, default in scalar_defaults.items():
+    current = parameterNode.GetParameter(param)
+    if not current:
         parameterNode.SetParameter(param, default)
 
-# Resolve node references needed by the method (roles listed as required/conditional)
-# For required roles, we set them if not already set.
-required_roles = ["currentScalarVolume", "fibulaLine", "fibulaModelNode", "mandibleModelNode"]
-optional_roles = ["decimatedFibulaModelNode", "decimatedMandibleModelNode", "mandibleCurve", "planeToFixCutGoesThroughTheMandibleTwice"]
-
-def resolve_reference(role, node_class, search_keywords):
-    node = parameterNode.GetNodeReference(role)
-    if node is not None:
-        return node
-    # Search by class and keywords
-    nodes = slicer.util.getNodesByClass(node_class)
-    for n in nodes:
-        name = n.GetName().lower()
-        if any(kw.lower() in name for kw in search_keywords):
-            parameterNode.SetNodeReferenceID(role, n.GetID())
-            return n
-    return None
-
-# For each required role, attempt to resolve. If not found, raise error.
-# Provide reasonable node class and keywords based on role names.
-role_resolution = {
-    "currentScalarVolume": ("vtkMRMLScalarVolumeNode", ["volume", "scalar"]),
-    "fibulaLine": ("vtkMRMLMarkupsLineNode", ["fibula", "line"]),
-    "fibulaModelNode": ("vtkMRMLModelNode", ["fibula", "model"]),
-    "mandibleModelNode": ("vtkMRMLModelNode", ["mandible", "model"]),
-    "decimatedFibulaModelNode": ("vtkMRMLModelNode", ["decimated", "fibula", "model"]),
-    "decimatedMandibleModelNode": ("vtkMRMLModelNode", ["decimated", "mandible", "model"]),
-    "mandibleCurve": ("vtkMRMLMarkupsCurveNode", ["mandible", "curve"]),
-    "planeToFixCutGoesThroughTheMandibleTwice": ("vtkMRMLMarkupsPlaneNode", ["plane", "fix", "cut", "mandible"]),
-}
-
-for role in required_roles:
-    cls, keywords = role_resolution[role]
-    node = resolve_reference(role, cls, keywords)
-    if node is None:
-        raise RuntimeError(f"Required node reference '{role}' could not be resolved. Please set it before this step.")
-
-# For optional roles, try to resolve but don't fail if missing
-for role in optional_roles:
-    if role in role_resolution:
-        cls, keywords = role_resolution[role]
-        resolve_reference(role, cls, keywords)
-
-# Call the method
+# Call the reconstruction regeneration method
 logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible()
 
-print("[BoneReconstructionPlanner] Generate fibula planes, fibula bone pieces, and transform to mandible completed.")
+print("[BoneReconstructionPlanner] Generated fibula planes, fibula bone pieces, and transformed them to mandible.")

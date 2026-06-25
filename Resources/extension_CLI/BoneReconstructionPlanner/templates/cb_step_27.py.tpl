@@ -1,7 +1,4 @@
-# --- BoneReconstructionPlanner: In the same "Mandible planes" row, toggle on the axes-icon tool button to show the plane interaction handles. ---
 import slicer
-from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
-
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
@@ -15,27 +12,70 @@ if _active_module_name != 'BoneReconstructionPlanner':
 try:
     logic = _bonereconstructionplanner_logic
 except NameError:
+    from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
     logic = BoneReconstructionPlannerLogic()
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
-# Sync the bound UI control (mirrors the user's click) so
-# GUI-driven parameter syncs cannot ratchet the value back.
-try:
-    _module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
-    _module_widget.ui.showMandiblePlanesInteractionHandlesToolButton.checked = True
-except Exception:
-    pass
-# Final state was not explicit; apply source-derived/default truthy state for showMandiblePlanesInteractionHandles
-parameterNode.SetParameter('showMandiblePlanesInteractionHandles', 'True')
-try:
-    parameterNode.Modified()
-except Exception:
-    pass
-# Apply the parameter via the extension's own applier method —
-# a bare SetParameter only records state; GUI observers may
-# recompute it differently.
-_module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
-_module_widget.setMandiblePlanesInteractionHandlesVisibility(True)
-_bonereconstructionplanner_logic = logic
-print("[BoneReconstructionPlanner] Step 'cb_step_27' completed.")
+
+# Set scalar defaults if missing (parameters read by the method)
+if not parameterNode.GetParameter("useNonDecimatedBoneModelsForPreview"):
+    parameterNode.SetParameter("useNonDecimatedBoneModelsForPreview", "True")
+if not parameterNode.GetParameter("kindOfMandibleResection"):
+    parameterNode.SetParameter("kindOfMandibleResection", "Segmental Mandibulectomy")
+
+# Ensure required node references are set using cached IDs from prior steps
+# mandibleModelNode
+if parameterNode.GetNodeReference("mandibleModelNode") is None:
+    try:
+        node_id = _bonereconstructionplanner_mandibleModelNode_id
+        node = slicer.mrmlScene.GetNodeByID(node_id)
+        if node:
+            parameterNode.SetNodeReferenceID("mandibleModelNode", node.GetID())
+    except NameError:
+        pass
+
+# fibulaModelNode
+if parameterNode.GetNodeReference("fibulaModelNode") is None:
+    try:
+        node_id = _bonereconstructionplanner_fibulaModelNode_id
+        node = slicer.mrmlScene.GetNodeByID(node_id)
+        if node:
+            parameterNode.SetNodeReferenceID("fibulaModelNode", node.GetID())
+    except NameError:
+        pass
+
+# fibulaLine
+if parameterNode.GetNodeReference("fibulaLine") is None:
+    try:
+        node_id = _bonereconstructionplanner_fibulaLine_id
+        node = slicer.mrmlScene.GetNodeByID(node_id)
+        if node:
+            parameterNode.SetNodeReferenceID("fibulaLine", node.GetID())
+    except NameError:
+        pass
+
+# currentScalarVolume (required)
+if parameterNode.GetNodeReference("currentScalarVolume") is None:
+    try:
+        node_id = _bonereconstructionplanner_currentScalarVolume_id
+        node = slicer.mrmlScene.GetNodeByID(node_id)
+        if node:
+            parameterNode.SetNodeReferenceID("currentScalarVolume", node.GetID())
+    except NameError:
+        pass
+
+# decimatedMandibleModelNode (optional; method may use it)
+if parameterNode.GetNodeReference("decimatedMandibleModelNode") is None:
+    try:
+        node_id = _bonereconstructionplanner_decimatedMandibleModelNode_id
+        node = slicer.mrmlScene.GetNodeByID(node_id)
+        if node:
+            parameterNode.SetNodeReferenceID("decimatedMandibleModelNode", node.GetID())
+    except NameError:
+        pass
+
+# Execute the method
+logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible()
+
+print("[BoneReconstructionPlanner] generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible completed.")

@@ -21,7 +21,7 @@
           "operation_id": "cb_step_1_op_1",
           "operation_type": "user_choice",
           "intent": "extension_parameter_update",
-          "description": "Choose right or left leg fibula",
+          "description": "Indicate whether the fibula is from the right leg",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -92,13 +92,13 @@
           "operation_id": "cb_step_2_op_1",
           "operation_type": "user_choice",
           "intent": "extension_node_reference_update",
-          "description": "Choose mandibular segmentation",
+          "description": "Select the mandibular segmentation node",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
           "parameter_name": "mandibularSegmentation",
-          "node_class": "",
+          "node_class": "vtkMRMLSegmentationNode",
           "confidence": "high",
           "required": true
         }
@@ -161,13 +161,13 @@
           "operation_id": "cb_step_3_op_1",
           "operation_type": "user_choice",
           "intent": "extension_node_reference_update",
-          "description": "Choose fibula segmentation",
+          "description": "Select the fibula segmentation node",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
           "parameter_name": "fibulaSegmentation",
-          "node_class": "",
+          "node_class": "vtkMRMLSegmentationNode",
           "confidence": "high",
           "required": true
         }
@@ -229,13 +229,13 @@
           "operation_id": "cb_step_4_op_1",
           "operation_type": "user_choice",
           "intent": "extension_node_reference_update",
-          "description": "Choose mandible scalar volume",
+          "description": "Select the mandible volume node",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
           "parameter_name": "currentScalarVolume",
-          "node_class": "",
+          "node_class": "vtkMRMLScalarVolumeNode",
           "confidence": "high",
           "required": true
         }
@@ -561,7 +561,8 @@
           "slicer_op_category": "layout_slice_view",
           "slicer_api_keywords": [
             "layout",
-            "setLayout"
+            "setLayout",
+            "Conventional"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -611,18 +612,19 @@
           "operation_id": "cb_step_7_op_1",
           "operation_type": "slicer_op",
           "intent": "view_display_scope",
-          "description": "Toggle on slice visibility in 3D for red slice",
+          "description": "Toggle on slice visibility in 3D view for Red slice",
           "extension_method_hint": "",
           "extension_function_hint": "",
-          "slicer_op_category": "node_display",
+          "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "vtkMRMLSliceNode",
-            "SetSliceVisible",
-            "slice visibility"
+            "sliceNode",
+            "SliceVisible",
+            "Red slice",
+            "slice visibility in 3D"
           ],
           "parameter_name": "",
           "node_class": "",
-          "confidence": "medium",
+          "confidence": "high",
           "required": true
         }
       ],
@@ -668,14 +670,15 @@
           "operation_id": "cb_step_8_op_1",
           "operation_type": "slicer_op",
           "intent": "view_display_scope",
-          "description": "Toggle on FOV/Spacing match 2D for red slice",
+          "description": "Toggle on FOV and spacing match 2D for Red slice",
           "extension_method_hint": "",
           "extension_function_hint": "",
-          "slicer_op_category": "layout_slice_view",
+          "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "vtkMRMLSliceNode",
-            "SetSliceResolutionMode",
-            "FOV"
+            "sliceNode",
+            "SpacingMode",
+            "FOV",
+            "match 2D"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -725,16 +728,16 @@
           "operation_id": "cb_step_9_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Enable slice intersection visibility and interaction with translate/rotate",
+          "description": "Enable slice intersection visibility and interaction (Translate and Rotate)",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "crosshair",
           "slicer_api_keywords": [
-            "vtkMRMLCrosshairNode",
-            "SetSliceIntersectionVisibility",
-            "SetInteractiveMode",
+            "crosshair",
+            "slice intersection",
             "Translate",
-            "Rotate"
+            "Rotate",
+            "InteractiveMode"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -785,18 +788,19 @@
           "operation_id": "cb_step_10_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Manually adjust slice intersection position with translate/rotate",
+          "description": "Manually adjust slice intersection position via translate/rotate of cross lines",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "vtkMRMLCrosshairNode",
+            "crosshair",
+            "slice intersection",
             "Translate",
             "Rotate",
-            "slice intersection"
+            "interaction handles"
           ],
           "parameter_name": "",
-          "node_class": "vtkMRMLCrosshairNode",
+          "node_class": "",
           "confidence": "high",
           "required": true
         }
@@ -805,7 +809,7 @@
       "interaction": {
         "interaction_kind": "view_adjustment",
         "interaction_type": "generic",
-        "node_class": "vtkMRMLCrosshairNode",
+        "node_class": "",
         "placement_instructions": "",
         "interaction_owner": "",
         "placement_starter_method": "",
@@ -851,7 +855,7 @@
           "operation_id": "cb_step_11_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Add mandibular curve",
+          "description": "Add mandibular curve node and activate place mode",
           "extension_method_hint": "addMandibularCurve",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -862,7 +866,22 @@
           "required": true
         }
       ],
-      "parameter_roles": {},
+      "parameter_roles": {
+        "mandibleCurve": {
+          "role": "mandibleCurve",
+          "node_class": "vtkMRMLMarkupsCurveNode",
+          "value_types": [],
+          "accesses": [
+            "node_reference_read",
+            "node_reference_write"
+          ],
+          "keywords": [
+            "mandible",
+            "curve",
+            "mandib"
+          ]
+        }
+      },
       "interaction": {},
       "operation_model": {
         "step_type": "extension_op",
@@ -889,7 +908,7 @@
     {
       "step_id": "cb_step_12",
       "index": 11,
-      "description": "Configure the display settings of the mandibular curve created by the \"Add Mandibular Curve\" button. Specifically, in the \"Markups\" module, under the \"Advanced\" collapsible section, select \"3D View 1\" and \"Red\" in the \"View\" combo box.",
+      "description": "Configure the display settings of the mandibular curve created by the \"Add Mandibular Curve\" button. Specifically, in the \"Markups\" module, under the \"Advanced\" collapsible section, select \"3D View 1\" and \"Red\" in the \"View\" combo box.",
       "operation_type": "slicer_op",
       "depends_on": [
         "cb_step_11"
@@ -901,18 +920,19 @@
         {
           "operation_id": "cb_step_12_op_1",
           "operation_type": "slicer_op",
-          "intent": "view_display_scope",
-          "description": "Configure mandibular curve display views (3D View 1 and Red)",
+          "intent": "",
+          "description": "Configure mandibular curve display to show in 3D View 1 and Red slice",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "markups_display",
           "slicer_api_keywords": [
-            "vtkMRMLMarkupsCurveNode",
-            "SetDisplayNode",
+            "Markups",
+            "display",
+            "view",
             "SetViewNodeIDs"
           ],
           "parameter_name": "",
-          "node_class": "vtkMRMLMarkupsCurveNode",
+          "node_class": "",
           "confidence": "medium",
           "required": true
         }
@@ -924,9 +944,7 @@
         "op_types": [
           "slicer_op"
         ],
-        "operation_intents": [
-          "view_display_scope"
-        ],
+        "operation_intents": [],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
         "invokes_slicer_api": true,
@@ -959,15 +977,14 @@
           "operation_id": "cb_step_13_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Manually draw mandibular curve in Red view",
+          "description": "Draw mandibular curve by placing control points on Red view",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "vtkMRMLMarkupsCurveNode",
             "place",
-            "SetActiveListID",
-            "draw"
+            "AddControlPoint"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLMarkupsCurveNode",
@@ -1018,7 +1035,7 @@
         "interaction_kind": "markup_placement",
         "interaction_type": "curve",
         "node_class": "vtkMRMLMarkupsCurveNode",
-        "placement_instructions": "",
+        "placement_instructions": "Click and draw on Red view to create a curve along the mandible",
         "interaction_owner": "previous_extension_method",
         "placement_starter_method": "addMandibularCurve",
         "created_node_source": "previous_extension_method"
@@ -1066,10 +1083,10 @@
           "description": "Change layout to BoneReconstructionPlanner",
           "extension_method_hint": "",
           "extension_function_hint": "setBRPLayout",
-          "slicer_op_category": "layout_slice_view",
+          "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "layout",
-            "setLayout"
+            "setBRPLayout"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -1120,18 +1137,18 @@
           "operation_id": "cb_step_15_op_1",
           "operation_type": "slicer_op",
           "intent": "view_display_scope",
-          "description": "Toggle off slice visibility in 3D for red slice",
+          "description": "Toggle off slice visibility in 3D view for Red slice",
           "extension_method_hint": "",
           "extension_function_hint": "",
-          "slicer_op_category": "node_display",
+          "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "vtkMRMLSliceNode",
-            "SetSliceVisible",
-            "slice visibility"
+            "sliceNode",
+            "SliceVisible",
+            "Red slice"
           ],
           "parameter_name": "",
           "node_class": "",
-          "confidence": "medium",
+          "confidence": "high",
           "required": true
         }
       ],
@@ -1184,7 +1201,7 @@
           "slicer_api_keywords": [],
           "parameter_name": "numberOfCutPlanes",
           "node_class": "",
-          "confidence": "high",
+          "confidence": "medium",
           "required": true
         }
       ],
@@ -1228,7 +1245,7 @@
           "operation_id": "cb_step_17_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Add cut plane",
+          "description": "Add cut plane node and activate place mode",
           "extension_method_hint": "addCutPlane",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -1293,14 +1310,14 @@
           "operation_id": "cb_step_18_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Place mandibular cut plane by clicking",
+          "description": "Place one mandibular cut plane by placing control points",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "vtkMRMLMarkupsPlaneNode",
             "place",
-            "SetActiveListID"
+            "PointPositionDefinedEvent"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLMarkupsPlaneNode",
@@ -1358,7 +1375,7 @@
           "operation_id": "cb_step_19_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Add fibula line",
+          "description": "Add fibula line node",
           "extension_method_hint": "addFibulaLine",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -1381,6 +1398,19 @@
           "keywords": [
             "scalar",
             "volume"
+          ]
+        },
+        "fibulaLine": {
+          "role": "fibulaLine",
+          "node_class": "vtkMRMLMarkupsLineNode",
+          "value_types": [],
+          "accesses": [
+            "node_reference_read",
+            "node_reference_write"
+          ],
+          "keywords": [
+            "fibula",
+            "line"
           ]
         },
         "fibulaCentroidX": {
@@ -1522,7 +1552,7 @@
           "operation_id": "cb_step_20_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Draw fibula line in 3D View 2 (distal to proximal)",
+          "description": "Draw fibula line in 3D View 2",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -1556,7 +1586,7 @@
         "interaction_kind": "markup_placement",
         "interaction_type": "line",
         "node_class": "vtkMRMLMarkupsLineNode",
-        "placement_instructions": "",
+        "placement_instructions": "Draw a line over the fibula in 3D View 2, first point distally, last point proximally.",
         "interaction_owner": "previous_extension_method",
         "placement_starter_method": "addFibulaLine",
         "created_node_source": "previous_extension_method"
@@ -1601,12 +1631,12 @@
           "operation_id": "cb_step_21_op_1",
           "operation_type": "slicer_op",
           "intent": "view_display_scope",
-          "description": "Reset field of view for red slice",
+          "description": "Reset field of view in Red slice view",
           "extension_method_hint": "",
           "extension_function_hint": "",
-          "slicer_op_category": "layout_slice_view",
+          "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "vtkMRMLSliceNode",
+            "sliceNode",
             "ResetFieldOfView"
           ],
           "parameter_name": "",
@@ -1812,7 +1842,7 @@
           "operation_id": "cb_step_24_op_1",
           "operation_type": "extension_op",
           "intent": "extension_parameter_update",
-          "description": "Enable 'Make all mandible planes rotate together'",
+          "description": "Enable make all mandible planes rotate together",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -1874,27 +1904,171 @@
     {
       "step_id": "cb_step_25",
       "index": 24,
+      "description": "Enter the desired value in \"Initial space (mm)\".",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_24"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_25_op_1",
+          "operation_type": "user_choice",
+          "intent": "extension_parameter_update",
+          "description": "Enter initial space between planes in mm",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "initialSpace",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {
+        "initialSpace": {
+          "role": "initialSpace",
+          "node_class": "",
+          "value_types": [
+            "float"
+          ],
+          "accesses": [
+            "parameter_write",
+            "parameter_read"
+          ],
+          "keywords": [
+            "initial",
+            "space",
+            "initia"
+          ]
+        }
+      },
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [
+          "extension_parameter_update"
+        ],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_25.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_26",
+      "index": 25,
+      "description": "Enter the desired value in \"Between space (mm)\".",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_25"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_26_op_1",
+          "operation_type": "user_choice",
+          "intent": "extension_parameter_update",
+          "description": "Enter between space between planes in mm",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "additionalBetweenSpaceOfFibulaPlanes",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {
+        "additionalBetweenSpaceOfFibulaPlanes": {
+          "role": "additionalBetweenSpaceOfFibulaPlanes",
+          "node_class": "",
+          "value_types": [
+            "float"
+          ],
+          "accesses": [
+            "parameter_write",
+            "parameter_read"
+          ],
+          "keywords": [
+            "additional",
+            "between",
+            "space",
+            "fibula",
+            "planes",
+            "additi",
+            "betwee"
+          ]
+        }
+      },
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [
+          "extension_parameter_update"
+        ],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_26.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_27",
+      "index": 26,
       "description": "Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to generate the reconstruction and create the fibula cut planes.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_24"
+        "cb_step_26"
       ],
       "is_optional": false,
       "method_name": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_25_op_1",
+          "operation_id": "cb_step_27_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Generate reconstruction: update fibula planes, bone pieces, transform to mandible",
+          "description": "Generate fibula planes, bone pieces, and transform to mandible",
           "extension_method_hint": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
           "parameter_name": "",
           "node_class": "",
-          "confidence": "high",
+          "confidence": "medium",
           "required": true
         }
       ],
@@ -1913,6 +2087,33 @@
             "resection",
             "mandib",
             "resect"
+          ]
+        },
+        "fibulaLine": {
+          "role": "fibulaLine",
+          "node_class": "vtkMRMLMarkupsLineNode",
+          "value_types": [],
+          "accesses": [
+            "node_reference_read",
+            "node_reference_write"
+          ],
+          "keywords": [
+            "fibula",
+            "line"
+          ]
+        },
+        "mandibleCurve": {
+          "role": "mandibleCurve",
+          "node_class": "vtkMRMLMarkupsCurveNode",
+          "value_types": [],
+          "accesses": [
+            "node_reference_read",
+            "node_reference_write"
+          ],
+          "keywords": [
+            "mandible",
+            "curve",
+            "mandib"
           ]
         },
         "mandibleModelNode": {
@@ -1943,6 +2144,22 @@
             "model",
             "decima",
             "mandib"
+          ]
+        },
+        "mandibleReconstructionModel": {
+          "role": "mandibleReconstructionModel",
+          "node_class": "",
+          "value_types": [],
+          "accesses": [
+            "node_reference_read",
+            "node_reference_write"
+          ],
+          "keywords": [
+            "mandible",
+            "reconstruction",
+            "model",
+            "mandib",
+            "recons"
           ]
         },
         "useNonDecimatedBoneModelsForPreview": {
@@ -1983,7 +2200,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_25.py.tpl",
+        "template_file": "templates/cb_step_27.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -1991,24 +2208,24 @@
       }
     },
     {
-      "step_id": "cb_step_26",
-      "index": 25,
+      "step_id": "cb_step_28",
+      "index": 27,
       "description": "In the BoneReconstructionPlanner module, in the \"Mandible planes\" row, toggle on the eye-icon tool button to show the mandibular cut planes.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_25"
+        "cb_step_27"
       ],
       "is_optional": false,
       "method_name": "",
-      "extension_function_name": "setFolderItemVisibility",
+      "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_26_op_1",
+          "operation_id": "cb_step_28_op_1",
           "operation_type": "extension_op",
           "intent": "extension_parameter_update",
-          "description": "Toggle on visibility of mandibular cut planes (eye icon)",
+          "description": "Show mandibular cut planes in 3D view",
           "extension_method_hint": "",
-          "extension_function_hint": "setFolderItemVisibility",
+          "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
           "parameter_name": "showMandiblePlanes",
@@ -2046,15 +2263,15 @@
           "extension_parameter_update"
         ],
         "invokes_extension_method": false,
-        "invokes_extension_function": true,
+        "invokes_extension_function": false,
         "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": true,
+        "implementation_uses_slicer_api": false,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_26.py.tpl",
+        "template_file": "templates/cb_step_28.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -2062,22 +2279,22 @@
       }
     },
     {
-      "step_id": "cb_step_27",
-      "index": 26,
+      "step_id": "cb_step_29",
+      "index": 28,
       "description": "In the same \"Mandible planes\" row, toggle on the axes-icon tool button to show the plane interaction handles.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_26"
+        "cb_step_28"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_27_op_1",
+          "operation_id": "cb_step_29_op_1",
           "operation_type": "extension_op",
           "intent": "extension_parameter_update",
-          "description": "Toggle on plane interaction handles (axes icon)",
+          "description": "Show mandibular plane interaction handles",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -2146,150 +2363,6 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_27.py.tpl",
-        "pre_template_file": "",
-        "post_template_file": "",
-        "required": true,
-        "allow_instruction_only": false
-      }
-    },
-    {
-      "step_id": "cb_step_28",
-      "index": 27,
-      "description": "Enter the desired value in \"Initial space (mm)\".",
-      "operation_type": "user_choice",
-      "depends_on": [
-        "cb_step_27"
-      ],
-      "is_optional": false,
-      "method_name": "",
-      "extension_function_name": "",
-      "operations": [
-        {
-          "operation_id": "cb_step_28_op_1",
-          "operation_type": "user_choice",
-          "intent": "extension_parameter_update",
-          "description": "Enter initial space in mm",
-          "extension_method_hint": "",
-          "extension_function_hint": "",
-          "slicer_op_category": "",
-          "slicer_api_keywords": [],
-          "parameter_name": "initialSpace",
-          "node_class": "",
-          "confidence": "high",
-          "required": true
-        }
-      ],
-      "parameter_roles": {
-        "initialSpace": {
-          "role": "initialSpace",
-          "node_class": "",
-          "value_types": [
-            "float"
-          ],
-          "accesses": [
-            "parameter_write",
-            "parameter_read"
-          ],
-          "keywords": [
-            "initial",
-            "space",
-            "initia"
-          ]
-        }
-      },
-      "interaction": {},
-      "operation_model": {
-        "step_type": "user_choice",
-        "op_types": [
-          "user_choice"
-        ],
-        "operation_intents": [
-          "extension_parameter_update"
-        ],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
-        "allow_module_switch": false,
-        "produces_interaction_state": false,
-        "interaction_kinds": []
-      },
-      "template_contract": {
-        "template_file": "templates/cb_step_28.py.tpl",
-        "pre_template_file": "",
-        "post_template_file": "",
-        "required": true,
-        "allow_instruction_only": false
-      }
-    },
-    {
-      "step_id": "cb_step_29",
-      "index": 28,
-      "description": "Enter the desired value in \"Between space (mm)\".",
-      "operation_type": "user_choice",
-      "depends_on": [
-        "cb_step_28"
-      ],
-      "is_optional": false,
-      "method_name": "",
-      "extension_function_name": "",
-      "operations": [
-        {
-          "operation_id": "cb_step_29_op_1",
-          "operation_type": "user_choice",
-          "intent": "extension_parameter_update",
-          "description": "Enter between space in mm",
-          "extension_method_hint": "",
-          "extension_function_hint": "",
-          "slicer_op_category": "",
-          "slicer_api_keywords": [],
-          "parameter_name": "additionalBetweenSpaceOfFibulaPlanes",
-          "node_class": "",
-          "confidence": "high",
-          "required": true
-        }
-      ],
-      "parameter_roles": {
-        "additionalBetweenSpaceOfFibulaPlanes": {
-          "role": "additionalBetweenSpaceOfFibulaPlanes",
-          "node_class": "",
-          "value_types": [
-            "float"
-          ],
-          "accesses": [
-            "parameter_write",
-            "parameter_read"
-          ],
-          "keywords": [
-            "additional",
-            "between",
-            "space",
-            "fibula",
-            "planes",
-            "additi",
-            "betwee"
-          ]
-        }
-      },
-      "interaction": {},
-      "operation_model": {
-        "step_type": "user_choice",
-        "op_types": [
-          "user_choice"
-        ],
-        "operation_intents": [
-          "extension_parameter_update"
-        ],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
-        "allow_module_switch": false,
-        "produces_interaction_state": false,
-        "interaction_kinds": []
-      },
-      "template_contract": {
         "template_file": "templates/cb_step_29.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
@@ -2300,7 +2373,7 @@
     {
       "step_id": "cb_step_30",
       "index": 29,
-      "description": "Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles until the positions and rotations look correct.",
+      "description": "Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles.",
       "operation_type": "user_interaction",
       "depends_on": [
         "cb_step_29"
@@ -2313,7 +2386,7 @@
           "operation_id": "cb_step_30_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Manually adjust mandibular cut planes via interaction handles",
+          "description": "Manually adjust mandibular cut plane positions using interaction handles",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -2322,10 +2395,10 @@
             "handles",
             "Translate",
             "Rotate",
-            "SetInteractionMode"
+            "interaction"
           ],
           "parameter_name": "",
-          "node_class": "vtkMRMLMarkupsPlaneNode",
+          "node_class": "",
           "confidence": "high",
           "required": true
         }
@@ -2333,9 +2406,9 @@
       "parameter_roles": {},
       "interaction": {
         "interaction_kind": "view_adjustment",
-        "interaction_type": "plane",
-        "node_class": "vtkMRMLMarkupsPlaneNode",
-        "placement_instructions": "",
+        "interaction_type": "generic",
+        "node_class": "",
+        "placement_instructions": "Drag the visible plane interaction handles to adjust cut plane positions",
         "interaction_owner": "",
         "placement_starter_method": "",
         "created_node_source": ""
@@ -2367,7 +2440,7 @@
     {
       "step_id": "cb_step_31",
       "index": 30,
-      "description": "Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to regenerate the reconstruction. Review the result; if it is not satisfactory, repeat steps 28-31 until the reconstruction is satisfactory.",
+      "description": "Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to regenerate the reconstruction.",
       "operation_type": "extension_op",
       "depends_on": [
         "cb_step_30"
@@ -2380,14 +2453,14 @@
           "operation_id": "cb_step_31_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Regenerate reconstruction by updating fibula planes and transforming pieces",
+          "description": "Regenerate fibula planes, bone pieces, and transform after adjustments",
           "extension_method_hint": "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
           "parameter_name": "",
           "node_class": "",
-          "confidence": "high",
+          "confidence": "medium",
           "required": true
         }
       ],
@@ -2406,6 +2479,33 @@
             "resection",
             "mandib",
             "resect"
+          ]
+        },
+        "fibulaLine": {
+          "role": "fibulaLine",
+          "node_class": "vtkMRMLMarkupsLineNode",
+          "value_types": [],
+          "accesses": [
+            "node_reference_read",
+            "node_reference_write"
+          ],
+          "keywords": [
+            "fibula",
+            "line"
+          ]
+        },
+        "mandibleCurve": {
+          "role": "mandibleCurve",
+          "node_class": "vtkMRMLMarkupsCurveNode",
+          "value_types": [],
+          "accesses": [
+            "node_reference_read",
+            "node_reference_write"
+          ],
+          "keywords": [
+            "mandible",
+            "curve",
+            "mandib"
           ]
         },
         "mandibleModelNode": {
@@ -2436,6 +2536,22 @@
             "model",
             "decima",
             "mandib"
+          ]
+        },
+        "mandibleReconstructionModel": {
+          "role": "mandibleReconstructionModel",
+          "node_class": "",
+          "value_types": [],
+          "accesses": [
+            "node_reference_read",
+            "node_reference_write"
+          ],
+          "keywords": [
+            "mandible",
+            "reconstruction",
+            "model",
+            "mandib",
+            "recons"
           ]
         },
         "useNonDecimatedBoneModelsForPreview": {
@@ -2486,22 +2602,22 @@
     {
       "step_id": "cb_step_32",
       "index": 31,
-      "description": "When the reconstruction is satisfactory, in the BoneReconstructionPlanner module's \"Mandible planes\" row, toggle off the eye-icon tool button to hide the mandibular cut planes.",
+      "description": "In the \"Mandible planes\" row, toggle off the eye-icon tool button to hide the mandibular cut planes.",
       "operation_type": "extension_op",
       "depends_on": [
         "cb_step_31"
       ],
       "is_optional": false,
       "method_name": "",
-      "extension_function_name": "setFolderItemVisibility",
+      "extension_function_name": "",
       "operations": [
         {
           "operation_id": "cb_step_32_op_1",
           "operation_type": "extension_op",
           "intent": "extension_parameter_update",
-          "description": "Toggle off visibility of mandibular cut planes (eye icon)",
+          "description": "Hide mandibular cut planes in 3D view",
           "extension_method_hint": "",
-          "extension_function_hint": "setFolderItemVisibility",
+          "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
           "parameter_name": "showMandiblePlanes",
@@ -2539,9 +2655,9 @@
           "extension_parameter_update"
         ],
         "invokes_extension_method": false,
-        "invokes_extension_function": true,
+        "invokes_extension_function": false,
         "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": true,
+        "implementation_uses_slicer_api": false,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
@@ -2570,7 +2686,7 @@
           "operation_id": "cb_step_33_op_1",
           "operation_type": "extension_op",
           "intent": "extension_parameter_update",
-          "description": "Clear 'Show original mandible model' checkbox",
+          "description": "Clear show original mandible model checkbox",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",

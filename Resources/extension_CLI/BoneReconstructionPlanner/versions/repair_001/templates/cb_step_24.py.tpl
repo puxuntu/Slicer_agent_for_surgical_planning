@@ -26,7 +26,6 @@ try:
     _module_widget.ui.makeAllMandiblePlanesRotateTogetherCheckBox.checked = True
 except Exception:
     pass
-# Final state was not explicit; apply source-derived/default truthy state for makeAllMandiblePlanesRotateTogether
 parameterNode.SetParameter('makeAllMandiblePlanesRotateTogether', 'True')
 try:
     parameterNode.Modified()

@@ -19,14 +19,22 @@ except NameError:
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
-
-# Clear the checkbox (uncheck) and hide the original mandible model,
-# which also hides the cutting planes and interaction holders.
-_module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
-_module_widget.ui.showOriginalMandibleCheckBox.checked = False
+# Sync the bound UI control (mirrors the user's click) so
+# GUI-driven parameter syncs cannot ratchet the value back.
+try:
+    _module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
+    _module_widget.ui.showOriginalMandibleCheckBox.checked = False
+except Exception:
+    pass
 parameterNode.SetParameter('showOriginalMandible', 'False')
+try:
+    parameterNode.Modified()
+except Exception:
+    pass
+# Apply the parameter via the extension's own applier method —
+# a bare SetParameter only records state; GUI observers may
+# recompute it differently.
+_module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
 _module_widget.setOriginalMandibleVisility(False)
-parameterNode.Modified()
-
 _bonereconstructionplanner_logic = logic
 print("[BoneReconstructionPlanner] Step 'cb_step_33' completed.")

@@ -1,4 +1,4 @@
-# --- BoneReconstructionPlanner: When the reconstruction is satisfactory, in the BoneReconstructionPlanner module's "Mandible planes" row, toggle off the eye-icon tool button to hide the mandibular cut planes. ---
+# --- BoneReconstructionPlanner: In the "Mandible planes" row, toggle off the eye-icon tool button to hide the mandibular cut planes. ---
 import slicer
 from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
 
@@ -19,15 +19,22 @@ except NameError:
     _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
-# Toggle off the eye icon to hide mandibular cut planes
-_module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
-_module_widget.ui.showMandiblePlanesToolButton.checked = False
+# Sync the bound UI control (mirrors the user's click) so
+# GUI-driven parameter syncs cannot ratchet the value back.
+try:
+    _module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
+    _module_widget.ui.showMandiblePlanesToolButton.checked = False
+except Exception:
+    pass
 parameterNode.SetParameter('showMandiblePlanes', 'False')
 try:
     parameterNode.Modified()
 except Exception:
     pass
-# Apply the parameter via the extension's own applier method
+# Apply the parameter via the extension's own applier method —
+# a bare SetParameter only records state; GUI observers may
+# recompute it differently.
+_module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
 _module_widget.setMandiblePlanesVisibility(False)
 _bonereconstructionplanner_logic = logic
 print("[BoneReconstructionPlanner] Step 'cb_step_32' completed.")

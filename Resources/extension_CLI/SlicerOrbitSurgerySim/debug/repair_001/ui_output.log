@@ -1,0 +1,29 @@
+==============================================================================
+Extension CLI pipeline  |  round: repair_001
+  extension : SlicerOrbitSurgerySim
+  source    : (repair round — no cookbook parse)
+  started   : 2026-06-23T20:04:41
+==============================================================================
+[2026-06-23T20:04:45 +    3.9s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
+[2026-06-23T20:04:45 +    4.5s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-23T20:08:14 +  212.7s] [verify_repair] Verify And Repair Templates — All 7 API probes passed
+[2026-06-23T20:08:15 +  213.7s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-23T20:08:16 +  215.2s] [verify_repair] Verify And Repair Templates — PASS
+[2026-06-23T20:08:16 +  215.5s] [verify_repair] Verify And Repair Templates — Attempt 1 found 1 repairable issue(s) [LiveExecutionErrorx1]
+[2026-06-23T20:08:17 +  215.9s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_6:LiveExecutionError -> contract_aware_template_repair
+[2026-06-23T20:08:39 +  238.6s] [llm_call] llm — call 000 -> _call_000.json (out 3411 chars)
+[2026-06-23T20:08:40 +  239.1s] [verify_repair] Verify And Repair Templates — Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair
+[2026-06-23T20:08:40 +  239.6s] [verify_repair] Verify And Repair Templates — Validation attempt 2/5
+[2026-06-23T20:08:41 +  240.6s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-23T20:08:42 +  241.6s] [verify_repair] Verify And Repair Templates — All 8 API probes passed
+[2026-06-23T20:08:43 +  242.4s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-23T20:08:45 +  244.3s] [verify_repair] Verify And Repair Templates — PASS
+[2026-06-23T20:08:46 +  245.1s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 2 validation attempt(s)
+------------------------------------------------------------------------------
+SUMMARY
+  success         : True
+  phases_completed: (none)
+  llm_calls       : 1
+  events          : 15
+  templates_changed: 1  ['templates/cb_step_6.py.tpl']
+------------------------------------------------------------------------------

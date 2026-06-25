@@ -1,0 +1,554 @@
+{
+  "schema_version": 2,
+  "pipeline_version": "agentic-cli-v3",
+  "extension_name": "SlicerOrbitSurgerySim",
+  "extension_module_name": "PlateRegistration",
+  "logic_class_name": "PlateRegistrationLogic",
+  "source_path": "C:/0APP_install/slicer/3D Slicer 5.10.0/slicer.org/Extensions-34045/SlicerOrbitSurgerySim",
+  "cookbook_file": "SlicerOrbitSurgerySim.md",
+  "steps": [
+    {
+      "step_id": "cb_step_1",
+      "index": 0,
+      "description": "In the \"Orbit Model\" section, choose Orbit Model node.",
+      "operation_type": "user_choice",
+      "depends_on": [],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_1_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Select the orbit model node from the scene",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "choice_step_1",
+          "node_class": "vtkMRMLModelNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_2",
+      "index": 1,
+      "description": "In the \"Plate model\" section, choose the plate model node.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_1"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_2_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Select the plate model node",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "choice_step_2",
+          "node_class": "vtkMRMLModelNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_3",
+      "index": 2,
+      "description": "In the \"Orbit landmarks\" section, choose the orbit landmarks node.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_2"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_3_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Select the orbit landmarks fiducial node",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "choice_step_3",
+          "node_class": "vtkMRMLMarkupsFiducialNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_4",
+      "index": 3,
+      "description": "In the \"Plate landmarks\" section, choose the plate landmarks node.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_3"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_4_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Select the plate landmarks fiducial node",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "choice_step_4",
+          "node_class": "vtkMRMLMarkupsFiducialNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_5",
+      "index": 4,
+      "description": "Click \"Initial registration\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_4"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "registerSampleData",
+      "operations": [
+        {
+          "operation_id": "cb_step_5_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Perform initial registration of plate to orbit using landmarks",
+          "extension_method_hint": "",
+          "extension_function_hint": "registerSampleData",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": true,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_5.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_6",
+      "index": 5,
+      "description": "Click \"Posterior stop and antero-posterior stops alignment\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_5"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_6_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Align posterior stop and antero-posterior stops",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_6.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_7",
+      "index": 6,
+      "description": "Tick the \"Enable 3D interaction transform handle\" checkbox.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_6"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_7_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Enable 3D interaction transform handle for manual adjustment",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_7.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_8",
+      "index": 7,
+      "description": "Manually adjust the position and rotation of the plate.",
+      "operation_type": "user_interaction",
+      "depends_on": [
+        "cb_step_7"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_8_op_1",
+          "operation_type": "user_interaction",
+          "intent": "",
+          "description": "Manually adjust position and rotation of the plate via transform handle",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "vtkMRMLTransformHandle",
+            "interaction",
+            "Translate",
+            "Rotate",
+            "view_adjustment"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {
+        "interaction_kind": "view_adjustment",
+        "interaction_type": "generic",
+        "node_class": "",
+        "placement_instructions": "",
+        "interaction_owner": "",
+        "placement_starter_method": "",
+        "created_node_source": ""
+      },
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "view_adjustment"
+        ]
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "templates/cb_step_8_pre.py.tpl",
+        "post_template_file": "templates/cb_step_8_post.py.tpl",
+        "required": true,
+        "allow_instruction_only": true
+      }
+    },
+    {
+      "step_id": "cb_step_9",
+      "index": 8,
+      "description": "Click \"Mark intersection\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_8"
+      ],
+      "is_optional": false,
+      "method_name": "intersection_marker",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_9_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Create intersection marker between orbit and plate models",
+          "extension_method_hint": "intersection_marker",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_9.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_10",
+      "index": 9,
+      "description": "Click \"Create Distance Heatmap\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_9"
+      ],
+      "is_optional": false,
+      "method_name": "heatmap",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_10_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Create distance heatmap between orbit and plate surfaces",
+          "extension_method_hint": "heatmap",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_10.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    }
+  ],
+  "metadata_refs": {
+    "parameter_bindings": [
+      "ROICut.InputModel",
+      "ROICut.InputROI",
+      "ROICut.OutputPositiveModel"
+    ],
+    "operation_model_steps": [
+      "cb_step_1",
+      "cb_step_10",
+      "cb_step_2",
+      "cb_step_3",
+      "cb_step_4",
+      "cb_step_5",
+      "cb_step_6",
+      "cb_step_7",
+      "cb_step_8",
+      "cb_step_9"
+    ]
+  }
+}

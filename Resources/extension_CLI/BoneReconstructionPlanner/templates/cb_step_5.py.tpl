@@ -1,3 +1,4 @@
+import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
@@ -17,40 +18,39 @@ except NameError:
 
 parameterNode = logic.getParameterNode()
 
-# Ensure fibulaSegmentation node reference is set
+# Ensure required node references are set
 fibulaSegmentation = parameterNode.GetNodeReference("fibulaSegmentation")
 if fibulaSegmentation is None:
-    import slicer
+    # Search for fibula segmentation node
     segNodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
     fibulaSegmentation = None
     for node in segNodes:
-        if "fibula" in node.GetName().lower():
+        name = node.GetName().lower()
+        if "fibula" in name:
             fibulaSegmentation = node
             break
     if fibulaSegmentation is None:
-        raise RuntimeError("Could not find fibula segmentation node. Please ensure a segmentation node with 'fibula' in its name exists.")
+        raise RuntimeError("Fibula segmentation node not found. Ensure step 3/4 completed.")
     parameterNode.SetNodeReferenceID("fibulaSegmentation", fibulaSegmentation.GetID())
 
-# Ensure mandibularSegmentation node reference is set
 mandibularSegmentation = parameterNode.GetNodeReference("mandibularSegmentation")
 if mandibularSegmentation is None:
+    segNodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
     mandibularSegmentation = None
     for node in segNodes:
-        if "mandib" in node.GetName().lower():
+        name = node.GetName().lower()
+        if "mandibular" in name or "mandible" in name:
             mandibularSegmentation = node
             break
     if mandibularSegmentation is None:
-        raise RuntimeError("Could not find mandibular segmentation node. Please ensure a segmentation node with 'mandible' or 'mandibular' in its name exists.")
+        raise RuntimeError("Mandibular segmentation node not found. Ensure step 3/4 completed.")
     parameterNode.SetNodeReferenceID("mandibularSegmentation", mandibularSegmentation.GetID())
 
-# Set default for useNonDecimatedBoneModelsForPreview if missing
+# Set default parameter for useNonDecimatedBoneModelsForPreview if not set
 if parameterNode.GetParameter("useNonDecimatedBoneModelsForPreview") == "":
     parameterNode.SetParameter("useNonDecimatedBoneModelsForPreview", "True")
 
 # Call the method
 logic.makeModels()
 
-# Store logic instance for subsequent steps
-_bonereconstructionplanner_logic = logic
-
-print("[BoneReconstructionPlanner] Models created successfully.")
+print("[BoneReconstructionPlanner] Step 5 complete: Models generated.")

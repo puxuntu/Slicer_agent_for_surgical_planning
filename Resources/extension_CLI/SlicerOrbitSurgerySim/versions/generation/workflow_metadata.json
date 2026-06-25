@@ -1,0 +1,4239 @@
+{
+  "extension_module_name": "PlateRegistration",
+  "logic_class_name": "PlateRegistrationLogic",
+  "metadata_version": 10,
+  "parameter_bindings": {
+    "ROICut.InputModel": {
+      "role": "ROICut.InputModel",
+      "accesses": [
+        "node_reference_write"
+      ],
+      "methods": [
+        "timeout"
+      ],
+      "method_accesses": {
+        "timeout": [
+          "node_reference_write"
+        ]
+      },
+      "keywords": [
+        "roi",
+        "cut",
+        "input",
+        "model"
+      ],
+      "node_class": "",
+      "value_types": []
+    },
+    "ROICut.InputROI": {
+      "role": "ROICut.InputROI",
+      "accesses": [
+        "node_reference_write"
+      ],
+      "methods": [
+        "timeout"
+      ],
+      "method_accesses": {
+        "timeout": [
+          "node_reference_write"
+        ]
+      },
+      "keywords": [
+        "roi",
+        "cut",
+        "input"
+      ],
+      "node_class": "",
+      "value_types": []
+    },
+    "ROICut.OutputPositiveModel": {
+      "role": "ROICut.OutputPositiveModel",
+      "accesses": [
+        "node_reference_write"
+      ],
+      "methods": [
+        "timeout"
+      ],
+      "method_accesses": {
+        "timeout": [
+          "node_reference_write"
+        ]
+      },
+      "keywords": [
+        "roi",
+        "cut",
+        "output",
+        "positive",
+        "model",
+        "positi"
+      ],
+      "node_class": "",
+      "value_types": []
+    }
+  },
+  "parameter_defaults": {},
+  "ui_parameter_bindings": {},
+  "parameter_method_dependencies": {},
+  "method_parameter_effects": {},
+  "parameter_appliers": {},
+  "choice_bindings": {},
+  "interaction_bindings": {},
+  "workflow_steps": [
+    {
+      "step_id": "cb_step_1",
+      "step_number": null
+    },
+    {
+      "step_id": "cb_step_2",
+      "step_number": null
+    },
+    {
+      "step_id": "cb_step_3",
+      "step_number": null
+    },
+    {
+      "step_id": "cb_step_4",
+      "step_number": null
+    },
+    {
+      "step_id": "cb_step_5",
+      "step_number": null
+    },
+    {
+      "step_id": "cb_step_6",
+      "step_number": null
+    },
+    {
+      "step_id": "cb_step_7",
+      "step_number": null
+    },
+    {
+      "step_id": "cb_step_8",
+      "step_number": null
+    },
+    {
+      "step_id": "cb_step_9",
+      "step_number": null
+    },
+    {
+      "step_id": "cb_step_10",
+      "step_number": null
+    }
+  ],
+  "operation_model": {
+    "cb_step_1": {
+      "step_type": "user_choice",
+      "op_types": [
+        "user_choice"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "cb_step_2": {
+      "step_type": "user_choice",
+      "op_types": [
+        "user_choice"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "cb_step_3": {
+      "step_type": "user_choice",
+      "op_types": [
+        "user_choice"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "cb_step_4": {
+      "step_type": "user_choice",
+      "op_types": [
+        "user_choice"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "cb_step_5": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": true,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "cb_step_6": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "cb_step_7": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "cb_step_8": {
+      "step_type": "user_interaction",
+      "op_types": [
+        "user_interaction"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": true,
+      "interaction_kinds": [
+        "interaction"
+      ]
+    },
+    "cb_step_9": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": true,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "cb_step_10": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": true,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    }
+  },
+  "node_roles": {
+    "cb_step_1": [
+      {
+        "role_kind": "choice_input",
+        "node_class": "vtkMRMLModelNode",
+        "parameter_name": "",
+        "step_id": "cb_step_1"
+      }
+    ],
+    "cb_step_2": [
+      {
+        "role_kind": "choice_input",
+        "node_class": "vtkMRMLModelNode",
+        "parameter_name": "",
+        "step_id": "cb_step_2"
+      }
+    ],
+    "cb_step_3": [
+      {
+        "role_kind": "choice_input",
+        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "parameter_name": "",
+        "step_id": "cb_step_3"
+      }
+    ],
+    "cb_step_4": [
+      {
+        "role_kind": "choice_input",
+        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "parameter_name": "",
+        "step_id": "cb_step_4"
+      }
+    ]
+  },
+  "repeat_groups": {},
+  "repeat_blocks": {},
+  "validation_state": {
+    "static_valid": true,
+    "api_probe_valid": true,
+    "contract_valid": true,
+    "prelude_valid": true,
+    "contract_audit_valid": true,
+    "workflow_state_valid": true,
+    "prelude_bytes_max": 2370,
+    "overall_valid": true,
+    "api_proof_valid": true,
+    "api_inventory_complete": true,
+    "generate_syntax_valid_at_generate": true,
+    "final_syntax_valid": true,
+    "placeholder_closure_valid": true,
+    "generator_template_sync_valid": true
+  },
+  "api_evidence": {
+    "templates/cb_step_5.py.tpl": {
+      "api_chains": [
+        "slicer.util.selectedModule",
+        "slicer.util.selectModule"
+      ],
+      "probe_status": "passed"
+    },
+    "templates/cb_step_6.py.tpl": {
+      "api_chains": [
+        "slicer.util.selectedModule",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.modules.plateregistration.widgetRepresentation().self",
+        "slicer.modules.plateregistration.widgetRepresentation"
+      ],
+      "probe_status": "passed"
+    },
+    "templates/cb_step_7.py.tpl": {
+      "api_chains": [
+        "slicer.util.selectedModule",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.modules.plateregistration.widgetRepresentation().self",
+        "slicer.modules.plateregistration.widgetRepresentation"
+      ],
+      "probe_status": "passed"
+    },
+    "templates/cb_step_8_post.py.tpl": {
+      "api_chains": [
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+      ],
+      "probe_status": "passed"
+    },
+    "templates/cb_step_9.py.tpl": {
+      "api_chains": [
+        "slicer.util.selectedModule",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.modules.plateregistration.widgetRepresentation().self",
+        "slicer.modules.plateregistration.widgetRepresentation"
+      ],
+      "probe_status": "passed"
+    },
+    "templates/cb_step_10.py.tpl": {
+      "api_chains": [
+        "slicer.util.selectedModule",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.modules.plateregistration.widgetRepresentation().self",
+        "slicer.modules.plateregistration.widgetRepresentation"
+      ],
+      "probe_status": "passed"
+    }
+  },
+  "api_type_contracts": {
+    "module": {
+      "methods": {
+        "selectedModule": {
+          "exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success",
+          "confidence": "high"
+        },
+        "selectModule": {
+          "exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success",
+          "confidence": "high"
+        },
+        "getModuleWidget": {
+          "exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success",
+          "confidence": "high"
+        }
+      }
+    },
+    "qSlicerScriptedLoadableModuleWidget": {
+      "methods": {
+        "self": {
+          "exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success",
+          "confidence": "high"
+        }
+      }
+    },
+    "qSlicerScriptedLoadableModule": {
+      "methods": {
+        "widgetRepresentation": {
+          "exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success",
+          "confidence": "high"
+        }
+      }
+    },
+    "vtkMRMLScene": {
+      "methods": {
+        "GetNodeByID": {
+          "exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success",
+          "confidence": "high"
+        }
+      }
+    },
+    "vtkMRMLInteractionNode": {
+      "methods": {
+        "SwitchToViewTransformMode": {
+          "exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success",
+          "confidence": "high"
+        }
+      }
+    },
+    "PlateRegistrationParameterNode": {
+      "methods": {
+        "GetNodeReference": {
+          "exists": false,
+          "effect": "unknown",
+          "source": "parameter_node_wrapper",
+          "confidence": "high"
+        },
+        "GetNodeReferenceID": {
+          "exists": false,
+          "effect": "unknown",
+          "source": "parameter_node_wrapper",
+          "confidence": "high"
+        },
+        "SetNodeReferenceID": {
+          "exists": false,
+          "effect": "unknown",
+          "source": "parameter_node_wrapper",
+          "confidence": "high"
+        },
+        "SetAndObserveNodeReferenceID": {
+          "exists": false,
+          "effect": "unknown",
+          "source": "parameter_node_wrapper",
+          "confidence": "high"
+        },
+        "AddNodeReferenceID": {
+          "exists": false,
+          "effect": "unknown",
+          "source": "parameter_node_wrapper",
+          "confidence": "high"
+        },
+        "GetParameter": {
+          "exists": false,
+          "effect": "unknown",
+          "source": "parameter_node_wrapper",
+          "confidence": "high"
+        },
+        "SetParameter": {
+          "exists": false,
+          "effect": "unknown",
+          "source": "parameter_node_wrapper",
+          "confidence": "high"
+        }
+      }
+    }
+  },
+  "api_proof_coverage": {
+    "total_calls": 57,
+    "state_changing_calls": 16,
+    "proven_calls": 55,
+    "invalid_calls": 0,
+    "blocking_unproven_calls": 0,
+    "warning_unproven_reads": 2,
+    "inventory_complete": true
+  },
+  "parameter_node_wrapper": {
+    "file": "C:/0APP_install/slicer/3D Slicer 5.10.0/slicer.org/Extensions-34045/SlicerOrbitSurgerySim\\lib\\Slicer-5.10\\qt-scripted-modules\\PlateRegistration.py",
+    "class_name": "PlateRegistrationParameterNode",
+    "fields": {
+      "originalPlateModel": "vtkMRMLModelNode",
+      "rigidRegisteredPlateModel": "vtkMRMLModelNode",
+      "originalPlateLm": "vtkMRMLMarkupsFiducialNode",
+      "registeredPlateLm": "vtkMRMLMarkupsFiducialNode",
+      "orbitLm": "vtkMRMLMarkupsFiducialNode",
+      "fractureOrbitModel": "vtkMRMLModelNode",
+      "interactionPlateModel": "vtkMRMLModelNode",
+      "initialRigidTransform": "vtkMRMLTransformNode",
+      "alignPosteriorStopTransform": "vtkMRMLTransformNode",
+      "pStopRotationTransform": "vtkMRMLTransformNode",
+      "interactionTransformRecorder": "vtkMRMLTransformNode",
+      "allTransformNode": "vtkMRMLTransformNode",
+      "plateRegFolderName": "str",
+      "ioRootDir": "str",
+      "orbitModelRecon": "vtkMRMLModelNode",
+      "registeredPlateInfoJSON": "str",
+      "lastInteractionTransform": "vtkMRMLTransformNode",
+      "fullInteractionTransform": "vtkMRMLTransformNode",
+      "plateNameUpdateReg": "str"
+    },
+    "line": 121
+  },
+  "extension_callable_inventory": {
+    "logic_methods": [
+      "__init__",
+      "align_p_stop",
+      "collision_detection",
+      "computeMarginProjDists",
+      "createPtsDict",
+      "createRankDf",
+      "create_or_update_line",
+      "curveToFiducialMarkups",
+      "exportCurrentFolder",
+      "exportMarginDistsCSV",
+      "getParameterNode",
+      "getPlateMarginNames",
+      "get_line_points_world",
+      "get_point_world",
+      "heatmap",
+      "intersection_marker",
+      "makeScatterPlotWithFactors",
+      "matplotlibScatterPlot",
+      "normalize",
+      "paint_model_by_volume",
+      "placeLm",
+      "plotScalarHistogram",
+      "plottingMarginDists",
+      "projectPoints",
+      "projectPointsPolydata",
+      "rankHeatmap",
+      "rankPlateMarginDists",
+      "rigid_transform",
+      "rotation_between_lines",
+      "savePLYWithScalarTable",
+      "writeParameterDict"
+    ],
+    "logic_attributes": [
+      "align_p_stop",
+      "collision_detection",
+      "computeMarginProjDists",
+      "createPtsDict",
+      "createRankDf",
+      "create_or_update_line",
+      "curveToFiducialMarkups",
+      "exportCurrentFolder",
+      "exportMarginDistsCSV",
+      "getParameterNode",
+      "getPlateMarginNames",
+      "get_line_points_world",
+      "get_point_world",
+      "heatmap",
+      "intersection_marker",
+      "makeScatterPlotWithFactors",
+      "matplotlibScatterPlot",
+      "normalize",
+      "paint_model_by_volume",
+      "placeLm",
+      "plotScalarHistogram",
+      "plottingMarginDists",
+      "projectPoints",
+      "projectPointsPolydata",
+      "rankHeatmap",
+      "rankPlateMarginDists",
+      "rigid_transform",
+      "rotation_between_lines",
+      "savePLYWithScalarTable",
+      "writeParameterDict"
+    ],
+    "module_functions": [
+      "downloadSampleDataInFolder",
+      "registerSampleData"
+    ],
+    "module_function_effects": {
+      "downloadSampleDataInFolder": [],
+      "registerSampleData": []
+    },
+    "module_function_param_counts": {
+      "downloadSampleDataInFolder": 1,
+      "registerSampleData": 0
+    }
+  },
+  "ui_guidance": {
+    "cb_step_1": {
+      "title": "Choose Orbit Model",
+      "instruction": "Select the orbit model node from the scene.",
+      "done_label": "Done",
+      "choice_label": "Orbit Model",
+      "input_label": "Choice",
+      "object_label": "model",
+      "repeat": {}
+    },
+    "cb_step_2": {
+      "title": "Choose Plate Model",
+      "instruction": "Select the plate model node from the scene.",
+      "done_label": "Done",
+      "choice_label": "Plate Model",
+      "input_label": "Choice",
+      "object_label": "model",
+      "repeat": {}
+    },
+    "cb_step_3": {
+      "title": "Choose Orbit Landmarks",
+      "instruction": "Select the orbit landmarks fiducial node from the scene.",
+      "done_label": "Done",
+      "choice_label": "Orbit Landmarks",
+      "input_label": "Choice",
+      "object_label": "landmarks",
+      "repeat": {}
+    },
+    "cb_step_4": {
+      "title": "Choose Plate Landmarks",
+      "instruction": "Select the plate landmarks fiducial node from the scene.",
+      "done_label": "Done",
+      "choice_label": "Plate Landmarks",
+      "input_label": "Choice",
+      "object_label": "landmarks",
+      "repeat": {}
+    },
+    "cb_step_5": {
+      "title": "Initial Registration",
+      "instruction": "",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "button",
+      "repeat": {}
+    },
+    "cb_step_6": {
+      "title": "Align Posterior and AP Stops",
+      "instruction": "",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "button",
+      "repeat": {}
+    },
+    "cb_step_7": {
+      "title": "Enable 3D Transform Handle",
+      "instruction": "",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "checkbox",
+      "repeat": {}
+    },
+    "cb_step_8": {
+      "title": "Adjust Plate Position",
+      "instruction": "Use the transform handle to adjust position and rotation of the plate.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "plate",
+      "repeat": {}
+    },
+    "cb_step_9": {
+      "title": "Mark Intersection",
+      "instruction": "",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "button",
+      "repeat": {}
+    },
+    "cb_step_10": {
+      "title": "Create Distance Heatmap",
+      "instruction": "",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "button",
+      "repeat": {}
+    }
+  },
+  "workflow_contract_version": 2,
+  "workflow_contract_summary": {
+    "step_count": 10,
+    "operation_types": [
+      "extension_op",
+      "user_choice",
+      "user_interaction"
+    ]
+  },
+  "contract_audit": {
+    "schema_version": 1,
+    "valid": true,
+    "errors": [],
+    "warnings": [],
+    "findings": [],
+    "workflow_state_graph": {
+      "schema_version": 1,
+      "consumers": [],
+      "producers": {},
+      "parameter_consumers": {},
+      "parameter_producers": {},
+      "step_order": {
+        "cb_step_1": 0,
+        "cb_step_2": 1,
+        "cb_step_3": 2,
+        "cb_step_4": 3,
+        "cb_step_5": 4,
+        "cb_step_6": 5,
+        "cb_step_7": 6,
+        "cb_step_8": 7,
+        "cb_step_9": 8,
+        "cb_step_10": 9
+      },
+      "errors": [],
+      "warnings": []
+    }
+  },
+  "template_contract_sync": {
+    "extension_functions": [
+      {
+        "template": "templates/cb_step_5.py.tpl",
+        "function": "registerSampleData"
+      }
+    ],
+    "destructive_contracts": []
+  },
+  "final_api_evidence": {
+    "templates/cb_step_5.py.tpl": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "selectModule",
+        "selectedModule",
+        "util"
+      ],
+      "api_chains": [
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Perform initial registration of plate to orbit using landmarks"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    },
+    "templates/cb_step_6.py.tpl": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onRotation_p_stop_pushButton",
+        "plateregistration",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onRotation_p_stop_pushButton",
+        "slicer.modules.plateregistration.widgetRepresentation",
+        "slicer.modules.plateregistration.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Align posterior stop and antero-posterior stops"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    },
+    "templates/cb_step_7.py.tpl": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "blockSignals",
+        "checked",
+        "getModuleWidget",
+        "interactionTransformCheckbox",
+        "modules",
+        "onInteractionTransform",
+        "plateregistration",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "ui",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_ctrl.blockSignals",
+        "_widget.onInteractionTransform",
+        "slicer.modules.plateregistration.widgetRepresentation",
+        "slicer.modules.plateregistration.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Enable 3D interaction transform handle for manual adjustment"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    },
+    "templates/cb_step_8_post.py.tpl": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetNodeByID",
+        "SwitchToViewTransformMode",
+        "mrmlScene",
+        "vtkMRMLInteractionNodeSingleton"
+      ],
+      "api_chains": [
+        "interactionNode.SwitchToViewTransformMode",
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+      ],
+      "operation_descriptions": [
+        "Manually adjust the position and rotation of the plate."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    },
+    "templates/cb_step_9.py.tpl": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onCreateIntersectButton",
+        "plateregistration",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onCreateIntersectButton",
+        "slicer.modules.plateregistration.widgetRepresentation",
+        "slicer.modules.plateregistration.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Create intersection marker between orbit and plate models"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    },
+    "templates/cb_step_10.py.tpl": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onInstantHeatMap",
+        "plateregistration",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onInstantHeatMap",
+        "slicer.modules.plateregistration.widgetRepresentation",
+        "slicer.modules.plateregistration.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Create distance heatmap between orbit and plate surfaces"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  "ground_api_evidence_note": "ground_api_evidence is pre-revision retrieval evidence; final_api_evidence reflects the current validated templates.",
+  "semantic_contracts": {
+    "templates/cb_step_5.py.tpl": {
+      "operation_intents": [],
+      "errors": [],
+      "warnings": []
+    },
+    "templates/cb_step_6.py.tpl": {
+      "operation_intents": [],
+      "errors": [],
+      "warnings": []
+    },
+    "templates/cb_step_7.py.tpl": {
+      "operation_intents": [],
+      "errors": [],
+      "warnings": []
+    },
+    "templates/cb_step_8_pre.py.tpl": {
+      "operation_intents": [],
+      "errors": [],
+      "warnings": []
+    },
+    "templates/cb_step_8_post.py.tpl": {
+      "operation_intents": [],
+      "errors": [],
+      "warnings": []
+    },
+    "templates/cb_step_9.py.tpl": {
+      "operation_intents": [],
+      "errors": [],
+      "warnings": []
+    },
+    "templates/cb_step_10.py.tpl": {
+      "operation_intents": [],
+      "errors": [],
+      "warnings": []
+    }
+  },
+  "api_call_inventory": {
+    "templates/cb_step_5.py.tpl": {
+      "template": "templates/cb_step_5.py.tpl",
+      "complete": true,
+      "calls": [
+        {
+          "call_id": "78673af16fc6b38c0cdc",
+          "template": "templates/cb_step_5.py.tpl",
+          "source_span": {
+            "lineno": 7,
+            "col_offset": 22,
+            "end_lineno": 7,
+            "end_col_offset": 50
+          },
+          "call_expression": "slicer.util.selectedModule()",
+          "receiver_expression": "slicer.util",
+          "method": "selectedModule",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_5"
+        },
+        {
+          "call_id": "23c541bdc7c4c124899b",
+          "template": "templates/cb_step_5.py.tpl",
+          "source_span": {
+            "lineno": 10,
+            "col_offset": 8,
+            "end_lineno": 10,
+            "end_col_offset": 53
+          },
+          "call_expression": "slicer.util.selectModule('PlateRegistration')",
+          "receiver_expression": "slicer.util",
+          "method": "selectModule",
+          "arguments": [
+            "'PlateRegistration'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_5"
+        },
+        {
+          "call_id": "895df8ddfcc70b1d7517",
+          "template": "templates/cb_step_5.py.tpl",
+          "source_span": {
+            "lineno": 12,
+            "col_offset": 8,
+            "end_lineno": 12,
+            "end_col_offset": 95
+          },
+          "call_expression": "print(f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_5"
+        },
+        {
+          "call_id": "4f9363b43784b04c6f57",
+          "template": "templates/cb_step_5.py.tpl",
+          "source_span": {
+            "lineno": 15,
+            "col_offset": 0,
+            "end_lineno": 15,
+            "end_col_offset": 20
+          },
+          "call_expression": "registerSampleData()",
+          "receiver_expression": "",
+          "method": "registerSampleData",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_5"
+        },
+        {
+          "call_id": "8b3ab40c9a0c5041416c",
+          "template": "templates/cb_step_5.py.tpl",
+          "source_span": {
+            "lineno": 17,
+            "col_offset": 0,
+            "end_lineno": 17,
+            "end_col_offset": 60
+          },
+          "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_5' completed.\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "\"[SlicerOrbitSurgerySim] Step 'cb_step_5' completed.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_5"
+        }
+      ],
+      "error": ""
+    },
+    "templates/cb_step_6.py.tpl": {
+      "template": "templates/cb_step_6.py.tpl",
+      "complete": true,
+      "calls": [
+        {
+          "call_id": "79677207e49caf83eccb",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 5,
+            "col_offset": 22,
+            "end_lineno": 5,
+            "end_col_offset": 50
+          },
+          "call_expression": "slicer.util.selectedModule()",
+          "receiver_expression": "slicer.util",
+          "method": "selectedModule",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_6"
+        },
+        {
+          "call_id": "8ddacc09f78edb526407",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 8,
+            "col_offset": 8,
+            "end_lineno": 8,
+            "end_col_offset": 53
+          },
+          "call_expression": "slicer.util.selectModule('PlateRegistration')",
+          "receiver_expression": "slicer.util",
+          "method": "selectModule",
+          "arguments": [
+            "'PlateRegistration'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_6"
+        },
+        {
+          "call_id": "0c2c3fefc28bed52a9df",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 10,
+            "col_offset": 8,
+            "end_lineno": 10,
+            "end_col_offset": 95
+          },
+          "call_expression": "print(f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_6"
+        },
+        {
+          "call_id": "e9ba1fbbebb8e81d5b9a",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 18,
+            "col_offset": 14,
+            "end_lineno": 18,
+            "end_col_offset": 62
+          },
+          "call_expression": "slicer.util.getModuleWidget('PlateRegistration')",
+          "receiver_expression": "slicer.util",
+          "method": "getModuleWidget",
+          "arguments": [
+            "'PlateRegistration'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_6"
+        },
+        {
+          "call_id": "9573c3225a84e6d209be",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 23,
+            "col_offset": 18,
+            "end_lineno": 23,
+            "end_col_offset": 73
+          },
+          "call_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+          "receiver_expression": "slicer.modules.plateregistration",
+          "method": "widgetRepresentation",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_6"
+        },
+        {
+          "call_id": "fd53db6e5932bd20f4ee",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 23,
+            "col_offset": 18,
+            "end_lineno": 23,
+            "end_col_offset": 80
+          },
+          "call_expression": "slicer.modules.plateregistration.widgetRepresentation().self()",
+          "receiver_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+          "method": "self",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_6"
+        },
+        {
+          "call_id": "b5028b58de0e48bba9f3",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 27,
+            "col_offset": 10,
+            "end_lineno": 27,
+            "end_col_offset": 121
+          },
+          "call_expression": "RuntimeError(\"Could not obtain the PlateRegistration module widget for 'posteriorStopRegistrationPushButton'.\")",
+          "receiver_expression": "",
+          "method": "RuntimeError",
+          "arguments": [
+            "\"Could not obtain the PlateRegistration module widget for 'posteriorStopRegistrationPushButton'.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_6"
+        },
+        {
+          "call_id": "0be83829bc3d8563171f",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 28,
+            "col_offset": 7,
+            "end_lineno": 28,
+            "end_col_offset": 55
+          },
+          "call_expression": "hasattr(_widget, 'onRotation_p_stop_pushButton')",
+          "receiver_expression": "",
+          "method": "hasattr",
+          "arguments": [
+            "_widget",
+            "'onRotation_p_stop_pushButton'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_6"
+        },
+        {
+          "call_id": "55054fc7e64ac17cbc9c",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 29,
+            "col_offset": 10,
+            "end_lineno": 29,
+            "end_col_offset": 159
+          },
+          "call_expression": "RuntimeError(\"PlateRegistration widget has no handler 'onRotation_p_stop_pushButton' for 'posteriorStopRegistrationPushButton'; regenerate the CLI.\")",
+          "receiver_expression": "",
+          "method": "RuntimeError",
+          "arguments": [
+            "\"PlateRegistration widget has no handler 'onRotation_p_stop_pushButton' for 'posteriorStopRegistrationPushButton'; regenerate the CLI.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_6"
+        },
+        {
+          "call_id": "bca0cbbbaccac784618e",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 30,
+            "col_offset": 0,
+            "end_lineno": 30,
+            "end_col_offset": 38
+          },
+          "call_expression": "_widget.onRotation_p_stop_pushButton()",
+          "receiver_expression": "_widget",
+          "method": "onRotation_p_stop_pushButton",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_6"
+        },
+        {
+          "call_id": "ea551b4dab3c1005e618",
+          "template": "templates/cb_step_6.py.tpl",
+          "source_span": {
+            "lineno": 31,
+            "col_offset": 0,
+            "end_lineno": 31,
+            "end_col_offset": 132
+          },
+          "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_6': clicked 'posteriorStopRegistrationPushButton' via onRotation_p_stop_pushButton().\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "\"[SlicerOrbitSurgerySim] Step 'cb_step_6': clicked 'posteriorStopRegistrationPushButton' via onRotation_p_stop_pushButton().\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_6"
+        }
+      ],
+      "error": ""
+    },
+    "templates/cb_step_7.py.tpl": {
+      "template": "templates/cb_step_7.py.tpl",
+      "complete": true,
+      "calls": [
+        {
+          "call_id": "41272512052aab1813cb",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 5,
+            "col_offset": 22,
+            "end_lineno": 5,
+            "end_col_offset": 50
+          },
+          "call_expression": "slicer.util.selectedModule()",
+          "receiver_expression": "slicer.util",
+          "method": "selectedModule",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "f5ea52f4e5260923f5ac",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 8,
+            "col_offset": 8,
+            "end_lineno": 8,
+            "end_col_offset": 53
+          },
+          "call_expression": "slicer.util.selectModule('PlateRegistration')",
+          "receiver_expression": "slicer.util",
+          "method": "selectModule",
+          "arguments": [
+            "'PlateRegistration'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "da88fab6ccf27caad642",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 10,
+            "col_offset": 8,
+            "end_lineno": 10,
+            "end_col_offset": 95
+          },
+          "call_expression": "print(f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "d30bd3092a0195e6c0f4",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 18,
+            "col_offset": 14,
+            "end_lineno": 18,
+            "end_col_offset": 62
+          },
+          "call_expression": "slicer.util.getModuleWidget('PlateRegistration')",
+          "receiver_expression": "slicer.util",
+          "method": "getModuleWidget",
+          "arguments": [
+            "'PlateRegistration'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "44d25b91989b34e9447b",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 23,
+            "col_offset": 18,
+            "end_lineno": 23,
+            "end_col_offset": 80
+          },
+          "call_expression": "slicer.modules.plateregistration.widgetRepresentation().self()",
+          "receiver_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+          "method": "self",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "8dbd55a459bb50ebfe6a",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 23,
+            "col_offset": 18,
+            "end_lineno": 23,
+            "end_col_offset": 73
+          },
+          "call_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+          "receiver_expression": "slicer.modules.plateregistration",
+          "method": "widgetRepresentation",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "8b71ac706a5cbe2d0da0",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 27,
+            "col_offset": 10,
+            "end_lineno": 27,
+            "end_col_offset": 114
+          },
+          "call_expression": "RuntimeError(\"Could not obtain the PlateRegistration module widget for 'interactionTransformCheckbox'.\")",
+          "receiver_expression": "",
+          "method": "RuntimeError",
+          "arguments": [
+            "\"Could not obtain the PlateRegistration module widget for 'interactionTransformCheckbox'.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "30443e475e0afc0d54ec",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 28,
+            "col_offset": 7,
+            "end_lineno": 28,
+            "end_col_offset": 49
+          },
+          "call_expression": "hasattr(_widget, 'onInteractionTransform')",
+          "receiver_expression": "",
+          "method": "hasattr",
+          "arguments": [
+            "_widget",
+            "'onInteractionTransform'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "bd7a3c7bf07e3ee0b9ee",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 29,
+            "col_offset": 10,
+            "end_lineno": 29,
+            "end_col_offset": 146
+          },
+          "call_expression": "RuntimeError(\"PlateRegistration widget has no handler 'onInteractionTransform' for 'interactionTransformCheckbox'; regenerate the CLI.\")",
+          "receiver_expression": "",
+          "method": "RuntimeError",
+          "arguments": [
+            "\"PlateRegistration widget has no handler 'onInteractionTransform' for 'interactionTransformCheckbox'; regenerate the CLI.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "c20c102dc5f195f560f8",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 40,
+            "col_offset": 8,
+            "end_lineno": 40,
+            "end_col_offset": 32
+          },
+          "call_expression": "_ctrl.blockSignals(True)",
+          "receiver_expression": "_ctrl",
+          "method": "blockSignals",
+          "arguments": [
+            "True"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "a12cc14b9fc3488fd5e3",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 42,
+            "col_offset": 8,
+            "end_lineno": 42,
+            "end_col_offset": 33
+          },
+          "call_expression": "_ctrl.blockSignals(False)",
+          "receiver_expression": "_ctrl",
+          "method": "blockSignals",
+          "arguments": [
+            "False"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "c2b2fa43252b589167b4",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 46,
+            "col_offset": 4,
+            "end_lineno": 46,
+            "end_col_offset": 40
+          },
+          "call_expression": "_widget.onInteractionTransform(True)",
+          "receiver_expression": "_widget",
+          "method": "onInteractionTransform",
+          "arguments": [
+            "True"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "37cd28919023d1c12396",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 48,
+            "col_offset": 4,
+            "end_lineno": 48,
+            "end_col_offset": 36
+          },
+          "call_expression": "_widget.onInteractionTransform()",
+          "receiver_expression": "_widget",
+          "method": "onInteractionTransform",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_7"
+        },
+        {
+          "call_id": "b456d7425e72d9160e83",
+          "template": "templates/cb_step_7.py.tpl",
+          "source_span": {
+            "lineno": 49,
+            "col_offset": 0,
+            "end_lineno": 49,
+            "end_col_offset": 120
+          },
+          "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_7': set 'interactionTransformCheckbox' = True via onInteractionTransform.\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "\"[SlicerOrbitSurgerySim] Step 'cb_step_7': set 'interactionTransformCheckbox' = True via onInteractionTransform.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_7"
+        }
+      ],
+      "error": ""
+    },
+    "templates/cb_step_8_pre.py.tpl": {
+      "template": "templates/cb_step_8_pre.py.tpl",
+      "complete": true,
+      "calls": [
+        {
+          "call_id": "58b3ad168e9d903d7cce",
+          "template": "templates/cb_step_8_pre.py.tpl",
+          "source_span": {
+            "lineno": 5,
+            "col_offset": 0,
+            "end_lineno": 5,
+            "end_col_offset": 95
+          },
+          "call_expression": "print('[SlicerOrbitSurgerySim] Please Manually adjust the position and rotation of the plate.')",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "'[SlicerOrbitSurgerySim] Please Manually adjust the position and rotation of the plate.'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_8"
+        },
+        {
+          "call_id": "6d26ff9a47da29533c8d",
+          "template": "templates/cb_step_8_pre.py.tpl",
+          "source_span": {
+            "lineno": 6,
+            "col_offset": 0,
+            "end_lineno": 6,
+            "end_col_offset": 70
+          },
+          "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "\"When finished, press the 'Done' button in the workflow panel.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_8"
+        }
+      ],
+      "error": ""
+    },
+    "templates/cb_step_8_post.py.tpl": {
+      "template": "templates/cb_step_8_post.py.tpl",
+      "complete": true,
+      "calls": [
+        {
+          "call_id": "b63b9e4154be043f378a",
+          "template": "templates/cb_step_8_post.py.tpl",
+          "source_span": {
+            "lineno": 4,
+            "col_offset": 18,
+            "end_lineno": 4,
+            "end_col_offset": 81
+          },
+          "call_expression": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
+          "receiver_expression": "slicer.mrmlScene",
+          "method": "GetNodeByID",
+          "arguments": [
+            "'vtkMRMLInteractionNodeSingleton'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_8"
+        },
+        {
+          "call_id": "ca036e04a3114faa7d6d",
+          "template": "templates/cb_step_8_post.py.tpl",
+          "source_span": {
+            "lineno": 6,
+            "col_offset": 4,
+            "end_lineno": 6,
+            "end_col_offset": 47
+          },
+          "call_expression": "interactionNode.SwitchToViewTransformMode()",
+          "receiver_expression": "interactionNode",
+          "method": "SwitchToViewTransformMode",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_8"
+        },
+        {
+          "call_id": "8363972506249432e503",
+          "template": "templates/cb_step_8_post.py.tpl",
+          "source_span": {
+            "lineno": 8,
+            "col_offset": 0,
+            "end_lineno": 8,
+            "end_col_offset": 76
+          },
+          "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_8' view adjustment completed.\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "\"[SlicerOrbitSurgerySim] Step 'cb_step_8' view adjustment completed.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_8"
+        }
+      ],
+      "error": ""
+    },
+    "templates/cb_step_9.py.tpl": {
+      "template": "templates/cb_step_9.py.tpl",
+      "complete": true,
+      "calls": [
+        {
+          "call_id": "d4f9926cd87f081101e5",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 5,
+            "col_offset": 22,
+            "end_lineno": 5,
+            "end_col_offset": 50
+          },
+          "call_expression": "slicer.util.selectedModule()",
+          "receiver_expression": "slicer.util",
+          "method": "selectedModule",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_9"
+        },
+        {
+          "call_id": "112b3749c15446a8a920",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 8,
+            "col_offset": 8,
+            "end_lineno": 8,
+            "end_col_offset": 53
+          },
+          "call_expression": "slicer.util.selectModule('PlateRegistration')",
+          "receiver_expression": "slicer.util",
+          "method": "selectModule",
+          "arguments": [
+            "'PlateRegistration'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_9"
+        },
+        {
+          "call_id": "ed82155ee4160e224a58",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 10,
+            "col_offset": 8,
+            "end_lineno": 10,
+            "end_col_offset": 95
+          },
+          "call_expression": "print(f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_9"
+        },
+        {
+          "call_id": "566c2f74ccd92864a483",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 18,
+            "col_offset": 14,
+            "end_lineno": 18,
+            "end_col_offset": 62
+          },
+          "call_expression": "slicer.util.getModuleWidget('PlateRegistration')",
+          "receiver_expression": "slicer.util",
+          "method": "getModuleWidget",
+          "arguments": [
+            "'PlateRegistration'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_9"
+        },
+        {
+          "call_id": "7923b7b03cd547e45d1c",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 23,
+            "col_offset": 18,
+            "end_lineno": 23,
+            "end_col_offset": 73
+          },
+          "call_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+          "receiver_expression": "slicer.modules.plateregistration",
+          "method": "widgetRepresentation",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_9"
+        },
+        {
+          "call_id": "bcf47b0b6e66106ffc73",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 23,
+            "col_offset": 18,
+            "end_lineno": 23,
+            "end_col_offset": 80
+          },
+          "call_expression": "slicer.modules.plateregistration.widgetRepresentation().self()",
+          "receiver_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+          "method": "self",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_9"
+        },
+        {
+          "call_id": "d9fb8a5063bd5ef0cd2a",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 27,
+            "col_offset": 10,
+            "end_lineno": 27,
+            "end_col_offset": 107
+          },
+          "call_expression": "RuntimeError(\"Could not obtain the PlateRegistration module widget for 'createIntersectButton'.\")",
+          "receiver_expression": "",
+          "method": "RuntimeError",
+          "arguments": [
+            "\"Could not obtain the PlateRegistration module widget for 'createIntersectButton'.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_9"
+        },
+        {
+          "call_id": "61a7560f49a6d1e67522",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 28,
+            "col_offset": 7,
+            "end_lineno": 28,
+            "end_col_offset": 50
+          },
+          "call_expression": "hasattr(_widget, 'onCreateIntersectButton')",
+          "receiver_expression": "",
+          "method": "hasattr",
+          "arguments": [
+            "_widget",
+            "'onCreateIntersectButton'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_9"
+        },
+        {
+          "call_id": "b9759f626555badbe61e",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 29,
+            "col_offset": 10,
+            "end_lineno": 29,
+            "end_col_offset": 140
+          },
+          "call_expression": "RuntimeError(\"PlateRegistration widget has no handler 'onCreateIntersectButton' for 'createIntersectButton'; regenerate the CLI.\")",
+          "receiver_expression": "",
+          "method": "RuntimeError",
+          "arguments": [
+            "\"PlateRegistration widget has no handler 'onCreateIntersectButton' for 'createIntersectButton'; regenerate the CLI.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_9"
+        },
+        {
+          "call_id": "b1471f83b8704bfc0565",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 30,
+            "col_offset": 0,
+            "end_lineno": 30,
+            "end_col_offset": 33
+          },
+          "call_expression": "_widget.onCreateIntersectButton()",
+          "receiver_expression": "_widget",
+          "method": "onCreateIntersectButton",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_9"
+        },
+        {
+          "call_id": "f855f8d1300408d8c95c",
+          "template": "templates/cb_step_9.py.tpl",
+          "source_span": {
+            "lineno": 31,
+            "col_offset": 0,
+            "end_lineno": 31,
+            "end_col_offset": 113
+          },
+          "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_9': clicked 'createIntersectButton' via onCreateIntersectButton().\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "\"[SlicerOrbitSurgerySim] Step 'cb_step_9': clicked 'createIntersectButton' via onCreateIntersectButton().\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_9"
+        }
+      ],
+      "error": ""
+    },
+    "templates/cb_step_10.py.tpl": {
+      "template": "templates/cb_step_10.py.tpl",
+      "complete": true,
+      "calls": [
+        {
+          "call_id": "2941c3c896a78df74ede",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 5,
+            "col_offset": 22,
+            "end_lineno": 5,
+            "end_col_offset": 50
+          },
+          "call_expression": "slicer.util.selectedModule()",
+          "receiver_expression": "slicer.util",
+          "method": "selectedModule",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "5ac98ea0152887d2b206",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 8,
+            "col_offset": 8,
+            "end_lineno": 8,
+            "end_col_offset": 53
+          },
+          "call_expression": "slicer.util.selectModule('PlateRegistration')",
+          "receiver_expression": "slicer.util",
+          "method": "selectModule",
+          "arguments": [
+            "'PlateRegistration'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "46b4d94aeaaa055e00c1",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 10,
+            "col_offset": 8,
+            "end_lineno": 10,
+            "end_col_offset": 95
+          },
+          "call_expression": "print(f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "6bce32d384194b730cdd",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 18,
+            "col_offset": 14,
+            "end_lineno": 18,
+            "end_col_offset": 62
+          },
+          "call_expression": "slicer.util.getModuleWidget('PlateRegistration')",
+          "receiver_expression": "slicer.util",
+          "method": "getModuleWidget",
+          "arguments": [
+            "'PlateRegistration'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "11fe432293d8c5fafdc7",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 23,
+            "col_offset": 18,
+            "end_lineno": 23,
+            "end_col_offset": 80
+          },
+          "call_expression": "slicer.modules.plateregistration.widgetRepresentation().self()",
+          "receiver_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+          "method": "self",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "da9a942dffdf3de07922",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 23,
+            "col_offset": 18,
+            "end_lineno": 23,
+            "end_col_offset": 73
+          },
+          "call_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+          "receiver_expression": "slicer.modules.plateregistration",
+          "method": "widgetRepresentation",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "dd73745c0b15837023f7",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 27,
+            "col_offset": 10,
+            "end_lineno": 27,
+            "end_col_offset": 110
+          },
+          "call_expression": "RuntimeError(\"Could not obtain the PlateRegistration module widget for 'instantHeatMapPushButton'.\")",
+          "receiver_expression": "",
+          "method": "RuntimeError",
+          "arguments": [
+            "\"Could not obtain the PlateRegistration module widget for 'instantHeatMapPushButton'.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "fd2f2ecaa8d7e1cb63cd",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 28,
+            "col_offset": 7,
+            "end_lineno": 28,
+            "end_col_offset": 43
+          },
+          "call_expression": "hasattr(_widget, 'onInstantHeatMap')",
+          "receiver_expression": "",
+          "method": "hasattr",
+          "arguments": [
+            "_widget",
+            "'onInstantHeatMap'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "423cfb577a43fc3bef48",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 29,
+            "col_offset": 10,
+            "end_lineno": 29,
+            "end_col_offset": 136
+          },
+          "call_expression": "RuntimeError(\"PlateRegistration widget has no handler 'onInstantHeatMap' for 'instantHeatMapPushButton'; regenerate the CLI.\")",
+          "receiver_expression": "",
+          "method": "RuntimeError",
+          "arguments": [
+            "\"PlateRegistration widget has no handler 'onInstantHeatMap' for 'instantHeatMapPushButton'; regenerate the CLI.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "80e10a5b71da8902fa99",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 30,
+            "col_offset": 0,
+            "end_lineno": 30,
+            "end_col_offset": 26
+          },
+          "call_expression": "_widget.onInstantHeatMap()",
+          "receiver_expression": "_widget",
+          "method": "onInstantHeatMap",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "009a3f70c9b896c57929",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 31,
+            "col_offset": 0,
+            "end_lineno": 31,
+            "end_col_offset": 110
+          },
+          "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_10': clicked 'instantHeatMapPushButton' via onInstantHeatMap().\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "\"[SlicerOrbitSurgerySim] Step 'cb_step_10': clicked 'instantHeatMapPushButton' via onInstantHeatMap().\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_10"
+        }
+      ],
+      "error": ""
+    }
+  },
+  "api_proof_obligations": [
+    {
+      "call_id": "78673af16fc6b38c0cdc",
+      "template": "templates/cb_step_5.py.tpl",
+      "source_span": {
+        "lineno": 7,
+        "col_offset": 22,
+        "end_lineno": 7,
+        "end_col_offset": 50
+      },
+      "call_expression": "slicer.util.selectedModule()",
+      "receiver_expression": "slicer.util",
+      "method": "selectedModule",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_5",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "23c541bdc7c4c124899b",
+      "template": "templates/cb_step_5.py.tpl",
+      "source_span": {
+        "lineno": 10,
+        "col_offset": 8,
+        "end_lineno": 10,
+        "end_col_offset": 53
+      },
+      "call_expression": "slicer.util.selectModule('PlateRegistration')",
+      "receiver_expression": "slicer.util",
+      "method": "selectModule",
+      "arguments": [
+        "'PlateRegistration'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_5",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "895df8ddfcc70b1d7517",
+      "template": "templates/cb_step_5.py.tpl",
+      "source_span": {
+        "lineno": 12,
+        "col_offset": 8,
+        "end_lineno": 12,
+        "end_col_offset": 95
+      },
+      "call_expression": "print(f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_5",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "4f9363b43784b04c6f57",
+      "template": "templates/cb_step_5.py.tpl",
+      "source_span": {
+        "lineno": 15,
+        "col_offset": 0,
+        "end_lineno": 15,
+        "end_col_offset": 20
+      },
+      "call_expression": "registerSampleData()",
+      "receiver_expression": "",
+      "method": "registerSampleData",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_5",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "imported_callable",
+          "source": "template_import",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "8b3ab40c9a0c5041416c",
+      "template": "templates/cb_step_5.py.tpl",
+      "source_span": {
+        "lineno": 17,
+        "col_offset": 0,
+        "end_lineno": 17,
+        "end_col_offset": 60
+      },
+      "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_5' completed.\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "\"[SlicerOrbitSurgerySim] Step 'cb_step_5' completed.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_5",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "79677207e49caf83eccb",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 5,
+        "col_offset": 22,
+        "end_lineno": 5,
+        "end_col_offset": 50
+      },
+      "call_expression": "slicer.util.selectedModule()",
+      "receiver_expression": "slicer.util",
+      "method": "selectedModule",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "8ddacc09f78edb526407",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 8,
+        "col_offset": 8,
+        "end_lineno": 8,
+        "end_col_offset": 53
+      },
+      "call_expression": "slicer.util.selectModule('PlateRegistration')",
+      "receiver_expression": "slicer.util",
+      "method": "selectModule",
+      "arguments": [
+        "'PlateRegistration'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "0c2c3fefc28bed52a9df",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 10,
+        "col_offset": 8,
+        "end_lineno": 10,
+        "end_col_offset": 95
+      },
+      "call_expression": "print(f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "e9ba1fbbebb8e81d5b9a",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 18,
+        "col_offset": 14,
+        "end_lineno": 18,
+        "end_col_offset": 62
+      },
+      "call_expression": "slicer.util.getModuleWidget('PlateRegistration')",
+      "receiver_expression": "slicer.util",
+      "method": "getModuleWidget",
+      "arguments": [
+        "'PlateRegistration'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "9573c3225a84e6d209be",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 23,
+        "col_offset": 18,
+        "end_lineno": 23,
+        "end_col_offset": 73
+      },
+      "call_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+      "receiver_expression": "slicer.modules.plateregistration",
+      "method": "widgetRepresentation",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.modules.plateregistration",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.modules.plateregistration",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "qSlicerScriptedLoadableModule",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "fd53db6e5932bd20f4ee",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 23,
+        "col_offset": 18,
+        "end_lineno": 23,
+        "end_col_offset": 80
+      },
+      "call_expression": "slicer.modules.plateregistration.widgetRepresentation().self()",
+      "receiver_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+      "method": "self",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "live_probe",
+          "receiver_type": "qSlicerScriptedLoadableModuleWidget",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "b5028b58de0e48bba9f3",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 27,
+        "col_offset": 10,
+        "end_lineno": 27,
+        "end_col_offset": 121
+      },
+      "call_expression": "RuntimeError(\"Could not obtain the PlateRegistration module widget for 'posteriorStopRegistrationPushButton'.\")",
+      "receiver_expression": "",
+      "method": "RuntimeError",
+      "arguments": [
+        "\"Could not obtain the PlateRegistration module widget for 'posteriorStopRegistrationPushButton'.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "0be83829bc3d8563171f",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 28,
+        "col_offset": 7,
+        "end_lineno": 28,
+        "end_col_offset": 55
+      },
+      "call_expression": "hasattr(_widget, 'onRotation_p_stop_pushButton')",
+      "receiver_expression": "",
+      "method": "hasattr",
+      "arguments": [
+        "_widget",
+        "'onRotation_p_stop_pushButton'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "55054fc7e64ac17cbc9c",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 29,
+        "col_offset": 10,
+        "end_lineno": 29,
+        "end_col_offset": 159
+      },
+      "call_expression": "RuntimeError(\"PlateRegistration widget has no handler 'onRotation_p_stop_pushButton' for 'posteriorStopRegistrationPushButton'; regenerate the CLI.\")",
+      "receiver_expression": "",
+      "method": "RuntimeError",
+      "arguments": [
+        "\"PlateRegistration widget has no handler 'onRotation_p_stop_pushButton' for 'posteriorStopRegistrationPushButton'; regenerate the CLI.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "bca0cbbbaccac784618e",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 30,
+        "col_offset": 0,
+        "end_lineno": 30,
+        "end_col_offset": 38
+      },
+      "call_expression": "_widget.onRotation_p_stop_pushButton()",
+      "receiver_expression": "_widget",
+      "method": "onRotation_p_stop_pushButton",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [
+        {
+          "type": "NoneType",
+          "confidence": "high",
+          "provenance": "python_literal"
+        },
+        {
+          "type": "_module_widget",
+          "confidence": "high",
+          "provenance": "module_widget_accessor"
+        }
+      ],
+      "effect": "unknown",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "module_widget_handler",
+          "receiver_type": "_module_widget",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "module_widget_handler_invocation"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "ea551b4dab3c1005e618",
+      "template": "templates/cb_step_6.py.tpl",
+      "source_span": {
+        "lineno": 31,
+        "col_offset": 0,
+        "end_lineno": 31,
+        "end_col_offset": 132
+      },
+      "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_6': clicked 'posteriorStopRegistrationPushButton' via onRotation_p_stop_pushButton().\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "\"[SlicerOrbitSurgerySim] Step 'cb_step_6': clicked 'posteriorStopRegistrationPushButton' via onRotation_p_stop_pushButton().\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_6",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "41272512052aab1813cb",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 5,
+        "col_offset": 22,
+        "end_lineno": 5,
+        "end_col_offset": 50
+      },
+      "call_expression": "slicer.util.selectedModule()",
+      "receiver_expression": "slicer.util",
+      "method": "selectedModule",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "f5ea52f4e5260923f5ac",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 8,
+        "col_offset": 8,
+        "end_lineno": 8,
+        "end_col_offset": 53
+      },
+      "call_expression": "slicer.util.selectModule('PlateRegistration')",
+      "receiver_expression": "slicer.util",
+      "method": "selectModule",
+      "arguments": [
+        "'PlateRegistration'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "da88fab6ccf27caad642",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 10,
+        "col_offset": 8,
+        "end_lineno": 10,
+        "end_col_offset": 95
+      },
+      "call_expression": "print(f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "d30bd3092a0195e6c0f4",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 18,
+        "col_offset": 14,
+        "end_lineno": 18,
+        "end_col_offset": 62
+      },
+      "call_expression": "slicer.util.getModuleWidget('PlateRegistration')",
+      "receiver_expression": "slicer.util",
+      "method": "getModuleWidget",
+      "arguments": [
+        "'PlateRegistration'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "44d25b91989b34e9447b",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 23,
+        "col_offset": 18,
+        "end_lineno": 23,
+        "end_col_offset": 80
+      },
+      "call_expression": "slicer.modules.plateregistration.widgetRepresentation().self()",
+      "receiver_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+      "method": "self",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "live_probe",
+          "receiver_type": "qSlicerScriptedLoadableModuleWidget",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "8dbd55a459bb50ebfe6a",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 23,
+        "col_offset": 18,
+        "end_lineno": 23,
+        "end_col_offset": 73
+      },
+      "call_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+      "receiver_expression": "slicer.modules.plateregistration",
+      "method": "widgetRepresentation",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.modules.plateregistration",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.modules.plateregistration",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "qSlicerScriptedLoadableModule",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "8b71ac706a5cbe2d0da0",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 27,
+        "col_offset": 10,
+        "end_lineno": 27,
+        "end_col_offset": 114
+      },
+      "call_expression": "RuntimeError(\"Could not obtain the PlateRegistration module widget for 'interactionTransformCheckbox'.\")",
+      "receiver_expression": "",
+      "method": "RuntimeError",
+      "arguments": [
+        "\"Could not obtain the PlateRegistration module widget for 'interactionTransformCheckbox'.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "30443e475e0afc0d54ec",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 28,
+        "col_offset": 7,
+        "end_lineno": 28,
+        "end_col_offset": 49
+      },
+      "call_expression": "hasattr(_widget, 'onInteractionTransform')",
+      "receiver_expression": "",
+      "method": "hasattr",
+      "arguments": [
+        "_widget",
+        "'onInteractionTransform'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "bd7a3c7bf07e3ee0b9ee",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 29,
+        "col_offset": 10,
+        "end_lineno": 29,
+        "end_col_offset": 146
+      },
+      "call_expression": "RuntimeError(\"PlateRegistration widget has no handler 'onInteractionTransform' for 'interactionTransformCheckbox'; regenerate the CLI.\")",
+      "receiver_expression": "",
+      "method": "RuntimeError",
+      "arguments": [
+        "\"PlateRegistration widget has no handler 'onInteractionTransform' for 'interactionTransformCheckbox'; regenerate the CLI.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "c20c102dc5f195f560f8",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 40,
+        "col_offset": 8,
+        "end_lineno": 40,
+        "end_col_offset": 32
+      },
+      "call_expression": "_ctrl.blockSignals(True)",
+      "receiver_expression": "_ctrl",
+      "method": "blockSignals",
+      "arguments": [
+        "True"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [
+        {
+          "type": "NoneType",
+          "confidence": "high",
+          "provenance": "python_literal"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "unproven",
+      "evidence": [
+        {
+          "type": "NoneType",
+          "confidence": "high",
+          "provenance": "python_literal"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "a12cc14b9fc3488fd5e3",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 42,
+        "col_offset": 8,
+        "end_lineno": 42,
+        "end_col_offset": 33
+      },
+      "call_expression": "_ctrl.blockSignals(False)",
+      "receiver_expression": "_ctrl",
+      "method": "blockSignals",
+      "arguments": [
+        "False"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [
+        {
+          "type": "NoneType",
+          "confidence": "high",
+          "provenance": "python_literal"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "unproven",
+      "evidence": [
+        {
+          "type": "NoneType",
+          "confidence": "high",
+          "provenance": "python_literal"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "c2b2fa43252b589167b4",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 46,
+        "col_offset": 4,
+        "end_lineno": 46,
+        "end_col_offset": 40
+      },
+      "call_expression": "_widget.onInteractionTransform(True)",
+      "receiver_expression": "_widget",
+      "method": "onInteractionTransform",
+      "arguments": [
+        "True"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [
+        {
+          "type": "NoneType",
+          "confidence": "high",
+          "provenance": "python_literal"
+        },
+        {
+          "type": "_module_widget",
+          "confidence": "high",
+          "provenance": "module_widget_accessor"
+        }
+      ],
+      "effect": "unknown",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "module_widget_handler",
+          "receiver_type": "_module_widget",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "module_widget_handler_invocation"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "37cd28919023d1c12396",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 48,
+        "col_offset": 4,
+        "end_lineno": 48,
+        "end_col_offset": 36
+      },
+      "call_expression": "_widget.onInteractionTransform()",
+      "receiver_expression": "_widget",
+      "method": "onInteractionTransform",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [
+        {
+          "type": "NoneType",
+          "confidence": "high",
+          "provenance": "python_literal"
+        },
+        {
+          "type": "_module_widget",
+          "confidence": "high",
+          "provenance": "module_widget_accessor"
+        }
+      ],
+      "effect": "unknown",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "module_widget_handler",
+          "receiver_type": "_module_widget",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "module_widget_handler_invocation"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "b456d7425e72d9160e83",
+      "template": "templates/cb_step_7.py.tpl",
+      "source_span": {
+        "lineno": 49,
+        "col_offset": 0,
+        "end_lineno": 49,
+        "end_col_offset": 120
+      },
+      "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_7': set 'interactionTransformCheckbox' = True via onInteractionTransform.\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "\"[SlicerOrbitSurgerySim] Step 'cb_step_7': set 'interactionTransformCheckbox' = True via onInteractionTransform.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_7",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "58b3ad168e9d903d7cce",
+      "template": "templates/cb_step_8_pre.py.tpl",
+      "source_span": {
+        "lineno": 5,
+        "col_offset": 0,
+        "end_lineno": 5,
+        "end_col_offset": 95
+      },
+      "call_expression": "print('[SlicerOrbitSurgerySim] Please Manually adjust the position and rotation of the plate.')",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "'[SlicerOrbitSurgerySim] Please Manually adjust the position and rotation of the plate.'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_8",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "6d26ff9a47da29533c8d",
+      "template": "templates/cb_step_8_pre.py.tpl",
+      "source_span": {
+        "lineno": 6,
+        "col_offset": 0,
+        "end_lineno": 6,
+        "end_col_offset": 70
+      },
+      "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "\"When finished, press the 'Done' button in the workflow panel.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_8",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "b63b9e4154be043f378a",
+      "template": "templates/cb_step_8_post.py.tpl",
+      "source_span": {
+        "lineno": 4,
+        "col_offset": 18,
+        "end_lineno": 4,
+        "end_col_offset": 81
+      },
+      "call_expression": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
+      "receiver_expression": "slicer.mrmlScene",
+      "method": "GetNodeByID",
+      "arguments": [
+        "'vtkMRMLInteractionNodeSingleton'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_8",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.mrmlScene",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.mrmlScene",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "vtkMRMLScene",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "ca036e04a3114faa7d6d",
+      "template": "templates/cb_step_8_post.py.tpl",
+      "source_span": {
+        "lineno": 6,
+        "col_offset": 4,
+        "end_lineno": 6,
+        "end_col_offset": 47
+      },
+      "call_expression": "interactionNode.SwitchToViewTransformMode()",
+      "receiver_expression": "interactionNode",
+      "method": "SwitchToViewTransformMode",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_8",
+      "receiver_type_candidates": [],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "live_probe",
+          "receiver_type": "vtkMRMLInteractionNode",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "8363972506249432e503",
+      "template": "templates/cb_step_8_post.py.tpl",
+      "source_span": {
+        "lineno": 8,
+        "col_offset": 0,
+        "end_lineno": 8,
+        "end_col_offset": 76
+      },
+      "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_8' view adjustment completed.\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "\"[SlicerOrbitSurgerySim] Step 'cb_step_8' view adjustment completed.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_8",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "d4f9926cd87f081101e5",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 5,
+        "col_offset": 22,
+        "end_lineno": 5,
+        "end_col_offset": 50
+      },
+      "call_expression": "slicer.util.selectedModule()",
+      "receiver_expression": "slicer.util",
+      "method": "selectedModule",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "112b3749c15446a8a920",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 8,
+        "col_offset": 8,
+        "end_lineno": 8,
+        "end_col_offset": 53
+      },
+      "call_expression": "slicer.util.selectModule('PlateRegistration')",
+      "receiver_expression": "slicer.util",
+      "method": "selectModule",
+      "arguments": [
+        "'PlateRegistration'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "ed82155ee4160e224a58",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 10,
+        "col_offset": 8,
+        "end_lineno": 10,
+        "end_col_offset": 95
+      },
+      "call_expression": "print(f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "566c2f74ccd92864a483",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 18,
+        "col_offset": 14,
+        "end_lineno": 18,
+        "end_col_offset": 62
+      },
+      "call_expression": "slicer.util.getModuleWidget('PlateRegistration')",
+      "receiver_expression": "slicer.util",
+      "method": "getModuleWidget",
+      "arguments": [
+        "'PlateRegistration'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "7923b7b03cd547e45d1c",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 23,
+        "col_offset": 18,
+        "end_lineno": 23,
+        "end_col_offset": 73
+      },
+      "call_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+      "receiver_expression": "slicer.modules.plateregistration",
+      "method": "widgetRepresentation",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.modules.plateregistration",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.modules.plateregistration",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "qSlicerScriptedLoadableModule",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "bcf47b0b6e66106ffc73",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 23,
+        "col_offset": 18,
+        "end_lineno": 23,
+        "end_col_offset": 80
+      },
+      "call_expression": "slicer.modules.plateregistration.widgetRepresentation().self()",
+      "receiver_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+      "method": "self",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "live_probe",
+          "receiver_type": "qSlicerScriptedLoadableModuleWidget",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "d9fb8a5063bd5ef0cd2a",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 27,
+        "col_offset": 10,
+        "end_lineno": 27,
+        "end_col_offset": 107
+      },
+      "call_expression": "RuntimeError(\"Could not obtain the PlateRegistration module widget for 'createIntersectButton'.\")",
+      "receiver_expression": "",
+      "method": "RuntimeError",
+      "arguments": [
+        "\"Could not obtain the PlateRegistration module widget for 'createIntersectButton'.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "61a7560f49a6d1e67522",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 28,
+        "col_offset": 7,
+        "end_lineno": 28,
+        "end_col_offset": 50
+      },
+      "call_expression": "hasattr(_widget, 'onCreateIntersectButton')",
+      "receiver_expression": "",
+      "method": "hasattr",
+      "arguments": [
+        "_widget",
+        "'onCreateIntersectButton'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "b9759f626555badbe61e",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 29,
+        "col_offset": 10,
+        "end_lineno": 29,
+        "end_col_offset": 140
+      },
+      "call_expression": "RuntimeError(\"PlateRegistration widget has no handler 'onCreateIntersectButton' for 'createIntersectButton'; regenerate the CLI.\")",
+      "receiver_expression": "",
+      "method": "RuntimeError",
+      "arguments": [
+        "\"PlateRegistration widget has no handler 'onCreateIntersectButton' for 'createIntersectButton'; regenerate the CLI.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "b1471f83b8704bfc0565",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 30,
+        "col_offset": 0,
+        "end_lineno": 30,
+        "end_col_offset": 33
+      },
+      "call_expression": "_widget.onCreateIntersectButton()",
+      "receiver_expression": "_widget",
+      "method": "onCreateIntersectButton",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [
+        {
+          "type": "NoneType",
+          "confidence": "high",
+          "provenance": "python_literal"
+        },
+        {
+          "type": "_module_widget",
+          "confidence": "high",
+          "provenance": "module_widget_accessor"
+        }
+      ],
+      "effect": "unknown",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "module_widget_handler",
+          "receiver_type": "_module_widget",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "module_widget_handler_invocation"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "f855f8d1300408d8c95c",
+      "template": "templates/cb_step_9.py.tpl",
+      "source_span": {
+        "lineno": 31,
+        "col_offset": 0,
+        "end_lineno": 31,
+        "end_col_offset": 113
+      },
+      "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_9': clicked 'createIntersectButton' via onCreateIntersectButton().\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "\"[SlicerOrbitSurgerySim] Step 'cb_step_9': clicked 'createIntersectButton' via onCreateIntersectButton().\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_9",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "2941c3c896a78df74ede",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 5,
+        "col_offset": 22,
+        "end_lineno": 5,
+        "end_col_offset": 50
+      },
+      "call_expression": "slicer.util.selectedModule()",
+      "receiver_expression": "slicer.util",
+      "method": "selectedModule",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "5ac98ea0152887d2b206",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 8,
+        "col_offset": 8,
+        "end_lineno": 8,
+        "end_col_offset": 53
+      },
+      "call_expression": "slicer.util.selectModule('PlateRegistration')",
+      "receiver_expression": "slicer.util",
+      "method": "selectModule",
+      "arguments": [
+        "'PlateRegistration'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "46b4d94aeaaa055e00c1",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 10,
+        "col_offset": 8,
+        "end_lineno": 10,
+        "end_col_offset": 95
+      },
+      "call_expression": "print(f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "f\"Warning: could not activate module 'PlateRegistration': {_module_enter_error}\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "6bce32d384194b730cdd",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 18,
+        "col_offset": 14,
+        "end_lineno": 18,
+        "end_col_offset": 62
+      },
+      "call_expression": "slicer.util.getModuleWidget('PlateRegistration')",
+      "receiver_expression": "slicer.util",
+      "method": "getModuleWidget",
+      "arguments": [
+        "'PlateRegistration'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "11fe432293d8c5fafdc7",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 23,
+        "col_offset": 18,
+        "end_lineno": 23,
+        "end_col_offset": 80
+      },
+      "call_expression": "slicer.modules.plateregistration.widgetRepresentation().self()",
+      "receiver_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+      "method": "self",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "live_probe",
+          "receiver_type": "qSlicerScriptedLoadableModuleWidget",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "da9a942dffdf3de07922",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 23,
+        "col_offset": 18,
+        "end_lineno": 23,
+        "end_col_offset": 73
+      },
+      "call_expression": "slicer.modules.plateregistration.widgetRepresentation()",
+      "receiver_expression": "slicer.modules.plateregistration",
+      "method": "widgetRepresentation",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.modules.plateregistration",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.modules.plateregistration",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "qSlicerScriptedLoadableModule",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "dd73745c0b15837023f7",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 27,
+        "col_offset": 10,
+        "end_lineno": 27,
+        "end_col_offset": 110
+      },
+      "call_expression": "RuntimeError(\"Could not obtain the PlateRegistration module widget for 'instantHeatMapPushButton'.\")",
+      "receiver_expression": "",
+      "method": "RuntimeError",
+      "arguments": [
+        "\"Could not obtain the PlateRegistration module widget for 'instantHeatMapPushButton'.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "fd2f2ecaa8d7e1cb63cd",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 28,
+        "col_offset": 7,
+        "end_lineno": 28,
+        "end_col_offset": 43
+      },
+      "call_expression": "hasattr(_widget, 'onInstantHeatMap')",
+      "receiver_expression": "",
+      "method": "hasattr",
+      "arguments": [
+        "_widget",
+        "'onInstantHeatMap'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "423cfb577a43fc3bef48",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 29,
+        "col_offset": 10,
+        "end_lineno": 29,
+        "end_col_offset": 136
+      },
+      "call_expression": "RuntimeError(\"PlateRegistration widget has no handler 'onInstantHeatMap' for 'instantHeatMapPushButton'; regenerate the CLI.\")",
+      "receiver_expression": "",
+      "method": "RuntimeError",
+      "arguments": [
+        "\"PlateRegistration widget has no handler 'onInstantHeatMap' for 'instantHeatMapPushButton'; regenerate the CLI.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "80e10a5b71da8902fa99",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 30,
+        "col_offset": 0,
+        "end_lineno": 30,
+        "end_col_offset": 26
+      },
+      "call_expression": "_widget.onInstantHeatMap()",
+      "receiver_expression": "_widget",
+      "method": "onInstantHeatMap",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [
+        {
+          "type": "NoneType",
+          "confidence": "high",
+          "provenance": "python_literal"
+        },
+        {
+          "type": "_module_widget",
+          "confidence": "high",
+          "provenance": "module_widget_accessor"
+        }
+      ],
+      "effect": "unknown",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "module_widget_handler",
+          "receiver_type": "_module_widget",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "module_widget_handler_invocation"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "009a3f70c9b896c57929",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 31,
+        "col_offset": 0,
+        "end_lineno": 31,
+        "end_col_offset": 110
+      },
+      "call_expression": "print(\"[SlicerOrbitSurgerySim] Step 'cb_step_10': clicked 'instantHeatMapPushButton' via onInstantHeatMap().\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "\"[SlicerOrbitSurgerySim] Step 'cb_step_10': clicked 'instantHeatMapPushButton' via onInstantHeatMap().\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    }
+  ],
+  "api_proof_issues": [
+    {
+      "issue_id": "api_proof_c20c102dc5f195f560f8",
+      "issue_type": "UnprovenApiCall",
+      "severity": "warning",
+      "blocking": false,
+      "template": "templates/cb_step_7.py.tpl",
+      "call_id": "c20c102dc5f195f560f8",
+      "source_span": {
+        "lineno": 40,
+        "col_offset": 8,
+        "end_lineno": 40,
+        "end_col_offset": 32
+      },
+      "diagnosis": "method_unproven",
+      "receiver_expression": "_ctrl",
+      "receiver_type": "NoneType",
+      "method": "blockSignals",
+      "method_exists": null,
+      "effect": "read_only",
+      "evidence_sources": [
+        "python_literal"
+      ],
+      "minimal_repair": null
+    },
+    {
+      "issue_id": "api_proof_a12cc14b9fc3488fd5e3",
+      "issue_type": "UnprovenApiCall",
+      "severity": "warning",
+      "blocking": false,
+      "template": "templates/cb_step_7.py.tpl",
+      "call_id": "a12cc14b9fc3488fd5e3",
+      "source_span": {
+        "lineno": 42,
+        "col_offset": 8,
+        "end_lineno": 42,
+        "end_col_offset": 33
+      },
+      "diagnosis": "method_unproven",
+      "receiver_expression": "_ctrl",
+      "receiver_type": "NoneType",
+      "method": "blockSignals",
+      "method_exists": null,
+      "effect": "read_only",
+      "evidence_sources": [
+        "python_literal"
+      ],
+      "minimal_repair": null
+    }
+  ],
+  "repair_trace": [],
+  "repair_strategy_history": [],
+  "verify_repair": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "valid": true,
+        "issue_count": 0,
+        "issues": [],
+        "repair_plan": [],
+        "api_probe_result": {
+          "probed": 7,
+          "failures": [],
+          "revised": 0,
+          "syntax_skipped": [],
+          "api_probe_coverage": {
+            "resolved": [
+              {
+                "chain": "slicer.util.selectedModule",
+                "receiver_expr": "slicer.util",
+                "original_receiver_expr": "slicer.util",
+                "expanded_receiver_expr": "slicer.util",
+                "proof_kind": "live_instance",
+                "attr": "selectedModule",
+                "lineno": 7,
+                "is_attribute": false,
+                "method_exists": true,
+                "live_receiver_type": "module",
+                "receiver_type": "module",
+                "evidence_source": "live_probe_success"
+              },
+              {
+                "chain": "slicer.util.selectModule",
+                "receiver_expr": "slicer.util",
+                "original_receiver_expr": "slicer.util",
+                "expanded_receiver_expr": "slicer.util",
+                "proof_kind": "live_instance",
+                "attr": "selectModule",
+                "lineno": 10,
+                "is_attribute": false,
+                "method_exists": true,
+                "live_receiver_type": "module",
+                "receiver_type": "module",
+                "evidence_source": "live_probe_success"
+              },
+              {
+                "chain": "slicer.util.getModuleWidget",
+                "receiver_expr": "slicer.util",
+                "original_receiver_expr": "slicer.util",
+                "expanded_receiver_expr": "slicer.util",
+                "proof_kind": "live_instance",
+                "attr": "getModuleWidget",
+                "lineno": 18,
+                "is_attribute": false,
+                "method_exists": true,
+                "live_receiver_type": "module",
+                "receiver_type": "module",
+                "evidence_source": "live_probe_success"
+              },
+              {
+                "chain": "slicer.modules.plateregistration.widgetRepresentation().self",
+                "receiver_expr": "slicer.modules.plateregistration.widgetRepresentation()",
+                "original_receiver_expr": "slicer.modules.plateregistration.widgetRepresentation()",
+                "expanded_receiver_expr": "slicer.modules.plateregistration.widgetRepresentation()",
+                "proof_kind": "live_instance",
+                "attr": "self",
+                "lineno": 23,
+                "is_attribute": false,
+                "method_exists": true,
+                "live_receiver_type": "qSlicerScriptedLoadableModuleWidget",
+                "receiver_type": "qSlicerScriptedLoadableModuleWidget",
+                "evidence_source": "live_probe_success"
+              },
+              {
+                "chain": "slicer.modules.plateregistration.widgetRepresentation",
+                "receiver_expr": "slicer.modules.plateregistration",
+                "original_receiver_expr": "slicer.modules.plateregistration",
+                "expanded_receiver_expr": "slicer.modules.plateregistration",
+                "proof_kind": "live_instance",
+                "attr": "widgetRepresentation",
+                "lineno": 23,
+                "is_attribute": false,
+                "method_exists": true,
+                "live_receiver_type": "qSlicerScriptedLoadableModule",
+                "receiver_type": "qSlicerScriptedLoadableModule",
+                "evidence_source": "live_probe_success"
+              },
+              {
+                "chain": "slicer.mrmlScene.GetNodeByID",
+                "receiver_expr": "slicer.mrmlScene",
+                "original_receiver_expr": "slicer.mrmlScene",
+                "expanded_receiver_expr": "slicer.mrmlScene",
+                "proof_kind": "live_instance",
+                "attr": "GetNodeByID",
+                "lineno": 4,
+                "is_attribute": false,
+                "method_exists": true,
+                "live_receiver_type": "vtkMRMLScene",
+                "receiver_type": "vtkMRMLScene",
+                "evidence_source": "live_probe_success"
+              },
+              {
+                "chain": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
+                "receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
+                "original_receiver_expr": "interactionNode",
+                "expanded_receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
+                "proof_kind": "live_instance",
+                "attr": "SwitchToViewTransformMode",
+                "lineno": 6,
+                "is_attribute": false,
+                "method_exists": true,
+                "live_receiver_type": "vtkMRMLInteractionNode",
+                "receiver_type": "vtkMRMLInteractionNode",
+                "evidence_source": "live_probe_success"
+              }
+            ],
+            "unresolved": [],
+            "skipped": []
+          }
+        }
+      }
+    ],
+    "status": "passed_after_repair",
+    "used_outer_revision": false
+  }
+}

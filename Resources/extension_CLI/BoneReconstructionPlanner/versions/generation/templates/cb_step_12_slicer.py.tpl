@@ -1,60 +1,46 @@
-"""
-Configure mandibular curve display views (3D View 1 and Red).
-Restricts visibility of the curve markups node to only these two views.
-"""
+# Configure mandibular curve display to show in 3D View 1 (mandible view) and Red slice view
 
-# Find the mandibular curve node by fuzzy name match
+# (1) Find the mandibular curve node by name pattern matching
 curveNode = None
-for node in slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsCurveNode"):
-    nodeName = node.GetName()
-    if nodeName and "Mandibular" in nodeName:
+nodeIter = iter([slicer.mrmlScene.GetNthNodeByClass(i, "vtkMRMLMarkupsCurveNode")
+                 for i in range(slicer.mrmlScene.GetNumberOfNodesByClass("vtkMRMLMarkupsCurveNode"))])
+for node in nodeIter:
+    name = node.GetName() or ""
+    if "mandibular" in name.lower() or "mandiblecurve" in name.lower():
         curveNode = node
         break
+if not curveNode:
+    raise RuntimeError("Could not find mandibular curve node in the scene")
 
-if curveNode is None:
-    raise RuntimeError("MANDIBULAR_CURVE_NOT_FOUND: No markups curve node with 'Mandibular' in its name")
-
-# Get the display node
+# (2) Get the display node
 displayNode = curveNode.GetDisplayNode()
-if displayNode is None:
-    raise RuntimeError("DISPLAY_NODE_NOT_FOUND: Curve node has no display node")
+if not displayNode:
+    raise RuntimeError("Display node is None for mandibular curve node")
 
-# Resolve view node IDs for the two target views
+# (3) Resolve "3D View 1" (the mandible view via its singleton tag "1") and "Red" slice node
+mandibleViewNode = slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, "vtkMRMLViewNode")
+if not mandibleViewNode:
+    raise RuntimeError("Could not find 3D View 1 (mandible view) node using MANDIBLE_VIEW_SINGLETON_TAG")
+redSliceNode = slicer.mrmlScene.GetSingletonNode("Red", "vtkMRMLSliceNode")
+if not redSliceNode:
+    raise RuntimeError("Could not find Red slice node")
 
-# "3D View 1" -> singleton tag "1" for vtkMRMLViewNode
-view3DNode = slicer.mrmlScene.GetSingletonNode("1", "vtkMRMLViewNode")
-if view3DNode is None:
-    raise RuntimeError("VIEW_1_NOT_FOUND: 3D View 1 (singleton tag '1') not found in scene")
+# (4) Build list of view IDs — show only in these two views
+viewNodeIDs = [mandibleViewNode.GetID(), redSliceNode.GetID()]
 
-# "Red" slice view
-redSliceNode = slicer.app.layoutManager().sliceWidget("Red").mrmlSliceNode()
-redSliceNodeId = redSliceNode.GetID()
+# (5) Apply view restriction (replaces existing view node ID list)
+displayNode.SetViewNodeIDs(viewNodeIDs)
 
-view3DNodeId = view3DNode.GetID()
-
-# Configure display: restrict to only the specified views
-displayNode.SetViewNodeIDs([view3DNodeId, redSliceNodeId])
-
-# Ensure the curve is visible in both view types
-# Visibility2D must be on for the Red slice view
-displayNode.SetVisibility2D(1)
-# Visibility3D must be on for the 3D view
-displayNode.SetVisibility3D(1)
-# Overall visibility must also be on
+# (6) Enable overall visibility (3D and 2D/slice)
 displayNode.SetVisibility(1)
+displayNode.SetVisibility2D(1)
 
-# Read back and verify each state
-actualViewNodeIDs = displayNode.GetViewNodeIDs()
-expectedIDs = [view3DNodeId, redSliceNodeId]
-for expected in expectedIDs:
-    if expected not in actualViewNodeIDs:
-        raise RuntimeError("STATE_NOT_APPLIED: ViewNodeID %s not found in display node's view node list" % expected)
-
-if not displayNode.GetVisibility2D():
-    raise RuntimeError("STATE_NOT_APPLIED: Visibility2D")
-
-if not displayNode.GetVisibility3D():
-    raise RuntimeError("STATE_NOT_APPLIED: Visibility3D")
-
+# (7) Read-back verification
+actualViewIDs = displayNode.GetViewNodeIDs()
+for vid in viewNodeIDs:
+    if vid not in actualViewIDs:
+        raise RuntimeError("STATE_NOT_APPLIED: view node ID %s not in display node's view list" % vid)
 if not displayNode.GetVisibility():
-    raise RuntimeError("STATE_NOT_APPLIED: Visibility")
+    raise RuntimeError("STATE_NOT_APPLIED: Visibility is False after SetVisibility(1)")
+if not displayNode.GetVisibility2D():
+    raise RuntimeError("STATE_NOT_APPLIED: Visibility2D is False after SetVisibility2D(1)")

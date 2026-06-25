@@ -1,0 +1,49 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "SlicerOrbitSurgerySim",
+      "description": "Guided interactive workflow for SlicerOrbitSurgerySim. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Orbit Model\" section, choose Orbit Model node.; 'cb_step_2': In the \"Plate model\" section, choose the plate model node.; 'cb_step_3': In the \"Orbit landmarks\" section, choose the orbit landmarks node.; 'cb_step_4': In the \"Plate landmarks\" section, choose the plate landmarks node.; 'cb_step_5': Click \"Initial registration\" button.; 'cb_step_6': Click \"Posterior stop and antero-posterior stops alignment\" button.; 'cb_step_7': Tick the \"Enable 3D interaction transform handle\" checkbox.; 'cb_step_8': Manually adjust the position and rotation of the plate. (interactive: generic); 'cb_step_9': Click \"Mark intersection\" button.; 'cb_step_10': Click \"Create Distance Heatmap\" button.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workflow_step": {
+            "type": "string",
+            "enum": [
+              "cb_step_1",
+              "cb_step_2",
+              "cb_step_3",
+              "cb_step_4",
+              "cb_step_5",
+              "cb_step_6",
+              "cb_step_7",
+              "cb_step_8",
+              "cb_step_9",
+              "cb_step_10"
+            ],
+            "description": "Which workflow step to execute"
+          },
+          "user_action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "proceed",
+              "skip",
+              "cancel",
+              "choice_made"
+            ],
+            "description": "Action: 'start' to begin a step, 'proceed' after user completes interaction, 'skip' for optional steps, 'cancel' to abort workflow, 'choice_made' for user_choice steps"
+          },
+          "choice_value": {
+            "type": "string",
+            "description": "Value selected by the user for user_choice steps. Required when user_action is 'choice_made'."
+          }
+        },
+        "required": [
+          "workflow_step",
+          "user_action"
+        ]
+      }
+    }
+  }
+]

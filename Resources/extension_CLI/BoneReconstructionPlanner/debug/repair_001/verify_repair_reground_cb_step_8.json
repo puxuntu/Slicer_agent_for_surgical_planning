@@ -1,0 +1,292 @@
+{
+  "stage": "5T",
+  "debug_schema_version": 2,
+  "debug_features": [
+    "slicer_op_classification",
+    "slicer_ui_analysis_evidence_audit",
+    "source_verification_summary",
+    "generated_code_preview",
+    "final_state_intent"
+  ],
+  "total_operations": 1,
+  "started": 1,
+  "finished": 1,
+  "errors_count": 0,
+  "operations": [
+    {
+      "step": 8,
+      "key": "cb_step_8_0",
+      "description": "Toggle on FOV and spacing match 2D for Red slice",
+      "keywords": [
+        "BoneReconstructionPlanner",
+        "BoneReconstructionPlannerLogic",
+        "BoneReconstructionPlanner_1782270286123",
+        "FOV",
+        "NameError",
+        "RuntimeError",
+        "SliceResolutionMatch2DView",
+        "SliceResolutionMode",
+        "SlicerAIAgentLib.workflow_state",
+        "SpacingMode"
+      ],
+      "category": "generic_slicer_api",
+      "final_state_intent": {
+        "mode": "set",
+        "state": true,
+        "confidence": "high",
+        "source": "toggle on"
+      },
+      "classification": {
+        "op_type": "slicer_op",
+        "evidence_type": "verify_repair_reground",
+        "evidence_id": "issue_1",
+        "confidence": "high",
+        "interaction_kind": "none",
+        "node_class": null,
+        "slicer_op_category": "generic_slicer_api"
+      },
+      "search_policy": {
+        "preferred_root": "slicer-ui-analysis",
+        "requires_ui_first_when_ui_labeled": true,
+        "category_hints": [],
+        "category_hint_provenance": "generic_slicer_search_hint"
+      },
+      "status": "done",
+      "total_time_s": 60.02,
+      "code_chars": 821,
+      "tool_rounds": 4,
+      "api_calls": 5,
+      "error": null,
+      "progress_events": [
+        {
+          "round": 1,
+          "phase": "search+read",
+          "message": "[Search+Read] Round 1: |   ReadFile: slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLSliceControllerWidget.ui.md |   Grep: \"SliceResolutionMatch2DView\" \u2192 slicer-source/Libs/MRML/Core"
+        },
+        {
+          "round": 2,
+          "phase": "search",
+          "message": "[Search] Round 2: |   Grep: \"SetSliceResolutionMode|GetSliceResolutionMode\" \u2192 slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h"
+        },
+        {
+          "round": 3,
+          "phase": "read",
+          "message": "[Read] Round 3: |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.cxx"
+        },
+        {
+          "round": 4,
+          "phase": "search",
+          "message": "[Search] Round 4: |   Grep: \"vtkMRMLSliceNodeRed\" \u2192 slicer-source/Libs/MRML/Core"
+        }
+      ],
+      "prompt_build_s": 2.547,
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nToggle on FOV and spacing match 2D for Red slice\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `BoneReconstructionPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:BoneReconstructionPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\n\nThis is a targeted ",
+      "prompt_includes_ui_analysis": true,
+      "deterministic_ui_evidence": {
+        "matched": [
+          "actionFit_to_window",
+          "actionSliceModelModeVolumes",
+          "actionSliceModelMode2D",
+          "actionSliceModelModeVolumes_2D",
+          "actionSliceModelMode2D_Volumes"
+        ],
+        "injected": true
+      },
+      "executor_ready": true,
+      "tool_count": 3,
+      "last_progress": {
+        "round": 4,
+        "phase": "search",
+        "message": "[Search] Round 4: |   Grep: \"vtkMRMLSliceNodeRed\" \u2192 slicer-source/Libs/MRML/Core"
+      },
+      "tool_loop_s": 56.28,
+      "total_tokens": 69121,
+      "total_api_time_s": 44.416,
+      "total_tool_time_s": 10.744,
+      "tool_names_called": [
+        "ReadFile",
+        "Grep"
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "phase": "search+read",
+          "api_time_s": 5.737,
+          "tool_time_s": 2.302,
+          "round_time_s": 8.039,
+          "tools": [
+            "ReadFile",
+            "Grep"
+          ],
+          "tokens": 5885
+        },
+        {
+          "round": 2,
+          "phase": "search",
+          "api_time_s": 7.758,
+          "tool_time_s": 0.95,
+          "round_time_s": 8.707,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 11508
+        },
+        {
+          "round": 3,
+          "phase": "read",
+          "api_time_s": 5.517,
+          "tool_time_s": 3.485,
+          "round_time_s": 9.001,
+          "tools": [
+            "ReadFile"
+          ],
+          "tokens": 12866
+        },
+        {
+          "round": 4,
+          "phase": "search",
+          "api_time_s": 15.113,
+          "tool_time_s": 4.007,
+          "round_time_s": 19.12,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 16599
+        },
+        {
+          "round": 5,
+          "phase": "generate",
+          "api_time_s": 10.292,
+          "tool_time_s": 0.0,
+          "round_time_s": 10.292,
+          "tools": [],
+          "tokens": 22263
+        }
+      ],
+      "tool_calls_history": [
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLSliceControllerWidget.ui.md",
+            "query": "actionSliceModelModeVolumes"
+          },
+          "result_preview": "## action: actionSliceModelModeVolumes\n\n- Confidence: `linked_to_api`\n- Widget/action class: `action`\n- Search text: FOV, Spacing match Volumes | actionSliceModelModeVolumes\n- Text: FOV, Spacing match Volumes\n- Implementation candidates: `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx`, `Libs/MRML/Widgets/qMRMLSliceControllerWidget.h`, `Libs/MRML/Widgets/qMRMLSliceControllerWidget_p.h`\n- Matched implementation lines:\n  - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:186: QObject::connect(this->actionSliceModelModeVolumes, SIGNAL(triggered()), q, SLOT(setSliceModelModeVolumes()));`\n  - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:189: QObject::connect(this->actionSliceModelModeVolumes_2D, SIGNAL(triggered()), q, SLOT(setSliceModelModeVolumes_2D()));`\n  - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:494: this->SliceModelMenu->addAction(this->actionSliceModelModeVolumes);`\n  - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:497: this->SliceModelMenu->addAction(this->actionSliceModelModeVolumes_2D);`\n  - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:792: this->actionSliceModelModeVolumes->setChecked(sliceNode->GetSliceResolutionMode() == vtkMRMLSliceNode::SliceResolutionMatchVolumes);`\n  - `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:795: this->actionSliceModelModeVolumes_2D->setChecked(sliceNode->GetSliceResolutionMode() == vtkMRMLSliceNode::SliceFOVMatchVolumesSpacingMatch2DView);`\n- Connected slots/functions: `setSliceModelModeVolumes`, `setSliceModelModeVolumes_2D`\n- API footprints: `GetSliceResolutionMode`, `vtkMRMLSliceNode::SliceFOVMatch2DViewSpacingMatchVolumes`, `vtkMRMLSliceNode::SliceFOVMatchVolumesSpacingMatch2DView`, `vtkMRMLSliceNode::SliceResolutionCustom`, `vtkMRMLSliceNode::SliceResolutionMatch2DView`, `vtkMRMLSliceNode::SliceResolutionMatchVolumes`\n- Key UI properties: {\"checkable\": \"true\"}\n\n\n\n... [other sections omitted] ...\n\n## action: actionSliceModelModeVolumes_2D\n\n- Confidence: `linked_to_api`\n- Widget/action class: `act..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "SliceResolutionMatch2DView",
+            "path": "slicer-source/Libs/MRML/Core"
+          },
+          "result_preview": "Grep: 4 hit(s) in 2 file(s): slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.cxx (3), slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "SetSliceResolutionMode|GetSliceResolutionMode",
+            "path": "slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h"
+          },
+          "result_preview": "Grep: 1 hit(s) in 1 file(s): slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h (1)"
+        },
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.cxx",
+            "query": "SetSliceResolutionMode"
+          },
+          "result_preview": "      node->JumpSlice(r, a, s);\n    }\n    else if (jumpMode == CenteredJumpSlice)\n    {\n      node->JumpSliceByCentering(r, a, s);\n    }\n    else if (jumpMode == OffsetJumpSlice)\n    {\n      node->JumpSliceByOffsetting(r, a, s);\n    }\n    else\n    {\n      vtkGenericWarningMacro(\"vtkMRMLSliceNode::JumpAllSlices failed: invalid jump mode \" << jumpMode);\n    }\n  }\n}\n\n//----------------------------------------------------------------------------\nvoid vtkMRMLSliceNode::SetFieldOfView(double x, double y, double z)\n{\n  bool modified = false;\n  if (x != this->FieldOfView[0] || //\n      y != this->FieldOfView[1] || //\n      z != this->FieldOfView[2])\n  {\n    modified = true;\n    this->FieldOfView[0] = x;\n    this->FieldOfView[1] = y;\n    this->FieldOfView[2] = z;\n  }\n\n  if (modified)\n  {\n    this->UpdateMatrices();\n  }\n}\n\n//----------------------------------------------------------------------------\nvoid vtkMRMLSliceNode::SetXYZOrigin(double x, double y, double z)\n{\n  if (x != this->XYZOrigin[0] || //\n      y != this->XYZOrigin[1] || //\n      z != this->XYZOrigin[2])\n  {\n    this->XYZOrigin[0] = x;\n    this->XYZOrigin[1] = y;\n    this->XYZOrigin[2] = z;\n    this->UpdateMatrices();\n  }\n}\n\n//----------------------------------------------------------------------------\nvoid vtkMRMLSliceNode::SetUVWOrigin(double x, double y, double z)\n{\n  if (x != this->UVWOrigin[0] || //\n      y != this->UVWOrigin[1] || //\n      z != this->UVWOrigin[2])\n  {\n    this->UVWOrigin[0] = x;\n    this->UVWOrigin[1] = y;\n    this->UVWOrigin[2] = z;\n    this->UpdateMatrices();\n  }\n}\n\n//----------------------------------------------------------------------------\nvoid vtkMRMLSliceNode::SetDimensions(int x, int y, int z)\n{\n  if (x != this->Dimensions[0] || //\n      y != this->Dimensions[1] || //\n      z != this->Dimensions[2])\n  {\n    this->Dimensions[0] = x;\n    this->Dimensions[1] = y;\n    this->Dimensions[2] = z;\n    this->UpdateMatrices();\n  }\n}\n\n//--------------------------------------------------------..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "vtkMRMLSliceNodeRed",
+            "path": "slicer-source/Libs/MRML/Core"
+          },
+          "result_preview": "Grep: 7 hit(s) in 6 file(s): slicer-source/Libs/MRML/Core/vtkMRMLClipNode.cxx (2), slicer-source/Libs/MRML/Core/Testing/backward_compat_light_box_scene.mrml (1), slicer-source/Libs/MRML/Core/vtkMRMLCoreTestingUtilities.cxx (1), slicer-source/Libs/MRML/Core/vtkMRMLJsonElement.cxx (1), slicer-source/Libs/MRML/Core/Testing/vtkMRMLSceneIDTest.cxx (1)"
+        }
+      ],
+      "evidence_audit": {
+        "ui_analysis": {
+          "used": true,
+          "query_paths": [
+            "slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLSliceControllerWidget.ui.md"
+          ],
+          "result_files": [
+            "slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLSliceControllerWidget.ui.md"
+          ],
+          "matched_lines_preview": [
+            "## action: actionSliceModelModeVolumes",
+            "- Confidence: `linked_to_api`",
+            "- Search text: FOV, Spacing match Volumes | actionSliceModelModeVolumes",
+            "- Text: FOV, Spacing match Volumes",
+            "- Implementation candidates: `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx`, `Libs/MRML/Widgets/qMRMLSliceControllerWidget.h`, `Libs/MRML/Widgets/qMRMLSliceControllerWidget_p.h`",
+            "- Matched implementation lines:",
+            "- `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:186: QObject::connect(this->actionSliceModelModeVolumes, SIGNAL(triggered()), q, SLOT(setSliceModelModeVolumes()));`",
+            "- `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:189: QObject::connect(this->actionSliceModelModeVolumes_2D, SIGNAL(triggered()), q, SLOT(setSliceModelModeVolumes_2D()));`",
+            "- `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:494: this->SliceModelMenu->addAction(this->actionSliceModelModeVolumes);`",
+            "- `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:497: this->SliceModelMenu->addAction(this->actionSliceModelModeVolumes_2D);`",
+            "- `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:792: this->actionSliceModelModeVolumes->setChecked(sliceNode->GetSliceResolutionMode() == vtkMRMLSliceNode::SliceResolutionMatchVolumes);`",
+            "- `Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx:795: this->actionSliceModelModeVolumes_2D->setChecked(sliceNode->GetSliceResolutionMode() == vtkMRMLSliceNode::SliceFOVMatchVolumesSpacingMatch2DView);`",
+            "- Connected slots/functions: `setSliceModelModeVolumes`, `setSliceModelModeVolumes_2D`",
+            "- API footprints: `GetSliceResolutionMode`, `vtkMRMLSliceNode::SliceFOVMatch2DViewSpacingMatchVolumes`, `vtkMRMLSliceNode::SliceFOVMatchVolumesSpacingMatch2DView`, `vtkMRMLSliceNode::SliceResolutionCustom`, `vtkMRMLSliceNode::SliceResolutionMatch2DView`, `vtkMRMLSliceNode::SliceResolutionMatchVolumes`",
+            "- Key UI properties: {\"checkable\": \"true\"}",
+            "## action: actionSliceModelModeVolumes_2D",
+            "- Search text: FOV matches Volumes, Spacing matches 2D View | actionSliceModelModeVolumes_2D",
+            "- Text: FOV matches Volumes, Spacing matches 2D View",
+            "- Connected slots/functions: `setSliceModelModeVolumes_2D`",
+            "- API footprints: `GetSliceResolutionMode`, `vtkMRMLSliceNode::SliceFOVMatch2DViewSpacingMatchVolumes`, `vtkMRMLSliceNode::SliceFOVMatchVolumesSpacingMatch2DView`, `vtkMRMLSliceNode::SliceResolutionCustom`, `vtkMRMLSliceNode::SliceResolutionMatch2DView`"
+          ],
+          "connected_slots": [
+            "setSliceModelModeVolumes",
+            "setSliceModelModeVolumes_2D"
+          ],
+          "api_footprints": [
+            "GetSliceResolutionMode",
+            "vtkMRMLSliceNode::SliceFOVMatch2DViewSpacingMatchVolumes",
+            "vtkMRMLSliceNode::SliceFOVMatchVolumesSpacingMatch2DView",
+            "vtkMRMLSliceNode::SliceResolutionCustom",
+            "vtkMRMLSliceNode::SliceResolutionMatch2DView",
+            "vtkMRMLSliceNode::SliceResolutionMatchVolumes"
+          ],
+          "implementation_candidates": [
+            "Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx",
+            "Libs/MRML/Widgets/qMRMLSliceControllerWidget.h",
+            "Libs/MRML/Widgets/qMRMLSliceControllerWidget_p.h"
+          ]
+        },
+        "source_verification": {
+          "non_ui_result_files": [
+            "slicer-source/Libs/MRML/Core",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLClipNode.cxx",
+            "slicer-source/Libs/MRML/Core/Testing/backward_compat_light_box_scene.mrml",
+            "slicer-source/Libs/MRML/Core/vtkMRMLCoreTestingUtilities.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLJsonElement.cxx",
+            "slicer-source/Libs/MRML/Core/Testing/vtkMRMLSceneIDTest.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceCompositeNode.cxx"
+          ],
+          "source_type_counts": {
+            "ui_analysis": 1,
+            "mrml_definition": 10
+          }
+        },
+        "searches": {
+          "vector_queries": [],
+          "grep_patterns": [
+            "SliceResolutionMatch2DView",
+            "SetSliceResolutionMode|GetSliceResolutionMode",
+            "vtkMRMLSliceNodeRed"
+          ],
+          "read_paths": [
+            "slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLSliceControllerWidget.ui.md",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.cxx"
+          ]
+        }
+      },
+      "reasoning_chars": 14800,
+      "reasoning_preview": "[Round 1]\nThe user wants me to generate a corrected Python code template for toggling on \"FOV and spacing match 2D\" for the Red slice in the BoneReconstructionPlanner extension context. The previous failure was due to `from vtkMRMLCorePython import vtkMRMLSliceNode` which doesn't exist in Slicer's Python environment.\n\nLet me look at the evidence provided:\n\n1. The successful runtime correction shows:\n```python\nsliceNode = slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed')\nSLICE_RESOLUTION_MATCH_2D_VIEW = slicer.vtkMRMLSliceNode.SliceResolutionMatch2DView\nsliceNode.SetSliceResolutionMode(SLICE_RESOLUTION_MATCH_2D_VIEW)\n```\n\n2. The UI evidence shows the action `actionSliceModelModeVolumes \"FOV, Spacing match Volumes\"` with `vtkMRMLSliceNode::SliceResolutionMatch2DView` in the API list.\n\n3. The core-UI evidence maps \"FOV, Spacing match 2D\" to `SliceResolutionMatch2DView`.\n\nBut wait - the user says \"Toggle on FOV and spacing match 2D\". The UI evidence shows `actionSliceModelModeVolumes \"FOV, Spacing match Volumes\"` with `vtkMRMLSliceNode::SliceResolutionMatch2DView`. \n\nLet me check the UI analysis file to better understand the mapping between the label \"FOV, Spacing match 2D\" and the actual enum value.\n\nLet me search the UI analysis for more details.\n\n[Round 2]\nLet me analyze the situation carefully.\n\nThe user says \"Toggle on FOV and spacing match 2D\" for the Red slice.\n\nLooking at the UI evidence:\n1. `actionSliceModelModeVolumes` text: \"FOV, Spacing match Volumes\" - this matches `SliceResolutionMatchVolumes`\n2. `actionSliceModelModeVolumes_2D` text: \"FOV matches Volumes, Spacing matches 2D View\" - this matches `SliceFOVMatchVolumesSpacingMatch2DView`\n\nBut the user says \"FOV and spacing match 2D\" - which means BOTH FOV and spacing match the 2D view. Looking at the enum:\n- `SliceResolutionMatch2DView` - This matches BOTH FOV and spacing to the 2D view.\n- `SliceFOVMatchVolumesSpacingMatch2DView` - FOV matches volumes, spacing matches 2D view.\n- `SliceFOVMatch2DViewSpacingMatchVolumes` - FOV matches 2D view, spacing matches volumes.\n\nSo \"FOV and spacing match 2D\" would be `SliceResolutionMatch2DView` which matches both to the 2D view.\n\nBut wait - the user says \"Toggle on\" not \"set\". Let me re-read: \"Toggle on FOV and spacing match 2D for Red slice\". The \"Toggle on\" means enable it (set it to on/true/active). So we set the mode to `SliceResolutionMatch2DView`.\n\nThe successful runtime correction used:\n```python\nsliceNode = slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed')\nSLICE_RESOLUTION_MATCH_2D_VIEW = slicer.vtkMRMLSliceNode.SliceResolutionMatch2DView\nsliceNode.SetSliceResolutionMode(SLICE_RESOLUTION_MATCH_2D_VIEW)\n```\n\nBut looking at the previous failing code:\n```python\nfrom vtkMRMLCorePython import vtkMRMLSliceNode  # THIS FAILS\nsliceWidget = slicer.app.layoutManager().sliceWidget('Red')\nsliceNode = sliceWidget.mrmlSliceNode()\n```\n\nThe issue was `from vtkMRMLCorePython import vtkMRMLSliceNode` - this module doesn't exist in Slicer's Python.\n\nThe us",
+      "generated_code_preview": "\"\"\"\nToggle on FOV and spacing match 2D for Red slice.\nSets the Red slice node's resolution mode to SliceResolutionMatch2DView,\nwhich means both FOV and spacing are matched to the 2D view.\n\"\"\"\nimport slicer\n\n# Get the Red slice node by its singleton node ID\nsliceNode = slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed')\n\n# Set resolution mode: FOV and spacing both match the 2D viewport\nSLICE_RESOLUTION_MATCH_2D_VIEW = slicer.vtkMRMLSliceNode.SliceResolutionMatch2DView\nsliceNode.SetSliceResolutionMode(SLICE_RESOLUTION_MATCH_2D_VIEW)\n\n# Verify the state was applied\nactualMode = sliceNode.GetSliceResolutionMode()\nif actualMode != SLICE_RESOLUTION_MATCH_2D_VIEW:\n    raise RuntimeError(\n        'STATE_NOT_APPLIED: SliceResolutionMode (expected %d, got %d)'\n        % (SLICE_RESOLUTION_MATCH_2D_VIEW, actualMode)\n    )"
+    }
+  ]
+}

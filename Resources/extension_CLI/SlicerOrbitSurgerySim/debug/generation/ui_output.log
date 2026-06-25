@@ -1,0 +1,63 @@
+==============================================================================
+Extension CLI pipeline  |  round: generation
+  extension : SlicerOrbitSurgerySim
+  source    : C:/0APP_install/slicer/3D Slicer 5.10.0/slicer.org/Extensions-34045/SlicerOrbitSurgerySim
+  started   : 2026-06-23T19:54:41
+==============================================================================
+[2026-06-23T19:54:41 +    0.8s] [discover] Discover Source And Cookbook — Scanning extension files...
+[2026-06-23T19:54:43 +    3.1s] [discover] Discover Source And Cookbook — Found 2 Python files
+[2026-06-23T19:54:44 +    4.4s] [discover] Discover Source And Cookbook — Logic class: PlateRegistrationLogic in PlateRegistration.py, Widget class: PlateRegistrationWidget, UI files: 2
+[2026-06-23T19:54:45 +    4.8s] [discover] Discover Source And Cookbook — parameterNodeWrapper detected: PlateRegistrationParameterNode (19 node fields)
+[2026-06-23T19:54:49 +    9.1s] [discover] Discover Source And Cookbook — Parsed cookbook: C:\Users\20152\Desktop\slicer-skill\SlicerAgent\Slicer_agent\Resources\extensions_cookbook\SlicerOrbitSurgerySim.md (10 steps)
+[2026-06-23T19:54:50 +    9.5s] [discover] Discover Source And Cookbook — Phase 'discover' took 8.7s (cumulative 8.7s)
+[2026-06-23T19:54:50 +    9.8s] [analyze] Analyze Extension Logic — Reading PlateRegistrationLogic from PlateRegistration.py...
+[2026-06-23T19:54:51 +   10.7s] [analyze] Analyze Extension Logic — AST enumerated 31 methods; requesting LLM annotation...
+[2026-06-23T19:55:45 +   65.1s] [llm_call] analyze — call 000 -> analyze_call_000.json (out 20206 chars)
+[2026-06-23T19:55:46 +   65.4s] [analyze] Analyze Extension Logic — Analyzed 31 methods (AST universe + LLM annotation)
+[2026-06-23T19:55:56 +   76.1s] [analyze] Analyze Extension Logic — Phase 'analyze' took 66.6s (cumulative 66.6s)
+[2026-06-23T19:55:57 +   76.5s] [contract] Build Workflow Contract — LLM interpreting cookbook steps and repeat intent...
+[2026-06-23T19:56:48 +  127.6s] [llm_call] contract — call 001 -> contract_call_001.json (out 9305 chars)
+[2026-06-23T19:56:48 +  128.0s] [contract] Build Workflow Contract — LLM interpreted 10 cookbook steps
+[2026-06-23T19:56:49 +  128.4s] [contract] Build Workflow Contract — LLM analyzing data flow between steps...
+[2026-06-23T19:57:11 +  150.7s] [llm_call] contract — call 002 -> contract_call_002.json (out 1345 chars)
+[2026-06-23T19:57:11 +  151.1s] [contract] Build Workflow Contract — LLM identified 5 cross-stage connections
+[2026-06-23T19:57:28 +  168.2s] [contract] Build Workflow Contract — Placement-starter methods detected: 0
+[2026-06-23T19:57:48 +  188.0s] [llm_call] contract — call 003 -> contract_call_003.json (out 3180 chars)
+[2026-06-23T19:58:10 +  209.8s] [llm_call] contract — call 004 -> contract_call_004.json (out 4545 chars)
+[2026-06-23T19:58:10 +  210.2s] [contract] Build Workflow Contract — Phase 'contract' took 134.2s (cumulative 134.2s)
+[2026-06-23T19:58:11 +  210.6s] [audit_contract] Audit Workflow Contract — Auditing workflow contract against cookbook/source evidence...
+[2026-06-23T19:58:11 +  211.4s] [audit_contract] Audit Workflow Contract — PASS
+[2026-06-23T19:58:12 +  211.9s] [audit_contract] Audit Workflow Contract — Phase 'audit_contract' took 1.7s (cumulative 1.7s)
+[2026-06-23T19:58:16 +  215.9s] [ground] Ground Slicer APIs — No slicer_op sub-operations found
+[2026-06-23T19:58:16 +  216.2s] [ground] Ground Slicer APIs — Grounded 0 slicer_op template(s); 0 reporting MISSING_EVIDENCE
+[2026-06-23T19:58:17 +  216.7s] [ground] Ground Slicer APIs — Phase 'ground' took 4.8s (cumulative 4.8s)
+[2026-06-23T19:58:17 +  217.0s] [generate] Generate Schemas And Templates — Building tool definitions...
+[2026-06-23T19:58:17 +  217.4s] [generate] Generate Schemas And Templates — Generated interactive workflow schema with 10 steps
+[2026-06-23T19:58:18 +  217.9s] [generate] Generate Schemas And Templates — Determining node creation patterns via AST...
+[2026-06-23T19:58:28 +  228.2s] [generate] Generate Schemas And Templates — Analyzed 1 output nodes via AST
+[2026-06-23T19:58:29 +  228.6s] [generate] Generate Schemas And Templates — Generated 9 workflow templates
+[2026-06-23T19:58:29 +  229.1s] [generate] Generate Schemas And Templates — Sending templates to LLM for correctness review...
+[2026-06-23T19:58:30 +  229.5s] [generate] Generate Schemas And Templates — All templates passed LLM review
+[2026-06-23T19:58:30 +  230.0s] [audit_contract] Audit Workflow Contract — Auditing workflow contract against cookbook/source evidence...
+[2026-06-23T19:58:30 +  230.4s] [audit_contract] Audit Workflow Contract — PASS
+[2026-06-23T19:58:31 +  230.8s] [generate] Generate Schemas And Templates — Phase 'generate' took 14.1s (cumulative 14.1s)
+[2026-06-23T19:58:31 +  231.3s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
+[2026-06-23T19:58:32 +  232.0s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-23T19:58:34 +  234.1s] [verify_repair] Verify And Repair Templates — All 7 API probes passed
+[2026-06-23T19:58:35 +  234.8s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-23T19:58:36 +  236.3s] [verify_repair] Verify And Repair Templates — PASS
+[2026-06-23T19:58:37 +  236.8s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 1 validation attempt(s)
+[2026-06-23T19:58:37 +  237.1s] [package] Final Gate — status=validated_with_warnings | api_proof=OK | final_syntax=OK | placeholders=OK | generator_sync=OK | steps_valid=6/6 | unproven_read_warnings=2
+[2026-06-23T19:58:38 +  237.6s] [verify_repair] Verify And Repair Templates — Phase 'verify_repair' took 6.8s (cumulative 6.8s)
+[2026-06-23T19:58:38 +  237.9s] [package] Package Validated CLI — Building usage instructions...
+[2026-06-23T19:58:38 +  238.2s] [package] Package Validated CLI — Generated workflow prompt
+[2026-06-23T19:58:47 +  247.0s] [package] Package Validated CLI — Phase 'package' took 9.4s (cumulative 9.4s)
+[2026-06-23T19:58:47 +  247.4s] [summary] Run Summary — SUCCESS | total 247.4s | phases: discover 8.7s, analyze 66.6s, contract 134.2s, audit_contract 1.7s, ground 4.8s, generate 14.1s, verify_repair 6.8s, package 9.4s | LLM calls: 5 | events: 48
+------------------------------------------------------------------------------
+SUMMARY
+  success         : True
+  phases_completed: discover, analyze, contract, audit_contract, ground, generate, verify_repair, package
+  llm_calls       : 5
+  events          : 49
+  phase_durations : discover=8.7s  analyze=66.6s  contract=134.2s  audit_contract=1.7s  ground=4.8s  generate=14.1s  verify_repair=6.8s  package=9.4s
+------------------------------------------------------------------------------

@@ -18,18 +18,25 @@ except NameError:
 
 parameterNode = logic.getParameterNode()
 
-# Resolve required node references
-for role, keyword, nodeClass in [("fibulaLine", "FibulaLine", "vtkMRMLMarkupsLineNode"),
-                                   ("fibulaModelNode", "FibulaModel", "vtkMRMLModelNode")]:
-    node = parameterNode.GetNodeReference(role)
-    if node is None:
-        nodes = slicer.util.getNodesByClass(nodeClass)
-        candidates = [n for n in nodes if keyword.lower() in n.GetName().lower()]
-        if not candidates:
-            raise RuntimeError(f"Could not find a node of class {nodeClass} with name containing '{keyword}' for role '{role}'")
-        node = candidates[0]
-        parameterNode.SetNodeReferenceID(role, node.GetID())
+# Resolve required reference: fibulaLine
+fibulaLine = parameterNode.GetNodeReference("fibulaLine")
+if fibulaLine is None:
+    lineNodes = slicer.util.getNodesByClass("vtkMRMLMarkupsLineNode")
+    if lineNodes:
+        fibulaLine = lineNodes[0]
+        parameterNode.SetNodeReferenceID("fibulaLine", fibulaLine.GetID())
+    else:
+        raise RuntimeError("Required reference 'fibulaLine' not found.")
+
+# Resolve required reference: fibulaModelNode
+fibulaModelNode = parameterNode.GetNodeReference("fibulaModelNode")
+if fibulaModelNode is None:
+    modelNodes = slicer.util.getNodesByClass("vtkMRMLModelNode")
+    if modelNodes:
+        fibulaModelNode = modelNodes[0]
+        parameterNode.SetNodeReferenceID("fibulaModelNode", fibulaModelNode.GetID())
+    else:
+        raise RuntimeError("Required reference 'fibulaModelNode' not found.")
 
 logic.centerFibulaLine()
-
-print("[BoneReconstructionPlanner] centerFibulaLine completed.")
+print("[BoneReconstructionPlanner] Fibula line centered.")

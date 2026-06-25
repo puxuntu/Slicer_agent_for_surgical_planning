@@ -2,39 +2,38 @@
 Extension CLI pipeline  |  round: repair_001
   extension : BoneReconstructionPlanner
   source    : (repair round — no cookbook parse)
-  started   : 2026-06-15T00:37:08
+  started   : 2026-06-23T23:07:18
 ==============================================================================
-[2026-06-15T00:37:16 +    7.5s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
-[2026-06-15T00:37:19 +   10.3s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
-[2026-06-15T00:37:23 +   14.8s] [verify_repair] Verify And Repair Templates — All 62 API probes passed
-[2026-06-15T00:37:27 +   18.4s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
-[2026-06-15T00:37:37 +   28.5s] [verify_repair] Verify And Repair Templates — PASS
-[2026-06-15T00:37:37 +   28.8s] [verify_repair] Verify And Repair Templates — Attempt 1 found 2 repairable issue(s) [LiveExecutionErrorx2]
-[2026-06-15T00:37:38 +   29.3s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_12:LiveExecutionError -> reground_slicer_op; cb_step_21:LiveExecutionError -> reground_slicer_op
-[2026-06-15T00:37:43 +   34.8s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: starting 1 slicer_op templates
-[2026-06-15T00:37:44 +   35.5s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: started Configure mandibular curve display views (3D View 1 and Red)
-[2026-06-15T00:37:52 +   43.8s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 1 search: [Search] Round 1: |   Grep: "SetViewNodeIDs" → slicer-source/Libs/MRML/Core |   Grep: "SetViewNodeIDs" → slicer-source/Modules/Loadable/Markups
-[2026-06-15T00:38:03 +   54.5s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 2 search+read: [Search+Read] Round 2: |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.h |   Grep: "view.*combo.*box|ViewComboBox|viewNodeIDs|AddViewNodeID" → slicer-ui-analysis
-[2026-06-15T00:38:09 +   60.3s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 3 read: [Read] Round 3: |   ReadFile: slicer-ui-analysis/Modules__Loadable__Markups__Widgets__Resources__UI__qMRMLMarkupsDisplayNodeWidget.ui.md |   ReadFile: slicer-ui-analysis/Modules__Loadable__Markups__Resources__UI__qSlicerMarkupsModule.ui.md
-[2026-06-15T00:38:21 +   72.2s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 4 search: [Search] Round 4: |   VectorSearch: "mrmlSliceNode qMRMLSliceWidget Python API" |   Grep: "mrmlSliceNode" → slicer-source/Docs/developer_guide/script_repository
-[2026-06-15T00:38:32 +   83.2s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: Configure mandibular curve display views (3D View 1 and Red): round 5 read: [Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md
-[2026-06-15T00:38:40 +   91.5s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_12_slicer.py.tpl: done Configure mandibular curve display views (3D View 1 and Red)
-[2026-06-15T00:38:43 +   94.2s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_21_slicer.py.tpl: starting 1 slicer_op templates
-[2026-06-15T00:38:43 +   94.9s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_21_slicer.py.tpl: started Reset field of view for red slice
-[2026-06-15T00:38:54 +  105.6s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_21_slicer.py.tpl: Reset field of view for red slice: round 1 search+read: [Search+Read] Round 1: |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h |   Grep: "GetFieldOfView" → slicer-source/Libs/MRML/Core
-[2026-06-15T00:39:04 +  115.5s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_21_slicer.py.tpl: done Reset field of view for red slice
-[2026-06-15T00:39:05 +  116.5s] [verify_repair] Verify And Repair Templates — Repairs applied: 2 change(s) via reground_slicer_op
-[2026-06-15T00:39:05 +  116.8s] [verify_repair] Verify And Repair Templates — Validation attempt 2/5
-[2026-06-15T00:39:08 +  119.7s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
-[2026-06-15T00:39:13 +  124.3s] [verify_repair] Verify And Repair Templates — All 62 API probes passed
-[2026-06-15T00:39:14 +  125.9s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
-[2026-06-15T00:39:21 +  132.5s] [verify_repair] Verify And Repair Templates — PASS
-[2026-06-15T00:39:22 +  134.0s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 2 validation attempt(s)
+[2026-06-23T23:07:25 +    7.9s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
+[2026-06-23T23:07:26 +    8.9s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-23T23:07:31 +   13.0s] [verify_repair] Verify And Repair Templates — All 65 API probes passed
+[2026-06-23T23:07:33 +   15.3s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-23T23:07:37 +   19.6s] [verify_repair] Verify And Repair Templates — PASS
+[2026-06-23T23:07:37 +   19.9s] [verify_repair] Verify And Repair Templates — Attempt 1 found 2 repairable issue(s) [LiveExecutionErrorx2]
+[2026-06-23T23:07:38 +   20.2s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_8:LiveExecutionError -> reground_slicer_op; cb_step_21:LiveExecutionError -> reground_slicer_op
+[2026-06-23T23:07:39 +   21.8s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_8_slicer.py.tpl: starting 1 slicer_op templates
+[2026-06-23T23:07:39 +   21.9s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_8_slicer.py.tpl: started Toggle on FOV and spacing match 2D for Red slice
+[2026-06-23T23:07:50 +   32.9s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_8_slicer.py.tpl: Toggle on FOV and spacing match 2D for Red slice: round 1 search+read: [Search+Read] Round 1: |   ReadFile: slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLSliceControllerWidget.ui.md |   Grep: "SliceResolutionMatch2DView" → slicer-source/Libs/MRML/Core
+[2026-06-23T23:07:59 +   41.9s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_8_slicer.py.tpl: Toggle on FOV and spacing match 2D for Red slice: round 2 search: [Search] Round 2: |   Grep: "SetSliceResolutionMode|GetSliceResolutionMode" → slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h
+[2026-06-23T23:08:08 +   50.9s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_8_slicer.py.tpl: Toggle on FOV and spacing match 2D for Red slice: round 3 read: [Read] Round 3: |   ReadFile: slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.cxx
+[2026-06-23T23:08:28 +   70.4s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_8_slicer.py.tpl: Toggle on FOV and spacing match 2D for Red slice: round 4 search: [Search] Round 4: |   Grep: "vtkMRMLSliceNodeRed" → slicer-source/Libs/MRML/Core
+[2026-06-23T23:08:40 +   82.3s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_8_slicer.py.tpl: done Toggle on FOV and spacing match 2D for Red slice
+[2026-06-23T23:08:42 +   84.5s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_21_slicer.py.tpl: starting 1 slicer_op templates
+[2026-06-23T23:08:43 +   85.1s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_21_slicer.py.tpl: started Reset field of view in Red slice view
+[2026-06-23T23:08:50 +   92.5s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_21_slicer.py.tpl: Reset field of view in Red slice view: round 1 read: [Read] Round 1: |   ReadFile: slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLSliceControllerWidget.ui.md
+[2026-06-23T23:08:55 +   97.2s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_21_slicer.py.tpl: done Reset field of view in Red slice view
+[2026-06-23T23:08:56 +   98.2s] [verify_repair] Verify And Repair Templates — Repairs applied: 2 change(s) via reground_slicer_op
+[2026-06-23T23:08:56 +   98.6s] [verify_repair] Verify And Repair Templates — Validation attempt 2/5
+[2026-06-23T23:08:59 +  101.6s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-23T23:09:03 +  105.6s] [verify_repair] Verify And Repair Templates — All 64 API probes passed
+[2026-06-23T23:09:06 +  108.5s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-23T23:09:15 +  117.5s] [verify_repair] Verify And Repair Templates — PASS
+[2026-06-23T23:09:18 +  120.1s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 2 validation attempt(s)
 ------------------------------------------------------------------------------
 SUMMARY
   success         : True
   phases_completed: (none)
   llm_calls       : 0
-  events          : 26
-  templates_changed: 2  ['templates/cb_step_12_slicer.py.tpl', 'templates/cb_step_21_slicer.py.tpl']
+  events          : 25
+  templates_changed: 2  ['templates/cb_step_8_slicer.py.tpl', 'templates/cb_step_21_slicer.py.tpl']
 ------------------------------------------------------------------------------

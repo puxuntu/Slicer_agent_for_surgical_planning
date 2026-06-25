@@ -23,11 +23,10 @@ parameterNode = logic.getParameterNode()
 # GUI-driven parameter syncs cannot ratchet the value back.
 try:
     _module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
-    _module_widget.ui.showOriginalMandibleCheckBox.checked = True
+    _module_widget.ui.showOriginalMandibleCheckBox.checked = False
 except Exception:
     pass
-# Final state was not explicit; apply source-derived/default truthy state for showOriginalMandible
-parameterNode.SetParameter('showOriginalMandible', 'True')
+parameterNode.SetParameter('showOriginalMandible', 'False')
 try:
     parameterNode.Modified()
 except Exception:
@@ -36,6 +35,6 @@ except Exception:
 # a bare SetParameter only records state; GUI observers may
 # recompute it differently.
 _module_widget = slicer.modules.bonereconstructionplanner.widgetRepresentation().self()
-_module_widget.setOriginalMandibleVisility(True)
+_module_widget.setOriginalMandibleVisility(False)
 _bonereconstructionplanner_logic = logic
 print("[BoneReconstructionPlanner] Step 'cb_step_33' completed.")

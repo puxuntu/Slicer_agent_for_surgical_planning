@@ -1,0 +1,90 @@
+{
+  "pass": 1,
+  "summary": {
+    "live_valid": 0,
+    "failed_bug": 0,
+    "skipped": 10
+  },
+  "steps": [
+    {
+      "template_key": "cb_step_1",
+      "step_id": "cb_step_1",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_2",
+      "step_id": "cb_step_2",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_3",
+      "step_id": "cb_step_3",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_4",
+      "step_id": "cb_step_4",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_8",
+      "step_id": "cb_step_8",
+      "operation_type": "user_interaction",
+      "status": "skipped_interaction",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_10.py.tpl",
+      "step_id": "cb_step_10",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_5.py.tpl",
+      "step_id": "cb_step_5",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_6.py.tpl",
+      "step_id": "cb_step_6",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_7.py.tpl",
+      "step_id": "cb_step_7",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_9.py.tpl",
+      "step_id": "cb_step_9",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "extension_op inputs (user-loaded data) not present in scene",
+      "execution_time": 0
+    }
+  ]
+}
