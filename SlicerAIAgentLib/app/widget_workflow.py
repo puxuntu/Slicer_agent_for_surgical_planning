@@ -88,8 +88,9 @@ class WidgetWorkflowMixin:
         self._workflowChoiceButtons = []
         self._workflowChoiceInput = None
         self._workflowChoiceSubmitButton = None
-        self._workflowNodeCombo = None
-        self._workflowNodeSelectButton = None
+        self._workflowNodeTree = None
+        self._workflowNodeTreeSelectButton = None
+        self._workflowNodeTreeContainer = None
 
         if getattr(self, "_workflowDoneButton", None):
             self._workflowDoneButton.clicked.connect(self._onWorkflowDoneClicked)
@@ -311,16 +312,23 @@ class WidgetWorkflowMixin:
                 self._workflowChoiceLayout.removeWidget(self._workflowChoiceSubmitButton)
             self._workflowChoiceSubmitButton.setParent(None)
             self._workflowChoiceSubmitButton = None
-        if getattr(self, "_workflowNodeCombo", None) is not None:
+        if getattr(self, "_workflowNodeTree", None) is not None:
+            # Drop the selection-change observer before destroying the tree, so it
+            # cannot dangle / accumulate across steps (the combo had no signal to
+            # leak; the tree does).
+            try:
+                self._workflowNodeTree.currentItemChanged.disconnect(self._onWorkflowNodeTreeSelectionChanged)
+            except Exception:
+                pass
+            self._workflowNodeTree = None
+        self._workflowNodeTreeSelectButton = None
+        if getattr(self, "_workflowNodeTreeContainer", None) is not None:
+            # The container owns the tree + Select button; reparenting it to None
+            # destroys all three together.
             if self._workflowChoiceLayout is not None:
-                self._workflowChoiceLayout.removeWidget(self._workflowNodeCombo)
-            self._workflowNodeCombo.setParent(None)
-            self._workflowNodeCombo = None
-        if getattr(self, "_workflowNodeSelectButton", None) is not None:
-            if self._workflowChoiceLayout is not None:
-                self._workflowChoiceLayout.removeWidget(self._workflowNodeSelectButton)
-            self._workflowNodeSelectButton.setParent(None)
-            self._workflowNodeSelectButton = None
+                self._workflowChoiceLayout.removeWidget(self._workflowNodeTreeContainer)
+            self._workflowNodeTreeContainer.setParent(None)
+            self._workflowNodeTreeContainer = None
         for button in getattr(self, "_workflowChoiceButtons", []):
             if self._workflowChoiceLayout is not None:
                 self._workflowChoiceLayout.removeWidget(button)
@@ -336,12 +344,14 @@ class WidgetWorkflowMixin:
             return
         if not choices and needs_input:
             default_value = state.get("default_value")
-            # Node-selection step: offer a dropdown of the matching scene nodes
-            # instead of a free-text box. Falls back to the text box only if no
+            # Node-selection step: offer a Data-module-style subject-hierarchy tree
+            # of the matching scene nodes (with the native eye / opacity / color
+            # controls) instead of a free-text box, so the user can identify which
+            # node is which before picking. Falls back to the text box only if no
             # matching node exists. (The LLM auto-match still runs first and may
             # auto-advance before this UI is ever shown.)
             node_class = state.get("node_class")
-            if node_class and self._renderWorkflowNodeCombo(state, node_class, default_value):
+            if node_class and self._renderWorkflowNodeTree(state, node_class, default_value):
                 return
             self._workflowChoiceInput = qt.QLineEdit()
             input_label = state.get("input_label") or state.get("choice_label") or "value"
@@ -494,60 +504,129 @@ class WidgetWorkflowMixin:
         self.sendButton.setEnabled(False)
         self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": value})
 
-    def _renderWorkflowNodeCombo(self, state, node_class, default_value):
-        """Show a real qMRMLNodeComboBox filtered to ``node_class`` + a Select button.
+    def _renderWorkflowNodeTree(self, state, node_class, default_value):
+        """Show a Data-module-style qMRMLSubjectHierarchyTreeView filtered to
+        ``node_class`` (native eye/visibility column + right-click opacity/color),
+        with a Select button beneath it.
 
-        Using the MRML node combo box (instead of a plain QComboBox populated from
-        GetNodesByClass) reproduces exactly what the extension's own selector shows:
-        the same ``setNodeTypes([node_class])`` filter PLUS the combo's built-in
-        exclusions — it hides ``HideFromEditors``/internal helper nodes (e.g. the
-        ``parameterNodeWrapper`` placeholder models an extension creates), which a
-        raw GetNodesByClass would wrongly list. Returns True if it rendered
-        (selectable nodes exist), or False to fall back to the free-text box.
+        This is the literal widget the Data module embeds, so it reproduces the
+        full node-identification experience: the user can toggle a node's
+        visibility (and adjust opacity/colour via right-click) to see which scene
+        object a name refers to before committing. The tree's proxy model applies
+        the same exclusions the old qMRMLNodeComboBox did -- it filters to
+        ``node_class`` (subclass-inclusive, like the combo's
+        ``showChildNodeTypes=True``) and automatically hides ``HideFromEditors``/
+        internal helper nodes (e.g. a ``parameterNodeWrapper`` placeholder model),
+        so no extra filtering code is needed.
+
+        Returns True if it rendered (>=1 selectable node of this class exists), or
+        False to let the caller fall back to the free-text box.
         """
-        combo = slicer.qMRMLNodeComboBox()
-        combo.nodeTypes = [node_class]
-        combo.addEnabled = False
-        combo.removeEnabled = False
-        combo.renameEnabled = False
-        combo.noneEnabled = False
-        combo.showChildNodeTypes = True
-        combo.showHidden = False            # exclude HideFromEditors/internal nodes
-        combo.setMRMLScene(slicer.mrmlScene)
-        # No selectable node of this type (after the combo's own exclusions): let
-        # the caller fall back to the free-text box.
+        # Candidate list = scene nodes of node_class, minus HideFromEditors. This
+        # both replicates the old combo's "no node -> free text" empty gate and
+        # supplies the candidates for the _bestNodeMatchIndex default guess. We
+        # mirror the tree's own HideFromEditors exclusion here so the emptiness
+        # check matches exactly what the tree will actually display.
+        candidates = []
         try:
-            count = combo.nodeCount()
+            for node in slicer.util.getNodesByClass(node_class):
+                if node is None:
+                    continue
+                try:
+                    if node.GetHideFromEditors():
+                        continue
+                except Exception:
+                    pass
+                candidates.append({"id": node.GetID(), "name": node.GetName(), "node": node})
         except Exception:
-            count = 0
-        if not count:
-            combo.setParent(None)
+            logger.debug("Enumerating node candidates failed", exc_info=True)
+            candidates = []
+        if not candidates:
             return False
-        self._workflowNodeCombo = combo
+
+        # Container stacks the tree above its Select button (the choice layout is a
+        # QHBoxLayout; a tall tree reads better over the button than beside it).
+        container = qt.QWidget()
+        vbox = qt.QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+
+        tree = slicer.qMRMLSubjectHierarchyTreeView()
+        tree.setMRMLScene(slicer.mrmlScene)     # scene BEFORE filtering
+        tree.nodeTypes = [node_class]           # exact class, subclass-inclusive
+        # Trim columns the narrow module panel has no room for; keep the eye
+        # (visibility) column on (its default). Colour stays reachable via
+        # right-click. For a vtkMRMLSegmentationNode the eye toggles whole-
+        # segmentation visibility (per-segment is not exposed in this row), which
+        # is fine for telling which node is which.
+        for _attr in ("idColumnVisible", "transformColumnVisible", "descriptionColumnVisible"):
+            try:
+                setattr(tree, _attr, False)
+            except Exception:
+                logger.debug("Tree column setup (%s) failed", _attr, exc_info=True)
+        # Bound the height so the tree does not swallow the panel (it scrolls
+        # internally); expand horizontally only to the available width -- never
+        # demand more, so a long node name cannot force the panel wider (see
+        # _applyWidthSafeLabels).
+        tree.setMinimumHeight(140)
+        tree.setMaximumHeight(220)
+        tree.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Fixed)
+        self._workflowNodeTree = tree
+
         # Default to the best keyword/name match (only a guess; user can change).
         try:
-            cand = []
-            for i in range(count):
-                node = combo.nodeFromIndex(i)
-                if node is not None:
-                    cand.append({"id": node.GetID(), "name": node.GetName()})
             idx = self._bestNodeMatchIndex(
-                cand, default_value, state.get("node_keywords") or []
+                candidates, default_value, state.get("node_keywords") or []
             )
-            if 0 <= idx < len(cand):
-                combo.setCurrentNodeID(cand[idx]["id"])
+            if 0 <= idx < len(candidates):
+                tree.setCurrentNode(candidates[idx]["node"])
         except Exception:
-            logger.debug("Defaulting node combo selection failed", exc_info=True)
+            logger.debug("Defaulting node tree selection failed", exc_info=True)
 
-        self._workflowNodeSelectButton = qt.QPushButton("Select")
-        self._workflowNodeSelectButton.setToolTip("Use the selected node")
-        self._workflowNodeSelectButton.clicked.connect(self._onWorkflowNodeSelected)
+        button = qt.QPushButton("Select")
+        button.setToolTip("Use the selected node")
+        button.clicked.connect(self._onWorkflowNodeTreeSelected)
+        self._workflowNodeTreeSelectButton = button
 
-        self._workflowChoiceLayout.addWidget(self._workflowNodeCombo, 1)
-        self._workflowChoiceLayout.addWidget(self._workflowNodeSelectButton)
-        self._workflowNodeCombo.setVisible(True)
-        self._workflowNodeSelectButton.setVisible(True)
+        # Enable Select only while a real data node of node_class is current; a
+        # folder/patient/study row yields currentNode() == None.
+        tree.currentItemChanged.connect(self._onWorkflowNodeTreeSelectionChanged)
+        self._updateNodeTreeSelectButtonEnabled()
+
+        vbox.addWidget(tree, 1)
+        vbox.addWidget(button)
+        self._workflowNodeTreeContainer = container
+        self._workflowChoiceLayout.addWidget(container, 1)
+        container.setVisible(True)
         return True
+
+    def _nodeTreeValidCurrentNode(self):
+        """Return the tree's current node iff it is a real data node of the step's
+        ``node_class`` (not a folder/hierarchy row), else None."""
+        tree = getattr(self, "_workflowNodeTree", None)
+        if tree is None:
+            return None
+        try:
+            node = tree.currentNode()
+        except Exception:
+            return None
+        if node is None:
+            return None
+        node_class = (self._currentWorkflowUiState or {}).get("node_class")
+        if node_class:
+            try:
+                if not node.IsA(node_class):
+                    return None
+            except Exception:
+                return None
+        return node
+
+    def _updateNodeTreeSelectButtonEnabled(self):
+        button = getattr(self, "_workflowNodeTreeSelectButton", None)
+        if button is not None:
+            button.setEnabled(self._nodeTreeValidCurrentNode() is not None)
+
+    def _onWorkflowNodeTreeSelectionChanged(self, *args):
+        self._updateNodeTreeSelectButtonEnabled()
 
     def _bestNodeMatchIndex(self, candidates, default_value, keywords):
         """Best candidate index: exact recorded name → keyword substring → first.
@@ -556,7 +635,7 @@ class WidgetWorkflowMixin:
         keywords like 'mandib' match the node name 'MandibleSegmentation'; the
         distinctive keywords then break the tie against shared words like
         'segmentation'. It is only a default guess — the user picks from the
-        dropdown.
+        node tree.
         """
         names = [str(c.get("name") or "") for c in candidates]
         dv = str(default_value or "").strip()
@@ -576,15 +655,13 @@ class WidgetWorkflowMixin:
                 return best_i
         return 0
 
-    def _onWorkflowNodeSelected(self):
-        combo = getattr(self, "_workflowNodeCombo", None)
-        if combo is None:
+    def _onWorkflowNodeTreeSelected(self):
+        node = self._nodeTreeValidCurrentNode()
+        if node is None:
             return
         name = ""
         try:
-            node = combo.currentNode()
-            if node is not None:
-                name = str(node.GetName() or "").strip()
+            name = str(node.GetName() or "").strip()
         except Exception:
             name = ""
         if not name:
