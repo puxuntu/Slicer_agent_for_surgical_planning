@@ -1564,8 +1564,24 @@ class WorkflowRuntime:
                 nc = str(role.get("node_class") or "").strip()
                 if nc:
                     return nc
+        # A node pick: explicit ``value_kind == "node"``, OR the recorded source
+        # widget is a node-combo class (some regenerations leave value_kind empty
+        # but still record the .ui ``widget_class`` + ``node_class`` -- e.g.
+        # PelvicFracturePlanning's ``inputSelector`` qMRMLNodeComboBox). Mirrors
+        # the node_tree entries of WidgetWorkflowMixin._WORKFLOW_WIDGET_FAMILIES;
+        # the segments table is excluded (routed via _segment_selection_meta).
+        node_selector_widgets = (
+            "qMRMLNodeComboBox", "qMRMLSubjectHierarchyComboBox",
+            "qMRMLSubjectHierarchyTreeView", "qMRMLCheckableNodeComboBox",
+        )
         for so in meta.get("sub_operations") or []:
-            if isinstance(so, dict) and str(so.get("value_kind") or "").strip() == "node":
+            if not isinstance(so, dict):
+                continue
+            vk = str(so.get("value_kind") or "").strip()
+            wc = str(so.get("widget_class") or "").strip()
+            if vk == "segment_visibility_selection" or wc == "qMRMLSegmentsTableView":
+                continue
+            if vk == "node" or wc in node_selector_widgets:
                 nc = str(so.get("node_class") or "").strip()
                 if nc:
                     return nc
@@ -1654,6 +1670,16 @@ class WorkflowRuntime:
             return False
         if "node" in kinds:
             return True
+        # A node-combo source widget with a node_class is a node pick too, even if
+        # the regeneration left value_kind empty (mirrors _node_class_from_step_meta).
+        node_selector_widgets = (
+            "qMRMLNodeComboBox", "qMRMLSubjectHierarchyComboBox",
+            "qMRMLSubjectHierarchyTreeView", "qMRMLCheckableNodeComboBox",
+        )
+        for s in sub_ops:
+            if (str(s.get("widget_class") or "").strip() in node_selector_widgets
+                    and str(s.get("node_class") or "").strip()):
+                return True
         for role in meta.get("node_roles") or []:
             if (isinstance(role, dict)
                     and role.get("role_kind") == "choice_input"

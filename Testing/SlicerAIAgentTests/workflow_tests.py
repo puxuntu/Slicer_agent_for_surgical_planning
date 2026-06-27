@@ -996,6 +996,26 @@ class WorkflowTestsMixin:
         }
         self.assertEqual(fn(bool_step), "")
 
+        # Regenerated Pelvic cb_step_1 shape: a qMRMLNodeComboBox selector with a
+        # node_class but EMPTY value_kind and no node_roles. The node_class must
+        # still surface (via the widget-class tier) so the panel offers the tree.
+        combo_no_valuekind = {
+            "node_roles": None,
+            "sub_operations": [{"value_kind": "", "widget_class": "qMRMLNodeComboBox",
+                                "node_class": "vtkMRMLScalarVolumeNode"}],
+        }
+        self.assertEqual(fn(combo_no_valuekind), "vtkMRMLScalarVolumeNode")
+
+        # A segments-table widget must NOT surface as a node-tree class here (it is
+        # routed via _segment_selection_meta); the widget-class tier skips it.
+        seg_widget = {
+            "node_roles": None,
+            "sub_operations": [{"value_kind": "segment_visibility_selection",
+                                "widget_class": "qMRMLSegmentsTableView",
+                                "node_class": "vtkMRMLSegmentationNode"}],
+        }
+        self.assertEqual(fn(seg_widget), "")
+
         # Defensive: malformed input never raises.
         self.assertEqual(fn(None), "")
         self.assertEqual(fn({}), "")
@@ -1014,6 +1034,14 @@ class WorkflowTestsMixin:
         # Node pick via a choice_input node-role alone (older artifacts).
         self.assertTrue(fn({"node_roles": [
             {"role_kind": "choice_input", "node_class": "vtkMRMLModelNode"}]}))
+        # Node pick via a node-combo widget_class + node_class, even when the
+        # regeneration left value_kind empty (Pelvic cb_step_1 shape).
+        self.assertTrue(fn({"sub_operations": [
+            {"value_kind": "", "widget_class": "qMRMLNodeComboBox",
+             "node_class": "vtkMRMLScalarVolumeNode"}]}))
+        # Node-combo widget but no node_class -> not a node pick.
+        self.assertFalse(fn({"sub_operations": [
+            {"value_kind": "", "widget_class": "qMRMLNodeComboBox", "node_class": ""}]}))
         # Boolean checkbox: no node class -> keeps its buttons, not a node pick.
         self.assertFalse(fn({
             "sub_operations": [{"value_kind": "bool", "node_class": None}],
