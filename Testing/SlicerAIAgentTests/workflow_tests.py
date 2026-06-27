@@ -1271,6 +1271,83 @@ class WorkflowTestsMixin:
 
         self.delayDisplay("Segments-table widget routing resolves (live + replay)")
 
+    def test_SegmentTablePrefersKeywordMatch(self):
+        """A segments-table step defaults to the segmentation whose name matches the
+        source widget name, not the first one in the scene.
+
+        Regression for PelvicFracturePlanning step 4 ("untick fragments"): two
+        vtkMRMLSegmentationNode exist ("Pelvis Segmentation" created first,
+        "Fracture Segmentation" created by the prior step). With no parameter-binding
+        keywords (parameterNodeWrapper extension), the table defaulted to the first
+        node. Keywords derived from widget_name 'fractureSegmentsTable' -> 'fracture'
+        now steer best-match to "Fracture Segmentation".
+        """
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+        from SlicerAIAgentLib.app.widget_workflow import WidgetWorkflowMixin
+        from SlicerAIAgentLib.ExtensionCLILoader import reset_workflow_session
+
+        # widget-name tokenizer: distinctive token only.
+        self.assertEqual(WorkflowRuntime._keywords_from_widget_name("fractureSegmentsTable"), ["fracture"])
+        self.assertEqual(WorkflowRuntime._keywords_from_widget_name("OutputFracSeg"), ["frac"])
+
+        seg_meta_step = {
+            "sub_operations": [{
+                "op_type": "user_choice", "widget_class": "qMRMLSegmentsTableView",
+                "value_kind": "segment_visibility_selection",
+                "node_class": "vtkMRMLSegmentationNode",
+                "widget_name": "fractureSegmentsTable",
+            }],
+        }
+        meta = WorkflowRuntime._segment_selection_meta(seg_meta_step)
+        self.assertEqual(meta.get("segmentation_node_class"), "vtkMRMLSegmentationNode")
+        self.assertEqual(meta.get("keywords"), ["fracture"])
+        self.assertEqual(meta.get("target_param"), "")
+        # target_param is surfaced when the artifact records it (Layer 2).
+        seg_meta_step["sub_operations"][0]["segmentation_target_param"] = "OutputFracSeg"
+        self.assertEqual(
+            WorkflowRuntime._segment_selection_meta(seg_meta_step).get("target_param"), "OutputFracSeg")
+
+        # best-match (on the widget mixin) prefers the fracture segmentation.
+        candidates = [
+            {"id": "vtkMRMLSegmentationNode1", "name": "Pelvis Segmentation"},
+            {"id": "vtkMRMLSegmentationNode2", "name": "Fracture Segmentation"},
+        ]
+        self.assertEqual(WidgetWorkflowMixin._bestNodeMatchIndex(None, candidates, "", ["fracture"]), 1)
+        # control: no keywords -> first (unchanged behavior).
+        self.assertEqual(WidgetWorkflowMixin._bestNodeMatchIndex(None, candidates, "", []), 0)
+
+        # state_for_ui surfaces the derived keywords (no parameter binding present).
+        graph = {"step_count": 1, "steps": [
+            {"step_id": "cb_step_4", "operation_type": "user_choice", "step_type": "user_choice",
+             "description": "Untick any fragments to exclude from planning.",
+             "choice_info": {"parameter_name": "excluded_fragments", "choices": []},
+             "sub_operations": [{"op_type": "user_choice", "widget_class": "qMRMLSegmentsTableView",
+                                 "value_kind": "segment_visibility_selection",
+                                 "node_class": "vtkMRMLSegmentationNode",
+                                 "widget_name": "fractureSegmentsTable"}]}]}
+        ext = {"FakePelvic": {"workflow_metadata": {"parameter_bindings": {}}}}
+        og, oe = wf_mod.get_workflow_graph, wf_mod.get_validated_extensions
+        wf_mod.get_workflow_graph = lambda e: graph
+        wf_mod.get_validated_extensions = lambda: ext
+        try:
+            reset_workflow_session("FakePelvic")
+            r = WorkflowRuntime()
+            r.session = WorkflowSession(extension_name="FakePelvic", tool_name="FakePelvic",
+                                        workflow_id="seg_kw", current_step="cb_step_4")
+            st = r.state_for_ui({"type": "user_choice", "step_id": "cb_step_4",
+                                 "parameter_name": "excluded_fragments", "choices": []})
+            self.assertTrue(st["segment_selection"])
+            self.assertEqual(st["segmentation_keywords"], ["fracture"])
+        finally:
+            wf_mod.get_workflow_graph = og
+            wf_mod.get_validated_extensions = oe
+            reset_workflow_session("FakePelvic")
+
+        self.delayDisplay("Segments-table prefers keyword-matched segmentation")
+
     def test_UnboundNodeChoiceMaterialization(self):
         """Unbound node choices are materialized into the globals templates read.
 

@@ -741,6 +741,83 @@ class WidgetWorkflowMixin:
     # ------------------------------------------------------------------
     # Segment-selection step (qMRMLSegmentsTableView)
     # ------------------------------------------------------------------
+    def _resolveParamNodeFieldNodeID(self, field):
+        """Live MRML node ID held by a parameterNodeWrapper ``field`` on the active
+        workflow extension's parameter node, or "" if it cannot be resolved.
+
+        Used to bind a segments table to the exact segmentation the source binds it
+        to (e.g. ``OutputFracSeg``), captured by the pipeline as
+        ``segmentation_target_param``. Best-effort: runs in the agent's own Python
+        (not the sandbox), so attribute access is fine; any failure returns "" and
+        the caller falls back to keyword best-match.
+        """
+        field = str(field or "").strip()
+        if not field:
+            return ""
+        runtime = getattr(self, "_workflowRuntime", None)
+        session = getattr(runtime, "session", None) if runtime is not None else None
+        ext = getattr(session, "extension_name", None) if session is not None else None
+        if not ext:
+            return ""
+        module_name = ext
+        try:
+            from SlicerAIAgentLib.ExtensionCLILoader import get_validated_extensions
+            meta = (get_validated_extensions().get(ext) or {}).get("workflow_metadata", {}) or {}
+            module_name = meta.get("extension_module_name") or ext
+        except Exception:
+            module_name = ext
+        widget = None
+        try:
+            widget = slicer.util.getModuleWidget(module_name)
+        except Exception:
+            widget = None
+        if widget is None:
+            return ""
+        paramNode = None
+        for getter in (
+            lambda: widget.logic.getParameterNode(),
+            lambda: widget._parameterNode,
+            lambda: widget.getParameterNode(),
+        ):
+            try:
+                pn = getter()
+            except Exception:
+                pn = None
+            if pn is not None:
+                paramNode = pn
+                break
+        if paramNode is None:
+            return ""
+        try:
+            node = getattr(paramNode, field, None)
+            if node is not None and hasattr(node, "GetID"):
+                return str(node.GetID() or "")
+        except Exception:
+            return ""
+        return ""
+
+    def _preferredSegmentationIndex(self, candidates, state):
+        """Index of the segmentation to default-select among ``candidates``:
+        the exact pipeline-captured target field first, then name/keyword
+        best-match, then the first candidate."""
+        target_param = str(state.get("segmentation_target_param") or "").strip()
+        if target_param:
+            try:
+                target_id = self._resolveParamNodeFieldNodeID(target_param)
+                if target_id:
+                    for i, c in enumerate(candidates):
+                        if c.get("id") == target_id:
+                            return i
+            except Exception:
+                logger.debug("Resolving segmentation target_param failed", exc_info=True)
+        try:
+            return self._bestNodeMatchIndex(
+                candidates, state.get("default_value"), state.get("segmentation_keywords") or []
+            )
+        except Exception:
+            logger.debug("Segmentation best-match failed", exc_info=True)
+        return 0
+
     def _renderWorkflowSegmentsTable(self, state):
         """Show a real qMRMLSegmentsTableView so the user can untick individual
         segments/fragments on a segmentation node, exactly like the original
@@ -776,10 +853,15 @@ class WidgetWorkflowMixin:
         vbox = qt.QVBoxLayout(container)
         vbox.setContentsMargins(0, 0, 0, 0)
 
-        # Which segmentation to show. With more than one, offer a small combo to
-        # pick (default-guessed by keywords, e.g. 'fragment'/'fracture'); with one,
-        # bind it directly.
-        seg_node = candidates[0]["node"]
+        # Which segmentation to show. Prefer the exact target the source binds the
+        # table to (segmentation_target_param -> a parameterNodeWrapper field,
+        # captured by the pipeline); else default-guess by name keywords (e.g.
+        # 'fracture' vs 'pelvis'); else the first. With more than one, also offer a
+        # combo so the user can switch.
+        idx = self._preferredSegmentationIndex(candidates, state)
+        if not (0 <= idx < len(candidates)):
+            idx = 0
+        seg_node = candidates[idx]["node"]
         if len(candidates) > 1:
             combo = slicer.qMRMLNodeComboBox()
             combo.nodeTypes = [node_class]
@@ -790,12 +872,8 @@ class WidgetWorkflowMixin:
             combo.showHidden = False
             combo.setMRMLScene(slicer.mrmlScene)
             try:
-                idx = self._bestNodeMatchIndex(
-                    candidates, state.get("default_value"), state.get("segmentation_keywords") or []
-                )
-                if 0 <= idx < len(candidates):
-                    combo.setCurrentNodeID(candidates[idx]["id"])
-                    seg_node = candidates[idx]["node"]
+                combo.setCurrentNodeID(candidates[idx]["id"])
+                seg_node = candidates[idx]["node"]
             except Exception:
                 logger.debug("Defaulting segmentation combo failed", exc_info=True)
             cur = combo.currentNode()

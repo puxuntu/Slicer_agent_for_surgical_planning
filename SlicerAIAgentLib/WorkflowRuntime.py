@@ -280,7 +280,11 @@ class WorkflowRuntime:
             "source_widget_class": source_widget_class,
             "segment_selection": bool(segment_meta),
             "segmentation_node_class": segment_meta.get("segmentation_node_class", ""),
-            "segmentation_keywords": node_keywords,
+            # Binding keywords win when present (classic extensions); else fall back
+            # to widget-name-derived keywords so the table defaults to the right
+            # segmentation. target_param (Layer 2) enables exact resolution.
+            "segmentation_keywords": node_keywords or segment_meta.get("keywords", []),
+            "segmentation_target_param": segment_meta.get("target_param", ""),
             "choice_label": ui_guidance.get("choice_label", ""),
             "input_label": ui_guidance.get("input_label", ""),
             "done_label": ui_guidance.get("done_label", "Done") or "Done",
@@ -1426,7 +1430,9 @@ class WorkflowRuntime:
             "source_widget_class": source_widget_class,
             "segment_selection": bool(segment_meta),
             "segmentation_node_class": segment_meta.get("segmentation_node_class", ""),
-            "segmentation_keywords": binding.get("keywords", []) or [],
+            # Mirror the live path: binding keywords win, else widget-name-derived.
+            "segmentation_keywords": (binding.get("keywords", []) or []) or segment_meta.get("keywords", []),
+            "segmentation_target_param": segment_meta.get("target_param", ""),
             "choice_label": guidance.get("choice_label", ""),
             "input_label": guidance.get("input_label", ""),
             "repeat_progress": cp.repeat or {},
@@ -1625,6 +1631,34 @@ class WorkflowRuntime:
         return ""
 
     @staticmethod
+    def _keywords_from_widget_name(*texts: str) -> List[str]:
+        """Distinctive lowercase tokens from a widget/field name for best-match
+        node scoring. Splits camelCase + snake_case + whitespace, drops a generic
+        UI/segmentation stop-word set, keeps tokens >= 3 chars (deduped, ordered).
+
+        Lets a segments-table step default to the right segmentation when the
+        extension's parameter binding carries no keywords (e.g. a
+        parameterNodeWrapper extension): e.g. ``fractureSegmentsTable`` ->
+        ``["fracture"]`` matches "Fracture Segmentation" but not "Pelvis
+        Segmentation". Generic: no extension/step-specific strings.
+        """
+        stop = {
+            "segments", "segment", "seg", "table", "view", "selector", "widget",
+            "combo", "combobox", "node", "nodes", "mrml", "qmrml", "list", "tree",
+            "box", "panel", "frame", "output", "input", "the", "for",
+        }
+        tokens: List[str] = []
+        seen = set()
+        for text in texts:
+            spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", str(text or ""))
+            for tok in re.split(r"[^A-Za-z0-9]+", spaced):
+                t = tok.strip().lower()
+                if len(t) >= 3 and t not in stop and t not in seen:
+                    seen.add(t)
+                    tokens.append(t)
+        return tokens
+
+    @staticmethod
     def _segment_selection_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
         """Segment-selection metadata for a choice step backed by a
         ``qMRMLSegmentsTableView`` (the user unticks segments/fragments on a
@@ -1647,7 +1681,19 @@ class WorkflowRuntime:
             vk = str(so.get("value_kind") or "").strip()
             if wc == "qMRMLSegmentsTableView" or vk in ("segment_visibility_selection", "segment_selection"):
                 nc = str(so.get("node_class") or "").strip() or "vtkMRMLSegmentationNode"
-                return {"segmentation_node_class": nc}
+                # target_param: the parameterNodeWrapper field the source binds the
+                # table to (captured by the pipeline, Layer 2) — lets the runtime
+                # resolve the exact segmentation. keywords: a name-based fallback
+                # so the right segmentation is preferred even without a target.
+                target_param = str(so.get("segmentation_target_param") or "").strip()
+                keywords = WorkflowRuntime._keywords_from_widget_name(
+                    so.get("widget_name") or "", target_param
+                )
+                return {
+                    "segmentation_node_class": nc,
+                    "keywords": keywords,
+                    "target_param": target_param,
+                }
         return {}
 
     @staticmethod

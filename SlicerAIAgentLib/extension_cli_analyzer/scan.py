@@ -166,6 +166,13 @@ class AnalyzerScanMixin:
             same_file = [w for w in parameter_node_wrappers if w["file"] == logic_file]
             parameter_node_wrapper = (same_file or parameter_node_wrappers)[0]
 
+        # Map qMRMLSegmentsTableView widgets to the parameterNodeWrapper field the
+        # extension binds them to (via setSegmentationNode/ID), so a generated
+        # segments-table step can target the exact segmentation rather than just
+        # the node class (e.g. fractureSegmentsTable -> OutputFracSeg).
+        wrapper_fields = set((parameter_node_wrapper or {}).get("fields") or {})
+        segments_table_bindings = self._scan_segments_table_bindings(py_files, wrapper_fields)
+
         # Find the entry point module (the main module file)
         entry_module = None
         if logic_class:
@@ -189,7 +196,101 @@ class AnalyzerScanMixin:
             "entry_module": entry_module,
             "parameter_node_wrapper": parameter_node_wrapper,
             "parameter_node_wrappers": parameter_node_wrappers,
+            "segments_table_bindings": segments_table_bindings,
         }
+
+    @staticmethod
+    def _scan_segments_table_bindings(py_files: List[str], wrapper_fields) -> Dict[str, str]:
+        """Map ``widget_name -> parameterNodeWrapper field`` for qMRMLSegmentsTableView
+        widgets the extension binds via ``self.ui.<widget>.setSegmentationNode(<arg>)``
+        (or ``setSegmentationNodeID(<arg>.GetID())``), where ``<arg>`` resolves to a
+        wrapper field (directly, through a same-function local, or via either side of
+        an assignment). Lets a segments-table step target the exact segmentation
+        (e.g. the fractures one) instead of the first node of the class. Generic:
+        keyed on the wrapper field set, no extension/step-specific strings.
+        """
+        fields = set(wrapper_fields or [])
+        bindings: Dict[str, str] = {}
+        if not fields:
+            return bindings
+
+        def _dotted(node) -> str:
+            parts = []
+            cur = node
+            while isinstance(cur, ast.Attribute):
+                parts.append(cur.attr)
+                cur = cur.value
+            if isinstance(cur, ast.Name):
+                parts.append(cur.id)
+                return ".".join(reversed(parts))
+            return ""
+
+        def _field_of(node) -> str:
+            # e.g. self._parameterNode.OutputFracSeg -> "OutputFracSeg"
+            if isinstance(node, ast.Attribute) and node.attr in fields:
+                return node.attr
+            return ""
+
+        for fpath in py_files:
+            try:
+                with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                    tree = ast.parse(f.read())
+            except Exception:
+                continue
+            for func in ast.walk(tree):
+                if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                local_field: Dict[str, str] = {}   # dotted local/attr expr -> field
+                ui_alias: Dict[str, str] = {}      # dotted local -> widget name
+                for stmt in ast.walk(func):
+                    if not isinstance(stmt, ast.Assign):
+                        continue
+                    rhs = stmt.value
+                    rfield = _field_of(rhs)
+                    rdot = _dotted(rhs)
+                    for tgt in stmt.targets:
+                        tdot = _dotted(tgt)
+                        if rfield and tdot:                       # local = paramNode.Field
+                            local_field[tdot] = rfield
+                        tfield = _field_of(tgt)
+                        if tfield and rdot:                       # paramNode.Field = local
+                            local_field[rdot] = tfield
+                        if (isinstance(rhs, ast.Attribute)
+                                and _dotted(getattr(rhs, "value", None)) == "self.ui"
+                                and tdot):                        # tbl = self.ui.<widget>
+                            ui_alias[tdot] = rhs.attr
+
+                def _resolve_arg_field(arg) -> str:
+                    direct = _field_of(arg) or local_field.get(_dotted(arg), "")
+                    if direct:
+                        return direct
+                    # setSegmentationNodeID(<expr>.GetID())
+                    if (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute)
+                            and arg.func.attr == "GetID"):
+                        inner = arg.func.value
+                        return _field_of(inner) or local_field.get(_dotted(inner), "")
+                    return ""
+
+                for call in ast.walk(func):
+                    if not isinstance(call, ast.Call):
+                        continue
+                    fn = call.func
+                    if not (isinstance(fn, ast.Attribute)
+                            and fn.attr in ("setSegmentationNode", "setSegmentationNodeID")):
+                        continue
+                    recv = fn.value
+                    widget = ""
+                    if (isinstance(recv, ast.Attribute)
+                            and _dotted(getattr(recv, "value", None)) == "self.ui"):
+                        widget = recv.attr                        # self.ui.<widget>.setSegmentationNode
+                    else:
+                        widget = ui_alias.get(_dotted(recv), "")  # aliased local
+                    if not widget or not call.args:
+                        continue
+                    field = _resolve_arg_field(call.args[0])
+                    if field:
+                        bindings.setdefault(widget, field)
+        return bindings
 
     @staticmethod
     def _annotation_node_class(annotation) -> str:

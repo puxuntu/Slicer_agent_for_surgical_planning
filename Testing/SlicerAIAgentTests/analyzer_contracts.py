@@ -167,6 +167,59 @@ class AnalyzerContractsMixin:
 
         self.delayDisplay("Stage 4 node-pick choices cleared, boolean preserved")
 
+    def test_SegmentsTableBindingCaptured(self):
+        """The pipeline captures which segmentation a qMRMLSegmentsTableView is bound
+        to, so the step targets the correct node (not the first of the class).
+
+        Mirrors PelvicFracturePlanning: onSegFracture binds
+        self.ui.fractureSegmentsTable.setSegmentationNode(self._fracNode), and
+        self._parameterNode.OutputFracSeg = self._fracNode -> the table targets the
+        OutputFracSeg field. _record_source_widget then stamps that onto the step.
+        """
+        import os, tempfile
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+
+        src = (
+            "class Foo:\n"
+            "    def onSegFracture(self):\n"
+            "        self._fracNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode')\n"
+            "        self._parameterNode.OutputFracSeg = self._fracNode\n"
+            "        self.ui.fractureSegmentsTable.setSegmentationNode(self._fracNode)\n"
+            "    def onSegPelvis(self):\n"
+            "        self.ui.pelvisTable.setSegmentationNode(self._parameterNode.OutputPelvisSeg)\n"
+        )
+        fields = {"OutputFracSeg", "OutputPelvisSeg"}
+        tmp = tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8")
+        try:
+            tmp.write(src)
+            tmp.close()
+            bindings = ExtensionCLIAnalyzer._scan_segments_table_bindings([tmp.name], fields)
+        finally:
+            try:
+                os.unlink(tmp.name)
+            except Exception:
+                pass
+        # local-alias (self._fracNode <- OutputFracSeg) and direct field both resolve.
+        self.assertEqual(bindings.get("fractureSegmentsTable"), "OutputFracSeg")
+        self.assertEqual(bindings.get("pelvisTable"), "OutputPelvisSeg")
+
+        # _record_source_widget stamps segmentation_target_param from the binding.
+        sub_op = {"op_type": "user_choice", "widget_name": "fractureSegmentsTable"}
+        ExtensionCLIAnalyzer._record_source_widget(
+            sub_op, {"fractureSegmentsTable": "qMRMLSegmentsTableView"}, bindings)
+        self.assertEqual(sub_op.get("widget_class"), "qMRMLSegmentsTableView")
+        self.assertEqual(sub_op.get("value_kind"), "segment_visibility_selection")
+        self.assertEqual(sub_op.get("segmentation_target_param"), "OutputFracSeg")
+
+        # Control: a segments table with no captured binding gets no target_param.
+        sub_op2 = {"op_type": "user_choice", "widget_name": "someTable"}
+        ExtensionCLIAnalyzer._record_source_widget(
+            sub_op2, {"someTable": "qMRMLSegmentsTableView"}, {})
+        self.assertEqual(sub_op2.get("value_kind"), "segment_visibility_selection")
+        self.assertNotIn("segmentation_target_param", sub_op2)
+
+        self.delayDisplay("Segments-table source binding captured -> target_param")
+
     def test_ModuleLevelSelfRejected(self):
         """Generated templates run at module level — a module-level `self` is a bug.
 

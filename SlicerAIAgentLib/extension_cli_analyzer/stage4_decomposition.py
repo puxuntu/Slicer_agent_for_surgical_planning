@@ -452,6 +452,10 @@ class AnalyzerStage4DecompositionMixin:
             name: _text_or_empty((info or {}).get("class"))
             for name, info in ui_widgets.items()
         }
+        # widget_name -> parameterNodeWrapper field the source binds a
+        # qMRMLSegmentsTableView to (setSegmentationNode), so the segments-table
+        # step can target the exact segmentation, not just the node class.
+        self._segments_table_bindings = (scan_result or {}).get("segments_table_bindings", {}) or {}
         for name in ui_widgets:
             if name and name not in seen:
                 widgets.append({
@@ -1125,7 +1129,8 @@ class AnalyzerStage4DecompositionMixin:
             # inventory so the runtime can reproduce it (e.g. a qMRMLSegmentsTableView
             # renders the real segments table, not a free-text box / generic node tree).
             self._record_source_widget(
-                sub_op, getattr(self, "_ui_widget_classes", {})
+                sub_op, getattr(self, "_ui_widget_classes", {}),
+                getattr(self, "_segments_table_bindings", {}),
             )
             method_name = semantic.get("extension_method_hint")
             method_details = [all_methods[method_name]] if method_name else []
@@ -1182,7 +1187,8 @@ class AnalyzerStage4DecompositionMixin:
         }
 
     @staticmethod
-    def _record_source_widget(sub_op: Dict[str, Any], widget_classes: Dict[str, str]) -> None:
+    def _record_source_widget(sub_op: Dict[str, Any], widget_classes: Dict[str, str],
+                              segments_table_bindings: Dict[str, str] = None) -> None:
         """Record the original selection widget's Qt class on a user_choice sub-op,
         and tag segments-table-specific semantics.
 
@@ -1217,6 +1223,12 @@ class AnalyzerStage4DecompositionMixin:
         # enumerated choice; drop any stray choices the LLM co-emitted so the step
         # is not mis-rendered as a choice button.
         sub_op["choices"] = []
+        # If the source binds this table to a specific parameterNodeWrapper field
+        # (e.g. fractureSegmentsTable -> OutputFracSeg), record it so the runtime
+        # targets the exact segmentation instead of the first node of the class.
+        target_param = (segments_table_bindings or {}).get(widget_name, "")
+        if target_param:
+            sub_op["segmentation_target_param"] = target_param
 
     def _build_stage_map_from_typed_cookbook(
         self, cookbook_def, logic_analysis: Dict
