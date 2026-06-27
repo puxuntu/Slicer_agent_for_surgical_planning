@@ -91,6 +91,9 @@ class WidgetWorkflowMixin:
         self._workflowNodeTree = None
         self._workflowNodeTreeSelectButton = None
         self._workflowNodeTreeContainer = None
+        self._workflowSegmentsTable = None
+        self._workflowSegmentsCombo = None
+        self._workflowSegmentsContainer = None
 
         if getattr(self, "_workflowDoneButton", None):
             self._workflowDoneButton.clicked.connect(self._onWorkflowDoneClicked)
@@ -300,6 +303,30 @@ class WidgetWorkflowMixin:
             "can_cancel": not result.get("workflow_completed"),
         }
 
+    # Qt/Slicer selection-widget class -> renderer family. Keyed purely on the
+    # class the *original* extension uses (recorded by the pipeline), so the
+    # reproduced panel matches the source UI. Only the ``segments_table`` family
+    # changes dispatch precedence; ``node_tree`` / ``choice`` intentionally defer
+    # to the existing heuristic (which already produces the same widget for those
+    # steps), so node-selection extensions (Orbit/BRP) are byte-identical.
+    _WORKFLOW_WIDGET_FAMILIES = {
+        "qMRMLSegmentsTableView": "segments_table",
+        "qMRMLNodeComboBox": "node_tree",
+        "qMRMLSubjectHierarchyComboBox": "node_tree",
+        "qMRMLSubjectHierarchyTreeView": "node_tree",
+        "qMRMLCheckableNodeComboBox": "node_tree",
+        "QComboBox": "choice",
+        "ctkComboBox": "choice",
+    }
+
+    @staticmethod
+    def _workflowWidgetFamily(widget_class):
+        """Render family for the original selection widget class, or "" (unknown)
+        to defer to the heuristic. Generic: no extension/step-specific names."""
+        return WidgetWorkflowMixin._WORKFLOW_WIDGET_FAMILIES.get(
+            str(widget_class or "").strip(), ""
+        )
+
     def _renderWorkflowChoices(self, state):
         """Render choice buttons for generated CLI user_choice steps."""
         if getattr(self, "_workflowChoiceInput", None) is not None:
@@ -329,6 +356,22 @@ class WidgetWorkflowMixin:
                 self._workflowChoiceLayout.removeWidget(self._workflowNodeTreeContainer)
             self._workflowNodeTreeContainer.setParent(None)
             self._workflowNodeTreeContainer = None
+        if getattr(self, "_workflowSegmentsCombo", None) is not None:
+            # Drop the segmentation-picker observer before destroying it (mirrors
+            # the node-tree teardown).
+            try:
+                self._workflowSegmentsCombo.currentNodeChanged.disconnect(self._onWorkflowSegmentsComboChanged)
+            except Exception:
+                pass
+            self._workflowSegmentsCombo = None
+        self._workflowSegmentsTable = None
+        if getattr(self, "_workflowSegmentsContainer", None) is not None:
+            # The container owns the segments table (+ optional combo + Done button);
+            # reparenting it to None destroys them together.
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowSegmentsContainer)
+            self._workflowSegmentsContainer.setParent(None)
+            self._workflowSegmentsContainer = None
         for button in getattr(self, "_workflowChoiceButtons", []):
             if self._workflowChoiceLayout is not None:
                 self._workflowChoiceLayout.removeWidget(button)
@@ -344,15 +387,34 @@ class WidgetWorkflowMixin:
             return
         if not choices and needs_input:
             default_value = state.get("default_value")
-            # Node-selection step: offer a Data-module-style subject-hierarchy tree
-            # of the matching scene nodes (with the native eye / opacity / color
-            # controls) instead of a free-text box, so the user can identify which
-            # node is which before picking. Falls back to the text box only if no
-            # matching node exists. (The LLM auto-match still runs first and may
-            # auto-advance before this UI is ever shown.)
-            node_class = state.get("node_class")
-            if node_class and self._renderWorkflowNodeTree(state, node_class, default_value):
-                return
+            # The original extension's selection widget class (recorded by the
+            # pipeline) is authoritative for the render family, so the reproduced
+            # panel matches the source UI rather than a node_class-inferred guess.
+            family = self._workflowWidgetFamily(state.get("source_widget_class"))
+            if family == "segments_table":
+                # Source widget was a qMRMLSegmentsTableView: reproduce it so the
+                # user unticks individual segments/fragments exactly like the
+                # extension. Authoritative — if no segmentation resolves we fall to
+                # the free-text box below, never the generic node tree (which would
+                # silently substitute whole-node selection for segment selection).
+                if self._renderWorkflowSegmentsTable(state):
+                    return
+            else:
+                # Segment-selection step (original extension used a qMRMLSegmentsTableView):
+                # let the user untick individual segments/fragments on a segmentation node
+                # exactly like the source. More specific than the generic node tree, so it
+                # takes precedence; falls through if no segmentation resolves.
+                if state.get("segment_selection") and self._renderWorkflowSegmentsTable(state):
+                    return
+                # Node-selection step: offer a Data-module-style subject-hierarchy tree
+                # of the matching scene nodes (with the native eye / opacity / color
+                # controls) instead of a free-text box, so the user can identify which
+                # node is which before picking. Falls back to the text box only if no
+                # matching node exists. (The LLM auto-match still runs first and may
+                # auto-advance before this UI is ever shown.)
+                node_class = state.get("node_class")
+                if node_class and self._renderWorkflowNodeTree(state, node_class, default_value):
+                    return
             self._workflowChoiceInput = qt.QLineEdit()
             input_label = state.get("input_label") or state.get("choice_label") or "value"
             self._workflowChoiceInput.setPlaceholderText(f"Enter {input_label}")
@@ -675,6 +737,153 @@ class WidgetWorkflowMixin:
         if step_id:
             self.sendButton.setEnabled(False)
             self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": name})
+
+    # ------------------------------------------------------------------
+    # Segment-selection step (qMRMLSegmentsTableView)
+    # ------------------------------------------------------------------
+    def _renderWorkflowSegmentsTable(self, state):
+        """Show a real qMRMLSegmentsTableView so the user can untick individual
+        segments/fragments on a segmentation node, exactly like the original
+        extension's selector. Toggling the eye column sets per-segment visibility
+        (``vtkMRMLSegmentationDisplayNode.SetSegmentVisibility``), which is the
+        same state the extension's downstream code reads; clicking Done simply
+        advances (no choice value is invented).
+
+        Returns True if it rendered (>=1 selectable segmentation exists), or False
+        to let the caller fall back to the node tree / free-text box.
+        """
+        node_class = state.get("segmentation_node_class") or "vtkMRMLSegmentationNode"
+        # Candidate segmentations = scene nodes of node_class, minus HideFromEditors
+        # (mirrors the node tree's exclusion / empty gate).
+        candidates = []
+        try:
+            for node in slicer.util.getNodesByClass(node_class):
+                if node is None:
+                    continue
+                try:
+                    if node.GetHideFromEditors():
+                        continue
+                except Exception:
+                    pass
+                candidates.append({"id": node.GetID(), "name": node.GetName(), "node": node})
+        except Exception:
+            logger.debug("Enumerating segmentation candidates failed", exc_info=True)
+            candidates = []
+        if not candidates:
+            return False
+
+        container = qt.QWidget()
+        vbox = qt.QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+
+        # Which segmentation to show. With more than one, offer a small combo to
+        # pick (default-guessed by keywords, e.g. 'fragment'/'fracture'); with one,
+        # bind it directly.
+        seg_node = candidates[0]["node"]
+        if len(candidates) > 1:
+            combo = slicer.qMRMLNodeComboBox()
+            combo.nodeTypes = [node_class]
+            combo.addEnabled = False
+            combo.removeEnabled = False
+            combo.renameEnabled = False
+            combo.noneEnabled = False
+            combo.showHidden = False
+            combo.setMRMLScene(slicer.mrmlScene)
+            try:
+                idx = self._bestNodeMatchIndex(
+                    candidates, state.get("default_value"), state.get("segmentation_keywords") or []
+                )
+                if 0 <= idx < len(candidates):
+                    combo.setCurrentNodeID(candidates[idx]["id"])
+                    seg_node = candidates[idx]["node"]
+            except Exception:
+                logger.debug("Defaulting segmentation combo failed", exc_info=True)
+            cur = combo.currentNode()
+            if cur is not None:
+                seg_node = cur
+            combo.currentNodeChanged.connect(self._onWorkflowSegmentsComboChanged)
+            self._workflowSegmentsCombo = combo
+            vbox.addWidget(combo)
+
+        table = slicer.qMRMLSegmentsTableView()
+        try:
+            table.setMRMLScene(slicer.mrmlScene)
+        except Exception:
+            logger.debug("Segments table setMRMLScene failed", exc_info=True)
+        # Reproduce the source selector's columns: per-segment eye (visibility),
+        # colour and opacity (the original qMRMLSegmentsTableView shows all three).
+        # Keep the segmentation-editor status column hidden — it is not part of the
+        # extension's fragment selector. Wrapped individually because the available
+        # column setters vary across Slicer builds.
+        for _meth, _arg in (
+            ("setVisibilityColumnVisible", True),
+            ("setColorColumnVisible", True),
+            ("setOpacityColumnVisible", True),
+            ("setStatusColumnVisible", False),
+            ("setHeaderVisible", True),
+        ):
+            try:
+                getattr(table, _meth)(_arg)
+            except Exception:
+                logger.debug("Segments table %s failed", _meth, exc_info=True)
+        try:
+            table.setSelectionMode(qt.QAbstractItemView.NoSelection)
+        except Exception:
+            logger.debug("Segments table selection-mode setup failed", exc_info=True)
+        table.setMinimumHeight(140)
+        table.setMaximumHeight(260)
+        table.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Fixed)
+        self._workflowSegmentsTable = table
+        self._bindSegmentsTable(seg_node)
+
+        button = qt.QPushButton(state.get("done_label") or "Done")
+        button.setToolTip("Finish selecting and continue")
+        button.clicked.connect(self._onWorkflowSegmentsDone)
+
+        vbox.addWidget(table, 1)
+        vbox.addWidget(button)
+        self._workflowSegmentsContainer = container
+        self._workflowChoiceLayout.addWidget(container, 1)
+        container.setVisible(True)
+        return True
+
+    def _bindSegmentsTable(self, seg_node):
+        """Bind the segments table to ``seg_node``, ensuring a display node exists
+        so the eye column can write per-segment visibility."""
+        table = getattr(self, "_workflowSegmentsTable", None)
+        if table is None or seg_node is None:
+            return
+        try:
+            seg_node.CreateDefaultDisplayNodes()
+        except Exception:
+            logger.debug("CreateDefaultDisplayNodes failed", exc_info=True)
+        try:
+            table.setSegmentationNode(seg_node)
+        except Exception:
+            logger.debug("setSegmentationNode failed", exc_info=True)
+
+    def _onWorkflowSegmentsComboChanged(self, *args):
+        # Read the node from the combo (currentNodeChanged has overloaded
+        # signatures; the positional arg may be a bool).
+        combo = getattr(self, "_workflowSegmentsCombo", None)
+        if combo is not None:
+            try:
+                self._bindSegmentsTable(combo.currentNode())
+            except Exception:
+                logger.debug("Segments combo change rebind failed", exc_info=True)
+
+    def _onWorkflowSegmentsDone(self):
+        # The user edited per-segment visibility directly on the scene; advance the
+        # step with no fabricated choice value (downstream code reads visibility).
+        if self._currentWorkflowUiState.get("replay_previewing"):
+            index = self._currentWorkflowUiState.get("preview_index")
+            if index is not None:
+                self._rerunFromCheckpoint(index, {})
+            return
+        step_id = self._currentWorkflowUiState.get("current_step")
+        if step_id:
+            self.sendButton.setEnabled(False)
+            self._runWorkflowStepDirect(step_id, "proceed")
 
     def _enterWorkflowWait(self, step_info):
         """

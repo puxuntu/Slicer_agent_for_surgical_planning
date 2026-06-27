@@ -444,10 +444,19 @@ class AnalyzerStage4DecompositionMixin:
                 })
                 seen.add(name)
         ui_widgets = (scan_result or {}).get("ui_widgets", {}) or {}
+        # widget_name -> Qt class, so the deterministic stage-map builder can
+        # recognize selector widgets that carry no parameter-node binding (e.g. a
+        # qMRMLSegmentsTableView, where the user unticks segments rather than
+        # picking a node).
+        self._ui_widget_classes = {
+            name: _text_or_empty((info or {}).get("class"))
+            for name, info in ui_widgets.items()
+        }
         for name in ui_widgets:
             if name and name not in seen:
                 widgets.append({
                     "widget_name": name,
+                    "widget_class": _text_or_empty((ui_widgets.get(name) or {}).get("class")),
                     "logic_methods": [],
                 })
                 seen.add(name)
@@ -520,6 +529,7 @@ class AnalyzerStage4DecompositionMixin:
                 "layout_activate", "layout_register",
                 "slice_intersection_visibility", "slice_intersection_interaction",
                 "view_display_scope", "module_switch",
+                "segment_visibility_selection",
             ],
             "allowed_node_role_kinds": [
                 "choice_input", "interaction_output",
@@ -1111,6 +1121,12 @@ class AnalyzerStage4DecompositionMixin:
                 # matches the bound (BRP) node-selection shape.
                 if sub_op.get("value_kind") == "node":
                     sub_op["choices"] = []
+            # Record the original selection widget's Qt class from the .ui
+            # inventory so the runtime can reproduce it (e.g. a qMRMLSegmentsTableView
+            # renders the real segments table, not a free-text box / generic node tree).
+            self._record_source_widget(
+                sub_op, getattr(self, "_ui_widget_classes", {})
+            )
             method_name = semantic.get("extension_method_hint")
             method_details = [all_methods[method_name]] if method_name else []
             stages.append({
@@ -1164,6 +1180,43 @@ class AnalyzerStage4DecompositionMixin:
             "source": "llm_semantic_decomposition",
             "repeat_blocks": repeat_blocks,
         }
+
+    @staticmethod
+    def _record_source_widget(sub_op: Dict[str, Any], widget_classes: Dict[str, str]) -> None:
+        """Record the original selection widget's Qt class on a user_choice sub-op,
+        and tag segments-table-specific semantics.
+
+        The widget's Qt class (looked up from the ``.ui`` inventory by the sub-op's
+        ``widget_name``) is stored as ``widget_class`` so the runtime can reproduce
+        the same selection widget the extension uses, instead of inferring one from
+        ``node_class`` / ``value_kind``.
+
+        The UI->parameter binding inference only recognizes ``qMRMLNodeComboBox``
+        selectors, so a segments table (where the user unticks segments on a
+        segmentation node) yields no ``node_class`` and would otherwise render as a
+        free-text box. When the class is a ``qMRMLSegmentsTableView`` we additionally
+        record a segment-visibility-selection intent plus the
+        ``vtkMRMLSegmentationNode`` class so the runtime renders the real table.
+        Generic: keyed purely on the Qt widget class, no extension-specific names.
+        """
+        if not isinstance(sub_op, dict) or sub_op.get("op_type") != "user_choice":
+            return
+        widget_name = sub_op.get("widget_name") or ""
+        widget_class = (widget_classes or {}).get(widget_name, "") or ""
+        if widget_class:
+            sub_op.setdefault("widget_class", widget_class)
+        if widget_class != "qMRMLSegmentsTableView":
+            return
+        sub_op["widget_class"] = widget_class
+        if not str(sub_op.get("node_class") or "").strip():
+            sub_op["node_class"] = "vtkMRMLSegmentationNode"
+        sub_op["value_kind"] = "segment_visibility_selection"
+        sub_op["operation_intents"] = ["segment_visibility_selection"]
+        sub_op["operation_intent"] = "segment_visibility_selection"
+        # A segments-table step is an interactive visibility toggle, not an
+        # enumerated choice; drop any stray choices the LLM co-emitted so the step
+        # is not mis-rendered as a choice button.
+        sub_op["choices"] = []
 
     def _build_stage_map_from_typed_cookbook(
         self, cookbook_def, logic_analysis: Dict

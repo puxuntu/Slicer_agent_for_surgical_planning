@@ -64,6 +64,9 @@ class SlicerAIAgentWidget(
         self._workflowNodeTree = None
         self._workflowNodeTreeSelectButton = None
         self._workflowNodeTreeContainer = None
+        self._workflowSegmentsTable = None
+        self._workflowSegmentsCombo = None
+        self._workflowSegmentsContainer = None
         self._workflowDetailToggle = None
         self._workflowDetailLabel = None
         self._workflowDetailText = ""

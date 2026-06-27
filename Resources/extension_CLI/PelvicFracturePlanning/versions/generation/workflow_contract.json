@@ -21,16 +21,15 @@
           "operation_id": "cb_step_1_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the input CT volume for segmentation",
+          "description": "Select the input CT volume for pelvic fracture planning",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "vtkMRMLScalarVolumeNode",
-            "slicer.mrmlScene",
-            "volume selection"
+            "node selection"
           ],
-          "parameter_name": "inputVolume",
+          "parameter_name": "choice_step_1",
           "node_class": "vtkMRMLScalarVolumeNode",
           "confidence": "high",
           "required": true
@@ -76,14 +75,13 @@
           "operation_id": "cb_step_2_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Segment the pelvis from the CT volume",
+          "description": "Segment the pelvis from the input CT volume",
           "extension_method_hint": "segment_pelvis",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "segment_pelvis",
             "vtkMRMLSegmentationNode",
-            "pelvis segmentation"
+            "segmentation"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLSegmentationNode",
@@ -131,14 +129,13 @@
           "operation_id": "cb_step_3_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Segment the fractures from the CT volume",
+          "description": "Segment fractures from the CT volume using pelvis segmentation",
           "extension_method_hint": "segment_fractures",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "segment_fractures",
             "vtkMRMLSegmentationNode",
-            "fracture segmentation"
+            "segmentation"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLSegmentationNode",
@@ -185,19 +182,18 @@
         {
           "operation_id": "cb_step_4_op_1",
           "operation_type": "user_choice",
-          "intent": "",
-          "description": "Exclude unwanted fracture segments from planning",
+          "intent": "segment_visibility_selection",
+          "description": "Select fragments to exclude from planning via the segments table",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "fracture segments",
-            "exclude",
-            "checkboxes"
+            "qMRMLSegmentsTableView",
+            "visibility toggle"
           ],
-          "parameter_name": "excludedFragments",
-          "node_class": "",
-          "confidence": "high",
+          "parameter_name": "excluded_fragments",
+          "node_class": "vtkMRMLSegmentationNode",
+          "confidence": "medium",
           "required": true
         }
       ],
@@ -208,7 +204,9 @@
         "op_types": [
           "user_choice"
         ],
-        "operation_intents": [],
+        "operation_intents": [
+          "segment_visibility_selection"
+        ],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
         "invokes_slicer_api": false,
@@ -242,14 +240,13 @@
           "operation_id": "cb_step_5_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Generate reduction template models",
+          "description": "Generate template models from the pelvis segmentation",
           "extension_method_hint": "plan_generate_template",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "plan_generate_template",
             "vtkMRMLModelNode",
-            "template generation"
+            "template"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLModelNode",
@@ -298,12 +295,11 @@
           "operation_id": "cb_step_6_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Register and reduce fracture fragments",
+          "description": "Register and reduce fracture fragments relative to pelvis template (first run)",
           "extension_method_hint": "plan_register_reduce",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "plan_register_reduce",
             "vtkMRMLSegmentationNode",
             "reduction"
           ],
@@ -354,17 +350,17 @@
           "operation_id": "cb_step_7_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Register and reduce fracture fragments (second call)",
+          "description": "Register and reduce fracture fragments relative to pelvis template (second run)",
           "extension_method_hint": "plan_register_reduce",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "plan_register_reduce",
-            "reduction second call"
+            "vtkMRMLSegmentationNode",
+            "reduction"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLSegmentationNode",
-          "confidence": "medium",
+          "confidence": "high",
           "required": true
         }
       ],
@@ -409,17 +405,16 @@
           "operation_id": "cb_step_8_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Decide whether to manually adjust a fragment",
+          "description": "Decide whether to manually adjust a fragment or skip to later steps",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "manual adjustment",
             "checkbox"
           ],
-          "parameter_name": "manualAdjust",
+          "parameter_name": "adjust_fragment",
           "node_class": "",
-          "confidence": "high",
+          "confidence": "medium",
           "required": true
         }
       ],
@@ -463,17 +458,17 @@
           "operation_id": "cb_step_9_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Select a fragment for manual adjustment",
+          "description": "Select the fragment to adjust via the fragment selector",
           "extension_method_hint": "",
           "extension_function_hint": "cal_BBox",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "fragment selector",
-            "selection"
+            "combo box",
+            "fragment selection"
           ],
           "parameter_name": "",
           "node_class": "",
-          "confidence": "high",
+          "confidence": "medium",
           "required": true
         }
       ],
@@ -517,19 +512,19 @@
           "operation_id": "cb_step_10_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Manually adjust the position and rotation of the selected fragment",
+          "description": "Manually translate and rotate the selected fragment in 3D view",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "translate",
-            "rotate",
-            "vtkMRMLTransformNode",
-            "fragment adjustment"
+            "vtkMRMLModelNode",
+            "Translate",
+            "Rotate",
+            "transform manipulation"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLModelNode",
-          "confidence": "medium",
+          "confidence": "high",
           "required": true
         }
       ],
@@ -583,14 +578,11 @@
           "operation_id": "cb_step_11_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Apply the manual adjustments to the fragment",
+          "description": "Apply the manual adjustment to the fragment reduction",
           "extension_method_hint": "",
           "extension_function_hint": "Apply_transform_to_polydata",
           "slicer_op_category": "",
-          "slicer_api_keywords": [
-            "apply adjustment",
-            "transform"
-          ],
+          "slicer_api_keywords": [],
           "parameter_name": "",
           "node_class": "",
           "confidence": "medium",
@@ -637,12 +629,11 @@
           "operation_id": "cb_step_12_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Plan screw trajectories",
+          "description": "Plan screw trajectories for reduced fragments",
           "extension_method_hint": "plan_screws",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "plan_screws",
             "vtkMRMLModelNode",
             "screw planning"
           ],
@@ -692,17 +683,16 @@
           "operation_id": "cb_step_13_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Decide whether to edit screw trajectories",
+          "description": "Decide whether to edit screw trajectories or finish",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "edit screws",
             "checkbox"
           ],
-          "parameter_name": "editScrews",
+          "parameter_name": "edit_screws",
           "node_class": "",
-          "confidence": "high",
+          "confidence": "medium",
           "required": true
         }
       ],
@@ -746,19 +736,19 @@
           "operation_id": "cb_step_14_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Manually adjust the position and rotation of screw trajectories",
+          "description": "Manually translate and rotate the screw trajectories in 3D view",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "translate",
-            "rotate",
-            "vtkMRMLTransformNode",
-            "screw adjustment"
+            "vtkMRMLModelNode",
+            "Translate",
+            "Rotate",
+            "transform manipulation"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLModelNode",
-          "confidence": "medium",
+          "confidence": "high",
           "required": true
         }
       ],
@@ -812,16 +802,16 @@
           "operation_id": "cb_step_15_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Regenerate screw models from edited trajectories",
+          "description": "Regenerate screw model nodes from edited trajectories",
           "extension_method_hint": "_buildScrewNodes",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "_buildScrewNodes",
-            "screw regeneration"
+            "vtkMRMLModelNode",
+            "regeneration"
           ],
           "parameter_name": "",
-          "node_class": "vtkMRMLModelNode",
+          "node_class": "",
           "confidence": "high",
           "required": true
         }
@@ -866,13 +856,13 @@
           "operation_id": "cb_step_16_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Disable screw editing mode",
+          "description": "Deselect the edit screws checkbox to finalize",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "chkEditScrews",
-            "untick"
+            "checkbox",
+            "toggle off"
           ],
           "parameter_name": "",
           "node_class": "",

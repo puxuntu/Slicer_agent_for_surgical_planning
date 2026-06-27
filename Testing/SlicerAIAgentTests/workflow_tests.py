@@ -1122,6 +1122,127 @@ class WorkflowTestsMixin:
 
         self.delayDisplay("Node-pick steps drop literal choices in live + replay")
 
+    def test_SourceWidgetClassResolution(self):
+        """The original selection widget class is recovered from the step graph and
+        mapped to a render family, so the runtime reproduces the source UI.
+
+        Generalizes the segments-table case: a step whose original extension widget
+        is a qMRMLSegmentsTableView must route to the segments-table renderer (never
+        the generic node tree), while node-combo selectors keep the node tree and
+        unknown widgets defer to the existing heuristic.
+        """
+        from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime
+        from SlicerAIAgentLib.app.widget_workflow import WidgetWorkflowMixin
+
+        fn = WorkflowRuntime._source_widget_class
+
+        # Pelvic-style: segments table recorded as a top-level widget_class.
+        self.assertEqual(fn({"sub_operations": [
+            {"widget_class": "qMRMLSegmentsTableView",
+             "value_kind": "segment_visibility_selection"}]}), "qMRMLSegmentsTableView")
+        # A spurious node_class must not change the recorded widget class, so the
+        # family map keeps the step on the segments table (no node-tree steal).
+        self.assertEqual(fn({"sub_operations": [
+            {"widget_class": "qMRMLSegmentsTableView",
+             "node_class": "vtkMRMLSegmentationNode"}]}), "qMRMLSegmentsTableView")
+        # BRP-style: widget class only inside the ui_parameter_binding.
+        self.assertEqual(fn({"sub_operations": [
+            {"value_kind": "node", "node_class": "vtkMRMLSegmentationNode",
+             "ui_parameter_binding": {"widget_class": "qMRMLNodeComboBox"}}]}), "qMRMLNodeComboBox")
+        # Orbit-style: no widget class recorded anywhere → "" (defer to heuristic).
+        self.assertEqual(fn({"sub_operations": [
+            {"value_kind": "node", "node_class": "vtkMRMLModelNode"}]}), "")
+        # Defensive: malformed input never raises.
+        self.assertEqual(fn(None), "")
+        self.assertEqual(fn({}), "")
+
+        # Class -> render family map.
+        fam = WidgetWorkflowMixin._workflowWidgetFamily
+        self.assertEqual(fam("qMRMLSegmentsTableView"), "segments_table")
+        self.assertEqual(fam("qMRMLNodeComboBox"), "node_tree")
+        self.assertEqual(fam("qMRMLSubjectHierarchyComboBox"), "node_tree")
+        self.assertEqual(fam("qMRMLSubjectHierarchyTreeView"), "node_tree")
+        self.assertEqual(fam("QComboBox"), "choice")
+        self.assertEqual(fam("ctkComboBox"), "choice")
+        self.assertEqual(fam("QCheckBox"), "")   # unknown → heuristic (button/free-text)
+        self.assertEqual(fam(""), "")
+        self.assertEqual(fam(None), "")
+
+        self.delayDisplay("Source widget class + family map resolve correctly")
+
+    def test_SegmentTableWidgetRouting(self):
+        """state_for_ui / replay surface the segments-table widget so a Pelvic-style
+        'exclude fragments' step reproduces the source qMRMLSegmentsTableView."""
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+        WorkflowCheckpoint = wf_mod.WorkflowCheckpoint
+        from SlicerAIAgentLib.ExtensionCLILoader import reset_workflow_session
+
+        graph = {"step_count": 2, "steps": [
+            {"step_id": "cb_step_3", "operation_type": "user_choice", "step_type": "user_choice",
+             "description": "Exclude non-contributing fragments",
+             "choice_info": {"parameter_name": "excluded_segments", "choices": []},
+             "sub_operations": [{"op_type": "user_choice",
+                                 "widget_class": "qMRMLSegmentsTableView",
+                                 "value_kind": "segment_visibility_selection",
+                                 "node_class": "vtkMRMLSegmentationNode"}]},
+            # Binding-only variant (no top-level widget_class/value_kind): the
+            # widget class lives in ui_parameter_binding, so _segment_selection_meta
+            # alone returns {} and the source_widget_class OR must still flag it.
+            {"step_id": "cb_step_3b", "operation_type": "user_choice", "step_type": "user_choice",
+             "description": "Binding-only segments table",
+             "choice_info": {"parameter_name": "excluded2", "choices": []},
+             "sub_operations": [{"op_type": "user_choice",
+                                 "ui_parameter_binding": {"widget_class": "qMRMLSegmentsTableView"}}]}]}
+        meta = {"FakePelvic": {"workflow_metadata": {"parameter_bindings": {}}}}
+        og, oe = wf_mod.get_workflow_graph, wf_mod.get_validated_extensions
+        wf_mod.get_workflow_graph = lambda e: graph
+        wf_mod.get_validated_extensions = lambda: meta
+        try:
+            reset_workflow_session("FakePelvic")
+            runtime = WorkflowRuntime()
+            runtime.session = WorkflowSession(
+                extension_name="FakePelvic", tool_name="FakePelvic",
+                workflow_id="seg_1", current_step="cb_step_3")
+
+            st = runtime.state_for_ui({"type": "user_choice", "step_id": "cb_step_3",
+                                       "parameter_name": "excluded_segments", "choices": []})
+            self.assertEqual(st["source_widget_class"], "qMRMLSegmentsTableView")
+            self.assertTrue(st["segment_selection"])
+            self.assertEqual(st["segmentation_node_class"], "vtkMRMLSegmentationNode")
+            self.assertEqual(st["choices"], [])
+            # node_class stays empty so the renderer never falls to the node tree.
+            self.assertEqual(st["node_class"], "")
+            self.assertTrue(st["needs_choice_input"])
+
+            # Binding-only variant still flags the segments table.
+            stb = runtime.state_for_ui({"type": "user_choice", "step_id": "cb_step_3b",
+                                        "parameter_name": "excluded2", "choices": []})
+            self.assertEqual(stb["source_widget_class"], "qMRMLSegmentsTableView")
+            self.assertTrue(stb["segment_selection"])
+            self.assertEqual(stb["segmentation_node_class"], "vtkMRMLSegmentationNode")
+
+            # Replay preview re-surfaces the segments table (previously a free-text box).
+            cp = WorkflowCheckpoint(index=0, step_id="cb_step_3", kind="choice",
+                                    action="proceed", args={}, recorded_value="",
+                                    parameter_name="excluded_segments", editable=True, choices=[])
+            runtime.session.checkpoints = [cp]
+            runtime.session.preview_index = 0
+            pv = runtime._preview_ui_state()
+            self.assertEqual(pv["source_widget_class"], "qMRMLSegmentsTableView")
+            self.assertTrue(pv["segment_selection"])
+            self.assertEqual(pv["segmentation_node_class"], "vtkMRMLSegmentationNode")
+            self.assertTrue(pv["needs_choice_input"])
+            self.assertEqual(pv["choices"], [])
+        finally:
+            wf_mod.get_workflow_graph = og
+            wf_mod.get_validated_extensions = oe
+            reset_workflow_session("FakePelvic")
+
+        self.delayDisplay("Segments-table widget routing resolves (live + replay)")
+
     def test_UnboundNodeChoiceMaterialization(self):
         """Unbound node choices are materialized into the globals templates read.
 

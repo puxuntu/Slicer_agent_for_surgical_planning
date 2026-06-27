@@ -304,6 +304,13 @@ def _handle_user_choice_step(ctx: _WorkflowContext) -> Dict:
             _workflow_choices.setdefault(ctx.ext_name, {})[binding["parameter_name"]] = choice_value
         return _record_choice_and_advance(ctx, param_name, choice_value)
 
+    if ctx.user_action == "proceed":
+        # Interactive scene-manipulation choice (e.g. a qMRMLSegmentsTableView where
+        # the user toggled per-segment visibility directly on the scene). There is
+        # no value to record; advance the workflow with an empty choice value, which
+        # emits no parameter/node code and proceeds to the next step.
+        return _record_choice_and_advance(ctx, param_name, "")
+
     # Node/option selection is always manual — no automatic node matching.
     # Initial start — return the question/choices for the panel to present.
     options_text = "\n".join(

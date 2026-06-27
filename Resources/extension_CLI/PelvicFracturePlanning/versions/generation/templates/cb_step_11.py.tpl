@@ -3,6 +3,7 @@ import slicer
 from PelvicFracturePlanning import Apply_transform_to_polydata
 
 # precondition:begin
+# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'PelvicFracturePlanning':
     try:
@@ -11,33 +12,45 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Retrieve required nodes via scene search
-_fragmentModel = None
-_adjustTransform = None
-_adjustedModel = None
+# Retrieve logic instance
+try:
+    logic = _pelvicfractureplanning_logic
+except NameError:
+    from PelvicFracturePlanning import PelvicFracturePlanningLogic
+    logic = PelvicFracturePlanningLogic()
+    _pelvicfractureplanning_logic = logic
 
-# Fallback: scene search if any node is missing
-_modelNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
-for i in range(_modelNodes.GetNumberOfItems()):
-    _node = _modelNodes.GetItemAsObject(i)
-    if "fragment" in _node.GetName().lower() and "screw" not in _node.GetName().lower():
-        _fragmentModel = _node
-        break
-if _adjustTransform is None:
-    _transNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLTransformNode")
-    if _transNodes.GetNumberOfItems() > 0:
-        _adjustTransform = _transNodes.GetItemAsObject(0)
-if _adjustedModel is None:
-    _modelNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
-    for i in range(_modelNodes.GetNumberOfItems()):
-        _node = _modelNodes.GetItemAsObject(i)
-        if "adjusted" in _node.GetName().lower():
-            _adjustedModel = _node
-            break
+# Retrieve cross-step cached node IDs (set by previous steps)
+_fragmentModelId = None
+try:
+    _fragmentModelId = _pelvicfractureplanning_fragmentModelId
+except NameError:
+    pass
+_adjustTransformId = None
+try:
+    _adjustTransformId = _pelvicfractureplanning_adjustTransformId
+except NameError:
+    pass
+_adjustedModelId = None
+try:
+    _adjustedModelId = _pelvicfractureplanning_adjustedModelId
+except NameError:
+    pass
 
-if _fragmentModel is None or _adjustTransform is None or _adjustedModel is None:
-    raise RuntimeError("Missing required nodes for applying adjustment. Ensure a fragment is selected and transform is set.")
+# Resolve nodes from IDs or fallback to name search
+_fragmentModelNode = slicer.mrmlScene.GetNodeByID(_fragmentModelId) if _fragmentModelId else None
+_adjustTransformNode = slicer.mrmlScene.GetNodeByID(_adjustTransformId) if _adjustTransformId else None
+_adjustedModelNode = slicer.mrmlScene.GetNodeByID(_adjustedModelId) if _adjustedModelId else None
 
-Apply_transform_to_polydata(_fragmentModel, _adjustTransform, _adjustedModel)
+if _fragmentModelNode is None:
+    _fragmentModelNode = slicer.mrmlScene.GetFirstNodeByName('FragmentModel')
+if _adjustTransformNode is None:
+    _adjustTransformNode = slicer.mrmlScene.GetFirstNodeByName('AdjustTransform')
+if _adjustedModelNode is None:
+    _adjustedModelNode = slicer.mrmlScene.GetFirstNodeByName('AdjustedModel')
 
+if _fragmentModelNode is None or _adjustTransformNode is None or _adjustedModelNode is None:
+    raise RuntimeError("Required nodes (FragmentModel, AdjustTransform, AdjustedModel) not found. Ensure previous steps have cached their IDs.")
+
+Apply_transform_to_polydata(_fragmentModelNode, _adjustTransformNode, _adjustedModelNode)
 print("[PelvicFracturePlanning] Step 'cb_step_11' completed.")

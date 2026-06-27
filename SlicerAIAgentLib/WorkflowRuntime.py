@@ -202,7 +202,7 @@ class WorkflowRuntime:
         # cookbook-label buttons. Dropping stray literal choices flips
         # needs_choice_input True (below) so the panel reaches
         # _renderWorkflowNodeTree. Loop (repeat) decisions keep their synthetic
-        # Yes/No buttons.
+        # Yes/No buttons; segment-visibility steps are excluded by the helper.
         if (result_type == "user_choice"
                 and not is_repeat_decision
                 and self._is_node_selection_step(current_meta)):
@@ -225,6 +225,25 @@ class WorkflowRuntime:
             # step graph records so the panel still offers a node dropdown.
             node_class = self._node_class_from_step_meta(current_meta)
         node_keywords = binding.get("keywords", []) or []
+        # Original selection widget recorded by the pipeline from the extension's
+        # .ui. Authoritative for which render family the panel builds, so the
+        # reproduced UI matches the source extension (e.g. a segments table stays a
+        # segments table) rather than being inferred from node_class heuristics.
+        source_widget_class = self._source_widget_class(current_meta) if result_type == "user_choice" else ""
+        # Segment-selection step (qMRMLSegmentsTableView): the user unticks
+        # individual segments on a segmentation node. Surface a flag + the
+        # segmentation node class so the panel renders the segments table instead
+        # of a node dropdown / free-text box. Trust the recorded widget class even
+        # if value_kind ever drifts.
+        segment_meta = self._segment_selection_meta(current_meta) if result_type == "user_choice" else {}
+        if not segment_meta and source_widget_class == "qMRMLSegmentsTableView":
+            segment_meta = {"segmentation_node_class": "vtkMRMLSegmentationNode"}
+        if segment_meta:
+            # A segments-table step is an interactive per-segment visibility toggle,
+            # not an enumerated choice. The LLM sometimes co-emits a stray choice
+            # (e.g. "Untick to exclude"); drop it so the step routes to the
+            # segments-table renderer instead of a choice button.
+            choices = []
         # Clinically-informed instructions override the terse ui_guidance when
         # present: title -> description, detailed -> the primary instruction text
         # (shown by default), simple -> the terse "Show brief" body. The widget
@@ -258,6 +277,10 @@ class WorkflowRuntime:
             "parameter_name": parameter_name,
             "node_class": node_class,
             "node_keywords": node_keywords,
+            "source_widget_class": source_widget_class,
+            "segment_selection": bool(segment_meta),
+            "segmentation_node_class": segment_meta.get("segmentation_node_class", ""),
+            "segmentation_keywords": node_keywords,
             "choice_label": ui_guidance.get("choice_label", ""),
             "input_label": ui_guidance.get("input_label", ""),
             "done_label": ui_guidance.get("done_label", "Done") or "Done",
@@ -1357,8 +1380,8 @@ class WorkflowRuntime:
         guidance = (meta.get("ui_guidance") or {}) if isinstance(meta, dict) else {}
         choices = list(cp.choices or [])
         # Mirror the live path: a node-pick step drives the scene node tree,
-        # never the recorded literal buttons. Loop decisions (Yes/No) are left
-        # untouched.
+        # never the recorded literal buttons. Loop decisions (Yes/No) and
+        # segment-visibility steps are left untouched.
         if cp.kind != "loop_decision" and self._is_node_selection_step(meta):
             choices = []
         needs_input = bool(cp.editable) and not choices
@@ -1368,6 +1391,17 @@ class WorkflowRuntime:
             # Mirror the live path: surface the step graph's node class when the
             # pipeline inferred no binding, so replayed node steps keep a dropdown.
             node_class = self._node_class_from_step_meta(meta)
+        # Mirror the live path's selection-widget reproduction so replaying back to
+        # a segments-table step re-renders the table (not a free-text box).
+        source_widget_class = self._source_widget_class(meta)
+        segment_meta = self._segment_selection_meta(meta)
+        if not segment_meta and source_widget_class == "qMRMLSegmentsTableView":
+            segment_meta = {"segmentation_node_class": "vtkMRMLSegmentationNode"}
+        if segment_meta:
+            # A segments-table step is an interactive visibility toggle, not an
+            # enumerated choice; mirror the live path so the table re-renders.
+            choices = []
+            needs_input = True
         # Clinically-informed instructions override the recorded guidance (live
         # lookup so manual edits show in replay too).
         instr = self._step_instructions_for(cp.step_id)
@@ -1389,6 +1423,10 @@ class WorkflowRuntime:
             "parameter_name": cp.parameter_name,
             "node_class": node_class,
             "node_keywords": binding.get("keywords", []) or [],
+            "source_widget_class": source_widget_class,
+            "segment_selection": bool(segment_meta),
+            "segmentation_node_class": segment_meta.get("segmentation_node_class", ""),
+            "segmentation_keywords": binding.get("keywords", []) or [],
             "choice_label": guidance.get("choice_label", ""),
             "input_label": guidance.get("input_label", ""),
             "repeat_progress": cp.repeat or {},
@@ -1537,6 +1575,64 @@ class WorkflowRuntime:
                 if nc:
                     return nc
         return ""
+
+    @staticmethod
+    def _source_widget_class(meta: Dict[str, Any]) -> str:
+        """Qt class of the selection widget the *original* extension uses for this
+        step, recorded by the CLI pipeline from the extension's ``.ui`` inventory
+        (``stage4_decomposition._record_source_widget`` →
+        ``sub_op["widget_class"]``).
+
+        Surfaced so the runtime can reproduce the original widget instead of
+        inferring one from ``node_class`` / ``value_kind`` heuristics: the captured
+        class is authoritative for picking the render family (e.g. a
+        ``qMRMLSegmentsTableView`` step must render the segments table, never the
+        generic node tree). Scans all ``sub_operations`` (each step has one today,
+        but be robust) and falls back to the binding's widget class so a
+        node-combo selector is still recognized. Returns "" when none is recorded
+        — the runtime then keeps its existing heuristic. Generic: no
+        extension/step-specific strings.
+        """
+        if not isinstance(meta, dict):
+            return ""
+        for so in meta.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            wc = str(so.get("widget_class") or "").strip()
+            if wc:
+                return wc
+            binding = so.get("ui_parameter_binding")
+            if isinstance(binding, dict):
+                wc = str(binding.get("widget_class") or "").strip()
+                if wc:
+                    return wc
+        return ""
+
+    @staticmethod
+    def _segment_selection_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+        """Segment-selection metadata for a choice step backed by a
+        ``qMRMLSegmentsTableView`` (the user unticks segments/fragments on a
+        segmentation node rather than picking a whole node).
+
+        Recognized when a sub-operation declares ``widget_class ==
+        'qMRMLSegmentsTableView'`` or ``value_kind`` in the segment-selection set.
+        Returns ``{"segmentation_node_class": <class>}`` (defaulting to
+        ``vtkMRMLSegmentationNode``) for such steps, else ``{}``. Kept distinct
+        from ``_node_class_from_step_meta`` (whose ``value_kind == 'node'`` path
+        would otherwise route this to the generic node tree + node-materialization
+        code).
+        """
+        if not isinstance(meta, dict):
+            return {}
+        for so in meta.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            wc = str(so.get("widget_class") or "").strip()
+            vk = str(so.get("value_kind") or "").strip()
+            if wc == "qMRMLSegmentsTableView" or vk in ("segment_visibility_selection", "segment_selection"):
+                nc = str(so.get("node_class") or "").strip() or "vtkMRMLSegmentationNode"
+                return {"segmentation_node_class": nc}
+        return {}
 
     @staticmethod
     def _is_node_selection_step(meta: Dict[str, Any]) -> bool:

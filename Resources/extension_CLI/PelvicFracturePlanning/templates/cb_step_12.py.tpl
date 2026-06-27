@@ -2,6 +2,7 @@
 import slicer
 
 # precondition:begin
+# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'PelvicFracturePlanning':
     try:
@@ -10,16 +11,18 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Create output screw model node.
-_outputScrew = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", "ScrewPlan")
-
-# Call logic.plan_screws with positional arguments.
-logic.plan_screws(_outputScrew, None)
-
-# Store the output node ID for downstream steps.
+# Retrieve logic instance
 try:
-    _PelvicFracturePlanning_screw_id = _outputScrew.GetID()
-except Exception:
-    pass
+    logic = _pelvicfractureplanning_logic
+except NameError:
+    from PelvicFracturePlanning import PelvicFracturePlanningLogic
+    logic = PelvicFracturePlanningLogic()
+    _pelvicfractureplanning_logic = logic
 
-print("[PelvicFracturePlanning] Step 'cb_step_12' completed.")
+# Create output screw model node
+_screwNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode')
+_screwNode.SetName('PelvicScrews')
+
+# Call the proven method logic.plan_screws with positional arguments
+logic.plan_screws(_screwNode, None)
+print("[PelvicFracturePlanning] Step 'cb_step_12': planned screw trajectories.")

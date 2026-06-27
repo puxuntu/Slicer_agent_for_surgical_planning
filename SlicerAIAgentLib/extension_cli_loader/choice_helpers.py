@@ -696,13 +696,149 @@ def _build_prelude_globals(ctx: _WorkflowContext) -> Dict[str, Any]:
     return globals_dict
 
 
+def _extension_input_roles(ctx: _WorkflowContext) -> List[Dict[str, Any]]:
+    """Collect this step's ``extension_input`` node roles (deduped by parameter).
+
+    Reads both the step-level ``node_roles`` and any sub-operation ``node_roles``
+    so a handler step's required inputs are found regardless of where the
+    analyzer recorded them.
+    """
+    roles: List[Dict[str, Any]] = []
+    seen = set()
+    sources = [ctx.target_step.get("node_roles") or []]
+    for so in (ctx.target_step.get("sub_operations") or []):
+        if isinstance(so, dict):
+            sources.append(so.get("node_roles") or [])
+    for role_list in sources:
+        for role in role_list:
+            if not isinstance(role, dict):
+                continue
+            if role.get("role_kind") != "extension_input":
+                continue
+            pname = str(role.get("parameter_name") or "").strip()
+            nclass = str(role.get("node_class") or "").strip()
+            if not pname or not nclass or pname in seen:
+                continue
+            seen.add(pname)
+            roles.append({"parameter_name": pname, "node_class": nclass})
+    return roles
+
+
+def _build_input_guard(ctx: _WorkflowContext) -> str:
+    """Ensure a @parameterNodeWrapper extension's required inputs are bound.
+
+    For a ``parameterNodeWrapper`` extension the classic choice->SetNodeReferenceID
+    prelude is intentionally skipped (see _build_choice_prelude), so when no
+    user_choice step provides an ``extension_input`` node role nothing sets it —
+    the extension's handler (e.g. onSegPelvis reading ui.inputSelector) then
+    silently no-ops on the empty input and creates nothing, yet raises no
+    exception, so the workflow advances with no output. This precondition binds
+    each unset input field on the wrapper parameter node — from the workflow's
+    recorded choice if any, else the first matching scene node — exactly the way
+    the extension's own enter()-time auto-pick does, so connectGui propagates it
+    to the real selector the handler reads. If no candidate node exists it raises
+    loudly instead of letting the step no-op silently.
+
+    Only emitted for parameterNodeWrapper extensions, and only for roles whose
+    parameter_name is a real wrapper field; a runtime ``not set`` guard makes it a
+    no-op when the input is already bound (e.g. by the extension's own auto-pick
+    or an upstream step), so it is safe to emit on every handler step.
+    """
+    if not ctx.metadata.get("parameter_node_wrapper"):
+        return ""
+    wrapper_fields = (ctx.metadata.get("parameter_node_wrapper", {}) or {}).get("fields", {}) or {}
+    module_name = str((ctx.metadata or {}).get("extension_module_name") or "").strip()
+    if not module_name:
+        return ""
+    roles = [
+        r for r in _extension_input_roles(ctx)
+        if r["parameter_name"] in wrapper_fields
+        and r["parameter_name"].isidentifier()
+    ]
+    if not roles:
+        return ""
+    recorded = _workflow_choices.get(ctx.ext_name, {}) or {}
+
+    blocks = [
+        f"# --- {ctx.ext_name}: {ctx.workflow_step} ensure extension inputs ---",
+        "import slicer",
+        "_ig_widget = None",
+        "try:",
+        f"    _ig_widget = slicer.util.getModuleWidget({module_name!r})",
+        "except Exception:",
+        "    _ig_widget = None",
+        "_ig_pn = None",
+        "if _ig_widget is not None:",
+        "    try:",
+        "        _ig_pn = _ig_widget._parameterNode",
+        "    except Exception:",
+        "        _ig_pn = None",
+        "    if _ig_pn is None:",
+        "        try:",
+        "            _ig_pn = _ig_widget.logic.getParameterNode()",
+        "        except Exception:",
+        "            _ig_pn = None",
+    ]
+    for role in roles:
+        pname = role["parameter_name"]
+        nclass = role["node_class"]
+        rec_val = str(recorded.get(pname) or "")
+        err = (
+            f"[GeneratedWorkflowPrecondition] Missing required input {nclass} "
+            f"for '{pname}' in {ctx.workflow_step}. Load or select a {nclass} first."
+        )
+        log = f"[{ctx.ext_name}] {ctx.workflow_step}: bound extension input '{pname}' = "
+        blocks += [
+            "if _ig_pn is not None:",
+            "    _ig_cur = None",
+            "    try:",
+            f"        _ig_cur = _ig_pn.{pname}",
+            "    except Exception:",
+            "        _ig_cur = None",
+            "    if not _ig_cur:",
+            "        _ig_node = None",
+            f"        _ig_recorded = {rec_val!r}",
+            "        if _ig_recorded:",
+            "            try:",
+            "                _ig_c = slicer.util.getNode(_ig_recorded)",
+            f"                if _ig_c is not None and _ig_c.IsA({nclass!r}):",
+            "                    _ig_node = _ig_c",
+            "            except Exception:",
+            "                _ig_node = None",
+            "        if _ig_node is None:",
+            f"            _ig_nodes = slicer.mrmlScene.GetNodesByClass({nclass!r})",
+            "            for _ig_i in range(_ig_nodes.GetNumberOfItems()):",
+            "                _ig_cand = _ig_nodes.GetItemAsObject(_ig_i)",
+            "                if _ig_cand is None:",
+            "                    continue",
+            "                _ig_hidden = False",
+            "                try:",
+            "                    _ig_hidden = bool(_ig_cand.GetHideFromEditors())",
+            "                except Exception:",
+            "                    _ig_hidden = False",
+            "                if not _ig_hidden:",
+            "                    _ig_node = _ig_cand",
+            "                    break",
+            "        if _ig_node is None:",
+            f"            raise RuntimeError({err!r})",
+            "        try:",
+            f"            _ig_pn.{pname} = _ig_node",
+            "        except Exception:",
+            "            pass",
+            f"        print({log!r} + str(_ig_node.GetName()))",
+        ]
+    blocks.append("")
+    return "\n".join(blocks)
+
+
 def _prepend_choice_prelude(ctx: _WorkflowContext, code: Optional[str]) -> Optional[str]:
     if not code:
         return code
     runtime_prelude = _build_runtime_prelude(ctx)
     prelude = _build_choice_prelude(ctx)
+    input_guard = _build_input_guard(ctx)
     code = _inject_method_precondition_call(ctx, code)
-    return (prelude or "") + runtime_prelude + code
+    return (prelude or "") + runtime_prelude + (input_guard or "") + code
 
 
 def build_assembled_code_for_validation(
