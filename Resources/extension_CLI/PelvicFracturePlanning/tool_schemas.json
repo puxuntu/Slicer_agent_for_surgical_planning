@@ -1,0 +1,55 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "PelvicFracturePlanning",
+      "description": "Guided interactive workflow for PelvicFracturePlanning. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Input CT Volume\" option, choose the Pelvic Volume.; 'cb_step_2': Click \"Run Step 1: Segment Pelvis\" button.; 'cb_step_3': Click \"Run Step 2: Segment Fractures\" button.; 'cb_step_4': In the \"Untick any fragments to exclude it from planning\" section, untick these segments.; 'cb_step_5': Click \"Run Step 3: Generate Template\" button.; 'cb_step_6': Click \"Run Step 4: Register _Reduce\" button.; 'cb_step_7': Click \"Run Step 4: Register _Reduce\" button.; 'cb_step_8': If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 10.; 'cb_step_9': Choose which fragment needs adjustment in the \"Fragment\" selection box.; 'cb_step_10': Manually adjust the position and rotation of the selected fragment. (interactive: generic)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workflow_step": {
+            "type": "string",
+            "enum": [
+              "cb_step_1",
+              "cb_step_2",
+              "cb_step_3",
+              "cb_step_4",
+              "cb_step_5",
+              "cb_step_6",
+              "cb_step_7",
+              "cb_step_8",
+              "cb_step_9",
+              "cb_step_10",
+              "cb_step_11",
+              "cb_step_12",
+              "cb_step_13",
+              "cb_step_14",
+              "cb_step_15",
+              "cb_step_16"
+            ],
+            "description": "Which workflow step to execute"
+          },
+          "user_action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "proceed",
+              "skip",
+              "cancel",
+              "choice_made"
+            ],
+            "description": "Action: 'start' to begin a step, 'proceed' after user completes interaction, 'skip' for optional steps, 'cancel' to abort workflow, 'choice_made' for user_choice steps"
+          },
+          "choice_value": {
+            "type": "string",
+            "description": "Value selected by the user for user_choice steps. Required when user_action is 'choice_made'."
+          }
+        },
+        "required": [
+          "workflow_step",
+          "user_action"
+        ]
+      }
+    }
+  }
+]

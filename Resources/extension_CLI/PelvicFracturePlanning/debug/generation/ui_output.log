@@ -1,0 +1,92 @@
+==============================================================================
+Extension CLI pipeline  |  round: generation
+  extension : PelvicFracturePlanning
+  source    : C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions/PelvicFracturePlanning
+  started   : 2026-06-26T22:15:53
+==============================================================================
+[2026-06-26T22:15:53 +    0.8s] [discover] Discover Source And Cookbook — Scanning extension files...
+[2026-06-26T22:15:55 +    2.6s] [discover] Discover Source And Cookbook — Found 1 Python files
+[2026-06-26T22:15:56 +    3.7s] [discover] Discover Source And Cookbook — Logic class: PelvicFracturePlanningLogic in PelvicFracturePlanning.py, Widget class: PelvicFracturePlanningWidget, UI files: 1
+[2026-06-26T22:15:57 +    4.1s] [discover] Discover Source And Cookbook — parameterNodeWrapper detected: PelvicFracturePlanningParameterNode (5 node fields)
+[2026-06-26T22:16:00 +    7.9s] [discover] Discover Source And Cookbook — Parsed cookbook: C:\Users\20152\Desktop\slicer-skill\SlicerAgent\Slicer_agent\Resources\extensions_cookbook\PelvicFracturePlanning.md (16 steps)
+[2026-06-26T22:16:01 +    8.3s] [discover] Discover Source And Cookbook — Phase 'discover' took 7.5s (cumulative 7.5s)
+[2026-06-26T22:16:01 +    8.8s] [analyze] Analyze Extension Logic — Reading PelvicFracturePlanningLogic from PelvicFracturePlanning.py...
+[2026-06-26T22:16:02 +    9.8s] [analyze] Analyze Extension Logic — AST enumerated 29 methods; requesting LLM annotation...
+[2026-06-26T22:17:42 +  109.4s] [llm_call] analyze — call 000 -> analyze_call_000.json (out 24175 chars)
+[2026-06-26T22:17:42 +  109.9s] [analyze] Analyze Extension Logic — Analyzed 29 methods (AST universe + LLM annotation)
+[2026-06-26T22:17:54 +  121.4s] [analyze] Analyze Extension Logic — Phase 'analyze' took 113.1s (cumulative 113.1s)
+[2026-06-26T22:17:54 +  121.7s] [contract] Build Workflow Contract — LLM interpreting cookbook steps and repeat intent...
+[2026-06-26T22:19:16 +  203.5s] [llm_call] contract — call 001 -> contract_call_001.json (out 17865 chars)
+[2026-06-26T22:19:46 +  233.0s] [llm_call] contract — call 002 -> contract_call_002.json (out 18860 chars)
+[2026-06-26T22:19:46 +  233.5s] [contract] Build Workflow Contract — LLM interpreted 16 cookbook steps
+[2026-06-26T22:19:46 +  233.8s] [contract] Build Workflow Contract — LLM analyzing data flow between steps...
+[2026-06-26T22:21:07 +  314.8s] [llm_call] contract — call 003 -> contract_call_003.json (out 5112 chars)
+[2026-06-26T22:21:08 +  315.2s] [contract] Build Workflow Contract — AST verification: -4 unverifiable, +0 closure connection(s)
+[2026-06-26T22:21:08 +  315.6s] [contract] Build Workflow Contract — LLM identified 15 cross-stage connections
+[2026-06-26T22:21:29 +  336.3s] [contract] Build Workflow Contract — Placement-starter methods detected: 0
+[2026-06-26T22:21:57 +  364.2s] [llm_call] contract — call 004 -> contract_call_004.json (out 5339 chars)
+[2026-06-26T22:22:25 +  392.2s] [llm_call] contract — call 005 -> contract_call_005.json (out 7134 chars)
+[2026-06-26T22:22:25 +  392.5s] [contract] Build Workflow Contract — Phase 'contract' took 271.2s (cumulative 271.2s)
+[2026-06-26T22:22:26 +  393.0s] [audit_contract] Audit Workflow Contract — Auditing workflow contract against cookbook/source evidence...
+[2026-06-26T22:22:26 +  393.4s] [audit_contract] Audit Workflow Contract — PASS
+[2026-06-26T22:22:26 +  393.8s] [audit_contract] Audit Workflow Contract — Phase 'audit_contract' took 1.3s (cumulative 1.3s)
+[2026-06-26T22:22:30 +  397.2s] [ground] Ground Slicer APIs — No slicer_op sub-operations found
+[2026-06-26T22:22:30 +  397.6s] [ground] Ground Slicer APIs — Grounded 0 slicer_op template(s); 0 reporting MISSING_EVIDENCE
+[2026-06-26T22:22:31 +  398.0s] [ground] Ground Slicer APIs — Phase 'ground' took 4.2s (cumulative 4.2s)
+[2026-06-26T22:22:31 +  398.2s] [generate] Generate Schemas And Templates — Building tool definitions...
+[2026-06-26T22:22:31 +  398.5s] [generate] Generate Schemas And Templates — Generated interactive workflow schema with 16 steps
+[2026-06-26T22:22:32 +  398.9s] [generate] Generate Schemas And Templates — Determining node creation patterns via AST...
+[2026-06-26T22:22:43 +  410.0s] [generate] Generate Schemas And Templates — Analyzed 17 output nodes via AST
+[2026-06-26T22:22:43 +  410.3s] [generate] Generate Schemas And Templates — Generated 16 workflow templates
+[2026-06-26T22:22:43 +  410.7s] [generate] Generate Schemas And Templates — Sending templates to LLM for correctness review...
+[2026-06-26T22:22:44 +  411.4s] [generate] Generate Schemas And Templates — All templates passed LLM review
+[2026-06-26T22:22:44 +  411.9s] [audit_contract] Audit Workflow Contract — Auditing workflow contract against cookbook/source evidence...
+[2026-06-26T22:22:45 +  412.3s] [audit_contract] Audit Workflow Contract — PASS
+[2026-06-26T22:22:45 +  412.7s] [generate] Generate Schemas And Templates — Phase 'generate' took 14.7s (cumulative 14.7s)
+[2026-06-26T22:22:47 +  414.2s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
+[2026-06-26T22:22:48 +  415.4s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-26T22:22:50 +  417.4s] [verify_repair] Verify And Repair Templates — All 7 API probes passed
+[2026-06-26T22:22:51 +  418.5s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-26T22:22:54 +  421.5s] [verify_repair] Verify And Repair Templates — FAIL: ['templates/cb_step_9.py.tpl: Extension function cal_BBox() called with 0 args, expected 1', 'templates/cb_step_11.py.tpl: Extension function Apply_transform_to_polydata() called with 0 args, expected 3', "templates/cb_step_12.py.tpl: Sub-operation 'plan screw trajectories' (extension_op) has no code in template"]
+[2026-06-26T22:22:55 +  422.0s] [verify_repair] Verify And Repair Templates — Attempt 1 found 3 repairable issue(s) [MissingOperationFootprintx1, ValidationErrorx2]
+[2026-06-26T22:22:55 +  422.4s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_9:ValidationError -> contract_aware_template_repair; cb_step_11:ValidationError -> contract_aware_template_repair; cb_step_12:MissingOperationFootprint -> contract_aware_template_repair
+[2026-06-26T22:23:38 +  465.4s] [llm_call] verify_repair — call 006 -> verify_repair_call_006.json (out 3675 chars)
+[2026-06-26T22:23:39 +  466.1s] [verify_repair] Verify And Repair Templates — Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair
+[2026-06-26T22:23:39 +  466.6s] [verify_repair] Verify And Repair Templates — Validation attempt 2/5
+[2026-06-26T22:23:40 +  467.6s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-26T22:23:42 +  469.5s] [verify_repair] Verify And Repair Templates — All 9 API probes passed
+[2026-06-26T22:23:43 +  470.6s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-26T22:23:46 +  473.6s] [verify_repair] Verify And Repair Templates — FAIL: ['templates/cb_step_12.py.tpl: logic.plan_screws() called with 0 args, expected 2', "templates/cb_step_9.py.tpl: InvalidApiCall: method_unproven for '_parameterNode.GetNodeReference' (line 16, effect=unknown)", "templates/cb_step_11.py.tpl: InvalidApiCall: method_unproven for '_parameterNode.GetNodeReference' (line 16, effect=unknown)", "templates/cb_step_11.py.tpl: InvalidApiCall: method_unproven for '_parameterNode.GetNodeReference' (line 17, effect=unknown)", "templates/cb_step_11.py.tpl: InvalidApiCall: method_unproven for '_parameterNode.GetNodeReference' (line 18, effect=unknown)"]
+[2026-06-26T22:23:49 +  476.8s] [verify_repair] Verify And Repair Templates — Attempt 2 found 5 repairable issue(s) [InvalidSlicerAPIx4, ValidationErrorx1]
+[2026-06-26T22:23:50 +  477.2s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_9:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_11:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_11:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_11:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_12:ValidationError -> contract_aware_template_repair
+[2026-06-26T22:25:04 +  551.5s] [llm_call] verify_repair — call 007 -> verify_repair_call_007.json (out 5412 chars)
+[2026-06-26T22:25:05 +  552.2s] [verify_repair] Verify And Repair Templates — Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair
+[2026-06-26T22:25:05 +  552.6s] [verify_repair] Verify And Repair Templates — Validation attempt 3/5
+[2026-06-26T22:25:07 +  554.0s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-26T22:25:08 +  555.9s] [verify_repair] Verify And Repair Templates — All 10 API probes passed
+[2026-06-26T22:25:10 +  557.3s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-26T22:25:13 +  560.8s] [verify_repair] Verify And Repair Templates — FAIL: ["templates/cb_step_9.py.tpl: InvalidApiCall: method_unproven for '_parameterNode.GetNodeReferenceID' (line 18, effect=unknown)", "templates/cb_step_11.py.tpl: InvalidApiCall: method_unproven for '_parameterNode.GetNodeReferenceID' (line 20, effect=unknown)", "templates/cb_step_11.py.tpl: InvalidApiCall: method_unproven for '_parameterNode.GetNodeReferenceID' (line 23, effect=unknown)", "templates/cb_step_11.py.tpl: InvalidApiCall: method_unproven for '_parameterNode.GetNodeReferenceID' (line 26, effect=unknown)"]
+[2026-06-26T22:25:18 +  565.5s] [verify_repair] Verify And Repair Templates — Attempt 3 found 4 repairable issue(s) [InvalidSlicerAPIx4]
+[2026-06-26T22:25:18 +  565.9s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_9:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_11:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_11:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_11:InvalidSlicerAPI -> contract_aware_template_repair
+[2026-06-26T22:25:55 +  602.0s] [llm_call] verify_repair — call 008 -> verify_repair_call_008.json (out 3506 chars)
+[2026-06-26T22:25:55 +  602.7s] [verify_repair] Verify And Repair Templates — Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair
+[2026-06-26T22:25:56 +  603.0s] [verify_repair] Verify And Repair Templates — Validation attempt 4/5
+[2026-06-26T22:25:57 +  604.4s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-06-26T22:25:59 +  606.7s] [verify_repair] Verify And Repair Templates — All 14 API probes passed
+[2026-06-26T22:26:01 +  608.2s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-06-26T22:26:04 +  611.6s] [verify_repair] Verify And Repair Templates — PASS
+[2026-06-26T22:26:08 +  615.4s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 4 validation attempt(s)
+[2026-06-26T22:26:09 +  616.0s] [package] Final Gate — status=validated_with_warnings | api_proof=OK | final_syntax=OK | placeholders=OK | generator_sync=OK | steps_valid=12/12 | unproven_read_warnings=8
+[2026-06-26T22:26:09 +  616.4s] [verify_repair] Verify And Repair Templates — Phase 'verify_repair' took 203.6s (cumulative 203.6s)
+[2026-06-26T22:26:09 +  616.8s] [package] Package Validated CLI — Building usage instructions...
+[2026-06-26T22:26:10 +  617.2s] [package] Package Validated CLI — Generated workflow prompt
+[2026-06-26T22:26:23 +  630.9s] [package] Package Validated CLI — Phase 'package' took 14.5s (cumulative 14.5s)
+[2026-06-26T22:26:24 +  631.3s] [summary] Run Summary — SUCCESS | total 631.3s | phases: discover 7.5s, analyze 113.1s, contract 271.2s, audit_contract 1.3s, ground 4.2s, generate 14.7s, verify_repair 203.6s, package 14.5s | LLM calls: 9 | events: 77
+------------------------------------------------------------------------------
+SUMMARY
+  success         : True
+  phases_completed: discover, analyze, contract, audit_contract, ground, generate, verify_repair, package
+  llm_calls       : 9
+  events          : 78
+  phase_durations : discover=7.5s  analyze=113.1s  contract=271.2s  audit_contract=1.3s  ground=4.2s  generate=14.7s  verify_repair=203.6s  package=14.5s
+------------------------------------------------------------------------------
