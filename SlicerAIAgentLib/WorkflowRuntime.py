@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import json
 import logging
@@ -12,6 +13,42 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _silenced_vtk_output():
+    """Suppress VTK C++ console output during an internal scene-view snapshot.
+
+    Storing/restoring a ``vtkMRMLSceneViewNode`` makes MRML resolve every node
+    reference by ID, which floods the console with ``ResolveUnresolvedItems:
+    Unable to find data node with ID (nullptr)`` for any unresolved/null
+    reference. This swaps the global ``vtkOutputWindow`` to a discard sink for the
+    duration (same technique as SafeExecutor) -- generic: it silences ALL VTK
+    chatter during our own bookkeeping, not a specific message string. Fail-soft:
+    if VTK is unavailable the body still runs.
+    """
+    original = None
+    try:
+        import vtk
+        original = vtk.vtkOutputWindow.GetInstance()
+        sink = vtk.vtkFileOutputWindow()
+        sink.SetFileName(os.devnull)
+        try:
+            sink.SetFlush(False)
+        except Exception:
+            pass
+        vtk.vtkOutputWindow.SetInstance(sink)
+    except Exception:
+        original = None
+    try:
+        yield
+    finally:
+        if original is not None:
+            try:
+                import vtk
+                vtk.vtkOutputWindow.SetInstance(original)
+            except Exception:
+                pass
 
 from .ExtensionCLILoader import (
     clear_workflow_step_completions,
@@ -1245,22 +1282,23 @@ class WorkflowRuntime:
             sv = slicer.mrmlScene.GetNodeByID(sceneview_id)
             if sv is None:
                 return
-            stored = sv.GetStoredScene()
-            if stored is None:
-                return
-            for i in range(stored.GetNumberOfNodes()):
-                snode = stored.GetNthNode(i)
-                if snode is None or not snode.GetID():
-                    continue
-                if snode.IsA("vtkMRMLSceneViewNode"):
-                    continue
-                live = slicer.mrmlScene.GetNodeByID(snode.GetID())
-                if live is None or live is snode:
-                    continue
-                try:
-                    live.Copy(snode)
-                except Exception:
-                    pass
+            with _silenced_vtk_output():
+                stored = sv.GetStoredScene()
+                if stored is None:
+                    return
+                for i in range(stored.GetNumberOfNodes()):
+                    snode = stored.GetNthNode(i)
+                    if snode is None or not snode.GetID():
+                        continue
+                    if snode.IsA("vtkMRMLSceneViewNode"):
+                        continue
+                    live = slicer.mrmlScene.GetNodeByID(snode.GetID())
+                    if live is None or live is snode:
+                        continue
+                    try:
+                        live.Copy(snode)
+                    except Exception:
+                        pass
         except Exception:
             logger.debug("Scene property restore failed", exc_info=True)
 
@@ -1883,7 +1921,8 @@ class WorkflowRuntime:
                 sv.SetSaveWithScene(False)
             except Exception:
                 pass
-            sv.StoreScene()
+            with _silenced_vtk_output():
+                sv.StoreScene()
             return sv.GetID()
         except Exception:
             logger.debug("Replay scene snapshot failed", exc_info=True)
@@ -1900,7 +1939,8 @@ class WorkflowRuntime:
             sv = slicer.mrmlScene.GetNodeByID(sceneview_node_id)
             if sv is None:
                 return False
-            sv.RestoreScene()
+            with _silenced_vtk_output():
+                sv.RestoreScene()
             return True
         except Exception:
             logger.debug("Replay scene restore failed", exc_info=True)

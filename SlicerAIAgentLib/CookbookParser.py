@@ -241,10 +241,14 @@ class CookbookParser:
                 step.depends_on.append(steps[i - 1].step_number)
 
             # Check for explicit cross-references in the text
-            # e.g. "repeat step 13" or "as in step 5"
+            # e.g. "repeat step 13" or "as in step 5".
+            # Only BACKWARD references are dependencies: a DAG edge must point to an
+            # earlier step. A forward reference (e.g. "if not, jump to step 10") is a
+            # conditional branch target handled by repeat_blocks, not a dependency --
+            # adding it would create an unsatisfiable cycle and deadlock the workflow.
             refs = re.findall(r"step\s+(\d+)", step.description, re.IGNORECASE)
             for ref_str in refs:
                 ref_num = int(ref_str)
-                if ref_num != step.step_number and ref_num in step_by_num:
+                if ref_num < step.step_number and ref_num in step_by_num:
                     if ref_num not in step.depends_on:
                         step.depends_on.append(ref_num)

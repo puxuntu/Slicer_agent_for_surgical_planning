@@ -1348,6 +1348,70 @@ class WorkflowTestsMixin:
 
         self.delayDisplay("Segments-table prefers keyword-matched segmentation")
 
+    def test_ForwardDepsIgnoredInNextStep(self):
+        """_find_next_step_local ignores forward/cyclic depends_on edges.
+
+        Regression: CookbookParser turned step 7's "if not, jump to step 10" into
+        depends_on=['cb_step_6','cb_step_10'] -> a cycle (7->10->9->8->7). After
+        step 6 every step 7-15 was blocked, the finder returned None, and the
+        workflow jumped to the last step. Only backward, in-graph deps gate now.
+        """
+        from SlicerAIAgentLib.extension_cli_loader.workflow_state import _find_next_step_local
+
+        graph = {"steps": [
+            {"step_id": "cb_step_5", "operation_type": "extension_op", "depends_on": []},
+            {"step_id": "cb_step_6", "operation_type": "extension_op", "depends_on": ["cb_step_5"]},
+            {"step_id": "cb_step_7", "operation_type": "user_choice",
+             "depends_on": ["cb_step_6", "cb_step_10"]},   # cb_step_10 is a FORWARD edge
+            {"step_id": "cb_step_8", "operation_type": "extension_op", "depends_on": ["cb_step_7"]},
+            {"step_id": "cb_step_9", "operation_type": "user_interaction", "depends_on": ["cb_step_8"]},
+            {"step_id": "cb_step_10", "operation_type": "extension_op", "depends_on": ["cb_step_9"]},
+        ]}
+        # Completed through 6 -> the forward dep on cb_step_10 is ignored, so cb_step_7
+        # is eligible (previously this deadlocked and returned None).
+        nxt = _find_next_step_local(graph, {"cb_step_5", "cb_step_6"})
+        self.assertIsNotNone(nxt)
+        self.assertEqual(nxt["step_id"], "cb_step_7")
+        # Backward deps still gate: with only 5 done, cb_step_6 is next (not cb_step_7).
+        self.assertEqual(_find_next_step_local(graph, {"cb_step_5"})["step_id"], "cb_step_6")
+        # No deps -> first step.
+        self.assertEqual(_find_next_step_local(graph, set())["step_id"], "cb_step_5")
+
+        self.delayDisplay("Forward/cyclic deps ignored; backward deps still gate")
+
+    def test_CookbookParserBackwardOnlyDeps(self):
+        """CookbookParser adds only BACKWARD step cross-references as depends_on.
+
+        "if not, jump to step 10" (forward) must NOT become a dependency (it would
+        deadlock the DAG); "as in step 4" (backward) still does.
+        """
+        from SlicerAIAgentLib.CookbookParser import CookbookParser, CookbookStep
+
+        fwd = [
+            CookbookStep(step_number=6, title="", description='Click "Run Step 4: Register" button.'),
+            CookbookStep(step_number=7, title="",
+                         description='If adjustments are required, tick the box. If not, jump to step 10.'),
+            CookbookStep(step_number=8, title="", description="Choose a fragment."),
+            CookbookStep(step_number=9, title="", description="Adjust it."),
+            CookbookStep(step_number=10, title="", description="Click Apply."),
+        ]
+        CookbookParser()._resolve_dependencies(fwd)
+        deps = {s.step_number: s.depends_on for s in fwd}
+        self.assertNotIn(10, deps[7])      # forward "jump to step 10" NOT a dependency
+        self.assertIn(6, deps[7])          # sequential previous step kept
+
+        bwd = [
+            CookbookStep(step_number=4, title="", description="Register."),
+            CookbookStep(step_number=5, title="", description="Plan."),
+            CookbookStep(step_number=6, title="", description="Repeat as in step 4."),
+        ]
+        CookbookParser()._resolve_dependencies(bwd)
+        d2 = {s.step_number: s.depends_on for s in bwd}
+        self.assertIn(4, d2[6])            # backward "step 4" reference IS added
+        self.assertIn(5, d2[6])            # sequential previous
+
+        self.delayDisplay("CookbookParser adds only backward step deps")
+
     def test_UnboundNodeChoiceMaterialization(self):
         """Unbound node choices are materialized into the globals templates read.
 

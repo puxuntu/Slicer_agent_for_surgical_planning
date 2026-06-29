@@ -143,12 +143,26 @@ def set_all_workflow_repeat_states(
 def _find_next_step_local(
     workflow_graph: Dict, completed: set
 ) -> Optional[Dict]:
-    """Find the next workflow step whose dependencies are all completed."""
-    for step in workflow_graph.get("steps", []):
+    """Find the next workflow step whose dependencies are all completed.
+
+    Only BACKWARD dependencies (edges to an earlier step) gate eligibility.
+    Forward or self edges are invalid in a step-ordered DAG -- a forward
+    dependency (e.g. a step whose text said "jump to step N" got N appended to
+    its depends_on) would create a cycle and deadlock the whole tail of the
+    workflow. Ignoring them keeps the runtime robust to such artifacts without
+    regeneration. Unknown deps (not in the graph) are ignored too.
+    """
+    steps = workflow_graph.get("steps", [])
+    order = {s.get("step_id"): i for i, s in enumerate(steps)}
+    for step in steps:
         sid = step.get("step_id", "")
         if sid in completed:
             continue
-        deps = step.get("depends_on", [])
+        pos = order.get(sid, 0)
+        deps = [
+            d for d in step.get("depends_on", [])
+            if order.get(d, -1) >= 0 and order[d] < pos
+        ]
         if all(d in completed for d in deps):
             is_optional = bool(step.get("is_optional", False))
             return {
