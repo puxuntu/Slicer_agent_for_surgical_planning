@@ -5,7 +5,7 @@
   "extension_module_name": "PelvicFracturePlanning",
   "logic_class_name": "PelvicFracturePlanningLogic",
   "version": "1.0.0",
-  "status": "validated_with_warnings",
+  "status": "validation_failed",
   "workflow_type": "interactive",
   "workflow_graph_file": "workflow.json",
   "workflow_metadata_file": "workflow_metadata.json",
@@ -51,17 +51,19 @@
       "valid": true,
       "issues": []
     },
-    "cb_step_8": {
-      "valid": true,
-      "issues": []
-    },
     "cb_step_9": {
       "valid": true,
       "issues": []
     },
     "cb_step_10": {
-      "valid": true,
-      "issues": []
+      "valid": false,
+      "issues": [
+        "templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetNodeReference' (line 25, effect=unknown)",
+        "templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetNodeReference' (line 26, effect=unknown)",
+        "templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetNodeReference' (line 27, effect=unknown)",
+        "method_unproven",
+        "method_unproven"
+      ]
     },
     "cb_step_11": {
       "valid": true,
@@ -80,7 +82,7 @@
       "issues": []
     }
   },
-  "partial_valid_step_count": 11,
+  "partial_valid_step_count": 9,
   "validation_state": {
     "static_valid": true,
     "api_probe_valid": true,
@@ -88,9 +90,9 @@
     "prelude_valid": true,
     "contract_audit_valid": true,
     "workflow_state_valid": true,
-    "prelude_bytes_max": 3202,
-    "overall_valid": true,
-    "api_proof_valid": true,
+    "prelude_bytes_max": 7419,
+    "overall_valid": false,
+    "api_proof_valid": false,
     "api_inventory_complete": true,
     "generate_syntax_valid_at_generate": true,
     "final_syntax_valid": true,
@@ -98,10 +100,10 @@
     "generator_template_sync_valid": true
   },
   "api_proof_coverage": {
-    "total_calls": 144,
+    "total_calls": 133,
     "state_changing_calls": 39,
-    "proven_calls": 138,
-    "invalid_calls": 0,
+    "proven_calls": 124,
+    "invalid_calls": 3,
     "blocking_unproven_calls": 0,
     "warning_unproven_reads": 6,
     "inventory_complete": true

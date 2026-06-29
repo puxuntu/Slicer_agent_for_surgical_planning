@@ -38,13 +38,13 @@ except Exception:
 if _ctrl is not None:
     try:
         _ctrl.blockSignals(True)
-        _ctrl.checked = True
+        _ctrl.checked = False
         _ctrl.blockSignals(False)
     except Exception:
         pass
 try:
-    _widget.onEditScrewsToggled(True)
+    _widget.onEditScrewsToggled(False)
 except TypeError:
     _widget.onEditScrewsToggled()
-print("[PelvicFracturePlanning] Step 'cb_step_15': set 'chkEditScrews' = True via onEditScrewsToggled.")
+print("[PelvicFracturePlanning] Step 'cb_step_15': set 'chkEditScrews' = False via onEditScrewsToggled.")
 

@@ -1,7 +1,9 @@
+# --- PelvicFracturePlanning: Click the "Apply adjustments" button. ---
 import slicer
 from PelvicFracturePlanning import Apply_transform_to_polydata
 
 # precondition:begin
+# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'PelvicFracturePlanning':
     try:
@@ -10,61 +12,42 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Retrieve shared logic instance
+# Get or create the shared logic instance (allow cross-step reuse)
 try:
-    logic = _pelvicfractureplanning_logic
+    logic = _PelvicFracturePlanning_logic
 except NameError:
-    from PelvicFracturePlanning.PelvicFracturePlanningLogic import PelvicFracturePlanningLogic
+    from PelvicFracturePlanning import PelvicFracturePlanningLogic
     logic = PelvicFracturePlanningLogic()
-    _pelvicfractureplanning_logic = logic
+    _PelvicFracturePlanning_logic = logic
 
-# Retrieve nodes from cross-step cached node IDs
-fragmentModel = None
-adjustTransform = None
-adjustedModel = None
+# Retrieve arguments from the parameter node (set by prior steps)
+parameterNode = logic.getParameterNode()
+fragmentModel = parameterNode.GetNodeReference('FragmentModel')
+adjustTransform = parameterNode.GetNodeReference('AdjustTransform')
+adjustedModel = parameterNode.GetNodeReference('AdjustedModel')
 
-try:
-    fragmentModelID = _pelvicfractureplanning_fragmentModel_id
-    if fragmentModelID:
-        fragmentModel = slicer.mrmlScene.GetNodeByID(fragmentModelID)
-except NameError:
-    pass
-
-try:
-    adjustTransformID = _pelvicfractureplanning_adjustTransform_id
-    if adjustTransformID:
-        adjustTransform = slicer.mrmlScene.GetNodeByID(adjustTransformID)
-except NameError:
-    pass
-
-try:
-    adjustedModelID = _pelvicfractureplanning_adjustedModel_id
-    if adjustedModelID:
-        adjustedModel = slicer.mrmlScene.GetNodeByID(adjustedModelID)
-except NameError:
-    pass
-
-# Fallback: search by class if not yet wired
+# Fallback: if any reference is None, search the scene for plausible nodes
 if fragmentModel is None:
-    fragmentModel = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLModelNode')
-    if fragmentModel is not None:
-        print("[PelvicFracturePlanning] Warning: FragmentModel not found via cached ID; using first model node.")
-if adjustTransform is None:
-    adjustTransform = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLTransformNode')
-    if adjustTransform is not None:
-        print("[PelvicFracturePlanning] Warning: AdjustTransform not found via cached ID; using first transform node.")
-if adjustedModel is None:
-    adjustedModel = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode', 'AdjustedFragment')
-    print("[PelvicFracturePlanning] Warning: AdjustedModel not found via cached ID; created new node.")
+    fragmentModels = slicer.util.getNodesByClass('vtkMRMLModelNode')
+    for node in fragmentModels:
+        if 'Fragment' in node.GetName():
+            fragmentModel = node
+            break
+    if fragmentModel is None:
+        raise RuntimeError('Could not find fragment model node for adjustment.')
 
-# Apply the transform
-if fragmentModel is not None and adjustTransform is not None and adjustedModel is not None:
-    Apply_transform_to_polydata(fragmentModel, adjustTransform, adjustedModel)
-    # Cache output node ID for downstream steps
-    _pelvicfractureplanning_adjustedModel_id = adjustedModel.GetID()
-    print("[PelvicFracturePlanning] Apply adjustments executed.")
-else:
-    print("[PelvicFracturePlanning] Error: Could not find all required nodes (FragmentModel, AdjustTransform, AdjustedModel).")
-    print("[PelvicFracturePlanning] Please ensure a fragment is selected and an adjustment transform exists.")
+if adjustTransform is None:
+    transforms = slicer.util.getNodesByClass('vtkMRMLTransformNode')
+    if transforms:
+        adjustTransform = transforms[0]
+    else:
+        raise RuntimeError('Could not find transform node for adjustment.')
+
+if adjustedModel is None:
+    # AdjustedModel may be created by the function; we can pass a new model node or None
+    adjustedModel = None  # Let the function create it
+
+# Call the extension function
+Apply_transform_to_polydata(fragmentModel, adjustTransform, adjustedModel)
 
 print("[PelvicFracturePlanning] Step 'cb_step_10' completed.")
