@@ -21,8 +21,8 @@ and wait for them to complete the interaction before proceeding.
 6. `cb_step_6` [extension_op] — Click "Run Step 4: Register _Reduce" button.
 7. `cb_step_7` [branch_op] — If further adjustments are required, tick the "Manually adjust a fragment" checkbox. If not, jump to step 11.
    - Ask user: Manually adjust a fragment?
-8. `cb_step_8` [user_choice] — Choose which fragment needs adjustment in the "Fragment" selection box.
-   - Ask user: Choose which fragment needs adjustment in the "Fragment" selection box.
+8. `cb_step_8` [user_choice] — In the "Fragment" option, Choose which fragment needs adjustment in the "Fragment" selection box.
+   - Ask user: In the "Fragment" option, Choose which fragment needs adjustment in the "Fragment" selection box.
 9. `cb_step_9` [user_interaction] — Manually adjust the position and rotation of the selected fragment.
    - Interaction: generic
 10. `cb_step_10` [extension_op] — Click the "Apply adjustments" button.

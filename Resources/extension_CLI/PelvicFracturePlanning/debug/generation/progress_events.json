@@ -12,562 +12,562 @@
     "package"
   ],
   "phase_durations_s": {
-    "discover": 7.7,
-    "analyze": 109.2,
-    "contract": 299.4,
-    "audit_contract": 1.4,
-    "ground": 4.2,
-    "generate": 13.0,
-    "verify_repair": 121.0,
-    "package": 14.2
+    "discover": 8.5,
+    "analyze": 142.3,
+    "contract": 271.6,
+    "audit_contract": 1.1,
+    "ground": 3.9,
+    "generate": 14.9,
+    "verify_repair": 98.3,
+    "package": 13.5
   },
   "event_count": 78,
   "events": [
     {
-      "timestamp": "2026-06-29T10:39:24",
-      "elapsed_s": 0.8,
+      "timestamp": "2026-06-29T11:00:34",
+      "elapsed_s": 1.0,
       "phase": "discover",
       "title": "Discover Source And Cookbook",
       "detail": "Scanning extension files..."
     },
     {
-      "timestamp": "2026-06-29T10:39:26",
-      "elapsed_s": 2.7,
+      "timestamp": "2026-06-29T11:00:36",
+      "elapsed_s": 2.9,
       "phase": "discover",
       "title": "Discover Source And Cookbook",
       "detail": "Found 1 Python files"
     },
     {
-      "timestamp": "2026-06-29T10:39:28",
-      "elapsed_s": 4.7,
+      "timestamp": "2026-06-29T11:00:38",
+      "elapsed_s": 5.3,
       "phase": "discover",
       "title": "Discover Source And Cookbook",
       "detail": "Logic class: PelvicFracturePlanningLogic in PelvicFracturePlanning.py, Widget class: PelvicFracturePlanningWidget, UI files: 1"
     },
     {
-      "timestamp": "2026-06-29T10:39:29",
-      "elapsed_s": 5.1,
+      "timestamp": "2026-06-29T11:00:39",
+      "elapsed_s": 5.6,
       "phase": "discover",
       "title": "Discover Source And Cookbook",
       "detail": "parameterNodeWrapper detected: PelvicFracturePlanningParameterNode (5 node fields)"
     },
     {
-      "timestamp": "2026-06-29T10:39:32",
-      "elapsed_s": 8.2,
+      "timestamp": "2026-06-29T11:00:42",
+      "elapsed_s": 9.1,
       "phase": "discover",
       "title": "Discover Source And Cookbook",
       "detail": "Parsed cookbook: C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\extensions_cookbook\\PelvicFracturePlanning.md (15 steps)"
     },
     {
-      "timestamp": "2026-06-29T10:39:32",
-      "elapsed_s": 8.5,
+      "timestamp": "2026-06-29T11:00:42",
+      "elapsed_s": 9.4,
       "phase": "discover",
       "title": "Discover Source And Cookbook",
-      "detail": "Phase 'discover' took 7.7s (cumulative 7.7s)"
+      "detail": "Phase 'discover' took 8.5s (cumulative 8.5s)"
     },
     {
-      "timestamp": "2026-06-29T10:39:32",
-      "elapsed_s": 8.8,
+      "timestamp": "2026-06-29T11:00:43",
+      "elapsed_s": 9.9,
       "phase": "analyze",
       "title": "Analyze Extension Logic",
       "detail": "Reading PelvicFracturePlanningLogic from PelvicFracturePlanning.py..."
     },
     {
-      "timestamp": "2026-06-29T10:39:33",
-      "elapsed_s": 9.8,
+      "timestamp": "2026-06-29T11:00:44",
+      "elapsed_s": 10.9,
       "phase": "analyze",
       "title": "Analyze Extension Logic",
       "detail": "AST enumerated 29 methods; requesting LLM annotation..."
     },
     {
-      "timestamp": "2026-06-29T10:41:12",
-      "elapsed_s": 108.2,
+      "timestamp": "2026-06-29T11:02:53",
+      "elapsed_s": 140.3,
       "phase": "llm_call",
       "title": "analyze",
-      "detail": "call 000 -> analyze_call_000.json (out 21357 chars)"
+      "detail": "call 000 -> analyze_call_000.json (out 26398 chars)"
     },
     {
-      "timestamp": "2026-06-29T10:41:12",
-      "elapsed_s": 108.6,
+      "timestamp": "2026-06-29T11:02:54",
+      "elapsed_s": 140.7,
       "phase": "analyze",
       "title": "Analyze Extension Logic",
       "detail": "Analyzed 29 methods (AST universe + LLM annotation)"
     },
     {
-      "timestamp": "2026-06-29T10:41:21",
-      "elapsed_s": 117.7,
+      "timestamp": "2026-06-29T11:03:05",
+      "elapsed_s": 151.7,
       "phase": "analyze",
       "title": "Analyze Extension Logic",
-      "detail": "Phase 'analyze' took 109.2s (cumulative 109.2s)"
+      "detail": "Phase 'analyze' took 142.3s (cumulative 142.3s)"
     },
     {
-      "timestamp": "2026-06-29T10:41:22",
-      "elapsed_s": 118.2,
+      "timestamp": "2026-06-29T11:03:05",
+      "elapsed_s": 152.1,
       "phase": "contract",
       "title": "Build Workflow Contract",
       "detail": "LLM interpreting cookbook steps and repeat intent..."
     },
     {
-      "timestamp": "2026-06-29T10:43:19",
-      "elapsed_s": 235.1,
+      "timestamp": "2026-06-29T11:04:21",
+      "elapsed_s": 227.8,
       "phase": "llm_call",
       "title": "contract",
-      "detail": "call 001 -> contract_call_001.json (out 15346 chars)"
+      "detail": "call 001 -> contract_call_001.json (out 16101 chars)"
     },
     {
-      "timestamp": "2026-06-29T10:43:58",
-      "elapsed_s": 274.4,
+      "timestamp": "2026-06-29T11:04:54",
+      "elapsed_s": 260.6,
       "phase": "llm_call",
       "title": "contract",
-      "detail": "call 002 -> contract_call_002.json (out 16454 chars)"
+      "detail": "call 002 -> contract_call_002.json (out 17013 chars)"
     },
     {
-      "timestamp": "2026-06-29T10:43:58",
-      "elapsed_s": 274.9,
+      "timestamp": "2026-06-29T11:04:54",
+      "elapsed_s": 261.0,
       "phase": "contract",
       "title": "Build Workflow Contract",
       "detail": "LLM interpreted 15 cookbook steps"
     },
     {
-      "timestamp": "2026-06-29T10:43:59",
-      "elapsed_s": 275.2,
+      "timestamp": "2026-06-29T11:04:54",
+      "elapsed_s": 261.4,
       "phase": "contract",
       "title": "Build Workflow Contract",
       "detail": "LLM analyzing data flow between steps..."
     },
     {
-      "timestamp": "2026-06-29T10:45:02",
-      "elapsed_s": 338.2,
+      "timestamp": "2026-06-29T11:06:16",
+      "elapsed_s": 342.9,
       "phase": "llm_call",
       "title": "contract",
-      "detail": "call 003 -> contract_call_003.json (out 3419 chars)"
+      "detail": "call 003 -> contract_call_003.json (out 5003 chars)"
     },
     {
-      "timestamp": "2026-06-29T10:45:02",
-      "elapsed_s": 338.6,
+      "timestamp": "2026-06-29T11:06:16",
+      "elapsed_s": 343.2,
       "phase": "contract",
       "title": "Build Workflow Contract",
-      "detail": "AST verification: -5 unverifiable, +5 closure connection(s)"
+      "detail": "AST verification: -6 unverifiable, +2 closure connection(s)"
     },
     {
-      "timestamp": "2026-06-29T10:45:03",
-      "elapsed_s": 339.0,
+      "timestamp": "2026-06-29T11:06:17",
+      "elapsed_s": 343.6,
       "phase": "contract",
       "title": "Build Workflow Contract",
-      "detail": "LLM identified 12 cross-stage connections"
+      "detail": "LLM identified 15 cross-stage connections"
     },
     {
-      "timestamp": "2026-06-29T10:45:19",
-      "elapsed_s": 355.8,
+      "timestamp": "2026-06-29T11:06:42",
+      "elapsed_s": 368.6,
       "phase": "contract",
       "title": "Build Workflow Contract",
       "detail": "Placement-starter methods detected: 0"
     },
     {
-      "timestamp": "2026-06-29T10:45:51",
-      "elapsed_s": 387.4,
+      "timestamp": "2026-06-29T11:07:10",
+      "elapsed_s": 396.8,
       "phase": "llm_call",
       "title": "contract",
-      "detail": "call 004 -> contract_call_004.json (out 5599 chars)"
+      "detail": "call 004 -> contract_call_004.json (out 6017 chars)"
     },
     {
-      "timestamp": "2026-06-29T10:46:20",
-      "elapsed_s": 416.7,
+      "timestamp": "2026-06-29T11:07:36",
+      "elapsed_s": 423.0,
       "phase": "llm_call",
       "title": "contract",
-      "detail": "call 005 -> contract_call_005.json (out 6689 chars)"
+      "detail": "call 005 -> contract_call_005.json (out 6365 chars)"
     },
     {
-      "timestamp": "2026-06-29T10:46:21",
-      "elapsed_s": 417.1,
+      "timestamp": "2026-06-29T11:07:36",
+      "elapsed_s": 423.3,
       "phase": "contract",
       "title": "Build Workflow Contract",
-      "detail": "Phase 'contract' took 299.4s (cumulative 299.4s)"
+      "detail": "Phase 'contract' took 271.6s (cumulative 271.6s)"
     },
     {
-      "timestamp": "2026-06-29T10:46:21",
-      "elapsed_s": 417.3,
+      "timestamp": "2026-06-29T11:07:37",
+      "elapsed_s": 423.8,
       "phase": "audit_contract",
       "title": "Audit Workflow Contract",
       "detail": "Auditing workflow contract against cookbook/source evidence..."
     },
     {
-      "timestamp": "2026-06-29T10:46:22",
-      "elapsed_s": 418.2,
+      "timestamp": "2026-06-29T11:07:37",
+      "elapsed_s": 424.1,
       "phase": "audit_contract",
       "title": "Audit Workflow Contract",
       "detail": "PASS"
     },
     {
-      "timestamp": "2026-06-29T10:46:22",
-      "elapsed_s": 418.5,
+      "timestamp": "2026-06-29T11:07:37",
+      "elapsed_s": 424.4,
       "phase": "audit_contract",
       "title": "Audit Workflow Contract",
-      "detail": "Phase 'audit_contract' took 1.4s (cumulative 1.4s)"
+      "detail": "Phase 'audit_contract' took 1.1s (cumulative 1.1s)"
     },
     {
-      "timestamp": "2026-06-29T10:46:25",
-      "elapsed_s": 421.9,
+      "timestamp": "2026-06-29T11:07:40",
+      "elapsed_s": 427.5,
       "phase": "ground",
       "title": "Ground Slicer APIs",
       "detail": "No slicer_op sub-operations found"
     },
     {
-      "timestamp": "2026-06-29T10:46:26",
-      "elapsed_s": 422.3,
+      "timestamp": "2026-06-29T11:07:41",
+      "elapsed_s": 427.9,
       "phase": "ground",
       "title": "Ground Slicer APIs",
       "detail": "Grounded 0 slicer_op template(s); 0 reporting MISSING_EVIDENCE"
     },
     {
-      "timestamp": "2026-06-29T10:46:26",
-      "elapsed_s": 422.7,
+      "timestamp": "2026-06-29T11:07:41",
+      "elapsed_s": 428.3,
       "phase": "ground",
       "title": "Ground Slicer APIs",
-      "detail": "Phase 'ground' took 4.2s (cumulative 4.2s)"
+      "detail": "Phase 'ground' took 3.9s (cumulative 3.9s)"
     },
     {
-      "timestamp": "2026-06-29T10:46:27",
-      "elapsed_s": 423.1,
+      "timestamp": "2026-06-29T11:07:42",
+      "elapsed_s": 428.8,
       "phase": "generate",
       "title": "Generate Schemas And Templates",
       "detail": "Building tool definitions..."
     },
     {
-      "timestamp": "2026-06-29T10:46:27",
-      "elapsed_s": 423.4,
+      "timestamp": "2026-06-29T11:07:42",
+      "elapsed_s": 429.2,
       "phase": "generate",
       "title": "Generate Schemas And Templates",
       "detail": "Generated interactive workflow schema with 15 steps"
     },
     {
-      "timestamp": "2026-06-29T10:46:27",
-      "elapsed_s": 423.8,
+      "timestamp": "2026-06-29T11:07:42",
+      "elapsed_s": 429.6,
       "phase": "generate",
       "title": "Generate Schemas And Templates",
       "detail": "Determining node creation patterns via AST..."
     },
     {
-      "timestamp": "2026-06-29T10:46:37",
-      "elapsed_s": 433.0,
+      "timestamp": "2026-06-29T11:07:54",
+      "elapsed_s": 440.6,
       "phase": "generate",
       "title": "Generate Schemas And Templates",
       "detail": "Analyzed 17 output nodes via AST"
     },
     {
-      "timestamp": "2026-06-29T10:46:37",
-      "elapsed_s": 433.3,
+      "timestamp": "2026-06-29T11:07:54",
+      "elapsed_s": 440.9,
       "phase": "generate",
       "title": "Generate Schemas And Templates",
       "detail": "Generated 16 workflow templates"
     },
     {
-      "timestamp": "2026-06-29T10:46:37",
-      "elapsed_s": 433.9,
+      "timestamp": "2026-06-29T11:07:54",
+      "elapsed_s": 441.4,
       "phase": "generate",
       "title": "Generate Schemas And Templates",
       "detail": "Sending templates to LLM for correctness review..."
     },
     {
-      "timestamp": "2026-06-29T10:46:38",
-      "elapsed_s": 434.5,
+      "timestamp": "2026-06-29T11:07:55",
+      "elapsed_s": 442.0,
       "phase": "generate",
       "title": "Generate Schemas And Templates",
       "detail": "All templates passed LLM review"
     },
     {
-      "timestamp": "2026-06-29T10:46:38",
-      "elapsed_s": 434.8,
+      "timestamp": "2026-06-29T11:07:55",
+      "elapsed_s": 442.4,
       "phase": "audit_contract",
       "title": "Audit Workflow Contract",
       "detail": "Auditing workflow contract against cookbook/source evidence..."
     },
     {
-      "timestamp": "2026-06-29T10:46:39",
-      "elapsed_s": 435.2,
+      "timestamp": "2026-06-29T11:07:56",
+      "elapsed_s": 442.8,
       "phase": "audit_contract",
       "title": "Audit Workflow Contract",
       "detail": "PASS"
     },
     {
-      "timestamp": "2026-06-29T10:46:39",
-      "elapsed_s": 435.7,
+      "timestamp": "2026-06-29T11:07:56",
+      "elapsed_s": 443.2,
       "phase": "generate",
       "title": "Generate Schemas And Templates",
-      "detail": "Phase 'generate' took 13.0s (cumulative 13.0s)"
+      "detail": "Phase 'generate' took 14.9s (cumulative 14.9s)"
     },
     {
-      "timestamp": "2026-06-29T10:46:40",
-      "elapsed_s": 436.8,
+      "timestamp": "2026-06-29T11:07:57",
+      "elapsed_s": 444.3,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Validation attempt 1/5"
     },
     {
-      "timestamp": "2026-06-29T10:46:41",
-      "elapsed_s": 437.7,
+      "timestamp": "2026-06-29T11:07:58",
+      "elapsed_s": 445.4,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Verifying template API calls against running Slicer..."
     },
     {
-      "timestamp": "2026-06-29T10:46:43",
-      "elapsed_s": 439.5,
+      "timestamp": "2026-06-29T11:08:00",
+      "elapsed_s": 447.3,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "All 7 API probes passed"
     },
     {
-      "timestamp": "2026-06-29T10:46:44",
-      "elapsed_s": 440.5,
+      "timestamp": "2026-06-29T11:08:01",
+      "elapsed_s": 448.3,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Running CodeValidator..."
     },
     {
-      "timestamp": "2026-06-29T10:46:46",
-      "elapsed_s": 442.9,
+      "timestamp": "2026-06-29T11:08:04",
+      "elapsed_s": 451.2,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "FAIL: ['templates/cb_step_10.py.tpl: Extension function Apply_transform_to_polydata() called with 0 args, expected 3']"
     },
     {
-      "timestamp": "2026-06-29T10:46:47",
-      "elapsed_s": 443.3,
+      "timestamp": "2026-06-29T11:08:05",
+      "elapsed_s": 451.7,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Attempt 1 found 1 repairable issue(s) [ValidationErrorx1]"
     },
     {
-      "timestamp": "2026-06-29T10:46:47",
-      "elapsed_s": 443.7,
+      "timestamp": "2026-06-29T11:08:05",
+      "elapsed_s": 452.2,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Repair ladder: cb_step_10:ValidationError -> contract_aware_template_repair"
     },
     {
-      "timestamp": "2026-06-29T10:47:06",
-      "elapsed_s": 462.4,
+      "timestamp": "2026-06-29T11:08:20",
+      "elapsed_s": 466.6,
       "phase": "llm_call",
       "title": "verify_repair",
-      "detail": "call 006 -> verify_repair_call_006.json (out 3282 chars)"
+      "detail": "call 006 -> verify_repair_call_006.json (out 1753 chars)"
     },
     {
-      "timestamp": "2026-06-29T10:47:07",
-      "elapsed_s": 463.2,
+      "timestamp": "2026-06-29T11:08:20",
+      "elapsed_s": 467.4,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair"
     },
     {
-      "timestamp": "2026-06-29T10:47:07",
-      "elapsed_s": 463.2,
+      "timestamp": "2026-06-29T11:08:21",
+      "elapsed_s": 467.7,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Validation attempt 2/5"
     },
     {
-      "timestamp": "2026-06-29T10:47:08",
-      "elapsed_s": 464.6,
+      "timestamp": "2026-06-29T11:08:22",
+      "elapsed_s": 468.7,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Verifying template API calls against running Slicer..."
     },
     {
-      "timestamp": "2026-06-29T10:47:10",
-      "elapsed_s": 466.7,
+      "timestamp": "2026-06-29T11:08:23",
+      "elapsed_s": 470.6,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
-      "detail": "All 11 API probes passed"
+      "detail": "All 7 API probes passed"
     },
     {
-      "timestamp": "2026-06-29T10:47:11",
-      "elapsed_s": 467.9,
+      "timestamp": "2026-06-29T11:08:24",
+      "elapsed_s": 471.5,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Running CodeValidator..."
     },
     {
-      "timestamp": "2026-06-29T10:47:14",
-      "elapsed_s": 470.6,
+      "timestamp": "2026-06-29T11:08:27",
+      "elapsed_s": 474.5,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
-      "detail": "FAIL: [\"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetNodeReference' (line 26, effect=unknown)\", \"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetNodeReference' (line 38, effect=unknown)\", \"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetNodeReference' (line 50, effect=unknown)\"]"
+      "detail": "FAIL: [\"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetNodeReference' (line 19, effect=unknown)\", \"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetNodeReference' (line 20, effect=unknown)\", \"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetNodeReference' (line 21, effect=unknown)\"]"
     },
     {
-      "timestamp": "2026-06-29T10:47:15",
-      "elapsed_s": 471.7,
+      "timestamp": "2026-06-29T11:08:28",
+      "elapsed_s": 475.5,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Attempt 2 found 3 repairable issue(s) [InvalidSlicerAPIx3]"
     },
     {
-      "timestamp": "2026-06-29T10:47:16",
-      "elapsed_s": 472.0,
+      "timestamp": "2026-06-29T11:08:29",
+      "elapsed_s": 475.9,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Repair ladder: cb_step_10:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_10:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_10:InvalidSlicerAPI -> contract_aware_template_repair"
     },
     {
-      "timestamp": "2026-06-29T10:47:41",
-      "elapsed_s": 497.9,
+      "timestamp": "2026-06-29T11:08:45",
+      "elapsed_s": 492.4,
       "phase": "llm_call",
       "title": "verify_repair",
-      "detail": "call 007 -> verify_repair_call_007.json (out 3556 chars)"
+      "detail": "call 007 -> verify_repair_call_007.json (out 2071 chars)"
     },
     {
-      "timestamp": "2026-06-29T10:47:42",
-      "elapsed_s": 498.8,
+      "timestamp": "2026-06-29T11:08:46",
+      "elapsed_s": 493.3,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair"
     },
     {
-      "timestamp": "2026-06-29T10:47:43",
-      "elapsed_s": 499.3,
+      "timestamp": "2026-06-29T11:08:47",
+      "elapsed_s": 493.6,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Validation attempt 3/5"
     },
     {
-      "timestamp": "2026-06-29T10:47:44",
-      "elapsed_s": 500.6,
+      "timestamp": "2026-06-29T11:08:48",
+      "elapsed_s": 494.7,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Verifying template API calls against running Slicer..."
     },
     {
-      "timestamp": "2026-06-29T10:47:47",
-      "elapsed_s": 503.1,
+      "timestamp": "2026-06-29T11:08:50",
+      "elapsed_s": 496.6,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
-      "detail": "All 11 API probes passed"
+      "detail": "All 7 API probes passed"
     },
     {
-      "timestamp": "2026-06-29T10:47:48",
-      "elapsed_s": 504.9,
+      "timestamp": "2026-06-29T11:08:51",
+      "elapsed_s": 497.8,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Running CodeValidator..."
     },
     {
-      "timestamp": "2026-06-29T10:47:53",
-      "elapsed_s": 509.0,
+      "timestamp": "2026-06-29T11:08:54",
+      "elapsed_s": 500.8,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
-      "detail": "FAIL: [\"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetParameter' (line 26, effect=unknown)\", \"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetParameter' (line 39, effect=unknown)\", \"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetParameter' (line 52, effect=unknown)\"]"
+      "detail": "FAIL: [\"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetParameter' (line 19, effect=unknown)\", \"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetParameter' (line 20, effect=unknown)\", \"templates/cb_step_10.py.tpl: InvalidApiCall: method_unproven for 'parameterNode.GetParameter' (line 21, effect=unknown)\"]"
     },
     {
-      "timestamp": "2026-06-29T10:47:55",
-      "elapsed_s": 511.6,
+      "timestamp": "2026-06-29T11:08:56",
+      "elapsed_s": 503.5,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Attempt 3 found 3 repairable issue(s) [InvalidSlicerAPIx3]"
     },
     {
-      "timestamp": "2026-06-29T10:47:56",
-      "elapsed_s": 512.1,
+      "timestamp": "2026-06-29T11:08:57",
+      "elapsed_s": 503.9,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Repair ladder: cb_step_10:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_10:InvalidSlicerAPI -> contract_aware_template_repair; cb_step_10:InvalidSlicerAPI -> contract_aware_template_repair"
     },
     {
-      "timestamp": "2026-06-29T10:48:27",
-      "elapsed_s": 543.1,
+      "timestamp": "2026-06-29T11:09:22",
+      "elapsed_s": 529.6,
       "phase": "llm_call",
       "title": "verify_repair",
-      "detail": "call 008 -> verify_repair_call_008.json (out 2972 chars)"
+      "detail": "call 008 -> verify_repair_call_008.json (out 2186 chars)"
     },
     {
-      "timestamp": "2026-06-29T10:48:28",
-      "elapsed_s": 544.0,
+      "timestamp": "2026-06-29T11:09:23",
+      "elapsed_s": 530.3,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair"
     },
     {
-      "timestamp": "2026-06-29T10:48:28",
-      "elapsed_s": 544.4,
+      "timestamp": "2026-06-29T11:09:24",
+      "elapsed_s": 530.7,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Validation attempt 4/5"
     },
     {
-      "timestamp": "2026-06-29T10:48:29",
-      "elapsed_s": 545.6,
+      "timestamp": "2026-06-29T11:09:25",
+      "elapsed_s": 531.7,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Verifying template API calls against running Slicer..."
     },
     {
-      "timestamp": "2026-06-29T10:48:31",
-      "elapsed_s": 547.7,
+      "timestamp": "2026-06-29T11:09:26",
+      "elapsed_s": 533.5,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
-      "detail": "All 11 API probes passed"
+      "detail": "All 8 API probes passed"
     },
     {
-      "timestamp": "2026-06-29T10:48:33",
-      "elapsed_s": 549.2,
+      "timestamp": "2026-06-29T11:09:28",
+      "elapsed_s": 534.6,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "Running CodeValidator..."
     },
     {
-      "timestamp": "2026-06-29T10:48:36",
-      "elapsed_s": 552.4,
+      "timestamp": "2026-06-29T11:09:31",
+      "elapsed_s": 537.7,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "PASS"
     },
     {
-      "timestamp": "2026-06-29T10:48:39",
-      "elapsed_s": 555.5,
+      "timestamp": "2026-06-29T11:09:34",
+      "elapsed_s": 540.6,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
       "detail": "verify_repair finished: PASS after 4 validation attempt(s)"
     },
     {
-      "timestamp": "2026-06-29T10:48:40",
-      "elapsed_s": 556.2,
+      "timestamp": "2026-06-29T11:09:34",
+      "elapsed_s": 541.1,
       "phase": "package",
       "title": "Final Gate",
-      "detail": "status=validated_with_warnings | api_proof=OK | final_syntax=OK | placeholders=OK | generator_sync=OK | steps_valid=10/10 | unproven_read_warnings=6"
+      "detail": "status=validated_with_warnings | api_proof=OK | final_syntax=OK | placeholders=OK | generator_sync=OK | steps_valid=10/10 | unproven_read_warnings=9"
     },
     {
-      "timestamp": "2026-06-29T10:48:40",
-      "elapsed_s": 556.7,
+      "timestamp": "2026-06-29T11:09:34",
+      "elapsed_s": 541.5,
       "phase": "verify_repair",
       "title": "Verify And Repair Templates",
-      "detail": "Phase 'verify_repair' took 121.0s (cumulative 121.0s)"
+      "detail": "Phase 'verify_repair' took 98.3s (cumulative 98.3s)"
     },
     {
-      "timestamp": "2026-06-29T10:48:41",
-      "elapsed_s": 557.1,
+      "timestamp": "2026-06-29T11:09:35",
+      "elapsed_s": 541.9,
       "phase": "package",
       "title": "Package Validated CLI",
       "detail": "Building usage instructions..."
     },
     {
-      "timestamp": "2026-06-29T10:48:41",
-      "elapsed_s": 557.4,
+      "timestamp": "2026-06-29T11:09:35",
+      "elapsed_s": 542.3,
       "phase": "package",
       "title": "Package Validated CLI",
       "detail": "Generated workflow prompt"
     },
     {
-      "timestamp": "2026-06-29T10:48:54",
-      "elapsed_s": 570.9,
+      "timestamp": "2026-06-29T11:09:48",
+      "elapsed_s": 555.0,
       "phase": "package",
       "title": "Package Validated CLI",
-      "detail": "Phase 'package' took 14.2s (cumulative 14.2s)"
+      "detail": "Phase 'package' took 13.5s (cumulative 13.5s)"
     },
     {
-      "timestamp": "2026-06-29T10:48:55",
-      "elapsed_s": 571.2,
+      "timestamp": "2026-06-29T11:09:48",
+      "elapsed_s": 555.4,
       "phase": "summary",
       "title": "Run Summary",
-      "detail": "SUCCESS | total 571.2s | phases: discover 7.7s, analyze 109.2s, contract 299.4s, audit_contract 1.4s, ground 4.2s, generate 13.0s, verify_repair 121.0s, package 14.2s | LLM calls: 9 | events: 77"
+      "detail": "SUCCESS | total 555.4s | phases: discover 8.5s, analyze 142.3s, contract 271.6s, audit_contract 1.1s, ground 3.9s, generate 14.9s, verify_repair 98.3s, package 13.5s | LLM calls: 9 | events: 77"
     }
   ]
 }
