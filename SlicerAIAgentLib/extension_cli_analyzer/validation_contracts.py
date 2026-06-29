@@ -636,6 +636,23 @@ class AnalyzerValidationContractsMixin:
                         if hint.lower() in code_lower:
                             found = True
                             break
+                # A button/checkbox extension_op rendered as a connected
+                # widget-handler drive IS the operation (the handler runs the
+                # extension logic internally), so the literal logic-method name
+                # won't appear. Accept when the template drives the handler that
+                # scan.py connected to THIS sub-op's widget (self._widget_connections),
+                # or the widget name itself. Generic -- no extension-specific names.
+                if not found and so_type == "extension_op" and drives_widget_handler:
+                    so_widget = str(so.get("widget_name") or "").strip()
+                    if so_widget:
+                        handler_name = ""
+                        for conn in getattr(self, "_widget_connections", []) or []:
+                            btn = str(conn.get("button_widget_name") or "").split(".")[-1]
+                            if btn and btn == so_widget:
+                                handler_name = str(conn.get("handler_method") or "")
+                                break
+                        if (handler_name and handler_name in code) or so_widget in code:
+                            found = True
                 if not found:
                     result["errors"].append(
                         f"Sub-operation '{so_desc[:60]}' ({so_type}) has no code in template"

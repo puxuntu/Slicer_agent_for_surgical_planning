@@ -394,19 +394,28 @@ class WorkflowTestsMixin:
 
     def test_VolLookupPlaceholderFills(self):
         """A generated template's {vol_lookup} structural placeholder fills at
-        runtime instead of raising 'Template placeholder not filled'."""
+        runtime with CodeValidator-safe code (no blocked globals())."""
         import ast
         from SlicerAIAgentLib.extension_cli_loader import _build_format_kwargs, _fill_template
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
 
         kw = _build_format_kwargs({})
         self.assertIn("vol_lookup", kw)
+        # The expansion must be self-contained valid Python and contain no
+        # blocked builtins (globals/locals/vars).
+        compile(kw["vol_lookup"], "<vol_lookup>", "exec")
+        self.assertNotIn("globals(", kw["vol_lookup"])
         template = "import slicer\n{vol_lookup}\nif inputVolume is None:\n    pass\n"
         out = _fill_template(template, kw)
         self.assertNotIn("{vol_lookup}", out)
-        self.assertIn("GetFirstNodeByClass", out)
+        self.assertIn("GetNodesByClass", out)
         ast.parse(out)  # the expansion produces valid Python defining inputVolume
+        # Regression guard: the filled template passes pre-execution validation
+        # (the previous globals()-based snippet was rejected as a blocked call).
+        verdict = CodeValidator().validate(out)
+        self.assertTrue(verdict.get("valid"), verdict)
 
-        self.delayDisplay("{vol_lookup} placeholder fills at runtime")
+        self.delayDisplay("{vol_lookup} fills at runtime, CodeValidator-safe")
 
     def test_WorkflowReplayCheckpoints(self):
         """Replay timeline: live checkpoint recording, rewind truncation, loop resume."""

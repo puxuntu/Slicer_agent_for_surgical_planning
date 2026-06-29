@@ -11,24 +11,24 @@ from .workflow_state import _find_next_step_local
 # expands it (live_revision._live_fill_template) and notes it "mirrors the
 # generated runtime fill" -- this is that runtime fill, which the per-step path
 # otherwise lacked. Generic snippet (no extension/param-specific names): reuse a
-# volume an earlier step already resolved, else a scalar volume cached by a prior
-# choice step (any ``*_id`` global pointing at a scalar volume), else the first
-# scalar volume in the scene. Placed at column 0 (every generator emits the
-# placeholder at top level).
+# volume an earlier step already resolved (a choice step sets a bare
+# ``inputVolume = _chosen_node``), else the first scalar volume in the scene.
+# Placed at column 0 (every generator emits the placeholder at top level). Must be
+# CodeValidator-safe: globals()/locals()/vars() are BLOCKED, so resolve via a bare
+# name reference + try/except NameError and slicer.mrmlScene.GetNodesByClass (the
+# same idiom _build_node_choice_materialization_code already uses), never globals().
 _VOL_LOOKUP_SNIPPET = (
     "try:\n"
     "    inputVolume  # reuse a volume an earlier step already resolved\n"
     "except NameError:\n"
     "    inputVolume = None\n"
     "if inputVolume is None:\n"
-    "    for _wf_vid_name in list(globals()):\n"
-    "        if _wf_vid_name.endswith('_id') and isinstance(globals().get(_wf_vid_name), str):\n"
-    "            _wf_vid_node = slicer.mrmlScene.GetNodeByID(globals()[_wf_vid_name])\n"
-    "            if _wf_vid_node is not None and _wf_vid_node.IsA('vtkMRMLScalarVolumeNode'):\n"
-    "                inputVolume = _wf_vid_node\n"
-    "                break\n"
-    "if inputVolume is None:\n"
-    "    inputVolume = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLScalarVolumeNode')"
+    "    _vn = slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode')\n"
+    "    for _i in range(_vn.GetNumberOfItems()):\n"
+    "        _c = _vn.GetItemAsObject(_i)\n"
+    "        if _c is not None:\n"
+    "            inputVolume = _c\n"
+    "            break"
 )
 
 

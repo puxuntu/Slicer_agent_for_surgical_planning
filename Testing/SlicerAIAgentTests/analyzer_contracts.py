@@ -625,7 +625,44 @@ class AnalyzerContractsMixin:
         graph = TypeProvenanceGraph(handler_code)
         cands = graph.receiver_candidates("_widget")
         self.assertTrue(cands and cands[0]["type"] == "_module_widget", cands)
-        self.delayDisplay("Widget-handler step passes contract + api_proof")
+
+        # Footprint coverage: a handler-drive whose connected handler matches the
+        # sub-op's widget satisfies the operation footprint (no
+        # MissingOperationFootprint), so the repair loop does NOT rewrite the
+        # handler template into a bare logic-method call.
+        analyzer._widget_connections = [
+            {"button_widget_name": "btnSegPelvis", "handler_method": "onSegPelvis"},
+        ]
+        fp_ctx = {"generator": {"sub_operations": [{
+            "op_type": "extension_op", "widget_name": "btnSegPelvis",
+            "extension_method_hint": "segment_pelvis",
+            "description": "Execute pelvis segmentation on input volume",
+        }], "operation_model": {}}}
+        fp_code = (
+            "import slicer\n"
+            "_widget = slicer.util.getModuleWidget('PelvicFracturePlanning')\n"
+            "_widget.onSegPelvis()\n"
+        )
+        fp_res = analyzer._validate_template_contract(
+            "templates/cb_step_2.py.tpl", fp_code, fp_ctx, {}
+        )
+        self.assertFalse(
+            any("has no code in template" in e for e in fp_res["errors"]), fp_res["errors"]
+        )
+        # Negative: a handler-drive that does NOT call the sub-op's connected
+        # handler still fails the footprint (the fix only ADDS a satisfying path).
+        wrong_code = (
+            "import slicer\n"
+            "_widget = slicer.util.getModuleWidget('Mod')\n"
+            "_widget.onSomethingElse()\n"
+        )
+        wrong_res = analyzer._validate_template_contract(
+            "templates/cb_step_2.py.tpl", wrong_code, fp_ctx, {}
+        )
+        self.assertTrue(
+            any("has no code in template" in e for e in wrong_res["errors"]), wrong_res["errors"]
+        )
+        self.delayDisplay("Widget-handler step passes contract + api_proof + footprint")
 
     def test_GetNodesByClassReceiverTyping(self):
         """A receiver bound by a `GetNodesByClass` loop is typed and provable.
