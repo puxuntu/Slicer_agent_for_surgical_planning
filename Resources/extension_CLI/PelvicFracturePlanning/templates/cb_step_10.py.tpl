@@ -12,7 +12,7 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Get or create the shared logic instance (allow cross-step reuse)
+# Retrieve cross-step shared state
 try:
     logic = _PelvicFracturePlanning_logic
 except NameError:
@@ -20,34 +20,42 @@ except NameError:
     logic = PelvicFracturePlanningLogic()
     _PelvicFracturePlanning_logic = logic
 
-# Retrieve arguments from the parameter node (set by prior steps)
 parameterNode = logic.getParameterNode()
-fragmentModel = parameterNode.GetNodeReference('FragmentModel')
-adjustTransform = parameterNode.GetNodeReference('AdjustTransform')
-adjustedModel = parameterNode.GetNodeReference('AdjustedModel')
 
-# Fallback: if any reference is None, search the scene for plausible nodes
+# Get the three required node arguments for Apply_transform_to_polydata
+# Fallback: search scene for model node with name containing 'Fragment'
+fragmentNodes = slicer.util.getNodesByClass('vtkMRMLModelNode')
+fragmentModel = None
+for node in fragmentNodes:
+    if 'Fragment' in node.GetName():
+        fragmentModel = node
+        break
 if fragmentModel is None:
-    fragmentModels = slicer.util.getNodesByClass('vtkMRMLModelNode')
-    for node in fragmentModels:
-        if 'Fragment' in node.GetName():
-            fragmentModel = node
-            break
-    if fragmentModel is None:
-        raise RuntimeError('Could not find fragment model node for adjustment.')
+    raise RuntimeError("FragmentModel could not be found. Please ensure a fragment model is available.")
 
+# Fallback: search for transform node with name containing 'Adjust'
+transformNodes = slicer.util.getNodesByClass('vtkMRMLTransformNode')
+adjustTransform = None
+for node in transformNodes:
+    if 'Adjust' in node.GetName():
+        adjustTransform = node
+        break
 if adjustTransform is None:
-    transforms = slicer.util.getNodesByClass('vtkMRMLTransformNode')
-    if transforms:
-        adjustTransform = transforms[0]
-    else:
-        raise RuntimeError('Could not find transform node for adjustment.')
+    raise RuntimeError("AdjustTransform could not be found. Please ensure an adjustment transform exists.")
 
+# Fallback: search for model node with name containing 'Adjusted'
+adjustedNodes = slicer.util.getNodesByClass('vtkMRMLModelNode')
+adjustedModel = None
+for node in adjustedNodes:
+    if 'Adjusted' in node.GetName():
+        adjustedModel = node
+        break
 if adjustedModel is None:
-    # AdjustedModel may be created by the function; we can pass a new model node or None
-    adjustedModel = None  # Let the function create it
+    # Create a new model node for the adjusted result
+    adjustedModel = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode', 'Adjusted_Fragment')
 
-# Call the extension function
+# Apply the transform to the fragment polydata
 Apply_transform_to_polydata(fragmentModel, adjustTransform, adjustedModel)
 
+print("[PelvicFracturePlanning] Adjustments applied. Result stored in '" + adjustedModel.GetName() + "'.")
 print("[PelvicFracturePlanning] Step 'cb_step_10' completed.")

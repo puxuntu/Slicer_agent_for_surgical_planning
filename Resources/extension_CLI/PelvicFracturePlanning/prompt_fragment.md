@@ -20,7 +20,7 @@ and wait for them to complete the interaction before proceeding.
 5. `cb_step_5` [extension_op] — Click "Run Step 3: Generate Template" button.
 6. `cb_step_6` [extension_op] — Click "Run Step 4: Register _Reduce" button.
 7. `cb_step_7` [branch_op] — If further adjustments are required, tick the "Manually adjust a fragment" checkbox. If not, jump to step 11.
-   - Ask user: Further adjustments required?
+   - Ask user: Manually adjust a fragment?
 8. `cb_step_8` [user_choice] — Choose which fragment needs adjustment in the "Fragment" selection box.
    - Ask user: Choose which fragment needs adjustment in the "Fragment" selection box.
 9. `cb_step_9` [user_interaction] — Manually adjust the position and rotation of the selected fragment.
