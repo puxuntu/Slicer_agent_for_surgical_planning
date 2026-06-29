@@ -1,5 +1,6 @@
 # --- PelvicFracturePlanning: Click "Run Step 2: Segment Fractures" button. ---
 import slicer
+
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
@@ -10,23 +11,40 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Drive the extension's own widget handler on the live module widget:
-# it performs the full action (reads selected nodes, creates the
-# output nodes downstream steps depend on, toggles dependent UI).
-_widget = None
+# Reuse cached logic instance
 try:
-    _widget = slicer.util.getModuleWidget('PelvicFracturePlanning')
-except Exception:
-    _widget = None
-if _widget is None:
-    try:
-        _widget = slicer.modules.pelvicfractureplanning.widgetRepresentation().self()
-    except Exception:
-        _widget = None
-if _widget is None:
-    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnSegFracture'.")
-if not hasattr(_widget, 'onSegFracture'):
-    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onSegFracture' for 'btnSegFracture'; regenerate the CLI.")
-_widget.onSegFracture()
-print("[PelvicFracturePlanning] Step 'cb_step_3': clicked 'btnSegFracture' via onSegFracture().")
+    logic = _pelvicfractureplanning_logic
+except NameError:
+    from PelvicFracturePlanning import PelvicFracturePlanningLogic
+    logic = PelvicFracturePlanningLogic()
+    _pelvicfractureplanning_logic = logic
 
+# Retrieve input volume from cross-step cache
+{vol_lookup}
+
+# Retrieve pelvis segmentation from cross-step cache
+try:
+    _pelvis_seg_id = _pelvicfractureplanning_outputpelvisseg_id
+    pelvisSeg = slicer.mrmlScene.GetNodeByID(_pelvis_seg_id)
+    if pelvisSeg is None:
+        raise ValueError("Pelvis segmentation node not found in scene")
+except NameError:
+    # Fallback: search for a segmentation node named 'Pelvis_seg'
+    pelvisSeg = slicer.util.getFirstNodeByClassByName('vtkMRMLSegmentationNode', 'Pelvis_seg')
+    if pelvisSeg is None:
+        raise RuntimeError("Pelvis segmentation node not available. Ensure step 2 completed.")
+
+# Create output fracture segmentation node if not already present
+try:
+    _output_frac_id = _pelvicfractureplanning_outputfracseg_id
+    outputFrac = slicer.mrmlScene.GetNodeByID(_output_frac_id)
+    if outputFrac is None:
+        raise ValueError("Output fracture segmentation node ID stale")
+except (NameError, ValueError):
+    outputFrac = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode', 'Fractures_seg')
+    _pelvicfractureplanning_outputfracseg_id = outputFrac.GetID()
+
+# Run fracture segmentation
+logic.segment_fractures(inputVolume, outputFrac, None)
+
+print("[PelvicFracturePlanning] Step 'cb_step_3' completed: fracture segmentation run.")
