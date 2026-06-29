@@ -719,6 +719,32 @@ class AnalyzerContractsMixin:
 
         self.delayDisplay("Workflow prompt fragment: when-to-use trigger + branch_op handled")
 
+    def test_SegmentNameSelectionCaptured(self):
+        """A plain content combobox + a vtkMRMLSegmentationNode choice_input role is
+        captured as a single-pick segment-NAME selection (not a node pick); other
+        comboboxes/node selectors are untouched."""
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+
+        so = {"op_type": "user_choice", "widget_name": "fragmentSelector",
+              "node_roles": [{"role_kind": "choice_input", "node_class": "vtkMRMLSegmentationNode"}],
+              "choices": ["stray"]}
+        ExtensionCLIAnalyzer._record_source_widget(so, {"fragmentSelector": "QComboBox"}, {})
+        self.assertEqual(so.get("value_kind"), "segment_name_selection")
+        self.assertEqual(so.get("node_class"), "vtkMRMLSegmentationNode")
+        self.assertEqual(so.get("choices"), [])
+
+        # Control: a plain combobox with NO segmentation role (e.g. a units dropdown).
+        so2 = {"op_type": "user_choice", "widget_name": "unitsCombo", "node_roles": []}
+        ExtensionCLIAnalyzer._record_source_widget(so2, {"unitsCombo": "QComboBox"}, {})
+        self.assertNotEqual(so2.get("value_kind"), "segment_name_selection")
+        # Control: a node combobox is a node pick, not a segment-name selection.
+        so3 = {"op_type": "user_choice", "widget_name": "inputSelector",
+               "node_roles": [{"role_kind": "choice_input", "node_class": "vtkMRMLScalarVolumeNode"}]}
+        ExtensionCLIAnalyzer._record_source_widget(so3, {"inputSelector": "qMRMLNodeComboBox"}, {})
+        self.assertNotEqual(so3.get("value_kind"), "segment_name_selection")
+
+        self.delayDisplay("Segment-name selection captured for content combobox")
+
     def test_GetNodesByClassReceiverTyping(self):
         """A receiver bound by a `GetNodesByClass` loop is typed and provable.
 

@@ -281,6 +281,13 @@ class WorkflowRuntime:
             # (e.g. "Untick to exclude"); drop it so the step routes to the
             # segments-table renderer instead of a choice button.
             choices = []
+        # Segment-NAME selection step (a content combobox like the extension's
+        # "Fragment" box): the user picks ONE segment name from a segmentation.
+        # Surface a flag so the panel renders a name dropdown sourced from the
+        # resolved segmentation, not a scene-node tree.
+        segment_name_meta = self._segment_name_selection_meta(current_meta) if result_type == "user_choice" else {}
+        if segment_name_meta:
+            choices = []
         # Clinically-informed instructions override the terse ui_guidance when
         # present: title -> description, detailed -> the primary instruction text
         # (shown by default), simple -> the terse "Show brief" body. The widget
@@ -316,12 +323,19 @@ class WorkflowRuntime:
             "node_keywords": node_keywords,
             "source_widget_class": source_widget_class,
             "segment_selection": bool(segment_meta),
-            "segmentation_node_class": segment_meta.get("segmentation_node_class", ""),
+            "segment_name_selection": bool(segment_name_meta),
+            # Segmentation-resolution keys serve EITHER the segments-table or the
+            # segment-name picker (a step is only ever one of them).
+            "segmentation_node_class": segment_meta.get("segmentation_node_class", "")
+            or segment_name_meta.get("segmentation_node_class", ""),
             # Binding keywords win when present (classic extensions); else fall back
-            # to widget-name-derived keywords so the table defaults to the right
-            # segmentation. target_param (Layer 2) enables exact resolution.
-            "segmentation_keywords": node_keywords or segment_meta.get("keywords", []),
-            "segmentation_target_param": segment_meta.get("target_param", ""),
+            # to widget-name-derived keywords so the table/picker defaults to the
+            # right segmentation. target_param (Layer 2) enables exact resolution.
+            "segmentation_keywords": node_keywords
+            or segment_meta.get("keywords", [])
+            or segment_name_meta.get("keywords", []),
+            "segmentation_target_param": segment_meta.get("target_param", "")
+            or segment_name_meta.get("target_param", ""),
             "choice_label": ui_guidance.get("choice_label", ""),
             "input_label": ui_guidance.get("input_label", ""),
             "done_label": ui_guidance.get("done_label", "Done") or "Done",
@@ -1705,6 +1719,12 @@ class WorkflowRuntime:
         """
         if not isinstance(meta, dict):
             return ""
+        # A segment-NAME selection (content combobox of a segmentation's segment
+        # names) is NOT a node pick -- exclude it before the choice_input/node_roles
+        # fallbacks, which would otherwise return its segmentation class and route
+        # it to the scene-node tree.
+        if WorkflowRuntime._is_segment_name_selection(meta):
+            return ""
         roles = meta.get("node_roles") or []
         for role in roles:
             if isinstance(role, dict) and role.get("role_kind") == "choice_input":
@@ -1726,7 +1746,8 @@ class WorkflowRuntime:
                 continue
             vk = str(so.get("value_kind") or "").strip()
             wc = str(so.get("widget_class") or "").strip()
-            if vk == "segment_visibility_selection" or wc == "qMRMLSegmentsTableView":
+            if (vk in ("segment_visibility_selection", "segment_name_selection")
+                    or wc == "qMRMLSegmentsTableView"):
                 continue
             if vk == "node" or wc in node_selector_widgets:
                 nc = str(so.get("node_class") or "").strip()
@@ -1838,6 +1859,72 @@ class WorkflowRuntime:
         return {}
 
     @staticmethod
+    def _is_segment_name_selection(meta: Dict[str, Any]) -> bool:
+        """True when a user_choice step reproduces a CONTENT combobox whose items
+        are the segment NAMES of a segmentation (a single-pick fragment/segment
+        chooser) -- NOT a scene-node pick and NOT the multi-untick segments table.
+
+        Dual signal so it fires on already-generated artifacts (no regen):
+        ``value_kind == "segment_name_selection"`` (self-describing, set by the
+        capture stage), OR a plain combobox source widget (``QComboBox`` /
+        ``ctkComboBox`` -- never a qMRML* node selector) whose step carries a
+        ``choice_input`` node-role of class ``vtkMRMLSegmentationNode`` (the LLM's
+        segmentation-related signal). Kept distinct from _is_node_selection_step /
+        _segment_selection_meta so it renders a segment-name picker, not a node
+        tree or a segments table. Generic: no extension/step-specific strings.
+        """
+        if not isinstance(meta, dict):
+            return False
+        sub_ops = [s for s in (meta.get("sub_operations") or []) if isinstance(s, dict)]
+        for so in sub_ops:
+            if str(so.get("value_kind") or "").strip() == "segment_name_selection":
+                return True
+        combo = any(
+            str(so.get("widget_class") or "").strip() in ("QComboBox", "ctkComboBox")
+            for so in sub_ops
+        )
+        if not combo:
+            return False
+        roles = list(meta.get("node_roles") or [])
+        for so in sub_ops:
+            roles.extend(so.get("node_roles") or [])
+        for role in roles:
+            if (isinstance(role, dict)
+                    and role.get("role_kind") == "choice_input"
+                    and str(role.get("node_class") or "").strip() == "vtkMRMLSegmentationNode"):
+                return True
+        return False
+
+    @staticmethod
+    def _segment_name_selection_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolution metadata for a single-pick segment-NAME chooser (see
+        _is_segment_name_selection): {segmentation_node_class, keywords,
+        target_param} for resolving WHICH segmentation supplies the names at render
+        time -- reusing the segments-table resolution (target_param / widget-name
+        keywords). Returns {} when the step is not a segment-name selection.
+        """
+        if not isinstance(meta, dict) or not WorkflowRuntime._is_segment_name_selection(meta):
+            return {}
+        widget_name = ""
+        target_param = ""
+        node_class = "vtkMRMLSegmentationNode"
+        for so in meta.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            if not widget_name:
+                widget_name = str(so.get("widget_name") or "").strip()
+            if not target_param:
+                target_param = str(so.get("segmentation_target_param") or "").strip()
+            nc = str(so.get("node_class") or "").strip()
+            if nc:
+                node_class = nc
+        return {
+            "segmentation_node_class": node_class,
+            "keywords": WorkflowRuntime._keywords_from_widget_name(widget_name, target_param),
+            "target_param": target_param,
+        }
+
+    @staticmethod
     def _is_node_selection_step(meta: Dict[str, Any]) -> bool:
         """True when a user_choice step's selection is an MRML node pick.
 
@@ -1854,6 +1941,9 @@ class WorkflowRuntime:
         sub_ops = [s for s in (meta.get("sub_operations") or []) if isinstance(s, dict)]
         kinds = {str(s.get("value_kind") or "").strip() for s in sub_ops}
         if "segment_visibility_selection" in kinds:
+            return False
+        # A segment-NAME selection renders its own picker, never the node tree.
+        if WorkflowRuntime._is_segment_name_selection(meta):
             return False
         if "node" in kinds:
             return True

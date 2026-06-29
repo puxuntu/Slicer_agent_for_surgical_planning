@@ -221,6 +221,13 @@ def _record_choice_and_advance(
         )
     choice_code = _build_choice_parameter_update_code(ctx, param_name, choice_value)
     if not choice_code:
+        # A segment-NAME pick (content combobox like the 'Fragment' box) is an
+        # in-content item, NOT a scene node: mirror it onto the extension's own
+        # combobox (by name) so its connected handler fires. Checked BEFORE the
+        # node-materialization fallback, which would otherwise try to resolve the
+        # fragment name as a whole scene node and raise.
+        choice_code = _build_segment_name_choice_materialization_code(ctx, param_name, choice_value)
+    if not choice_code:
         # No scalar parameter-update binding matched. If this is a node choice
         # whose selector the pipeline could not bind (subject-hierarchy combo /
         # parameterNodeWrapper), nothing else applies the picked node — emit code
@@ -340,6 +347,11 @@ def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
     non-node choice (boolean/int/float), or when the role/sub-op is bound to a
     different parameter than ``param_name``.
     """
+    # A segment-NAME pick carries a choice_input role of vtkMRMLSegmentationNode,
+    # but the chosen value is a segment name, not a node — never resolve it as a
+    # scene node (that path raises). Its combobox-mirror code runs instead.
+    if _is_segment_name_choice(ctx, param_name):
+        return ""
     for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
         for role in src.get("node_roles") or []:
             if not isinstance(role, dict) or role.get("role_kind") != "choice_input":
@@ -380,6 +392,81 @@ def _choice_selector_widget(ctx: _WorkflowContext, param_name: str) -> str:
             if wn:
                 return wn
     return ""
+
+
+def _is_segment_name_choice(ctx: _WorkflowContext, param_name: str) -> bool:
+    """True when this choice reproduces a content combobox of a segmentation's
+    segment NAMES (e.g. the 'Fragment' box), mirroring
+    WorkflowRuntime._is_segment_name_selection over the loader's ctx: an explicit
+    ``value_kind == "segment_name_selection"`` OR a plain combobox source widget
+    plus a ``choice_input`` role of class ``vtkMRMLSegmentationNode``.
+    """
+    srcs = ((ctx.target_gen or {}), (ctx.target_step or {}))
+    for src in srcs:
+        for so in src.get("sub_operations") or []:
+            if isinstance(so, dict) and str(so.get("value_kind") or "").strip() == "segment_name_selection":
+                return True
+    combo = any(
+        isinstance(so, dict) and str(so.get("widget_class") or "").strip() in ("QComboBox", "ctkComboBox")
+        for src in srcs for so in (src.get("sub_operations") or [])
+    )
+    if not combo:
+        return False
+    for src in srcs:
+        roles = list(src.get("node_roles") or [])
+        for so in src.get("sub_operations") or []:
+            if isinstance(so, dict):
+                roles.extend(so.get("node_roles") or [])
+        for role in roles:
+            if (isinstance(role, dict)
+                    and role.get("role_kind") == "choice_input"
+                    and str(role.get("node_class") or "").strip() == "vtkMRMLSegmentationNode"):
+                return True
+    return False
+
+
+def _build_segment_name_choice_materialization_code(ctx: _WorkflowContext, param_name: str, choice_value) -> str:
+    """For a segment-NAME choice, set the extension's own combobox to the picked
+    name so its connected handler fires (e.g. ``currentIndexChanged`` ->
+    ``onFragmentSelected`` reveals that fragment's interaction handles for the next
+    step). CodeValidator-safe (only ``import slicer``, method calls), fail-soft.
+    Returns "" when this is not a segment-name choice or no selector is known.
+    """
+    if not _is_segment_name_choice(ctx, param_name):
+        return ""
+    module_name = str((ctx.metadata or {}).get("extension_module_name") or "").strip() or ctx.ext_name
+    selector = _choice_selector_widget(ctx, param_name)
+    if not (module_name and selector.isidentifier()):
+        return ""
+    log_msg = f"[{ctx.ext_name}] Step '{ctx.workflow_step}': selected fragment {choice_value!r}."
+    lines = [
+        f"# --- {ctx.ext_name}: {ctx.workflow_step} segment-name selection ---",
+        "import slicer",
+        f"_seg_name = {choice_value!r}",
+        "_choice_widget = None",
+        "try:",
+        f"    _choice_widget = slicer.util.getModuleWidget({module_name!r})",
+        "except Exception:",
+        "    _choice_widget = None",
+        "if _choice_widget is not None:",
+        "    _seg_sel = None",
+        "    try:",
+        f"        _seg_sel = _choice_widget.ui.{selector}",
+        "    except Exception:",
+        "        _seg_sel = None",
+        "    if _seg_sel is not None:",
+        "        try:",
+        "            _seg_idx = _seg_sel.findText(_seg_name)",
+        "            if _seg_idx >= 0:",
+        "                _seg_sel.setCurrentIndex(_seg_idx)",
+        "            else:",
+        "                _seg_sel.setCurrentText(_seg_name)",
+        "        except Exception:",
+        "            pass",
+        f"print({log_msg!r})",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def _choice_has_node_binding(ctx: _WorkflowContext, param_name: str) -> bool:

@@ -1253,6 +1253,28 @@ class AnalyzerStage4DecompositionMixin:
         widget_class = (widget_classes or {}).get(widget_name, "") or ""
         if widget_class:
             sub_op.setdefault("widget_class", widget_class)
+        # A plain content combobox whose items are a segmentation's segment NAMES
+        # (e.g. a "Fragment" selector) -- recognized by a choice_input role of
+        # vtkMRMLSegmentationNode. Tag a single-pick segment-name selection so the
+        # runtime renders a name picker sourced from that segmentation, not a
+        # scene-node tree. No-op for a units/enum dropdown (no segmentation role).
+        if widget_class in ("QComboBox", "ctkComboBox"):
+            has_seg_role = any(
+                isinstance(r, dict) and r.get("role_kind") == "choice_input"
+                and str(r.get("node_class") or "").strip() == "vtkMRMLSegmentationNode"
+                for r in (sub_op.get("node_roles") or [])
+            )
+            if has_seg_role:
+                sub_op["widget_class"] = widget_class
+                sub_op["node_class"] = "vtkMRMLSegmentationNode"
+                sub_op["value_kind"] = "segment_name_selection"
+                sub_op["operation_intents"] = ["segment_name_selection"]
+                sub_op["operation_intent"] = "segment_name_selection"
+                sub_op["choices"] = []
+                target_param = (segments_table_bindings or {}).get(widget_name, "")
+                if target_param:
+                    sub_op["segmentation_target_param"] = target_param
+            return
         if widget_class != "qMRMLSegmentsTableView":
             return
         sub_op["widget_class"] = widget_class

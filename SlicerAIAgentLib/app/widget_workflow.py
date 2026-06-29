@@ -372,6 +372,14 @@ class WidgetWorkflowMixin:
                 self._workflowChoiceLayout.removeWidget(self._workflowSegmentsContainer)
             self._workflowSegmentsContainer.setParent(None)
             self._workflowSegmentsContainer = None
+        self._workflowSegmentNameCombo = None
+        if getattr(self, "_workflowSegmentNameContainer", None) is not None:
+            # The container owns the name combobox + Select button; reparenting to
+            # None destroys them together.
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowSegmentNameContainer)
+            self._workflowSegmentNameContainer.setParent(None)
+            self._workflowSegmentNameContainer = None
         for button in getattr(self, "_workflowChoiceButtons", []):
             if self._workflowChoiceLayout is not None:
                 self._workflowChoiceLayout.removeWidget(button)
@@ -405,6 +413,13 @@ class WidgetWorkflowMixin:
                 # exactly like the source. More specific than the generic node tree, so it
                 # takes precedence; falls through if no segmentation resolves.
                 if state.get("segment_selection") and self._renderWorkflowSegmentsTable(state):
+                    return
+                # Segment-NAME selection step (the source used a content combobox of
+                # a segmentation's segment names, e.g. a "Fragment" box): offer a
+                # single-pick dropdown of those names instead of a scene-node tree.
+                # More specific than the node tree, so it takes precedence; falls
+                # through (to free-text, never the node tree) if none resolves.
+                if state.get("segment_name_selection") and self._renderWorkflowSegmentNamePicker(state):
                     return
                 # Node-selection step: offer a Data-module-style subject-hierarchy tree
                 # of the matching scene nodes (with the native eye / opacity / color
@@ -924,6 +939,91 @@ class WidgetWorkflowMixin:
         self._workflowChoiceLayout.addWidget(container, 1)
         container.setVisible(True)
         return True
+
+    def _renderWorkflowSegmentNamePicker(self, state):
+        """Show a single-pick combobox of the SEGMENT NAMES of a segmentation, so
+        the user picks one fragment/segment by name exactly like the extension's
+        own content combobox (e.g. the "Fragment" selector), instead of a tree of
+        whole scene nodes. The picked name flows through choice_made -> choice_value
+        identically to a literal-choice step (and Part 4 mirrors it onto the live
+        source combobox so its connected handler fires).
+
+        Returns True if it rendered (a segmentation with >=1 segment resolved), or
+        False so the caller falls back to the free-text box (never the node tree).
+        """
+        node_class = state.get("segmentation_node_class") or "vtkMRMLSegmentationNode"
+        candidates = []
+        try:
+            for node in slicer.util.getNodesByClass(node_class):
+                if node is None:
+                    continue
+                try:
+                    if node.GetHideFromEditors():
+                        continue
+                except Exception:
+                    pass
+                candidates.append({"id": node.GetID(), "name": node.GetName(), "node": node})
+        except Exception:
+            logger.debug("Enumerating segmentation candidates failed", exc_info=True)
+            candidates = []
+        if not candidates:
+            return False
+        idx = self._preferredSegmentationIndex(candidates, state)
+        if not (0 <= idx < len(candidates)):
+            idx = 0
+        seg_node = candidates[idx]["node"]
+        # Segment names in segment order (the source combobox lists them all).
+        names = []
+        try:
+            seg = seg_node.GetSegmentation()
+            for i in range(seg.GetNumberOfSegments()):
+                sid = seg.GetNthSegmentID(i)
+                nm = seg.GetSegment(sid).GetName() if sid else ""
+                if nm:
+                    names.append(str(nm))
+        except Exception:
+            logger.debug("Enumerating segment names failed", exc_info=True)
+            names = []
+        if not names:
+            return False
+
+        container = qt.QWidget()
+        vbox = qt.QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        combo = qt.QComboBox()
+        for nm in names:
+            combo.addItem(nm)
+        combo.setCurrentIndex(0)
+        button = qt.QPushButton(state.get("choice_label") or "Select")
+        button.setToolTip("Pick this item and continue")
+        button.clicked.connect(self._onWorkflowSegmentNameSelected)
+        vbox.addWidget(combo)
+        vbox.addWidget(button)
+        self._workflowSegmentNameCombo = combo
+        self._workflowSegmentNameContainer = container
+        self._workflowChoiceLayout.addWidget(container, 1)
+        container.setVisible(True)
+        return True
+
+    def _onWorkflowSegmentNameSelected(self):
+        combo = getattr(self, "_workflowSegmentNameCombo", None)
+        if combo is None:
+            return
+        try:
+            name = str(combo.currentText or "").strip()
+        except Exception:
+            name = ""
+        if not name:
+            return
+        if self._currentWorkflowUiState.get("replay_previewing"):
+            index = self._currentWorkflowUiState.get("preview_index")
+            if index is not None:
+                self._rerunFromCheckpoint(index, {"choice_value": name})
+            return
+        step_id = self._currentWorkflowUiState.get("current_step")
+        if step_id:
+            self.sendButton.setEnabled(False)
+            self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": name})
 
     def _bindSegmentsTable(self, seg_node):
         """Bind the segments table to ``seg_node``, ensuring a display node exists

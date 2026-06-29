@@ -450,6 +450,40 @@ class WorkflowTestsMixin:
 
         self.delayDisplay("branch_op body runs once (no loop-again); user_choice still loops")
 
+    def test_SegmentNameSelectionRouting(self):
+        """A content-combobox segment-name step routes to its own picker (not the
+        scene-node tree); a real node pick is unaffected."""
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+
+        seg_role = [{"role_kind": "choice_input", "node_class": "vtkMRMLSegmentationNode"}]
+        # Dual signal (works on the current artifact, no regen).
+        meta_dual = {"node_roles": seg_role, "sub_operations": [
+            {"widget_class": "QComboBox", "value_kind": "", "widget_name": "fragmentSelector",
+             "node_roles": seg_role}]}
+        # Self-describing form (after regen).
+        meta_vk = {"sub_operations": [
+            {"widget_class": "QComboBox", "value_kind": "segment_name_selection",
+             "widget_name": "fragmentSelector"}]}
+        for meta in (meta_dual, meta_vk):
+            self.assertTrue(WorkflowRuntime._is_segment_name_selection(meta))
+            self.assertEqual(WorkflowRuntime._node_class_from_step_meta(meta), "")
+            self.assertFalse(WorkflowRuntime._is_node_selection_step(meta))
+            m = WorkflowRuntime._segment_name_selection_meta(meta)
+            self.assertEqual(m.get("segmentation_node_class"), "vtkMRMLSegmentationNode")
+            self.assertIn("fragment", m.get("keywords") or [])
+
+        # Regression: a real node pick still routes to the node tree.
+        node_meta = {"sub_operations": [
+            {"widget_class": "qMRMLNodeComboBox", "value_kind": "node",
+             "node_class": "vtkMRMLScalarVolumeNode"}]}
+        self.assertFalse(WorkflowRuntime._is_segment_name_selection(node_meta))
+        self.assertTrue(WorkflowRuntime._is_node_selection_step(node_meta))
+        self.assertEqual(WorkflowRuntime._node_class_from_step_meta(node_meta), "vtkMRMLScalarVolumeNode")
+
+        self.delayDisplay("Segment-name selection routes to its picker; node pick unaffected")
+
     def test_VolLookupPlaceholderFills(self):
         """A generated template's {vol_lookup} structural placeholder fills at
         runtime with CodeValidator-safe code (no blocked globals())."""
