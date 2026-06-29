@@ -2,93 +2,93 @@
   "version": 1,
   "steps": {
     "cb_step_1": {
-      "title": "Select Pelvic Volume",
-      "simple": "Choose the pelvic CT volume from the 'Input CT Volume' dropdown.",
-      "detailed": "The pelvic CT scan is the main input for segmentation and planning. Select the correct pelvic volume to ensure all subsequent steps use the right dataset. In the 'Input CT Volume' dropdown, pick the appropriate pelvic volume.",
+      "title": "Select Pelvic CT Volume",
+      "simple": "Choose the pelvic CT scan from the volume list.",
+      "detailed": "This step loads the correct preoperative CT scan of the pelvis into the planning workspace. Accurate segmentation and fracture analysis depend on selecting the right volume. From the dropdown, select the pelvic CT volume you wish to use for planning.",
       "edited": false
     },
     "cb_step_2": {
       "title": "Segment the Pelvis",
-      "simple": "Click the 'Run Step 1: Segment Pelvis' button to begin automatic segmentation of the pelvic bone.",
-      "detailed": "This step automatically segments the pelvic bone from the selected CT volume, creating a 3D model. The segmentation is the foundation for identifying fracture fragments and planning reduction. Press the 'Run Step 1: Segment Pelvis' button and wait for the process to complete.",
+      "simple": "Click the 'Run Step 1: Segment Pelvis' button to automatically segment the pelvic bone.",
+      "detailed": "This automated step identifies and outlines the entire pelvic bone from the CT scan, creating a 3D segmentation that will serve as the foundation for fracture analysis and subsequent planning. Click the button to start the segmentation.",
       "edited": false
     },
     "cb_step_3": {
-      "title": "Segment Fracture Fragments",
-      "simple": "Click the 'Run Step 2: Segment Fractures' button to automatically identify fracture fragments.",
-      "detailed": "This step automatically detects and segments individual fracture fragments from the pelvic bone segmentation. Correct fragment identification is critical for subsequent reduction planning. Click the 'Run Step 2: Segment Fractures' button and allow the algorithm to process.",
+      "title": "Identify Fracture Lines",
+      "simple": "Click 'Run Step 2: Segment Fractures' to automatically detect and segment fracture fragments.",
+      "detailed": "This step analyzes the pelvic bone for discontinuities and separates the bone into individual fracture fragments. Each fragment will be highlighted and available for assessment and reduction planning. Click the button to run fracture segmentation.",
       "edited": false
     },
     "cb_step_4": {
-      "title": "Exclude Irrelevant Fragments",
-      "simple": "In the fragment list, untick any segments you wish to exclude from planning.",
-      "detailed": "Not all fracture fragments may be relevant for the planned reduction or fixation. Review the automatically identified fragments and untick those that are non-displaced or not part of the surgical plan. This refines the working set for template generation and screw planning. In the fragment list, deselect any segments you want to exclude, then click Done.",
+      "title": "Exclude Unwanted Fragments",
+      "simple": "Untick any fracture fragments you want to exclude from the planning process.",
+      "detailed": "Some small or non-displaced fragments may not require surgical attention. By unchecking them, you remove them from subsequent steps such as template generation and screw planning, focusing only on clinically relevant fragments. Review the list and untick those that should be ignored.",
       "edited": false
     },
     "cb_step_5": {
       "title": "Generate Reduction Template",
-      "simple": "Click the 'Run Step 3: Generate Template' button to create a template for fracture reduction.",
-      "detailed": "This step uses the selected pelvic segments and fracture fragments to generate a template that guides the reduction process. The template represents the anatomical target alignment for the fragments. Press 'Run Step 3: Generate Template' to proceed.",
+      "simple": "Click 'Run Step 3: Generate Template' to create a template for fracture reduction.",
+      "detailed": "This step creates a 3D model that serves as a template for reducing the fractures back to anatomical alignment. The template incorporates the selected fragments and the healthy pelvic anatomy as a guide. Click the button to generate the template.",
       "edited": false
     },
     "cb_step_6": {
       "title": "Register and Reduce Fragments",
-      "simple": "Click the 'Run Step 4: Register _Reduce' button to automatically align the fracture fragments to the template.",
-      "detailed": "This step performs automated registration of each fracture fragment to the reduction template, achieving a virtual reduction. The result is a reduced pelvic model showing the bone in its intended alignment. Click 'Run Step 4: Register _Reduce' to execute the reduction.",
+      "simple": "Click 'Run Step 4: Register _Reduce' to automatically align and reduce the fracture fragments.",
+      "detailed": "This step performs an automated registration that moves the fracture fragments into their intended anatomical positions relative to the pelvis, simulating the surgical reduction. The result is a reduced pelvis model ready for screw planning. Click the button to run the registration.",
       "edited": false
     },
     "cb_step_7": {
-      "title": "Manual Adjustment Decision",
-      "simple": "Indicate whether you want to manually adjust a fragment. If yes, select 'Yes'; if not, select 'No' and proceed to screw planning.",
-      "detailed": "After automated reduction, you may need to fine-tune the position of individual fragments for optimal alignment. If you are satisfied with the reduction, select 'No' to skip to screw planning. If adjustments are needed, select 'Yes' to enter manual adjustment mode. Choose your option in the dialog.",
+      "title": "Assess Need for Manual Adjustment",
+      "simple": "If further adjustments are needed, tick the 'Manually adjust a fragment' checkbox. Otherwise, proceed.",
+      "detailed": "After automated reduction, some fragments may not be perfectly aligned. This step gives you the option to manually refine the position of any fragment. If the reduction looks satisfactory, leave the checkbox unticked and continue to screw planning. Tick the checkbox if you need to adjust any fragment.",
       "edited": false
     },
     "cb_step_8": {
-      "title": "Select Fragment to Adjust",
-      "simple": "From the 'Fragment' dropdown, choose the fragment you want to manually adjust.",
-      "detailed": "To correct the alignment of a specific fragment, first identify it in the dropdown. Choose the fragment that requires repositioning or rotation. This step prepares the selected fragment for manual manipulation in the 3D view.",
+      "title": "Choose Fragment for Adjustment",
+      "simple": "From the 'Fragment' dropdown, select the fragment you want to manually adjust.",
+      "detailed": "If you decided to make manual adjustments, now choose which fragment to refine. The drop-down lists all available fragments from the reduced pelvis. Select the one that needs repositioning or rotation to improve alignment.",
       "edited": false
     },
     "cb_step_9": {
-      "title": "Adjust Fragment Position and Rotation",
-      "simple": "Use the 3D view to manually adjust the position and rotation of the selected fragment.",
-      "detailed": "With the fragment selected, you can drag to translate or rotate it in the 3D view to achieve better alignment with the pelvic template. Precise manual adjustment ensures the final reduction matches anatomical norms. Make your adjustments directly in the viewport, then click Done when satisfied.",
+      "title": "Adjust Fragment Pose",
+      "simple": "Use the transform tools to translate and rotate the selected fragment until it fits correctly.",
+      "detailed": "This step allows you to fine-tune the position and orientation of the chosen fracture fragment using interactive 3D tools. Clinical judgment is key: aim for anatomical alignment with the adjacent pelvic anatomy. Once satisfied, click 'Done' to confirm the adjustment.",
       "edited": false
     },
     "cb_step_10": {
-      "title": "Apply Fragment Adjustments",
-      "simple": "Click the 'Apply adjustments' button to finalize the manual changes.",
-      "detailed": "After positioning the fragment to your satisfaction, confirm the changes by clicking 'Apply adjustments'. This commits the new position and rotation into the reduction model for use in screw planning.",
+      "title": "Apply Manual Adjustments",
+      "simple": "Click the 'Apply adjustments' button to incorporate your manual changes into the plan.",
+      "detailed": "After adjusting the fragment's position, this button commits the new pose into the planning model. It updates the reduced pelvis state, ensuring subsequent steps use the corrected fragment alignment. Click to apply.",
       "edited": false
     },
     "cb_step_11": {
       "title": "Plan Screw Trajectories",
-      "simple": "Click the 'Run Step 5: Plan Screws' button to automatically generate screw trajectories.",
-      "detailed": "This step analyzes the reduced pelvis and fracture configuration to propose optimal screw trajectories for fixation. The generated screws provide a starting point for insertion planning. Click 'Run Step 5: Plan Screws' to compute the trajectories.",
+      "simple": "Click 'Run Step 5: Plan Screws' to automatically generate screw trajectories for fixation.",
+      "detailed": "This automated step designs optimal screw paths to stabilize the reduced pelvic fractures. Based on the fragment positions and bone anatomy, it proposes screw trajectories that provide maximal purchase and avoid critical structures. Click the button to generate the screw plan.",
       "edited": false
     },
     "cb_step_12": {
-      "title": "Edit Screw Trajectories Decision",
-      "simple": "Indicate whether you want to edit the screw trajectories. Select 'Yes' to modify them, or 'No' to finish planning.",
-      "detailed": "The automatically planned screws may need adjustment based on patient-specific anatomy or surgical approach. If you are satisfied, select 'No' to complete the planning. If you need to fine-tune the trajectories (entry points, angles, lengths), select 'Yes' to enter edit mode.",
+      "title": "Decide Whether to Edit Screws",
+      "simple": "If you need to modify screw trajectories, tick the 'Edit Screw trajectories' checkbox. Otherwise, the plan is complete.",
+      "detailed": "The automatically generated screws may need refinement to better suit the patient's anatomy or surgical approach. This step lets you choose to manually edit the trajectories. If the proposed plan is acceptable, leave it unchecked and finish. Tick the checkbox to adjust screw paths.",
       "edited": false
     },
     "cb_step_13": {
       "title": "Adjust Screw Trajectories",
-      "simple": "In the 3D view, manually adjust the position and orientation of each screw trajectory as needed.",
-      "detailed": "Modify the screw paths by dragging control points in the 3D view to optimize entry points, direction, and depth. Ensure screws are safely positioned within bone corridors and avoid critical structures. Make your adjustments, then click Done when satisfied.",
+      "simple": "Use the transform tools to modify the position and rotation of the screw trajectories as needed.",
+      "detailed": "Here you can fine-tune each screw's path to improve bone purchase, avoid joint surfaces, or optimize placement for your surgical approach. Adjust the trajectories interactively in the 3D view. Click 'Done' when each screw is positioned correctly.",
       "edited": false
     },
     "cb_step_14": {
-      "title": "Regenerate Final Screws",
-      "simple": "Click the 'Regenerate screws from edited lines' button to finalize the modified trajectories.",
-      "detailed": "After manual adjustments, regenerate the screw models to reflect your edits. This produces the definitive screw placement data for surgical reference. Click 'Regenerate screws from edited lines' to confirm the changes.",
+      "title": "Regenerate Screws",
+      "simple": "Click 'Regenerate screws from edited lines' to finalize the edited screw trajectories.",
+      "detailed": "After manually adjusting the screw paths, this step recalculates the screw geometries to match the new lines. This ensures the final screw models reflect your intended placement. Click the button to regenerate.",
       "edited": false
     },
     "cb_step_15": {
-      "title": "Exit Screw Editing Mode",
-      "simple": "Untick the 'Edit Screw trajectories' checkbox to exit the editing mode.",
-      "detailed": "Once you are satisfied with the screw trajectories, disengage edit mode by unchecking the box. This finalizes the planning and returns to the main interface. Untick the checkbox to complete the process.",
+      "title": "Finalize Screw Planning",
+      "simple": "Untick the 'Edit Screw trajectories' checkbox to confirm the screw plan is complete.",
+      "detailed": "Once you are satisfied with the screw trajectories, uncheck this box to exit edit mode. This finalizes the screw planning step and completes the preoperative plan. The plan is now ready for review and export.",
       "edited": false
     }
   }
