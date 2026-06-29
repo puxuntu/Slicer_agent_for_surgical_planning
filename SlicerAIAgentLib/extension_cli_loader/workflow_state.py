@@ -273,6 +273,10 @@ def dispatch_workflow_step(
         "slicer_op": _handle_automated_step,
         "user_interaction": _handle_interactive_step,
         "user_choice": _handle_user_choice_step,
+        # branch_op presents/records the decision exactly like user_choice, then
+        # (on accept) attaches its captured extension action; the pre-guard
+        # repeat_block routes accept->body / decline->jump/stop.
+        "branch_op": _handle_branch_step,
     }
     handler = handlers.get(operation_type)
     if not handler:

@@ -264,24 +264,78 @@ def _handle_interactive_start(ctx: _WorkflowContext) -> Dict:
     }
 
 
+def _normalize_branch_value(value):
+    """Coerce a Yes/No answer to a bool when possible (mirrors
+    WorkflowRuntime._normalize_control_value), else return it stripped."""
+    if isinstance(value, str):
+        low = value.strip().lower()
+        if low in ("true", "yes", "y", "1"):
+            return True
+        if low in ("false", "no", "n", "0"):
+            return False
+        return value.strip()
+    return value
+
+
+def _branch_choice_accepts(ctx: _WorkflowContext, choice_value) -> bool:
+    """True when the branch_op decision ACCEPTS (runs the optional body / performs
+    the action) -- i.e. NOT the decline answer. Mirrors the inverse of
+    WorkflowRuntime._loop_should_exit: decline when the value equals the guard's
+    ``choice_info.default_value`` (the skip answer); for a boolean guard with no
+    default, the negative/No answer declines. So both the handler-side action gate
+    and the runtime-side branch routing read the same polarity."""
+    info = ctx.target_step.get("choice_info", {}) or {}
+    norm = _normalize_branch_value(choice_value)
+    default = info.get("default_value")
+    if default is not None:
+        return norm != _normalize_branch_value(default)
+    return norm is not False
+
+
+def _maybe_attach_branch_action(ctx: _WorkflowContext, result: Dict) -> Dict:
+    """On ACCEPT, append the branch_op's captured extension action (e.g. tick the
+    checkbox that enables the optional mode) to the choice result's ``code`` so it
+    runs before the body. On DECLINE, leave the result code-less (no action)."""
+    if not isinstance(result, dict):
+        return result
+    if not _branch_choice_accepts(ctx, result.get("choice_value")):
+        return result
+    tpl_rel = ctx.target_step.get("branch_action_template", "")
+    if not tpl_rel:
+        return result  # no captured action -> plain pre-guard branch
+    tpl_path = os.path.join(ctx.ext_dir, tpl_rel)
+    if not os.path.isfile(tpl_path):
+        return result
+    try:
+        with open(tpl_path, "r", encoding="utf-8") as f:
+            action_code = f.read()
+    except Exception:
+        return result
+    try:
+        action_code = _fill_template(action_code, _build_format_kwargs(ctx.arguments))
+    except KeyError:
+        pass
+    action_code = _prepend_choice_prelude(ctx, action_code)
+    existing = result.get("code") or ""
+    result["code"] = (existing + "\n\n" + action_code) if existing else action_code
+    result["instruction"] = (
+        "STOP. Do NOT make any more tool calls. Your NEXT response must be an "
+        "```agent_plan JSON block followed by a ```python block containing the "
+        "'code' field above VERBATIM. Do NOT call any more tools until this code "
+        "has been executed."
+    )
+    return result
+
+
 def _handle_branch_step(ctx: _WorkflowContext) -> Dict:
-    """Handle a branch (optional) workflow step."""
-    condition = ctx.target_step.get("condition", "Optional step")
-    return {
-        "tool": ctx.tool_name,
-        "type": "branch",
-        "step_id": ctx.workflow_step,
-        "condition": condition,
-        "branches": ctx.target_step.get("branches", {}),
-        "explanation": ctx.target_step.get("description", ""),
-        "instruction": (
-            f"Ask the user: '{condition}' "
-            f"If yes, call {ctx.tool_name} with workflow_step='{ctx.workflow_step}' "
-            f"user_action='start'. "
-            f"If no, call with workflow_step='{ctx.workflow_step}' "
-            f"user_action='skip'."
-        ),
-    }
+    """branch_op: present/record the Yes/No decision exactly like a user_choice,
+    then on ACCEPT attach the captured extension action (the on-accept tick). The
+    pre-guard repeat_block in WorkflowRuntime routes accept->body / decline->
+    jump/stop, reading the same choice_value this handler records."""
+    result = _handle_user_choice_step(ctx)
+    if ctx.user_action == "choice_made":
+        result = _maybe_attach_branch_action(ctx, result)
+    return result
 
 
 def _handle_user_choice_step(ctx: _WorkflowContext) -> Dict:

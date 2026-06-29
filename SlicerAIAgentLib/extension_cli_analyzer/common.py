@@ -60,6 +60,8 @@ CANONICAL_OPERATION_TYPES = {
     "slicer_op",
     "user_interaction",
     "user_choice",
+    # Decision + on-accept extension action + branch (jump/stop/run body).
+    "branch_op",
 }
 
 
@@ -101,7 +103,9 @@ def _legacy_step_type_for_operation(operation_type: str) -> str:
         return "automated"
     if operation_type == "user_interaction":
         return "interactive"
-    if operation_type == "user_choice":
+    if operation_type in ("user_choice", "branch_op"):
+        # branch_op is presented/recorded like a user_choice decision; its
+        # on-accept action is generated separately as a per-step template.
         return "user_choice"
     return operation_type or "automated"
 

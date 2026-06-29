@@ -577,7 +577,7 @@ class AnalyzerStage4DecompositionMixin:
         {{
           "steps": [{{
             "step_number": 1,
-            "operation_type": "extension_op|slicer_op|user_interaction|user_choice",
+            "operation_type": "extension_op|slicer_op|user_interaction|user_choice|branch_op",
             "semantic_intent": "concise meaning",
             "extension_method_hint": null,
             "extension_function_hint": null,
@@ -633,12 +633,19 @@ class AnalyzerStage4DecompositionMixin:
         A repeat body must be a contiguous range of existing steps. A count repeat must
         reference a preceding user_choice source step. until_choice/while_choice are
         conditional/optional sections: source_step is REQUIRED and is the user_choice
-        step that decides BEFORE the body whether to run it (a pre-guard); set
-        exit_value to the source choice value that DECLINES/skips the body (e.g. the
+        OR branch_op step that decides BEFORE the body whether to run it (a pre-guard);
+        set exit_value to the source choice value that DECLINES/skips the body (e.g. the
         "No"/unticked value). Set exit_target to where the workflow goes when declined:
         the integer step number for "jump to step N", or the string "stop" to end the
         workflow; use null to default to the step right after the body. Repeat blocks
         may not overlap.
+        Use operation_type branch_op (NOT user_choice) for a step that asks a Yes/No
+        question whose "Yes" ALSO performs an extension action (e.g. "tick the X
+        checkbox") and whose answer branches (run an optional body, or jump/stop) --
+        i.e. "If <condition>, tick the X checkbox; if not, jump to step N / stop here".
+        Emit a Yes/No choice (default_value = the skip answer, widget_name = the
+        checkbox) AND a repeat_block whose source_step is this branch_op step. A plain
+        user_choice is for choice-only selections (pick a node/value) with no action.
         Every step requires medium or high confidence. Include exactly one output step
         for every input step, even when most optional semantic fields are null.
 
@@ -978,7 +985,7 @@ class AnalyzerStage4DecompositionMixin:
                             f"{role_parameter!r} is not source-backed; use an allowed "
                             "parameter or leave it empty"
                         )
-            if expected[number]["operation_type"] == "user_choice":
+            if expected[number]["operation_type"] in ("user_choice", "branch_op"):
                 choice = item.get("choice")
                 if not isinstance(choice, dict) or not _text_or_empty(choice.get("question")):
                     errors.append(f"step {number} user_choice requires a choice question")
@@ -1116,7 +1123,7 @@ class AnalyzerStage4DecompositionMixin:
                 role = resolved_binding.get("role", {})
                 sub_op["parameter_name"] = role.get("parameter_name", "")
                 sub_op["value_property"] = role.get("value_property", "")
-            if op_type == "user_choice":
+            if op_type in ("user_choice", "branch_op"):
                 sub_op.update({
                     "question": choice.get("question", cb_step.description),
                     "choices": choice.get("choices", []),
@@ -1132,6 +1139,11 @@ class AnalyzerStage4DecompositionMixin:
                 # matches the bound (BRP) node-selection shape.
                 if sub_op.get("value_kind") == "node":
                     sub_op["choices"] = []
+                # A branch_op also performs an extension action on accept (e.g.
+                # tick a checkbox). target_value=True drives the toggle template
+                # generator to emit `checked = True` for the captured widget.
+                if op_type == "branch_op":
+                    sub_op.setdefault("target_value", True)
             # Record the original selection widget's Qt class from the .ui
             # inventory so the runtime can reproduce it (e.g. a qMRMLSegmentsTableView
             # renders the real segments table, not a free-text box / generic node tree).
@@ -1561,7 +1573,7 @@ class AnalyzerStage4DecompositionMixin:
                 if not isinstance(so, dict):
                     so = {"description": so}
                 op_type = _optional_text(so.get("op_type")) or "extension_op"
-                if op_type not in ("extension_op", "slicer_op", "user_interaction", "user_choice", "unknown_op"):
+                if op_type not in ("extension_op", "slicer_op", "user_interaction", "user_choice", "branch_op", "unknown_op"):
                     op_type = "extension_op"
                 description = _text_or_empty(
                     so.get("description", cb_step.description[:200])

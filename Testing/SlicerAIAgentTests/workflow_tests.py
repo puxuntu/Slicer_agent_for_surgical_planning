@@ -320,6 +320,78 @@ class WorkflowTestsMixin:
 
         self.delayDisplay("Pre-guard conditional: decline skips/stops, accept runs + loops")
 
+    def test_BranchOpChoiceAcceptsPolarity(self):
+        """_branch_choice_accepts: the handler-side action gate agrees with the
+        runtime branch polarity (decline = the guard's default/skip answer)."""
+        from SlicerAIAgentLib.extension_cli_loader import workflow_handlers as wh
+
+        def ctx(default):
+            return type("_C", (), {"target_step": {
+                "choice_info": {"choices": [{"label": "Yes", "value": True},
+                                            {"label": "No", "value": False}],
+                                "default_value": default}}})()
+
+        # default_value=False (opt-in body): Yes accepts (runs action), No declines.
+        self.assertTrue(wh._branch_choice_accepts(ctx(False), True))
+        self.assertFalse(wh._branch_choice_accepts(ctx(False), False))
+        # String forms normalize.
+        self.assertTrue(wh._branch_choice_accepts(ctx(False), "Yes"))
+        self.assertFalse(wh._branch_choice_accepts(ctx(False), "no"))
+        # No default + boolean: accept = not False.
+        c = type("_C", (), {"target_step": {"choice_info": {}}})()
+        self.assertTrue(wh._branch_choice_accepts(c, True))
+        self.assertFalse(wh._branch_choice_accepts(c, False))
+
+        self.delayDisplay("_branch_choice_accepts polarity matches the pre-guard")
+
+    def test_BranchOpPreGuardRouting(self):
+        """A branch_op guard routes through the same pre-guard as user_choice
+        (decline -> jump/stop, accept -> body), since routing reads choice_value /
+        the source step's choice_info, not the op type."""
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+
+        ci = {"choices": [{"label": "Yes", "value": True}, {"label": "No", "value": False}],
+              "default_value": False}
+        graph = {"steps": [
+            {"step_id": "cb_step_1", "step_type": "user_choice", "operation_type": "branch_op",
+             "choice_info": dict(ci), "depends_on": []},
+            {"step_id": "cb_step_2", "step_type": "extension_op", "depends_on": ["cb_step_1"]},
+            {"step_id": "cb_step_3", "step_type": "extension_op", "depends_on": ["cb_step_2"]},
+            {"step_id": "cb_step_4", "step_type": "extension_op", "depends_on": ["cb_step_3"]},
+        ], "repeat_blocks": [
+            {"repeat_id": "adj", "body_steps": ["cb_step_2", "cb_step_3"],
+             "entry_step": "cb_step_2", "terminal_step": "cb_step_3", "exit_step": "cb_step_4",
+             "controller": {"kind": "until_choice", "source_step": "cb_step_1",
+                            "prompt": "Adjust?", "exit_value": True}, "max_iterations": 20}]}
+        orig = wf_mod.get_workflow_graph
+        wf_mod.get_workflow_graph = lambda e: graph
+        try:
+            r = WorkflowRuntime()
+            r.session = WorkflowSession(extension_name="FakeBranch", tool_name="FakeBranch",
+                                        workflow_id="b", current_step="cb_step_1")
+            # ACCEPT (Yes) -> body entry.
+            acc = r.handle_execution_result(
+                {"type": "choice_made", "step_id": "cb_step_1", "choice_value": True,
+                 "next_step": {"step_id": "cb_step_2"}}, {"success": True})
+            self.assertEqual(acc["next_step"]["step_id"], "cb_step_2")
+            # DECLINE (No) -> skip body, jump to exit.
+            r2 = WorkflowRuntime()
+            r2.session = WorkflowSession(extension_name="FakeBranch", tool_name="FakeBranch",
+                                         workflow_id="b2", current_step="cb_step_1")
+            dec = r2.handle_execution_result(
+                {"type": "choice_made", "step_id": "cb_step_1", "choice_value": False,
+                 "next_step": {"step_id": "cb_step_2"}}, {"success": True})
+            self.assertEqual(dec["next_step"]["step_id"], "cb_step_4")
+            self.assertIn("cb_step_2", r2.session.completed_steps)
+            self.assertIn("cb_step_3", r2.session.completed_steps)
+        finally:
+            wf_mod.get_workflow_graph = orig
+
+        self.delayDisplay("branch_op routes through the pre-guard like user_choice")
+
     def test_WorkflowReplayCheckpoints(self):
         """Replay timeline: live checkpoint recording, rewind truncation, loop resume."""
         import importlib

@@ -446,6 +446,21 @@ class AnalyzerWorkflowTemplatesMixin:
                 # Branch steps don't need templates — handled by the orchestrator
                 pass
 
+            elif op_type == "branch_op":
+                # A branch_op presents the decision like a user_choice (no
+                # decision template), but ALSO performs an extension action on
+                # ACCEPT (e.g. tick a checkbox that enables an optional mode).
+                # Generate that action as a per-step template; the runtime
+                # injects it only when the user accepts. If no widget/handler is
+                # captured, degrade to a plain pre-guard branch (no action).
+                action_tpl = self._maybe_generate_button_handler_template(
+                    extension_name, step, logic_class_name, module_name,
+                )
+                if action_tpl:
+                    action_key = f"templates/{step_id}_action.py.tpl"
+                    templates[action_key] = action_tpl
+                    step["branch_action_template"] = action_key
+
             elif step_type == "user_choice":
                 # user_choice steps don't need code templates — handled by the
                 # orchestrator which presents the question and collects the answer.

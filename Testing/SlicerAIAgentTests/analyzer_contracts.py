@@ -252,8 +252,33 @@ class AnalyzerContractsMixin:
         # Invalid: exit_step inside / not after the body.
         with self.assertRaises(RuntimeError):
             ExtensionCLIAnalyzer._validate_repeat_block_graph(graph(exit_step="cb_step_2"), by_step)
+        # Valid: a branch_op source step is also an allowed pre-guard controller.
+        steps_b = [dict(s) for s in steps]
+        steps_b[0]["operation_type"] = "branch_op"
+        ExtensionCLIAnalyzer._validate_repeat_block_graph(
+            {"steps": steps_b, "repeat_blocks": graph()["repeat_blocks"]},
+            {s["step_id"]: s for s in steps_b})
 
         self.delayDisplay("Pre-guard repeat-block validation (source_step + forward exit)")
+
+    def test_BranchOpOpTypePlumbing(self):
+        """branch_op is registered across the op-type taxonomy and maps to the
+        user_choice execution category."""
+        from SlicerAIAgentLib.CookbookParser import VALID_OPERATION_TYPES
+        from SlicerAIAgentLib.extension_cli_analyzer.common import (
+            CANONICAL_OPERATION_TYPES,
+            _operation_type_for_step,
+            _legacy_step_type_for_operation,
+        )
+        self.assertIn("branch_op", VALID_OPERATION_TYPES)
+        self.assertIn("branch_op", CANONICAL_OPERATION_TYPES)
+        self.assertEqual(_legacy_step_type_for_operation("branch_op"), "user_choice")
+        self.assertEqual(_operation_type_for_step({"operation_type": "branch_op"}), "branch_op")
+        # The runtime dispatch registers a branch_op handler.
+        from SlicerAIAgentLib.extension_cli_loader import workflow_handlers as wh
+        self.assertTrue(callable(getattr(wh, "_handle_branch_step", None)))
+
+        self.delayDisplay("branch_op op-type plumbing registered")
 
     def test_ModuleLevelSelfRejected(self):
         """Generated templates run at module level — a module-level `self` is a bug.

@@ -398,10 +398,11 @@ class AnalyzerCookbookMappingMixin:
                     }
                     break
 
-            # Extract user_choice info if present
+            # Extract user_choice info if present (branch_op carries the same
+            # Yes/No choice_info as a user_choice decision).
             choice_info = {}
             for so in sub_ops:
-                if so["op_type"] == "user_choice":
+                if so["op_type"] in ("user_choice", "branch_op"):
                     choice_info = {
                         "question": so.get("question", cb_step.description),
                         "choices": so.get("choices", []),

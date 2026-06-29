@@ -28,6 +28,11 @@ VALID_OPERATION_TYPES = {
     "slicer_op",
     "user_interaction",
     "user_choice",
+    # A user decision that ALSO performs an extension action (e.g. tick a
+    # checkbox that enables an optional mode) and BRANCHES the workflow
+    # (run the optional body, jump to a step, or stop). Distinct from a
+    # choice-only user_choice (which just selects a value/node).
+    "branch_op",
 }
 
 # ---------------------------------------------------------------------------
