@@ -942,7 +942,15 @@ class AnalyzerWorkflowTemplatesMixin:
             f"    raise RuntimeError(\"{module_name} widget has no handler '{handler}' for '{widget}'; regenerate the CLI.\")",
         ]
         if is_toggle and widget.isidentifier():
-            checked = "False" if widget_targets.get(widget) is False else "True"
+            _tv = widget_targets.get(widget)
+            if _tv is None:
+                # No explicit target_value captured: infer tick/untick polarity from
+                # the step text so "Untick the X checkbox" emits checked=False instead
+                # of defaulting to True (re-tick). Generic; reuses _infer_final_state_intent.
+                _intent = _infer_final_state_intent(step.get("description", "") or "")
+                if _intent.get("state") is not None:
+                    _tv = _intent["state"]
+            checked = "False" if _tv is False else "True"
             lines += [
                 "# Set the control's checked state (signals blocked to avoid a",
                 "# double-fire), then invoke the handler once. The handler may read",

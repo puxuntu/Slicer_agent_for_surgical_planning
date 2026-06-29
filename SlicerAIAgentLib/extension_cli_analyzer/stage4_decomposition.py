@@ -1144,6 +1144,19 @@ class AnalyzerStage4DecompositionMixin:
                 # generator to emit `checked = True` for the captured widget.
                 if op_type == "branch_op":
                     sub_op.setdefault("target_value", True)
+            elif op_type == "extension_op" and sub_op.get("target_value") is None:
+                # A checkbox/toggle step (e.g. "Untick the X checkbox") must drive
+                # the right polarity: infer tick/untick from the step text so the
+                # toggle template emits checked=False for "untick" (exit/disable)
+                # and True for "tick". Without this target_value defaults to True
+                # (re-tick). No-op for non-toggle steps (no polarity keyword ->
+                # state None; button-click templates ignore target_value).
+                _intent = _infer_final_state_intent(
+                    sub_op.get("description") or cb_step.description
+                )
+                if _intent.get("state") is not None:
+                    sub_op["target_value"] = _intent["state"]
+                    sub_op.setdefault("target_value_mode", _intent.get("mode"))
             # Record the original selection widget's Qt class from the .ui
             # inventory so the runtime can reproduce it (e.g. a qMRMLSegmentsTableView
             # renders the real segments table, not a free-text box / generic node tree).

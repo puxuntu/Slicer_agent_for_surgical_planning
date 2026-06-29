@@ -664,6 +664,36 @@ class AnalyzerContractsMixin:
         )
         self.delayDisplay("Widget-handler step passes contract + api_proof + footprint")
 
+    def test_ToggleStepPolarityFromText(self):
+        """A checkbox-toggle step drives the correct polarity from its wording:
+        "Untick ..." -> checked=False (exit/disable), "Tick ..." -> checked=True."""
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+        analyzer._parameter_node_wrapper = {"class_name": "FakeParameterNode"}
+        analyzer._widget_connections = [
+            {"button_widget_name": "chkEditScrews",
+             "handler_method": "onEditScrewsToggled", "signal": "toggled(bool)"},
+        ]
+
+        def gen(desc):
+            step = {"step_id": "cb_step_15", "widget_name": "chkEditScrews",
+                    "description": desc,
+                    "sub_operations": [{"op_type": "extension_op", "widget_name": "chkEditScrews"}]}
+            return analyzer._maybe_generate_button_handler_template(
+                "PelvicFracturePlanning", step, "PelvicFracturePlanningLogic", "PelvicFracturePlanning",
+            ) or ""
+
+        untick = gen("Untick the Edit Screw trajectories checkbox")
+        self.assertIn("_ctrl.checked = False", untick)
+        self.assertIn("onEditScrewsToggled(False)", untick)
+        tick = gen("Tick the Edit Screw trajectories checkbox")
+        self.assertIn("_ctrl.checked = True", tick)
+        self.assertIn("onEditScrewsToggled(True)", tick)
+
+        self.delayDisplay("Toggle step polarity inferred from tick/untick wording")
+
     def test_GetNodesByClassReceiverTyping(self):
         """A receiver bound by a `GetNodesByClass` loop is typed and provable.
 
