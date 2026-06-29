@@ -3,6 +3,7 @@ import slicer
 from PelvicFracturePlanning import Apply_transform_to_polydata
 
 # precondition:begin
+# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'PelvicFracturePlanning':
     try:
@@ -11,7 +12,7 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Ensure shared logic instance
+# Get or create the shared logic instance
 try:
     logic = _pelvicfractureplanning_logic
 except NameError:
@@ -19,19 +20,27 @@ except NameError:
     logic = PelvicFracturePlanningLogic()
     _pelvicfractureplanning_logic = logic
 
-# Retrieve fragment model and adjustment transform from scene by name
-fragmentModel = slicer.mrmlScene.GetFirstNodeByName("FragmentModel")
-if fragmentModel is None:
-    raise RuntimeError("FragmentModel node not found. Ensure a fragment is selected.")
+# Retrieve required node IDs from cross-step cache
+try:
+    _fragmentModelID = _pelvicfractureplanning_FragmentModel_id
+except NameError:
+    raise RuntimeError("Missing cached FragmentModel node ID from previous step.")
+try:
+    _adjustTransformID = _pelvicfractureplanning_AdjustTransform_id
+except NameError:
+    raise RuntimeError("Missing cached AdjustTransform node ID from previous step.")
+try:
+    _adjustedModelID = _pelvicfractureplanning_AdjustedModel_id
+except NameError:
+    raise RuntimeError("Missing cached AdjustedModel node ID from previous step.")
 
-adjustTransform = slicer.mrmlScene.GetFirstNodeByName("AdjustTransform")
-if adjustTransform is None:
-    raise RuntimeError("AdjustTransform node not found. Ensure adjustments have been made.")
+FragmentModel = slicer.mrmlScene.GetNodeByID(_fragmentModelID)
+AdjustTransform = slicer.mrmlScene.GetNodeByID(_adjustTransformID)
+AdjustedModel = slicer.mrmlScene.GetNodeByID(_adjustedModelID)
 
-# Create output adjusted model node
-adjustedModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", "AdjustedFragment")
+if any(node is None for node in [FragmentModel, AdjustTransform, AdjustedModel]):
+    raise RuntimeError("One or more required nodes could not be resolved from cached IDs.")
 
-# Apply the transform to the fragment polydata
-Apply_transform_to_polydata(fragmentModel, adjustTransform, adjustedModel)
+Apply_transform_to_polydata(FragmentModel, AdjustTransform, AdjustedModel)
 
-print("[PelvicFracturePlanning] Step 'cb_step_10' completed: adjustment applied to fragment.")
+print("[PelvicFracturePlanning] Step 'cb_step_10' completed.")

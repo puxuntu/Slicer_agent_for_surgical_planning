@@ -1,8 +1,9 @@
 # --- PelvicFracturePlanning: Choose which fragment needs adjustment in the "Fragment" selection box. ---
 import slicer
-from PelvicFracturePlanning import cal_BBox
+from PelvicFracturePlanning import display_fracture
 
 # precondition:begin
+# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'PelvicFracturePlanning':
     try:
@@ -11,7 +12,7 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Ensure shared logic instance
+# Get or create the shared logic instance
 try:
     logic = _pelvicfractureplanning_logic
 except NameError:
@@ -19,22 +20,32 @@ except NameError:
     logic = PelvicFracturePlanningLogic()
     _pelvicfractureplanning_logic = logic
 
-# Retrieve the fracture segmentation node (output of step 3) from cached ID or scene
-fragmentSegNode = None
+# Retrieve required node IDs from cross-step cache
 try:
-    fragmentSegNode = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_outputfracseg_id)
-except Exception:
-    pass
-if fragmentSegNode is None:
-    # Fallback: use first vtkMRMLSegmentationNode with "Fracture" in name
-    for node in slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode"):
-        if "Fracture" in node.GetName():
-            fragmentSegNode = node
-            break
-if fragmentSegNode is None:
-    raise RuntimeError("Could not find fracture segmentation node for cal_BBox.")
+    _inputVolume_id = _pelvicfractureplanning_inputVolume_id
+except NameError:
+    raise RuntimeError("Missing cached inputVolume node ID from previous step.")
+try:
+    _outputPelvisSeg_id = _pelvicfractureplanning_outputPelvisSeg_id
+except NameError:
+    raise RuntimeError("Missing cached outputPelvisSeg node ID from previous step.")
+try:
+    _outputFracSeg_id = _pelvicfractureplanning_outputFracSeg_id
+except NameError:
+    raise RuntimeError("Missing cached outputFracSeg node ID from previous step.")
+try:
+    _outputReduction_id = _pelvicfractureplanning_outputReduction_id
+except NameError:
+    raise RuntimeError("Missing cached outputReduction node ID from previous step.")
 
-# Compute bounding box for the fragment segmentation
-cal_BBox(fragmentSegNode)
+inputVolume = slicer.mrmlScene.GetNodeByID(_inputVolume_id)
+outputPelvisSeg = slicer.mrmlScene.GetNodeByID(_outputPelvisSeg_id)
+outputFracSeg = slicer.mrmlScene.GetNodeByID(_outputFracSeg_id)
+outputReduction = slicer.mrmlScene.GetNodeByID(_outputReduction_id)
 
-print("[PelvicFracturePlanning] Step 'cb_step_8' completed: fragment bounding box computed.")
+if any(node is None for node in [inputVolume, outputPelvisSeg, outputFracSeg, outputReduction]):
+    raise RuntimeError("One or more required nodes could not be resolved from cached IDs.")
+
+display_fracture(inputVolume, outputPelvisSeg, outputFracSeg, outputReduction)
+
+print("[PelvicFracturePlanning] Step 'cb_step_8' completed.")
