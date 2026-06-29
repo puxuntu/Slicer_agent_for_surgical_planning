@@ -1,9 +1,7 @@
-# --- PelvicFracturePlanning: Click the "Apply adjustments" button. ---
 import slicer
 from PelvicFracturePlanning import Apply_transform_to_polydata
 
 # precondition:begin
-# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'PelvicFracturePlanning':
     try:
@@ -12,35 +10,61 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Get or create the shared logic instance
+# Retrieve shared logic instance
 try:
     logic = _pelvicfractureplanning_logic
 except NameError:
-    from PelvicFracturePlanning import PelvicFracturePlanningLogic
+    from PelvicFracturePlanning.PelvicFracturePlanningLogic import PelvicFracturePlanningLogic
     logic = PelvicFracturePlanningLogic()
     _pelvicfractureplanning_logic = logic
 
-# Retrieve required node IDs from cross-step cache
-try:
-    _fragmentModelID = _pelvicfractureplanning_FragmentModel_id
-except NameError:
-    raise RuntimeError("Missing cached FragmentModel node ID from previous step.")
-try:
-    _adjustTransformID = _pelvicfractureplanning_AdjustTransform_id
-except NameError:
-    raise RuntimeError("Missing cached AdjustTransform node ID from previous step.")
-try:
-    _adjustedModelID = _pelvicfractureplanning_AdjustedModel_id
-except NameError:
-    raise RuntimeError("Missing cached AdjustedModel node ID from previous step.")
+# Retrieve nodes from cross-step cached node IDs
+fragmentModel = None
+adjustTransform = None
+adjustedModel = None
 
-FragmentModel = slicer.mrmlScene.GetNodeByID(_fragmentModelID)
-AdjustTransform = slicer.mrmlScene.GetNodeByID(_adjustTransformID)
-AdjustedModel = slicer.mrmlScene.GetNodeByID(_adjustedModelID)
+try:
+    fragmentModelID = _pelvicfractureplanning_fragmentModel_id
+    if fragmentModelID:
+        fragmentModel = slicer.mrmlScene.GetNodeByID(fragmentModelID)
+except NameError:
+    pass
 
-if any(node is None for node in [FragmentModel, AdjustTransform, AdjustedModel]):
-    raise RuntimeError("One or more required nodes could not be resolved from cached IDs.")
+try:
+    adjustTransformID = _pelvicfractureplanning_adjustTransform_id
+    if adjustTransformID:
+        adjustTransform = slicer.mrmlScene.GetNodeByID(adjustTransformID)
+except NameError:
+    pass
 
-Apply_transform_to_polydata(FragmentModel, AdjustTransform, AdjustedModel)
+try:
+    adjustedModelID = _pelvicfractureplanning_adjustedModel_id
+    if adjustedModelID:
+        adjustedModel = slicer.mrmlScene.GetNodeByID(adjustedModelID)
+except NameError:
+    pass
+
+# Fallback: search by class if not yet wired
+if fragmentModel is None:
+    fragmentModel = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLModelNode')
+    if fragmentModel is not None:
+        print("[PelvicFracturePlanning] Warning: FragmentModel not found via cached ID; using first model node.")
+if adjustTransform is None:
+    adjustTransform = slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLTransformNode')
+    if adjustTransform is not None:
+        print("[PelvicFracturePlanning] Warning: AdjustTransform not found via cached ID; using first transform node.")
+if adjustedModel is None:
+    adjustedModel = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode', 'AdjustedFragment')
+    print("[PelvicFracturePlanning] Warning: AdjustedModel not found via cached ID; created new node.")
+
+# Apply the transform
+if fragmentModel is not None and adjustTransform is not None and adjustedModel is not None:
+    Apply_transform_to_polydata(fragmentModel, adjustTransform, adjustedModel)
+    # Cache output node ID for downstream steps
+    _pelvicfractureplanning_adjustedModel_id = adjustedModel.GetID()
+    print("[PelvicFracturePlanning] Apply adjustments executed.")
+else:
+    print("[PelvicFracturePlanning] Error: Could not find all required nodes (FragmentModel, AdjustTransform, AdjustedModel).")
+    print("[PelvicFracturePlanning] Please ensure a fragment is selected and an adjustment transform exists.")
 
 print("[PelvicFracturePlanning] Step 'cb_step_10' completed.")
