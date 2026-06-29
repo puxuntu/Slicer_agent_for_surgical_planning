@@ -1,6 +1,5 @@
-# --- PelvicFracturePlanning: Choose which fragment needs adjustment in the "Fragment" selection box. ---
 import slicer
-from PelvicFracturePlanning import cal_BBox
+from PelvicFracturePlanning import display_fracture
 
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -12,15 +11,13 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Retrieve the fragment segmentation node from cross-step cached ID
-_fragment_seg_node = None
-try:
-    _fragment_seg_node = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_outputfracseg_id)
-except NameError:
-    pass
-if _fragment_seg_node is None:
-    raise RuntimeError("Fragment segmentation node not found. Ensure previous segmentation steps have completed.")
+logic = slicer.util.getModuleLogic('PelvicFracturePlanning')
+paramNode = logic.getParameterNode()
+inputVolume = paramNode.inputVolume
+outputPelvisSeg = paramNode.OutputPelvisSeg
+outputFracSeg = paramNode.OutputFracSeg
+outputReduction = paramNode.OutputReduction
 
-cal_BBox(_fragment_seg_node)
+display_fracture(inputVolume, outputPelvisSeg, outputFracSeg, outputReduction)
 
 print("[PelvicFracturePlanning] Step 'cb_step_8' completed.")

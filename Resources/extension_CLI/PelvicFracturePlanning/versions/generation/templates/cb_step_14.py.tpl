@@ -1,4 +1,4 @@
-# --- PelvicFracturePlanning: Click the "Regenerate screw from edited lines" button. ---
+# --- PelvicFracturePlanning: Click the "Regenerate screws from edited lines" button. ---
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.

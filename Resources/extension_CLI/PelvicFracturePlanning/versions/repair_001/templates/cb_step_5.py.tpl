@@ -1,4 +1,4 @@
-# --- PelvicFracturePlanning: Click the "Regenerate screws from edited lines" button. ---
+# --- PelvicFracturePlanning: Click "Run Step 3: Generate Template" button. ---
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -24,9 +24,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnRegenScrews'.")
-if not hasattr(_widget, 'onRegenScrews'):
-    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onRegenScrews' for 'btnRegenScrews'; regenerate the CLI.")
-_widget.onRegenScrews()
-print("[PelvicFracturePlanning] Step 'cb_step_14': clicked 'btnRegenScrews' via onRegenScrews().")
+    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnGenTemplate'.")
+if not hasattr(_widget, 'onGenTemplate'):
+    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onGenTemplate' for 'btnGenTemplate'; regenerate the CLI.")
+_widget.onGenTemplate()
+print("[PelvicFracturePlanning] Step 'cb_step_5': clicked 'btnGenTemplate' via onGenTemplate().")
 

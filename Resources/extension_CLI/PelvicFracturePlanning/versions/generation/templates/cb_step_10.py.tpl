@@ -1,4 +1,3 @@
-# --- PelvicFracturePlanning: Click the "Apply adjustments" button. ---
 import slicer
 from PelvicFracturePlanning import Apply_transform_to_polydata
 
@@ -12,30 +11,29 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Retrieve nodes from cross-step cached IDs
-_fragment_model = None
-_adjust_transform = None
-_adjusted_model = None
 try:
-    _fragment_model = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_fragmentmodel_id)
+    logic = _pelvicfractureplanning_logic
 except NameError:
-    pass
-try:
-    _adjust_transform = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_adjusttransform_id)
-except NameError:
-    pass
-try:
-    _adjusted_model = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_adjustedmodel_id)
-except NameError:
-    pass
+    logic = slicer.util.getModuleLogic('PelvicFracturePlanning')
+    _pelvicfractureplanning_logic = logic
 
-if _fragment_model is None:
-    raise RuntimeError("Fragment model node not found. Ensure prior adjustment step has run.")
-if _adjust_transform is None:
-    raise RuntimeError("Adjustment transform not found. Ensure transform has been created.")
-if _adjusted_model is None:
-    raise RuntimeError("Adjusted model node not found. Ensure output model has been prepared.")
+paramNode = logic.getParameterNode()
 
-Apply_transform_to_polydata(_fragment_model, _adjust_transform, _adjusted_model)
+# Retrieve the fragment model, adjustment transform, and adjusted model from the parameter node
+# These were set by previous steps (e.g., step 9) as node references.
+fragmentModel = paramNode.GetNodeReference("FragmentModel")
+adjustTransform = paramNode.GetNodeReference("AdjustTransform")
+adjustedModel = paramNode.GetNodeReference("AdjustedModel")
+
+# Validate that all required nodes exist
+if fragmentModel is None:
+    raise RuntimeError("FragmentModel node reference not found in parameter node. Ensure step 9 completed successfully.")
+if adjustTransform is None:
+    raise RuntimeError("AdjustTransform node reference not found in parameter node. Ensure step 9 completed successfully.")
+if adjustedModel is None:
+    raise RuntimeError("AdjustedModel node reference not found in parameter node. Ensure step 9 completed successfully.")
+
+# Apply the manual adjustment to the fragment
+Apply_transform_to_polydata(fragmentModel, adjustTransform, adjustedModel)
 
 print("[PelvicFracturePlanning] Step 'cb_step_10' completed.")
