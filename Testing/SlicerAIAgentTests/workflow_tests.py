@@ -500,6 +500,36 @@ class WorkflowTestsMixin:
 
         self.delayDisplay("Segment-name selection routes to its picker; node pick unaffected")
 
+    def test_SegmentsTableChoiceNoNodeMaterialization(self):
+        """A segments-table step's Done must NOT materialize a node: its value is
+        empty (visibility is set on the scene), and a spurious choice_input role
+        would otherwise raise 'Could not resolve the selected ... node ''."""
+        from SlicerAIAgentLib.extension_cli_loader import (
+            _node_class_for_choice, _is_segment_visibility_choice,
+        )
+        seg_role = [{"role_kind": "choice_input", "node_class": "vtkMRMLSegmentationNode"}]
+        ctx = type("C", (), {
+            "target_gen": {"sub_operations": [
+                {"widget_class": "qMRMLSegmentsTableView",
+                 "value_kind": "segment_visibility_selection",
+                 "node_roles": seg_role, "parameter_name": "ExcludedFragments"}]},
+            "target_step": {"node_roles": seg_role},
+        })()
+        self.assertTrue(_is_segment_visibility_choice(ctx))
+        self.assertEqual(_node_class_for_choice(ctx, "ExcludedFragments"), "")
+
+        # Control: a genuine node pick still resolves its class.
+        ctx2 = type("C", (), {
+            "target_gen": {"sub_operations": [
+                {"value_kind": "node", "node_class": "vtkMRMLScalarVolumeNode",
+                 "parameter_name": "inputVolume"}]},
+            "target_step": {},
+        })()
+        self.assertFalse(_is_segment_visibility_choice(ctx2))
+        self.assertEqual(_node_class_for_choice(ctx2, "inputVolume"), "vtkMRMLScalarVolumeNode")
+
+        self.delayDisplay("Segments-table Done skips node materialization")
+
     def test_VolLookupPlaceholderFills(self):
         """A generated template's {vol_lookup} structural placeholder fills at
         runtime with CodeValidator-safe code (no blocked globals())."""

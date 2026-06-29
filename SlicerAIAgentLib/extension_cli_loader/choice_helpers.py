@@ -339,6 +339,20 @@ def _build_choice_parameter_update_code(
     ])
 
 
+def _is_segment_visibility_choice(ctx: _WorkflowContext) -> bool:
+    """True for a segments-table step (the user unticks per-segment visibility on a
+    qMRMLSegmentsTableView). Its Done carries NO node value -- the visibility is set
+    directly on the scene -- so it must never trigger node materialization."""
+    for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
+        for so in src.get("sub_operations") or []:
+            if isinstance(so, dict) and (
+                str(so.get("value_kind") or "").strip() == "segment_visibility_selection"
+                or str(so.get("widget_class") or "").strip() == "qMRMLSegmentsTableView"
+            ):
+                return True
+    return False
+
+
 def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
     """Node class for a node-valued choice, read from the step graph itself.
 
@@ -347,6 +361,13 @@ def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
     non-node choice (boolean/int/float), or when the role/sub-op is bound to a
     different parameter than ``param_name``.
     """
+    # A segments-table step carries a choice_input role of vtkMRMLSegmentationNode
+    # (the LLM emits it non-deterministically), but the user's input is per-segment
+    # visibility on the scene, not a node pick; its Done value is empty. Never
+    # materialize a node from it (an empty choice_value would raise
+    # "Could not resolve the selected ... node ''").
+    if _is_segment_visibility_choice(ctx):
+        return ""
     # A segment-NAME pick carries a choice_input role of vtkMRMLSegmentationNode,
     # but the chosen value is a segment name, not a node — never resolve it as a
     # scene node (that path raises). Its combobox-mirror code runs instead.
