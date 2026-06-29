@@ -10,10 +10,10 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select Input CT Volume",
-      "instruction": "Choose the Pelvic Volume from the dropdown.",
+      "title": "Select the input CT volume",
+      "instruction": "Select the Pelvic Volume from the list.",
       "done_label": "Done",
-      "choice_label": "Volume",
+      "choice_label": "Input Volume",
       "input_label": "Choice",
       "object_label": "volume",
       "repeat": {}
@@ -41,15 +41,15 @@
       }
     ],
     "choice_descriptor": {
-      "question": "In the \"Input CT Volume\" option, choose the Pelvic Volume.",
+      "question": "Select the input CT volume",
       "choices": [],
       "parameter_name": "inputVolume",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select Input CT Volume",
-        "instruction": "Choose the Pelvic Volume from the dropdown.",
+        "title": "Select the input CT volume",
+        "instruction": "Select the Pelvic Volume from the list.",
         "done_label": "Done",
-        "choice_label": "Volume",
+        "choice_label": "Input Volume",
         "input_label": "Choice",
         "object_label": "volume",
         "repeat": {}
@@ -67,7 +67,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the input CT volume for processing",
+        "description": "Select the input CT volume node",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "inputSelector",
@@ -75,10 +75,7 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "vtkMRMLScalarVolumeNode",
-          "qMRMLNodeComboBox"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -100,7 +97,7 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "In the \"Input CT Volume\" option, choose the Pelvic Volume.",
+        "question": "Select the input CT volume",
         "choices": [],
         "parameter_name": "inputVolume",
         "default_value": null,
@@ -120,12 +117,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Segment Pelvis",
-      "instruction": "Click the 'Run Step 1: Segment Pelvis' button.",
+      "title": "Run Step 1: Segment Pelvis",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "button",
+      "object_label": "interaction",
       "repeat": {}
     },
     "method_name": "segment_pelvis",
@@ -156,7 +153,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Run pelvis segmentation to create a pelvis segmentation node",
+        "description": "Segment the pelvis from the chosen volume",
         "extension_method_hint": "segment_pelvis",
         "extension_function_hint": null,
         "widget_name": "btnSegPelvis",
@@ -164,13 +161,10 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "segment_pelvis",
-          "vtkMRMLSegmentationNode"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLSegmentationNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -215,13 +209,10 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Run pelvis segmentation to create a pelvis segmentation node"
+        "Segment the pelvis from the chosen volume"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "segment_pelvis",
-        "vtkMRMLSegmentationNode"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
@@ -235,12 +226,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Segment Fractures",
-      "instruction": "Click the 'Run Step 2: Segment Fractures' button.",
+      "title": "Run Step 2: Segment Fractures",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "button",
+      "object_label": "interaction",
       "repeat": {}
     },
     "method_name": "segment_fractures",
@@ -271,7 +262,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Run fracture segmentation to create a fracture segmentation node",
+        "description": "Segment fractures from the pelvis segmentation",
         "extension_method_hint": "segment_fractures",
         "extension_function_hint": null,
         "widget_name": "btnSegFracture",
@@ -279,13 +270,10 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "segment_fractures",
-          "vtkMRMLSegmentationNode"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLSegmentationNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -330,13 +318,10 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Run fracture segmentation to create a fracture segmentation node"
+        "Segment fractures from the pelvis segmentation"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "segment_fractures",
-        "vtkMRMLSegmentationNode"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
@@ -350,10 +335,10 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Exclude Fragments",
-      "instruction": "Untick any fragments to exclude from planning.",
+      "title": "Which fracture segments should be excluded from planning?",
+      "instruction": "Untick segments to exclude from planning.",
       "done_label": "Done",
-      "choice_label": "Fragment",
+      "choice_label": "Excluded",
       "input_label": "Choice",
       "object_label": "segments",
       "repeat": {}
@@ -374,42 +359,26 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_input",
-        "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
-        "step_id": "cb_step_4"
-      }
-    ],
     "choice_descriptor": {
-      "question": "Untick any fragments to exclude it from planning",
+      "question": "Which fracture segments should be excluded from planning?",
       "choices": [],
-      "parameter_name": "excludedSegments",
+      "parameter_name": "excluded_segments",
       "default_value": null,
       "ui_guidance": {
-        "title": "Exclude Fragments",
-        "instruction": "Untick any fragments to exclude from planning.",
+        "title": "Which fracture segments should be excluded from planning?",
+        "instruction": "Untick segments to exclude from planning.",
         "done_label": "Done",
-        "choice_label": "Fragment",
+        "choice_label": "Excluded",
         "input_label": "Choice",
         "object_label": "segments",
         "repeat": {}
-      },
-      "node_roles": [
-        {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLSegmentationNode",
-          "parameter_name": null,
-          "step_id": "cb_step_4"
-        }
-      ]
+      }
     },
     "sub_operations": [
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Exclude unwanted fracture segments from planning",
+        "description": "Select fracture segments to exclude from planning",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "fractureSegmentsTable",
@@ -417,10 +386,7 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "qMRMLSegmentsTableView",
-          "segment visibility"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": "vtkMRMLSegmentationNode",
@@ -435,20 +401,13 @@
         "operation_intents": [
           "segment_visibility_selection"
         ],
-        "node_roles": [
-          {
-            "role_kind": "extension_input",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": null,
-            "step_id": "cb_step_4"
-          }
-        ],
+        "node_roles": [],
         "confidence": "medium",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Untick any fragments to exclude it from planning",
+        "question": "Which fracture segments should be excluded from planning?",
         "choices": [],
-        "parameter_name": "excludedSegments",
+        "parameter_name": "excluded_segments",
         "default_value": null,
         "value_kind": "segment_visibility_selection",
         "widget_class": "qMRMLSegmentsTableView",
@@ -468,12 +427,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Generate Template",
-      "instruction": "Click the 'Run Step 3: Generate Template' button.",
+      "title": "Run Step 3: Generate Template",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "button",
+      "object_label": "interaction",
       "repeat": {}
     },
     "method_name": "plan_generate_template",
@@ -497,6 +456,12 @@
         "node_class": "vtkMRMLSegmentationNode",
         "parameter_name": "OutputPelvisSeg",
         "step_id": "cb_step_5"
+      },
+      {
+        "role_kind": "extension_output",
+        "node_class": "vtkMRMLModelNode",
+        "parameter_name": null,
+        "step_id": "cb_step_5"
       }
     ],
     "template_file": "templates/cb_step_5.py.tpl",
@@ -504,7 +469,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Generate a template from pelvis segmentation",
+        "description": "Generate anatomical template models from pelvis segmentation",
         "extension_method_hint": "plan_generate_template",
         "extension_function_hint": null,
         "widget_name": "btnGenTemplate",
@@ -512,13 +477,10 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "plan_generate_template",
-          "vtkMRMLModelNode"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLModelNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -534,6 +496,12 @@
             "role_kind": "extension_input",
             "node_class": "vtkMRMLSegmentationNode",
             "parameter_name": "OutputPelvisSeg",
+            "step_id": "cb_step_5"
+          },
+          {
+            "role_kind": "extension_output",
+            "node_class": "vtkMRMLModelNode",
+            "parameter_name": null,
             "step_id": "cb_step_5"
           }
         ],
@@ -564,13 +532,10 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Generate a template from pelvis segmentation"
+        "Generate anatomical template models from pelvis segmentation"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "plan_generate_template",
-        "vtkMRMLModelNode"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
@@ -584,12 +549,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Register & Reduce",
-      "instruction": "Click the 'Run Step 4: Register _Reduce' button.",
+      "title": "Run Step 4: Register & Reduce",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "button",
+      "object_label": "interaction",
       "repeat": {}
     },
     "method_name": "plan_register_reduce",
@@ -632,7 +597,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Register and reduce fracture fragments",
+        "description": "Register and reduce fracture fragments to template",
         "extension_method_hint": "plan_register_reduce",
         "extension_function_hint": null,
         "widget_name": "btnReduce",
@@ -640,13 +605,10 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "plan_register_reduce",
-          "vtkMRMLSegmentationNode"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLSegmentationNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -704,13 +666,10 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Register and reduce fracture fragments"
+        "Register and reduce fracture fragments to template"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "plan_register_reduce",
-        "vtkMRMLSegmentationNode"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
@@ -724,8 +683,8 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Manual Adjustment Needed?",
-      "instruction": "Choose Yes if further fragment adjustments needed, otherwise No.",
+      "title": "Manually adjust a fragment?",
+      "instruction": "Choose one option.",
       "done_label": "Done",
       "choice_label": "Option",
       "input_label": "Choice",
@@ -747,22 +706,22 @@
       "interaction_kinds": []
     },
     "choice_descriptor": {
-      "question": "If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 10.",
+      "question": "Manually adjust a fragment?",
       "choices": [
         {
-          "label": "Yes",
+          "label": "Yes, adjust a fragment",
           "value": true
         },
         {
-          "label": "No",
+          "label": "No, skip to step 11",
           "value": false
         }
       ],
-      "parameter_name": "manualAdjust",
+      "parameter_name": "manual_adjust",
       "default_value": false,
       "ui_guidance": {
-        "title": "Manual Adjustment Needed?",
-        "instruction": "Choose Yes if further fragment adjustments needed, otherwise No.",
+        "title": "Manually adjust a fragment?",
+        "instruction": "Choose one option.",
         "done_label": "Done",
         "choice_label": "Option",
         "input_label": "Choice",
@@ -782,10 +741,7 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "checkbox",
-          "manual adjustment"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -802,20 +758,20 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 10.",
+        "question": "Manually adjust a fragment?",
         "choices": [
           {
-            "label": "Yes",
+            "label": "Yes, adjust a fragment",
             "value": true
           },
           {
-            "label": "No",
+            "label": "No, skip to step 11",
             "value": false
           }
         ],
-        "parameter_name": "manualAdjust",
+        "parameter_name": "manual_adjust",
         "default_value": false,
-        "value_kind": "boolean",
+        "value_kind": "bool",
         "widget_class": "QCheckBox"
       }
     ]
@@ -831,15 +787,15 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Select Fragment to Adjust",
-      "instruction": "Choose a fragment from the dropdown.",
+      "title": "Select fragment to adjust",
+      "instruction": "Select a fragment from the dropdown.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "fragment",
+      "object_label": "interaction",
       "repeat": {}
     },
-    "extension_function_name": "cal_BBox",
+    "extension_function_name": "display_fracture",
     "operation_model": {
       "step_type": "extension_op",
       "op_types": [
@@ -859,18 +815,15 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Select a fragment for manual adjustment",
+        "description": "Select the fracture fragment to manually adjust",
         "extension_method_hint": null,
-        "extension_function_hint": "cal_BBox",
+        "extension_function_hint": "display_fracture",
         "widget_name": "fragmentSelector",
         "ui_parameter_binding": null,
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "fragment selection",
-          "qMRMLNodeComboBox"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -886,23 +839,24 @@
         "node_roles": [],
         "confidence": "high",
         "evidence_type": "module_function",
-        "evidence_id": "cal_BBox"
+        "evidence_id": "display_fracture"
       }
     ],
     "repeat_block": {
-      "repeat_id": "manual_adjust_fragment",
+      "repeat_id": "manual_adjustment_block",
       "body_steps": [
         "cb_step_8",
-        "cb_step_9"
+        "cb_step_9",
+        "cb_step_10"
       ],
       "entry_step": "cb_step_8",
-      "terminal_step": "cb_step_9",
-      "exit_step": "cb_step_10",
+      "terminal_step": "cb_step_10",
+      "exit_step": "cb_step_11",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_7",
-        "prompt": "If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 10.",
-        "exit_value": false
+        "prompt": "Manually adjust a fragment?",
+        "exit_value": true
       },
       "max_iterations": 20,
       "inference": {
@@ -910,45 +864,40 @@
         "evidence_step_ids": [
           7,
           8,
-          9
+          9,
+          10
         ],
-        "confidence": "medium"
+        "confidence": "high"
       }
     },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "GetName",
-        "GetNthSegment",
-        "GetNumberOfSegments",
-        "GetSegmentation",
-        "getNodesByClass",
-        "lower",
         "selectModule",
         "selectedModule",
         "util",
-        "vtkMRMLSegmentationNode"
+        "GetNodeReference",
+        "getFirstNodeByClass",
+        "getParameterNode",
+        "vtkMRMLSegmentationNode",
+        "GetFirstNodeByClass",
+        "mrmlScene",
+        "GetNodeByID"
       ],
       "api_chains": [
-        "_node.GetName",
-        "_node.GetName().lower",
-        "_node.GetSegmentation",
-        "_node.GetSegmentation().GetNthSegment",
-        "_node.GetSegmentation().GetNthSegment(0).GetName",
-        "_node.GetSegmentation().GetNthSegment(0).GetName().lower",
-        "_node.GetSegmentation().GetNumberOfSegments",
-        "slicer.util.getNodesByClass",
         "slicer.util.selectModule",
-        "slicer.util.selectedModule"
+        "slicer.util.selectedModule",
+        "logic.getParameterNode",
+        "parameterNode.GetNodeReference",
+        "slicer.util.getFirstNodeByClass",
+        "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.mrmlScene.GetNodeByID"
       ],
       "operation_descriptions": [
-        "Select a fragment for manual adjustment"
+        "Select the fracture fragment to manually adjust"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "fragment selection",
-        "qMRMLNodeComboBox"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
@@ -962,8 +911,8 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust Fragment",
-      "instruction": "Position and rotate the selected fragment using the transform controls.",
+      "title": "Adjust selected fragment",
+      "instruction": "Manually adjust the position and rotation of the selected fragment.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -983,19 +932,27 @@
       "allow_module_switch": false,
       "produces_interaction_state": true,
       "interaction_kinds": [
-        "view_adjustment"
+        "interaction"
       ]
     },
+    "node_roles": [
+      {
+        "role_kind": "interaction_output",
+        "node_class": "vtkMRMLModelNode",
+        "parameter_name": null,
+        "step_id": "cb_step_9"
+      }
+    ],
     "pre_template_file": "templates/cb_step_9_pre.py.tpl",
     "post_template_file": "templates/cb_step_9_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
-      "node_class": "",
+      "node_class": "vtkMRMLModelNode",
       "placement_instructions": null,
       "ui_guidance": {
-        "title": "Adjust Fragment",
-        "instruction": "Position and rotate the selected fragment using the transform controls.",
+        "title": "Adjust selected fragment",
+        "instruction": "Manually adjust the position and rotation of the selected fragment.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1004,19 +961,20 @@
       }
     },
     "repeat_block": {
-      "repeat_id": "manual_adjust_fragment",
+      "repeat_id": "manual_adjustment_block",
       "body_steps": [
         "cb_step_8",
-        "cb_step_9"
+        "cb_step_9",
+        "cb_step_10"
       ],
       "entry_step": "cb_step_8",
-      "terminal_step": "cb_step_9",
-      "exit_step": "cb_step_10",
+      "terminal_step": "cb_step_10",
+      "exit_step": "cb_step_11",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_7",
-        "prompt": "If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 10.",
-        "exit_value": false
+        "prompt": "Manually adjust a fragment?",
+        "exit_value": true
       },
       "max_iterations": 20,
       "inference": {
@@ -1024,9 +982,10 @@
         "evidence_step_ids": [
           7,
           8,
-          9
+          9,
+          10
         ],
-        "confidence": "medium"
+        "confidence": "high"
       }
     },
     "api_evidence": {
@@ -1060,12 +1019,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Apply Adjustments",
-      "instruction": "Click the 'Apply adjustments' button.",
+      "title": "Apply adjustments",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "button",
+      "object_label": "interaction",
       "repeat": {}
     },
     "extension_function_name": "Apply_transform_to_polydata",
@@ -1088,7 +1047,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Apply manual transformations to the selected fragment",
+        "description": "Apply manual adjustments to the fragment",
         "extension_method_hint": null,
         "extension_function_hint": "Apply_transform_to_polydata",
         "widget_name": "btnApplyAdjust",
@@ -1096,18 +1055,14 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "apply adjustment",
-          "transform"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          9,
-          8
+          9
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -1119,31 +1074,64 @@
         "evidence_id": "Apply_transform_to_polydata"
       }
     ],
+    "repeat_block": {
+      "repeat_id": "manual_adjustment_block",
+      "body_steps": [
+        "cb_step_8",
+        "cb_step_9",
+        "cb_step_10"
+      ],
+      "entry_step": "cb_step_8",
+      "terminal_step": "cb_step_10",
+      "exit_step": "cb_step_11",
+      "controller": {
+        "kind": "while_choice",
+        "source_step": "cb_step_7",
+        "prompt": "Manually adjust a fragment?",
+        "exit_value": true
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          7,
+          8,
+          9,
+          10
+        ],
+        "confidence": "high"
+      }
+    },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "AddNewNodeByClass",
-        "getNode",
-        "mrmlScene",
         "selectModule",
         "selectedModule",
         "util",
-        "vtkMRMLModelNode"
+        "AddNewNodeByClass",
+        "GetNodeReference",
+        "getFirstNodeByClass",
+        "getParameterNode",
+        "mrmlScene",
+        "vtkMRMLModelNode",
+        "GetFirstNodeByClass",
+        "GetNodeByID"
       ],
       "api_chains": [
-        "slicer.mrmlScene.AddNewNodeByClass",
-        "slicer.util.getNode",
         "slicer.util.selectModule",
-        "slicer.util.selectedModule"
+        "slicer.util.selectedModule",
+        "logic.getParameterNode",
+        "parameterNode.GetNodeReference",
+        "slicer.mrmlScene.AddNewNodeByClass",
+        "slicer.util.getFirstNodeByClass",
+        "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.mrmlScene.GetNodeByID"
       ],
       "operation_descriptions": [
-        "Apply manual transformations to the selected fragment"
+        "Apply manual adjustments to the fragment"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "apply adjustment",
-        "transform"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
@@ -1157,12 +1145,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Plan Screws",
-      "instruction": "Click the 'Run Step 5: Plan Screws' button.",
+      "title": "Run Step 5: Plan Screws",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "button",
+      "object_label": "interaction",
       "repeat": {}
     },
     "method_name": "plan_screws",
@@ -1193,7 +1181,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Plan screw trajectories from reduced fragments",
+        "description": "Plan screw trajectories for fixation",
         "extension_method_hint": "plan_screws",
         "extension_function_hint": null,
         "widget_name": "btnPlanScrews",
@@ -1201,13 +1189,10 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "plan_screws",
-          "vtkMRMLModelNode"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLModelNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -1234,32 +1219,37 @@
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "AddNewNodeByClass",
-        "GetID",
-        "GetName",
-        "mrmlScene",
-        "plan_screws",
+        "getModuleWidget",
+        "modules",
+        "onPlanScrews",
+        "pelvicfractureplanning",
         "selectModule",
         "selectedModule",
+        "self",
         "util",
+        "widgetRepresentation",
+        "AddNewNodeByClass",
+        "GetID",
+        "mrmlScene",
+        "plan_screws",
         "vtkMRMLModelNode"
       ],
       "api_chains": [
-        "_outputScrew.GetID",
-        "_outputScrew.GetName",
-        "logic.plan_screws",
-        "slicer.mrmlScene.AddNewNodeByClass",
+        "_widget.onPlanScrews",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
         "slicer.util.selectModule",
-        "slicer.util.selectedModule"
+        "slicer.util.selectedModule",
+        "logic.plan_screws",
+        "screwModelNode.GetID",
+        "slicer.mrmlScene.AddNewNodeByClass"
       ],
       "operation_descriptions": [
-        "Plan screw trajectories from reduced fragments"
+        "Plan screw trajectories for fixation"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "plan_screws",
-        "vtkMRMLModelNode"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
@@ -1273,8 +1263,8 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Edit Screw Trajectories?",
-      "instruction": "Choose Yes to edit screw trajectories, otherwise No to finish.",
+      "title": "Edit screw trajectories?",
+      "instruction": "Choose one option.",
       "done_label": "Done",
       "choice_label": "Option",
       "input_label": "Choice",
@@ -1296,22 +1286,22 @@
       "interaction_kinds": []
     },
     "choice_descriptor": {
-      "question": "If further adjustments are required, tick the \"Edit Screw trajectories\" checkbox. If not, stop here.",
+      "question": "Edit screw trajectories?",
       "choices": [
         {
-          "label": "Yes",
+          "label": "Yes, edit trajectories",
           "value": true
         },
         {
-          "label": "No",
+          "label": "No, stop",
           "value": false
         }
       ],
-      "parameter_name": "editScrews",
+      "parameter_name": "edit_screws",
       "default_value": false,
       "ui_guidance": {
-        "title": "Edit Screw Trajectories?",
-        "instruction": "Choose Yes to edit screw trajectories, otherwise No to finish.",
+        "title": "Edit screw trajectories?",
+        "instruction": "Choose one option.",
         "done_label": "Done",
         "choice_label": "Option",
         "input_label": "Choice",
@@ -1323,7 +1313,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Decide whether to edit screw trajectories",
+        "description": "Decide whether to manually edit screw trajectories",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "chkEditScrews",
@@ -1331,10 +1321,7 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "checkbox",
-          "edit screws"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -1351,20 +1338,20 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "If further adjustments are required, tick the \"Edit Screw trajectories\" checkbox. If not, stop here.",
+        "question": "Edit screw trajectories?",
         "choices": [
           {
-            "label": "Yes",
+            "label": "Yes, edit trajectories",
             "value": true
           },
           {
-            "label": "No",
+            "label": "No, stop",
             "value": false
           }
         ],
-        "parameter_name": "editScrews",
+        "parameter_name": "edit_screws",
         "default_value": false,
-        "value_kind": "boolean",
+        "value_kind": "bool",
         "widget_class": "QCheckBox"
       }
     ]
@@ -1380,12 +1367,12 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust Screw Trajectories",
-      "instruction": "Position and rotate the screw trajectories using the transform controls.",
+      "title": "Adjust screw trajectory lines",
+      "instruction": "Manually adjust the position and rotation of the selected line.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "screw",
+      "object_label": "line",
       "repeat": {}
     },
     "operation_model": {
@@ -1401,28 +1388,36 @@
       "allow_module_switch": false,
       "produces_interaction_state": true,
       "interaction_kinds": [
-        "view_adjustment"
+        "interaction"
       ]
     },
+    "node_roles": [
+      {
+        "role_kind": "interaction_output",
+        "node_class": "vtkMRMLMarkupsLineNode",
+        "parameter_name": null,
+        "step_id": "cb_step_13"
+      }
+    ],
     "pre_template_file": "templates/cb_step_13_pre.py.tpl",
     "post_template_file": "templates/cb_step_13_post.py.tpl",
     "interaction_descriptor": {
-      "interaction_type": "generic",
+      "interaction_type": "line",
       "interaction_kind": "view_adjustment",
-      "node_class": "",
+      "node_class": "vtkMRMLMarkupsLineNode",
       "placement_instructions": null,
       "ui_guidance": {
-        "title": "Adjust Screw Trajectories",
-        "instruction": "Position and rotate the screw trajectories using the transform controls.",
+        "title": "Adjust screw trajectory lines",
+        "instruction": "Manually adjust the position and rotation of the selected line.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "screw",
+        "object_label": "line",
         "repeat": {}
       }
     },
     "repeat_block": {
-      "repeat_id": "edit_screw_trajectories",
+      "repeat_id": "screw_edit_block",
       "body_steps": [
         "cb_step_13",
         "cb_step_14",
@@ -1432,10 +1427,10 @@
       "terminal_step": "cb_step_15",
       "exit_step": "",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_12",
-        "prompt": "If further adjustments are required, tick the \"Edit Screw trajectories\" checkbox. If not, stop here.",
-        "exit_value": false
+        "prompt": "Edit screw trajectories?",
+        "exit_value": true
       },
       "max_iterations": 20,
       "inference": {
@@ -1446,7 +1441,7 @@
           14,
           15
         ],
-        "confidence": "medium"
+        "confidence": "high"
       }
     },
     "api_evidence": {
@@ -1480,12 +1475,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Regenerate Screws",
-      "instruction": "Click the 'Regenerate screw from edited lines' button.",
+      "title": "Regenerate screw from edited lines",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "button",
+      "object_label": "interaction",
       "repeat": {}
     },
     "method_name": "_buildScrewNodes",
@@ -1516,7 +1511,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Regenerate screw models after manual editing",
+        "description": "Regenerate screw models based on edited trajectories",
         "extension_method_hint": "_buildScrewNodes",
         "extension_function_hint": null,
         "widget_name": "btnRegenScrews",
@@ -1524,10 +1519,7 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "_buildScrewNodes",
-          "vtkMRMLModelNode"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -1554,7 +1546,7 @@
       }
     ],
     "repeat_block": {
-      "repeat_id": "edit_screw_trajectories",
+      "repeat_id": "screw_edit_block",
       "body_steps": [
         "cb_step_13",
         "cb_step_14",
@@ -1564,10 +1556,10 @@
       "terminal_step": "cb_step_15",
       "exit_step": "",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_12",
-        "prompt": "If further adjustments are required, tick the \"Edit Screw trajectories\" checkbox. If not, stop here.",
-        "exit_value": false
+        "prompt": "Edit screw trajectories?",
+        "exit_value": true
       },
       "max_iterations": 20,
       "inference": {
@@ -1578,7 +1570,7 @@
           14,
           15
         ],
-        "confidence": "medium"
+        "confidence": "high"
       }
     },
     "api_evidence": {
@@ -1603,13 +1595,10 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Regenerate screw models after manual editing"
+        "Regenerate screw models based on edited trajectories"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "_buildScrewNodes",
-        "vtkMRMLModelNode"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
@@ -1623,12 +1612,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Disable Edit Screw Trajectories",
-      "instruction": "Untick the 'Edit Screw trajectories' checkbox.",
+      "title": "Untick 'Edit Screw trajectories'",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "checkbox",
+      "object_label": "interaction",
       "repeat": {}
     },
     "operation_model": {
@@ -1650,7 +1639,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Deactivate edit mode for screw trajectories",
+        "description": "Finish editing screw trajectories",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "chkEditScrews",
@@ -1658,10 +1647,7 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "checkbox",
-          "untick"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -1675,13 +1661,13 @@
         "is_optional": false,
         "operation_intents": [],
         "node_roles": [],
-        "confidence": "high",
+        "confidence": "medium",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
       }
     ],
     "repeat_block": {
-      "repeat_id": "edit_screw_trajectories",
+      "repeat_id": "screw_edit_block",
       "body_steps": [
         "cb_step_13",
         "cb_step_14",
@@ -1691,10 +1677,10 @@
       "terminal_step": "cb_step_15",
       "exit_step": "",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_12",
-        "prompt": "If further adjustments are required, tick the \"Edit Screw trajectories\" checkbox. If not, stop here.",
-        "exit_value": false
+        "prompt": "Edit screw trajectories?",
+        "exit_value": true
       },
       "max_iterations": 20,
       "inference": {
@@ -1705,7 +1691,7 @@
           14,
           15
         ],
-        "confidence": "medium"
+        "confidence": "high"
       }
     },
     "api_evidence": {
@@ -1735,13 +1721,10 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Deactivate edit mode for screw trajectories"
+        "Finish editing screw trajectories"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "checkbox",
-        "untick"
-      ]
+      "slicer_api_keywords": []
     }
   }
 ]

@@ -1,7 +1,8 @@
 import slicer
-from PelvicFracturePlanning import cal_BBox
+from PelvicFracturePlanning import display_fracture
 
 # precondition:begin
+# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'PelvicFracturePlanning':
     try:
@@ -10,6 +11,7 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
+# Get the logic (cached across steps)
 try:
     logic = _pelvicfractureplanning_logic
 except NameError:
@@ -17,23 +19,19 @@ except NameError:
     logic = PelvicFracturePlanningLogic()
     _pelvicfractureplanning_logic = logic
 
-# Retrieve fragment segmentation node from scene (assumes previous step created it)
-_fragmentNodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
-_fragmentNode = None
-for _node in _fragmentNodes:
-    if _node.GetSegmentation().GetNumberOfSegments() > 0:
-        _segmentName = _node.GetSegmentation().GetNthSegment(0).GetName().lower()
-        if 'fracture' in _segmentName or 'fragment' in _segmentName:
-            _fragmentNode = _node
-            break
-if _fragmentNode is None:
-    for _node in _fragmentNodes:
-        if 'pelvis' not in _node.GetName().lower():
-            _fragmentNode = _node
-            break
-if _fragmentNode is None:
-    raise RuntimeError("No fragment segmentation node found. Ensure fracture segmentation has been completed.")
+# Retrieve nodes from cross-step cached IDs (set by earlier steps)
+try:
+    inputVolume = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_inputVolume_id)
+    outputPelvisSeg = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_outputPelvisSeg_id)
+    outputFracSeg = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_outputFracSeg_id)
+    outputReduction = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_outputReduction_id)
+except NameError as e:
+    raise RuntimeError(f"Missing cached node ID from an earlier step: {e}")
 
-cal_BBox(_fragmentNode)
+if inputVolume is None or outputPelvisSeg is None or outputFracSeg is None:
+    raise RuntimeError("One or more required nodes could not be resolved from cached IDs.")
+
+# Call the extension function to display the fracture fragment
+display_fracture(inputVolume, outputPelvisSeg, outputFracSeg, outputReduction)
 
 print("[PelvicFracturePlanning] Step 'cb_step_8' completed.")

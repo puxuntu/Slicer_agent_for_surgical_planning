@@ -2,6 +2,7 @@
 import slicer
 
 # precondition:begin
+# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'PelvicFracturePlanning':
     try:
@@ -10,6 +11,7 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
+# Get the logic (cached across steps)
 try:
     logic = _pelvicfractureplanning_logic
 except NameError:
@@ -17,11 +19,13 @@ except NameError:
     logic = PelvicFracturePlanningLogic()
     _pelvicfractureplanning_logic = logic
 
-# Create output model node for screws
-_outputScrew = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", "plan_screws_output")
-_outputScrew_id = _outputScrew.GetID()
+# Create output screw model node
+screwModelNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode', 'ScrewPlan')
 
-# Call the proven method with the model node and no progress dialog (headless)
-logic.plan_screws(_outputScrew, None)
+# Call the logic method to plan screw trajectories (pass progressDiag as positional None)
+logic.plan_screws(screwModelNode, None)
 
-print("[PelvicFracturePlanning] Step 'cb_step_11' completed. Screws planned into model node: " + _outputScrew.GetName())
+# Cache the screw node ID for downstream steps
+_pelvicfrac_screw_id = screwModelNode.GetID()
+
+print("[PelvicFracturePlanning] Step 'cb_step_11' completed.")

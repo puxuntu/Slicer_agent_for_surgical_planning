@@ -97,12 +97,12 @@
     "generator_template_sync_valid": true
   },
   "api_proof_coverage": {
-    "total_calls": 116,
-    "state_changing_calls": 31,
-    "proven_calls": 111,
+    "total_calls": 110,
+    "state_changing_calls": 30,
+    "proven_calls": 108,
     "invalid_calls": 0,
     "blocking_unproven_calls": 0,
-    "warning_unproven_reads": 5,
+    "warning_unproven_reads": 2,
     "inventory_complete": true
   },
   "workflow_contract_file": "workflow_contract.json",
