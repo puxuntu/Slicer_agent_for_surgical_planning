@@ -471,7 +471,12 @@ class WorkflowTestsMixin:
         meta_content = {"sub_operations": [
             {"widget_class": "QComboBox", "value_kind": "", "widget_name": "fragmentSelector",
              "choices": [], "node_roles": []}]}
-        for meta in (meta_dual, meta_vk, meta_content):
+        # Placeholder-choice form (the LLM sometimes co-emits a {"value": None}
+        # header for the dynamically-populated combobox) -- still a content combobox.
+        meta_placeholder = {"sub_operations": [
+            {"widget_class": "QComboBox", "value_kind": "label", "widget_name": "fragmentSelector",
+             "choices": [{"label": "Available fragments", "value": None}]}]}
+        for meta in (meta_dual, meta_vk, meta_content, meta_placeholder):
             self.assertTrue(WorkflowRuntime._is_segment_name_selection(meta))
             self.assertEqual(WorkflowRuntime._node_class_from_step_meta(meta), "")
             self.assertFalse(WorkflowRuntime._is_node_selection_step(meta))

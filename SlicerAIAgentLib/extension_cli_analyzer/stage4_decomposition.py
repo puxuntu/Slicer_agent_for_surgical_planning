@@ -1286,7 +1286,14 @@ class AnalyzerStage4DecompositionMixin:
                 len(_t) >= 3 and _t not in _stop
                 for _t in "".join(_norm).lower().split()
             )
-            content_combo = (not (sub_op.get("choices") or [])) and _has_token
+            # No GENUINE literal choices: empty, or only placeholder {"value": None}
+            # headers the LLM co-emits for a dynamically-populated content combobox.
+            _has_real_choice = any(
+                (isinstance(_c, dict) and _c.get("value") not in (None, ""))
+                or (not isinstance(_c, dict) and _c not in (None, ""))
+                for _c in (sub_op.get("choices") or [])
+            )
+            content_combo = (not _has_real_choice) and _has_token
             if has_seg_role or content_combo:
                 sub_op["widget_class"] = widget_class
                 sub_op["node_class"] = "vtkMRMLSegmentationNode"

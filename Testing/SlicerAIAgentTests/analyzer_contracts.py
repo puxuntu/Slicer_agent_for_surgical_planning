@@ -739,6 +739,12 @@ class AnalyzerContractsMixin:
         so_c = {"op_type": "user_choice", "widget_name": "fragmentSelector", "node_roles": [], "choices": []}
         ExtensionCLIAnalyzer._record_source_widget(so_c, {"fragmentSelector": "QComboBox"}, {})
         self.assertEqual(so_c.get("value_kind"), "segment_name_selection")
+        # Placeholder-choice form ({"value": None} header) is also a content combobox.
+        so_p = {"op_type": "user_choice", "widget_name": "fragmentSelector", "node_roles": [],
+                "choices": [{"label": "Available fragments", "value": None}]}
+        ExtensionCLIAnalyzer._record_source_widget(so_p, {"fragmentSelector": "QComboBox"}, {})
+        self.assertEqual(so_p.get("value_kind"), "segment_name_selection")
+        self.assertEqual(so_p.get("choices"), [])
 
         # Control: a STATIC enum combobox (carries its items as choices) is NOT a
         # content/segment picker.

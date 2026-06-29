@@ -394,6 +394,19 @@ def _choice_selector_widget(ctx: _WorkflowContext, param_name: str) -> str:
     return ""
 
 
+def _has_real_choices(choices) -> bool:
+    """True for genuine literal choices (a static enum), False for an empty list or
+    a placeholder ``{"value": None}`` header (mirrors
+    WorkflowRuntime._has_real_choices)."""
+    for c in (choices or []):
+        if isinstance(c, dict):
+            if c.get("value") not in (None, ""):
+                return True
+        elif c not in (None, ""):
+            return True
+    return False
+
+
 def _content_combo_has_keyword(widget_name: str) -> bool:
     """Whether a widget name yields a distinctive token (mirrors the stop set in
     WorkflowRuntime._keywords_from_widget_name) -- gates the content-combobox
@@ -446,7 +459,7 @@ def _is_segment_name_choice(ctx: _WorkflowContext, param_name: str) -> bool:
         for so in src.get("sub_operations") or []:
             if (isinstance(so, dict)
                     and str(so.get("widget_class") or "").strip() in ("QComboBox", "ctkComboBox")
-                    and not (so.get("choices") or [])
+                    and not _has_real_choices(so.get("choices"))
                     and _content_combo_has_keyword(so.get("widget_name") or "")):
                 return True
     return False

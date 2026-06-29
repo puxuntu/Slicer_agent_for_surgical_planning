@@ -1859,6 +1859,20 @@ class WorkflowRuntime:
         return {}
 
     @staticmethod
+    def _has_real_choices(choices) -> bool:
+        """True when a step carries genuine literal choices (a static enum), vs an
+        empty list or a placeholder ``{"value": None}`` header the LLM sometimes
+        co-emits for a dynamically-populated content combobox. Lets the content-
+        combobox detection ignore such placeholders."""
+        for c in (choices or []):
+            if isinstance(c, dict):
+                if c.get("value") not in (None, ""):
+                    return True
+            elif c not in (None, ""):
+                return True
+        return False
+
+    @staticmethod
     def _is_segment_name_selection(meta: Dict[str, Any]) -> bool:
         """True when a user_choice step reproduces a CONTENT combobox whose items
         are the segment NAMES of a segmentation (a single-pick fragment/segment
@@ -1903,7 +1917,7 @@ class WorkflowRuntime:
         # degrades safely rather than guessing.
         for so in sub_ops:
             if (str(so.get("widget_class") or "").strip() in ("QComboBox", "ctkComboBox")
-                    and not (so.get("choices") or [])
+                    and not WorkflowRuntime._has_real_choices(so.get("choices"))
                     and WorkflowRuntime._keywords_from_widget_name(so.get("widget_name") or "")):
                 return True
         return False
