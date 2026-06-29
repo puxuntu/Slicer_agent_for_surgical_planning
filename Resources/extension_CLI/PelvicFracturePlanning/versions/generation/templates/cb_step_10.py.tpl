@@ -3,7 +3,6 @@ import slicer
 from PelvicFracturePlanning import Apply_transform_to_polydata
 
 # precondition:begin
-# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'PelvicFracturePlanning':
     try:
@@ -12,30 +11,27 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Retrieve cross-step cached node IDs
+# Ensure shared logic instance
 try:
-    _fragment_model_id = _pelvicfractureplanning_fragmentmodel_id
-    fragmentModel = slicer.mrmlScene.GetNodeByID(_fragment_model_id)
+    logic = _pelvicfractureplanning_logic
 except NameError:
-    fragmentModel = None
+    from PelvicFracturePlanning import PelvicFracturePlanningLogic
+    logic = PelvicFracturePlanningLogic()
+    _pelvicfractureplanning_logic = logic
 
-try:
-    _adjust_transform_id = _pelvicfractureplanning_adjusttransform_id
-    adjustTransform = slicer.mrmlScene.GetNodeByID(_adjust_transform_id)
-except NameError:
-    adjustTransform = None
+# Retrieve fragment model and adjustment transform from scene by name
+fragmentModel = slicer.mrmlScene.GetFirstNodeByName("FragmentModel")
+if fragmentModel is None:
+    raise RuntimeError("FragmentModel node not found. Ensure a fragment is selected.")
 
-try:
-    _adjusted_model_id = _pelvicfractureplanning_adjustedmodel_id
-    adjustedModel = slicer.mrmlScene.GetNodeByID(_adjusted_model_id)
-except NameError:
-    adjustedModel = None
+adjustTransform = slicer.mrmlScene.GetFirstNodeByName("AdjustTransform")
+if adjustTransform is None:
+    raise RuntimeError("AdjustTransform node not found. Ensure adjustments have been made.")
 
-# Validate inputs
-if None in (fragmentModel, adjustTransform, adjustedModel):
-    raise RuntimeError("Missing required nodes for Apply_transform_to_polydata. Ensure prior steps completed.")
+# Create output adjusted model node
+adjustedModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", "AdjustedFragment")
 
-# Call extension function with required arguments
+# Apply the transform to the fragment polydata
 Apply_transform_to_polydata(fragmentModel, adjustTransform, adjustedModel)
 
-print("[PelvicFracturePlanning] Step 'cb_step_10' completed: adjustments applied.")
+print("[PelvicFracturePlanning] Step 'cb_step_10' completed: adjustment applied to fragment.")

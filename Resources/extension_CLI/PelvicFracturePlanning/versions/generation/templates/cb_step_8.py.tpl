@@ -1,9 +1,8 @@
 # --- PelvicFracturePlanning: Choose which fragment needs adjustment in the "Fragment" selection box. ---
 import slicer
-from PelvicFracturePlanning import display_fracture
+from PelvicFracturePlanning import cal_BBox
 
 # precondition:begin
-# Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
 if _active_module_name != 'PelvicFracturePlanning':
     try:
@@ -12,36 +11,30 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Retrieve cross-step cached node IDs
+# Ensure shared logic instance
 try:
-    _input_vol_id = _pelvicfractureplanning_inputvolume_id
-    inputVolume = slicer.mrmlScene.GetNodeByID(_input_vol_id)
+    logic = _pelvicfractureplanning_logic
 except NameError:
-    inputVolume = None  # will be handled by function call
+    from PelvicFracturePlanning import PelvicFracturePlanningLogic
+    logic = PelvicFracturePlanningLogic()
+    _pelvicfractureplanning_logic = logic
 
+# Retrieve the fracture segmentation node (output of step 3) from cached ID or scene
+fragmentSegNode = None
 try:
-    _pelvis_seg_id = _pelvicfractureplanning_outputpelvisseg_id
-    outputPelvisSeg = slicer.mrmlScene.GetNodeByID(_pelvis_seg_id)
-except NameError:
-    outputPelvisSeg = None
+    fragmentSegNode = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_outputfracseg_id)
+except Exception:
+    pass
+if fragmentSegNode is None:
+    # Fallback: use first vtkMRMLSegmentationNode with "Fracture" in name
+    for node in slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode"):
+        if "Fracture" in node.GetName():
+            fragmentSegNode = node
+            break
+if fragmentSegNode is None:
+    raise RuntimeError("Could not find fracture segmentation node for cal_BBox.")
 
-try:
-    _frac_seg_id = _pelvicfractureplanning_outputfracseg_id
-    outputFracSeg = slicer.mrmlScene.GetNodeByID(_frac_seg_id)
-except NameError:
-    outputFracSeg = None
+# Compute bounding box for the fragment segmentation
+cal_BBox(fragmentSegNode)
 
-try:
-    _reduction_id = _pelvicfractureplanning_outputreduction_id
-    outputReduction = slicer.mrmlScene.GetNodeByID(_reduction_id)
-except NameError:
-    outputReduction = None
-
-# Validate inputs
-if None in (inputVolume, outputPelvisSeg, outputFracSeg, outputReduction):
-    raise RuntimeError("Missing required nodes for display_fracture. Ensure prior steps completed.")
-
-# Call extension function with required arguments
-display_fracture(inputVolume, outputPelvisSeg, outputFracSeg, outputReduction)
-
-print("[PelvicFracturePlanning] Step 'cb_step_8' completed: fracture fragment selected.")
+print("[PelvicFracturePlanning] Step 'cb_step_8' completed: fragment bounding box computed.")
