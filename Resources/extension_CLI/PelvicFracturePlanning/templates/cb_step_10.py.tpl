@@ -1,3 +1,4 @@
+# --- PelvicFracturePlanning: Click the "Apply adjustments" button. ---
 import slicer
 from PelvicFracturePlanning import Apply_transform_to_polydata
 
@@ -11,26 +12,30 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Get the logic (cached across steps)
+# Retrieve nodes from cross-step cached IDs
+_fragment_model = None
+_adjust_transform = None
+_adjusted_model = None
 try:
-    logic = _pelvicfractureplanning_logic
+    _fragment_model = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_fragmentmodel_id)
 except NameError:
-    from PelvicFracturePlanning import PelvicFracturePlanningLogic
-    logic = PelvicFracturePlanningLogic()
-    _pelvicfractureplanning_logic = logic
-
-# Retrieve nodes from cross-step cached IDs (set by interaction step 9)
+    pass
 try:
-    fragmentModel = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_fragmentModel_id)
-    adjustTransform = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_adjustTransform_id)
-    adjustedModel = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_adjustedModel_id)
-except NameError as e:
-    raise RuntimeError(f"Missing cached node ID from an earlier step: {e}")
+    _adjust_transform = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_adjusttransform_id)
+except NameError:
+    pass
+try:
+    _adjusted_model = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_adjustedmodel_id)
+except NameError:
+    pass
 
-if fragmentModel is None or adjustTransform is None or adjustedModel is None:
-    raise RuntimeError("One or more required nodes could not be resolved from cached IDs.")
+if _fragment_model is None:
+    raise RuntimeError("Fragment model node not found. Ensure prior adjustment step has run.")
+if _adjust_transform is None:
+    raise RuntimeError("Adjustment transform not found. Ensure transform has been created.")
+if _adjusted_model is None:
+    raise RuntimeError("Adjusted model node not found. Ensure output model has been prepared.")
 
-# Apply the transform to the polydata
-Apply_transform_to_polydata(fragmentModel, adjustTransform, adjustedModel)
+Apply_transform_to_polydata(_fragment_model, _adjust_transform, _adjusted_model)
 
 print("[PelvicFracturePlanning] Step 'cb_step_10' completed.")

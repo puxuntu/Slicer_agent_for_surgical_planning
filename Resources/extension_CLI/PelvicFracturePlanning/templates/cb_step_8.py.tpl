@@ -1,5 +1,6 @@
+# --- PelvicFracturePlanning: Choose which fragment needs adjustment in the "Fragment" selection box. ---
 import slicer
-from PelvicFracturePlanning import display_fracture
+from PelvicFracturePlanning import cal_BBox
 
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -11,27 +12,15 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Get the logic (cached across steps)
+# Retrieve the fragment segmentation node from cross-step cached ID
+_fragment_seg_node = None
 try:
-    logic = _pelvicfractureplanning_logic
+    _fragment_seg_node = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_outputfracseg_id)
 except NameError:
-    from PelvicFracturePlanning import PelvicFracturePlanningLogic
-    logic = PelvicFracturePlanningLogic()
-    _pelvicfractureplanning_logic = logic
+    pass
+if _fragment_seg_node is None:
+    raise RuntimeError("Fragment segmentation node not found. Ensure previous segmentation steps have completed.")
 
-# Retrieve nodes from cross-step cached IDs (set by earlier steps)
-try:
-    inputVolume = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_inputVolume_id)
-    outputPelvisSeg = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_outputPelvisSeg_id)
-    outputFracSeg = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_outputFracSeg_id)
-    outputReduction = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_outputReduction_id)
-except NameError as e:
-    raise RuntimeError(f"Missing cached node ID from an earlier step: {e}")
-
-if inputVolume is None or outputPelvisSeg is None or outputFracSeg is None:
-    raise RuntimeError("One or more required nodes could not be resolved from cached IDs.")
-
-# Call the extension function to display the fracture fragment
-display_fracture(inputVolume, outputPelvisSeg, outputFracSeg, outputReduction)
+cal_BBox(_fragment_seg_node)
 
 print("[PelvicFracturePlanning] Step 'cb_step_8' completed.")

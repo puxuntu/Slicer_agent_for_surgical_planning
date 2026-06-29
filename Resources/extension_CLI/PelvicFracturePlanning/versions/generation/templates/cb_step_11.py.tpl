@@ -1,6 +1,5 @@
 # --- PelvicFracturePlanning: Click the "Run Step 5: Plan Screws" button. ---
 import slicer
-
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
@@ -11,21 +10,23 @@ if _active_module_name != 'PelvicFracturePlanning':
         print(f"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}")
 # precondition:end
 
-# Get the logic (cached across steps)
+# Drive the extension's own widget handler on the live module widget:
+# it performs the full action (reads selected nodes, creates the
+# output nodes downstream steps depend on, toggles dependent UI).
+_widget = None
 try:
-    logic = _pelvicfractureplanning_logic
-except NameError:
-    from PelvicFracturePlanning import PelvicFracturePlanningLogic
-    logic = PelvicFracturePlanningLogic()
-    _pelvicfractureplanning_logic = logic
+    _widget = slicer.util.getModuleWidget('PelvicFracturePlanning')
+except Exception:
+    _widget = None
+if _widget is None:
+    try:
+        _widget = slicer.modules.pelvicfractureplanning.widgetRepresentation().self()
+    except Exception:
+        _widget = None
+if _widget is None:
+    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnPlanScrews'.")
+if not hasattr(_widget, 'onPlanScrews'):
+    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onPlanScrews' for 'btnPlanScrews'; regenerate the CLI.")
+_widget.onPlanScrews()
+print("[PelvicFracturePlanning] Step 'cb_step_11': clicked 'btnPlanScrews' via onPlanScrews().")
 
-# Create output screw model node
-screwModelNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLModelNode', 'ScrewPlan')
-
-# Call the logic method to plan screw trajectories (pass progressDiag as positional None)
-logic.plan_screws(screwModelNode, None)
-
-# Cache the screw node ID for downstream steps
-_pelvicfrac_screw_id = screwModelNode.GetID()
-
-print("[PelvicFracturePlanning] Step 'cb_step_11' completed.")
