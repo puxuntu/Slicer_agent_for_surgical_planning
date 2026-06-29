@@ -608,7 +608,8 @@ class AnalyzerStage4DecompositionMixin:
               "kind": "count|until_choice|while_choice",
               "source_step": 1,
               "prompt": "",
-              "exit_value": null
+              "exit_value": null,
+              "exit_target": null
             }},
             "evidence_step_ids": [1, 3],
             "confidence": "high|medium"
@@ -630,8 +631,14 @@ class AnalyzerStage4DecompositionMixin:
         A non-empty node-role parameter_name must come from ui_parameter_bindings,
         a logic method parameter, or parameter_roles in the candidate context.
         A repeat body must be a contiguous range of existing steps. A count repeat must
-        reference a preceding user_choice source step. until_choice/while_choice must
-        include a clear prompt and boolean exit_value. Repeat blocks may not overlap.
+        reference a preceding user_choice source step. until_choice/while_choice are
+        conditional/optional sections: source_step is REQUIRED and is the user_choice
+        step that decides BEFORE the body whether to run it (a pre-guard); set
+        exit_value to the source choice value that DECLINES/skips the body (e.g. the
+        "No"/unticked value). Set exit_target to where the workflow goes when declined:
+        the integer step number for "jump to step N", or the string "stop" to end the
+        workflow; use null to default to the step right after the body. Repeat blocks
+        may not overlap.
         Every step requires medium or high confidence. Include exactly one output step
         for every input step, even when most optional semantic fields are null.
 
@@ -1162,15 +1169,25 @@ class AnalyzerStage4DecompositionMixin:
             controller = dict(block["controller"])
             source = _int_or_none(controller.get("source_step"))
             controller["source_step"] = f"cb_step_{source}" if source is not None else ""
+            # Exit target: honor the LLM's explicit "jump to step N" / "stop"; else
+            # fall back to the step right after the body (or end). Generic.
+            exit_target = controller.get("exit_target")
+            if isinstance(exit_target, str) and exit_target.strip().lower() in {"stop", "end", "stop_here"}:
+                exit_step = ""
+            else:
+                exit_num = _int_or_none(exit_target)
+                if exit_num is not None and exit_num in step_numbers:
+                    exit_step = f"cb_step_{exit_num}"
+                elif terminal_position + 1 < len(step_numbers):
+                    exit_step = f"cb_step_{step_numbers[terminal_position + 1]}"
+                else:
+                    exit_step = ""
             repeat_blocks.append({
                 "repeat_id": block["repeat_id"],
                 "body_steps": [f"cb_step_{number}" for number in body_numbers],
                 "entry_step": f"cb_step_{body_numbers[0]}",
                 "terminal_step": f"cb_step_{body_numbers[-1]}",
-                "exit_step": (
-                    f"cb_step_{step_numbers[terminal_position + 1]}"
-                    if terminal_position + 1 < len(step_numbers) else ""
-                ),
+                "exit_step": exit_step,
                 "controller": controller,
                 "max_iterations": 100 if controller["kind"] == "count" else 20,
                 "inference": {

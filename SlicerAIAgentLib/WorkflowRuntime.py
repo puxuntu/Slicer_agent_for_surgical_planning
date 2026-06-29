@@ -672,6 +672,55 @@ class WorkflowRuntime:
                 return value.strip()
         return value
 
+    def _loop_should_exit(self, controller: Dict[str, Any], choice_value: Any) -> bool:
+        """Whether an answer EXITS / skips a loop body — the single polarity source
+        of truth for both the pre-guard (decision before the body) and the terminal
+        loop-again decision.
+
+        For a pre-guarded section (``controller.source_step`` present) the optional
+        body is opt-in: it runs only if the user affirmatively accepts at the guard.
+        The guard step's own ``choice_info`` is authoritative — its
+        ``default_value`` is the "skip" answer, and a boolean guard's negative/No
+        answer skips. This deliberately avoids ``exit_value`` (which the LLM has
+        emitted inverted for pre-guards). For a source-less do-while loop the
+        long-standing convention holds: exit when the answer equals ``exit_value``.
+        Generic: keys only on ``source_step`` presence + the guard's choice_info.
+        """
+        norm = self._normalize_control_value(choice_value)
+        source_step = controller.get("source_step")
+        if source_step:
+            choice_info = (self._step_meta(source_step) or {}).get("choice_info") or {}
+            default_value = choice_info.get("default_value")
+            if default_value is not None:
+                return norm == self._normalize_control_value(default_value)
+            if isinstance(norm, bool):
+                return norm is False
+        return norm == self._normalize_control_value(controller.get("exit_value"))
+
+    def _mark_skip_range(self, source_step: Optional[str], exit_step: Optional[str],
+                         block: Dict[str, Any]) -> None:
+        """Mark the steps a declined pre-guard skips as completed, by graph order.
+
+        Generic: marks every step strictly between ``source_step`` and a forward
+        ``exit_step`` (leaving ``exit_step`` for the finder to land on), or — when
+        there is no forward target (stop / empty / unknown / backward) — from after
+        ``source_step`` through the end so the workflow completes. Falls back to the
+        block's ``body_steps`` if the ids do not resolve.
+        """
+        if not self.session:
+            return
+        graph = get_workflow_graph(self.session.extension_name) or {}
+        ordered = [s.get("step_id") for s in graph.get("steps", []) or [] if s.get("step_id")]
+        if source_step in ordered:
+            src = ordered.index(source_step)
+            exit_pos = ordered.index(exit_step) if exit_step in ordered else None
+            skip = ordered[src + 1:exit_pos] if (exit_pos is not None and exit_pos > src) else ordered[src + 1:]
+            for sid in skip:
+                self._mark_completed(sid)
+            return
+        for sid in block.get("body_steps", []) or []:
+            self._mark_completed(sid)
+
     def _repeat_transition_after_completion(
         self,
         step_id: str,
@@ -712,6 +761,35 @@ class WorkflowRuntime:
                         },
                     }
 
+            if (kind in {"until_choice", "while_choice"}
+                    and step_id == controller.get("source_step")):
+                # Pre-guard: the optional body is gated by the guard step's own
+                # choice, evaluated BEFORE the body. Decline -> skip the body and
+                # jump to the exit target (or stop when empty); accept -> enter the
+                # body (the terminal step then offers the loop-again decision).
+                if self._loop_should_exit(controller, result.get("choice_value")):
+                    self._mark_skip_range(
+                        controller.get("source_step"), block.get("exit_step"), block
+                    )
+                    state.update({"iteration": 0, "waiting_for_decision": False})
+                    self._sync_repeat_state(repeat_id)
+                    return {
+                        "next_step": self._step_summary(block.get("exit_step")),
+                        "repeat_progress": {
+                            "repeat_id": repeat_id, "current": 0,
+                            "completed": 0, "total": 0,
+                        },
+                    }
+                state.update({"iteration": 1, "waiting_for_decision": False})
+                self._sync_repeat_state(repeat_id)
+                return {
+                    "next_step": self._step_summary(block.get("entry_step")),
+                    "repeat_progress": {
+                        "repeat_id": repeat_id, "current": 1,
+                        "completed": 0, "total": 0,
+                    },
+                }
+
             if step_id != block.get("terminal_step"):
                 continue
 
@@ -751,19 +829,18 @@ class WorkflowRuntime:
                     {"label": "Yes", "value": True},
                     {"label": "No", "value": False},
                 ]
-                # Derive which answer exits vs repeats from the controller, so the
-                # instruction is correct for both until_choice (exit on the exit
-                # value) and while_choice. This makes the Yes/No meaning explicit
-                # instead of leaving the user to guess.
-                exit_value = self._normalize_control_value(controller.get("exit_value"))
+                # Derive which answer exits vs repeats via _loop_should_exit, so the
+                # instruction is correct for both source-less do-while loops and
+                # pre-guarded sections (whose exit_value is inverted) -- and matches
+                # how the decision is actually resolved.
                 exit_label = next(
                     (c["label"] for c in choices
-                     if self._normalize_control_value(c["value"]) == exit_value),
+                     if self._loop_should_exit(controller, c["value"])),
                     "Yes",
                 )
                 loop_label = next(
                     (c["label"] for c in choices
-                     if self._normalize_control_value(c["value"]) != exit_value),
+                     if not self._loop_should_exit(controller, c["value"])),
                     "No",
                 )
                 decision_instruction = (
@@ -804,8 +881,7 @@ class WorkflowRuntime:
                 continue
             controller = block.get("controller", {}) or {}
             choice = self._normalize_control_value(args.get("choice_value"))
-            exit_value = self._normalize_control_value(controller.get("exit_value"))
-            should_exit = choice == exit_value
+            should_exit = self._loop_should_exit(controller, args.get("choice_value"))
             iteration = int(state.get("iteration", 1) or 1)
             max_iterations = int(block.get("max_iterations", 20) or 20)
             state["waiting_for_decision"] = False

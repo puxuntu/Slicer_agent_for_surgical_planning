@@ -220,6 +220,106 @@ class WorkflowTestsMixin:
         finally:
             wf_mod.get_workflow_graph = original_get_workflow_graph
 
+    def test_PreGuardConditionalControlFlow(self):
+        """A pre-guarded conditional section: decline skips the body (jump/stop),
+        accept runs it then offers the loop-again decision.
+
+        Models the PelvicFracturePlanning pattern: a user_choice guard step before
+        an optional body, where declining "jumps to step N" or "stops here" and the
+        body runs ZERO times. exit_value is deliberately inverted (True) like the
+        real artifacts, to prove polarity comes from the guard's choice_info, not
+        exit_value.
+        """
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+
+        guard_info = {"choices": [{"label": "Yes", "value": True}, {"label": "No", "value": False}],
+                      "default_value": False}
+        graph = {
+            "steps": [
+                {"step_id": "cb_step_1", "step_type": "user_choice", "operation_type": "user_choice",
+                 "choice_info": dict(guard_info), "depends_on": []},
+                {"step_id": "cb_step_2", "step_type": "extension_op", "depends_on": ["cb_step_1"]},
+                {"step_id": "cb_step_3", "step_type": "extension_op", "depends_on": ["cb_step_2"]},
+                {"step_id": "cb_step_4", "step_type": "extension_op", "depends_on": ["cb_step_3"]},
+                {"step_id": "cb_step_5", "step_type": "extension_op", "depends_on": ["cb_step_4"]},
+                {"step_id": "cb_step_6", "step_type": "user_choice", "operation_type": "user_choice",
+                 "choice_info": dict(guard_info), "depends_on": ["cb_step_5"]},
+                {"step_id": "cb_step_7", "step_type": "extension_op", "depends_on": ["cb_step_6"]},
+                {"step_id": "cb_step_8", "step_type": "extension_op", "depends_on": ["cb_step_7"]},
+            ],
+            "repeat_blocks": [
+                {"repeat_id": "adjust", "body_steps": ["cb_step_2", "cb_step_3"],
+                 "entry_step": "cb_step_2", "terminal_step": "cb_step_3", "exit_step": "cb_step_5",
+                 "controller": {"kind": "until_choice", "source_step": "cb_step_1",
+                                "prompt": "Adjust a fragment?", "exit_value": True},
+                 "max_iterations": 20},
+                {"repeat_id": "editstop", "body_steps": ["cb_step_7", "cb_step_8"],
+                 "entry_step": "cb_step_7", "terminal_step": "cb_step_8", "exit_step": "",
+                 "controller": {"kind": "while_choice", "source_step": "cb_step_6",
+                                "prompt": "Edit trajectories?", "exit_value": True},
+                 "max_iterations": 20},
+            ],
+        }
+        orig = wf_mod.get_workflow_graph
+        wf_mod.get_workflow_graph = lambda extension_name: graph
+
+        def _fresh():
+            r = WorkflowRuntime()
+            r.session = WorkflowSession(extension_name="FakePreGuard", tool_name="FakePreGuard",
+                                        workflow_id="pg", current_step="cb_step_1")
+            return r
+
+        try:
+            # 1) DECLINE the guard (No=False) -> skip body [2,3] AND the gap step 4,
+            #    jump to exit_step cb_step_5; body steps never executed.
+            r = _fresh()
+            res = r.handle_execution_result(
+                {"type": "choice_made", "step_id": "cb_step_1", "choice_value": False,
+                 "next_step": {"step_id": "cb_step_2"}}, {"success": True})
+            self.assertEqual(res["next_step"]["step_id"], "cb_step_5")
+            for sid in ("cb_step_2", "cb_step_3", "cb_step_4"):
+                self.assertIn(sid, r.session.completed_steps)
+
+            # 2) ACCEPT the guard (Yes=True) -> enter body at cb_step_2.
+            r = _fresh()
+            res = r.handle_execution_result(
+                {"type": "choice_made", "step_id": "cb_step_1", "choice_value": True,
+                 "next_step": {"step_id": "cb_step_2"}}, {"success": True})
+            self.assertEqual(res["next_step"]["step_id"], "cb_step_2")
+            self.assertNotIn("cb_step_2", r.session.completed_steps)
+            # Run body; terminal raises the loop-again decision.
+            r.handle_execution_result({"type": "automated", "step_id": "cb_step_2"}, {"success": True})
+            decision = r.handle_execution_result({"type": "automated", "step_id": "cb_step_3"}, {"success": True})
+            self.assertEqual(decision["type"], "user_choice")
+            self.assertTrue(decision.get("repeat_decision"))
+            # Yes(True) -> repeat to entry; No(False) -> exit to cb_step_5.
+            again = r.run_step("cb_step_3", "choice_made", {"choice_value": True})
+            self.assertEqual(again["next_step"]["step_id"], "cb_step_2")
+            r.handle_execution_result({"type": "automated", "step_id": "cb_step_2"}, {"success": True})
+            r.handle_execution_result({"type": "automated", "step_id": "cb_step_3"}, {"success": True})
+            done = r.run_step("cb_step_3", "choice_made", {"choice_value": False})
+            self.assertEqual(done["next_step"]["step_id"], "cb_step_5")
+
+            # 3) DECLINE a STOP guard (cb_step_6, exit_step="") -> skip body 7,8 and
+            #    complete the workflow.
+            r = _fresh()
+            r.session.current_step = "cb_step_6"
+            stop = r.handle_execution_result(
+                {"type": "choice_made", "step_id": "cb_step_6", "choice_value": False,
+                 "next_step": {"step_id": "cb_step_7"}}, {"success": True})
+            self.assertIsNone(stop.get("next_step"))
+            self.assertTrue(stop.get("workflow_completed"))
+            self.assertEqual(r.session.status, "completed")
+            for sid in ("cb_step_7", "cb_step_8"):
+                self.assertIn(sid, r.session.completed_steps)
+        finally:
+            wf_mod.get_workflow_graph = orig
+
+        self.delayDisplay("Pre-guard conditional: decline skips/stops, accept runs + loops")
+
     def test_WorkflowReplayCheckpoints(self):
         """Replay timeline: live checkpoint recording, rewind truncation, loop resume."""
         import importlib

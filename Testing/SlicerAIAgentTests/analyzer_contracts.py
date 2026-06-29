@@ -220,6 +220,41 @@ class AnalyzerContractsMixin:
 
         self.delayDisplay("Segments-table source binding captured -> target_param")
 
+    def test_RepeatBlockPreGuardValidation(self):
+        """until_choice/while_choice (pre-guarded sections) require a preceding
+        user_choice source step, and a jump exit_step must be forward of the body;
+        an empty exit_step ("stop") is allowed."""
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+
+        steps = [
+            {"step_id": "cb_step_1", "operation_type": "user_choice"},
+            {"step_id": "cb_step_2", "operation_type": "extension_op"},
+            {"step_id": "cb_step_3", "operation_type": "extension_op"},
+            {"step_id": "cb_step_4", "operation_type": "extension_op"},
+        ]
+        by_step = {s["step_id"]: s for s in steps}
+
+        def graph(source_step="cb_step_1", exit_step="cb_step_4"):
+            return {"steps": steps, "repeat_blocks": [{
+                "repeat_id": "guarded", "body_steps": ["cb_step_2", "cb_step_3"],
+                "entry_step": "cb_step_2", "terminal_step": "cb_step_3",
+                "exit_step": exit_step, "max_iterations": 20,
+                "controller": {"kind": "until_choice", "prompt": "Adjust?",
+                               "source_step": source_step, "exit_value": False}}]}
+
+        # Valid: forward jump target.
+        ExtensionCLIAnalyzer._validate_repeat_block_graph(graph(), by_step)
+        # Valid: empty exit_step == stop/end.
+        ExtensionCLIAnalyzer._validate_repeat_block_graph(graph(exit_step=""), by_step)
+        # Invalid: no source step for a pre-guarded choice loop.
+        with self.assertRaises(RuntimeError):
+            ExtensionCLIAnalyzer._validate_repeat_block_graph(graph(source_step=""), by_step)
+        # Invalid: exit_step inside / not after the body.
+        with self.assertRaises(RuntimeError):
+            ExtensionCLIAnalyzer._validate_repeat_block_graph(graph(exit_step="cb_step_2"), by_step)
+
+        self.delayDisplay("Pre-guard repeat-block validation (source_step + forward exit)")
+
     def test_ModuleLevelSelfRejected(self):
         """Generated templates run at module level — a module-level `self` is a bug.
 

@@ -790,8 +790,25 @@ class AnalyzerWorkflowContractsMixin:
                     raise RuntimeError(f"{repeat_id}: count controller source cannot be in its body")
                 if ordered_ids.index(source_step) >= ordered_ids.index(body_steps[0]):
                     raise RuntimeError(f"{repeat_id}: count controller source must precede its body")
-            elif not _text_or_empty(controller.get("prompt", "")):
-                raise RuntimeError(f"{repeat_id}: choice controller requires a prompt")
+            else:  # until_choice / while_choice — a pre-guarded conditional section
+                if not _text_or_empty(controller.get("prompt", "")):
+                    raise RuntimeError(f"{repeat_id}: choice controller requires a prompt")
+                source_step = controller.get("source_step", "")
+                if not source_step or source_step not in by_step:
+                    raise RuntimeError(f"{repeat_id}: until/while controller requires a source step")
+                if _operation_type_for_step(by_step[source_step]) != "user_choice":
+                    raise RuntimeError(f"{repeat_id}: until/while controller source must be user_choice")
+                if source_step in body_steps:
+                    raise RuntimeError(f"{repeat_id}: until/while controller source cannot be in its body")
+                if ordered_ids.index(source_step) >= ordered_ids.index(body_steps[0]):
+                    raise RuntimeError(f"{repeat_id}: until/while controller source must precede its body")
+                # A jump/exit target (when set) must come after the body (forward),
+                # never inside it (an "" exit_step means stop -> end of workflow).
+                if exit_step:
+                    if exit_step in body_steps:
+                        raise RuntimeError(f"{repeat_id}: exit_step cannot be inside the repeat body")
+                    if ordered_ids.index(exit_step) <= ordered_ids.index(body_steps[-1]):
+                        raise RuntimeError(f"{repeat_id}: exit_step must come after the repeat body")
 
     @staticmethod
     def _choice_is_closed_form_parameter_choice(choice_info: Dict) -> bool:
