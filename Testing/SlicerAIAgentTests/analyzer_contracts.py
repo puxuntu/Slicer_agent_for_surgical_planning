@@ -694,6 +694,31 @@ class AnalyzerContractsMixin:
 
         self.delayDisplay("Toggle step polarity inferred from tick/untick wording")
 
+    def test_WorkflowPromptFragmentHandlesBranchOp(self):
+        """The interactive-workflow prompt fragment carries a when-to-use trigger
+        and renders branch_op steps (not [unsupported]) with a protocol entry --
+        so the agent reliably dispatches to the tool instead of falling back."""
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+        analyzer.on_progress = lambda *a, **k: None
+        schemas = [{"type": "function", "function": {"name": "FakeExt"}}]
+        graph = {"steps": [
+            {"step_id": "cb_step_1", "operation_type": "branch_op",
+             "description": "If X, tick the checkbox. If not, stop here.",
+             "choice_info": {"question": "Do X?"}},
+            {"step_id": "cb_step_2", "operation_type": "extension_op", "description": "Click Apply."},
+        ]}
+        frag = analyzer._generate_workflow_prompt_fragment("FakeExt", schemas, graph)
+        self.assertIn("**When to use:**", frag)
+        self.assertIn("[branch_op]", frag)
+        self.assertNotIn("[unsupported", frag)
+        self.assertNotIn("not loaded as a runtime tool", frag)
+        self.assertIn("For **branch_op** steps", frag)
+
+        self.delayDisplay("Workflow prompt fragment: when-to-use trigger + branch_op handled")
+
     def test_GetNodesByClassReceiverTyping(self):
         """A receiver bound by a `GetNodesByClass` loop is typed and provable.
 

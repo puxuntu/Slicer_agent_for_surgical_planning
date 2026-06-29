@@ -18,6 +18,10 @@ class AnalyzerPromptValidationMixin:
             f"**Tool name:** `{tool_name}`",
             f"**Type:** Guided interactive workflow",
             "",
+            f"**When to use:** when the user asks to run, plan, or perform what {extension_name} "
+            f"does (any task the steps below accomplish), call `{tool_name}` and drive this "
+            f"workflow -- do NOT write custom code or fall back to codebase search/generation.",
+            "",
             "This tool orchestrates a multi-step workflow where some steps require the user to",
             "perform 3D interactions (drawing curves, positioning planes, placing fiducials).",
             "Execute steps sequentially, ONE STEP PER TURN. After each interactive step, relay instructions to the user",
@@ -37,6 +41,8 @@ class AnalyzerPromptValidationMixin:
                 marker = "[user_interaction]"
             elif op_type == "user_choice":
                 marker = "[user_choice]"
+            elif op_type == "branch_op":
+                marker = "[branch_op]"
             else:
                 marker = f"[unsupported: {op_type or 'missing'}]"
             # Truncate long descriptions for readability
@@ -46,7 +52,7 @@ class AnalyzerPromptValidationMixin:
                 lines.append(f"   - Interaction: {step.get('interaction_type', 'unknown')}")
                 if step.get("placement_instructions"):
                     lines.append(f"   - Tell user: {step['placement_instructions'][:200]}")
-            elif op_type == "user_choice":
+            elif op_type in ("user_choice", "branch_op"):
                 choice = step.get("choice_info") or {}
                 if choice.get("question"):
                     lines.append(f"   - Ask user: {choice['question'][:200]}")
@@ -58,8 +64,9 @@ class AnalyzerPromptValidationMixin:
             "2. For **extension_op** and **slicer_op** steps: output the returned `code` verbatim in a ```python block. Then call the next step.",
             "3. For **user_interaction** steps: output the returned `pre_code` verbatim in a ```python block. Relay instructions to the user. Wait for them to click 'Done'.",
             "4. For **user_choice** steps: ask the returned question. After the user answers, call the same step with `user_action='choice_made'` and `choice_value`.",
-            "5. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.",
-            "6. Continue until all steps are done.",
+            "5. For **branch_op** steps: a yes/no decision that also acts and branches. Ask the returned question, then call the same step with `user_action='choice_made'` and `choice_value` ('Yes'/'No'). 'Yes' performs the step's action (e.g. ticks a checkbox) and runs the optional body once; 'No' jumps to the indicated step or stops.",
+            "6. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.",
+            "7. Continue until all steps are done.",
             "",
             "**CRITICAL RULES:**",
             "- Execute ONE step per turn. Do NOT call multiple steps in a single turn.",

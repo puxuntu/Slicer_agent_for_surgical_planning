@@ -1042,11 +1042,19 @@ class ExtensionCLIAnalyzer(
                 self._workflow_metadata["upstream_reentries"] = reentry_trace
                 result["upstream_reentries"] = reentry_trace
 
-            if validation_result.get("valid"):
-                self._finalize_package_validation_state(
-                    manifest, validation_result,
-                    templates=templates, generators=generators,
-                )
+            # Finalize the AUTHORITATIVE package status first (this owns
+            # overall_valid and manifest['status']), THEN decide the prompt
+            # fragment from that status -- not from the pre-audit
+            # validation_result['valid']. A 'validated_with_warnings' package IS
+            # loaded by the runtime (ExtensionCLILoader loads status in
+            # {validated, validated_with_warnings}), so it must get the real usage
+            # fragment; the "not loaded" stub would contradict the live tool and
+            # make the agent's dispatch to it flaky.
+            self._finalize_package_validation_state(
+                manifest, validation_result,
+                templates=templates, generators=generators,
+            )
+            if manifest.get("status") in ("validated", "validated_with_warnings"):
                 self._set_phase("package")
                 prompt_fragment = self._stage8_generate_prompt(
                     extension_name, tool_schemas, stage_map, logic_analysis,
@@ -1057,10 +1065,6 @@ class ExtensionCLIAnalyzer(
                     result["error"] = "Cancelled during package"
                     return result
             else:
-                self._finalize_package_validation_state(
-                    manifest, validation_result,
-                    templates=templates, generators=generators,
-                )
                 prompt_fragment = (
                     f"### {extension_name}\n\n"
                     "Generation failed validation. This CLI package is saved "
