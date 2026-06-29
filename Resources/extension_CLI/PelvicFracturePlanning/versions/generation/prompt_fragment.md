@@ -20,7 +20,7 @@ and wait for them to complete the interaction before proceeding.
 5. `cb_step_5` [extension_op] — Click "Run Step 3: Generate Template" button.
 6. `cb_step_6` [extension_op] — Click "Run Step 4: Register _Reduce" button.
 7. `cb_step_7` [branch_op] — If further adjustments are required, tick the "Manually adjust a fragment" checkbox. If not, jump to step 11.
-   - Ask user: Manually adjust a fragment?
+   - Ask user: Do you want to manually adjust a fragment?
 8. `cb_step_8` [user_choice] — In the "Fragment" option, Choose which fragment needs adjustment in the "Fragment" selection box.
    - Ask user: In the "Fragment" option, Choose which fragment needs adjustment in the "Fragment" selection box.
 9. `cb_step_9` [user_interaction] — Manually adjust the position and rotation of the selected fragment.
@@ -28,7 +28,7 @@ and wait for them to complete the interaction before proceeding.
 10. `cb_step_10` [extension_op] — Click the "Apply adjustments" button.
 11. `cb_step_11` [extension_op] — Click the "Run Step 5: Plan Screws" button.
 12. `cb_step_12` [branch_op] — If further adjustments are required, tick the "Edit Screw trajectories" checkbox. If not, stop here.
-   - Ask user: Edit screw trajectories?
+   - Ask user: Do you want to edit screw trajectories?
 13. `cb_step_13` [user_interaction] — Manually adjust the position and rotation of the screw trajectories.
    - Interaction: generic
 14. `cb_step_14` [extension_op] — Click the "Regenerate screws from edited lines" button.
