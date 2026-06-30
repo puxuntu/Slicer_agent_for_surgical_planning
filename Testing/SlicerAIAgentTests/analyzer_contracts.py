@@ -694,6 +694,33 @@ class AnalyzerContractsMixin:
 
         self.delayDisplay("Toggle step polarity inferred from tick/untick wording")
 
+    def test_ButtonClickPrefersHandlerOverFunction(self):
+        """A button-click step with a captured handler connection drives the handler
+        even when the LLM also proposed a module function -- so 'Apply adjustments'
+        runs onApplyAdjust(), not the unrelated module helper Apply_transform_to_
+        polydata (which the dispatch would otherwise pick via extension_function_name)."""
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+        from SlicerAIAgentLib.CodeValidator import CodeValidator
+
+        analyzer = ExtensionCLIAnalyzer(llm_client=None, code_validator=CodeValidator())
+        analyzer._parameter_node_wrapper = {"class_name": "FakeParameterNode"}
+        analyzer._widget_connections = [
+            {"button_widget_name": "btnApplyAdjust", "handler_method": "onApplyAdjust",
+             "signal": "clicked(bool)"},
+        ]
+        step = {"step_id": "cb_step_10", "widget_name": "btnApplyAdjust",
+                "extension_function_name": "Apply_transform_to_polydata",
+                "sub_operations": [{"op_type": "extension_op", "widget_name": "btnApplyAdjust",
+                                    "extension_function_hint": "Apply_transform_to_polydata"}]}
+        code = analyzer._maybe_generate_button_handler_template(
+            "PelvicFracturePlanning", step, "PelvicFracturePlanningLogic", "PelvicFracturePlanning",
+        ) or ""
+        self.assertIn("onApplyAdjust()", code)
+        self.assertIn("getModuleWidget", code)
+        self.assertNotIn("Apply_transform_to_polydata", code)
+
+        self.delayDisplay("Button-click step drives the handler over a module function")
+
     def test_WorkflowPromptFragmentHandlesBranchOp(self):
         """The interactive-workflow prompt fragment carries a when-to-use trigger
         and renders branch_op steps (not [unsupported]) with a protocol entry --

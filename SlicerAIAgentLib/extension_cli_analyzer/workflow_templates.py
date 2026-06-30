@@ -162,8 +162,19 @@ class AnalyzerWorkflowTemplatesMixin:
                 step["code_template"] = key
 
             elif step_type == "automated":
-                # Single code template for automated steps
-                if step.get("extension_function_name"):
+                # Single code template for automated steps.
+                # A button-click step (cookbook "Click the X button") whose widget
+                # drives a connected handler IS that handler -- prefer it over a
+                # module-function / logic-method match the LLM may have proposed
+                # (e.g. "Apply adjustments" -> _widget.onApplyAdjust(), not the
+                # unrelated module helper Apply_transform_to_polydata). Returns None
+                # when no captured button-handler connection exists -> falls through.
+                tpl = self._maybe_generate_button_handler_template(
+                    extension_name, step, logic_class_name, module_name,
+                )
+                if tpl is not None:
+                    pass
+                elif step.get("extension_function_name"):
                     tpl = self._generate_extension_function_template(
                         extension_name, step, module_name,
                     )
