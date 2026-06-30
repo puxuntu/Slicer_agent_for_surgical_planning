@@ -372,6 +372,12 @@ class WidgetWorkflowMixin:
                 self._workflowChoiceLayout.removeWidget(self._workflowSegmentsContainer)
             self._workflowSegmentsContainer.setParent(None)
             self._workflowSegmentsContainer = None
+        if getattr(self, "_workflowSegmentNameCombo", None) is not None:
+            # Drop the live-preview observer before destroying the combo.
+            try:
+                self._workflowSegmentNameCombo.currentIndexChanged.disconnect(self._onWorkflowSegmentNamePreview)
+            except Exception:
+                pass
         self._workflowSegmentNameCombo = None
         if getattr(self, "_workflowSegmentNameContainer", None) is not None:
             # The container owns the name combobox + Select button; reparenting to
@@ -1016,8 +1022,18 @@ class WidgetWorkflowMixin:
         vbox.addWidget(button)
         self._workflowSegmentNameCombo = combo
         self._workflowSegmentNameContainer = container
+        # Live preview: as the user changes the selection, drive the extension's own
+        # source combobox so its connected handler fires immediately (the 3D
+        # interaction handles track the selection, like the original extension).
+        # Connected after populate/setCurrentIndex(0) so it doesn't fire on build.
+        try:
+            combo.currentIndexChanged.connect(self._onWorkflowSegmentNamePreview)
+        except Exception:
+            pass
         self._workflowChoiceLayout.addWidget(container, 1)
         container.setVisible(True)
+        # Show the default (first) fragment's handles right away.
+        self._onWorkflowSegmentNamePreview()
         return True
 
     def _onWorkflowSegmentNameSelected(self):
@@ -1039,6 +1055,60 @@ class WidgetWorkflowMixin:
         if step_id:
             self.sendButton.setEnabled(False)
             self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": name})
+
+    def _workflowModuleName(self):
+        """The active workflow extension's Slicer module name (for getModuleWidget),
+        resolved like _resolveParamNodeFieldNodeID. "" if unavailable."""
+        runtime = getattr(self, "_workflowRuntime", None)
+        session = getattr(runtime, "session", None) if runtime is not None else None
+        ext = getattr(session, "extension_name", None) if session is not None else None
+        if not ext:
+            return ""
+        try:
+            from SlicerAIAgentLib.ExtensionCLILoader import get_validated_extensions
+            meta = (get_validated_extensions().get(ext) or {}).get("workflow_metadata", {}) or {}
+            return meta.get("extension_module_name") or ext
+        except Exception:
+            return ext
+
+    def _onWorkflowSegmentNamePreview(self, _index=None):
+        """Mirror the picker's current selection onto the extension's live source
+        combobox (e.g. fragmentSelector) so its connected handler (onFragmentSelected)
+        fires immediately -- the 3D interaction handles track the selection, like the
+        original extension. Visual only; the authoritative choice is committed by the
+        Select button. Runs in the agent process (not the sandbox); any miss (no
+        module widget / no ui / no such widget / name absent) is a silent no-op."""
+        state = getattr(self, "_currentWorkflowUiState", None) or {}
+        if state.get("replay_previewing"):
+            return
+        source_widget = str(state.get("segment_name_source_widget") or "").strip()
+        if not source_widget:
+            return
+        combo = getattr(self, "_workflowSegmentNameCombo", None)
+        if combo is None:
+            return
+        try:
+            name = str(combo.currentText or "").strip()
+        except Exception:
+            name = ""
+        if not name:
+            return
+        module_name = self._workflowModuleName()
+        if not module_name:
+            return
+        try:
+            widget = slicer.util.getModuleWidget(module_name)
+        except Exception:
+            widget = None
+        sel = getattr(getattr(widget, "ui", None), source_widget, None) if widget is not None else None
+        if sel is None:
+            return
+        try:
+            idx = sel.findText(name)
+            if idx >= 0:
+                sel.setCurrentIndex(idx)
+        except Exception:
+            pass
 
     def _bindSegmentsTable(self, seg_node):
         """Bind the segments table to ``seg_node``, ensuring a display node exists

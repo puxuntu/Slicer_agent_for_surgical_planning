@@ -500,6 +500,51 @@ class WorkflowTestsMixin:
 
         self.delayDisplay("Segment-name selection routes to its picker; node pick unaffected")
 
+    def test_SegmentNameMetaSurfacesSourceWidget(self):
+        """_segment_name_selection_meta surfaces the source combobox name so the
+        picker can drive it live for immediate handle feedback (Issue 1)."""
+        from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime
+        meta = {"sub_operations": [
+            {"widget_class": "QComboBox", "value_kind": "segment_name_selection",
+             "widget_name": "fragmentSelector"}]}
+        m = WorkflowRuntime._segment_name_selection_meta(meta)
+        self.assertEqual(m.get("source_widget"), "fragmentSelector")
+        self.delayDisplay("segment-name meta surfaces the source widget name")
+
+    def test_StateForUiClearsCompletedStep(self):
+        """After a branch_op 'stop here' decline completes the workflow, state_for_ui
+        must NOT resurface the decided step's id/choices -- the panel should show the
+        terminal state, not 'Step 12 of 15' + Yes/No (Issue 2)."""
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+
+        ci = {"choices": [{"label": "Yes", "value": True}, {"label": "No", "value": False}],
+              "default_value": False}
+        graph = {"steps": [
+            {"step_id": "cb_step_1", "operation_type": "branch_op", "choice_info": dict(ci)},
+            {"step_id": "cb_step_2", "operation_type": "extension_op"},
+            {"step_id": "cb_step_3", "operation_type": "extension_op"},
+        ]}
+        orig = wf_mod.get_workflow_graph
+        wf_mod.get_workflow_graph = lambda e: graph
+        try:
+            r = WorkflowRuntime()
+            r.session = WorkflowSession(extension_name="FB", tool_name="FB", workflow_id="w")
+            r.session.status = "completed"
+            r.session.completed_steps = ["cb_step_1", "cb_step_2", "cb_step_3"]
+            # The just-decided branch_op result still carries its step_id + completion.
+            result = {"type": "choice_made", "step_id": "cb_step_1",
+                      "workflow_completed": True, "next_step": None}
+            state = r.state_for_ui(result)
+            self.assertIsNone(state.get("current_step"))
+            self.assertEqual(state.get("choices"), [])
+            self.assertEqual(state.get("current_index"), state.get("total_steps"))
+        finally:
+            wf_mod.get_workflow_graph = orig
+        self.delayDisplay("Completed workflow clears the decided step + its choices")
+
     def test_SegmentsTableChoiceNoNodeMaterialization(self):
         """A segments-table step's Done must NOT materialize a node: its value is
         empty (visibility is set on the scene), and a spurious choice_input role

@@ -181,11 +181,23 @@ class WorkflowRuntime:
 
         source = result if isinstance(result, dict) else self.session.last_result or {}
         next_step = source.get("next_step") or {}
-        current_step = (
-            source.get("step_id")
-            or self.session.current_step
-            or next_step.get("step_id")
+        workflow_done = (
+            self.session.status in ("completed", "cancelled")
+            or bool(source.get("workflow_completed"))
         )
+        if workflow_done:
+            # The workflow finished (e.g. a branch_op "stop here" decline completed
+            # it). The result still carries step_id=<the decided step> + its
+            # choice_info; do NOT resurface them, or the panel shows "Step 12 of 15"
+            # + Yes/No while the bar is at 15/15. Clear the current step so the panel
+            # falls to the terminal state (current_index -> total, no options).
+            current_step = None
+        else:
+            current_step = (
+                source.get("step_id")
+                or self.session.current_step
+                or next_step.get("step_id")
+            )
         current_meta = step_map.get(current_step, {})
         current_index = 0
         if current_step in step_ids:
@@ -235,6 +247,10 @@ class WorkflowRuntime:
             )
             instructions = guidance_instruction or self._instructions_from_result(source)
         choices = self._choices_from_result(source, current_meta)
+        if workflow_done:
+            # A completed workflow has no pending choice -- drop any choices the
+            # just-decided step's choice_info would otherwise resurface.
+            choices = []
         # A node-pick user_choice must drive the scene node tree, not literal
         # cookbook-label buttons. Dropping stray literal choices flips
         # needs_choice_input True (below) so the panel reaches
@@ -324,6 +340,9 @@ class WorkflowRuntime:
             "source_widget_class": source_widget_class,
             "segment_selection": bool(segment_meta),
             "segment_name_selection": bool(segment_name_meta),
+            # The extension's own source combobox name (e.g. "fragmentSelector"),
+            # so the picker can drive it live for immediate handle feedback.
+            "segment_name_source_widget": segment_name_meta.get("source_widget", ""),
             # Segmentation-resolution keys serve EITHER the segments-table or the
             # segment-name picker (a step is only ever one of them).
             "segmentation_node_class": segment_meta.get("segmentation_node_class", "")
@@ -1949,6 +1968,9 @@ class WorkflowRuntime:
             "segmentation_node_class": node_class,
             "keywords": WorkflowRuntime._keywords_from_widget_name(widget_name, target_param),
             "target_param": target_param,
+            # The extension's own source combobox (e.g. "fragmentSelector"); the
+            # picker drives it live so the connected handler fires on selection.
+            "source_widget": widget_name,
         }
 
     @staticmethod
