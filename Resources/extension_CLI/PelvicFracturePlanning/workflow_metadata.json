@@ -178,7 +178,9 @@
       "op_types": [
         "user_choice"
       ],
-      "operation_intents": [],
+      "operation_intents": [
+        "segment_name_selection"
+      ],
       "invokes_extension_method": false,
       "invokes_extension_function": false,
       "invokes_slicer_api": false,
@@ -295,7 +297,7 @@
       {
         "role_kind": "choice_input",
         "node_class": "vtkMRMLScalarVolumeNode",
-        "parameter_name": null,
+        "parameter_name": "inputVolume",
         "step_id": "cb_step_1"
       }
     ],
@@ -303,13 +305,13 @@
       {
         "role_kind": "extension_input",
         "node_class": "vtkMRMLScalarVolumeNode",
-        "parameter_name": null,
+        "parameter_name": "inputVolume",
         "step_id": "cb_step_2"
       },
       {
         "role_kind": "extension_output",
         "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
+        "parameter_name": "outputPelvis",
         "step_id": "cb_step_2"
       }
     ],
@@ -317,21 +319,27 @@
       {
         "role_kind": "extension_input",
         "node_class": "vtkMRMLScalarVolumeNode",
-        "parameter_name": null,
+        "parameter_name": "inputVolume",
         "step_id": "cb_step_3"
       },
       {
         "role_kind": "extension_output",
         "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
+        "parameter_name": "outputFrac",
         "step_id": "cb_step_3"
       }
     ],
     "cb_step_4": [
       {
-        "role_kind": "choice_input",
+        "role_kind": "extension_input",
         "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
+        "parameter_name": "outputFrac",
+        "step_id": "cb_step_4"
+      },
+      {
+        "role_kind": "extension_output",
+        "node_class": "vtkMRMLSegmentationNode",
+        "parameter_name": "outputFrac",
         "step_id": "cb_step_4"
       }
     ],
@@ -339,13 +347,13 @@
       {
         "role_kind": "extension_input",
         "node_class": "vtkMRMLScalarVolumeNode",
-        "parameter_name": null,
+        "parameter_name": "inputVolume",
         "step_id": "cb_step_5"
       },
       {
         "role_kind": "extension_input",
         "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
+        "parameter_name": "OutputPelvisSeg",
         "step_id": "cb_step_5"
       },
       {
@@ -359,43 +367,83 @@
       {
         "role_kind": "extension_input",
         "node_class": "vtkMRMLScalarVolumeNode",
-        "parameter_name": null,
+        "parameter_name": "inputVolume",
         "step_id": "cb_step_6"
       },
       {
         "role_kind": "extension_input",
         "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
+        "parameter_name": "OutputPelvisSeg",
+        "step_id": "cb_step_6"
+      },
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLSegmentationNode",
+        "parameter_name": "OutputFracSeg",
         "step_id": "cb_step_6"
       },
       {
         "role_kind": "extension_output",
         "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
+        "parameter_name": "OutputReduction",
         "step_id": "cb_step_6"
+      }
+    ],
+    "cb_step_8": [
+      {
+        "role_kind": "choice_input",
+        "node_class": "vtkMRMLSegmentationNode",
+        "parameter_name": "OutputFracSeg",
+        "step_id": "cb_step_8"
       }
     ],
     "cb_step_9": [
       {
-        "role_kind": "interaction_output",
+        "role_kind": "extension_input",
         "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
+        "parameter_name": "OutputFracSeg",
         "step_id": "cb_step_9"
+      },
+      {
+        "role_kind": "extension_output",
+        "node_class": "vtkMRMLSegmentationNode",
+        "parameter_name": "OutputFracSeg",
+        "step_id": "cb_step_9"
+      }
+    ],
+    "cb_step_10": [
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLSegmentationNode",
+        "parameter_name": "OutputFracSeg",
+        "step_id": "cb_step_10"
+      },
+      {
+        "role_kind": "extension_output",
+        "node_class": "vtkMRMLSegmentationNode",
+        "parameter_name": "OutputFracSeg",
+        "step_id": "cb_step_10"
       }
     ],
     "cb_step_11": [
       {
         "role_kind": "extension_output",
         "node_class": "vtkMRMLModelNode",
-        "parameter_name": null,
+        "parameter_name": "OutputScrew",
         "step_id": "cb_step_11"
       }
     ],
     "cb_step_13": [
       {
-        "role_kind": "interaction_output",
+        "role_kind": "extension_input",
         "node_class": "vtkMRMLModelNode",
-        "parameter_name": null,
+        "parameter_name": "OutputScrew",
+        "step_id": "cb_step_13"
+      },
+      {
+        "role_kind": "extension_output",
+        "node_class": "vtkMRMLModelNode",
+        "parameter_name": "OutputScrew",
         "step_id": "cb_step_13"
       }
     ],
@@ -403,15 +451,21 @@
       {
         "role_kind": "extension_input",
         "node_class": "vtkMRMLModelNode",
-        "parameter_name": null,
+        "parameter_name": "OutputScrew",
+        "step_id": "cb_step_14"
+      },
+      {
+        "role_kind": "extension_output",
+        "node_class": "vtkMRMLModelNode",
+        "parameter_name": "OutputScrew",
         "step_id": "cb_step_14"
       }
     ]
   },
   "repeat_groups": {},
   "repeat_blocks": {
-    "manual_adjustment_block": {
-      "repeat_id": "manual_adjustment_block",
+    "manual_adjust_branch": {
+      "repeat_id": "manual_adjust_branch",
       "body_steps": [
         "cb_step_8",
         "cb_step_9",
@@ -421,9 +475,9 @@
       "terminal_step": "cb_step_10",
       "exit_step": "cb_step_11",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_7",
-        "prompt": "Further adjustments required?",
+        "prompt": "Proceed with manual fragment adjustment?",
         "exit_value": false,
         "exit_target": 11
       },
@@ -439,8 +493,8 @@
         "confidence": "high"
       }
     },
-    "edit_screws_block": {
-      "repeat_id": "edit_screws_block",
+    "edit_screws_branch": {
+      "repeat_id": "edit_screws_branch",
       "body_steps": [
         "cb_step_13",
         "cb_step_14",
@@ -450,9 +504,9 @@
       "terminal_step": "cb_step_15",
       "exit_step": "",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_12",
-        "prompt": "Edit screw trajectories?",
+        "prompt": "Proceed with editing screw trajectories?",
         "exit_value": false,
         "exit_target": "stop"
       },
@@ -476,7 +530,7 @@
     "prelude_valid": true,
     "contract_audit_valid": true,
     "workflow_state_valid": true,
-    "prelude_bytes_max": 2388,
+    "prelude_bytes_max": 7419,
     "overall_valid": true,
     "api_proof_valid": true,
     "api_inventory_complete": true,
@@ -536,7 +590,10 @@
     "templates/cb_step_10.py.tpl": {
       "api_chains": [
         "slicer.util.selectedModule",
-        "slicer.util.selectModule"
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation().self",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation"
       ],
       "probe_status": "passed"
     },
@@ -709,9 +766,9 @@
     }
   },
   "api_proof_coverage": {
-    "total_calls": 119,
-    "state_changing_calls": 32,
-    "proven_calls": 113,
+    "total_calls": 129,
+    "state_changing_calls": 35,
+    "proven_calls": 123,
     "invalid_calls": 0,
     "blocking_unproven_calls": 0,
     "warning_unproven_reads": 6,
@@ -958,80 +1015,80 @@
   },
   "ui_guidance": {
     "cb_step_1": {
-      "title": "Select Input CT Volume",
-      "instruction": "Choose the pelvic volume from the list.",
+      "title": "Select Pelvic Volume",
+      "instruction": "In the 'Input CT Volume' field, choose the Pelvic Volume.",
       "done_label": "Done",
-      "choice_label": "Volume",
+      "choice_label": "Choice",
       "input_label": "Choice",
       "object_label": "volume",
       "repeat": {}
     },
     "cb_step_2": {
       "title": "Segment Pelvis",
-      "instruction": "Click the button to run pelvis segmentation.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "button",
       "repeat": {}
     },
     "cb_step_3": {
       "title": "Segment Fractures",
-      "instruction": "Click the button to segment fractures.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "button",
       "repeat": {}
     },
     "cb_step_4": {
       "title": "Exclude Fragments",
-      "instruction": "Untick fragments to exclude from planning.",
+      "instruction": "Untick any fragments to exclude them from planning.",
       "done_label": "Done",
-      "choice_label": "Fragments",
+      "choice_label": "Choice",
       "input_label": "Choice",
-      "object_label": "fragment",
+      "object_label": "segment",
       "repeat": {}
     },
     "cb_step_5": {
       "title": "Generate Template",
-      "instruction": "Click the button to generate the template.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "button",
       "repeat": {}
     },
     "cb_step_6": {
-      "title": "Register Reduce",
-      "instruction": "Click the button to run registration/reduction.",
+      "title": "Register & Reduce",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "button",
       "repeat": {}
     },
     "cb_step_7": {
-      "title": "Manual Adjustment Needed?",
-      "instruction": "Tick 'Manually adjust a fragment' if further adjustments are required.",
+      "title": "Manually Adjust Fragment?",
+      "instruction": "Check the 'Manually adjust a fragment' checkbox, or leave unchecked to skip adjustment.",
       "done_label": "Done",
       "choice_label": "Choice",
       "input_label": "Choice",
-      "object_label": "interaction",
+      "object_label": "checkbox",
       "repeat": {}
     },
     "cb_step_8": {
-      "title": "Select Fragment to Adjust",
-      "instruction": "Choose the fragment you want to adjust from the drop-down.",
+      "title": "Select Fragment",
+      "instruction": "In the 'Fragment' dropdown, choose the fragment to adjust.",
       "done_label": "Done",
-      "choice_label": "Fragment",
+      "choice_label": "Choice",
       "input_label": "Choice",
       "object_label": "fragment",
       "repeat": {}
     },
     "cb_step_9": {
       "title": "Adjust Fragment Pose",
-      "instruction": "Use the transform tools to adjust the position and rotation of the selected fragment.",
+      "instruction": "Use the transform controls to adjust the position and rotation of the selected fragment.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1040,56 +1097,56 @@
     },
     "cb_step_10": {
       "title": "Apply Adjustments",
-      "instruction": "Click the button to apply the manual adjustments.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "button",
       "repeat": {}
     },
     "cb_step_11": {
       "title": "Plan Screws",
-      "instruction": "Click the button to plan screw trajectories.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "button",
       "repeat": {}
     },
     "cb_step_12": {
       "title": "Edit Screw Trajectories?",
-      "instruction": "Tick 'Edit Screw trajectories' to modify screw paths, or skip to finish.",
+      "instruction": "Check the 'Edit Screw trajectories' checkbox to adjust screws, or leave unchecked to finish.",
       "done_label": "Done",
       "choice_label": "Choice",
       "input_label": "Choice",
-      "object_label": "interaction",
+      "object_label": "checkbox",
       "repeat": {}
     },
     "cb_step_13": {
-      "title": "Adjust Screw Trajectories",
-      "instruction": "Use the transform tools to adjust the screw trajectories.",
+      "title": "Adjust Trajectories",
+      "instruction": "Use the transform controls to adjust the position and rotation of the screw trajectories.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "screw_trajectory",
+      "object_label": "screw",
       "repeat": {}
     },
     "cb_step_14": {
       "title": "Regenerate Screws",
-      "instruction": "Click the button to regenerate screws from the edited lines.",
+      "instruction": "",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "button",
       "repeat": {}
     },
     "cb_step_15": {
-      "title": "Finish Editing Screws",
-      "instruction": "Untick the 'Edit Screw trajectories' checkbox to finalize.",
+      "title": "Disable Edit Mode",
+      "instruction": "Untick the 'Edit Screw trajectories' checkbox.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "checkbox",
       "repeat": {}
     }
   },
@@ -1163,10 +1220,14 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Segment the pelvis from the input volume"
+        "Execute pelvis segmentation pipeline"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "segment_pelvis",
+        "vtkMRMLSegmentationNode",
+        "pelvis segmentation"
+      ]
     },
     "templates/cb_step_3.py.tpl": {
       "source": "ground_api",
@@ -1190,10 +1251,14 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Segment fracture fragments from the input volume"
+        "Execute fracture segmentation pipeline"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "segment_fractures",
+        "vtkMRMLSegmentationNode",
+        "fracture segmentation"
+      ]
     },
     "templates/cb_step_5.py.tpl": {
       "source": "ground_api",
@@ -1217,10 +1282,14 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Generate reduction template models from pelvis segmentation"
+        "Generate template from pelvis model"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "plan_generate_template",
+        "vtkMRMLModelNode",
+        "template generation"
+      ]
     },
     "templates/cb_step_6.py.tpl": {
       "source": "ground_api",
@@ -1244,10 +1313,15 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Register and reduce fracture fragments"
+        "Execute registration and reduction of fracture fragments"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "plan_register_reduce",
+        "vtkMRMLSegmentationNode",
+        "registration",
+        "reduction"
+      ]
     },
     "templates/cb_step_9_post.py.tpl": {
       "source": "ground_api",
@@ -1267,6 +1341,37 @@
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
+    },
+    "templates/cb_step_10.py.tpl": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onApplyAdjust",
+        "pelvicfractureplanning",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onApplyAdjust",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Apply manual adjustments to the selected fragment"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": [
+        "btnApplyAdjust",
+        "apply adjustments",
+        "fragment transform"
+      ]
     },
     "templates/cb_step_11.py.tpl": {
       "source": "ground_api",
@@ -1290,10 +1395,14 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Plan screw trajectories for fracture reduction"
+        "Plan screw placements"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "plan_screws",
+        "vtkMRMLModelNode",
+        "screw planning"
+      ]
     },
     "templates/cb_step_13_post.py.tpl": {
       "source": "ground_api",
@@ -1336,10 +1445,14 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Regenerate screw models after manual editing"
+        "Regenerate screw models from edited trajectories"
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "_buildScrewNodes",
+        "regenerate screws",
+        "vtkMRMLModelNode"
+      ]
     },
     "templates/cb_step_15.py.tpl": {
       "source": "ground_api",
@@ -1368,7 +1481,7 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Disable edit mode for screw trajectories"
+        "Deselect the edit screw trajectories checkbox"
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -2662,22 +2775,205 @@
       "complete": true,
       "calls": [
         {
-          "call_id": "0640a5be315a827ef01b",
+          "call_id": "2941c3c896a78df74ede",
           "template": "templates/cb_step_10.py.tpl",
           "source_span": {
-            "lineno": 4,
-            "col_offset": 6,
-            "end_lineno": 4,
-            "end_col_offset": 162
+            "lineno": 5,
+            "col_offset": 22,
+            "end_lineno": 5,
+            "end_col_offset": 50
           },
-          "call_expression": "RuntimeError('Cannot apply adjustments: missing evidence for Apply_transform_to_polydata argument mapping (FragmentModel, AdjustTransform, AdjustedModel).')",
+          "call_expression": "slicer.util.selectedModule()",
+          "receiver_expression": "slicer.util",
+          "method": "selectedModule",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "d1bf10653ad4eb43d2ae",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 8,
+            "col_offset": 8,
+            "end_lineno": 8,
+            "end_col_offset": 58
+          },
+          "call_expression": "slicer.util.selectModule('PelvicFracturePlanning')",
+          "receiver_expression": "slicer.util",
+          "method": "selectModule",
+          "arguments": [
+            "'PelvicFracturePlanning'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "84556829a773770b4c13",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 10,
+            "col_offset": 8,
+            "end_lineno": 10,
+            "end_col_offset": 100
+          },
+          "call_expression": "print(f\"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "f\"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "58e8ae40313886023126",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 18,
+            "col_offset": 14,
+            "end_lineno": 18,
+            "end_col_offset": 67
+          },
+          "call_expression": "slicer.util.getModuleWidget('PelvicFracturePlanning')",
+          "receiver_expression": "slicer.util",
+          "method": "getModuleWidget",
+          "arguments": [
+            "'PelvicFracturePlanning'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "9431ef96c9c4df8be59a",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 23,
+            "col_offset": 18,
+            "end_lineno": 23,
+            "end_col_offset": 78
+          },
+          "call_expression": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
+          "receiver_expression": "slicer.modules.pelvicfractureplanning",
+          "method": "widgetRepresentation",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "fdaa6eb19f51264a3d96",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 23,
+            "col_offset": 18,
+            "end_lineno": 23,
+            "end_col_offset": 85
+          },
+          "call_expression": "slicer.modules.pelvicfractureplanning.widgetRepresentation().self()",
+          "receiver_expression": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
+          "method": "self",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "assigned",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "99066ea225020e8c872e",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 27,
+            "col_offset": 10,
+            "end_lineno": 27,
+            "end_col_offset": 105
+          },
+          "call_expression": "RuntimeError(\"Could not obtain the PelvicFracturePlanning module widget for 'btnApplyAdjust'.\")",
           "receiver_expression": "",
           "method": "RuntimeError",
           "arguments": [
-            "'Cannot apply adjustments: missing evidence for Apply_transform_to_polydata argument mapping (FragmentModel, AdjustTransform, AdjustedModel).'"
+            "\"Could not obtain the PelvicFracturePlanning module widget for 'btnApplyAdjust'.\""
           ],
           "keyword_arguments": {},
           "result_usage": "consumed",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "f03de500e25edddff1ec",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 28,
+            "col_offset": 7,
+            "end_lineno": 28,
+            "end_col_offset": 40
+          },
+          "call_expression": "hasattr(_widget, 'onApplyAdjust')",
+          "receiver_expression": "",
+          "method": "hasattr",
+          "arguments": [
+            "_widget",
+            "'onApplyAdjust'"
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "26e287299c82ad231e75",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 29,
+            "col_offset": 10,
+            "end_lineno": 29,
+            "end_col_offset": 128
+          },
+          "call_expression": "RuntimeError(\"PelvicFracturePlanning widget has no handler 'onApplyAdjust' for 'btnApplyAdjust'; regenerate the CLI.\")",
+          "receiver_expression": "",
+          "method": "RuntimeError",
+          "arguments": [
+            "\"PelvicFracturePlanning widget has no handler 'onApplyAdjust' for 'btnApplyAdjust'; regenerate the CLI.\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "consumed",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "3a1df35e1ed379b8fea5",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 30,
+            "col_offset": 0,
+            "end_lineno": 30,
+            "end_col_offset": 23
+          },
+          "call_expression": "_widget.onApplyAdjust()",
+          "receiver_expression": "_widget",
+          "method": "onApplyAdjust",
+          "arguments": [],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
+          "enclosing_operation": "cb_step_10"
+        },
+        {
+          "call_id": "e46ddcb4997120da99a0",
+          "template": "templates/cb_step_10.py.tpl",
+          "source_span": {
+            "lineno": 31,
+            "col_offset": 0,
+            "end_lineno": 31,
+            "end_col_offset": 98
+          },
+          "call_expression": "print(\"[PelvicFracturePlanning] Step 'cb_step_10': clicked 'btnApplyAdjust' via onApplyAdjust().\")",
+          "receiver_expression": "",
+          "method": "print",
+          "arguments": [
+            "\"[PelvicFracturePlanning] Step 'cb_step_10': clicked 'btnApplyAdjust' via onApplyAdjust().\""
+          ],
+          "keyword_arguments": {},
+          "result_usage": "discarded",
           "enclosing_operation": "cb_step_10"
         }
       ],
@@ -5999,22 +6295,386 @@
       "repair_history": []
     },
     {
-      "call_id": "0640a5be315a827ef01b",
+      "call_id": "2941c3c896a78df74ede",
       "template": "templates/cb_step_10.py.tpl",
       "source_span": {
-        "lineno": 4,
-        "col_offset": 6,
-        "end_lineno": 4,
-        "end_col_offset": 162
+        "lineno": 5,
+        "col_offset": 22,
+        "end_lineno": 5,
+        "end_col_offset": 50
       },
-      "call_expression": "RuntimeError('Cannot apply adjustments: missing evidence for Apply_transform_to_polydata argument mapping (FragmentModel, AdjustTransform, AdjustedModel).')",
+      "call_expression": "slicer.util.selectedModule()",
+      "receiver_expression": "slicer.util",
+      "method": "selectedModule",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "d1bf10653ad4eb43d2ae",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 8,
+        "col_offset": 8,
+        "end_lineno": 8,
+        "end_col_offset": 58
+      },
+      "call_expression": "slicer.util.selectModule('PelvicFracturePlanning')",
+      "receiver_expression": "slicer.util",
+      "method": "selectModule",
+      "arguments": [
+        "'PelvicFracturePlanning'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "state_change",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "84556829a773770b4c13",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 10,
+        "col_offset": 8,
+        "end_lineno": 10,
+        "end_col_offset": 100
+      },
+      "call_expression": "print(f\"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "f\"Warning: could not activate module 'PelvicFracturePlanning': {_module_enter_error}\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "58e8ae40313886023126",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 18,
+        "col_offset": 14,
+        "end_lineno": 18,
+        "end_col_offset": 67
+      },
+      "call_expression": "slicer.util.getModuleWidget('PelvicFracturePlanning')",
+      "receiver_expression": "slicer.util",
+      "method": "getModuleWidget",
+      "arguments": [
+        "'PelvicFracturePlanning'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.util",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "module",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "9431ef96c9c4df8be59a",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 23,
+        "col_offset": 18,
+        "end_lineno": 23,
+        "end_col_offset": 78
+      },
+      "call_expression": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
+      "receiver_expression": "slicer.modules.pelvicfractureplanning",
+      "method": "widgetRepresentation",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [
+        {
+          "type": "slicer.modules.pelvicfractureplanning",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        }
+      ],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "type": "slicer.modules.pelvicfractureplanning",
+          "confidence": "high",
+          "provenance": "slicer_runtime_root"
+        },
+        {
+          "kind": "live_probe",
+          "receiver_type": "qSlicerScriptedLoadableModule",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "fdaa6eb19f51264a3d96",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 23,
+        "col_offset": 18,
+        "end_lineno": 23,
+        "end_col_offset": 85
+      },
+      "call_expression": "slicer.modules.pelvicfractureplanning.widgetRepresentation().self()",
+      "receiver_expression": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
+      "method": "self",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "assigned",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "live_probe",
+          "receiver_type": "qSlicerScriptedLoadableModuleWidget",
+          "method_exists": true,
+          "effect": "read_only",
+          "source": "live_probe_success"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "99066ea225020e8c872e",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 27,
+        "col_offset": 10,
+        "end_lineno": 27,
+        "end_col_offset": 105
+      },
+      "call_expression": "RuntimeError(\"Could not obtain the PelvicFracturePlanning module widget for 'btnApplyAdjust'.\")",
       "receiver_expression": "",
       "method": "RuntimeError",
       "arguments": [
-        "'Cannot apply adjustments: missing evidence for Apply_transform_to_polydata argument mapping (FragmentModel, AdjustTransform, AdjustedModel).'"
+        "\"Could not obtain the PelvicFracturePlanning module widget for 'btnApplyAdjust'.\""
       ],
       "keyword_arguments": {},
       "result_usage": "consumed",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "f03de500e25edddff1ec",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 28,
+        "col_offset": 7,
+        "end_lineno": 28,
+        "end_col_offset": 40
+      },
+      "call_expression": "hasattr(_widget, 'onApplyAdjust')",
+      "receiver_expression": "",
+      "method": "hasattr",
+      "arguments": [
+        "_widget",
+        "'onApplyAdjust'"
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "26e287299c82ad231e75",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 29,
+        "col_offset": 10,
+        "end_lineno": 29,
+        "end_col_offset": 128
+      },
+      "call_expression": "RuntimeError(\"PelvicFracturePlanning widget has no handler 'onApplyAdjust' for 'btnApplyAdjust'; regenerate the CLI.\")",
+      "receiver_expression": "",
+      "method": "RuntimeError",
+      "arguments": [
+        "\"PelvicFracturePlanning widget has no handler 'onApplyAdjust' for 'btnApplyAdjust'; regenerate the CLI.\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "consumed",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [],
+      "effect": "read_only",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "python_builtin",
+          "source": "python_runtime_contract",
+          "method_exists": true,
+          "effect": "read_only"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "3a1df35e1ed379b8fea5",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 30,
+        "col_offset": 0,
+        "end_lineno": 30,
+        "end_col_offset": 23
+      },
+      "call_expression": "_widget.onApplyAdjust()",
+      "receiver_expression": "_widget",
+      "method": "onApplyAdjust",
+      "arguments": [],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
+      "enclosing_operation": "cb_step_10",
+      "receiver_type_candidates": [
+        {
+          "type": "NoneType",
+          "confidence": "high",
+          "provenance": "python_literal"
+        },
+        {
+          "type": "_module_widget",
+          "confidence": "high",
+          "provenance": "module_widget_accessor"
+        }
+      ],
+      "effect": "unknown",
+      "proof_status": "proven",
+      "evidence": [
+        {
+          "kind": "module_widget_handler",
+          "receiver_type": "_module_widget",
+          "method_exists": true,
+          "effect": "state_change",
+          "source": "module_widget_handler_invocation"
+        }
+      ],
+      "repair_history": []
+    },
+    {
+      "call_id": "e46ddcb4997120da99a0",
+      "template": "templates/cb_step_10.py.tpl",
+      "source_span": {
+        "lineno": 31,
+        "col_offset": 0,
+        "end_lineno": 31,
+        "end_col_offset": 98
+      },
+      "call_expression": "print(\"[PelvicFracturePlanning] Step 'cb_step_10': clicked 'btnApplyAdjust' via onApplyAdjust().\")",
+      "receiver_expression": "",
+      "method": "print",
+      "arguments": [
+        "\"[PelvicFracturePlanning] Step 'cb_step_10': clicked 'btnApplyAdjust' via onApplyAdjust().\""
+      ],
+      "keyword_arguments": {},
+      "result_usage": "discarded",
       "enclosing_operation": "cb_step_10",
       "receiver_type_candidates": [],
       "effect": "read_only",
@@ -8152,383 +8812,12 @@
       "minimal_repair": null
     }
   ],
-  "repair_trace": [
-    {
-      "attempt": 1,
-      "issue_class": "ValidationError",
-      "repair_route": "contract_aware_template_repair",
-      "template_file": "templates/cb_step_10.py.tpl",
-      "message": "validation_failure"
-    },
-    {
-      "attempt": 2,
-      "issue_class": "StubTemplate",
-      "repair_route": "contract_aware_template_repair",
-      "template_file": "templates/cb_step_10.py.tpl",
-      "message": "validation_failure"
-    }
-  ],
+  "repair_trace": [],
   "repair_strategy_history": [],
   "verify_repair": {
     "attempts": [
       {
         "attempt": 1,
-        "valid": false,
-        "issue_count": 1,
-        "issues": [
-          {
-            "issue_id": "validation_error_1",
-            "issue_type": "ValidationError",
-            "severity": "error",
-            "blocking": true,
-            "template": "templates/cb_step_10.py.tpl",
-            "diagnosis": "validation_failure",
-            "message": "validation_failure",
-            "rendered_message": "templates/cb_step_10.py.tpl: Extension function Apply_transform_to_polydata() called with 0 args, expected 3",
-            "evidence_sources": [],
-            "minimal_repair": null,
-            "issue_class": "template",
-            "template_key": "templates/cb_step_10.py.tpl",
-            "step_id": "cb_step_10",
-            "root_cause": "validation_failure",
-            "repair_strategy": "contract_aware_template_repair",
-            "repair_route": "contract_aware_template_repair",
-            "affected_artifacts": [
-              "template"
-            ],
-            "raw": {
-              "issue_id": "validation_error_1",
-              "issue_type": "ValidationError",
-              "severity": "error",
-              "blocking": true,
-              "template": "templates/cb_step_10.py.tpl",
-              "diagnosis": "validation_failure",
-              "message": "Extension function Apply_transform_to_polydata() called with 0 args, expected 3",
-              "rendered_message": "templates/cb_step_10.py.tpl: Extension function Apply_transform_to_polydata() called with 0 args, expected 3",
-              "evidence_sources": [],
-              "minimal_repair": null
-            },
-            "evidence_diagnosis": {
-              "diagnosis": "validation_failure",
-              "receiver_type": "",
-              "method_exists": null,
-              "effect": "unknown",
-              "evidence_sources": [],
-              "minimal_repair": null
-            },
-            "ladder_rung": "contract_aware_template_repair"
-          }
-        ],
-        "repair_plan": [
-          {
-            "issue_id": "validation_error_1",
-            "template_key": "templates/cb_step_10.py.tpl",
-            "step_id": "cb_step_10",
-            "strategy": "contract_aware_template_repair",
-            "route": "contract_aware_template_repair",
-            "semantic_recipe_id": ""
-          }
-        ],
-        "api_probe_result": {
-          "probed": 7,
-          "failures": [],
-          "revised": 0,
-          "syntax_skipped": [],
-          "api_probe_coverage": {
-            "resolved": [
-              {
-                "chain": "slicer.util.selectedModule",
-                "receiver_expr": "slicer.util",
-                "original_receiver_expr": "slicer.util",
-                "expanded_receiver_expr": "slicer.util",
-                "proof_kind": "live_instance",
-                "attr": "selectedModule",
-                "lineno": 5,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "module",
-                "receiver_type": "module",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.util.getModuleWidget",
-                "receiver_expr": "slicer.util",
-                "original_receiver_expr": "slicer.util",
-                "expanded_receiver_expr": "slicer.util",
-                "proof_kind": "live_instance",
-                "attr": "getModuleWidget",
-                "lineno": 18,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "module",
-                "receiver_type": "module",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.util.selectModule",
-                "receiver_expr": "slicer.util",
-                "original_receiver_expr": "slicer.util",
-                "expanded_receiver_expr": "slicer.util",
-                "proof_kind": "live_instance",
-                "attr": "selectModule",
-                "lineno": 8,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "module",
-                "receiver_type": "module",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.modules.pelvicfractureplanning.widgetRepresentation().self",
-                "receiver_expr": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
-                "original_receiver_expr": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
-                "expanded_receiver_expr": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
-                "proof_kind": "live_instance",
-                "attr": "self",
-                "lineno": 23,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "qSlicerScriptedLoadableModuleWidget",
-                "receiver_type": "qSlicerScriptedLoadableModuleWidget",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.modules.pelvicfractureplanning.widgetRepresentation",
-                "receiver_expr": "slicer.modules.pelvicfractureplanning",
-                "original_receiver_expr": "slicer.modules.pelvicfractureplanning",
-                "expanded_receiver_expr": "slicer.modules.pelvicfractureplanning",
-                "proof_kind": "live_instance",
-                "attr": "widgetRepresentation",
-                "lineno": 23,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "qSlicerScriptedLoadableModule",
-                "receiver_type": "qSlicerScriptedLoadableModule",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.mrmlScene.GetNodeByID",
-                "receiver_expr": "slicer.mrmlScene",
-                "original_receiver_expr": "slicer.mrmlScene",
-                "expanded_receiver_expr": "slicer.mrmlScene",
-                "proof_kind": "live_instance",
-                "attr": "GetNodeByID",
-                "lineno": 4,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "vtkMRMLScene",
-                "receiver_type": "vtkMRMLScene",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
-                "receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-                "original_receiver_expr": "interactionNode",
-                "expanded_receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-                "proof_kind": "live_instance",
-                "attr": "SwitchToViewTransformMode",
-                "lineno": 6,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "vtkMRMLInteractionNode",
-                "receiver_type": "vtkMRMLInteractionNode",
-                "evidence_source": "live_probe_success"
-              }
-            ],
-            "unresolved": [],
-            "skipped": []
-          }
-        },
-        "strategy_results": [
-          {
-            "strategy": "targeted_or_contract_aware_template_repair",
-            "changed": true,
-            "changed_templates": [
-              "templates/cb_step_10.py.tpl"
-            ]
-          }
-        ]
-      },
-      {
-        "attempt": 2,
-        "valid": false,
-        "issue_count": 1,
-        "issues": [
-          {
-            "issue_id": "validation_error_1",
-            "issue_type": "StubTemplate",
-            "severity": "error",
-            "blocking": true,
-            "template": "templates/cb_step_10.py.tpl",
-            "diagnosis": "validation_failure",
-            "message": "validation_failure",
-            "rendered_message": "templates/cb_step_10.py.tpl: Template reports MISSING_EVIDENCE: an extension-specific artifact could not be grounded against source evidence; re-ground against the extension's own source rather than fabricating a value.; Required template is a stub (only pass/comments/prints)",
-            "evidence_sources": [],
-            "minimal_repair": null,
-            "issue_class": "template",
-            "template_key": "templates/cb_step_10.py.tpl",
-            "step_id": "cb_step_10",
-            "root_cause": "validation_failure",
-            "repair_strategy": "contract_aware_template_repair",
-            "repair_route": "contract_aware_template_repair",
-            "affected_artifacts": [
-              "template"
-            ],
-            "raw": {
-              "issue_id": "validation_error_1",
-              "issue_type": "StubTemplate",
-              "severity": "error",
-              "blocking": true,
-              "template": "templates/cb_step_10.py.tpl",
-              "diagnosis": "validation_failure",
-              "message": "Template reports MISSING_EVIDENCE: an extension-specific artifact could not be grounded against source evidence; re-ground against the extension's own source rather than fabricating a value.; Required template is a stub (only pass/comments/prints)",
-              "rendered_message": "templates/cb_step_10.py.tpl: Template reports MISSING_EVIDENCE: an extension-specific artifact could not be grounded against source evidence; re-ground against the extension's own source rather than fabricating a value.; Required template is a stub (only pass/comments/prints)",
-              "evidence_sources": [],
-              "minimal_repair": null
-            },
-            "evidence_diagnosis": {
-              "diagnosis": "validation_failure",
-              "receiver_type": "",
-              "method_exists": null,
-              "effect": "unknown",
-              "evidence_sources": [],
-              "minimal_repair": null
-            },
-            "ladder_rung": "contract_aware_template_repair"
-          }
-        ],
-        "repair_plan": [
-          {
-            "issue_id": "validation_error_1",
-            "template_key": "templates/cb_step_10.py.tpl",
-            "step_id": "cb_step_10",
-            "strategy": "contract_aware_template_repair",
-            "route": "contract_aware_template_repair",
-            "semantic_recipe_id": ""
-          }
-        ],
-        "api_probe_result": {
-          "probed": 7,
-          "failures": [],
-          "revised": 0,
-          "syntax_skipped": [],
-          "api_probe_coverage": {
-            "resolved": [
-              {
-                "chain": "slicer.util.selectedModule",
-                "receiver_expr": "slicer.util",
-                "original_receiver_expr": "slicer.util",
-                "expanded_receiver_expr": "slicer.util",
-                "proof_kind": "live_instance",
-                "attr": "selectedModule",
-                "lineno": 5,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "module",
-                "receiver_type": "module",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.util.getModuleWidget",
-                "receiver_expr": "slicer.util",
-                "original_receiver_expr": "slicer.util",
-                "expanded_receiver_expr": "slicer.util",
-                "proof_kind": "live_instance",
-                "attr": "getModuleWidget",
-                "lineno": 18,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "module",
-                "receiver_type": "module",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.util.selectModule",
-                "receiver_expr": "slicer.util",
-                "original_receiver_expr": "slicer.util",
-                "expanded_receiver_expr": "slicer.util",
-                "proof_kind": "live_instance",
-                "attr": "selectModule",
-                "lineno": 8,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "module",
-                "receiver_type": "module",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.modules.pelvicfractureplanning.widgetRepresentation().self",
-                "receiver_expr": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
-                "original_receiver_expr": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
-                "expanded_receiver_expr": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
-                "proof_kind": "live_instance",
-                "attr": "self",
-                "lineno": 23,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "qSlicerScriptedLoadableModuleWidget",
-                "receiver_type": "qSlicerScriptedLoadableModuleWidget",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.modules.pelvicfractureplanning.widgetRepresentation",
-                "receiver_expr": "slicer.modules.pelvicfractureplanning",
-                "original_receiver_expr": "slicer.modules.pelvicfractureplanning",
-                "expanded_receiver_expr": "slicer.modules.pelvicfractureplanning",
-                "proof_kind": "live_instance",
-                "attr": "widgetRepresentation",
-                "lineno": 23,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "qSlicerScriptedLoadableModule",
-                "receiver_type": "qSlicerScriptedLoadableModule",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.mrmlScene.GetNodeByID",
-                "receiver_expr": "slicer.mrmlScene",
-                "original_receiver_expr": "slicer.mrmlScene",
-                "expanded_receiver_expr": "slicer.mrmlScene",
-                "proof_kind": "live_instance",
-                "attr": "GetNodeByID",
-                "lineno": 4,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "vtkMRMLScene",
-                "receiver_type": "vtkMRMLScene",
-                "evidence_source": "live_probe_success"
-              },
-              {
-                "chain": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
-                "receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-                "original_receiver_expr": "interactionNode",
-                "expanded_receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-                "proof_kind": "live_instance",
-                "attr": "SwitchToViewTransformMode",
-                "lineno": 6,
-                "is_attribute": false,
-                "method_exists": true,
-                "live_receiver_type": "vtkMRMLInteractionNode",
-                "receiver_type": "vtkMRMLInteractionNode",
-                "evidence_source": "live_probe_success"
-              }
-            ],
-            "unresolved": [],
-            "skipped": []
-          }
-        },
-        "strategy_results": [
-          {
-            "strategy": "targeted_or_contract_aware_template_repair",
-            "changed": true,
-            "changed_templates": [
-              "templates/cb_step_10.py.tpl"
-            ]
-          }
-        ]
-      },
-      {
-        "attempt": 3,
         "valid": true,
         "issue_count": 0,
         "issues": [],
