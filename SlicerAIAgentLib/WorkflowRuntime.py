@@ -314,9 +314,19 @@ class WorkflowRuntime:
         if instr.get("simple"):
             instructions = instr["simple"]
         instructions_detailed = instr.get("detailed", "")
+        if workflow_done:
+            # Terminal state: replace any leftover "Proceed by calling ..." text
+            # with a clear completion banner so the panel reads as finished.
+            description = (
+                f"Workflow complete — the "
+                f"{self._display_name(self.session.extension_name)} pipeline is finished."
+            )
+            instructions = ""
+            instructions_detailed = ""
         active = self.session.active or self.session.status in {"completed", "cancelled"}
 
         return {
+            "workflow_done": workflow_done,
             "active": active,
             "extension_name": self.session.extension_name,
             "workflow_title": self._display_name(self.session.extension_name),
@@ -795,13 +805,17 @@ class WorkflowRuntime:
                     }
 
             if (kind in {"until_choice", "while_choice"}
-                    and step_id == controller.get("source_step")):
+                    and step_id == controller.get("source_step")
+                    and controller.get("source_step") != block.get("terminal_step")):
                 # Pre-guard: the optional body is gated by the guard step's own
                 # choice, evaluated BEFORE the body. Decline -> skip the body and
                 # jump to the exit target (or stop when empty); accept -> enter the
-                # body. A branch_op guard is a ONE-TIME conditional (body runs
-                # once, then continues at the natural next step -- see the terminal
+                # body. A branch_op guard is a ONE-TIME conditional (body runs once,
+                # then continues at the natural next step -- see the terminal
                 # branch); a user_choice guard offers a loop-again decision there.
+                # (A loop-back block, where source == terminal, is excluded above and
+                # handled at the terminal branch so the body is CLEARED before
+                # re-entry.)
                 if self._loop_should_exit(controller, result.get("choice_value")):
                     self._mark_skip_range(
                         controller.get("source_step"), block.get("exit_step"), block
@@ -857,6 +871,38 @@ class WorkflowRuntime:
                 }
 
             if kind in {"until_choice", "while_choice"}:
+                # Decision-at-end LOOP-BACK: the terminal step IS the branch_op /
+                # user_choice the user just answered, and ACCEPT jumps BACKWARD to
+                # entry (a per-item loop, e.g. "adjust ANOTHER fragment? -> back to
+                # the select step"). Distinct from a pre-guard (source precedes the
+                # body) and the synthetic do-while (no explicit decision step). Must
+                # run BEFORE the branch_op single-pass short-circuit below, which
+                # keys on the SOURCE op type and would otherwise mis-classify
+                # source==terminal==branch_op as single-pass.
+                if controller.get("source_step") == block.get("terminal_step"):
+                    should_exit = self._loop_should_exit(controller, result.get("choice_value"))
+                    if should_exit or iteration >= max_iterations:
+                        state.update({"iteration": 0, "waiting_for_decision": False})
+                        self._sync_repeat_state(repeat_id)
+                        return {
+                            "next_step": self._step_summary(block.get("exit_step")),
+                            "repeat_limit_reached": (not should_exit) and iteration >= max_iterations,
+                            "repeat_progress": {
+                                "repeat_id": repeat_id, "current": iteration,
+                                "completed": iteration, "total": 0,
+                            },
+                        }
+                    # Accept -> loop: re-arm the body and jump back to entry.
+                    self._clear_repeat_body(block)
+                    state["iteration"] = iteration + 1
+                    self._sync_repeat_state(repeat_id)
+                    return {
+                        "next_step": self._step_summary(block.get("entry_step")),
+                        "repeat_progress": {
+                            "repeat_id": repeat_id, "current": iteration + 1,
+                            "completed": iteration, "total": 0,
+                        },
+                    }
                 # One-time conditional: a branch_op guard already decided (at the
                 # source step) whether to run this body, and the body's own action
                 # (e.g. unticking the checkbox) ends the section -- so it runs ONCE.

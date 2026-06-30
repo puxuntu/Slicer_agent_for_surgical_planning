@@ -192,21 +192,26 @@ class WidgetWorkflowMixin:
         completed = int(self._currentWorkflowUiState.get("completed_steps") or 0)
         current_index = int(self._currentWorkflowUiState.get("current_index") or 0)
 
+        workflow_done = bool(self._currentWorkflowUiState.get("workflow_done")) or \
+            self._currentWorkflowUiState.get("raw_status") in ("completed", "cancelled")
         self._workflowTitleLabel.setText(str(title))
         self._workflowStatusLabel.setText(str(status))
         if total > 0:
             self._workflowProgressBar.setRange(0, total)
             self._workflowProgressBar.setValue(max(0, min(completed, total)))
             self._workflowProgressBar.setFormat(f"{completed}/{total}")
-            step_text = f"Step {current_index or completed} of {total}"
-            repeat_progress = self._currentWorkflowUiState.get("repeat_progress") or {}
-            repeat_total = int(repeat_progress.get("total") or 0)
-            repeat_current = int(repeat_progress.get("current") or 0)
-            if repeat_total > 0 and repeat_current > 0:
-                object_label = self._currentWorkflowUiState.get("object_label") or "Item"
-                step_text += f" - {str(object_label).title()} {repeat_current} of {repeat_total}"
-            elif repeat_current > 0:
-                step_text += f" - Repeat iteration {repeat_current}"
+            if workflow_done:
+                step_text = f"Complete — {total} of {total} steps done"
+            else:
+                step_text = f"Step {current_index or completed} of {total}"
+                repeat_progress = self._currentWorkflowUiState.get("repeat_progress") or {}
+                repeat_total = int(repeat_progress.get("total") or 0)
+                repeat_current = int(repeat_progress.get("current") or 0)
+                if repeat_total > 0 and repeat_current > 0:
+                    object_label = self._currentWorkflowUiState.get("object_label") or "Item"
+                    step_text += f" - {str(object_label).title()} {repeat_current} of {repeat_total}"
+                elif repeat_current > 0:
+                    step_text += f" - Repeat iteration {repeat_current}"
             self._workflowStepLabel.setText(step_text)
             self._workflowStepLabel.setVisible(True)
         else:
@@ -226,9 +231,15 @@ class WidgetWorkflowMixin:
         brief = simple if (detailed and simple and simple.strip() != detailed.strip()) else ""
         self._workflowActionLabel.setText(str(description))
         self._workflowActionLabel.setVisible(bool(description))
-        self._workflowInstructionLabel.setText(str(primary))
-        self._workflowInstructionLabel.setVisible(bool(primary))
-        self._renderWorkflowDetails(brief)
+        if workflow_done:
+            # Terminal state: show only the completion banner (the action label);
+            # no per-step instruction / brief toggle.
+            self._workflowInstructionLabel.setVisible(False)
+            self._renderWorkflowDetails("")
+        else:
+            self._workflowInstructionLabel.setText(str(primary))
+            self._workflowInstructionLabel.setVisible(bool(primary))
+            self._renderWorkflowDetails(brief)
 
         self._renderWorkflowChoices(self._currentWorkflowUiState)
         self._updateReplayControls(self._currentWorkflowUiState)

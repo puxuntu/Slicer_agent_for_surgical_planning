@@ -392,6 +392,51 @@ class WorkflowTestsMixin:
 
         self.delayDisplay("branch_op routes through the pre-guard like user_choice")
 
+    def test_LoopBackBranchRepeatsBody(self):
+        """A decision-at-end loop-back (source==terminal, backward entry) repeats its
+        body on ACCEPT (clearing it for re-run) and exits forward on DECLINE -- the
+        per-fragment loop (step 10 'jump to step 8')."""
+        import importlib
+        wf_mod = importlib.import_module("SlicerAIAgentLib.WorkflowRuntime")
+        WorkflowRuntime = wf_mod.WorkflowRuntime
+        WorkflowSession = wf_mod.WorkflowSession
+
+        ci = {"choices": [{"label": "Yes", "value": True}, {"label": "No", "value": False}],
+              "default_value": False}
+        graph = {"steps": [
+            {"step_id": "cb_step_8", "operation_type": "user_choice"},
+            {"step_id": "cb_step_9", "operation_type": "user_interaction"},
+            {"step_id": "cb_step_10", "operation_type": "branch_op", "choice_info": dict(ci)},
+            {"step_id": "cb_step_11", "operation_type": "extension_op"},
+        ], "repeat_blocks": [
+            {"repeat_id": "lb", "body_steps": ["cb_step_8", "cb_step_9", "cb_step_10"],
+             "entry_step": "cb_step_8", "terminal_step": "cb_step_10", "exit_step": "cb_step_11",
+             "controller": {"kind": "until_choice", "source_step": "cb_step_10",
+                            "loop_back": True, "prompt": "Adjust another?", "exit_value": False},
+             "max_iterations": 20}]}
+        orig = wf_mod.get_workflow_graph
+        wf_mod.get_workflow_graph = lambda e: graph
+        try:
+            # ACCEPT (Yes) -> loop back to entry; body cleared for re-run.
+            r = WorkflowRuntime()
+            r.session = WorkflowSession(extension_name="FB", tool_name="FB", workflow_id="w")
+            r.session.completed_steps = ["cb_step_8", "cb_step_9", "cb_step_10"]
+            t = r._repeat_transition_after_completion(
+                "cb_step_10", {"type": "choice_made", "step_id": "cb_step_10", "choice_value": True})
+            self.assertEqual(t["next_step"]["step_id"], "cb_step_8")
+            self.assertNotIn("cb_step_8", r.session.completed_steps)
+            self.assertNotIn("cb_step_10", r.session.completed_steps)
+            # DECLINE (No) -> exit forward to cb_step_11.
+            r2 = WorkflowRuntime()
+            r2.session = WorkflowSession(extension_name="FB", tool_name="FB", workflow_id="w2")
+            r2.session.completed_steps = ["cb_step_8", "cb_step_9", "cb_step_10"]
+            t2 = r2._repeat_transition_after_completion(
+                "cb_step_10", {"type": "choice_made", "step_id": "cb_step_10", "choice_value": False})
+            self.assertEqual(t2["next_step"]["step_id"], "cb_step_11")
+        finally:
+            wf_mod.get_workflow_graph = orig
+        self.delayDisplay("loop-back: accept repeats the body, decline exits forward")
+
     def test_BranchOpBodyRunsOnceNoLoopAgain(self):
         """A branch_op conditional is single-pass: after the body's terminal step
         the workflow continues at the natural next step -- NO loop-again "repeat?"
@@ -541,6 +586,10 @@ class WorkflowTestsMixin:
             self.assertIsNone(state.get("current_step"))
             self.assertEqual(state.get("choices"), [])
             self.assertEqual(state.get("current_index"), state.get("total_steps"))
+            # Clear completion banner (not the stale "Proceed by calling ..." text).
+            self.assertTrue(state.get("workflow_done"))
+            self.assertIn("complete", (state.get("description") or "").lower())
+            self.assertNotIn("proceed by calling", (state.get("description") or "").lower())
         finally:
             wf_mod.get_workflow_graph = orig
         self.delayDisplay("Completed workflow clears the decided step + its choices")

@@ -998,7 +998,7 @@ class AnalyzerStage4DecompositionMixin:
         if not isinstance(repeats, list):
             errors.append("repeat_blocks must be a list")
             repeats = []
-        used = set()
+        used_ranges = []  # (lo, hi) ordered-position spans of prior repeat bodies
         repeat_ids = set()
         ordered_numbers = sorted(expected)
         for index, block in enumerate(repeats):
@@ -1021,9 +1021,14 @@ class AnalyzerStage4DecompositionMixin:
             positions = [ordered_numbers.index(value) for value in body_numbers]
             if positions != list(range(min(positions), max(positions) + 1)):
                 errors.append(f"{label} body_steps must be ordered and contiguous")
-            if used.intersection(body_numbers):
-                errors.append(f"{label} overlaps another repeat block")
-            used.update(body_numbers)
+            _lo, _hi = min(positions), max(positions)
+            for _blo, _bhi in used_ranges:
+                # Allow disjoint OR fully-contained (nested) bodies; reject crossing.
+                _disjoint = _hi < _blo or _lo > _bhi
+                _contained = (_lo >= _blo and _hi <= _bhi) or (_blo >= _lo and _bhi <= _hi)
+                if not (_disjoint or _contained):
+                    errors.append(f"{label} crossing/partial overlap with another repeat block")
+            used_ranges.append((_lo, _hi))
             controller = block.get("controller")
             if not isinstance(controller, dict):
                 errors.append(f"{label} requires controller")
@@ -1221,6 +1226,67 @@ class AnalyzerStage4DecompositionMixin:
                     "confidence": block.get("confidence"),
                 },
             })
+
+        # Synthesize a do-while LOOP-BACK block for any branch_op step whose ACCEPT
+        # clause jumps BACKWARD ("If ..., jump to step N", N < this step) -- a
+        # per-item loop (e.g. "adjust ANOTHER fragment? -> back to the select step").
+        # The LLM drops such backward jumps (only forward jump/stop pre-guards are
+        # modeled), so synthesize deterministically. The decision step needs no code
+        # template (a pure Yes/No, rendered via its branch_op choice_info); the
+        # runtime loop-back transition keys on source_step == terminal_step.
+        import re as _re_loop
+        _existing_terminals = {b.get("terminal_step") for b in repeat_blocks}
+        for _cb in cookbook_def.steps:
+            if (getattr(_cb, "operation_type", "") or "") != "branch_op":
+                continue
+            _low = (getattr(_cb, "description", "") or "").lower()
+            _parts = _low.split("if not", 1)
+            _accept_clause = _parts[0]
+            _decline_clause = _parts[1] if len(_parts) > 1 else ""
+            if "jump" not in _accept_clause:
+                continue
+            _am = _re_loop.search(r"step\s+(\d+)", _accept_clause)
+            _accept = int(_am.group(1)) if _am else None
+            if _accept is None or _accept >= _cb.step_number:
+                continue  # not a BACKWARD jump -> not a loop-back
+            _this = _cb.step_number
+            _term = f"cb_step_{_this}"
+            if _term in _existing_terminals:
+                continue
+            _body = [n for n in step_numbers if _accept <= n <= _this]
+            if not _body or _body[0] != _accept or _body[-1] != _this:
+                continue
+            if "stop" in _decline_clause:
+                _exit_step, _exit_target = "", "stop"
+            else:
+                _dm = _re_loop.search(r"step\s+(\d+)", _decline_clause)
+                _decl = int(_dm.group(1)) if _dm else None
+                if _decl is not None and _decl in step_numbers:
+                    _exit_step, _exit_target = f"cb_step_{_decl}", _decl
+                elif step_numbers.index(_this) + 1 < len(step_numbers):
+                    _nx = step_numbers[step_numbers.index(_this) + 1]
+                    _exit_step, _exit_target = f"cb_step_{_nx}", _nx
+                else:
+                    _exit_step, _exit_target = "", "stop"
+            repeat_blocks.append({
+                "repeat_id": f"loop_back_step_{_this}",
+                "body_steps": [f"cb_step_{n}" for n in _body],
+                "entry_step": f"cb_step_{_accept}",
+                "terminal_step": _term,
+                "exit_step": _exit_step,
+                "controller": {
+                    "kind": "until_choice",
+                    "source_step": _term,
+                    "loop_back": True,
+                    "prompt": (getattr(_cb, "description", "") or "").strip() or "Repeat this section?",
+                    "exit_value": False,
+                    "exit_target": _exit_target,
+                },
+                "max_iterations": 20,
+                "inference": {"source": "backward_jump_loop_synthesis", "confidence": "high"},
+            })
+            _existing_terminals.add(_term)
+
         return {
             "stages": stages,
             "stage_count": len(stages),

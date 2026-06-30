@@ -751,7 +751,7 @@ class AnalyzerWorkflowContractsMixin:
             for step in workflow_graph.get("steps", []) or []
             if step.get("step_id")
         ]
-        used_steps = set()
+        used_ranges = []  # (lo, hi) ordered-index spans of prior repeat bodies
         repeat_ids = set()
         for block in workflow_graph.get("repeat_blocks", []) or []:
             repeat_id = block.get("repeat_id", "")
@@ -766,9 +766,18 @@ class AnalyzerWorkflowContractsMixin:
             indexes = [ordered_ids.index(step_id) for step_id in body_steps]
             if indexes != list(range(min(indexes), max(indexes) + 1)):
                 raise RuntimeError(f"{repeat_id}: repeat body must be contiguous and ordered")
-            if used_steps.intersection(body_steps):
-                raise RuntimeError(f"{repeat_id}: overlapping repeat bodies are not supported")
-            used_steps.update(body_steps)
+            lo, hi = min(indexes), max(indexes)
+            for blo, bhi in used_ranges:
+                # Allow disjoint OR fully-contained (nested) bodies -- a loop inside
+                # a one-time conditional is legitimate control flow. Reject only a
+                # crossing/partial overlap.
+                disjoint = hi < blo or lo > bhi
+                contained = (lo >= blo and hi <= bhi) or (blo >= lo and bhi <= hi)
+                if not (disjoint or contained):
+                    raise RuntimeError(
+                        f"{repeat_id}: crossing/partial overlap of repeat bodies is not supported"
+                    )
+            used_ranges.append((lo, hi))
             if block.get("entry_step") != body_steps[0]:
                 raise RuntimeError(f"{repeat_id}: entry_step must be the first body step")
             if block.get("terminal_step") != body_steps[-1]:
@@ -798,10 +807,19 @@ class AnalyzerWorkflowContractsMixin:
                     raise RuntimeError(f"{repeat_id}: until/while controller requires a source step")
                 if _operation_type_for_step(by_step[source_step]) not in ("user_choice", "branch_op"):
                     raise RuntimeError(f"{repeat_id}: until/while controller source must be user_choice or branch_op")
-                if source_step in body_steps:
-                    raise RuntimeError(f"{repeat_id}: until/while controller source cannot be in its body")
-                if ordered_ids.index(source_step) >= ordered_ids.index(body_steps[0]):
-                    raise RuntimeError(f"{repeat_id}: until/while controller source must precede its body")
+                # Decision-at-end LOOP-BACK: the decision IS the terminal step and
+                # accept jumps backward to entry (a per-item loop). Its source is in
+                # the body (the last step), so skip the pre-guard "source precedes
+                # body" checks; the forward/stop exit is still validated below.
+                is_loop_back = source_step == block.get("terminal_step") or bool(controller.get("loop_back"))
+                if is_loop_back:
+                    if source_step != block.get("terminal_step"):
+                        raise RuntimeError(f"{repeat_id}: loop_back controller source must be the terminal step")
+                else:
+                    if source_step in body_steps:
+                        raise RuntimeError(f"{repeat_id}: until/while controller source cannot be in its body")
+                    if ordered_ids.index(source_step) >= ordered_ids.index(body_steps[0]):
+                        raise RuntimeError(f"{repeat_id}: until/while controller source must precede its body")
                 # A jump/exit target (when set) must come after the body (forward),
                 # never inside it (an "" exit_step means stop -> end of workflow).
                 if exit_step:

@@ -261,6 +261,48 @@ class AnalyzerContractsMixin:
 
         self.delayDisplay("Pre-guard repeat-block validation (source_step + forward exit)")
 
+    def test_LoopBackBlockValidation(self):
+        """A decision-at-end loop-back (source==terminal) validates and may be NESTED
+        inside a pre-guard block (containment); a loop_back source that isn't the
+        terminal, and a crossing overlap, are rejected."""
+        from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
+
+        steps = [
+            {"step_id": "cb_step_7", "operation_type": "branch_op"},
+            {"step_id": "cb_step_8", "operation_type": "user_choice"},
+            {"step_id": "cb_step_9", "operation_type": "user_interaction"},
+            {"step_id": "cb_step_10", "operation_type": "branch_op"},
+            {"step_id": "cb_step_11", "operation_type": "extension_op"},
+            {"step_id": "cb_step_12", "operation_type": "extension_op"},
+        ]
+        by_step = {s["step_id"]: s for s in steps}
+
+        def block(rid, body, entry, term, exit_step, source, **ctrl):
+            c = {"kind": "until_choice", "prompt": "?", "source_step": source, "exit_value": False}
+            c.update(ctrl)
+            return {"repeat_id": rid, "body_steps": body, "entry_step": entry,
+                    "terminal_step": term, "exit_step": exit_step, "max_iterations": 20, "controller": c}
+
+        preguard = block("pg", ["cb_step_8", "cb_step_9", "cb_step_10", "cb_step_11"],
+                         "cb_step_8", "cb_step_11", "cb_step_12", "cb_step_7")
+        loopback = block("lb", ["cb_step_8", "cb_step_9", "cb_step_10"],
+                         "cb_step_8", "cb_step_10", "cb_step_11", "cb_step_10", loop_back=True)
+        # Valid: pre-guard with a NESTED loop-back (containment allowed).
+        ExtensionCLIAnalyzer._validate_repeat_block_graph(
+            {"steps": steps, "repeat_blocks": [preguard, loopback]}, by_step)
+        # Invalid: loop_back source is not the terminal step.
+        bad = block("bad", ["cb_step_8", "cb_step_9", "cb_step_10"],
+                    "cb_step_8", "cb_step_10", "cb_step_11", "cb_step_9", loop_back=True)
+        with self.assertRaises(RuntimeError):
+            ExtensionCLIAnalyzer._validate_repeat_block_graph({"steps": steps, "repeat_blocks": [bad]}, by_step)
+        # Invalid: crossing/partial overlap (bodies [8,9,10] and [9,10,11] cross).
+        c1 = block("c1", ["cb_step_8", "cb_step_9", "cb_step_10"], "cb_step_8", "cb_step_10", "cb_step_12", "cb_step_7")
+        c2 = block("c2", ["cb_step_9", "cb_step_10", "cb_step_11"], "cb_step_9", "cb_step_11", "cb_step_12", "cb_step_8")
+        with self.assertRaises(RuntimeError):
+            ExtensionCLIAnalyzer._validate_repeat_block_graph({"steps": steps, "repeat_blocks": [c1, c2]}, by_step)
+
+        self.delayDisplay("loop-back validates; nested OK; non-terminal source + crossing rejected")
+
     def test_BranchOpOpTypePlumbing(self):
         """branch_op is registered across the op-type taxonomy and maps to the
         user_choice execution category."""
