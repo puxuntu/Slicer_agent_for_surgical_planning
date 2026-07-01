@@ -490,80 +490,95 @@ class AnalyzerScanMixin:
             return []
 
         connections = []
-        # Find the setup() method
+        # Scan every widget class in the source. Signal connections may be wired in
+        # setup() or in a helper it delegates to (e.g. _buildGui, setupUi), so discovery
+        # is class-wide rather than restricted to the setup() method.
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
-                for item in node.body:
-                    if isinstance(item, ast.FunctionDef) and item.name == "setup":
-                        connections = self._find_clicked_connections(item, node)
+                connections.extend(self._find_clicked_connections(node))
 
         return connections
 
-    def _find_clicked_connections(self, setup_node, class_node) -> List[Dict]:
-        """Find common Qt signal connect(self.XXX) patterns in setup()."""
+    def _find_clicked_connections(self, class_node) -> List[Dict]:
+        """Find common Qt signal connect(self.XXX) patterns across the widget class.
+
+        Scans every method of the class rather than only setup(), so connections wired
+        in a helper that setup() delegates to (e.g. _buildGui, setupUi) are still found.
+        Duplicate connections (the same control re-wired in more than one method) are
+        collapsed on (button, signal, handler).
+        """
         connections = []
+        seen = set()
         # Build handler→logic_method map from all methods in the class
         handler_logic_map = {}
         for item in class_node.body:
-            if isinstance(item, ast.FunctionDef):
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 logic_calls = self._find_logic_calls_in_method(item)
                 if logic_calls:
                     handler_logic_map[item.name] = logic_calls
 
-        for stmt in ast.walk(setup_node):
-            if not isinstance(stmt, ast.Call):
+        _SUPPORTED_SIGNALS = {
+            "clicked", "toggled", "stateChanged", "valueChanged",
+            "currentTextChanged", "currentIndexChanged", "textActivated",
+            "checkBoxToggled", "currentNodeChanged",
+        }
+
+        for method_node in class_node.body:
+            if not isinstance(method_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            func = stmt.func
-            if not isinstance(func, ast.Attribute):
-                continue
-            if func.attr != "connect":
-                continue
+            for stmt in ast.walk(method_node):
+                if not isinstance(stmt, ast.Call):
+                    continue
+                func = stmt.func
+                if not isinstance(func, ast.Attribute):
+                    continue
+                if func.attr != "connect":
+                    continue
 
-            button_name = ""
-            handler_name = ""
-            signal_name = ""
+                button_name = ""
+                handler_name = ""
+                signal_name = ""
 
-            # Pattern 1: something.clicked.connect(self.handlerMethod)
-            # Also supports stateChanged/valueChanged/currentTextChanged/etc.
-            receiver = func.value
-            _SUPPORTED_SIGNALS = {
-                "clicked", "toggled", "stateChanged", "valueChanged",
-                "currentTextChanged", "currentIndexChanged", "textActivated",
-                "checkBoxToggled", "currentNodeChanged",
-            }
-            if isinstance(receiver, ast.Attribute) and receiver.attr in _SUPPORTED_SIGNALS:
-                button_name = self._get_attribute_chain(receiver.value)
-                signal_name = receiver.attr
-                if stmt.args:
-                    arg = stmt.args[0]
-                    if isinstance(arg, ast.Attribute) and isinstance(arg.value, ast.Name):
-                        if arg.value.id == "self":
-                            handler_name = arg.attr
+                # Pattern 1: something.clicked.connect(self.handlerMethod)
+                # Also supports stateChanged/valueChanged/currentTextChanged/etc.
+                receiver = func.value
+                if isinstance(receiver, ast.Attribute) and receiver.attr in _SUPPORTED_SIGNALS:
+                    button_name = self._get_attribute_chain(receiver.value)
+                    signal_name = receiver.attr
+                    if stmt.args:
+                        arg = stmt.args[0]
+                        if isinstance(arg, ast.Attribute) and isinstance(arg.value, ast.Name):
+                            if arg.value.id == "self":
+                                handler_name = arg.attr
 
-            # Pattern 2: something.connect('clicked(bool)', self.handlerMethod)
-            #            something.connect("stateChanged(int)", self.handlerMethod)
-            if not button_name and stmt.args:
-                first_arg = stmt.args[0]
-                if (isinstance(first_arg, ast.Constant)
-                        and isinstance(first_arg.value, str)
-                        and any(sig in first_arg.value for sig in _SUPPORTED_SIGNALS)):
-                    button_name = self._get_attribute_chain(func.value)
-                    signal_name = first_arg.value
-                    if len(stmt.args) > 1:
-                        second_arg = stmt.args[1]
-                        if isinstance(second_arg, ast.Attribute) and isinstance(second_arg.value, ast.Name):
-                            if second_arg.value.id == "self":
-                                handler_name = second_arg.attr
+                # Pattern 2: something.connect('clicked(bool)', self.handlerMethod)
+                #            something.connect("stateChanged(int)", self.handlerMethod)
+                if not button_name and stmt.args:
+                    first_arg = stmt.args[0]
+                    if (isinstance(first_arg, ast.Constant)
+                            and isinstance(first_arg.value, str)
+                            and any(sig in first_arg.value for sig in _SUPPORTED_SIGNALS)):
+                        button_name = self._get_attribute_chain(func.value)
+                        signal_name = first_arg.value
+                        if len(stmt.args) > 1:
+                            second_arg = stmt.args[1]
+                            if isinstance(second_arg, ast.Attribute) and isinstance(second_arg.value, ast.Name):
+                                if second_arg.value.id == "self":
+                                    handler_name = second_arg.attr
 
-            if button_name and handler_name:
-                logic_methods = handler_logic_map.get(handler_name, [])
-                bare_name = button_name.split(".")[-1] if button_name else ""
-                connections.append({
-                    "button_widget_name": bare_name,
-                    "signal": signal_name,
-                    "handler_method": handler_name,
-                    "logic_methods": logic_methods,
-                })
+                if button_name and handler_name:
+                    bare_name = button_name.split(".")[-1] if button_name else ""
+                    key = (bare_name, signal_name, handler_name)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    logic_methods = handler_logic_map.get(handler_name, [])
+                    connections.append({
+                        "button_widget_name": bare_name,
+                        "signal": signal_name,
+                        "handler_method": handler_name,
+                        "logic_methods": logic_methods,
+                    })
 
         return connections
 

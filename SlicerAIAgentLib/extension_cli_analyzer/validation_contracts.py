@@ -492,7 +492,11 @@ class AnalyzerValidationContractsMixin:
         raw_code: Optional[str] = None,
     ) -> Dict:
         """Validate workflow-level contracts that CodeValidator cannot know."""
-        result = {"errors": [], "warnings": []}
+        # issue_types maps a bare error message -> the semantic issue class known
+        # at the point of emission. Downstream issue synthesis honors this instead
+        # of re-guessing the class from message text, so contract-level defects
+        # route to the contract-rebuild lane rather than template-only repair.
+        result = {"errors": [], "warnings": [], "issue_types": {}}
         if not context:
             return result
 
@@ -525,10 +529,17 @@ class AnalyzerValidationContractsMixin:
                 and code_has_slicer_api
                 and not drives_widget_handler
             ):
-                result["errors"].append(
+                _extension_op_slicer_api_msg = (
                     "extension_op without an extension method contains Slicer API calls; "
                     "classify it as slicer_op or bind it to an extension parameter role"
                 )
+                result["errors"].append(_extension_op_slicer_api_msg)
+                # This is an operation-type classification defect (the step is typed
+                # extension_op but has no bindable extension callable), not a template
+                # code bug. Declare it as a contract issue so repair escalates to
+                # contract re-derivation, which can reclassify or bind a widget
+                # handler -- template-only repair cannot change the classification.
+                result["issue_types"][_extension_op_slicer_api_msg] = "ContractConflict"
 
         operation_model = gen.get("operation_model") or {}
         if code_has_slicer_api and not (

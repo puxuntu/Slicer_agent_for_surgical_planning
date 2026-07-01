@@ -260,6 +260,11 @@ Return ONLY the sentence, nothing else.""")
             "per_template": {},
             "validation_issues": [],
         }
+        # Bare validator messages whose semantic class the emitting contract check
+        # already knows (message -> issue_type). Honored during issue synthesis so a
+        # declared class wins over message-text guessing (general routing, no per-
+        # error-string rule in the classifier).
+        contract_issue_types = {}
 
         self._sync_template_contracts(templates, generators)
         template_context = self._build_template_validation_context(generators)
@@ -337,6 +342,9 @@ Return ONLY the sentence, nothing else.""")
                 tpl_name, sample_code, template_context.get(tpl_name), templates,
                 raw_code=tpl_content,
             )
+            for _msg, _itype in (contract.get("issue_types") or {}).items():
+                if _msg:
+                    contract_issue_types[_msg] = _itype
             if isinstance(self._workflow_metadata, dict):
                 gen_for_debug = template_context.get(tpl_name, {}).get("generator", {})
                 self._workflow_metadata.setdefault("semantic_contracts", {})[tpl_name] = {
@@ -512,9 +520,17 @@ Return ONLY the sentence, nothing else.""")
                     if prefix.endswith((".py.tpl", ".py")) or prefix.startswith("templates/"):
                         template = prefix
                         message = remainder
+                # Prefer the class the validator declared at emission (e.g. an
+                # operation-type classification defect -> ContractConflict); fall back
+                # to message-text classification only for untagged messages.
+                issue_type = next(
+                    (itype for msg, itype in contract_issue_types.items()
+                     if msg and msg in raw_message),
+                    None,
+                ) or self._classify_validation_issue(raw_message)
                 results["validation_issues"].append({
                     "issue_id": f"validation_{severity}_{index + 1}",
-                    "issue_type": self._classify_validation_issue(raw_message),
+                    "issue_type": issue_type,
                     "severity": severity,
                     "blocking": severity == "error",
                     "template": template,

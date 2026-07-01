@@ -27,8 +27,7 @@ class AnalyzerStage4DecompositionMixin:
 
         for conn in getattr(self, "_widget_connections", []) or []:
             btn_name = _text_or_empty(conn.get("button_widget_name"))
-            btn_text = btn_name.lower().replace("_", " ").replace(".", " ")
-            btn_words = [w for w in btn_text.split() if len(w) > 3]
+            btn_words = self._widget_name_tokens(btn_name)
             if not btn_words:
                 continue
             hits = [w for w in btn_words if w in desc_lower]
@@ -207,6 +206,24 @@ class AnalyzerStage4DecompositionMixin:
     def _evidence_has(evidence: Dict[str, Any], key: str) -> bool:
         value = evidence.get(key, [])
         return isinstance(value, list) and bool(value)
+
+    @staticmethod
+    def _widget_name_tokens(name: str) -> List[str]:
+        """Tokenize a Qt widget variable name into lowercase words for matching
+        against cookbook step text.
+
+        Splits camelCase and snake_case (``addRoiButton`` -> ``add``, ``roi``),
+        drops generic widget-suffix words, and keeps tokens of length >= 3. Without
+        the camelCase split a name like ``addRoiButton`` stays one token that never
+        matches the spaced description "Add ROI button". Reuses the camelCase-split
+        idiom already used for extension names in this module.
+        """
+        _stopwords = {
+            "button", "btn", "push", "tool", "widget", "the", "and", "for",
+        }
+        spaced = _re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', _text_or_empty(name))
+        spaced = spaced.replace("_", " ").replace(".", " ").lower()
+        return [w for w in spaced.split() if len(w) >= 3 and w not in _stopwords]
 
     @staticmethod
     def _has_explicit_ui_parameter_state(final_state: Dict[str, Any]) -> bool:
@@ -1541,6 +1558,9 @@ class AnalyzerStage4DecompositionMixin:
                 sub_op["extension_method_hint"] = logic_methods[0]
             sub_op["evidence_type"] = "widget_connection"
             sub_op["evidence_id"] = widget.get("button_widget_name")
+            # Record the widget so the deterministic handler-drive template can fire
+            # (button with no logic method → getModuleWidget(...).<handler>()).
+            sub_op["widget_name"] = widget.get("button_widget_name")
             return
         matched = self._match_description_to_method(desc_lower, method_names)
         if matched:
@@ -1950,6 +1970,7 @@ class AnalyzerStage4DecompositionMixin:
                             so["extension_method_hint"] = logic_methods[0]
                         so["evidence_type"] = "widget_connection"
                         so["evidence_id"] = widget.get("button_widget_name")
+                        so["widget_name"] = widget.get("button_widget_name")
                         so["confidence"] = "high"
                     elif self._evidence_has(step_evidence, "ui_control_candidates"):
                         so["evidence_type"] = "ui_control"
@@ -2076,10 +2097,10 @@ class AnalyzerStage4DecompositionMixin:
                         continue
                     desc_lower = _text_or_empty(so.get("description")).lower()
                     for conn in self._widget_connections:
-                        btn_name = _text_or_empty(conn.get("button_widget_name")).lower()
                         logic_methods = conn.get("logic_methods", [])
                         # Extract significant words from button name for matching
-                        btn_words = [w for w in btn_name.replace("_", " ").replace(".", " ").split() if len(w) > 3]
+                        # (camelCase-aware: 'addRoiButton' -> ['add', 'roi']).
+                        btn_words = self._widget_name_tokens(conn.get("button_widget_name"))
                         if not btn_words:
                             continue
                         match_count = sum(1 for w in btn_words if w in desc_lower)
@@ -2090,6 +2111,7 @@ class AnalyzerStage4DecompositionMixin:
                             so["slicer_api_keywords"] = []
                             so["evidence_type"] = "widget_connection"
                             so["evidence_id"] = conn.get("button_widget_name", "")
+                            so["widget_name"] = conn.get("button_widget_name", "")
                             so["confidence"] = "high"
                             logger.info(
                                 "[Stage 4] Reclassified step %d slicer_op → extension_op "
