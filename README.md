@@ -1,4 +1,4 @@
-# SlicerAIAgent
+# SlicerAIAgent4SurgicalPlaning
 
 An AI-powered assistant for [3D Slicer](https://www.slicer.org/) that turns natural language into executable scene manipulation. Clinicians state their intent; the agent grounds it against the Slicer knowledge base, plans the steps, generates safe Python code, and runs it directly inside the application.
 
