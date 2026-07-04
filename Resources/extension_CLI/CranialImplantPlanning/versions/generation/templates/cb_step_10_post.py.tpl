@@ -1,4 +1,4 @@
-# --- CranialImplantPlanning: Manually adjust the boundary of the ROI to keep the skull part. (Done) ---
+# --- CranialImplantPlanning: Manually adjust the boundaries of the ROI to retain the skull portion. (Done) ---
 import slicer
 
 interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")

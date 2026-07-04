@@ -2,118 +2,14 @@
   "steps": [
     {
       "step_id": "cb_step_1",
-      "operation_type": "slicer_op",
-      "description": "In the \"Segmentation Editor\" module, create new segmentation as \"Cranial_Segmentation\".",
-      "depends_on": [],
-      "sub_operations": [
-        {
-          "op_type": "slicer_op",
-          "operation_type": "slicer_op",
-          "description": "Create a new segmentation node with name 'Cranial_Segmentation'",
-          "extension_method_hint": null,
-          "extension_function_hint": null,
-          "widget_name": null,
-          "ui_parameter_binding": null,
-          "target_value": null,
-          "target_value_mode": null,
-          "slicer_op_category": "generic_slicer_api",
-          "slicer_api_keywords": [
-            "vtkMRMLSegmentationNode",
-            "AddNewNodeByClass",
-            "CreateNewSegmentation"
-          ],
-          "interaction_kind": "none",
-          "interaction_type": null,
-          "node_class": "vtkMRMLSegmentationNode",
-          "creates_node": true,
-          "requires_place_mode": false,
-          "setup_dependencies": [],
-          "placement_instructions": null,
-          "min_control_points": 0,
-          "is_optional": false,
-          "operation_intents": [],
-          "node_roles": [
-            {
-              "role_kind": "extension_output",
-              "node_class": "vtkMRMLSegmentationNode",
-              "parameter_name": "",
-              "step_id": "cb_step_1"
-            }
-          ],
-          "confidence": "high",
-          "evidence_type": "llm_semantic_decomposition",
-          "evidence_id": ""
-        }
-      ],
-      "node_roles": [
-        {
-          "role_kind": "extension_output",
-          "node_class": "vtkMRMLSegmentationNode",
-          "parameter_name": "",
-          "step_id": "cb_step_1"
-        }
-      ],
-      "operation_model": {
-        "step_type": "slicer_op",
-        "op_types": [
-          "slicer_op"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": true,
-        "implementation_uses_slicer_api": true,
-        "allow_module_switch": false,
-        "produces_interaction_state": false,
-        "interaction_kinds": []
-      },
-      "ui_guidance": {
-        "title": "Create Cranial Segmentation",
-        "instruction": "Open Segmentation Editor module, create new segmentation named 'Cranial_Segmentation'.",
-        "done_label": "Done",
-        "choice_label": "",
-        "input_label": "",
-        "object_label": "segmentation",
-        "repeat": {}
-      },
-      "code_template": "templates/cb_step_1_slicer.py.tpl",
-      "api_evidence": {
-        "source": "ground_api",
-        "accepted_footprints": [
-          "AddNewNodeByClass",
-          "GetName",
-          "mrmlScene",
-          "vtkMRMLSegmentationNode"
-        ],
-        "api_chains": [
-          "segmentationNode.GetName",
-          "slicer.mrmlScene.AddNewNodeByClass"
-        ],
-        "operation_descriptions": [
-          "Create a new segmentation node with name 'Cranial_Segmentation'"
-        ],
-        "slicer_op_categories": [
-          "generic_slicer_api"
-        ],
-        "slicer_api_keywords": [
-          "vtkMRMLSegmentationNode",
-          "AddNewNodeByClass",
-          "CreateNewSegmentation"
-        ]
-      }
-    },
-    {
-      "step_id": "cb_step_2",
       "operation_type": "user_choice",
-      "description": "In the \"Sourve Volume\" selection section of \"Segmentation Editor\" module, choose the volume for segmentation.",
-      "depends_on": [
-        "cb_step_1"
-      ],
+      "description": "In the \"Segment Editor\" module, under the \"Source Volume\" selection section, choose the volume for segmentation.",
+      "depends_on": [],
       "sub_operations": [
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Select the source volume for segmentation",
+          "description": "Choose source volume for segmentation",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -124,7 +20,7 @@
           "slicer_api_keywords": [],
           "interaction_kind": "none",
           "interaction_type": null,
-          "node_class": null,
+          "node_class": "vtkMRMLVolumeNode",
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [],
@@ -137,15 +33,15 @@
               "role_kind": "choice_input",
               "node_class": "vtkMRMLVolumeNode",
               "parameter_name": "",
-              "step_id": "cb_step_2"
+              "step_id": "cb_step_1"
             }
           ],
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "Choose the volume for segmentation.",
+          "question": "Choose the source volume for segmentation",
           "choices": [],
-          "parameter_name": "inputVolume",
+          "parameter_name": "sourceVolume",
           "default_value": null,
           "value_kind": "node"
         }
@@ -155,13 +51,13 @@
           "role_kind": "choice_input",
           "node_class": "vtkMRMLVolumeNode",
           "parameter_name": "",
-          "step_id": "cb_step_2"
+          "step_id": "cb_step_1"
         }
       ],
       "choice_info": {
-        "question": "Choose the volume for segmentation.",
+        "question": "Choose the source volume for segmentation",
         "choices": [],
-        "parameter_name": "inputVolume",
+        "parameter_name": "sourceVolume",
         "default_value": null
       },
       "operation_model": {
@@ -179,8 +75,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Select Source Volume",
-        "instruction": "Pick the volume to use for segmentation.",
+        "title": "Choose source volume",
+        "instruction": "Select a volume for segmentation.",
         "done_label": "Done",
         "choice_label": "Volume",
         "input_label": "Choice",
@@ -189,17 +85,17 @@
       }
     },
     {
-      "step_id": "cb_step_3",
+      "step_id": "cb_step_2",
       "operation_type": "slicer_op",
-      "description": "In the \"Segmentation Editor\" module, Click the \"Add\" botton to add a new segment as \"Cranial_Segment\".",
+      "description": "In the \"Segment Editor\" module, create a new segmentation named \"Cranial_Segmentation\".",
       "depends_on": [
-        "cb_step_2"
+        "cb_step_1"
       ],
       "sub_operations": [
         {
           "op_type": "slicer_op",
           "operation_type": "slicer_op",
-          "description": "Add a new segment named 'Cranial_Segment' to the segmentation",
+          "description": "Create a new segmentation node named Cranial_Segmentation",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -208,8 +104,116 @@
           "target_value_mode": null,
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "AddEmptySegment",
             "vtkMRMLSegmentationNode",
+            "AddNewNodeByClass",
+            "SetName"
+          ],
+          "interaction_kind": "none",
+          "interaction_type": null,
+          "node_class": "vtkMRMLSegmentationNode",
+          "creates_node": true,
+          "requires_place_mode": false,
+          "setup_dependencies": [],
+          "placement_instructions": null,
+          "min_control_points": 0,
+          "is_optional": false,
+          "operation_intents": [],
+          "node_roles": [
+            {
+              "role_kind": "interaction_output",
+              "node_class": "vtkMRMLSegmentationNode",
+              "parameter_name": "",
+              "step_id": "cb_step_2"
+            }
+          ],
+          "confidence": "high",
+          "evidence_type": "llm_semantic_decomposition",
+          "evidence_id": ""
+        }
+      ],
+      "node_roles": [
+        {
+          "role_kind": "interaction_output",
+          "node_class": "vtkMRMLSegmentationNode",
+          "parameter_name": "",
+          "step_id": "cb_step_2"
+        }
+      ],
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "ui_guidance": {
+        "title": "Create segmentation",
+        "instruction": "Name it 'Cranial_Segmentation'.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "segmentation",
+        "repeat": {}
+      },
+      "code_template": "templates/cb_step_2_slicer.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "AddNewNodeByClass",
+          "CreateDefaultDisplayNodes",
+          "GetName",
+          "SetName",
+          "mrmlScene",
+          "vtkMRMLSegmentationNode"
+        ],
+        "api_chains": [
+          "segmentationNode.CreateDefaultDisplayNodes",
+          "segmentationNode.GetName",
+          "segmentationNode.SetName",
+          "slicer.mrmlScene.AddNewNodeByClass"
+        ],
+        "operation_descriptions": [
+          "Create a new segmentation node named Cranial_Segmentation"
+        ],
+        "slicer_op_categories": [
+          "generic_slicer_api"
+        ],
+        "slicer_api_keywords": [
+          "vtkMRMLSegmentationNode",
+          "AddNewNodeByClass",
+          "SetName"
+        ]
+      }
+    },
+    {
+      "step_id": "cb_step_3",
+      "operation_type": "slicer_op",
+      "description": "In the \"Segment Editor\" module, click the \"Add\" button and rename the segment to \"Cranial_Segment\".",
+      "depends_on": [
+        "cb_step_2"
+      ],
+      "sub_operations": [
+        {
+          "op_type": "slicer_op",
+          "operation_type": "slicer_op",
+          "description": "Add a segment named Cranial_Segment to the segmentation",
+          "extension_method_hint": null,
+          "extension_function_hint": null,
+          "widget_name": null,
+          "ui_parameter_binding": null,
+          "target_value": null,
+          "target_value_mode": null,
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "Segment Editor",
+            "Add",
             "Segment"
           ],
           "interaction_kind": "none",
@@ -217,13 +221,15 @@
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            2
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
           "node_roles": [],
-          "confidence": "high",
+          "confidence": "medium",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
         }
@@ -243,8 +249,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Add Cranial Segment",
-        "instruction": "Click 'Add' to create a new segment named 'Cranial_Segment'.",
+        "title": "Add segment",
+        "instruction": "Rename to 'Cranial_Segment'.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -256,6 +262,7 @@
         "source": "ground_api",
         "accepted_footprints": [
           "AddEmptySegment",
+          "GetFirstNodeByClass",
           "GetName",
           "GetNodesByClass",
           "GetSegment",
@@ -265,23 +272,25 @@
           "vtkMRMLSegmentationNode"
         ],
         "api_chains": [
-          "addedSegment.GetName",
+          "nameFilter.lower",
           "node.GetName",
           "node.GetName().lower",
+          "segment.GetName",
           "segmentationNode.GetSegmentation",
           "segmentationNode.GetSegmentation().AddEmptySegment",
           "segmentationNode.GetSegmentation().GetSegment",
+          "slicer.mrmlScene.GetFirstNodeByClass",
           "slicer.mrmlScene.GetNodesByClass"
         ],
         "operation_descriptions": [
-          "Add a new segment named 'Cranial_Segment' to the segmentation"
+          "Add a segment named Cranial_Segment to the segmentation"
         ],
         "slicer_op_categories": [
           "generic_slicer_api"
         ],
         "slicer_api_keywords": [
-          "AddEmptySegment",
-          "vtkMRMLSegmentationNode",
+          "Segment Editor",
+          "Add",
           "Segment"
         ]
       }
@@ -289,7 +298,7 @@
     {
       "step_id": "cb_step_4",
       "operation_type": "slicer_op",
-      "description": "In the \"Segmentation Editor\" module, Click the \"Threshold\" botton.",
+      "description": "In the \"Segment Editor\" module, click the \"Threshold\" button.",
       "depends_on": [
         "cb_step_3"
       ],
@@ -297,7 +306,7 @@
         {
           "op_type": "slicer_op",
           "operation_type": "slicer_op",
-          "description": "Open the Threshold effect in Segmentation Editor",
+          "description": "Open the Threshold effect in Segment Editor",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -306,22 +315,24 @@
           "target_value_mode": null,
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
+            "Segment Editor",
             "Threshold",
-            "ThresholdEffect",
-            "SetActiveEffect"
+            "Effect"
           ],
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            3
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
           "node_roles": [],
-          "confidence": "high",
+          "confidence": "medium",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
         }
@@ -341,12 +352,12 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Open Threshold Tool",
-        "instruction": "Click the 'Threshold' button to open threshold settings.",
+        "title": "Open Threshold tool",
+        "instruction": "",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "threshold",
         "repeat": {}
       },
       "code_template": "templates/cb_step_4_slicer.py.tpl",
@@ -373,22 +384,22 @@
           "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName"
         ],
         "operation_descriptions": [
-          "Open the Threshold effect in Segmentation Editor"
+          "Open the Threshold effect in Segment Editor"
         ],
         "slicer_op_categories": [
           "generic_slicer_api"
         ],
         "slicer_api_keywords": [
+          "Segment Editor",
           "Threshold",
-          "ThresholdEffect",
-          "SetActiveEffect"
+          "Effect"
         ]
       }
     },
     {
       "step_id": "cb_step_5",
       "operation_type": "user_choice",
-      "description": "In the \"Segmentation Editor\" module, set the Threshold Range including the lowest value and the largest value.",
+      "description": "In the \"Segment Editor\" module, adjust the threshold range bar to set the range value for segmentation.",
       "depends_on": [
         "cb_step_4"
       ],
@@ -396,7 +407,7 @@
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Set the threshold range (min and max values)",
+          "description": "Adjust the threshold range for segmentation",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -410,7 +421,9 @@
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            4
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -419,15 +432,15 @@
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "Set the threshold range (lowest and largest value).",
+          "question": "Adjust the threshold range for segmentation",
           "choices": [],
           "parameter_name": "thresholdRange",
           "default_value": null,
-          "value_kind": "min_max"
+          "value_kind": "range"
         }
       ],
       "choice_info": {
-        "question": "Set the threshold range (lowest and largest value).",
+        "question": "Adjust the threshold range for segmentation",
         "choices": [],
         "parameter_name": "thresholdRange",
         "default_value": null
@@ -447,11 +460,11 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Set Threshold Range",
-        "instruction": "Enter the lowest and largest threshold values.",
+        "title": "Set threshold range",
+        "instruction": "Adjust the range to isolate the skull.",
         "done_label": "Done",
         "choice_label": "Choice",
-        "input_label": "Range",
+        "input_label": "Threshold range",
         "object_label": "range",
         "repeat": {}
       }
@@ -459,7 +472,7 @@
     {
       "step_id": "cb_step_6",
       "operation_type": "slicer_op",
-      "description": "In the \"Segmentation Editor\" module, Click the \"Apply\" botton.",
+      "description": "In the \"Segment Editor\" module, click the \"Apply\" button.",
       "depends_on": [
         "cb_step_5"
       ],
@@ -467,7 +480,7 @@
         {
           "op_type": "slicer_op",
           "operation_type": "slicer_op",
-          "description": "Apply the threshold effect to create initial segmentation",
+          "description": "Apply the threshold effect",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -476,22 +489,24 @@
           "target_value_mode": null,
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
+            "Segment Editor",
             "Apply",
-            "ThresholdEffect",
-            "ApplyEffect"
+            "Threshold"
           ],
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            5
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
           "node_roles": [],
-          "confidence": "high",
+          "confidence": "medium",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
         }
@@ -511,36 +526,31 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Apply Threshold",
-        "instruction": "Click 'Apply' to run threshold segmentation.",
+        "title": "Apply threshold",
+        "instruction": "",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "apply",
         "repeat": {}
       },
       "code_template": "templates/cb_step_6_slicer.py.tpl",
       "api_evidence": {
         "source": "ground_api",
         "accepted_footprints": [
-          "AddEmptySegment",
           "AddNewNodeByClass",
-          "AddNode",
-          "CreateDefaultDisplayNodes",
-          "CreateNodeByClass",
-          "GetBinaryLabelmapRepresentation",
-          "GetExtent",
+          "GetBounds",
           "GetFirstNodeByClass",
           "GetName",
+          "GetNextItemAsObject",
+          "GetNodes",
           "GetNodesByClass",
           "GetSegment",
           "GetSegmentation",
-          "GetSingletonNode",
+          "InitTraversal",
           "SetAndObserveSegmentationNode",
           "SetAndObserveSourceVolumeNode",
           "SetSelectedSegmentID",
-          "SetSingletonTag",
-          "UnRegister",
           "editor",
           "effectByName",
           "lower",
@@ -557,20 +567,17 @@
           "widgetRepresentation"
         ],
         "api_chains": [
-          "'{volume_name_like}'.lower",
           "editorWidget.effectByName",
-          "labelmap.GetExtent",
+          "name_substring.lower",
           "node.GetName",
           "node.GetName().lower",
+          "node_iter.GetNextItemAsObject",
+          "node_iter.InitTraversal",
+          "segment.GetBounds",
           "segmentEditorNode.SetAndObserveSegmentationNode",
           "segmentEditorNode.SetAndObserveSourceVolumeNode",
           "segmentEditorNode.SetSelectedSegmentID",
-          "segmentEditorNode.SetSingletonTag",
-          "segmentEditorNode.UnRegister",
-          "segmentation.AddEmptySegment",
           "segmentation.GetSegment",
-          "segmentationNode.CreateDefaultDisplayNodes",
-          "segmentationNode.GetBinaryLabelmapRepresentation",
           "segmentationNode.GetSegmentation",
           "slicer.modules.segmenteditor.widgetRepresentation",
           "slicer.modules.segmenteditor.widgetRepresentation().self",
@@ -580,28 +587,24 @@
           "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Threshold').self().onApply",
           "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Threshold').setParameter",
           "slicer.mrmlScene.AddNewNodeByClass",
-          "slicer.mrmlScene.AddNode",
-          "slicer.mrmlScene.CreateNodeByClass",
           "slicer.mrmlScene.GetFirstNodeByClass",
-          "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLSegmentationNode').GetSegmentation().AddEmptySegment",
-          "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLSegmentationNode').GetSegmentation().GetSegment",
+          "slicer.mrmlScene.GetNodes",
           "slicer.mrmlScene.GetNodesByClass",
-          "slicer.mrmlScene.GetSingletonNode",
+          "slicer.vtkOrientedImageData",
           "thresholdEffect.self",
           "thresholdEffect.self().onApply",
-          "thresholdEffect.setParameter",
-          "vtkSegmentationCore.vtkOrientedImageData"
+          "thresholdEffect.setParameter"
         ],
         "operation_descriptions": [
-          "Apply the threshold effect to create initial segmentation"
+          "Apply the threshold effect"
         ],
         "slicer_op_categories": [
           "generic_slicer_api"
         ],
         "slicer_api_keywords": [
+          "Segment Editor",
           "Apply",
-          "ThresholdEffect",
-          "ApplyEffect"
+          "Threshold"
         ]
       }
     },
@@ -616,7 +619,7 @@
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Choose the skull mask segment node (the segmentation node containing the skull mask)",
+          "description": "Choose the skull mask segment node",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -627,10 +630,12 @@
           "slicer_api_keywords": [],
           "interaction_kind": "none",
           "interaction_type": null,
-          "node_class": null,
+          "node_class": "vtkMRMLSegmentationNode",
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            6
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -643,12 +648,12 @@
               "step_id": "cb_step_7"
             }
           ],
-          "confidence": "high",
+          "confidence": "medium",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "Choose the skull mask segment node.",
+          "question": "Choose the skull mask segment node",
           "choices": [],
-          "parameter_name": "skullMaskSegNode",
+          "parameter_name": "skullMaskSegmentationNode",
           "default_value": null,
           "value_kind": "node"
         }
@@ -662,9 +667,9 @@
         }
       ],
       "choice_info": {
-        "question": "Choose the skull mask segment node.",
+        "question": "Choose the skull mask segment node",
         "choices": [],
-        "parameter_name": "skullMaskSegNode",
+        "parameter_name": "skullMaskSegmentationNode",
         "default_value": null
       },
       "operation_model": {
@@ -682,10 +687,10 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Select Skull Mask",
-        "instruction": "Pick the segment node that represents the skull mask.",
+        "title": "Select skull mask segment",
+        "instruction": "Pick the segment you just created.",
         "done_label": "Done",
-        "choice_label": "Segment",
+        "choice_label": "Skull mask segment",
         "input_label": "Choice",
         "object_label": "segment",
         "repeat": {}
@@ -694,7 +699,7 @@
     {
       "step_id": "cb_step_8",
       "operation_type": "extension_op",
-      "description": "Click \"Load Skull Mask\" button.",
+      "description": "Click the \"Load Skull Mask\" button.",
       "depends_on": [
         "cb_step_7"
       ],
@@ -702,8 +707,8 @@
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Load the selected skull mask segment into the extension",
-          "extension_method_hint": null,
+          "description": "Load the selected skull mask via Load Skull Mask button",
+          "extension_method_hint": "exportSegmentToReferenceLabelmap",
           "extension_function_hint": null,
           "widget_name": "loadButton",
           "ui_parameter_binding": null,
@@ -724,18 +729,19 @@
           "is_optional": false,
           "operation_intents": [],
           "node_roles": [],
-          "confidence": "high",
+          "confidence": "medium",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
         }
       ],
+      "method_name": "exportSegmentToReferenceLabelmap",
       "operation_model": {
         "step_type": "extension_op",
         "op_types": [
           "extension_op"
         ],
         "operation_intents": [],
-        "invokes_extension_method": false,
+        "invokes_extension_method": true,
         "invokes_extension_function": false,
         "invokes_slicer_api": false,
         "implementation_uses_slicer_api": false,
@@ -744,12 +750,12 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Load Skull Mask",
-        "instruction": "Click 'Load Skull Mask' to load the selected mask.",
+        "title": "Load skull mask",
+        "instruction": "",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "mask",
         "repeat": {}
       },
       "code_template": "templates/cb_step_8.py.tpl"
@@ -757,7 +763,7 @@
     {
       "step_id": "cb_step_9",
       "operation_type": "extension_op",
-      "description": "Click \"Add ROI\" button.",
+      "description": "Click the \"Add ROI\" button.",
       "depends_on": [
         "cb_step_8"
       ],
@@ -765,7 +771,7 @@
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Add an ROI markup node for defining the skull region",
+          "description": "Add an ROI node using Add ROI button",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "addRoiButton",
@@ -790,7 +796,7 @@
             {
               "role_kind": "extension_output",
               "node_class": "vtkMRMLMarkupsROINode",
-              "parameter_name": "",
+              "parameter_name": "roiNode",
               "step_id": "cb_step_9"
             }
           ],
@@ -803,7 +809,7 @@
         {
           "role_kind": "extension_output",
           "node_class": "vtkMRMLMarkupsROINode",
-          "parameter_name": "",
+          "parameter_name": "roiNode",
           "step_id": "cb_step_9"
         }
       ],
@@ -823,7 +829,7 @@
       },
       "ui_guidance": {
         "title": "Add ROI",
-        "instruction": "Click 'Add ROI' to create a region of interest.",
+        "instruction": "",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -835,7 +841,7 @@
     {
       "step_id": "cb_step_10",
       "operation_type": "user_interaction",
-      "description": "Manually adjust the boundary of the ROI to keep the skull part.",
+      "description": "Manually adjust the boundaries of the ROI to retain the skull portion.",
       "depends_on": [
         "cb_step_9"
       ],
@@ -843,7 +849,7 @@
         {
           "op_type": "user_interaction",
           "operation_type": "user_interaction",
-          "description": "Adjust the ROI boundary to cover the desired skull region",
+          "description": "Manually adjust the ROI boundaries to retain the skull portion",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -853,14 +859,13 @@
           "slicer_op_category": null,
           "slicer_api_keywords": [
             "vtkMRMLMarkupsROINode",
-            "interaction",
             "handles",
-            "Resize",
-            "Translate"
+            "Translate",
+            "Resize"
           ],
           "interaction_kind": "view_adjustment",
           "interaction_type": null,
-          "node_class": null,
+          "node_class": "vtkMRMLMarkupsROINode",
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
@@ -870,30 +875,15 @@
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
-          "node_roles": [
-            {
-              "role_kind": "interaction_output",
-              "node_class": "vtkMRMLMarkupsROINode",
-              "parameter_name": "",
-              "step_id": "cb_step_10"
-            }
-          ],
+          "node_roles": [],
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
         }
       ],
-      "node_roles": [
-        {
-          "role_kind": "interaction_output",
-          "node_class": "vtkMRMLMarkupsROINode",
-          "parameter_name": "",
-          "step_id": "cb_step_10"
-        }
-      ],
-      "interaction_type": "generic",
+      "interaction_type": "roi",
       "interaction_kind": "view_adjustment",
-      "node_class": "",
+      "node_class": "vtkMRMLMarkupsROINode",
       "creates_node": false,
       "requires_place_mode": false,
       "setup_dependencies": [
@@ -917,9 +907,17 @@
           "view_adjustment"
         ]
       },
+      "node_roles": [
+        {
+          "role_kind": "interaction_output",
+          "step_id": "cb_step_10",
+          "node_class": "vtkMRMLMarkupsROINode",
+          "parameter_name": ""
+        }
+      ],
       "ui_guidance": {
-        "title": "Adjust ROI Boundary",
-        "instruction": "Drag the ROI handles to enclose the skull region.",
+        "title": "Adjust ROI boundaries",
+        "instruction": "Drag handles to enclose the skull portion.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -932,7 +930,7 @@
     {
       "step_id": "cb_step_11",
       "operation_type": "extension_op",
-      "description": "Click \"Crop to ROI\" button.",
+      "description": "Click the \"Crop to ROI\" button.",
       "depends_on": [
         "cb_step_10"
       ],
@@ -940,7 +938,7 @@
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Crop the skull mask to the ROI",
+          "description": "Crop skull mask to the ROI using Crop to ROI button",
           "extension_method_hint": "roiInsideMask",
           "extension_function_hint": null,
           "widget_name": "cropButton",
@@ -961,37 +959,10 @@
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
-          "node_roles": [
-            {
-              "role_kind": "extension_input",
-              "node_class": "vtkMRMLMarkupsROINode",
-              "parameter_name": "roiNode",
-              "step_id": "cb_step_11"
-            },
-            {
-              "role_kind": "extension_input",
-              "node_class": "vtkMRMLSegmentationNode",
-              "parameter_name": "segNode",
-              "step_id": "cb_step_11"
-            }
-          ],
-          "confidence": "high",
+          "node_roles": [],
+          "confidence": "medium",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
-        }
-      ],
-      "node_roles": [
-        {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLMarkupsROINode",
-          "parameter_name": "roiNode",
-          "step_id": "cb_step_11"
-        },
-        {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLSegmentationNode",
-          "parameter_name": "segNode",
-          "step_id": "cb_step_11"
         }
       ],
       "method_name": "roiInsideMask",
@@ -1011,27 +982,108 @@
       },
       "ui_guidance": {
         "title": "Crop to ROI",
-        "instruction": "Click 'Crop to ROI' to crop the segmentation to the ROI.",
+        "instruction": "",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "ROI",
         "repeat": {}
       },
       "code_template": "templates/cb_step_11.py.tpl"
     },
     {
       "step_id": "cb_step_12",
-      "operation_type": "slicer_op",
-      "description": "In the \"Markups\" module, click the \"Closed Curve\" to create a closed curve node.",
+      "operation_type": "user_interaction",
+      "description": "Manually adjust the 3D view to get the best angle for placing the cutting curve.",
       "depends_on": [
         "cb_step_11"
       ],
       "sub_operations": [
         {
+          "op_type": "user_interaction",
+          "operation_type": "user_interaction",
+          "description": "Manually adjust the 3D view for best angle for cutting curve placement",
+          "extension_method_hint": null,
+          "extension_function_hint": null,
+          "widget_name": null,
+          "ui_parameter_binding": null,
+          "target_value": null,
+          "target_value_mode": null,
+          "slicer_op_category": null,
+          "slicer_api_keywords": [
+            "3D view",
+            "Rotate",
+            "Pan",
+            "Zoom"
+          ],
+          "interaction_kind": "view_adjustment",
+          "interaction_type": null,
+          "node_class": null,
+          "creates_node": false,
+          "requires_place_mode": false,
+          "setup_dependencies": [
+            11
+          ],
+          "placement_instructions": null,
+          "min_control_points": 0,
+          "is_optional": false,
+          "operation_intents": [],
+          "node_roles": [],
+          "confidence": "high",
+          "evidence_type": "llm_semantic_decomposition",
+          "evidence_id": ""
+        }
+      ],
+      "interaction_type": "generic",
+      "interaction_kind": "view_adjustment",
+      "node_class": "",
+      "creates_node": false,
+      "requires_place_mode": false,
+      "setup_dependencies": [
+        11
+      ],
+      "placement_instructions": null,
+      "min_control_points": 0,
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "view_adjustment"
+        ]
+      },
+      "ui_guidance": {
+        "title": "Adjust 3D view",
+        "instruction": "Rotate and zoom to get a good angle for placing the cutting curve.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "view",
+        "repeat": {}
+      },
+      "pre_template": "templates/cb_step_12_pre.py.tpl",
+      "post_template": "templates/cb_step_12_post.py.tpl"
+    },
+    {
+      "step_id": "cb_step_13",
+      "operation_type": "slicer_op",
+      "description": "In the \"Markups\" module, click \"Closed Curve\" to create a closed curve node.",
+      "depends_on": [
+        "cb_step_12"
+      ],
+      "sub_operations": [
+        {
           "op_type": "slicer_op",
           "operation_type": "slicer_op",
-          "description": "Create a new closed curve markup node",
+          "description": "Create a new closed curve markups node via Markups module",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -1041,127 +1093,14 @@
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "vtkMRMLMarkupsClosedCurveNode",
-            "AddNewNodeByClass",
-            "CreateMarkup"
+            "CreateNodeByClass",
+            "AddNode"
           ],
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": "vtkMRMLMarkupsClosedCurveNode",
           "creates_node": true,
           "requires_place_mode": false,
-          "setup_dependencies": [
-            11
-          ],
-          "placement_instructions": null,
-          "min_control_points": 0,
-          "is_optional": false,
-          "operation_intents": [],
-          "node_roles": [
-            {
-              "role_kind": "extension_output",
-              "node_class": "vtkMRMLMarkupsClosedCurveNode",
-              "parameter_name": "",
-              "step_id": "cb_step_12"
-            }
-          ],
-          "confidence": "high",
-          "evidence_type": "llm_semantic_decomposition",
-          "evidence_id": ""
-        }
-      ],
-      "node_roles": [
-        {
-          "role_kind": "extension_output",
-          "node_class": "vtkMRMLMarkupsClosedCurveNode",
-          "parameter_name": "",
-          "step_id": "cb_step_12"
-        }
-      ],
-      "operation_model": {
-        "step_type": "slicer_op",
-        "op_types": [
-          "slicer_op"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": true,
-        "implementation_uses_slicer_api": true,
-        "allow_module_switch": false,
-        "produces_interaction_state": false,
-        "interaction_kinds": []
-      },
-      "ui_guidance": {
-        "title": "Create Closed Curve",
-        "instruction": "Switch to Markups module, click 'Closed Curve' to create a closed curve.",
-        "done_label": "Done",
-        "choice_label": "",
-        "input_label": "",
-        "object_label": "curve",
-        "repeat": {}
-      },
-      "code_template": "templates/cb_step_12_slicer.py.tpl",
-      "api_evidence": {
-        "source": "ground_api",
-        "accepted_footprints": [
-          "AddNewNodeByClass",
-          "GetID",
-          "GetNodeByID",
-          "IsA",
-          "SetName",
-          "mrmlScene",
-          "vtkMRMLMarkupsClosedCurveNode"
-        ],
-        "api_chains": [
-          "curveNode.GetID",
-          "curveNode.IsA",
-          "curveNode.SetName",
-          "slicer.mrmlScene.AddNewNodeByClass",
-          "slicer.mrmlScene.GetNodeByID"
-        ],
-        "operation_descriptions": [
-          "Create a new closed curve markup node"
-        ],
-        "slicer_op_categories": [
-          "generic_slicer_api"
-        ],
-        "slicer_api_keywords": [
-          "vtkMRMLMarkupsClosedCurveNode",
-          "AddNewNodeByClass",
-          "CreateMarkup"
-        ]
-      }
-    },
-    {
-      "step_id": "cb_step_13",
-      "operation_type": "user_interaction",
-      "description": "Manually draw the curve on the skull model to include the fractured skull part.",
-      "depends_on": [
-        "cb_step_12"
-      ],
-      "sub_operations": [
-        {
-          "op_type": "user_interaction",
-          "operation_type": "user_interaction",
-          "description": "Draw the defect boundary on the skull model using the closed curve",
-          "extension_method_hint": null,
-          "extension_function_hint": null,
-          "widget_name": null,
-          "ui_parameter_binding": null,
-          "target_value": null,
-          "target_value_mode": null,
-          "slicer_op_category": null,
-          "slicer_api_keywords": [
-            "vtkMRMLMarkupsClosedCurveNode",
-            "place",
-            "SetActiveListID",
-            "AddControlPoint"
-          ],
-          "interaction_kind": "markup_placement",
-          "interaction_type": null,
-          "node_class": "vtkMRMLMarkupsClosedCurveNode",
-          "creates_node": false,
-          "requires_place_mode": true,
           "setup_dependencies": [
             12
           ],
@@ -1190,13 +1129,113 @@
           "step_id": "cb_step_13"
         }
       ],
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "ui_guidance": {
+        "title": "Create closed curve",
+        "instruction": "Select 'Closed Curve' from Markups toolbar.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "curve",
+        "repeat": {}
+      },
+      "code_template": "templates/cb_step_13_slicer.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "AddNewNodeByClass",
+          "CreateDefaultDisplayNodes",
+          "GetClassName",
+          "GetID",
+          "GetNodeByID",
+          "mrmlScene",
+          "vtkMRMLMarkupsClosedCurveNode"
+        ],
+        "api_chains": [
+          "closedCurveNode.CreateDefaultDisplayNodes",
+          "closedCurveNode.GetClassName",
+          "closedCurveNode.GetID",
+          "slicer.mrmlScene.AddNewNodeByClass",
+          "slicer.mrmlScene.GetNodeByID"
+        ],
+        "operation_descriptions": [
+          "Create a new closed curve markups node via Markups module"
+        ],
+        "slicer_op_categories": [
+          "generic_slicer_api"
+        ],
+        "slicer_api_keywords": [
+          "vtkMRMLMarkupsClosedCurveNode",
+          "CreateNodeByClass",
+          "AddNode"
+        ]
+      }
+    },
+    {
+      "step_id": "cb_step_14",
+      "operation_type": "user_interaction",
+      "description": "Manually draw the curve on the skull model to enclose the fractured skull portion.",
+      "depends_on": [
+        "cb_step_13"
+      ],
+      "sub_operations": [
+        {
+          "op_type": "user_interaction",
+          "operation_type": "user_interaction",
+          "description": "Draw closed curve on the skull model to enclose the fractured portion",
+          "extension_method_hint": null,
+          "extension_function_hint": null,
+          "widget_name": null,
+          "ui_parameter_binding": null,
+          "target_value": null,
+          "target_value_mode": null,
+          "slicer_op_category": null,
+          "slicer_api_keywords": [
+            "vtkMRMLMarkupsCurveNode",
+            "place",
+            "SetActiveListID",
+            "SwitchToPersistentPlaceMode"
+          ],
+          "interaction_kind": "markup_placement",
+          "interaction_type": null,
+          "node_class": "vtkMRMLMarkupsClosedCurveNode",
+          "creates_node": false,
+          "requires_place_mode": true,
+          "setup_dependencies": [
+            12,
+            13
+          ],
+          "placement_instructions": null,
+          "min_control_points": 0,
+          "is_optional": false,
+          "operation_intents": [],
+          "node_roles": [],
+          "confidence": "high",
+          "evidence_type": "llm_semantic_decomposition",
+          "evidence_id": ""
+        }
+      ],
       "interaction_type": "generic",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsClosedCurveNode",
       "creates_node": false,
       "requires_place_mode": true,
       "setup_dependencies": [
-        12
+        12,
+        13
       ],
       "placement_instructions": null,
       "min_control_points": 0,
@@ -1216,9 +1255,17 @@
           "markup_placement"
         ]
       },
+      "node_roles": [
+        {
+          "role_kind": "interaction_output",
+          "step_id": "cb_step_14",
+          "node_class": "vtkMRMLMarkupsClosedCurveNode",
+          "parameter_name": ""
+        }
+      ],
       "ui_guidance": {
-        "title": "Draw Curve Around Defect",
-        "instruction": "Click on the skull model to place points defining the closed curve around the fracture.",
+        "title": "Draw cutting curve",
+        "instruction": "Place points along the skull boundary to enclose the defect.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1226,22 +1273,22 @@
         "repeat": {}
       },
       "interaction_owner": "runtime_template",
-      "created_node_source": "template",
-      "pre_template": "templates/cb_step_13_pre.py.tpl",
-      "post_template": "templates/cb_step_13_post.py.tpl"
+      "created_node_source": "previous_step",
+      "pre_template": "templates/cb_step_14_pre.py.tpl",
+      "post_template": "templates/cb_step_14_post.py.tpl"
     },
     {
-      "step_id": "cb_step_14",
+      "step_id": "cb_step_15",
       "operation_type": "user_choice",
-      "description": "In the \"Curve selection\" section, choose the Curve node.",
+      "description": "In the \"Curve selection\" section, choose the curve node.",
       "depends_on": [
-        "cb_step_13"
+        "cb_step_14"
       ],
       "sub_operations": [
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Select the drawn curve node for defect cutting",
+          "description": "Choose the curve node from Curve selection section",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "curveTree",
@@ -1252,11 +1299,11 @@
           "slicer_api_keywords": [],
           "interaction_kind": "none",
           "interaction_type": null,
-          "node_class": null,
+          "node_class": "vtkMRMLMarkupsClosedCurveNode",
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            13
+            14
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -1267,13 +1314,13 @@
               "role_kind": "choice_input",
               "node_class": "vtkMRMLMarkupsClosedCurveNode",
               "parameter_name": "curveNode",
-              "step_id": "cb_step_14"
+              "step_id": "cb_step_15"
             }
           ],
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "Choose the curve node.",
+          "question": "Choose the curve node",
           "choices": [],
           "parameter_name": "curveNode",
           "default_value": null,
@@ -1285,11 +1332,11 @@
           "role_kind": "choice_input",
           "node_class": "vtkMRMLMarkupsClosedCurveNode",
           "parameter_name": "curveNode",
-          "step_id": "cb_step_14"
+          "step_id": "cb_step_15"
         }
       ],
       "choice_info": {
-        "question": "Choose the curve node.",
+        "question": "Choose the curve node",
         "choices": [],
         "parameter_name": "curveNode",
         "default_value": null
@@ -1309,8 +1356,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Select Curved Node",
-        "instruction": "Choose the curve node from the list.",
+        "title": "Select the curve",
+        "instruction": "Pick the curve you just drew.",
         "done_label": "Done",
         "choice_label": "Curve",
         "input_label": "Curve",
@@ -1319,22 +1366,22 @@
       }
     },
     {
-      "step_id": "cb_step_15",
+      "step_id": "cb_step_16",
       "operation_type": "extension_op",
-      "description": "Click \"Cut Defect\" button.",
+      "description": "Click the \"Cut Defect\" button.",
       "depends_on": [
-        "cb_step_14"
+        "cb_step_15"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Cut the defect region from the skull mask using the selected curve",
+          "description": "Cut defect from skull using the curve via Cut Defect button",
           "extension_method_hint": "eraseNearSideDefect",
           "extension_function_hint": null,
           "widget_name": "cutButton",
           "ui_parameter_binding": null,
-          "target_value": true,
+          "target_value": null,
           "target_value_mode": null,
           "slicer_op_category": null,
           "slicer_api_keywords": [],
@@ -1344,7 +1391,7 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            14
+            15
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -1355,16 +1402,22 @@
               "role_kind": "extension_input",
               "node_class": "vtkMRMLMarkupsClosedCurveNode",
               "parameter_name": "curveNode",
-              "step_id": "cb_step_15"
+              "step_id": "cb_step_16"
             },
             {
               "role_kind": "extension_input",
+              "node_class": "vtkMRMLVolumeNode",
+              "parameter_name": "referenceVolume",
+              "step_id": "cb_step_16"
+            },
+            {
+              "role_kind": "extension_output",
               "node_class": "vtkMRMLSegmentationNode",
-              "parameter_name": "segNode",
-              "step_id": "cb_step_15"
+              "parameter_name": "",
+              "step_id": "cb_step_16"
             }
           ],
-          "confidence": "high",
+          "confidence": "medium",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
         }
@@ -1374,13 +1427,19 @@
           "role_kind": "extension_input",
           "node_class": "vtkMRMLMarkupsClosedCurveNode",
           "parameter_name": "curveNode",
-          "step_id": "cb_step_15"
+          "step_id": "cb_step_16"
         },
         {
           "role_kind": "extension_input",
+          "node_class": "vtkMRMLVolumeNode",
+          "parameter_name": "referenceVolume",
+          "step_id": "cb_step_16"
+        },
+        {
+          "role_kind": "extension_output",
           "node_class": "vtkMRMLSegmentationNode",
-          "parameter_name": "segNode",
-          "step_id": "cb_step_15"
+          "parameter_name": "",
+          "step_id": "cb_step_16"
         }
       ],
       "method_name": "eraseNearSideDefect",
@@ -1399,28 +1458,148 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Cut Defect",
-        "instruction": "Click 'Cut Defect' to remove the fractured region.",
+        "title": "Cut defect",
+        "instruction": "",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "curve",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_15.py.tpl"
+      "code_template": "templates/cb_step_16.py.tpl"
     },
     {
-      "step_id": "cb_step_16",
-      "operation_type": "extension_op",
-      "description": "Click \"Generate Implant\" button.",
+      "step_id": "cb_step_17",
+      "operation_type": "slicer_op",
+      "description": "Make the curve node invisible.",
       "depends_on": [
-        "cb_step_15"
+        "cb_step_16"
+      ],
+      "sub_operations": [
+        {
+          "op_type": "slicer_op",
+          "operation_type": "slicer_op",
+          "description": "Hide the curve node by making it invisible",
+          "extension_method_hint": null,
+          "extension_function_hint": null,
+          "widget_name": null,
+          "ui_parameter_binding": null,
+          "target_value": null,
+          "target_value_mode": null,
+          "slicer_op_category": "node_display",
+          "slicer_api_keywords": [
+            "GetDisplayNode",
+            "SetVisibility",
+            "False"
+          ],
+          "interaction_kind": "none",
+          "interaction_type": null,
+          "node_class": "vtkMRMLMarkupsClosedCurveNode",
+          "creates_node": false,
+          "requires_place_mode": false,
+          "setup_dependencies": [
+            16
+          ],
+          "placement_instructions": null,
+          "min_control_points": 0,
+          "is_optional": false,
+          "operation_intents": [
+            "segment_visibility_selection"
+          ],
+          "node_roles": [
+            {
+              "role_kind": "extension_input",
+              "node_class": "vtkMRMLMarkupsClosedCurveNode",
+              "parameter_name": "curveNode",
+              "step_id": "cb_step_17"
+            }
+          ],
+          "confidence": "high",
+          "evidence_type": "llm_semantic_decomposition",
+          "evidence_id": "",
+          "operation_intent": "segment_visibility_selection"
+        }
+      ],
+      "operation_intents": [
+        "segment_visibility_selection"
+      ],
+      "node_roles": [
+        {
+          "role_kind": "extension_input",
+          "node_class": "vtkMRMLMarkupsClosedCurveNode",
+          "parameter_name": "curveNode",
+          "step_id": "cb_step_17"
+        }
+      ],
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [
+          "segment_visibility_selection"
+        ],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "ui_guidance": {
+        "title": "Hide curve",
+        "instruction": "",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "curve",
+        "repeat": {}
+      },
+      "code_template": "templates/cb_step_17_slicer.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetDisplayNode",
+          "GetName",
+          "GetNodesByClass",
+          "GetVisibility",
+          "SetVisibility",
+          "mrmlScene",
+          "vtkMRMLMarkupsCurveNode"
+        ],
+        "api_chains": [
+          "curveNode.GetDisplayNode",
+          "displayNode.GetVisibility",
+          "displayNode.SetVisibility",
+          "node.GetName",
+          "slicer.mrmlScene.GetNodesByClass"
+        ],
+        "operation_descriptions": [
+          "Hide the curve node by making it invisible"
+        ],
+        "slicer_op_categories": [
+          "node_display"
+        ],
+        "slicer_api_keywords": [
+          "GetDisplayNode",
+          "SetVisibility",
+          "False"
+        ]
+      }
+    },
+    {
+      "step_id": "cb_step_18",
+      "operation_type": "extension_op",
+      "description": "Click the \"Generate Implant\" button.",
+      "depends_on": [
+        "cb_step_17"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Generate the implant from the defect region",
+          "description": "Generate implant model from defect via Generate Implant button",
           "extension_method_hint": "reconstruct",
           "extension_function_hint": null,
           "widget_name": "generateButton",
@@ -1435,16 +1614,31 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            15
+            17
           ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
-          "node_roles": [],
-          "confidence": "high",
+          "node_roles": [
+            {
+              "role_kind": "extension_output",
+              "node_class": "vtkMRMLSegmentationNode",
+              "parameter_name": "",
+              "step_id": "cb_step_18"
+            }
+          ],
+          "confidence": "medium",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
+        }
+      ],
+      "node_roles": [
+        {
+          "role_kind": "extension_output",
+          "node_class": "vtkMRMLSegmentationNode",
+          "parameter_name": "",
+          "step_id": "cb_step_18"
         }
       ],
       "method_name": "reconstruct",
@@ -1463,18 +1657,18 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Generate Implant",
-        "instruction": "Click 'Generate Implant' to create the implant model.",
+        "title": "Generate implant",
+        "instruction": "",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "implant",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_16.py.tpl"
+      "code_template": "templates/cb_step_18.py.tpl"
     }
   ],
-  "step_count": 16,
+  "step_count": 18,
   "source": "cookbook",
   "repeat_blocks": [],
   "schema_version": 2

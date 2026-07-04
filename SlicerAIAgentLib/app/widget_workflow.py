@@ -94,6 +94,8 @@ class WidgetWorkflowMixin:
         self._workflowSegmentsTable = None
         self._workflowSegmentsCombo = None
         self._workflowSegmentsContainer = None
+        self._workflowRangeWidget = None
+        self._workflowRangeContainer = None
 
         if getattr(self, "_workflowDoneButton", None):
             self._workflowDoneButton.clicked.connect(self._onWorkflowDoneClicked)
@@ -328,6 +330,10 @@ class WidgetWorkflowMixin:
         "qMRMLCheckableNodeComboBox": "node_tree",
         "QComboBox": "choice",
         "ctkComboBox": "choice",
+        "ctkRangeWidget": "range_slider",
+        "qMRMLRangeWidget": "range_slider",
+        "ctkDoubleRangeSlider": "range_slider",
+        "ctkRangeSlider": "range_slider",
     }
 
     @staticmethod
@@ -397,6 +403,21 @@ class WidgetWorkflowMixin:
                 self._workflowChoiceLayout.removeWidget(self._workflowSegmentNameContainer)
             self._workflowSegmentNameContainer.setParent(None)
             self._workflowSegmentNameContainer = None
+        if getattr(self, "_workflowRangeWidget", None) is not None:
+            # Drop the live-preview observers before destroying the range widget.
+            for _sig in ("minimumValueChanged", "maximumValueChanged"):
+                try:
+                    getattr(self._workflowRangeWidget, _sig).disconnect(self._onWorkflowRangePreview)
+                except Exception:
+                    pass
+            self._workflowRangeWidget = None
+        if getattr(self, "_workflowRangeContainer", None) is not None:
+            # The container owns the range slider + Set button; reparenting to None
+            # destroys them together.
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowRangeContainer)
+            self._workflowRangeContainer.setParent(None)
+            self._workflowRangeContainer = None
         for button in getattr(self, "_workflowChoiceButtons", []):
             if self._workflowChoiceLayout is not None:
                 self._workflowChoiceLayout.removeWidget(button)
@@ -437,6 +458,13 @@ class WidgetWorkflowMixin:
                 # More specific than the node tree, so it takes precedence; falls
                 # through (to free-text, never the node tree) if none resolves.
                 if state.get("segment_name_selection") and self._renderWorkflowSegmentNamePicker(state):
+                    return
+                # Numeric RANGE step (the source used a double-handled range widget,
+                # e.g. the Segment Editor Threshold range): render a draggable
+                # min/max slider seeded from the live target / source volume, instead
+                # of a literal button or free-text box. More specific than the node
+                # tree; falls through to free-text if sensible limits can't resolve.
+                if state.get("range_selection") and self._renderWorkflowRangeSlider(state):
                     return
                 # Node-selection step: offer a Data-module-style subject-hierarchy tree
                 # of the matching scene nodes (with the native eye / opacity / color
@@ -1120,6 +1148,200 @@ class WidgetWorkflowMixin:
                 sel.setCurrentIndex(idx)
         except Exception:
             pass
+
+    # ---- Numeric range slider (e.g. Segment Editor Threshold range) ----------
+    def _activeSegmentEditorEffect(self):
+        """The active Segment Editor effect (qSlicer...Effect) or None. Generic:
+        the same shared editor the generated steps drive."""
+        try:
+            editor = slicer.modules.segmenteditor.widgetRepresentation().self().editor
+            return editor.activeEffect()
+        except Exception:
+            return None
+
+    def _activeEffectRangeWidget(self):
+        """A live double-handled range widget (ctkRangeWidget) inside the active
+        Segment Editor effect's options, or None. Generic: searches the effect's
+        options frame for any range widget rather than assuming a specific effect
+        or attribute name, so it works for the Threshold effect or any other
+        range-driven effect."""
+        effect = self._activeSegmentEditorEffect()
+        if effect is None:
+            return None
+        try:
+            frame = effect.optionsFrame()
+        except Exception:
+            frame = None
+        if frame is None:
+            return None
+        try:
+            found = slicer.util.findChildren(frame, className="ctkRangeWidget")
+        except Exception:
+            found = []
+        return found[0] if found else None
+
+    def _activeSourceVolume(self):
+        """The volume whose scalar range seeds the slider limits: prefer the
+        Segment Editor's bound source volume, else the most-recent non-labelmap
+        scalar volume with image data. None if none available. Generic."""
+        try:
+            editor = slicer.modules.segmenteditor.widgetRepresentation().self().editor
+            vol = editor.sourceVolumeNode()
+            if vol is not None and vol.GetImageData() is not None:
+                return vol
+        except Exception:
+            pass
+        try:
+            nodes = list(slicer.util.getNodesByClass("vtkMRMLScalarVolumeNode"))
+            for vol in reversed(nodes):
+                if (vol is not None
+                        and not vol.IsA("vtkMRMLLabelMapVolumeNode")
+                        and vol.GetImageData() is not None):
+                    return vol
+        except Exception:
+            pass
+        return None
+
+    def _renderWorkflowRangeSlider(self, state):
+        """Render a draggable double-handled min/max slider for a numeric RANGE
+        step (like the Segment Editor Threshold range), instead of a literal
+        button or free-text box. Limits + current handles are seeded, in order,
+        from: the live active effect's range widget; the extension's captured
+        .ui min/max; the source-volume scalar range. Dragging live-previews the
+        target; the Set button commits [min, max] via choice_made.
+
+        Returns True if it rendered, or False so the caller falls back to the
+        free-text box (never a node tree). Generic: no extension/step-specific
+        strings.
+        """
+        limit_lo = limit_hi = cur_min = cur_max = single_step = None
+
+        # 1. Mirror the live active effect's range widget exactly (fully generic).
+        live = self._activeEffectRangeWidget()
+        if live is not None:
+            try:
+                limit_lo, limit_hi = float(live.minimum), float(live.maximum)
+                cur_min, cur_max = float(live.minimumValue), float(live.maximumValue)
+                single_step = float(live.singleStep)
+            except Exception:
+                limit_lo = limit_hi = cur_min = cur_max = None
+
+        # 2. Extension's own .ui range widget limits (authoritative path).
+        if limit_lo is None:
+            rmin, rmax = state.get("range_min"), state.get("range_max")
+            if rmin is not None and rmax is not None:
+                try:
+                    limit_lo, limit_hi = float(rmin), float(rmax)
+                    single_step = float(state.get("range_step")) if state.get("range_step") else None
+                except Exception:
+                    limit_lo = limit_hi = None
+
+        # 3. Derive from the source-volume scalar range (e.g. Threshold effect).
+        if limit_lo is None:
+            vol = self._activeSourceVolume()
+            if vol is not None:
+                try:
+                    limit_lo, limit_hi = (float(x) for x in vol.GetImageData().GetScalarRange())
+                except Exception:
+                    limit_lo = limit_hi = None
+
+        if limit_lo is None or limit_hi is None or limit_hi <= limit_lo:
+            return False  # no sensible limits -> free-text fallback
+
+        # Seed the handles: live values, else a declared default, else 25%-100%
+        # (matches the Threshold effect's own default).
+        if cur_min is None or cur_max is None:
+            default = state.get("range_default")
+            if isinstance(default, (list, tuple)) and len(default) == 2:
+                try:
+                    cur_min, cur_max = float(default[0]), float(default[1])
+                except Exception:
+                    cur_min = cur_max = None
+            if cur_min is None or cur_max is None:
+                cur_min = limit_lo + 0.25 * (limit_hi - limit_lo)
+                cur_max = limit_hi
+        cur_min = max(limit_lo, min(cur_min, limit_hi))
+        cur_max = max(limit_lo, min(cur_max, limit_hi))
+
+        container = qt.QWidget()
+        vbox = qt.QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        rangeWidget = ctk.ctkRangeWidget()
+        rangeWidget.setRange(limit_lo, limit_hi)
+        rangeWidget.singleStep = single_step or max((limit_hi - limit_lo) / 1000.0, 1e-6)
+        # Set values BEFORE connecting signals so build doesn't fire the preview.
+        # setMinimumValue/setMaximumValue are the canonical ctkRangeWidget setters
+        # (the Threshold effect drives its own slider the same way).
+        rangeWidget.setMinimumValue(cur_min)
+        rangeWidget.setMaximumValue(cur_max)
+        button = qt.QPushButton(state.get("choice_label") or state.get("done_label") or "Set range")
+        button.setToolTip("Use this range and continue")
+        button.clicked.connect(self._onWorkflowRangeSelected)
+        vbox.addWidget(rangeWidget)
+        vbox.addWidget(button)
+        self._workflowRangeWidget = rangeWidget
+        self._workflowRangeContainer = container
+        try:
+            rangeWidget.minimumValueChanged.connect(self._onWorkflowRangePreview)
+            rangeWidget.maximumValueChanged.connect(self._onWorkflowRangePreview)
+        except Exception:
+            pass
+        self._workflowChoiceLayout.addWidget(container, 1)
+        container.setVisible(True)
+        # Drive the live target to the seeded values so the preview matches at once.
+        self._onWorkflowRangePreview()
+        return True
+
+    def _onWorkflowRangePreview(self, _value=None):
+        """Drive the live Segment Editor effect range so its preview (green glow)
+        tracks the slider as the user drags. Prefers driving the effect's own
+        range widget (its handler then applies the values); falls back to setting
+        the effect's Minimum/MaximumThreshold parameters. Visual only; the
+        committed value is sent by the Set button. Silent no-op if no live effect
+        (runs in the agent process, not the sandbox)."""
+        state = getattr(self, "_currentWorkflowUiState", None) or {}
+        if state.get("replay_previewing"):
+            return
+        panel = getattr(self, "_workflowRangeWidget", None)
+        if panel is None:
+            return
+        try:
+            v_min, v_max = float(panel.minimumValue), float(panel.maximumValue)
+        except Exception:
+            return
+        live = self._activeEffectRangeWidget()
+        if live is not None and live is not panel:
+            try:
+                live.setMinimumValue(v_min)
+                live.setMaximumValue(v_max)
+                return
+            except Exception:
+                pass
+        effect = self._activeSegmentEditorEffect()
+        if effect is not None:
+            try:
+                effect.setParameter("MinimumThreshold", v_min)
+                effect.setParameter("MaximumThreshold", v_max)
+            except Exception:
+                pass
+
+    def _onWorkflowRangeSelected(self):
+        panel = getattr(self, "_workflowRangeWidget", None)
+        if panel is None:
+            return
+        try:
+            value = [float(panel.minimumValue), float(panel.maximumValue)]
+        except Exception:
+            return
+        if self._currentWorkflowUiState.get("replay_previewing"):
+            index = self._currentWorkflowUiState.get("preview_index")
+            if index is not None:
+                self._rerunFromCheckpoint(index, {"choice_value": value})
+            return
+        step_id = self._currentWorkflowUiState.get("current_step")
+        if step_id:
+            self.sendButton.setEnabled(False)
+            self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": value})
 
     def _bindSegmentsTable(self, seg_node):
         """Bind the segments table to ``seg_node``, ensuring a display node exists

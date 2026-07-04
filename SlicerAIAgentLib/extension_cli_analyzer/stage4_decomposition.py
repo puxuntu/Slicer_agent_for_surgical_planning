@@ -423,9 +423,11 @@ class AnalyzerStage4DecompositionMixin:
         methods = []
         node_classes = {
             "vtkMRMLMarkupsCurveNode",
+            "vtkMRMLMarkupsClosedCurveNode",
             "vtkMRMLMarkupsPlaneNode",
             "vtkMRMLMarkupsLineNode",
             "vtkMRMLMarkupsFiducialNode",
+            "vtkMRMLMarkupsAngleNode",
             "vtkMRMLMarkupsROINode",
             "vtkMRMLCrosshairNode",
         }
@@ -467,6 +469,13 @@ class AnalyzerStage4DecompositionMixin:
         # picking a node).
         self._ui_widget_classes = {
             name: _text_or_empty((info or {}).get("class"))
+            for name, info in ui_widgets.items()
+        }
+        # widget_name -> parsed .ui properties (e.g. minimum / maximum / singleStep
+        # of a ctkRangeWidget) so a range-slider selection can seed its limits from
+        # the extension's own UI. Empty for widgets with no parsed properties.
+        self._ui_widget_properties = {
+            name: ((info or {}).get("properties", {}) or {})
             for name, info in ui_widgets.items()
         }
         # widget_name -> parameterNodeWrapper field the source binds a
@@ -636,6 +645,12 @@ class AnalyzerStage4DecompositionMixin:
         For choice, use null or:
         {{"question":"", "choices":[{{"label":"","value":null}}],
           "parameter_name":"", "default_value":null, "value_kind":""}}
+        value_kind classifies HOW the choice is entered so the runtime renders the
+        right control: "node" (pick an MRML node from the scene), "range" (adjust a
+        continuous numeric range on a double-handled min/max slider, e.g. a Threshold
+        min-max band), or "" (a plain enumerated pick / scalar / boolean, shown as
+        buttons or a text box). Use "range" whenever the step adjusts a numeric
+        range / slider / min-max band; leave its choices empty.
         ui_parameter_binding must be null or exactly:
         {{"widget_name":"candidate widget", "parameter_name":"candidate parameter"}}
         node_roles must contain only explicit records shaped as
@@ -1161,6 +1176,12 @@ class AnalyzerStage4DecompositionMixin:
                 # matches the bound (BRP) node-selection shape.
                 if sub_op.get("value_kind") == "node":
                     sub_op["choices"] = []
+                # A numeric range is adjusted on a double-handled slider, not picked
+                # from literal cookbook labels; clear any placeholder choice the LLM
+                # co-emits so the step routes to the range-slider renderer (mirrors
+                # the value_kind == "node" clear above).
+                if sub_op.get("value_kind") == "range":
+                    sub_op["choices"] = []
                 # A branch_op also performs an extension action on accept (e.g.
                 # tick a checkbox). target_value=True drives the toggle template
                 # generator to emit `checked = True` for the captured widget.
@@ -1185,6 +1206,7 @@ class AnalyzerStage4DecompositionMixin:
             self._record_source_widget(
                 sub_op, getattr(self, "_ui_widget_classes", {}),
                 getattr(self, "_segments_table_bindings", {}),
+                getattr(self, "_ui_widget_properties", {}),
             )
             method_name = semantic.get("extension_method_hint")
             method_details = [all_methods[method_name]] if method_name else []
@@ -1313,7 +1335,8 @@ class AnalyzerStage4DecompositionMixin:
 
     @staticmethod
     def _record_source_widget(sub_op: Dict[str, Any], widget_classes: Dict[str, str],
-                              segments_table_bindings: Dict[str, str] = None) -> None:
+                              segments_table_bindings: Dict[str, str] = None,
+                              widget_props: Dict[str, Dict[str, Any]] = None) -> None:
         """Record the original selection widget's Qt class on a user_choice sub-op,
         and tag segments-table-specific semantics.
 
@@ -1336,6 +1359,25 @@ class AnalyzerStage4DecompositionMixin:
         widget_class = (widget_classes or {}).get(widget_name, "") or ""
         if widget_class:
             sub_op.setdefault("widget_class", widget_class)
+        # A double-handled numeric range widget (ctkRangeWidget etc.): the user
+        # adjusts a min/max band on a slider. Tag a range selection and carry the
+        # .ui limits (minimum/maximum/singleStep) so the runtime can seed the slider
+        # (it falls back to the live target / source-volume scalar range when these
+        # are absent). Generic: keyed purely on the Qt widget class, no extension
+        # names. Note the primary signal for a range step targeting a BUILT-IN
+        # Slicer control (e.g. the Segment Editor Threshold range, absent from the
+        # extension .ui) is the LLM-emitted value_kind == "range" handled elsewhere.
+        if widget_class in ("ctkRangeWidget", "qMRMLRangeWidget",
+                            "ctkDoubleRangeSlider", "ctkRangeSlider"):
+            sub_op["widget_class"] = widget_class
+            sub_op["value_kind"] = "range"
+            sub_op["choices"] = []
+            props = (widget_props or {}).get(widget_name, {}) or {}
+            for _src, _dst in (("minimum", "range_min"), ("maximum", "range_max"),
+                               ("singleStep", "range_step")):
+                if props.get(_src) is not None:
+                    sub_op[_dst] = props.get(_src)
+            return
         # A plain content combobox whose items are a segmentation's segment NAMES
         # (e.g. a "Fragment" selector) -- recognized by a choice_input role of
         # vtkMRMLSegmentationNode. Tag a single-pick segment-name selection so the

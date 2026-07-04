@@ -140,6 +140,99 @@ class WorkflowSession:
         return self.status in {"running", "waiting_for_user", "waiting_for_choice"}
 
 
+# ---------------------------------------------------------------------------
+# Last-resort language classifier for a node-selection ``user_choice`` whose
+# node class was NOT captured structurally (no ``value_kind == 'node'``, no
+# recorded node-combo ``widget_class`` + ``node_class``, no ``choice_input``
+# node role). This happens for extensions that build their node selector in
+# PYTHON (e.g. ``self.tree = qMRMLSubjectHierarchyTreeView(); tree.nodeTypes =
+# [...]``) with no ``.ui`` file, so the CLI pipeline records no widget class and
+# the LLM decomposition leaves ``node_class`` empty and non-deterministic across
+# regens. Without this the panel falls back to a free-text box.
+#
+# These sets are DUPLICATED (not imported) in
+# ``extension_cli_loader/choice_helpers._node_class_from_choice_language`` so the
+# render path and the materialization/drive path classify identically; keep them
+# in sync (same convention as the mirrored ``_is_segment_name_selection`` /
+# ``_is_range_selection`` helpers). Importing the loader/analyzer here would drag
+# the generation pipeline onto the render hot-path (heavy + circular).
+_CHOICE_SELECT_VERBS = frozenset({
+    "choose", "select", "pick", "identify", "specify",
+})
+# Whole-word tokens that mark a VALUE/enum/boolean/count choice (never a node).
+# Bias: over-inclusion here costs only a free-text fallback (safe); a missing
+# token risks a wrong node tree — but the mandatory verb + family gates below are
+# the primary guard, so this stays a curated value-noun list (no common English
+# words like "on"/"set"/"use" that would over-exclude legitimate node phrasing).
+_CHOICE_VALUE_STOPWORDS = frozenset({
+    "number", "count", "many", "amount", "radius", "threshold", "thickness",
+    "diameter", "distance", "length", "width", "height", "angle", "degree",
+    "degrees", "unit", "units", "mm", "cm", "percent", "percentage", "opacity",
+    "enable", "enabled", "disable", "disabled", "visible", "visibility",
+    "checkbox", "toggle", "minimum", "maximum", "factor", "ratio", "smoothing",
+    "iteration", "iterations", "spacing", "tolerance", "intensity",
+    "brightness", "contrast", "true", "false", "yes", "no",
+})
+# Ordered (first match wins) map of a stable, unambiguous node-family noun -> the
+# concrete MRML class. Class strings mirror the existing analyzer heuristics
+# (cookbook_mapping._guess_node_class_for_role / workflow_templates.
+# _node_class_for_reference_role). Deliberately small: this is a last resort, so
+# it must map only nouns that unambiguously name one node family, never default
+# to a base ``vtkMRMLNode``.
+_CHOICE_NODE_FAMILY = (
+    ("segmentation", "vtkMRMLSegmentationNode"),
+    ("segments", "vtkMRMLSegmentationNode"),
+    ("segment", "vtkMRMLSegmentationNode"),
+    ("mask", "vtkMRMLSegmentationNode"),
+    ("labelmap", "vtkMRMLLabelMapVolumeNode"),
+    ("volume", "vtkMRMLScalarVolumeNode"),
+    ("image", "vtkMRMLScalarVolumeNode"),
+    ("scalar", "vtkMRMLScalarVolumeNode"),
+    ("model", "vtkMRMLModelNode"),
+    ("surface", "vtkMRMLModelNode"),
+    ("mesh", "vtkMRMLModelNode"),
+    ("curve", "vtkMRMLMarkupsCurveNode"),
+    ("plane", "vtkMRMLMarkupsPlaneNode"),
+    ("line", "vtkMRMLMarkupsLineNode"),
+    ("fiducial", "vtkMRMLMarkupsFiducialNode"),
+    ("landmark", "vtkMRMLMarkupsFiducialNode"),
+    ("transform", "vtkMRMLTransformNode"),
+    ("roi", "vtkMRMLMarkupsROINode"),
+)
+
+
+def _tokenize_choice_text(text: str) -> set:
+    """Lowercased word-token set of ``text`` with camelCase split and every
+    non-alphanumeric run (spaces, ``_``, punctuation) treated as a separator, so
+    ``skull_segment_id`` -> ``{skull, segment, id}`` and ``thresholdRange`` ->
+    ``{threshold, range}``. Token membership (not substring) so ``used`` never
+    matches the verb ``use`` and ``outline`` never matches the family ``line``."""
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", str(text or ""))
+    return {t for t in re.split(r"[^A-Za-z0-9]+", spaced.lower()) if t}
+
+
+def _classify_node_choice_language(family_text: str, broad_text: str) -> str:
+    """Concrete MRML class for a node-selection choice inferred purely from its
+    natural-language labels, or "" when it is not confidently a node pick.
+
+    Gate (ALL must hold): an explicit select verb somewhere in ``broad_text``; NO
+    value/enum/boolean/count stopword anywhere in ``broad_text``; and a recognized
+    node-family noun in ``family_text`` (the narrow "what is being selected"
+    fields only — object/choice/input labels, question, parameter name — never the
+    noisy free-form description, so e.g. a "Segment Editor module ... choose the
+    volume" step reads as a volume, not a segmentation). Returns "" otherwise."""
+    broad = _tokenize_choice_text(broad_text)
+    if not (broad & _CHOICE_SELECT_VERBS):
+        return ""
+    if broad & _CHOICE_VALUE_STOPWORDS:
+        return ""
+    family = _tokenize_choice_text(family_text)
+    for token, node_class in _CHOICE_NODE_FAMILY:
+        if token in family:
+            return node_class
+    return ""
+
+
 class WorkflowRuntime:
     """Run generated CLI workflow steps without re-entering the LLM loop."""
 
@@ -304,6 +397,13 @@ class WorkflowRuntime:
         segment_name_meta = self._segment_name_selection_meta(current_meta) if result_type == "user_choice" else {}
         if segment_name_meta:
             choices = []
+        # Numeric RANGE adjustment step (a double-handled min/max slider like the
+        # Segment Editor Threshold range): surface a flag so the panel renders a
+        # range bar. Drop the placeholder choice the LLM co-emits ("range") so
+        # needs_choice_input becomes True and the step routes to the range renderer.
+        range_meta = self._range_selection_meta(current_meta) if result_type == "user_choice" else {}
+        if range_meta:
+            choices = []
         # Clinically-informed instructions override the terse ui_guidance when
         # present: title -> description, detailed -> the primary instruction text
         # (shown by default), simple -> the terse "Show brief" body. The widget
@@ -365,6 +465,14 @@ class WorkflowRuntime:
             or segment_name_meta.get("keywords", []),
             "segmentation_target_param": segment_meta.get("target_param", "")
             or segment_name_meta.get("target_param", ""),
+            # Numeric range slider: flag + resolution metadata. min/max/default may
+            # be None (derived at render time from the live target / source volume).
+            "range_selection": bool(range_meta),
+            "range_param": range_meta.get("param", ""),
+            "range_min": range_meta.get("min"),
+            "range_max": range_meta.get("max"),
+            "range_step": range_meta.get("step"),
+            "range_default": range_meta.get("default"),
             "choice_label": ui_guidance.get("choice_label", ""),
             "input_label": ui_guidance.get("input_label", ""),
             "done_label": ui_guidance.get("done_label", "Done") or "Done",
@@ -1626,6 +1734,11 @@ class WorkflowRuntime:
             # enumerated choice; mirror the live path so the table re-renders.
             choices = []
             needs_input = True
+        # Mirror the live path: a range step re-renders its slider on replay.
+        range_meta = self._range_selection_meta(meta)
+        if range_meta:
+            choices = []
+            needs_input = True
         # Clinically-informed instructions override the recorded guidance (live
         # lookup so manual edits show in replay too).
         instr = self._step_instructions_for(cp.step_id)
@@ -1653,6 +1766,12 @@ class WorkflowRuntime:
             # Mirror the live path: binding keywords win, else widget-name-derived.
             "segmentation_keywords": (binding.get("keywords", []) or []) or segment_meta.get("keywords", []),
             "segmentation_target_param": segment_meta.get("target_param", ""),
+            "range_selection": bool(range_meta),
+            "range_param": range_meta.get("param", ""),
+            "range_min": range_meta.get("min"),
+            "range_max": range_meta.get("max"),
+            "range_step": range_meta.get("step"),
+            "range_default": range_meta.get("default"),
             "choice_label": guidance.get("choice_label", ""),
             "input_label": guidance.get("input_label", ""),
             "repeat_progress": cp.repeat or {},
@@ -1790,6 +1909,9 @@ class WorkflowRuntime:
         # it to the scene-node tree.
         if WorkflowRuntime._is_segment_name_selection(meta):
             return ""
+        # A numeric range adjustment is not a node pick.
+        if WorkflowRuntime._is_range_selection(meta):
+            return ""
         roles = meta.get("node_roles") or []
         for role in roles:
             if isinstance(role, dict) and role.get("role_kind") == "choice_input":
@@ -1823,7 +1945,47 @@ class WorkflowRuntime:
                 nc = str(role.get("node_class") or "").strip()
                 if nc:
                     return nc
-        return ""
+        # Last resort: no structural node class was captured (common for
+        # python-built selectors with no ``.ui``). Infer it from the step's
+        # natural-language labels. Mirrored in choice_helpers so the pick also
+        # drives the extension's live selector.
+        return WorkflowRuntime._node_class_from_choice_language(meta)
+
+    @staticmethod
+    def _node_class_from_choice_language(meta: Dict[str, Any]) -> str:
+        """Language-only node-class fallback for a node-selection ``user_choice``
+        with no structurally-captured class (see ``_classify_node_choice_language``
+        and the module-level rationale). Reads the FAMILY noun only from the narrow
+        "what is being selected" fields (ui_guidance object/choice/input labels,
+        choice_info question, parameter name) and the select-verb/stopword gate from
+        the broader description text. Excludes segment-name / range picks (they own
+        their renderers) before classifying. Returns "" for non-node choices.
+
+        Mirror of ``extension_cli_loader.choice_helpers._node_class_from_choice_language``.
+        """
+        if not isinstance(meta, dict):
+            return ""
+        if (WorkflowRuntime._is_segment_name_selection(meta)
+                or WorkflowRuntime._is_range_selection(meta)):
+            return ""
+        guidance = meta.get("ui_guidance") if isinstance(meta.get("ui_guidance"), dict) else {}
+        choice_info = meta.get("choice_info") if isinstance(meta.get("choice_info"), dict) else {}
+        family_parts = [
+            guidance.get("object_label"), guidance.get("choice_label"),
+            guidance.get("input_label"), choice_info.get("question"),
+            choice_info.get("parameter_name"),
+        ]
+        broad_parts = list(family_parts) + [
+            meta.get("description"), guidance.get("instruction"), guidance.get("title"),
+        ]
+        for so in meta.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            family_parts.extend([so.get("question"), so.get("parameter_name")])
+            broad_parts.extend([so.get("question"), so.get("parameter_name"), so.get("description")])
+        family_text = " ".join(str(p) for p in family_parts if p)
+        broad_text = " ".join(str(p) for p in broad_parts if p)
+        return _classify_node_choice_language(family_text, broad_text)
 
     @staticmethod
     def _source_widget_class(meta: Dict[str, Any]) -> str:
@@ -2019,6 +2181,75 @@ class WorkflowRuntime:
             "source_widget": widget_name,
         }
 
+    # Qt classes of a double-handled numeric range control (min/max slider).
+    # Shared by _is_range_selection / _range_selection_meta and the node-selection
+    # exclusions so a range step never routes to the node tree / segments table.
+    _RANGE_WIDGET_CLASSES = (
+        "ctkRangeWidget", "qMRMLRangeWidget", "ctkDoubleRangeSlider", "ctkRangeSlider",
+    )
+
+    @staticmethod
+    def _is_range_selection(meta: Dict[str, Any]) -> bool:
+        """True when a user_choice step is a continuous numeric RANGE adjustment
+        (a double-handled min/max slider), e.g. a Segment Editor Threshold range.
+
+        Dual signal so it fires on already-generated artifacts (no regen):
+        ``value_kind == "range"`` (self-describing, emitted by the LLM choice
+        decomposition for any "adjust a range" step), OR a range widget source
+        class recorded from the extension's ``.ui`` (``ctkRangeWidget`` etc.).
+        Kept distinct from the node / segment families so it renders a range
+        slider, not a node tree, segments table, or literal button. Generic: no
+        extension/step-specific strings.
+        """
+        if not isinstance(meta, dict):
+            return False
+        sub_ops = [s for s in (meta.get("sub_operations") or []) if isinstance(s, dict)]
+        for so in sub_ops:
+            if str(so.get("value_kind") or "").strip() == "range":
+                return True
+            if str(so.get("widget_class") or "").strip() in WorkflowRuntime._RANGE_WIDGET_CLASSES:
+                return True
+        return False
+
+    @staticmethod
+    def _range_selection_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolution metadata for a numeric range chooser (see _is_range_selection):
+        ``{param, min, max, step, default, source_widget}``. ``min``/``max``/``step``
+        come from the extension's captured ``.ui`` numeric properties when present
+        (an extension's own range widget); otherwise they are ``None`` and the
+        renderer derives limits at run time from the live target (e.g. the Segment
+        Editor Threshold effect / source-volume scalar range). Returns ``{}`` when
+        the step is not a range selection.
+        """
+        if not isinstance(meta, dict) or not WorkflowRuntime._is_range_selection(meta):
+            return {}
+        param = ""
+        widget_name = ""
+        rmin = rmax = rstep = rdefault = None
+        for so in meta.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            if not param:
+                param = str(so.get("parameter_name") or "").strip()
+            if not widget_name:
+                widget_name = str(so.get("widget_name") or "").strip()
+            if rmin is None:
+                rmin = so.get("range_min")
+            if rmax is None:
+                rmax = so.get("range_max")
+            if rstep is None:
+                rstep = so.get("range_step")
+            if rdefault is None:
+                rdefault = so.get("range_default")
+        return {
+            "param": param,
+            "min": rmin,
+            "max": rmax,
+            "step": rstep,
+            "default": rdefault,
+            "source_widget": widget_name,
+        }
+
     @staticmethod
     def _is_node_selection_step(meta: Dict[str, Any]) -> bool:
         """True when a user_choice step's selection is an MRML node pick.
@@ -2039,6 +2270,9 @@ class WorkflowRuntime:
             return False
         # A segment-NAME selection renders its own picker, never the node tree.
         if WorkflowRuntime._is_segment_name_selection(meta):
+            return False
+        # A numeric range adjustment renders its own slider, never the node tree.
+        if WorkflowRuntime._is_range_selection(meta):
             return False
         if "node" in kinds:
             return True

@@ -2,99 +2,111 @@
   "version": 1,
   "steps": {
     "cb_step_1": {
-      "title": "Create a new segmentation for the skull",
-      "simple": "Open the Segmentation Editor module and create a new segmentation named 'Cranial_Segmentation'.",
-      "detailed": "This segmentation will hold the skull bone model that we will extract. A segmentation allows you to isolate the skull from surrounding soft tissue using thresholding and editing tools. In the Segmentation Editor, click 'Create new segmentation' and name it 'Cranial_Segmentation'.",
+      "title": "Select the source volume",
+      "simple": "Choose the volume that contains the skull for segmentation.",
+      "detailed": "This is the starting point \u2014 you will segment the skull from this volume to later plan the implant. Pick the appropriate CT or MRI scan from the list.",
       "edited": false
     },
     "cb_step_2": {
-      "title": "Select the source scan for segmentation",
-      "simple": "Pick the CT or MRI volume that contains the skull.",
-      "detailed": "The segmentation tool needs a reference volume to determine the correct intensity values for thresholding. Choose the scan that best shows the skull anatomy, typically a bone-window CT. This volume will be used as the master volume for the segmentation.",
+      "title": "Create a new segmentation",
+      "simple": "Create a segmentation named 'Cranial_Segmentation'.",
+      "detailed": "A segmentation will hold the skull mask and later the implant. Name it clearly so you can identify it later in the workflow.",
       "edited": false
     },
     "cb_step_3": {
-      "title": "Add a segment for the skull",
-      "simple": "Click 'Add' to create a new segment called 'Cranial_Segment'.",
-      "detailed": "This segment will store the skull bone region. Later steps will fill this segment using thresholding. The segment name helps you keep track of different anatomical parts.",
+      "title": "Add and name a segment",
+      "simple": "Click 'Add' and rename the segment to 'Cranial_Segment'.",
+      "detailed": "This segment will store the skull mask. Renaming it helps you keep track of which segment represents the skull versus the implant.",
       "edited": false
     },
     "cb_step_4": {
-      "title": "Open the threshold tool",
-      "simple": "Click the 'Threshold' button in the Segmentation Editor.",
-      "detailed": "Thresholding is the primary method to extract bone from surrounding tissue based on Hounsfield units (CT intensity). Opening the threshold tool lets you set the intensity range that corresponds to skull bone.",
+      "title": "Open the Threshold tool",
+      "simple": "Click the 'Threshold' button.",
+      "detailed": "Thresholding uses Hounsfield units (or pixel values) to isolate bone. Since you are working with a skull, bone will appear bright. You will adjust the range next.",
       "edited": false
     },
     "cb_step_5": {
-      "title": "Set the intensity range for skull bone",
-      "simple": "Enter the lowest and highest intensity values that cover the skull bone in your scan.",
-      "detailed": "Skull bone appears bright on CT scans, typically with Hounsfield units above 200\u2013300. Adjust the range so that the skull is highlighted while excluding soft tissue and air. Use the preview to confirm the selection. This range defines which voxels will be included in the skull segment.",
+      "title": "Set the threshold range",
+      "simple": "Adjust the threshold bar to capture the skull bone.",
+      "detailed": "Move the range sliders until only the skull is highlighted \u2014 this isolates the bone from soft tissue and air. The exact range depends on your scan, but bone typically sits above 200\u2013300 HU for CT.",
       "edited": false
     },
     "cb_step_6": {
-      "title": "Apply the threshold to create the skull segment",
-      "simple": "Click 'Apply' to run the threshold tool.",
-      "detailed": "This will fill the 'Cranial_Segment' with all voxels within the chosen intensity range. The result is a rough skull mask that may include some unwanted areas (e.g., metal artifacts, teeth). You will refine it later.",
+      "title": "Apply the threshold",
+      "simple": "Click 'Apply' to create the skull segment.",
+      "detailed": "This fills the 'Cranial_Segment' with the voxels within your chosen threshold range, producing a rough skull mask. You will refine it later with the ROI.",
       "edited": false
     },
     "cb_step_7": {
-      "title": "Select the skull mask segmentation",
-      "simple": "Choose the segmentation node that holds the skull bone segment.",
-      "detailed": "The next step will load this mask into the implant design tool. Select the segmentation that you just created ('Cranial_Segmentation') to proceed with processing.",
+      "title": "Select the skull mask segment",
+      "simple": "Choose the 'Cranial_Segment' from the skull mask list.",
+      "detailed": "The extension needs to know which segment is the skull mask to load it for further processing. Pick the one you just created.",
       "edited": false
     },
     "cb_step_8": {
       "title": "Load the skull mask",
-      "simple": "Click the 'Load Skull Mask' button.",
-      "detailed": "This button imports the selected skull segmentation into the implant design workspace. The tool will use this mask to identify the defect region and later generate a custom implant.",
+      "simple": "Click 'Load Skull Mask'.",
+      "detailed": "This converts your segmentation into a working model that the extension can crop and cut. Wait until it finishes before proceeding.",
       "edited": false
     },
     "cb_step_9": {
-      "title": "Add a region of interest (ROI)",
-      "simple": "Click 'Add ROI' to create a bounding box around the skull.",
-      "detailed": "The ROI defines the volume that will be cropped for further processing. By restricting the area to the skull, you reduce computation time and focus on the defect region. The ROI handles can be adjusted later to precisely enclose the skull.",
+      "title": "Add a region of interest",
+      "simple": "Click 'Add ROI' to create a box around the skull.",
+      "detailed": "The ROI (region of interest) defines the area you want to keep. You will adjust it next to isolate only the skull portion that contains the defect.",
       "edited": false
     },
     "cb_step_10": {
-      "title": "Adjust the ROI to enclose the skull",
-      "simple": "Drag the ROI handles to tightly fit around the skull region.",
-      "detailed": "A well-fitted ROI ensures that only the skull is included for cropping, removing unnecessary soft tissue and background. This improves the accuracy of subsequent defect cutting and implant generation. Make sure the entire skull (including the fracture area) is inside the ROI.",
+      "title": "Adjust the ROI boundaries",
+      "simple": "Drag the handles to enclose the skull portion you want to keep.",
+      "detailed": "Position the ROI tightly around the skull area that includes the defect. This removes irrelevant anatomy and speeds up calculations. Make sure the defect is fully inside the box.",
       "edited": false
     },
     "cb_step_11": {
-      "title": "Crop the skull mask to the ROI",
-      "simple": "Click the 'Crop to ROI' button to trim the skull mask to the region you defined.",
-      "detailed": "Cropping removes all parts of the skull mask outside the ROI, isolating the skull and eliminating extraneous structures. This cleaned skull model will be used to identify the fracture defect.",
+      "title": "Crop the skull to the ROI",
+      "simple": "Click 'Crop to ROI'.",
+      "detailed": "This cuts the skull mask down to only the region inside your ROI, discarding everything outside. The cropped mask will be used for the cutting step.",
       "edited": false
     },
     "cb_step_12": {
-      "title": "Create a closed curve for defect outlining",
-      "simple": "Switch to the Markups module and click 'Closed Curve' to start a new curve.",
-      "detailed": "The closed curve will be drawn directly on the skull model to trace the boundary of the fracture defect. This defines the area that will be cut out as the defect, which will later be filled with the implant.",
+      "title": "Adjust the 3D view",
+      "simple": "Rotate and zoom to see the skull defect clearly.",
+      "detailed": "A good view is essential for drawing the cutting curve accurately. Position the camera so you can see the entire defect boundary and surrounding bone.",
       "edited": false
     },
     "cb_step_13": {
-      "title": "Trace the fracture defect on the skull",
-      "simple": "Place points along the edge of the fracture on the skull model to create a closed curve.",
-      "detailed": "Accurately delineating the defect boundary is crucial for a well-fitting implant. The curve should follow the bone edge, enclosing the entire hole. Place enough points to capture the shape; the curve will be closed automatically when you finish.",
+      "title": "Create a closed curve",
+      "simple": "Select 'Closed Curve' from the Markups toolbar.",
+      "detailed": "This creates a closed curve that you will place around the defect. It will serve as the cutting guide for separating the defective bone from healthy bone.",
       "edited": false
     },
     "cb_step_14": {
-      "title": "Select the drawn curve",
-      "simple": "Choose the curve node you just created from the list.",
-      "detailed": "The implant design tool needs to know which curve defines the defect. Select the curve node so the tool can use it to cut the skull and generate the implant.",
+      "title": "Draw the cutting curve",
+      "simple": "Place points along the edge of the skull defect to outline it.",
+      "detailed": "Click on the skull surface to define the boundary between healthy bone and the defect. Place points at regular intervals around the entire defect. The curve must fully enclose the defect. Once you are done, click 'Done'.",
       "edited": false
     },
     "cb_step_15": {
-      "title": "Cut out the defect region",
-      "simple": "Click 'Cut Defect' to remove the fractured area from the skull mask.",
-      "detailed": "This operation uses the closed curve to cut the skull, separating the healthy bone from the defect. The result is a cleaned skull with a hole matching the fracture. This hole defines the shape the implant must cover.",
+      "title": "Select the curve",
+      "simple": "Choose the curve you just drew from the list.",
+      "detailed": "The extension uses this curve to know exactly where to cut. Pick the one you created in the previous step.",
       "edited": false
     },
     "cb_step_16": {
-      "title": "Generate the custom implant",
-      "simple": "Click 'Generate Implant' to create the implant model.",
-      "detailed": "The software will analyze the defect hole and skull curvature to design a patient-specific implant that fits precisely into the defect. The implant model is created as a 3D surface that can be exported for 3D printing or further refinement.",
+      "title": "Cut the defect",
+      "simple": "Click 'Cut Defect'.",
+      "detailed": "This removes the portion of the skull inside the curve, creating a clean defect model. The extension will use this to generate the implant shape. Wait for completion.",
+      "edited": false
+    },
+    "cb_step_17": {
+      "title": "Hide the curve",
+      "simple": "Make the curve invisible.",
+      "detailed": "Hiding the curve cleans up the view so you can focus on the defect and the upcoming implant generation.",
+      "edited": false
+    },
+    "cb_step_18": {
+      "title": "Generate the implant",
+      "simple": "Click 'Generate Implant' to create the cranial implant.",
+      "detailed": "The extension automatically creates a custom implant that fits the defect. It will appear as a new segmentation. Review it in the 3D view and prepare for surgical use.",
       "edited": false
     }
   }

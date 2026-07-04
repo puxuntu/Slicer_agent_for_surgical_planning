@@ -1,26 +1,32 @@
+# --- [Segment Editor session] add or reuse the target segment ---
+# Deterministic + IDEMPOTENT: reuse a segment already named 'Cranial_Segment' (so a
+# re-run / correction never creates a duplicate orphan), else
+# AddEmptySegment(id, name) with the correct arg order (a one-arg
+# AddEmptySegment auto-names the segment 'Segment_1'). Marks it the session
+# TARGET segment so the effect Apply writes into it.
 import slicer
-from slicer import vtkMRMLSegmentationNode
-
-# Find the segmentation node by name (fuzzy match)
-segmentationNode = None
-for node in slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode"):
-    if {segmentation_name_keyword:""} in node.GetName().lower():
-        segmentationNode = node
+_ses_seg = None
+_ses_segs = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
+for _ses_i in range(_ses_segs.GetNumberOfItems()):
+    _ses_c = _ses_segs.GetItemAsObject(_ses_i)
+    if _ses_c is not None and _ses_c.GetAttribute("SlicerAIAgent.SegmentEditorSession") == "1":
+        _ses_seg = _ses_c
         break
-
-if segmentationNode is None:
-    raise RuntimeError("Segmentation node not found")
-
-# Add an empty segment named 'Cranial_Segment'
-# AddEmptySegment(segmentId, segmentName, color)
-# When segmentName is empty, segmentId is used as name.
-segmentId = segmentationNode.GetSegmentation().AddEmptySegment("Cranial_Segment", "Cranial_Segment")
-if not segmentId:
-    raise RuntimeError("STATE_NOT_APPLIED: Failed to add segment 'Cranial_Segment'")
-
-# Verify that the segment was created
-addedSegment = segmentationNode.GetSegmentation().GetSegment(segmentId)
-if addedSegment is None:
-    raise RuntimeError("STATE_NOT_APPLIED: Segment 'Cranial_Segment' was not found after addition")
-if addedSegment.GetName() != "Cranial_Segment":
-    raise RuntimeError("STATE_NOT_APPLIED: Segment name is '%s' instead of 'Cranial_Segment'" % addedSegment.GetName())
+if _ses_seg is None:
+    for _ses_i in range(_ses_segs.GetNumberOfItems() - 1, -1, -1):
+        _ses_c = _ses_segs.GetItemAsObject(_ses_i)
+        if _ses_c is not None:
+            _ses_seg = _ses_c
+            break
+if _ses_seg is None:
+    raise RuntimeError("STATE_NOT_APPLIED: no segmentation found for add-segment")
+_ses_segmentation = _ses_seg.GetSegmentation()
+_ses_sid = _ses_segmentation.GetSegmentIdBySegmentName("Cranial_Segment")
+if not _ses_sid:
+    _ses_sid = _ses_segmentation.AddEmptySegment("Cranial_Segment", "Cranial_Segment")
+if not _ses_sid:
+    raise RuntimeError("STATE_NOT_APPLIED: AddEmptySegment returned empty id")
+_ses_seg.SetAttribute("SlicerAIAgent.SegmentEditorTargetSegmentID", _ses_sid)
+segmentId = _ses_sid
+print("[SegmentEditor] Segment 'Cranial_Segment' ready.")
+# --- [end Segment Editor session] ---

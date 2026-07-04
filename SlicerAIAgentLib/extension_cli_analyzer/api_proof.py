@@ -317,6 +317,24 @@ class TypeProvenanceGraph:
             )]
         if isinstance(node, ast.Attribute):
             chain = _unparse(node)
+            # The Segment Editor module widget's `.editor` attribute is the live
+            # qMRMLSegmentEditorWidget. Method calls on it (setSegmentationNode /
+            # setSourceVolumeNode / setActiveEffectByName / activeEffect / ...) are
+            # valid by construction -- it is a core Slicer widget obtained
+            # deterministically from the module -- so type it to the trusted
+            # `_module_widget` marker the prover accepts (mirrors the
+            # getModuleWidget()/_module_widget handler-driver contract). Otherwise
+            # the receiver types as an opaque chain string and every real method
+            # reads as method_unproven. Generic: keyed on the accessor shape
+            # (segmenteditor module widget + `.editor`), not any extension.
+            if node.attr == "editor":
+                _low = chain.lower()
+                if "segmenteditor" in _low and (
+                    "widgetrepresentation" in _low or "getmodulewidget" in _low
+                ):
+                    return [self._evidence(
+                        "_module_widget", "high", "segment_editor_widget_accessor"
+                    )]
             if chain.startswith("slicer.vtk") or chain.startswith("vtk.vtk"):
                 return [self._evidence(node.attr, "high", "wrapper_class_attribute")]
             if chain.startswith("slicer."):

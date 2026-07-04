@@ -704,11 +704,22 @@ class AnalyzerApiProbeMixin:
             "Verifying template API calls against running Slicer..."
         )
 
+        from .module_sessions import _SEG_SESSION_MARK
         all_specs_by_template = {}
         unresolved_dynamic_by_template = {}
         syntax_skipped = []
         for key, code in templates.items():
             if not key.endswith(".py.tpl") or not code or not code.strip():
+                continue
+            # Do NOT probe the DETERMINISTIC module-session templates
+            # (`[Segment Editor session]`): their Slicer API is hand-verified, and
+            # probing them against the EMPTY probe scene both WASTES TIME
+            # (instantiates the Segment Editor widget and executes guarded receiver
+            # chains on the main thread — a big part of the "Not Responding" freeze)
+            # and yields FALSE "does not exist" failures on None receivers
+            # (activeEffect() returns None) that the repair LLM then "fixes" by
+            # stripping the required `.self()`. Skipping them avoids both.
+            if isinstance(code, str) and _SEG_SESSION_MARK in code:
                 continue
             sample_code = code.replace(
                 "{vol_lookup}",
@@ -792,7 +803,20 @@ class AnalyzerApiProbeMixin:
                         "receiver_type": probe_meta.get("receiver_type", ""),
                         "proof_kind": probe_meta.get("proof_kind", ""),
                     })
-                elif not probe_result.get("exists"):
+                elif not probe_result.get("exists") and not probe_result.get("is_none"):
+                    # NOTE: a chain whose receiver merely evaluated to ``None`` in
+                    # the empty probe scene is NOT a real failure — it is absence of
+                    # evidence, not evidence of absence. It is exactly the runtime-
+                    # guarded ``if x is not None:`` case (e.g.
+                    # ``_ses_eff = ...activeEffect(); if _ses_eff is not None:
+                    # _ses_eff.self().onApply()`` — ``activeEffect()`` returns None
+                    # with no active effect / empty scene, GetDisplayNode() before
+                    # display nodes exist, GetNodeReference() before the ref is set).
+                    # Flagging it makes the repair LLM "fix" a perfectly valid call
+                    # (it stripped the required ``.self()`` off the Threshold effect
+                    # apply). Only flag a genuinely-missing attribute on a REAL
+                    # receiver; mirror the static prover's non-blocking treatment of
+                    # an unproven receiver.
                     failures.append({
                         "chain": chain_key,
                         "receiver_type": probe_result.get("type"),
@@ -900,10 +924,27 @@ class AnalyzerApiProbeMixin:
 
         # Revise affected templates via LLM
         revised_count = 0
+        from .module_sessions import _SEG_SESSION_MARK
         for tpl_key, tpl_failures in affected_templates.items():
             if tpl_key not in templates:
                 continue
             original_code = templates[tpl_key]
+            # NEVER let the probe-repair LLM rewrite the DETERMINISTIC module-session
+            # templates (marked `[Segment Editor session]`): their Slicer API is
+            # hand-verified and correct, but the probe runs against an EMPTY scene
+            # where runtime-guarded receivers like `activeEffect()` return None, so it
+            # keeps reporting valid guarded calls (`activeEffect().self().onApply`,
+            # `...widgetRepresentation().self().editor`) as "does not exist" and the
+            # LLM strips the REQUIRED `.self()` → the Threshold effect apply silently
+            # fails (empty Cranial_Segment → step-8 onLoadSkull crashes) on every
+            # regen. The None-receiver guard above prevents most of this, but exempt
+            # these deterministic templates outright so a probe never mangles them.
+            if isinstance(original_code, str) and _SEG_SESSION_MARK in original_code:
+                logger.info(
+                    "[verify_repair] skip revise of deterministic session template %s",
+                    tpl_key,
+                )
+                continue
             # Look up template purpose from stage_map for better LLM context
             purpose = self._get_template_purpose(tpl_key)
             revised = self._revise_template_for_api(
@@ -931,6 +972,10 @@ class AnalyzerApiProbeMixin:
             final_specs_by_template = {}
             for key, code in templates.items():
                 if not key.endswith(".py.tpl") or not code or not code.strip():
+                    continue
+                # Same exemption as the initial pass: never probe the deterministic
+                # [Segment Editor session] templates.
+                if isinstance(code, str) and _SEG_SESSION_MARK in code:
                     continue
                 sample_code = self._fill_remaining_placeholders(
                     code.replace(

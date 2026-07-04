@@ -1,0 +1,200 @@
+{
+  "stage": "5T",
+  "debug_schema_version": 2,
+  "debug_features": [
+    "slicer_op_classification",
+    "slicer_ui_analysis_evidence_audit",
+    "source_verification_summary",
+    "generated_code_preview",
+    "final_state_intent"
+  ],
+  "total_operations": 1,
+  "started": 1,
+  "finished": 1,
+  "errors_count": 0,
+  "operations": [
+    {
+      "step": 17,
+      "key": "cb_step_17_0",
+      "description": "Hide the curve node by making it invisible",
+      "keywords": [
+        "CranialImplantPlanning",
+        "CranialImplantPlanning_1783201618606",
+        "False",
+        "GetDisplayNode",
+        "RuntimeError",
+        "SetVisibility",
+        "SlicerAIAgentLib.workflow_state",
+        "cb_step_17_slicer.py.tpl",
+        "curveNode",
+        "curveNode.GetDisplayNode"
+      ],
+      "category": "node_display",
+      "final_state_intent": {
+        "mode": "set",
+        "state": false,
+        "confidence": "high",
+        "source": "hide"
+      },
+      "classification": {
+        "op_type": "slicer_op",
+        "evidence_type": "verify_repair_reground",
+        "evidence_id": "issue_1",
+        "confidence": "high",
+        "interaction_kind": "none",
+        "node_class": "vtkMRMLMarkupsClosedCurveNode",
+        "slicer_op_category": "node_display"
+      },
+      "search_policy": {
+        "preferred_root": "slicer-ui-analysis",
+        "requires_ui_first_when_ui_labeled": true,
+        "category_hints": [
+          "GetDisplayNode",
+          "SetVisibility",
+          "AddViewNodeID",
+          "SetVisibility2D",
+          "SetVisibility2DFill",
+          "SetVisibility2DOutline"
+        ],
+        "category_hint_provenance": "generic_slicer_search_hint"
+      },
+      "status": "done",
+      "total_time_s": 23.78,
+      "code_chars": 965,
+      "tool_rounds": 1,
+      "api_calls": 2,
+      "error": null,
+      "progress_events": [
+        {
+          "round": 1,
+          "phase": "search",
+          "message": "[Search] Round 1: |   VectorSearch: \"vtkMRMLMarkupsClosedCurveNode GetDisplayNode SetVisibility\" |   Grep: \"vtkMRMLMarkupsClosedCurveNode\" \u2192 slicer-source"
+        }
+      ],
+      "prompt_build_s": 1.188,
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nHide the curve node by making it invisible\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `CranialImplantPlanning`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:CranialImplantPlanning/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\n\nThis is a targeted repair of a ",
+      "prompt_includes_ui_analysis": true,
+      "deterministic_ui_evidence": {
+        "matched": [
+          "visibilityAllControlPointsInListMenuButton",
+          "FileLoadSceneAction",
+          "FileCloseSceneAction",
+          "pushButton_Snapshot",
+          "SliceDisplayModeComboBox"
+        ],
+        "injected": true
+      },
+      "executor_ready": true,
+      "tool_count": 3,
+      "last_progress": {
+        "round": 1,
+        "phase": "search",
+        "message": "[Search] Round 1: |   VectorSearch: \"vtkMRMLMarkupsClosedCurveNode GetDisplayNode SetVisibility\" |   Grep: \"vtkMRMLMarkupsClosedCurveNode\" \u2192 slicer-source"
+      },
+      "tool_loop_s": 22.3,
+      "total_tokens": 26112,
+      "total_api_time_s": 16.738,
+      "total_tool_time_s": 5.306,
+      "tool_names_called": [
+        "VectorSearch",
+        "Grep"
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "phase": "search",
+          "api_time_s": 8.701,
+          "tool_time_s": 5.306,
+          "round_time_s": 14.007,
+          "tools": [
+            "VectorSearch",
+            "Grep"
+          ],
+          "tokens": 5801
+        },
+        {
+          "round": 2,
+          "phase": "generate",
+          "api_time_s": 8.037,
+          "tool_time_s": 0.0,
+          "round_time_s": 8.038,
+          "tools": [],
+          "tokens": 20311
+        }
+      ],
+      "tool_calls_history": [
+        {
+          "tool": "VectorSearch",
+          "args": {
+            "query": "vtkMRMLMarkupsClosedCurveNode GetDisplayNode SetVisibility",
+            "top_k": 5
+          },
+          "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 190-198) [doc_example] similarity:0.605 boosted:0.786\n```markdown\n# Hide inputs, show output\nsegmentationNode.GetDisplayNode().SetVisibility(False)\nmodelNode.GetDisplayNode().SetVisibility(False)\nhollowedModelNode.GetDisplayNode().SetOpacity(0.5)\n```\n\nExample using VTK filters:\n\n```python\n```\n\n[2] slicer-source/Libs/MRML/Core/vtkMRMLMarkupsClosedCurveNode.h (lines 1-77) [mrml_definition] [Full file included \u2014 no need to ReadFile or VectorSearch this file]\n```\n/*==============================================================================\n\n  Program: 3D Slicer\n\n  Portions (c) Copyright Brigham and Women's Hospital (BWH) All Rights Reserved.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Unless required by applicable law or agreed to in writing, software\n  distributed under the License is distributed on an \"AS IS\" BASIS,\n  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n  See the License for the specific language governing permissions and\n  limitations under the License.\n\n==============================================================================*/\n\n#ifndef __vtkMRMLMarkupsClosedCurveNode_h\n#define __vtkMRMLMarkupsClosedCurveNode_h\n\n// MRML includes\n#include \"vtkMRMLDisplayableNode.h\"\n\n// Markups includes\n#include \"vtkMRMLExport.h\"\n#include \"vtkMRMLMarkupsDisplayNode.h\"\n#include \"vtkMRMLMarkupsCurveNode.h\"\n\n/// \\brief MRML node to represent a closed curve markup\n/// Closed Curve Markups nodes contain N control points.\n/// Visualization parameters are set in the vtkMRMLMarkupsDisplayNode class.\n///\n/// Markups is intended to be used for manual marking/editing of point positions.\n///\nclass VTK_MRML_EXPORT vtkMRMLMarkupsClosedCurveNode : public vtkMRMLMarkupsCurveNode\n{\npublic:\n  static vtkMRMLMarkupsClosedCurveNode* New();\n  vtkTypeMacro(vtkMRMLMarkupsClosedCurveNode, vtkMRM..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "vtkMRMLMarkupsClosedCurveNode",
+            "path": "slicer-source"
+          },
+          "result_preview": "Grep: 62 hit(s) in 16 file(s): slicer-source/Libs/MRML/Core/vtkMRMLMarkupsClosedCurveNode.cxx (16), slicer-source/Libs/MRML/Core/vtkMRMLMarkupsClosedCurveNode.h (12), slicer-source/Modules/Loadable/Markups/Logic/vtkSlicerMarkupsLogic.cxx (7), slicer-source/Libs/MRML/Core/vtkMRMLMeasurementArea.cxx (4), slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsCurveSettingsWidget.cxx (3)"
+        }
+      ],
+      "evidence_audit": {
+        "ui_analysis": {
+          "used": false,
+          "query_paths": [],
+          "result_files": [],
+          "matched_lines_preview": [],
+          "connected_slots": [],
+          "api_footprints": [],
+          "implementation_candidates": []
+        },
+        "source_verification": {
+          "non_ui_result_files": [
+            "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
+            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsClosedCurveNode.h",
+            "slicer-source/Docs/developer_guide/script_repository/gui.md",
+            "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx",
+            "slicer-source",
+            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsClosedCurveNode.cxx",
+            "slicer-source/Modules/Loadable/Markups/Logic/vtkSlicerMarkupsLogic.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLMeasurementArea.cxx",
+            "slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsCurveSettingsWidget.cxx",
+            "slicer-source/Modules/Loadable/Markups/Testing/Cxx/vtkMRMLMarkupsStorageNodeTest2.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLScene.cxx",
+            "slicer-source/Base/QTCLI/qSlicerCLIModuleUIHelper.cxx",
+            "slicer-source/Libs/MRML/Core/CMakeLists.txt",
+            "slicer-source/Modules/Loadable/Markups/Logic/vtkSlicerMarkupsLogic.h",
+            "slicer-source/Modules/Loadable/Markups/Testing/Python/MarkupsCurveMeasurementsTest.py",
+            "slicer-source/Modules/Loadable/Markups/Testing/Python/MarkupsCurveCoordinateFrameTest.py",
+            "slicer-source/Modules/Loadable/Markups/Testing/Cxx/vtkMRMLMarkupsNodeTest3.cxx",
+            "slicer-source/Modules/Loadable/Markups/qSlicerMarkupsModule.cxx",
+            "slicer-source/Modules/Loadable/Markups/Testing/Python/PluggableMarkupsSelfTest.py",
+            "slicer-source/Modules/Loadable/Markups/Testing/Python/AddManyMarkupsFiducialTest.py"
+          ],
+          "source_type_counts": {
+            "doc_example": 3,
+            "mrml_definition": 7,
+            "loadable_module": 5,
+            "ui_implementation": 1,
+            "source": 1,
+            "test_example": 4
+          }
+        },
+        "searches": {
+          "vector_queries": [
+            "vtkMRMLMarkupsClosedCurveNode GetDisplayNode SetVisibility"
+          ],
+          "grep_patterns": [
+            "vtkMRMLMarkupsClosedCurveNode"
+          ],
+          "read_paths": []
+        }
+      },
+      "reasoning_chars": 3989,
+      "reasoning_preview": "[Round 1]\nLet me analyze the validation failure and the successful correction to understand what needs to change.\n\nThe failure was: \"Curve node containing '{curve_name}' not found in the scene\"\n\nThe successful correction used:\n1. `slicer.mrmlScene.GetFirstNodeByName(\"CC\")` - direct name lookup first\n2. Fallback: `slicer.mrmlScene.GetFirstNodeByClass(\"vtkMRMLMarkupsClosedCurveNode\")` - class-based fallback\n3. Then `displayNode.SetVisibility(False)` and read-back check\n\nThe key issue with the previous template was that it used fuzzy matching with `GetNodesByClass(\"vtkMRMLMarkupsCurveNode\")` and a `{curve_name}` placeholder. The correction suggests using a more robust approach:\n1. Try `GetFirstNodeByName` with a specific name\n2. Fallback to `GetFirstNodeByClass` for the specific curve type\n3. Use `vtkMRMLMarkupsClosedCurveNode` as the class (since the user drew a closed curve)\n\nBut wait - the template needs to work generically. The correction hardcoded \"CC\" but this is a template. Let me look at what the original template was supposed to do - find a curve node by name and hide it.\n\nThe correction used `GetFirstNodeByName(\"CC\")` (hardcoded) and then `GetFirstNodeByClass(\"vtkMRMLMarkupsClosedCurveNode\")` as fallback.\n\nFor the template, I should:\n1. Try to find the node by name first - but since this is a template, use `{curve_name}` as a placeholder for the name\n2. Fallback to class-based lookup\n3. Use `vtkMRMLMarkupsClosedCurveNode` class since the context says \"The user drew a closed curve in step 14\"\n\nActually, let me re-read. The correction has `\"CC\"` hardcoded but in a template we need `{curve_name}`. The issue was that the fuzzy match with `GetNodesByClass(\"vtkMRMLMarkupsCurveNode\")` and `\"{curve_name}\" in node.GetName()` failed - probably because there was no node matching that pattern.\n\nThe better approach from the correction:\n1. First try `GetFirstNodeByName(\"{curve_name}\")` - exact name match\n2. If that fails, try `GetFirstNodeByClass(\"vtkMRMLMarkupsClosedCurveNode\")` - class-based fallback\n3. If that fails, raise error\n\nLet me also look at whether there's evidence for `vtkMRMLMarkupsClosedCurveNode` or `vtkMRMLMarkupsCurveNode`.\n\nLet me search quickly to verify the API.\n\n[Round 2]\nThe evidence confirms:\n\n1. `vtkMRMLMarkupsClosedCurveNode` inherits from `vtkMRMLMarkupsCurveNode`, which inherits from `vtkMRMLMarkupsDisplayableNode` \u2192 `vtkMRMLDisplayableNode`\n2. `GetDisplayNode()` returns a `vtkMRMLDisplayNode` (from vtkMRMLDisplayableNode.cxx)\n3. `SetVisibility(int)` and `GetVisibility()` are methods on the display node (confirmed in the script_repository example: `segmentationNode.GetDisplayNode().SetVisibility(False)`)\n4. `GetFirstNodeByClass(\"vtkMRMLMarkupsClosedCurveNode\")` is a valid MRML scene API\n\nThe successful correction used:\n1. `slicer.mrmlScene.GetFirstNodeByName(\"CC\")` - first try exact name (in template use `{curve_name}`)\n2. Fallback: `slicer.mrmlScene.GetFirstNodeByClass(\"vtkMRMLMarkupsClosedCurveNode\")` - class-based fallback",
+      "generated_code_preview": "\"\"\"\nHide the curve node by making it invisible.\n\"\"\"\n\n# Find the curve node - try exact name first, then fallback to class-based lookup\ncurveNode = slicer.mrmlScene.GetFirstNodeByName(\"{curve_name}\")\n\nif curveNode is None:\n    # Fallback: find any closed curve node in the scene\n    curveNode = slicer.mrmlScene.GetFirstNodeByClass(\"vtkMRMLMarkupsClosedCurveNode\")\n\nif curveNode is None:\n    # Further fallback: find any curve node\n    curveNode = slicer.mrmlScene.GetFirstNodeByClass(\"vtkMRMLMarkupsCurveNode\")\n\nif curveNode is None:\n    raise RuntimeError(\"No curve node containing '{curve_name}' found in the scene\")\n\n# Get the display node and set visibility to False\ndisplayNode = curveNode.GetDisplayNode()\nif displayNode is None:\n    raise RuntimeError(\"Curve node has no display node\")\n\ndisplayNode.SetVisibility(False)\n\n# Read back to confirm the state was applied\nif displayNode.GetVisibility() != 0:\n    raise RuntimeError(\"STATE_NOT_APPLIED: Visibility\")"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+==============================================================================
+Extension CLI pipeline  |  round: repair_003
+  extension : CranialImplantPlanning
+  source    : (repair round — no cookbook parse)
+  started   : 2026-07-04T18:36:13
+==============================================================================
+[2026-07-04T18:36:15 +    1.6s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
+[2026-07-04T18:36:15 +    1.9s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...

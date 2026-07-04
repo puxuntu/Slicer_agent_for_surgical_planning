@@ -1,4 +1,4 @@
-# --- CranialImplantPlanning: Click "Load Skull Mask" button. ---
+# --- CranialImplantPlanning: Click the "Load Skull Mask" button. ---
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.

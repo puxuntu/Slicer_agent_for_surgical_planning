@@ -778,6 +778,10 @@ Return:
         code = next(iter(generated.values()), "")
         if not code or "SLICER_OP_GENERATION_FAILED" in code:
             return None
+        # Re-grounding regenerates the slicer_op code from scratch, dropping any
+        # binding preamble that generation injected. Re-apply the Segment Editor
+        # crash-preventer so a re-grounded effect-drive template stays bound.
+        code = self._ensure_segment_editor_bindings(code)
         records = list(getattr(generator, "last_run_records", []) or [])
         evidence = {
             "source": "verify_repair_reground",

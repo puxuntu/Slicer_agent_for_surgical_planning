@@ -1,4 +1,4 @@
-# --- CranialImplantPlanning: Click "Add ROI" button. ---
+# --- CranialImplantPlanning: Click the "Add ROI" button. ---
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.

@@ -448,7 +448,9 @@ class AnalyzerTemplateHelpersMixin:
             "import slicer",
             "from SlicerAIAgentLib.workflow_state import remember_interaction_node",
             "",
-            f"# Reuse the markup node created by {starter_method}() in the previous step.",
+            (f"# Reuse the markup node created by {starter_method}() in the previous step."
+             if starter_method
+             else "# Reuse the markup node created by a previous step (do not create a duplicate)."),
             f"nodes = slicer.mrmlScene.GetNodesByClass(\"{node_class}\")",
             "node = None",
             "for i in range(nodes.GetNumberOfItems() - 1, -1, -1):",

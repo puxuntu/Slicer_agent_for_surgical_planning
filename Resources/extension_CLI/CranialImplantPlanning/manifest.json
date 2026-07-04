@@ -25,7 +25,9 @@
     "cb_step_13",
     "cb_step_14",
     "cb_step_15",
-    "cb_step_16"
+    "cb_step_16",
+    "cb_step_17",
+    "cb_step_18"
   ],
   "cookbook_driven": true,
   "cookbook_file": "CranialImplantPlanning.md",
@@ -36,7 +38,7 @@
     "user_interaction"
   ],
   "step_validation": {
-    "cb_step_1": {
+    "cb_step_2": {
       "valid": true,
       "issues": []
     },
@@ -76,16 +78,24 @@
       "valid": true,
       "issues": []
     },
-    "cb_step_15": {
+    "cb_step_14": {
       "valid": true,
       "issues": []
     },
     "cb_step_16": {
       "valid": true,
       "issues": []
+    },
+    "cb_step_17": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_18": {
+      "valid": true,
+      "issues": []
     }
   },
-  "partial_valid_step_count": 12,
+  "partial_valid_step_count": 14,
   "validation_state": {
     "static_valid": true,
     "api_probe_valid": false,
@@ -93,7 +103,7 @@
     "prelude_valid": true,
     "contract_audit_valid": true,
     "workflow_state_valid": true,
-    "prelude_bytes_max": 3464,
+    "prelude_bytes_max": 2756,
     "overall_valid": true,
     "api_proof_valid": true,
     "api_inventory_complete": true,
@@ -103,14 +113,20 @@
     "generator_template_sync_valid": true
   },
   "api_proof_coverage": {
-    "total_calls": 141,
-    "state_changing_calls": 40,
-    "proven_calls": 133,
+    "total_calls": 191,
+    "state_changing_calls": 50,
+    "proven_calls": 169,
     "invalid_calls": 0,
     "blocking_unproven_calls": 0,
-    "warning_unproven_reads": 8,
+    "warning_unproven_reads": 22,
     "inventory_complete": true
   },
   "workflow_contract_file": "workflow_contract.json",
-  "source_path": "C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions/CranialImplantPlanning"
+  "source_path": "C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions/CranialImplantPlanning",
+  "live_validation": {
+    "passed": true,
+    "live_valid_count": 6,
+    "failed_steps": [],
+    "skipped_count": 12
+  }
 }

@@ -11,28 +11,31 @@ Execute steps sequentially, ONE STEP PER TURN. After each interactive step, rela
 and wait for them to complete the interaction before proceeding.
 
 **Workflow Steps:**
-1. `cb_step_1` [slicer_op] — In the "Segmentation Editor" module, create new segmentation as "Cranial_Segmentation".
-2. `cb_step_2` [user_choice] — In the "Sourve Volume" selection section of "Segmentation Editor" module, choose the volume for segmentation.
-   - Ask user: Choose the volume for segmentation.
-3. `cb_step_3` [slicer_op] — In the "Segmentation Editor" module, Click the "Add" botton to add a new segment as "Cranial_Segment".
-4. `cb_step_4` [slicer_op] — In the "Segmentation Editor" module, Click the "Threshold" botton.
-5. `cb_step_5` [user_choice] — In the "Segmentation Editor" module, set the Threshold Range including the lowest value and the largest value.
-   - Ask user: Set the threshold range (lowest and largest value).
-6. `cb_step_6` [slicer_op] — In the "Segmentation Editor" module, Click the "Apply" botton.
+1. `cb_step_1` [user_choice] — In the "Segment Editor" module, under the "Source Volume" selection section, choose the volume for segmentation.
+   - Ask user: Choose the source volume for segmentation
+2. `cb_step_2` [slicer_op] — In the "Segment Editor" module, create a new segmentation named "Cranial_Segmentation".
+3. `cb_step_3` [slicer_op] — In the "Segment Editor" module, click the "Add" button and rename the segment to "Cranial_Segment".
+4. `cb_step_4` [slicer_op] — In the "Segment Editor" module, click the "Threshold" button.
+5. `cb_step_5` [user_choice] — In the "Segment Editor" module, adjust the threshold range bar to set the range value for segmentation.
+   - Ask user: Adjust the threshold range for segmentation
+6. `cb_step_6` [slicer_op] — In the "Segment Editor" module, click the "Apply" button.
 7. `cb_step_7` [user_choice] — In the "Skull Mask" section, choose the segment node.
-   - Ask user: Choose the skull mask segment node.
-8. `cb_step_8` [extension_op] — Click "Load Skull Mask" button.
-9. `cb_step_9` [extension_op] — Click "Add ROI" button.
-10. `cb_step_10` [user_interaction] — Manually adjust the boundary of the ROI to keep the skull part.
+   - Ask user: Choose the skull mask segment node
+8. `cb_step_8` [extension_op] — Click the "Load Skull Mask" button.
+9. `cb_step_9` [extension_op] — Click the "Add ROI" button.
+10. `cb_step_10` [user_interaction] — Manually adjust the boundaries of the ROI to retain the skull portion.
+   - Interaction: roi
+11. `cb_step_11` [extension_op] — Click the "Crop to ROI" button.
+12. `cb_step_12` [user_interaction] — Manually adjust the 3D view to get the best angle for placing the cutting curve.
    - Interaction: generic
-11. `cb_step_11` [extension_op] — Click "Crop to ROI" button.
-12. `cb_step_12` [slicer_op] — In the "Markups" module, click the "Closed Curve" to create a closed curve node.
-13. `cb_step_13` [user_interaction] — Manually draw the curve on the skull model to include the fractured skull part.
+13. `cb_step_13` [slicer_op] — In the "Markups" module, click "Closed Curve" to create a closed curve node.
+14. `cb_step_14` [user_interaction] — Manually draw the curve on the skull model to enclose the fractured skull portion.
    - Interaction: generic
-14. `cb_step_14` [user_choice] — In the "Curve selection" section, choose the Curve node.
-   - Ask user: Choose the curve node.
-15. `cb_step_15` [extension_op] — Click "Cut Defect" button.
-16. `cb_step_16` [extension_op] — Click "Generate Implant" button.
+15. `cb_step_15` [user_choice] — In the "Curve selection" section, choose the curve node.
+   - Ask user: Choose the curve node
+16. `cb_step_16` [extension_op] — Click the "Cut Defect" button.
+17. `cb_step_17` [slicer_op] — Make the curve node invisible.
+18. `cb_step_18` [extension_op] — Click the "Generate Implant" button.
 
 **Protocol:**
 1. Call `CranialImplantPlanning` with `workflow_step='cb_step_1'` and `user_action='start'` to begin

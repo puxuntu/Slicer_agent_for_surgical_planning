@@ -81,7 +81,7 @@ def _handle_automated_step(ctx: _WorkflowContext) -> Dict:
     with open(template_path, "r", encoding="utf-8") as f:
         template_str = f.read()
 
-    format_kwargs = _build_format_kwargs(ctx.arguments)
+    format_kwargs = _build_format_kwargs(ctx.arguments, ctx.ext_name)
 
     try:
         code = _fill_template(template_str, format_kwargs)
@@ -170,7 +170,7 @@ def _handle_interactive_proceed(ctx: _WorkflowContext) -> Dict:
         if os.path.isfile(post_template_path):
             with open(post_template_path, "r", encoding="utf-8") as f:
                 post_template = f.read()
-            format_kwargs = _build_format_kwargs(ctx.arguments)
+            format_kwargs = _build_format_kwargs(ctx.arguments, ctx.ext_name)
             try:
                 post_code = _fill_template(post_template, format_kwargs)
             except KeyError as e:
@@ -218,7 +218,7 @@ def _handle_interactive_start(ctx: _WorkflowContext) -> Dict:
                 pre_template = f.read()
 
     if pre_template:
-        format_kwargs = _build_format_kwargs(ctx.arguments)
+        format_kwargs = _build_format_kwargs(ctx.arguments, ctx.ext_name)
         try:
             pre_code = _fill_template(pre_template, format_kwargs)
         except KeyError as e:
@@ -312,7 +312,7 @@ def _maybe_attach_branch_action(ctx: _WorkflowContext, result: Dict) -> Dict:
     except Exception:
         return result
     try:
-        action_code = _fill_template(action_code, _build_format_kwargs(ctx.arguments))
+        action_code = _fill_template(action_code, _build_format_kwargs(ctx.arguments, ctx.ext_name))
     except KeyError:
         pass
     action_code = _prepend_choice_prelude(ctx, action_code)
@@ -514,7 +514,7 @@ def _handle_mixed_interaction_proceed(ctx: _WorkflowContext, pre_code: Optional[
         if os.path.isfile(post_template_path):
             with open(post_template_path, "r", encoding="utf-8") as f:
                 post_template = f.read()
-            format_kwargs = _build_format_kwargs(ctx.arguments)
+            format_kwargs = _build_format_kwargs(ctx.arguments, ctx.ext_name)
             try:
                 post_code = _fill_template(post_template, format_kwargs)
             except KeyError as e:

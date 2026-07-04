@@ -3,7 +3,7 @@
     "type": "function",
     "function": {
       "name": "CranialImplantPlanning",
-      "description": "Guided interactive workflow for CranialImplantPlanning. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Segmentation Editor\" module, create new segmentation as \"Cranial_Segmentation\".; 'cb_step_2': In the \"Sourve Volume\" selection section of \"Segmentation Editor\" module, choose the volume for segmentation.; 'cb_step_3': In the \"Segmentation Editor\" module, Click the \"Add\" botton to add a new segment as \"Cranial_Segment\".; 'cb_step_4': In the \"Segmentation Editor\" module, Click the \"Threshold\" botton.; 'cb_step_5': In the \"Segmentation Editor\" module, set the Threshold Range including the lowest value and the largest value.; 'cb_step_6': In the \"Segmentation Editor\" module, Click the \"Apply\" botton.; 'cb_step_7': In the \"Skull Mask\" section, choose the segment node.; 'cb_step_8': Click \"Load Skull Mask\" button.; 'cb_step_9': Click \"Add ROI\" button.; 'cb_step_10': Manually adjust the boundary of the ROI to keep the skull part. (interactive: generic)",
+      "description": "Guided interactive workflow for CranialImplantPlanning. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Segment Editor\" module, under the \"Source Volume\" selection section, choose the volume for segmentation.; 'cb_step_2': In the \"Segment Editor\" module, create a new segmentation named \"Cranial_Segmentation\".; 'cb_step_3': In the \"Segment Editor\" module, click the \"Add\" button and rename the segment to \"Cranial_Segment\".; 'cb_step_4': In the \"Segment Editor\" module, click the \"Threshold\" button.; 'cb_step_5': In the \"Segment Editor\" module, adjust the threshold range bar to set the range value for segmentation.; 'cb_step_6': In the \"Segment Editor\" module, click the \"Apply\" button.; 'cb_step_7': In the \"Skull Mask\" section, choose the segment node.; 'cb_step_8': Click the \"Load Skull Mask\" button.; 'cb_step_9': Click the \"Add ROI\" button.; 'cb_step_10': Manually adjust the boundaries of the ROI to retain the skull portion. (interactive: roi)",
       "parameters": {
         "type": "object",
         "properties": {
@@ -25,7 +25,9 @@
               "cb_step_13",
               "cb_step_14",
               "cb_step_15",
-              "cb_step_16"
+              "cb_step_16",
+              "cb_step_17",
+              "cb_step_18"
             ],
             "description": "Which workflow step to execute"
           },

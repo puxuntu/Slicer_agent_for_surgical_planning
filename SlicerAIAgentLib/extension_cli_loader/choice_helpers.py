@@ -32,8 +32,53 @@ _VOL_LOOKUP_SNIPPET = (
 )
 
 
-def _build_format_kwargs(arguments: Dict) -> Dict[str, str]:
-    """Convert tool arguments to template format kwargs (repr-wrapped)."""
+# Qt classes of a double-handled numeric range control (mirrors
+# WorkflowRuntime._RANGE_WIDGET_CLASSES).
+_RANGE_WIDGET_CLASSES = (
+    "ctkRangeWidget", "qMRMLRangeWidget", "ctkDoubleRangeSlider", "ctkRangeSlider",
+)
+
+
+def _is_range_value(value) -> bool:
+    """True for a 2-element numeric [min, max] (not a bool pair)."""
+    return (
+        isinstance(value, (list, tuple))
+        and len(value) == 2
+        and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in value)
+    )
+
+
+def _range_stem(key: str) -> str:
+    """Map a range choice's parameter_name to the stem an independently-grounded
+    template is likely to use for its min/max placeholders: camelCase->snake, then
+    drop a trailing 'range'/'ranges' segment. E.g. ``thresholdRange`` -> ``threshold``
+    (so ``{threshold_min}``/``{threshold_max}`` fill). Generic naming convention,
+    no extension/param-specific strings."""
+    src = str(key or "")
+    out = []
+    for i, ch in enumerate(src):
+        if ch.isupper() and i > 0 and (src[i - 1].islower() or src[i - 1].isdigit()):
+            out.append("_")
+        out.append(ch.lower())
+    s = "".join(out)
+    for suffix in ("_ranges", "_range", "ranges", "range"):
+        if s.endswith(suffix):
+            s = s[: -len(suffix)]
+            break
+    return s.strip("_")
+
+
+def _build_format_kwargs(arguments: Dict, ext_name: str = "") -> Dict[str, str]:
+    """Convert tool arguments to template format kwargs (repr-wrapped).
+
+    Also merges the recorded workflow CHOICES for ``ext_name`` so a later step's
+    grounded template can fill placeholders from an EARLIER user_choice (e.g. a
+    threshold range chosen in step 5 fills the ``{threshold_min}``/``{threshold_max}``
+    placeholders of the Apply step). A range value ``[lo, hi]`` is expanded to
+    ``<key>_min``/``<key>_max`` AND a de-suffixed stem form (see _range_stem) so
+    independently-grounded templates line up. Explicit tool arguments always win
+    over merged choices. Generic: keyed on value shape, applied to every extension.
+    """
     format_kwargs = {}
     for key, value in arguments.items():
         if isinstance(value, str):
@@ -42,6 +87,18 @@ def _build_format_kwargs(arguments: Dict) -> Dict[str, str]:
             format_kwargs[key] = "None"
         else:
             format_kwargs[key] = repr(value)
+    # Merge recorded choices (do not overwrite explicit arguments).
+    choices = _workflow_choices.get(ext_name, {}) if ext_name else {}
+    for key, value in (choices or {}).items():
+        format_kwargs.setdefault(key, repr(value))
+        if _is_range_value(value):
+            lo, hi = value[0], value[1]
+            format_kwargs.setdefault(f"{key}_min", repr(lo))
+            format_kwargs.setdefault(f"{key}_max", repr(hi))
+            stem = _range_stem(key)
+            if stem and stem != key:
+                format_kwargs.setdefault(f"{stem}_min", repr(lo))
+                format_kwargs.setdefault(f"{stem}_max", repr(hi))
     # Provide the structural vol_lookup expansion (raw code, not repr-wrapped) so
     # a template's bare {vol_lookup} fills instead of raising "placeholder not
     # filled". Harmless when the template has no such placeholder.
@@ -221,6 +278,11 @@ def _record_choice_and_advance(
         )
     choice_code = _build_choice_parameter_update_code(ctx, param_name, choice_value)
     if not choice_code:
+        # A numeric RANGE pick ([min, max]) applies to the live Segment Editor
+        # effect, NOT a scene node. Checked before the segment-name / node
+        # materializers so the list value is never resolved as a node/name.
+        choice_code = _build_range_choice_materialization_code(ctx, param_name, choice_value)
+    if not choice_code:
         # A segment-NAME pick (content combobox like the 'Fragment' box) is an
         # in-content item, NOT a scene node: mirror it onto the extension's own
         # combobox (by name) so its connected handler fires. Checked BEFORE the
@@ -353,6 +415,100 @@ def _is_segment_visibility_choice(ctx: _WorkflowContext) -> bool:
     return False
 
 
+# Mirror of WorkflowRuntime._CHOICE_SELECT_VERBS / _CHOICE_VALUE_STOPWORDS /
+# _CHOICE_NODE_FAMILY (kept duplicated, not imported, so the loader never imports
+# WorkflowRuntime). See WorkflowRuntime for the full rationale. Keep in sync.
+_CHOICE_SELECT_VERBS = frozenset({
+    "choose", "select", "pick", "identify", "specify",
+})
+_CHOICE_VALUE_STOPWORDS = frozenset({
+    "number", "count", "many", "amount", "radius", "threshold", "thickness",
+    "diameter", "distance", "length", "width", "height", "angle", "degree",
+    "degrees", "unit", "units", "mm", "cm", "percent", "percentage", "opacity",
+    "enable", "enabled", "disable", "disabled", "visible", "visibility",
+    "checkbox", "toggle", "minimum", "maximum", "factor", "ratio", "smoothing",
+    "iteration", "iterations", "spacing", "tolerance", "intensity",
+    "brightness", "contrast", "true", "false", "yes", "no",
+})
+_CHOICE_NODE_FAMILY = (
+    ("segmentation", "vtkMRMLSegmentationNode"),
+    ("segments", "vtkMRMLSegmentationNode"),
+    ("segment", "vtkMRMLSegmentationNode"),
+    ("mask", "vtkMRMLSegmentationNode"),
+    ("labelmap", "vtkMRMLLabelMapVolumeNode"),
+    ("volume", "vtkMRMLScalarVolumeNode"),
+    ("image", "vtkMRMLScalarVolumeNode"),
+    ("scalar", "vtkMRMLScalarVolumeNode"),
+    ("model", "vtkMRMLModelNode"),
+    ("surface", "vtkMRMLModelNode"),
+    ("mesh", "vtkMRMLModelNode"),
+    ("curve", "vtkMRMLMarkupsCurveNode"),
+    ("plane", "vtkMRMLMarkupsPlaneNode"),
+    ("line", "vtkMRMLMarkupsLineNode"),
+    ("fiducial", "vtkMRMLMarkupsFiducialNode"),
+    ("landmark", "vtkMRMLMarkupsFiducialNode"),
+    ("transform", "vtkMRMLTransformNode"),
+    ("roi", "vtkMRMLMarkupsROINode"),
+)
+
+
+def _tokenize_choice_text(text) -> set:
+    """Mirror of WorkflowRuntime._tokenize_choice_text: lowercased word-token set
+    with camelCase split and every non-alphanumeric run as a separator (token
+    membership, not substring)."""
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", str(text or ""))
+    return {t for t in re.split(r"[^A-Za-z0-9]+", spaced.lower()) if t}
+
+
+def _classify_node_choice_language(family_text, broad_text) -> str:
+    """Mirror of WorkflowRuntime._classify_node_choice_language: select verb +
+    no value stopword (broad text) + a node-family noun (narrow text) -> class."""
+    broad = _tokenize_choice_text(broad_text)
+    if not (broad & _CHOICE_SELECT_VERBS):
+        return ""
+    if broad & _CHOICE_VALUE_STOPWORDS:
+        return ""
+    family = _tokenize_choice_text(family_text)
+    for token, node_class in _CHOICE_NODE_FAMILY:
+        if token in family:
+            return node_class
+    return ""
+
+
+def _node_class_from_choice_language(ctx: _WorkflowContext, param_name: str) -> str:
+    """Language-only node-class fallback over the loader ctx (mirror of
+    WorkflowRuntime._node_class_from_choice_language). Reads the family noun from
+    the narrow selection labels of ctx.target_step / ctx.target_gen and the
+    verb/stopword gate from the broader description text. Excludes segment-name /
+    range / segment-visibility choices first. Returns "" for non-node choices."""
+    if _is_segment_visibility_choice(ctx) or _is_segment_name_choice(ctx, param_name) or _is_range_choice(ctx):
+        return ""
+    family_parts = []
+    broad_parts = []
+    for src in ((ctx.target_step or {}), (ctx.target_gen or {})):
+        if not isinstance(src, dict):
+            continue
+        guidance = src.get("ui_guidance") if isinstance(src.get("ui_guidance"), dict) else {}
+        choice_info = src.get("choice_info") if isinstance(src.get("choice_info"), dict) else {}
+        family_parts.extend([
+            guidance.get("object_label"), guidance.get("choice_label"),
+            guidance.get("input_label"), choice_info.get("question"),
+            choice_info.get("parameter_name"),
+        ])
+        broad_parts.extend([
+            src.get("description"), guidance.get("instruction"), guidance.get("title"),
+        ])
+        for so in src.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            family_parts.extend([so.get("question"), so.get("parameter_name")])
+            broad_parts.extend([so.get("question"), so.get("parameter_name"), so.get("description")])
+    broad_parts = family_parts + broad_parts
+    family_text = " ".join(str(p) for p in family_parts if p)
+    broad_text = " ".join(str(p) for p in broad_parts if p)
+    return _classify_node_choice_language(family_text, broad_text)
+
+
 def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
     """Node class for a node-valued choice, read from the step graph itself.
 
@@ -372,6 +528,9 @@ def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
     # but the chosen value is a segment name, not a node — never resolve it as a
     # scene node (that path raises). Its combobox-mirror code runs instead.
     if _is_segment_name_choice(ctx, param_name):
+        return ""
+    # A numeric RANGE pick is a [min, max] value, never a scene node.
+    if _is_range_choice(ctx):
         return ""
     for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
         for role in src.get("node_roles") or []:
@@ -393,7 +552,10 @@ def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
             nc = str(so.get("node_class") or "").strip()
             if nc:
                 return nc
-    return ""
+    # Last resort (mirrors WorkflowRuntime._node_class_from_step_meta): no
+    # structural class captured — infer from the choice's language so the pick
+    # both renders a node tree and drives the extension's live selector.
+    return _node_class_from_choice_language(ctx, param_name)
 
 
 def _choice_selector_widget(ctx: _WorkflowContext, param_name: str) -> str:
@@ -530,6 +692,69 @@ def _build_segment_name_choice_materialization_code(ctx: _WorkflowContext, param
     return "\n".join(lines)
 
 
+def _is_range_choice(ctx: _WorkflowContext) -> bool:
+    """True when this choice is a numeric RANGE adjustment (double-handled slider),
+    mirroring WorkflowRuntime._is_range_selection over the loader's ctx: an explicit
+    ``value_kind == "range"`` OR a range widget source class."""
+    for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
+        for so in src.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            if str(so.get("value_kind") or "").strip() == "range":
+                return True
+            if str(so.get("widget_class") or "").strip() in _RANGE_WIDGET_CLASSES:
+                return True
+    return False
+
+
+def _build_range_choice_materialization_code(ctx: _WorkflowContext, param_name: str, choice_value) -> str:
+    """For a numeric RANGE choice ``[min, max]``, apply the chosen range to the live
+    Segment Editor effect so its state/preview reflects the pick (the downstream
+    Apply step reads the stored value via _build_format_kwargs). Drives the active
+    effect's own range widget generically (its handler then applies the values),
+    falling back to the effect's Minimum/MaximumThreshold parameters. CodeValidator-
+    safe (only ``import slicer`` + method calls; no globals()/getattr/eval), fail-
+    soft. Returns "" when this is not a range choice or the value is malformed."""
+    if not _is_range_choice(ctx):
+        return ""
+    try:
+        v_min = float(choice_value[0])
+        v_max = float(choice_value[1])
+    except (TypeError, ValueError, IndexError, KeyError):
+        return ""
+    log_msg = f"[{ctx.ext_name}] Step '{ctx.workflow_step}': set range '{param_name}' to [{v_min}, {v_max}]."
+    lines = [
+        f"# --- {ctx.ext_name}: {ctx.workflow_step} range selection ---",
+        "import slicer",
+        f"_range_lo, _range_hi = {v_min!r}, {v_max!r}",
+        "_range_effect = None",
+        "try:",
+        "    _range_effect = slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect()",
+        "except Exception:",
+        "    _range_effect = None",
+        "if _range_effect is not None:",
+        "    _range_applied = False",
+        "    try:",
+        "        _range_frame = _range_effect.optionsFrame()",
+        "        _range_widgets = slicer.util.findChildren(_range_frame, className='ctkRangeWidget')",
+        "        if _range_widgets:",
+        "            _range_widgets[0].setMinimumValue(_range_lo)",
+        "            _range_widgets[0].setMaximumValue(_range_hi)",
+        "            _range_applied = True",
+        "    except Exception:",
+        "        _range_applied = False",
+        "    if not _range_applied:",
+        "        try:",
+        "            _range_effect.setParameter('MinimumThreshold', _range_lo)",
+        "            _range_effect.setParameter('MaximumThreshold', _range_hi)",
+        "        except Exception:",
+        "            pass",
+        f"print({log_msg!r})",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def _choice_has_node_binding(ctx: _WorkflowContext, param_name: str) -> bool:
     """True when the pipeline inferred a node binding for this choice.
 
@@ -615,35 +840,84 @@ def _build_node_choice_materialization_code(
         f"{id_global} = _chosen_node.GetID()",
         f"print({log_prefix!r} + _chosen_node.GetName())",
     ]
-    # Also mirror the pick into the extension's own selector widget, so a later
-    # button-click step (which drives the widget handler) reads the chosen node
-    # as its input. Fail-soft and additive — the cached-id channel above still
-    # serves the low-level cross-stage consumers. Handles both qMRMLNodeComboBox
-    # (setCurrentNode) and qMRMLSubjectHierarchyComboBox (setCurrentItem).
+    # Also mirror the pick into the extension's own LIVE selector widget, so a
+    # later button-click step (which drives the widget handler) reads the chosen
+    # node as its input — e.g. onLoadSkull reads segTree.currentItem(), which is
+    # empty unless we drive it here (the agent's own panel selection does NOT reach
+    # the extension's widget). Fail-soft and additive — the cached-id channel above
+    # still serves the low-level cross-stage consumers. module_name is the
+    # IMPORTABLE extension module (the getModule key), NOT ctx.ext_name.
     module_name = str((ctx.metadata or {}).get("extension_module_name") or "").strip()
     selector = _choice_selector_widget(ctx, param_name)
-    if module_name and selector.isidentifier():
+    if module_name:
+        lines.append("_choice_driven = False")
+        # (A) Preferred: the pipeline-captured selector on the module's `.ui`
+        # (classic .ui extensions). qMRMLNodeComboBox -> setCurrentNode;
+        # qMRMLSubjectHierarchyComboBox -> setCurrentItem.
+        if selector.isidentifier():
+            lines.extend([
+                "_choice_widget = None",
+                "try:",
+                f"    _choice_widget = slicer.util.getModuleWidget({module_name!r})",
+                "except Exception:",
+                "    _choice_widget = None",
+                "if _choice_widget is not None:",
+                "    _choice_sel = None",
+                "    try:",
+                f"        _choice_sel = _choice_widget.ui.{selector}",
+                "    except Exception:",
+                "        _choice_sel = None",
+                "    if _choice_sel is not None:",
+                "        try:",
+                "            _choice_sel.setCurrentNode(_chosen_node)",
+                "            _choice_driven = True",
+                "        except Exception:",
+                "            try:",
+                "                _choice_shn = slicer.mrmlScene.GetSubjectHierarchyNode()",
+                "                _choice_sel.setCurrentItem(_choice_shn.GetItemByDataNode(_chosen_node))",
+                "                _choice_driven = True",
+                "            except Exception:",
+                "                pass",
+            ])
+        # (B) Fallback for PYTHON-built UIs (no captured widget_name / no `.ui`,
+        # like this extension's `self.segTree`): introspect the module's own
+        # QWidget for node-selector widgets whose nodeTypes filter IsA-matches the
+        # chosen node, and drive them. The filter match disambiguates (a
+        # segmentation drives segTree, never curveTree); an empty (catch-all)
+        # filter is skipped to avoid over-driving. Read nodeTypes as a Q_PROPERTY
+        # (the getter is not a slot on qMRMLSubjectHierarchyTreeView). Traverse
+        # getModule(...).widgetRepresentation() (the real QWidget), NOT
+        # getModuleWidget(...) (the non-traversable Python self object).
         lines.extend([
-            "_choice_widget = None",
-            "try:",
-            f"    _choice_widget = slicer.util.getModuleWidget({module_name!r})",
-            "except Exception:",
-            "    _choice_widget = None",
-            "if _choice_widget is not None:",
-            "    _choice_sel = None",
+            "if not _choice_driven:",
+            "    _choice_root = None",
             "    try:",
-            f"        _choice_sel = _choice_widget.ui.{selector}",
+            f"        _choice_root = slicer.util.getModule({module_name!r}).widgetRepresentation()",
             "    except Exception:",
-            "        _choice_sel = None",
-            "    if _choice_sel is not None:",
+            "        _choice_root = None",
+            "    for _choice_cls in ('qMRMLSubjectHierarchyTreeView', 'qMRMLNodeComboBox', 'qMRMLSubjectHierarchyComboBox'):",
             "        try:",
-            "            _choice_sel.setCurrentNode(_chosen_node)",
+            "            _choice_sels = slicer.util.findChildren(_choice_root, className=_choice_cls)",
             "        except Exception:",
+            "            _choice_sels = []",
+            "        for _choice_w in _choice_sels:",
             "            try:",
-            "                _choice_shn = slicer.mrmlScene.GetSubjectHierarchyNode()",
-            "                _choice_sel.setCurrentItem(_choice_shn.GetItemByDataNode(_chosen_node))",
+            "                _choice_nt = _choice_w.nodeTypes",
+            "                _choice_types = list(_choice_nt() if callable(_choice_nt) else _choice_nt)",
             "            except Exception:",
-            "                pass",
+            "                _choice_types = []",
+            "            if not _choice_types:",
+            "                continue",
+            "            if not any(_chosen_node.IsA(str(_choice_t)) for _choice_t in _choice_types):",
+            "                continue",
+            "            try:",
+            "                _choice_w.setCurrentNode(_chosen_node)",
+            "            except Exception:",
+            "                try:",
+            "                    _choice_shn2 = slicer.mrmlScene.GetSubjectHierarchyNode()",
+            "                    _choice_w.setCurrentItem(_choice_shn2.GetItemByDataNode(_chosen_node))",
+            "                except Exception:",
+            "                    pass",
         ])
     lines.append("")
     return "\n".join(lines)

@@ -1,0 +1,16 @@
+[
+  {
+    "step_id": "cb_step_17",
+    "error": "Curve node containing '{curve_name}' not found in the scene",
+    "corrected_code": "",
+    "resolved": false,
+    "timestamp": "2026-07-04T17:48:21.591807"
+  },
+  {
+    "step_id": "cb_step_17",
+    "error": "Curve node containing '{curve_name}' not found in the scene",
+    "corrected_code": "# [Workflow runtime] Hidden generated-CLI workflow context\n_workflow_runtime_extension = 'CranialImplantPlanning'\n_workflow_runtime_id = 'CranialImplantPlanning_1783201618606'\n_workflow_runtime_step = 'cb_step_17'\n_workflow_runtime_repeat_index = 0\nfrom SlicerAIAgentLib.workflow_state import remember_interaction_node, resolve_interaction_node\n\n\"\"\"\nHide the curve node by making it invisible.\nThe user drew a closed curve in step 14 — the node is named \"CC\".\n\"\"\"\n\n# Find the closed curve node by name\ncurveNode = slicer.mrmlScene.GetFirstNodeByName(\"CC\")\nif curveNode is None:\n    # Fallback: find any vtkMRMLMarkupsClosedCurveNode\n    curveNode = slicer.mrmlScene.GetFirstNodeByClass(\"vtkMRMLMarkupsClosedCurveNode\")\n\nif curveNode is None:\n    raise RuntimeError(\"No closed curve node found in the scene to hide\")\n\n# Get the display node and set visibility to False\ndisplayNode = curveNode.GetDisplayNode()\nif displayNode is None:\n    raise RuntimeError(\"Curve node has no display node\")\n\ndisplayNode.SetVisibility(False)\n\n# Read back to confirm the state was applied\nif displayNode.GetVisibility() != 0:\n    raise RuntimeError(\"STATE_NOT_APPLIED: Visibility\")",
+    "resolved": true,
+    "timestamp": "2026-07-04T17:48:33.313630"
+  }
+]

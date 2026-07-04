@@ -519,6 +519,7 @@ class AnalyzerScanMixin:
 
         _SUPPORTED_SIGNALS = {
             "clicked", "toggled", "stateChanged", "valueChanged",
+            "valuesChanged",  # double-handled range widgets (ctkRangeWidget)
             "currentTextChanged", "currentIndexChanged", "textActivated",
             "checkBoxToggled", "currentNodeChanged",
         }
@@ -580,7 +581,51 @@ class AnalyzerScanMixin:
                         "logic_methods": logic_methods,
                     })
 
+        # Flag handlers that share `self.<attr>` WIDGET STATE with another handler
+        # (a handler-state chain, e.g. onLoadSkull writes self.resultSeg which
+        # onAddRoi reads). Such a handler MUST be driven, not reimplemented — the
+        # widget instance state it sets/consumes cannot be produced by a low-level
+        # logic call, so a reimplementation leaves it None (later onAddRoi/onCut
+        # crashes) or reads uncached globals.
+        handler_names = {c["handler_method"] for c in connections if c.get("handler_method")}
+        chain = self._handler_state_chain(class_node, handler_names)
+        for c in connections:
+            c["shares_widget_state"] = c.get("handler_method") in chain
+
         return connections
+
+    @staticmethod
+    def _handler_state_chain(class_node, handler_names) -> set:
+        """Handlers that share `self.<attr>` widget state with ANOTHER handler in
+        the class — writing an attr another handler reads, OR reading an attr
+        another handler wrote. Init-only state (written in setup/__init__, which
+        are not handlers) is excluded, so only handler↔handler state flow counts.
+        Generic: keys on self-attribute dataflow, no extension/attr-name literals."""
+        writes, reads = {}, {}
+        for item in class_node.body:
+            if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            w, r = set(), set()
+            for n in ast.walk(item):
+                if isinstance(n, ast.Assign):
+                    for t in n.targets:
+                        if (isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name)
+                                and t.value.id == "self"):
+                            w.add(t.attr)
+                elif (isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
+                        and n.value.id == "self" and isinstance(n.ctx, ast.Load)):
+                    r.add(n.attr)
+            writes[item.name], reads[item.name] = w, r
+        chain = set()
+        for h in handler_names:
+            hw, hr = writes.get(h, set()), reads.get(h, set())
+            for other in handler_names:
+                if other == h:
+                    continue
+                if (hw & reads.get(other, set())) or (hr & writes.get(other, set())):
+                    chain.add(h)
+                    break
+        return chain
 
     @staticmethod
     def _get_attribute_chain(node) -> str:

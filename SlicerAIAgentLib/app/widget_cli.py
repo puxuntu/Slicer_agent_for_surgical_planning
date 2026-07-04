@@ -19,36 +19,27 @@ class WidgetCLIMixin:
 
         cliLayout = qt.QVBoxLayout(self._cliGeneratorGroup)
 
-        # Row 1: Source selector + Refresh button
-        sourceLayout = qt.QHBoxLayout()
-        sourceLabel = qt.QLabel("Source:")
-        sourceLayout.addWidget(sourceLabel)
-
-        self._sourceSelector = qt.QComboBox()
-        self._sourceSelector.setToolTip("Select the extension source to browse")
-        # No hard minimum width — the combo fills the row via its layout stretch;
-        # a fixed 200px here would push the module panel wider when this section
-        # is expanded.
-        self._sourceSelector.setMinimumWidth(0)
-        self._sourceSelector.addItems(["Extension Manager", "Additional Module Paths", "Loaded Modules"])
-        sourceLayout.addWidget(self._sourceSelector, 1)
-
-        self._refreshExtensionsButton = qt.QPushButton("Refresh")
-        self._refreshExtensionsButton.setToolTip("Re-scan extensions from the selected source")
-        self._refreshExtensionsButton.setMaximumWidth(80)
-        sourceLayout.addWidget(self._refreshExtensionsButton)
-
-        cliLayout.addLayout(sourceLayout)
-
-        # Row 2: Extension selector (populated based on source)
+        # Row 1: Extension selector (only extensions that have a cookbook) + Refresh.
+        # Sources (Extension Manager / Additional Module Paths / Loaded Modules) are
+        # merged and de-duplicated — the user picks a single extension directly.
         extLayout = qt.QHBoxLayout()
         extLabel = qt.QLabel("Extension:")
         extLayout.addWidget(extLabel)
 
         self._extensionSelector = qt.QComboBox()
-        self._extensionSelector.setToolTip("Select an extension from the chosen source")
+        self._extensionSelector.setToolTip(
+            "Select an extension to generate a CLI for. Only extensions that have a "
+            "cookbook file (Resources/extensions_cookbook/<name>.md) are listed."
+        )
+        # No hard minimum width — the combo fills the row via its layout stretch;
+        # a fixed width here would push the module panel wider when expanded.
         self._extensionSelector.setMinimumWidth(0)
         extLayout.addWidget(self._extensionSelector, 1)
+
+        self._refreshExtensionsButton = qt.QPushButton("Refresh")
+        self._refreshExtensionsButton.setToolTip("Re-scan installed extensions for cookbooks")
+        self._refreshExtensionsButton.setMaximumWidth(80)
+        extLayout.addWidget(self._refreshExtensionsButton)
 
         cliLayout.addLayout(extLayout)
 
@@ -147,7 +138,6 @@ class WidgetCLIMixin:
 
         # Connect signals
         self._refreshExtensionsButton.clicked.connect(self._onRefreshExtensionsClicked)
-        self._sourceSelector.currentIndexChanged.connect(self._onSourceSelectionChanged)
         self._extensionSelector.currentIndexChanged.connect(self._onExtensionSelectionChanged)
         self._extensionSelector.currentIndexChanged.connect(self._populateStepInstructionCombo)
         self._analyzeGenerateButton.clicked.connect(self._onAnalyzeGenerateClicked)
@@ -160,7 +150,7 @@ class WidgetCLIMixin:
         self._onRefreshExtensionsClicked()
 
     def _onRefreshExtensionsClicked(self):
-        """Re-scan extensions from all sources and populate based on current source selection."""
+        """Re-scan installed extensions (all sources) and repopulate the list."""
         try:
             from SlicerAIAgentLib.ExtensionCLILoader import discover_installed_extensions
             self._discoveredExtensions = discover_installed_extensions()
@@ -169,45 +159,46 @@ class WidgetCLIMixin:
 
         self._populateExtensionSelector()
 
-    def _onSourceSelectionChanged(self, index):
-        """When the source combo changes, repopulate the extension list."""
-        self._populateExtensionSelector()
-
-    # Map from source combo label to source_type tag in discovered extensions
-    _SOURCE_TYPE_MAP = {
-        "Extension Manager": "extension_manager",
-        "Additional Module Paths": "additional_paths",
-        "Loaded Modules": "loaded_modules",
-    }
+    @staticmethod
+    def _extension_has_cookbook(name):
+        """True when a cookbook file exists for the extension name."""
+        if not name:
+            return False
+        cookbook_dir = os.path.join(
+            SLICER_AI_AGENT_ROOT, "Resources", "extensions_cookbook"
+        )
+        return (
+            os.path.isfile(os.path.join(cookbook_dir, f"{name}.md"))
+            or os.path.isfile(os.path.join(cookbook_dir, f"Slicer{name}.md"))
+        )
 
     def _populateExtensionSelector(self):
-        """Populate the extension combo box based on the selected source."""
+        """Populate the extension combo with installed extensions that have a
+        cookbook file.
+
+        The three discovery sources (Extension Manager / Additional Module Paths /
+        Loaded Modules) are merged and de-duplicated by extension name — the only
+        filter the user sees is "has a cookbook". When the same extension is found
+        in more than one source, the record with a usable Python source path wins
+        (so Analyze & Generate can read the source).
+        """
         self._extensionSelector.clear()
         self._extensionDataMap.clear()
 
-        source_label = self._sourceSelector.currentText
-        source_type = self._SOURCE_TYPE_MAP.get(source_label, "")
-        if not source_type:
-            return
-
-        module_dir = SLICER_AI_AGENT_ROOT
-        cookbook_dir = os.path.join(module_dir, "Resources", "extensions_cookbook")
-
+        best_by_name = {}
         for ext in self._discoveredExtensions:
-            if ext.get("source_type") != source_type:
+            name = ext.get("name")
+            if not self._extension_has_cookbook(name):
                 continue
+            path = ext.get("source_path") or ext.get("install_path") or ""
+            usable = bool(ext.get("has_python")) and bool(path) and os.path.isdir(path)
+            prev = best_by_name.get(name)
+            if prev is None or (usable and not prev[1]):
+                best_by_name[name] = (ext, usable)
 
-            name = ext["name"]
+        for name in sorted(best_by_name):
+            ext, _usable = best_by_name[name]
             label = name
-            # Check for cookbook
-            has_cookbook = (
-                os.path.isfile(os.path.join(cookbook_dir, f"{name}.md"))
-                or os.path.isfile(os.path.join(cookbook_dir, f"Slicer{name}.md"))
-            )
-            if has_cookbook:
-                label += " [has cookbook]"
-            else:
-                label += " [no cookbook]"
             if ext.get("cli_status"):
                 label += f" [{ext['cli_status']}]"
             if not ext.get("has_python"):

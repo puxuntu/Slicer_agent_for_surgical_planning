@@ -238,10 +238,34 @@ class AnalyzerWorkflowTemplatesMixin:
 
                 is_view_adjustment = interaction_kind == "view_adjustment"
 
+                # A draw/place step whose Stage-4 contract says it does NOT
+                # create its own node (creates_node is False) is operating on a
+                # markup a co-located earlier step already created — it must
+                # REUSE that node, not add a duplicate. Generic: keys only on the
+                # semantic descriptor (creates_node) + the node being a Markups
+                # class, never on step identity. The reused node keeps its
+                # concrete subclass (e.g. a closed curve stays closed, since
+                # GetNodesByClass matches by IsA), so the drawn markup matches
+                # whatever the create step made — fixing both the wrong-class and
+                # the duplicate-node failure modes at once.
+                reuse_existing_markup = (
+                    interaction_kind == "markup_placement"
+                    and not prev_starter_method
+                    and step.get("creates_node") is False
+                    and self._is_markup_node_class(node_class)
+                )
+                if reuse_existing_markup:
+                    step["interaction_owner"] = "runtime_template"
+                    step["created_node_source"] = "previous_step"
+
                 # Pre-interaction template
                 if interaction_kind == "markup_placement" and prev_starter_method:
                     pre_tpl = self._generate_existing_placement_pre_template(
                         extension_name, step, prev_starter_method,
+                    )
+                elif reuse_existing_markup:
+                    pre_tpl = self._generate_existing_placement_pre_template(
+                        extension_name, step, "",
                     )
                 elif is_view_adjustment:
                     pre_tpl = self._generate_view_adjustment_pre_template(
@@ -526,6 +550,23 @@ class AnalyzerWorkflowTemplatesMixin:
             logger.info(
                 "[generate] Fixed %d pre/post node ID consistency issues",
                 consistency_fixes,
+            )
+
+        # Core-module session threading: cookbook steps "In the 'X' module, ..."
+        # form coherent multi-step sessions (e.g. Segment Editor: create -> add ->
+        # activate -> apply). Each slicer_op is grounded in ISOLATION, losing the
+        # module's shared, stateful workflow (which segmentation, which SELECTED
+        # segment, one editor node), which yields duplicate / mis-targeted objects
+        # (e.g. Threshold "Apply" writing into a materialized 'Segment_1' instead of
+        # the segment "Add segment" created). Each registered per-module session
+        # driver wraps the module's step templates with deterministic, CodeValidator-
+        # safe preamble/postamble that threads that state via MRML node attributes.
+        # Subsumes the former Segment-Editor crash-preventer (binding still happens).
+        session_fixes = self._apply_module_session_drivers(templates, steps)
+        if session_fixes:
+            logger.info(
+                "[generate] Applied core-module session drivers to %d template(s)",
+                session_fixes,
             )
 
         # Store workflow graph as JSON template (only valid steps)
@@ -881,25 +922,10 @@ class AnalyzerWorkflowTemplatesMixin:
         live module widget. Returns None when there is no such connection (the
         caller falls back to its normal generation).
         """
-        # Paradigm gate. The bare handler call carries no param-node setup, so it
-        # only works when the extension drives its data through the UI/wrapper
-        # (connectGui populates the wrapper from the selectors the choice steps
-        # set). A CLASSIC extension's logic method instead reads param-node
-        # references that the logic-method template + cross-stage dataflow bind
-        # (e.g. centerFibulaLine reads a fibulaLine reference); driving the
-        # handler bypasses that plumbing -> the reference is None at runtime. So
-        # use the handler path ONLY for a wrapper/handler-driven extension, or
-        # when the step has no callable logic method (a UI-only toggle, where the
-        # handler is the only entry point). Classic + resolvable logic method ->
-        # fall back to the proven logic-method path.
-        is_wrapper = bool(getattr(self, "_parameter_node_wrapper", None))
-        has_logic_method = bool(step.get("method_name")) or any(
-            isinstance(so, dict)
-            and (so.get("extension_method_hint") or so.get("extension_function_hint"))
-            for so in step.get("sub_operations", []) or []
-        )
-        if not is_wrapper and has_logic_method:
-            return None
+        # Resolve the widget's connected handler FIRST, then decide (below) whether
+        # to drive it. A step's widget_name (e.g. "loadButton") is matched against
+        # the class-wide scanned widget connections to its clicked/toggled handler
+        # (e.g. onLoadSkull).
         connections = getattr(self, "_widget_connections", None) or []
         if not connections:
             return None
@@ -916,6 +942,7 @@ class AnalyzerWorkflowTemplatesMixin:
         _TOGGLE = ("toggled", "stateChanged", "checkBoxToggled")
         handler = widget = None
         is_toggle = False
+        shares_state = False
         for conn in connections:
             sig = str(conn.get("signal", ""))
             wn = conn.get("button_widget_name")
@@ -923,12 +950,35 @@ class AnalyzerWorkflowTemplatesMixin:
                 continue
             if "clicked" in sig:
                 handler, widget, is_toggle = conn["handler_method"], wn, False
+                shares_state = bool(conn.get("shares_widget_state"))
                 break
             if any(s in sig for s in _TOGGLE):
                 handler, widget, is_toggle = conn["handler_method"], wn, True
+                shares_state = bool(conn.get("shares_widget_state"))
                 break
         if not handler:
             return None
+        # Paradigm gate (applied AFTER the connection is resolved). Drive the
+        # handler when it SHARES `self.<attr>` widget state with another handler
+        # (a handler-state chain, e.g. onLoadSkull sets self.resultSeg that a later
+        # onAddRoi/onCutDefect reads — see scan._handler_state_chain): that widget
+        # state cannot be reproduced by a low-level logic reimplementation, which
+        # leaves it None (the later handler crashes) and reads uncached globals.
+        # Otherwise fall back to the proven logic-method path for a CLASSIC
+        # extension with a resolvable logic method — the original caution: driving
+        # a bare handler bypasses the cross-stage param-node reference plumbing the
+        # logic-method template binds (e.g. BRP centerFibulaLine reads a fibulaLine
+        # reference via the param node, NOT shared self-state), giving None at
+        # runtime. Wrapper extensions and UI-only toggles keep driving the handler.
+        if not shares_state:
+            is_wrapper = bool(getattr(self, "_parameter_node_wrapper", None))
+            has_logic_method = bool(step.get("method_name")) or any(
+                isinstance(so, dict)
+                and (so.get("extension_method_hint") or so.get("extension_function_hint"))
+                for so in step.get("sub_operations", []) or []
+            )
+            if not is_wrapper and has_logic_method:
+                return None
         step_id = step.get("step_id", "")
         mod_attr = module_name.lower()
         lines = list(self._template_header_lines(extension_name, step, "")) + [
@@ -1314,6 +1364,49 @@ class AnalyzerWorkflowTemplatesMixin:
         except Exception:
             logger.debug("Slicer API LLM template generation failed", exc_info=True)
         return None
+
+    def _apply_module_session_drivers(self, templates, steps=None):
+        """Apply the per-module session drivers to every generated ``*.py.tpl``
+        template (``module_sessions.all_drivers``). Each driver OVERRIDES its
+        module's known standard ops with deterministic, idempotent code (e.g. the
+        Segment Editor's create-segmentation / add-segment) and WRAPS the rest
+        (binding + shared-state preamble). Idempotent (marker-guarded), so it is
+        safe — and intended — to call in EVERY generation path (fresh generation,
+        live revision, repair re-grounding) so the fix survives corrections/
+        revisions. ``steps`` (the workflow steps) supplies each template's
+        description for object-name extraction when the grounded code lacks it.
+        Returns the number of templates changed."""
+        from .module_sessions import all_drivers
+        drivers = all_drivers()
+        desc_by_key = {}
+        for step in (steps or []):
+            key = step.get("code_template") if isinstance(step, dict) else None
+            if key:
+                desc_by_key[key] = step.get("description", "") or ""
+        changed = 0
+        for tpl_key in list(templates.keys()):
+            if not isinstance(tpl_key, str) or not tpl_key.endswith(".py.tpl"):
+                continue
+            orig = templates[tpl_key]
+            if not isinstance(orig, str):
+                continue
+            code = orig
+            desc = desc_by_key.get(tpl_key, "")
+            for driver in drivers:
+                code = driver.wrap(code, desc)
+            if code != orig:
+                templates[tpl_key] = code
+                changed += 1
+        return changed
+
+    def _ensure_segment_editor_bindings(self, code: str) -> str:
+        """Apply the Segment Editor session driver to a single re-grounded template
+        (used by the repair loop's re-grounding). Delegates to the generic
+        module-session framework (``module_sessions.SegmentEditorSessionDriver``)
+        so a re-grounded Segment Editor template gets the same coherent binding +
+        target-segment selection as the main generation pass. Idempotent."""
+        from .module_sessions import SegmentEditorSessionDriver
+        return SegmentEditorSessionDriver().wrap(code)
 
     def _generate_placement_starter_pre_template(
         self, extension_name, step, logic_class_name, module_name,

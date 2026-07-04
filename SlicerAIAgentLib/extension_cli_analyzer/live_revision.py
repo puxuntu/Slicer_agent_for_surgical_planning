@@ -1417,6 +1417,14 @@ class AnalyzerLiveRevisionMixin:
                 generators,
                 workflow_graph=workflow_data,
             )
+            # Re-apply the core-module session drivers (module_sessions) so the
+            # deterministic standard-op templates + shared-state binding survive
+            # the revise path — the generation pass' _apply_module_session_drivers
+            # does not run here, and an LLM rewrite may have dropped them.
+            self._apply_module_session_drivers(
+                templates,
+                (workflow_data or {}).get("steps") if isinstance(workflow_data, dict) else None,
+            )
             fresh_probe_result = self._stage7c_live_api_probe(templates)
             for tpl_file, tpl_code in templates.items():
                 tpl_path = os.path.join(cli_dir, tpl_file)
@@ -1673,6 +1681,11 @@ Return ONLY the JSON, no markdown fences.""")
             with open(workflow_metadata_path, "w", encoding="utf-8") as f:
                 json.dump(self._workflow_metadata, f, indent=2)
 
+            # Re-apply the core-module session drivers (see the other revise path).
+            self._apply_module_session_drivers(
+                templates,
+                (workflow_data or {}).get("steps") if isinstance(workflow_data, dict) else None,
+            )
             fresh_probe_result = self._stage7c_live_api_probe(templates)
             for tpl_name, tpl_content in templates.items():
                 tpl_path = os.path.join(cli_dir, tpl_name)

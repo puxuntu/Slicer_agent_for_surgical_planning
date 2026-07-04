@@ -1,0 +1,33 @@
+==============================================================================
+Extension CLI pipeline  |  round: repair_004
+  extension : CranialImplantPlanning
+  source    : (repair round — no cookbook parse)
+  started   : 2026-07-04T18:45:51
+==============================================================================
+[2026-07-04T18:45:54 +    2.9s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
+[2026-07-04T18:45:55 +    3.3s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-07-04T18:45:55 +    3.8s] [verify_repair] Verify And Repair Templates — All 21 API probes passed
+[2026-07-04T18:45:56 +    4.2s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-07-04T18:45:57 +    6.1s] [verify_repair] Verify And Repair Templates — FAIL: ["templates/cb_step_3_slicer.py.tpl: UnprovenApiCall: method_unproven for '_ses_seg.SetAttribute' (line 29, effect=state_change)"]
+[2026-07-04T18:45:58 +    6.2s] [verify_repair] Verify And Repair Templates — Attempt 1 found 2 repairable issue(s) [LiveExecutionErrorx1, UnprovenReceiverx1]
+[2026-07-04T18:45:58 +    6.4s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_3:UnprovenReceiver -> contract_aware_template_repair; cb_step_17:LiveExecutionError -> reground_slicer_op
+[2026-07-04T18:45:59 +    8.1s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_17_slicer.py.tpl: starting 1 slicer_op templates
+[2026-07-04T18:45:59 +    8.1s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_17_slicer.py.tpl: started Hide the curve node by making it invisible
+[2026-07-04T18:46:15 +   23.6s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_17_slicer.py.tpl: Hide the curve node by making it invisible: round 1 search: [Search] Round 1: |   VectorSearch: "vtkMRMLMarkupsClosedCurveNode GetDisplayNode SetVisibility" |   Grep: "vtkMRMLMarkupsClosedCurveNode" → slicer-source
+[2026-07-04T18:46:23 +   32.0s] [verify_repair] Verify And Repair Templates — Re-grounding templates/cb_step_17_slicer.py.tpl: done Hide the curve node by making it invisible
+[2026-07-04T18:47:03 +   72.1s] [llm_call] llm — call 000 -> _call_000.json (out 1463 chars)
+[2026-07-04T18:47:04 +   72.7s] [verify_repair] Verify And Repair Templates — Repairs applied: 2 change(s) via reground_slicer_op, targeted_or_contract_aware_template_repair
+[2026-07-04T18:47:04 +   73.1s] [verify_repair] Verify And Repair Templates — Validation attempt 2/5
+[2026-07-04T18:47:06 +   74.8s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-07-04T18:47:07 +   76.0s] [verify_repair] Verify And Repair Templates — All 22 API probes passed
+[2026-07-04T18:47:09 +   77.5s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-07-04T18:47:13 +   81.6s] [verify_repair] Verify And Repair Templates — PASS
+[2026-07-04T18:47:14 +   83.1s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 2 validation attempt(s)
+------------------------------------------------------------------------------
+SUMMARY
+  success         : True
+  phases_completed: (none)
+  llm_calls       : 1
+  events          : 19
+  templates_changed: 2  ['templates/cb_step_3_slicer.py.tpl', 'templates/cb_step_17_slicer.py.tpl']
+------------------------------------------------------------------------------
