@@ -25,18 +25,44 @@ class AnalyzerStage4DecompositionMixin:
                 "reason": "method name/purpose token overlap",
             })
 
+        # Match the step to a scanned widget handler. Prefer the control's
+        # human-readable LABEL (its .ui ``text``, e.g. "Apply separation") — which a
+        # cookbook step quotes verbatim ("Click the 'Apply separation' button") —
+        # over the Qt object name (``step3ApplyButton``), whose tokens rarely carry
+        # the cookbook's words. This disambiguates controls that SHARE a logic
+        # method: a "Separate maxilla/mandible" button and its "Apply separation"
+        # button can both call ``computeMaxillaMandible``; only the label tells the
+        # two cookbook steps apart. Candidates are ranked so the strongest label
+        # match is first (downstream binding consumes ``widget_candidates[0]``).
+        # Falls back to object-name tokens when a control has no .ui label, so
+        # extensions without labels behave exactly as before.
+        scored_widgets = []
         for conn in getattr(self, "_widget_connections", []) or []:
             btn_name = _text_or_empty(conn.get("button_widget_name"))
-            btn_words = self._widget_name_tokens(btn_name)
-            if not btn_words:
+            name_words = self._widget_name_tokens(btn_name)
+            label = _text_or_empty(conn.get("ui_text"))
+            label_words = self._role_keywords(label) if label else []
+            name_hits = [w for w in name_words if w in desc_lower]
+            label_hits = [w for w in label_words if w in desc_lower]
+            # The whole label appears in the step text — the strongest signal.
+            label_is_quoted = bool(label_words) and all(w in desc_lower for w in label_words)
+            # Require the full quoted label or >=2 label tokens (mirroring the >=2
+            # name-token rule) so a single incidental word shared with an unrelated
+            # control does not fabricate a candidate that shadows the method-match
+            # fallback.
+            label_match = label_is_quoted or len(label_hits) >= 2
+            strong_name = len(name_hits) >= 2 or (len(name_words) == 1 and bool(name_hits))
+            if not (label_match or strong_name):
                 continue
-            hits = [w for w in btn_words if w in desc_lower]
-            if len(hits) >= 2 or (len(btn_words) == 1 and hits):
-                evidence["widget_candidates"].append({
-                    "button_widget_name": btn_name,
-                    "logic_methods": conn.get("logic_methods", []),
-                    "matched_words": hits,
-                })
+            score = (100 if label_is_quoted else 0) + 10 * len(label_hits) + len(name_hits)
+            scored_widgets.append((score, {
+                "button_widget_name": btn_name,
+                "ui_text": label,
+                "logic_methods": conn.get("logic_methods", []),
+                "matched_words": sorted(set(label_hits) | set(name_hits)),
+            }))
+        scored_widgets.sort(key=lambda item: item[0], reverse=True)
+        evidence["widget_candidates"] = [cand for _, cand in scored_widgets]
 
         evidence["ui_parameter_candidates"] = self._match_ui_parameter_bindings(desc)
 
@@ -1375,6 +1401,25 @@ class AnalyzerStage4DecompositionMixin:
             props = (widget_props or {}).get(widget_name, {}) or {}
             for _src, _dst in (("minimum", "range_min"), ("maximum", "range_max"),
                                ("singleStep", "range_step")):
+                if props.get(_src) is not None:
+                    sub_op[_dst] = props.get(_src)
+            return
+        # A single-handle numeric slider (ctkSliderWidget etc.): the user adjusts ONE
+        # scalar value (e.g. an extension's "Crop radius (mm)" slider). The widget
+        # class is AUTHORITATIVE -- even when the LLM tagged value_kind == "range"
+        # from loose "adjust the range bar" cookbook wording (the crop-radius and the
+        # Threshold-range steps read identically), a single-handle control is a
+        # scalar chooser, so force a scalar value_kind (never "range") and carry the
+        # .ui minimum/maximum/singleStep/value so the runtime seeds one handle.
+        # Generic: keyed purely on the Qt widget class, no extension/step names.
+        if widget_class in ("ctkSliderWidget", "qMRMLSliderWidget",
+                            "ctkDoubleSlider", "ctkSliderSpinBoxWidget"):
+            sub_op["widget_class"] = widget_class
+            sub_op["value_kind"] = "scalar"
+            sub_op["choices"] = []
+            props = (widget_props or {}).get(widget_name, {}) or {}
+            for _src, _dst in (("minimum", "range_min"), ("maximum", "range_max"),
+                               ("singleStep", "range_step"), ("value", "range_default")):
                 if props.get(_src) is not None:
                     sub_op[_dst] = props.get(_src)
             return

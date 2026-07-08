@@ -673,6 +673,19 @@ class ExtensionCLIAnalyzer(
             scan_result["ui_widgets"] = self._extract_ui_widget_inventory(
                 scan_result.get("ui_files", [])
             )
+            # Join each scanned button/checkbox connection to its human-readable
+            # display label (the .ui ``text`` property), keyed by object name. A
+            # cookbook step quotes that label verbatim ("Click the 'Apply
+            # separation' button"), whereas the Qt object name (``step3ApplyButton``)
+            # rarely carries the cookbook's words — so later phases can match a step
+            # to its control by label. Generic: a plain object-name -> text join;
+            # a control with no .ui label just keeps an empty ``ui_text``.
+            _ui_widgets = scan_result.get("ui_widgets") or {}
+            for _conn in self._widget_connections:
+                _btn = _conn.get("button_widget_name")
+                if _btn and not _conn.get("ui_text"):
+                    _props = (_ui_widgets.get(_btn) or {}).get("properties") or {}
+                    _conn["ui_text"] = _text_or_empty(_props.get("text", ""))
             entry_source = self._read_entry_source(scan_result)
             self._ui_parameter_bindings = self._extract_ui_parameter_bindings(
                 entry_source,

@@ -670,6 +670,82 @@ class AnalyzerApiProbeMixin:
         cache[cache_key] = result
         return result
 
+    def _introspect_expr_method(self, receiver_expr: str, attr: str) -> Dict[str, Any]:
+        """Ground-truth oracle for a runtime-root receiver EXPRESSION.
+
+        The type graph names some receivers not by a class but by an opaque
+        runtime-root chain string (e.g. ``slicer.mrmlScene``, ``slicer.app``,
+        ``slicer.util``, ``slicer.modules.<x>``) — Slicer singletons whose
+        concrete class is only knowable at runtime, so class-name introspection
+        (``_introspect_type_method``) cannot resolve them.  This resolves the
+        receiver EXPRESSION live and reports its real type and ``hasattr(attr)``:
+        the same running-Slicer oracle, applied to an expression instead of a
+        class name.
+
+        Safe + generic: only a *pure attribute chain* rooted at
+        ``slicer``/``vtk``/``qt``/``ctk`` is accepted (no calls, subscripts, or
+        other side-effecting nodes), so evaluating the receiver mutates nothing
+        and there are no per-singleton rules.  Returns a dict that always carries
+        ``resolved``; ``method_exists`` is meaningful only when ``resolved`` is
+        True — an unresolved receiver or probe error is NOT method-absent
+        evidence.  Memoised via ``self._introspection_cache``.
+        """
+        import ast as _ast
+        if not receiver_expr or not attr:
+            return {"resolved": False, "reason": "missing_expr_or_attr"}
+        try:
+            node = _ast.parse(receiver_expr, mode="eval").body
+        except SyntaxError:
+            return {"resolved": False, "reason": "unparseable"}
+        # Pure attribute chain only: nested Attribute* down to a Name root, with
+        # no Call/Subscript/Starred anywhere (so the receiver has no side effect).
+        for sub in _ast.walk(node):
+            if isinstance(sub, (_ast.Call, _ast.Subscript, _ast.Starred)):
+                return {"resolved": False, "reason": "not_pure_chain"}
+        root = node
+        while isinstance(root, _ast.Attribute):
+            root = root.value
+        if not (isinstance(root, _ast.Name) and root.id in {"slicer", "vtk", "qt", "ctk"}):
+            return {"resolved": False, "reason": "not_runtime_root_chain"}
+
+        cache = getattr(self, "_introspection_cache", None)
+        if cache is None:
+            cache = {}
+            self._introspection_cache = cache
+        cache_key = ("__expr__", receiver_expr, attr)
+        if cache_key in cache:
+            return cache[cache_key]
+
+        probe_code = (
+            "try:\n"
+            "    import slicer\n"
+            "    try:\n"
+            "        import vtk\n"
+            "    except Exception:\n"
+            "        vtk = None\n"
+            "    try:\n"
+            "        import qt\n"
+            "    except Exception:\n"
+            "        qt = None\n"
+            "    try:\n"
+            "        import ctk\n"
+            "    except Exception:\n"
+            "        ctk = None\n"
+            f"    _recv = {receiver_expr}\n"
+            "    if _recv is None:\n"
+            "        __result = {'resolved': False, 'reason': 'receiver_none'}\n"
+            "    else:\n"
+            "        __result = {'resolved': True, 'method_exists': hasattr(_recv, "
+            f"{attr!r}), 'type': type(_recv).__name__}}\n"
+            "except Exception as _e:\n"
+            "    __result = {'resolved': False, 'error': f'{type(_e).__name__}: {_e}'}"
+        )
+        result = self._execute_live_probe(probe_code)
+        if not isinstance(result, dict):
+            result = {"resolved": False, "error": str(result)}
+        cache[cache_key] = result
+        return result
+
     def _stage7c_live_api_probe(
         self, templates: Dict[str, str],
     ) -> Dict[str, Any]:

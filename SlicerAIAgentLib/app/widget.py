@@ -62,6 +62,7 @@ class SlicerAIAgentWidget(
         self._workflowChoiceInput = None
         self._workflowChoiceSubmitButton = None
         self._workflowNodeTree = None
+        self._workflowNodeCandidates = None
         self._workflowNodeTreeSelectButton = None
         self._workflowNodeTreeContainer = None
         self._workflowSegmentsTable = None
@@ -85,3 +86,24 @@ class SlicerAIAgentWidget(
         self._replayForwardButton = None
         self._replayActionButton = None
         self._lastInjectedPreludeKeys = []
+
+    def onReload(self):
+        """Reload the module AND its ``SlicerAIAgentLib`` library.
+
+        Slicer's default Reload only re-execs the thin ``SlicerAIAgent.py`` entry
+        point, which re-imports the ALREADY-CACHED ``SlicerAIAgentLib`` submodules
+        from ``sys.modules`` -- so edits to the library (widgets, runtime, loader,
+        the CLI generation pipeline) do NOT take effect on Reload, only on a full
+        Slicer restart. Purge the library from ``sys.modules`` first so the reload
+        re-imports it fresh. Best-effort: if anything goes wrong, fall back to the
+        default reload (a restart still applies the changes)."""
+        try:
+            import sys
+            for _name in [
+                _m for _m in list(sys.modules)
+                if _m == "SlicerAIAgentLib" or _m.startswith("SlicerAIAgentLib.")
+            ]:
+                sys.modules.pop(_name, None)
+        except Exception:
+            logging.getLogger(__name__).debug("SlicerAIAgentLib purge failed", exc_info=True)
+        ScriptedLoadableModuleWidget.onReload(self)

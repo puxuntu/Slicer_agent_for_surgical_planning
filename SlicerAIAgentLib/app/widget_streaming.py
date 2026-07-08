@@ -154,8 +154,17 @@ class WidgetStreamingMixin:
         """Auto-advance to the next workflow step after an automated step completes."""
         step_id = next_step.get("step_id", "")
         is_optional = next_step.get("is_optional", False)
-        if is_optional:
-            # For optional steps, just ask the user
+        op_type = str(next_step.get("operation_type", "") or "")
+        # An optional AUTOMATED step (an extension button-click / slicer op) runs by
+        # construction once it is REACHED -- the branch that marked it optional
+        # already decided reachability (accept -> body runs). Re-asking with
+        # Done/Skip is redundant and makes a plain button click look like a manual
+        # step the user must confirm. Auto-execute it. Only an optional step that
+        # needs USER ACTION (a manual interaction or a choice) pauses for Done/Skip.
+        # Generic: keyed on the operation type, not on any extension/step.
+        auto_execute = op_type in ("extension_op", "slicer_op")
+        if is_optional and not auto_execute:
+            # For optional user-action steps, ask the user
             self._updateWorkflowPanel({
                 "active": True,
                 "workflow_title": self._currentWorkflowUiState.get("workflow_title", "Workflow"),

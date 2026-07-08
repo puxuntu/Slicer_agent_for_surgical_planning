@@ -292,6 +292,68 @@ def _branch_choice_accepts(ctx: _WorkflowContext, choice_value) -> bool:
     return norm is not False
 
 
+def _build_branch_widget_drive_code(ctx: _WorkflowContext) -> str:
+    """Drive the branch step's enabling CONTROL (the checkbox the cookbook says to
+    tick — recorded as the step's ``widget_name``) to checked on the live module
+    widget, so its connected handler / @parameterNodeWrapper GUI binding runs.
+
+    A branch_op like "tick 'Manually adjust the plane' to refine it" enables an
+    optional mode whose interactive handles the NEXT (user_interaction) step lets
+    the user drag. The extension reveals those handles through its OWN observer
+    chain (checkbox -> parameter field -> ModifiedEvent -> a visibility update).
+    When the pipeline captured no ``branch_action_template`` (no on-accept action
+    code), the accept path enters the interaction step but the mode was never
+    enabled, so nothing is shown to adjust. Ticking the live control fires that
+    chain. Returns "" when the step names no usable checkbox. Generic +
+    source-widget-authoritative (the recorded ``widget_name``, a valid .ui object
+    name); works for classic and @parameterNodeWrapper extensions.
+
+    CodeValidator-safe: attribute access only (no getattr/globals), guarded.
+    """
+    widget_name = ""
+    for src in ((ctx.target_step or {}), (ctx.target_gen or {})):
+        if not isinstance(src, dict):
+            continue
+        for so in (src.get("sub_operations") or []):
+            if isinstance(so, dict):
+                candidate = str(so.get("widget_name") or "").strip()
+                if candidate:
+                    widget_name = candidate
+                    break
+        if widget_name:
+            break
+    if not widget_name or not widget_name.isidentifier():
+        return ""
+    module_name = ctx.metadata.get("extension_module_name") or ctx.ext_name
+    return "\n".join([
+        f"# --- {ctx.ext_name}: {ctx.workflow_step} enable optional mode (tick '{widget_name}') ---",
+        "import slicer",
+        "_bw = None",
+        "try:",
+        f"    _bw = slicer.util.getModuleWidget({module_name!r})",
+        "except Exception:",
+        "    _bw = None",
+        "if _bw is None:",
+        "    try:",
+        f"        _bw = slicer.modules.{str(module_name).lower()}.widgetRepresentation().self()",
+        "    except Exception:",
+        "        _bw = None",
+        "_bctrl = None",
+        "if _bw is not None:",
+        "    try:",
+        f"        _bctrl = _bw.ui.{widget_name}",
+        "    except Exception:",
+        "        _bctrl = None",
+        "if _bctrl is not None:",
+        "    try:",
+        "        _bctrl.checked = True",
+        "    except Exception:",
+        "        pass",
+        f"print(\"[{ctx.ext_name}] Step '{ctx.workflow_step}': enabled '{widget_name}' (manual-adjust mode on).\")",
+        "",
+    ])
+
+
 def _maybe_attach_branch_action(ctx: _WorkflowContext, result: Dict) -> Dict:
     """On ACCEPT, append the branch_op's captured extension action (e.g. tick the
     checkbox that enables the optional mode) to the choice result's ``code`` so it
@@ -300,21 +362,31 @@ def _maybe_attach_branch_action(ctx: _WorkflowContext, result: Dict) -> Dict:
         return result
     if not _branch_choice_accepts(ctx, result.get("choice_value")):
         return result
+    action_code = ""
     tpl_rel = ctx.target_step.get("branch_action_template", "")
-    if not tpl_rel:
-        return result  # no captured action -> plain pre-guard branch
-    tpl_path = os.path.join(ctx.ext_dir, tpl_rel)
-    if not os.path.isfile(tpl_path):
-        return result
-    try:
-        with open(tpl_path, "r", encoding="utf-8") as f:
-            action_code = f.read()
-    except Exception:
-        return result
-    try:
-        action_code = _fill_template(action_code, _build_format_kwargs(ctx.arguments, ctx.ext_name))
-    except KeyError:
-        pass
+    if tpl_rel:
+        tpl_path = os.path.join(ctx.ext_dir, tpl_rel)
+        if os.path.isfile(tpl_path):
+            try:
+                with open(tpl_path, "r", encoding="utf-8") as f:
+                    action_code = f.read()
+                try:
+                    action_code = _fill_template(
+                        action_code, _build_format_kwargs(ctx.arguments, ctx.ext_name)
+                    )
+                except KeyError:
+                    pass
+            except Exception:
+                action_code = ""
+    if not action_code:
+        # No captured on-accept action: recover it generically by driving the
+        # branch step's own enabling checkbox on the live widget (see
+        # _build_branch_widget_drive_code). Without this the accept path enters
+        # the interaction step with the optional mode never enabled, so the
+        # interactive handles are not shown (the reported symptom).
+        action_code = _build_branch_widget_drive_code(ctx)
+    if not action_code:
+        return result  # nothing to attach -> plain pre-guard branch
     action_code = _prepend_choice_prelude(ctx, action_code)
     existing = result.get("code") or ""
     result["code"] = (existing + "\n\n" + action_code) if existing else action_code

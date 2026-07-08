@@ -447,9 +447,21 @@ _CHOICE_NODE_FAMILY = (
     ("line", "vtkMRMLMarkupsLineNode"),
     ("fiducial", "vtkMRMLMarkupsFiducialNode"),
     ("landmark", "vtkMRMLMarkupsFiducialNode"),
+    # "Point List" is Slicer's display name for a markups fiducial node; a param
+    # like "entryPoints" / "pointList" names one. Plural/compound only, so a bare
+    # singular "point" (often a coordinate/location, not a node) is not matched.
+    ("points", "vtkMRMLMarkupsFiducialNode"),
+    ("pointlist", "vtkMRMLMarkupsFiducialNode"),
     ("transform", "vtkMRMLTransformNode"),
     ("roi", "vtkMRMLMarkupsROINode"),
 )
+# Mirror of WorkflowRuntime._NONSPECIFIC_NODE_CLASSES: base classes that say
+# nothing about WHICH node to pick, so they must not win over the language
+# classifier (the pipeline sometimes emits vtkMRMLNode as a placeholder).
+_NONSPECIFIC_NODE_CLASSES = frozenset({
+    "vtkMRMLNode", "vtkMRMLStorableNode", "vtkMRMLDisplayableNode",
+    "vtkMRMLTransformableNode", "vtkMRMLDisplayableHierarchyNode",
+})
 
 
 def _tokenize_choice_text(text) -> set:
@@ -460,18 +472,22 @@ def _tokenize_choice_text(text) -> set:
     return {t for t in re.split(r"[^A-Za-z0-9]+", spaced.lower()) if t}
 
 
-def _classify_node_choice_language(family_text, broad_text) -> str:
+def _classify_node_choice_language(family_text, broad_text, priority_text="") -> str:
     """Mirror of WorkflowRuntime._classify_node_choice_language: select verb +
-    no value stopword (broad text) + a node-family noun (narrow text) -> class."""
+    no value stopword (broad text) + a node-family noun (narrow text) -> class.
+    ``priority_text`` (the parameter name — authoritative "what is selected") is
+    scanned for a family noun first, so "select the source VOLUME for segmentation"
+    (param ``sourceVolume``) reads as a volume, not the purpose's segmentation."""
     broad = _tokenize_choice_text(broad_text)
     if not (broad & _CHOICE_SELECT_VERBS):
         return ""
     if broad & _CHOICE_VALUE_STOPWORDS:
         return ""
-    family = _tokenize_choice_text(family_text)
-    for token, node_class in _CHOICE_NODE_FAMILY:
-        if token in family:
-            return node_class
+    for source in (priority_text, family_text):
+        tokens = _tokenize_choice_text(source)
+        for token, node_class in _CHOICE_NODE_FAMILY:
+            if token in tokens:
+                return node_class
     return ""
 
 
@@ -506,7 +522,19 @@ def _node_class_from_choice_language(ctx: _WorkflowContext, param_name: str) -> 
     broad_parts = family_parts + broad_parts
     family_text = " ".join(str(p) for p in family_parts if p)
     broad_text = " ".join(str(p) for p in broad_parts if p)
-    return _classify_node_choice_language(family_text, broad_text)
+    # The parameter name names WHAT is selected (authoritative), so it is scanned
+    # for a family noun before the purpose-laden question/label text.
+    priority_parts = [param_name]
+    for src in ((ctx.target_step or {}), (ctx.target_gen or {})):
+        if not isinstance(src, dict):
+            continue
+        choice_info = src.get("choice_info") if isinstance(src.get("choice_info"), dict) else {}
+        priority_parts.append(choice_info.get("parameter_name"))
+        for so in src.get("sub_operations") or []:
+            if isinstance(so, dict):
+                priority_parts.append(so.get("parameter_name"))
+    priority_text = " ".join(str(p) for p in priority_parts if p)
+    return _classify_node_choice_language(family_text, broad_text, priority_text)
 
 
 def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
@@ -540,7 +568,7 @@ def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
             if param_name and rp not in (None, "", param_name):
                 continue
             nc = str(role.get("node_class") or "").strip()
-            if nc:
+            if nc and nc not in _NONSPECIFIC_NODE_CLASSES:
                 return nc
     for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
         for so in src.get("sub_operations") or []:
@@ -550,7 +578,7 @@ def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
             if param_name and sp not in (None, "", param_name):
                 continue
             nc = str(so.get("node_class") or "").strip()
-            if nc:
+            if nc and nc not in _NONSPECIFIC_NODE_CLASSES:
                 return nc
     # Last resort (mirrors WorkflowRuntime._node_class_from_step_meta): no
     # structural class captured — infer from the choice's language so the pick

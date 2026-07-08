@@ -1376,7 +1376,7 @@ class AnalyzerWorkflowTemplatesMixin:
         revisions. ``steps`` (the workflow steps) supplies each template's
         description for object-name extraction when the grounded code lacks it.
         Returns the number of templates changed."""
-        from .module_sessions import all_drivers
+        from .module_sessions import all_drivers, extract_module
         drivers = all_drivers()
         desc_by_key = {}
         for step in (steps or []):
@@ -1392,8 +1392,19 @@ class AnalyzerWorkflowTemplatesMixin:
                 continue
             code = orig
             desc = desc_by_key.get(tpl_key, "")
+            # A session driver only rewrites steps that belong to ITS module, taken
+            # from the cookbook's "In the 'X' module, ..." context. Without this
+            # gate the driver's DESCRIPTION-based signals leak onto unrelated steps:
+            # e.g. the Segment Editor driver treats any step whose text contains
+            # "apply" as a Threshold-effect apply, so an extension_op button step
+            # like "Apply separation" gets its (correct) handler-drive template
+            # overwritten with Segment Editor effect code. Generic: keyed purely on
+            # the module label, never on the extension or a specific step; a step
+            # with no module context (extension_op / interaction) matches no driver.
+            module = extract_module(desc)
             for driver in drivers:
-                code = driver.wrap(code, desc)
+                if driver.claims(module):
+                    code = driver.wrap(code, desc)
             if code != orig:
                 templates[tpl_key] = code
                 changed += 1

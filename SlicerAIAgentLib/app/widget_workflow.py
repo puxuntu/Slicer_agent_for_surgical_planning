@@ -96,6 +96,8 @@ class WidgetWorkflowMixin:
         self._workflowSegmentsContainer = None
         self._workflowRangeWidget = None
         self._workflowRangeContainer = None
+        self._workflowScalarWidget = None
+        self._workflowScalarContainer = None
 
         if getattr(self, "_workflowDoneButton", None):
             self._workflowDoneButton.clicked.connect(self._onWorkflowDoneClicked)
@@ -334,6 +336,10 @@ class WidgetWorkflowMixin:
         "qMRMLRangeWidget": "range_slider",
         "ctkDoubleRangeSlider": "range_slider",
         "ctkRangeSlider": "range_slider",
+        "ctkSliderWidget": "scalar_slider",
+        "qMRMLSliderWidget": "scalar_slider",
+        "ctkDoubleSlider": "scalar_slider",
+        "ctkSliderSpinBoxWidget": "scalar_slider",
     }
 
     @staticmethod
@@ -358,13 +364,13 @@ class WidgetWorkflowMixin:
             self._workflowChoiceSubmitButton = None
         if getattr(self, "_workflowNodeTree", None) is not None:
             # Drop the selection-change observer before destroying the tree, so it
-            # cannot dangle / accumulate across steps (the combo had no signal to
-            # leak; the tree does).
+            # cannot dangle / accumulate across steps.
             try:
                 self._workflowNodeTree.currentItemChanged.disconnect(self._onWorkflowNodeTreeSelectionChanged)
             except Exception:
                 pass
             self._workflowNodeTree = None
+        self._workflowNodeCandidates = None
         self._workflowNodeTreeSelectButton = None
         if getattr(self, "_workflowNodeTreeContainer", None) is not None:
             # The container owns the tree + Select button; reparenting it to None
@@ -418,6 +424,20 @@ class WidgetWorkflowMixin:
                 self._workflowChoiceLayout.removeWidget(self._workflowRangeContainer)
             self._workflowRangeContainer.setParent(None)
             self._workflowRangeContainer = None
+        if getattr(self, "_workflowScalarWidget", None) is not None:
+            # Drop the live-preview observer before destroying the scalar slider.
+            try:
+                self._workflowScalarWidget.valueChanged.disconnect(self._onWorkflowScalarPreview)
+            except Exception:
+                pass
+            self._workflowScalarWidget = None
+        if getattr(self, "_workflowScalarContainer", None) is not None:
+            # The container owns the single-value slider + Set button; reparenting to
+            # None destroys them together.
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowScalarContainer)
+            self._workflowScalarContainer.setParent(None)
+            self._workflowScalarContainer = None
         for button in getattr(self, "_workflowChoiceButtons", []):
             if self._workflowChoiceLayout is not None:
                 self._workflowChoiceLayout.removeWidget(button)
@@ -458,6 +478,14 @@ class WidgetWorkflowMixin:
                 # More specific than the node tree, so it takes precedence; falls
                 # through (to free-text, never the node tree) if none resolves.
                 if state.get("segment_name_selection") and self._renderWorkflowSegmentNamePicker(state):
+                    return
+                # Single-value slider step (the source used a single-handle numeric
+                # control, e.g. an extension's "Crop radius (mm)" ctkSliderWidget):
+                # render ONE draggable slider seeded from the extension's live widget
+                # / captured .ui limits, instead of a min/max range bar or free-text
+                # box. Source-widget-authoritative, so a single-handle control never
+                # renders as a two-handle range even if value_kind drifted to "range".
+                if state.get("scalar_selection") and self._renderWorkflowScalarSlider(state):
                     return
                 # Numeric RANGE step (the source used a double-handled range widget,
                 # e.g. the Segment Editor Threshold range): render a draggable
@@ -627,19 +655,16 @@ class WidgetWorkflowMixin:
         self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": value})
 
     def _renderWorkflowNodeTree(self, state, node_class, default_value):
-        """Show a Data-module-style qMRMLSubjectHierarchyTreeView filtered to
-        ``node_class`` (native eye/visibility column + right-click opacity/color),
-        with a Select button beneath it.
+        """Show the Data-module node tree (qMRMLSubjectHierarchyTreeView) filtered
+        to ``node_class`` -- a "Node" list with the eye/visibility column and a
+        Select button beneath it.
 
-        This is the literal widget the Data module embeds, so it reproduces the
-        full node-identification experience: the user can toggle a node's
-        visibility (and adjust opacity/colour via right-click) to see which scene
-        object a name refers to before committing. The tree's proxy model applies
-        the same exclusions the old qMRMLNodeComboBox did -- it filters to
-        ``node_class`` (subclass-inclusive, like the combo's
-        ``showChildNodeTypes=True``) and automatically hides ``HideFromEditors``/
-        internal helper nodes (e.g. a ``parameterNodeWrapper`` placeholder model),
-        so no extra filtering code is needed.
+        The tree's ``nodeTypes`` filter lists only nodes of this class (it filtered
+        correctly once ``node_class`` was actually supplied -- the earlier "shows
+        every node/folder" was a stale-library reload bug that left node_class
+        empty, now fixed). ``hideEmptyHierarchyItems`` drops folders/studies with
+        no matching child. The candidate gate below (getNodesByClass minus
+        HideFromEditors) provides the "no node -> free-text" fallback.
 
         Returns True if it rendered (>=1 selectable node of this class exists), or
         False to let the caller fall back to the free-text box.
@@ -649,6 +674,30 @@ class WidgetWorkflowMixin:
         # supplies the candidates for the _bestNodeMatchIndex default guess. We
         # mirror the tree's own HideFromEditors exclusion here so the emptiness
         # check matches exactly what the tree will actually display.
+        # In replay, nodes created AFTER the reviewed step carry a subject-hierarchy
+        # item tag (set by WorkflowRuntime._hide_nodes_after); skip them so the
+        # candidate list matches the forward view (and so the default selection is a
+        # step-era node). The tree itself excludes them via the same attribute.
+        from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime as _WFRT
+        _replay_attr = _WFRT.REPLAY_HIDDEN_SH_ATTR
+        # Only apply the created-after-this-step exclusion while REVIEWING (replay);
+        # in the live/forward flow nothing is tagged, and gating here means a stray
+        # lingering tag can never hide a node from the live picker.
+        _in_replay = bool(state.get("replay_previewing"))
+        try:
+            _shNode = slicer.mrmlScene.GetSubjectHierarchyNode() if _in_replay else None
+        except Exception:
+            _shNode = None
+
+        def _isReplayHidden(node):
+            if _shNode is None:
+                return False
+            try:
+                item = _shNode.GetItemByDataNode(node)
+                return bool(item) and _shNode.GetItemAttribute(item, _replay_attr) == "1"
+            except Exception:
+                return False
+
         candidates = []
         try:
             for node in slicer.util.getNodesByClass(node_class):
@@ -659,6 +708,8 @@ class WidgetWorkflowMixin:
                         continue
                 except Exception:
                     pass
+                if _in_replay and _isReplayHidden(node):
+                    continue
                 candidates.append({"id": node.GetID(), "name": node.GetName(), "node": node})
         except Exception:
             logger.debug("Enumerating node candidates failed", exc_info=True)
@@ -672,24 +723,45 @@ class WidgetWorkflowMixin:
         vbox = qt.QVBoxLayout(container)
         vbox.setContentsMargins(0, 0, 0, 0)
 
+        # The Data-module node tree (qMRMLSubjectHierarchyTreeView): a "Node" list
+        # with the eye/visibility column, so the user can toggle a node's
+        # visibility to see which scene object it is before committing. Its
+        # ``nodeTypes`` filter is honored (it correctly shows only the class's
+        # nodes when ``node_class`` is set); the earlier "shows everything" was a
+        # stale-library reload bug (node_class arrived empty), now fixed. The
+        # candidate gate above already guarantees >=1 node of this class exists.
         tree = slicer.qMRMLSubjectHierarchyTreeView()
         tree.setMRMLScene(slicer.mrmlScene)     # scene BEFORE filtering
         tree.nodeTypes = [node_class]           # exact class, subclass-inclusive
-        # Trim columns the narrow module panel has no room for; keep the eye
-        # (visibility) column on (its default). Colour stays reachable via
-        # right-click. For a vtkMRMLSegmentationNode the eye toggles whole-
-        # segmentation visibility (per-segment is not exposed in this row), which
-        # is fine for telling which node is which.
+        # Hide subject-hierarchy folders/studies left EMPTY after the nodeTypes
+        # filter (e.g. an extension's output "…Plan" folder, which holds only
+        # other-class outputs). The proxy property is ``showEmptyHierarchyItems``
+        # (set False), driven via its setter -- a bare attribute assignment does
+        # not bind through PythonQt here. Generic; no extension-specific attrs.
+        try:
+            tree.sortFilterProxyModel().setShowEmptyHierarchyItems(False)
+        except Exception:
+            logger.debug("Tree setShowEmptyHierarchyItems setup failed", exc_info=True)
+        # Exclude subject-hierarchy items tagged as created-after-this-step during
+        # replay (see WorkflowRuntime.REPLAY_HIDDEN_SH_ATTR): with those data nodes
+        # excluded, their output folder reads empty and is hidden too, so a
+        # stepped-back view matches the forward one. Applied ONLY while reviewing
+        # (replay); never in the live/forward flow. Generic; no extension attrs.
+        if _in_replay:
+            # Set on the TREE (which owns this Q_PROPERTY and forwards it to its
+            # proxy) rather than the proxy directly -- the tree re-syncs its own
+            # filter properties, so a proxy-only set can be overwritten.
+            try:
+                tree.setExcludeItemAttributeNamesFilter([_replay_attr])
+            except Exception:
+                logger.debug("Tree setExcludeItemAttributeNamesFilter setup failed", exc_info=True)
+        # Trim columns the narrow panel has no room for; keep the eye column.
         for _attr in ("idColumnVisible", "transformColumnVisible", "descriptionColumnVisible"):
             try:
                 setattr(tree, _attr, False)
             except Exception:
                 logger.debug("Tree column setup (%s) failed", _attr, exc_info=True)
-        # Bound the height so the tree does not swallow the panel (it scrolls
-        # internally); expand horizontally only to the available width -- never
-        # demand more, so a long node name cannot force the panel wider (see
-        # _applyWidthSafeLabels).
-        tree.setMinimumHeight(140)
+        tree.setMinimumHeight(120)
         tree.setMaximumHeight(220)
         tree.setSizePolicy(qt.QSizePolicy.Expanding, qt.QSizePolicy.Fixed)
         self._workflowNodeTree = tree
@@ -709,8 +781,7 @@ class WidgetWorkflowMixin:
         button.clicked.connect(self._onWorkflowNodeTreeSelected)
         self._workflowNodeTreeSelectButton = button
 
-        # Enable Select only while a real data node of node_class is current; a
-        # folder/patient/study row yields currentNode() == None.
+        # Enable Select only while a real data node of node_class is current.
         tree.currentItemChanged.connect(self._onWorkflowNodeTreeSelectionChanged)
         self._updateNodeTreeSelectButtonEnabled()
 
@@ -1274,7 +1345,8 @@ class WidgetWorkflowMixin:
         # (the Threshold effect drives its own slider the same way).
         rangeWidget.setMinimumValue(cur_min)
         rangeWidget.setMaximumValue(cur_max)
-        button = qt.QPushButton(state.get("choice_label") or state.get("done_label") or "Set range")
+        # A clear ACTION label, never the value noun (choice_label).
+        button = qt.QPushButton("Confirm")
         button.setToolTip("Use this range and continue")
         button.clicked.connect(self._onWorkflowRangeSelected)
         vbox.addWidget(rangeWidget)
@@ -1331,6 +1403,148 @@ class WidgetWorkflowMixin:
             return
         try:
             value = [float(panel.minimumValue), float(panel.maximumValue)]
+        except Exception:
+            return
+        if self._currentWorkflowUiState.get("replay_previewing"):
+            index = self._currentWorkflowUiState.get("preview_index")
+            if index is not None:
+                self._rerunFromCheckpoint(index, {"choice_value": value})
+            return
+        step_id = self._currentWorkflowUiState.get("current_step")
+        if step_id:
+            self.sendButton.setEnabled(False)
+            self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": value})
+
+    # ---- Single-value slider (e.g. an extension's "Crop radius (mm)") ---------
+    def _liveExtensionSliderWidget(self, widget_name):
+        """The extension's own live single-value slider widget (by its ``.ui``
+        object name) on the running module widget, or None. Generic: the same
+        getModuleWidget + ``ui.<name>`` lookup the segment-name picker uses to
+        drive the source combobox."""
+        widget_name = str(widget_name or "").strip()
+        if not widget_name:
+            return None
+        module_name = self._workflowModuleName()
+        if not module_name:
+            return None
+        try:
+            widget = slicer.util.getModuleWidget(module_name)
+        except Exception:
+            widget = None
+        if widget is None:
+            return None
+        return getattr(getattr(widget, "ui", None), widget_name, None)
+
+    def _renderWorkflowScalarSlider(self, state):
+        """Render a single-handle numeric slider for a scalar-value step (like an
+        extension's "Crop radius (mm)" ctkSliderWidget), instead of a min/max
+        range bar or free-text box. Limits + current value are seeded, in order,
+        from: the extension's own live slider widget; the captured ``.ui``
+        minimum/maximum/singleStep/value. Dragging live-drives the extension's own
+        widget (its connected handler previews, and the parameter node updates via
+        the widget's SlicerParameterName binding); the Set button commits the
+        single value via choice_made.
+
+        Returns True if it rendered, or False so the caller falls back to the
+        free-text box (never a node tree). Generic: no extension/step-specific
+        strings.
+        """
+        limit_lo = limit_hi = cur = single_step = None
+        source_widget = str(state.get("scalar_source_widget") or "").strip()
+
+        # 1. Mirror the extension's own live slider widget exactly.
+        live = self._liveExtensionSliderWidget(source_widget)
+        if live is not None:
+            try:
+                limit_lo, limit_hi = float(live.minimum), float(live.maximum)
+                cur = float(live.value)
+                single_step = float(live.singleStep)
+            except Exception:
+                limit_lo = limit_hi = cur = None
+
+        # 2. Extension's captured .ui limits (authoritative fallback).
+        if limit_lo is None:
+            smin, smax = state.get("scalar_min"), state.get("scalar_max")
+            if smin is not None and smax is not None:
+                try:
+                    limit_lo, limit_hi = float(smin), float(smax)
+                    single_step = float(state.get("scalar_step")) if state.get("scalar_step") else None
+                except Exception:
+                    limit_lo = limit_hi = None
+
+        if limit_lo is None or limit_hi is None or limit_hi <= limit_lo:
+            return False  # no sensible limits -> free-text fallback
+
+        # Seed the handle: live value, else a declared .ui default, else midpoint.
+        if cur is None:
+            default = state.get("scalar_default")
+            try:
+                cur = float(default) if default is not None else None
+            except Exception:
+                cur = None
+            if cur is None:
+                cur = limit_lo + 0.5 * (limit_hi - limit_lo)
+        cur = max(limit_lo, min(cur, limit_hi))
+
+        container = qt.QWidget()
+        vbox = qt.QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        sliderWidget = ctk.ctkSliderWidget()
+        sliderWidget.minimum = limit_lo
+        sliderWidget.maximum = limit_hi
+        sliderWidget.singleStep = single_step or max((limit_hi - limit_lo) / 1000.0, 1e-6)
+        # Set the value BEFORE connecting the signal so build doesn't fire preview.
+        sliderWidget.value = cur
+        # A clear ACTION label ("Confirm"), never the value noun (choice_label is
+        # e.g. "Radius", which reads as a mislabelled button); the number itself is
+        # shown in the slider's spinbox.
+        button = qt.QPushButton("Confirm")
+        button.setToolTip("Use this value and continue")
+        button.clicked.connect(self._onWorkflowScalarSelected)
+        vbox.addWidget(sliderWidget)
+        vbox.addWidget(button)
+        self._workflowScalarWidget = sliderWidget
+        self._workflowScalarContainer = container
+        try:
+            sliderWidget.valueChanged.connect(self._onWorkflowScalarPreview)
+        except Exception:
+            pass
+        self._workflowChoiceLayout.addWidget(container, 1)
+        container.setVisible(True)
+        # Drive the live widget to the seeded value so the preview matches at once.
+        self._onWorkflowScalarPreview()
+        return True
+
+    def _onWorkflowScalarPreview(self, _value=None):
+        """Drive the extension's own live slider so its connected handler previews
+        (e.g. cropRadiusSliderWidget -> _onCropRadiusChanged -> previewCutCylinder)
+        and the parameter node updates via the widget's SlicerParameterName
+        binding, as the user drags. Visual only; the committed value is sent by
+        the Set button. Silent no-op if no live widget (runs in the agent
+        process, not the sandbox)."""
+        state = getattr(self, "_currentWorkflowUiState", None) or {}
+        if state.get("replay_previewing"):
+            return
+        panel = getattr(self, "_workflowScalarWidget", None)
+        if panel is None:
+            return
+        try:
+            v = float(panel.value)
+        except Exception:
+            return
+        live = self._liveExtensionSliderWidget(str(state.get("scalar_source_widget") or "").strip())
+        if live is not None and live is not panel:
+            try:
+                live.value = v
+            except Exception:
+                pass
+
+    def _onWorkflowScalarSelected(self):
+        panel = getattr(self, "_workflowScalarWidget", None)
+        if panel is None:
+            return
+        try:
+            value = float(panel.value)
         except Exception:
             return
         if self._currentWorkflowUiState.get("replay_previewing"):

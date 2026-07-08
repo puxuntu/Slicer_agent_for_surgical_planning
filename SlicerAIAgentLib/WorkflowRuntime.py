@@ -196,9 +196,25 @@ _CHOICE_NODE_FAMILY = (
     ("line", "vtkMRMLMarkupsLineNode"),
     ("fiducial", "vtkMRMLMarkupsFiducialNode"),
     ("landmark", "vtkMRMLMarkupsFiducialNode"),
+    # "Point List" is Slicer's display name for a markups fiducial node; a param
+    # like "entryPoints" / "pointList" names one. Plural/compound only, so a bare
+    # singular "point" (often a coordinate/location, not a node) is not matched.
+    ("points", "vtkMRMLMarkupsFiducialNode"),
+    ("pointlist", "vtkMRMLMarkupsFiducialNode"),
     ("transform", "vtkMRMLTransformNode"),
     ("roi", "vtkMRMLMarkupsROINode"),
 )
+
+# Non-specific BASE MRML classes: a node_role / sub_op tagged with one of these
+# says nothing about WHICH node to pick (every node IsA vtkMRMLNode), so a picker
+# filtered to it lists unrelated nodes (e.g. a volume step showing the fiducial
+# list too). The pipeline sometimes emits ``vtkMRMLNode`` as a placeholder
+# choice_input node_class; such a value must NOT win over the language classifier
+# that infers the concrete node family from the step text.
+_NONSPECIFIC_NODE_CLASSES = frozenset({
+    "vtkMRMLNode", "vtkMRMLStorableNode", "vtkMRMLDisplayableNode",
+    "vtkMRMLTransformableNode", "vtkMRMLDisplayableHierarchyNode",
+})
 
 
 def _tokenize_choice_text(text: str) -> set:
@@ -211,7 +227,7 @@ def _tokenize_choice_text(text: str) -> set:
     return {t for t in re.split(r"[^A-Za-z0-9]+", spaced.lower()) if t}
 
 
-def _classify_node_choice_language(family_text: str, broad_text: str) -> str:
+def _classify_node_choice_language(family_text: str, broad_text: str, priority_text: str = "") -> str:
     """Concrete MRML class for a node-selection choice inferred purely from its
     natural-language labels, or "" when it is not confidently a node pick.
 
@@ -219,22 +235,37 @@ def _classify_node_choice_language(family_text: str, broad_text: str) -> str:
     value/enum/boolean/count stopword anywhere in ``broad_text``; and a recognized
     node-family noun in ``family_text`` (the narrow "what is being selected"
     fields only — object/choice/input labels, question, parameter name — never the
-    noisy free-form description, so e.g. a "Segment Editor module ... choose the
-    volume" step reads as a volume, not a segmentation). Returns "" otherwise."""
+    noisy free-form description). Returns "" otherwise.
+
+    ``priority_text`` (the parameter name — the most authoritative "what is being
+    selected") is scanned for a family noun BEFORE ``family_text``, so a step whose
+    question names a PURPOSE as well as the selected object reads as the selected
+    object: "select the source VOLUME for segmentation" (param ``sourceVolume``)
+    is a volume, not a segmentation. Without this, the global family order
+    (segmentation before volume) would pick the purpose noun -> a node tree that
+    finds nothing at that step -> a free-text fallback."""
     broad = _tokenize_choice_text(broad_text)
     if not (broad & _CHOICE_SELECT_VERBS):
         return ""
     if broad & _CHOICE_VALUE_STOPWORDS:
         return ""
-    family = _tokenize_choice_text(family_text)
-    for token, node_class in _CHOICE_NODE_FAMILY:
-        if token in family:
-            return node_class
+    for source in (priority_text, family_text):
+        tokens = _tokenize_choice_text(source)
+        for token, node_class in _CHOICE_NODE_FAMILY:
+            if token in tokens:
+                return node_class
     return ""
 
 
 class WorkflowRuntime:
     """Run generated CLI workflow steps without re-entering the LLM loop."""
+
+    # Subject-hierarchy ITEM attribute set (during replay) on nodes created AFTER
+    # the step being reviewed, so the node picker's tree excludes them (and their
+    # now-empty output folder) -- making replay match the forward view. Item
+    # metadata only: it does not touch the node or the hierarchy structure, and is
+    # cleared on return to live.
+    REPLAY_HIDDEN_SH_ATTR = "SlicerAIAgent.ReplayHiddenInPicker"
 
     def __init__(self, log_dir: Optional[str] = None):
         self.session: Optional[WorkflowSession] = None
@@ -404,6 +435,13 @@ class WorkflowRuntime:
         range_meta = self._range_selection_meta(current_meta) if result_type == "user_choice" else {}
         if range_meta:
             choices = []
+        # Single-value slider step (a single-handle numeric control like an
+        # extension's "Crop radius (mm)" ctkSliderWidget): surface a flag so the
+        # panel renders one draggable slider, not a min/max range bar. Drop the
+        # placeholder choice the LLM co-emits so needs_choice_input becomes True.
+        scalar_meta = self._scalar_slider_meta(current_meta) if result_type == "user_choice" else {}
+        if scalar_meta:
+            choices = []
         # Clinically-informed instructions override the terse ui_guidance when
         # present: title -> description, detailed -> the primary instruction text
         # (shown by default), simple -> the terse "Show brief" body. The widget
@@ -473,6 +511,15 @@ class WorkflowRuntime:
             "range_max": range_meta.get("max"),
             "range_step": range_meta.get("step"),
             "range_default": range_meta.get("default"),
+            # Single-value slider: flag + resolution metadata. min/max/step/default
+            # may be None (seeded at render time from the extension's live slider).
+            "scalar_selection": bool(scalar_meta),
+            "scalar_param": scalar_meta.get("param", ""),
+            "scalar_min": scalar_meta.get("min"),
+            "scalar_max": scalar_meta.get("max"),
+            "scalar_step": scalar_meta.get("step"),
+            "scalar_default": scalar_meta.get("default"),
+            "scalar_source_widget": scalar_meta.get("source_widget", ""),
             "choice_label": ui_guidance.get("choice_label", ""),
             "input_label": ui_guidance.get("input_label", ""),
             "done_label": ui_guidance.get("done_label", "Done") or "Done",
@@ -1536,6 +1583,7 @@ class WorkflowRuntime:
         if index is None:
             self._restore_scene_properties(self.session.live_sceneview_id)
             self._set_layout(self.session.live_layout)
+            self._clear_replay_hidden_tags()
             return
         cp = self.session.checkpoints[index]
         # 1. Copy every stored node's properties onto its live counterpart —
@@ -1602,14 +1650,111 @@ class WorkflowRuntime:
             return
         keep = set(self.session.checkpoints[index].before_node_ids or [])
         try:
+            shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+        except Exception:
+            shNode = None
+        try:
             for node_id in self._all_workflow_node_ids():
-                if node_id in keep:
-                    continue  # existed at this step; its state came from the snapshot
+                after = node_id not in keep
                 node = slicer.mrmlScene.GetNodeByID(node_id)
-                if node is not None:
+                if node is None:
+                    continue
+                # Tag the subject-hierarchy item of nodes created AFTER this step so
+                # the picker tree excludes them (and empties their output folder);
+                # UNtag those that existed. Non-destructive item metadata, cleared
+                # on return to live (_restore_to_view(None)).
+                if shNode is not None:
+                    self._set_replay_hidden_tag(shNode, node, after)
+                if after:
                     self._set_node_visibility(node, False)
         except Exception:
             logger.debug("Hide-after toggle failed", exc_info=True)
+        # Also tag OUTPUT folders (SH folder items whose data-node descendants were
+        # ALL created after this step) so the picker's exclude filter drops the
+        # folder itself, not just its contents -- a folder is not a data node, so
+        # tagging the child nodes alone leaves it visible. A folder holding any kept
+        # (before-step) node is left untagged (visible).
+        if shNode is not None:
+            try:
+                self._tag_after_step_folders(shNode, keep)
+            except Exception:
+                logger.debug("Folder replay-tag failed", exc_info=True)
+
+    def _tag_after_step_folders(self, shNode, keep: set) -> None:
+        """Tag/untag output-only subject-hierarchy FOLDER items for replay hiding."""
+        import vtk
+        try:
+            import slicer
+            folder_level = slicer.vtkMRMLSubjectHierarchyConstants.GetSubjectHierarchyLevelFolder()
+        except Exception:
+            folder_level = "Folder"
+        all_items = vtk.vtkIdList()
+        shNode.GetItemChildren(shNode.GetSceneItemID(), all_items, True)  # recursive
+        for i in range(all_items.GetNumberOfIds()):
+            item = all_items.GetId(i)
+            try:
+                if not shNode.IsItemLevel(item, folder_level):
+                    continue
+            except Exception:
+                continue
+            # Inspect this folder's data-node descendants.
+            desc = vtk.vtkIdList()
+            shNode.GetItemChildren(item, desc, True)
+            has_data = False
+            all_after = True
+            for j in range(desc.GetNumberOfIds()):
+                dn = shNode.GetItemDataNode(desc.GetId(j))
+                if dn is not None and dn.GetID():
+                    has_data = True
+                    if dn.GetID() in keep:  # a node that existed at this step
+                        all_after = False
+                        break
+            try:
+                if has_data and all_after:
+                    shNode.SetItemAttribute(item, WorkflowRuntime.REPLAY_HIDDEN_SH_ATTR, "1")
+                else:
+                    shNode.RemoveItemAttribute(item, WorkflowRuntime.REPLAY_HIDDEN_SH_ATTR)
+            except Exception:
+                pass
+
+    @staticmethod
+    def _set_replay_hidden_tag(shNode, node, hidden: bool) -> None:
+        """Set/clear the picker-exclusion item attribute on ``node``'s SH item."""
+        try:
+            item = shNode.GetItemByDataNode(node)
+            if not item:
+                return
+            if hidden:
+                shNode.SetItemAttribute(item, WorkflowRuntime.REPLAY_HIDDEN_SH_ATTR, "1")
+            else:
+                shNode.RemoveItemAttribute(item, WorkflowRuntime.REPLAY_HIDDEN_SH_ATTR)
+        except Exception:
+            pass
+
+    def _clear_replay_hidden_tags(self) -> None:
+        """Remove the picker-exclusion tag from every SH item (return to live).
+
+        Sweeps ALL subject-hierarchy items (data nodes AND folders), so nothing
+        tagged during replay can linger and hide a node in the live picker.
+        """
+        import vtk
+        try:
+            import slicer
+            shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+        except Exception:
+            shNode = None
+        if shNode is None:
+            return
+        try:
+            all_items = vtk.vtkIdList()
+            shNode.GetItemChildren(shNode.GetSceneItemID(), all_items, True)
+            for i in range(all_items.GetNumberOfIds()):
+                try:
+                    shNode.RemoveItemAttribute(all_items.GetId(i), WorkflowRuntime.REPLAY_HIDDEN_SH_ATTR)
+                except Exception:
+                    pass
+        except Exception:
+            logger.debug("Clear replay-hidden tags failed", exc_info=True)
 
     @staticmethod
     def _set_node_visibility(node, visible: bool) -> None:
@@ -1719,9 +1864,14 @@ class WorkflowRuntime:
         needs_input = bool(cp.editable) and not choices
         binding = self._node_binding_for_param(cp.parameter_name)
         node_class = binding.get("node_class", "")
-        if not node_class and needs_input:
-            # Mirror the live path: surface the step graph's node class when the
-            # pipeline inferred no binding, so replayed node steps keep a dropdown.
+        if not node_class:
+            # Mirror the live path EXACTLY: resolve the step graph's node class for
+            # any node-selection step (``_node_class_from_step_meta`` returns "" for
+            # non-node steps, so this is a no-op for them). The previous ``and
+            # needs_input`` gate left node_class empty when the checkpoint was not
+            # editable, so the replayed node tree fell back to nodeTypes=[""] and
+            # displayed the WHOLE scene (every class + subject-hierarchy folders)
+            # instead of just the matching nodes.
             node_class = self._node_class_from_step_meta(meta)
         # Mirror the live path's selection-widget reproduction so replaying back to
         # a segments-table step re-renders the table (not a free-text box).
@@ -1737,6 +1887,10 @@ class WorkflowRuntime:
         # Mirror the live path: a range step re-renders its slider on replay.
         range_meta = self._range_selection_meta(meta)
         if range_meta:
+            choices = []
+            needs_input = True
+        scalar_meta = self._scalar_slider_meta(meta)
+        if scalar_meta:
             choices = []
             needs_input = True
         # Clinically-informed instructions override the recorded guidance (live
@@ -1772,6 +1926,13 @@ class WorkflowRuntime:
             "range_max": range_meta.get("max"),
             "range_step": range_meta.get("step"),
             "range_default": range_meta.get("default"),
+            "scalar_selection": bool(scalar_meta),
+            "scalar_param": scalar_meta.get("param", ""),
+            "scalar_min": scalar_meta.get("min"),
+            "scalar_max": scalar_meta.get("max"),
+            "scalar_step": scalar_meta.get("step"),
+            "scalar_default": scalar_meta.get("default"),
+            "scalar_source_widget": scalar_meta.get("source_widget", ""),
             "choice_label": guidance.get("choice_label", ""),
             "input_label": guidance.get("input_label", ""),
             "repeat_progress": cp.repeat or {},
@@ -1912,11 +2073,14 @@ class WorkflowRuntime:
         # A numeric range adjustment is not a node pick.
         if WorkflowRuntime._is_range_selection(meta):
             return ""
+        # A single-value slider adjustment is not a node pick either.
+        if WorkflowRuntime._is_scalar_slider_selection(meta):
+            return ""
         roles = meta.get("node_roles") or []
         for role in roles:
             if isinstance(role, dict) and role.get("role_kind") == "choice_input":
                 nc = str(role.get("node_class") or "").strip()
-                if nc:
+                if nc and nc not in _NONSPECIFIC_NODE_CLASSES:
                     return nc
         # A node pick: explicit ``value_kind == "node"``, OR the recorded source
         # widget is a node-combo class (some regenerations leave value_kind empty
@@ -1938,12 +2102,12 @@ class WorkflowRuntime:
                 continue
             if vk == "node" or wc in node_selector_widgets:
                 nc = str(so.get("node_class") or "").strip()
-                if nc:
+                if nc and nc not in _NONSPECIFIC_NODE_CLASSES:
                     return nc
         for role in roles:
             if isinstance(role, dict):
                 nc = str(role.get("node_class") or "").strip()
-                if nc:
+                if nc and nc not in _NONSPECIFIC_NODE_CLASSES:
                     return nc
         # Last resort: no structural node class was captured (common for
         # python-built selectors with no ``.ui``). Infer it from the step's
@@ -1978,14 +2142,19 @@ class WorkflowRuntime:
         broad_parts = list(family_parts) + [
             meta.get("description"), guidance.get("instruction"), guidance.get("title"),
         ]
+        # The parameter name names WHAT is selected (authoritative), so it is
+        # scanned for a family noun before the purpose-laden question text.
+        priority_parts = [choice_info.get("parameter_name")]
         for so in meta.get("sub_operations") or []:
             if not isinstance(so, dict):
                 continue
             family_parts.extend([so.get("question"), so.get("parameter_name")])
             broad_parts.extend([so.get("question"), so.get("parameter_name"), so.get("description")])
+            priority_parts.append(so.get("parameter_name"))
         family_text = " ".join(str(p) for p in family_parts if p)
         broad_text = " ".join(str(p) for p in broad_parts if p)
-        return _classify_node_choice_language(family_text, broad_text)
+        priority_text = " ".join(str(p) for p in priority_parts if p)
+        return _classify_node_choice_language(family_text, broad_text, priority_text)
 
     @staticmethod
     def _source_widget_class(meta: Dict[str, Any]) -> str:
@@ -2188,6 +2357,15 @@ class WorkflowRuntime:
         "ctkRangeWidget", "qMRMLRangeWidget", "ctkDoubleRangeSlider", "ctkRangeSlider",
     )
 
+    # Qt classes of a SINGLE-handle numeric control (one scalar value, not a
+    # min/max band). Shared by _is_scalar_slider_selection and used to make
+    # _is_range_selection source-widget-authoritative: such a control is a scalar
+    # chooser even when the LLM tagged value_kind == "range".
+    _SINGLE_SLIDER_WIDGET_CLASSES = (
+        "ctkSliderWidget", "qMRMLSliderWidget", "ctkDoubleSlider",
+        "ctkSliderSpinBoxWidget", "QSlider", "QDoubleSpinBox", "QSpinBox",
+    )
+
     @staticmethod
     def _is_range_selection(meta: Dict[str, Any]) -> bool:
         """True when a user_choice step is a continuous numeric RANGE adjustment
@@ -2200,16 +2378,86 @@ class WorkflowRuntime:
         Kept distinct from the node / segment families so it renders a range
         slider, not a node tree, segments table, or literal button. Generic: no
         extension/step-specific strings.
+
+        SOURCE-WIDGET-AUTHORITATIVE: a recorded SINGLE-handle slider class
+        (``ctkSliderWidget`` etc.) is a scalar chooser, never a min/max band --
+        even if the LLM tagged ``value_kind == "range"`` from loose "range bar"
+        cookbook wording. Such a step routes to the scalar-slider family, so it
+        is NOT a range here.
         """
         if not isinstance(meta, dict):
             return False
         sub_ops = [s for s in (meta.get("sub_operations") or []) if isinstance(s, dict)]
+        for so in sub_ops:
+            if str(so.get("widget_class") or "").strip() in WorkflowRuntime._SINGLE_SLIDER_WIDGET_CLASSES:
+                return False
         for so in sub_ops:
             if str(so.get("value_kind") or "").strip() == "range":
                 return True
             if str(so.get("widget_class") or "").strip() in WorkflowRuntime._RANGE_WIDGET_CLASSES:
                 return True
         return False
+
+    @staticmethod
+    def _is_scalar_slider_selection(meta: Dict[str, Any]) -> bool:
+        """True when a user_choice step adjusts a SINGLE numeric value on a
+        single-handle slider (e.g. an extension's ``ctkSliderWidget`` "Crop
+        radius (mm)"), as opposed to a double-handled min/max range.
+
+        Source-widget-authoritative: the recorded ``.ui`` widget class
+        (``ctkSliderWidget`` etc.) is the primary signal, plus a self-describing
+        ``value_kind`` (``scalar``/``number``) for regenerated artifacts. Kept
+        distinct from the range family so it renders one handle, not two.
+        Generic: keyed on the Qt widget class, no extension/step-specific names.
+        """
+        if not isinstance(meta, dict):
+            return False
+        sub_ops = [s for s in (meta.get("sub_operations") or []) if isinstance(s, dict)]
+        for so in sub_ops:
+            if str(so.get("widget_class") or "").strip() in WorkflowRuntime._SINGLE_SLIDER_WIDGET_CLASSES:
+                return True
+            if str(so.get("value_kind") or "").strip() in ("scalar", "scalar_slider", "number"):
+                return True
+        return False
+
+    @staticmethod
+    def _scalar_slider_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolution metadata for a single-value slider chooser (see
+        _is_scalar_slider_selection): ``{param, min, max, step, default,
+        source_widget}``. ``min``/``max``/``step``/``default`` come from the
+        extension's captured ``.ui`` numeric properties (minimum/maximum/
+        singleStep/value) when present; otherwise ``None`` and the renderer seeds
+        from the extension's live slider widget. Returns ``{}`` when the step is
+        not a scalar-slider selection.
+        """
+        if not isinstance(meta, dict) or not WorkflowRuntime._is_scalar_slider_selection(meta):
+            return {}
+        param = ""
+        widget_name = ""
+        smin = smax = sstep = sdefault = None
+        for so in meta.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            if not param:
+                param = str(so.get("parameter_name") or "").strip()
+            if not widget_name:
+                widget_name = str(so.get("widget_name") or "").strip()
+            if smin is None:
+                smin = so.get("range_min")
+            if smax is None:
+                smax = so.get("range_max")
+            if sstep is None:
+                sstep = so.get("range_step")
+            if sdefault is None:
+                sdefault = so.get("range_default")
+        return {
+            "param": param,
+            "min": smin,
+            "max": smax,
+            "step": sstep,
+            "default": sdefault,
+            "source_widget": widget_name,
+        }
 
     @staticmethod
     def _range_selection_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
@@ -2273,6 +2521,9 @@ class WorkflowRuntime:
             return False
         # A numeric range adjustment renders its own slider, never the node tree.
         if WorkflowRuntime._is_range_selection(meta):
+            return False
+        # A single-value slider adjustment renders its own slider, never the node tree.
+        if WorkflowRuntime._is_scalar_slider_selection(meta):
             return False
         if "node" in kinds:
             return True

@@ -1195,7 +1195,18 @@ class AnalyzerApiProofMixin:
         obligation_by_call = {
             obligation.get("call_id"): obligation for obligation in obligations
         }
-        targets = set()
+        # A receiver type is either a resolvable CLASS NAME (e.g.
+        # ``vtkMRMLScriptedModuleNode``) checked by ``_introspect_type_method``,
+        # or an opaque RUNTIME-ROOT CHAIN string the graph assigns to a Slicer
+        # singleton access (``slicer.mrmlScene`` / ``slicer.app`` / ``slicer.
+        # modules.x`` — identified by a dotted ``slicer.``/``vtk.``/``qt.``/
+        # ``ctk.`` prefix, which no MRML/VTK class name has). The latter has no
+        # class to construct, so it is resolved by evaluating the receiver
+        # EXPRESSION live (``_introspect_expr_method``). Both use the same
+        # running-Slicer oracle; neither carries any per-class/per-singleton rule.
+        _ROOT_CHAIN_PREFIXES = ("slicer.", "vtk.", "qt.", "ctk.")
+        targets = set()             # (class_name, method)
+        expr_targets = set()        # (receiver_expr, receiver_type_key, method)
         for issue in issues:
             if issue.get("issue_type") != "UnprovenApiCall":
                 continue
@@ -1204,6 +1215,7 @@ class AnalyzerApiProofMixin:
             method = _text_or_empty(issue.get("method"))
             if not method:
                 continue
+            receiver_expr = _text_or_empty(issue.get("receiver_expression"))
             candidate_types = []
             obligation = obligation_by_call.get(issue.get("call_id"))
             if obligation:
@@ -1215,7 +1227,13 @@ class AnalyzerApiProofMixin:
             if not candidate_types and _text_or_empty(issue.get("receiver_type")):
                 candidate_types.append(_text_or_empty(issue.get("receiver_type")))
             for receiver_type in candidate_types:
-                targets.add((receiver_type, method))
+                if receiver_type.startswith(_ROOT_CHAIN_PREFIXES):
+                    # The graph names such singletons by their expression, so the
+                    # receiver expression IS the type key; fall back to the type
+                    # string if the expression was not recorded.
+                    expr_targets.add((receiver_expr or receiver_type, receiver_type, method))
+                else:
+                    targets.add((receiver_type, method))
 
         added = False
         for receiver_type, method in sorted(targets):
@@ -1234,6 +1252,34 @@ class AnalyzerApiProofMixin:
                 "confidence": "high",
             }
             added = True
+
+        if hasattr(self, "_introspect_expr_method"):
+            for receiver_expr, receiver_type_key, method in sorted(expr_targets):
+                existing = (type_contracts.get(receiver_type_key, {}) or {}).get("methods", {})
+                if method in existing:
+                    continue
+                result = self._introspect_expr_method(receiver_expr, method)
+                if not isinstance(result, dict) or not result.get("resolved"):
+                    continue
+                contract_entry = {
+                    "exists": bool(result.get("method_exists")),
+                    "effect": ApiProofValidator.effect_for_method(method),
+                    "source": "live_expr_introspection",
+                    "confidence": "high",
+                }
+                # Register under the graph's type key (the receiver chain string)
+                # so the proof re-run resolves the same call.
+                type_contracts.setdefault(receiver_type_key, {}).setdefault(
+                    "methods", {}
+                )[method] = contract_entry
+                # Also register under the concrete runtime class, so a differently
+                # typed occurrence of the same singleton call is proven too.
+                real_type = _text_or_empty(result.get("type"))
+                if real_type and real_type != receiver_type_key:
+                    type_contracts.setdefault(real_type, {}).setdefault(
+                        "methods", {}
+                    ).setdefault(method, contract_entry)
+                added = True
         return added
 
     def _build_api_proof_report(
