@@ -13,11 +13,9 @@ SlicerAIAgent operates in two complementary modes:
 
 ### Demo 1 — Pelvic fracture reduction
 
-1. load the CT volume  
-2. segment the pelvic fracture
-3. implement the screw placement planning
+https://github.com/user-attachments/assets/f3448345-08d9-45c8-9660-9fe4003c8f0b
 
-https://github.com/user-attachments/assets/ea27d290-b2c5-4be0-9954-8051650bda90
+
 
 ---
 
