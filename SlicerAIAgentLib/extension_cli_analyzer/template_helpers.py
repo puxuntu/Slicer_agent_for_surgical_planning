@@ -390,10 +390,69 @@ class AnalyzerTemplateHelpersMixin:
             text = "Complete this interaction, then click Done."
         return text
 
+    # Number/quantifier words that name a control-point count in placement
+    # instructions (e.g. "place one point", "select a landmark").
+    _POINT_COUNT_WORDS = {
+        "a": 1, "an": 1, "one": 1, "single": 1, "two": 2, "three": 3,
+        "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+        "nine": 9, "ten": 10,
+    }
+
+    def _expected_interaction_point_count(self, step: Dict) -> Optional[int]:
+        """Infer how many control points a placement step expects the user to add.
+
+        Driven purely by the step's own natural-language fields so it stays
+        general across extensions: returns the integer count when the text
+        unambiguously names one (e.g. "select a point", "place one point",
+        "click two landmarks"), or None when the count is unbounded / unknown
+        (e.g. "draw a curve", "add points").
+        """
+        ui_guidance = step.get("ui_guidance") or {}
+        texts = [
+            step.get("description"),
+            step.get("placement_instructions"),
+            ui_guidance.get("instruction"),
+            ui_guidance.get("title"),
+        ]
+        for so in step.get("sub_operations", []) or []:
+            if isinstance(so, dict):
+                texts.append(so.get("description"))
+                texts.append(so.get("placement_instructions"))
+        blob = " ".join(_text_or_empty(t) for t in texts).lower()
+        if not blob.strip():
+            return None
+        # A quantified reference to a point/fiducial/landmark/marker, allowing up
+        # to two adjective words in between (e.g. "one glenoid center point").
+        m = _re.search(
+            r"\b(a|an|one|single|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
+            r"(?:\w+\s+){0,2}?(point|fiducial|landmark|marker)(s?)\b",
+            blob,
+        )
+        if not m:
+            return None
+        token = m.group(1)
+        count = self._POINT_COUNT_WORDS.get(token)
+        if count is None:
+            try:
+                count = int(token)
+            except ValueError:
+                return None
+        noun_is_plural = bool(m.group(3))
+        # "a/one point" (singular noun) == 1; an article "a" in front of a plural
+        # noun ("a few points") is ambiguous, so don't claim a count.
+        if count == 1 and noun_is_plural:
+            return None
+        return count
+
     def _placement_mode_policy(self, step: Dict, starter_info: Optional[Dict] = None) -> Dict:
         """Decide how generated code should enter Markups placement mode."""
         owner = step.get("interaction_owner", "")
         starter_info = starter_info or {}
+        # A step that expects exactly one control point should use single place
+        # mode so Slicer auto-exits after the first click instead of letting the
+        # user keep adding points. Derived from the step's own text, so it stays
+        # general across extensions (never keyed on a specific step id).
+        wants_single_point = self._expected_interaction_point_count(step) == 1
         if owner in ("extension_method", "previous_extension_method"):
             if starter_info.get("starts_markup_placement"):
                 return {
@@ -402,10 +461,11 @@ class AnalyzerTemplateHelpersMixin:
                     "placement_mode": None,
                     "reason": "extension_starter_already_controls_placement",
                 }
+            use_single = self._is_repeat_interaction_step(step) or wants_single_point
             return {
                 "should_set_active_list": True,
                 "should_enter_placement_mode": True,
-                "placement_mode": "single" if self._is_repeat_interaction_step(step) else "persistent",
+                "placement_mode": "single" if use_single else "persistent",
                 "reason": "extension_starter_did_not_enter_placement",
             }
         if self._is_repeat_interaction_step(step):
@@ -418,8 +478,8 @@ class AnalyzerTemplateHelpersMixin:
         return {
             "should_set_active_list": True,
             "should_enter_placement_mode": True,
-            "placement_mode": "persistent",
-            "reason": "runtime_template_controls_placement",
+            "placement_mode": "single" if wants_single_point else "persistent",
+            "reason": "single_point_step" if wants_single_point else "runtime_template_controls_placement",
         }
 
     @staticmethod

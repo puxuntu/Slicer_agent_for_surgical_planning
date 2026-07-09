@@ -1,0 +1,1236 @@
+{
+  "schema_version": 2,
+  "pipeline_version": "agentic-cli-v3",
+  "extension_name": "ReverseShoulderArthroplasty",
+  "extension_module_name": "SlicerScrewPlanner",
+  "logic_class_name": "SlicerScrewPlannerLogic",
+  "source_path": "C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions/ReverseShoulderArthroplasty",
+  "cookbook_file": "ReverseShoulderArthroplasty.md",
+  "steps": [
+    {
+      "step_id": "cb_step_1",
+      "index": 0,
+      "description": "In the \"1. CT volume - bone density for optimization\" section, select the CT volume for processing.",
+      "operation_type": "user_choice",
+      "depends_on": [],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_1_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Select the CT volume for bone density optimization processing",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "inputVolume",
+          "node_class": "",
+          "confidence": "medium",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_2",
+      "index": 1,
+      "description": "In the \"Segment Editor\" module, create a new segmentation named \"Bone_Segmentation\".",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_1"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_2_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Create a new segmentation node named Bone_Segmentation in the Segment Editor module",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "vtkMRMLSegmentationNode",
+            "AddNewNodeByClass",
+            "Segment Editor"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_2_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_3",
+      "index": 2,
+      "description": "In the \"Segment Editor\" module, click the \"Add\" button and rename the segment to \"Bone_Segment\".",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_2"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_3_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Add a new segment and rename it to Bone_Segment using the segment editor Add button",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "vtkMRMLSegmentationNode",
+            "AddSegment",
+            "vtkSegment"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_3_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_4",
+      "index": 3,
+      "description": "In the \"Segment Editor\" module, click the \"Threshold\" button.",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_3"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_4_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Open the Threshold effect in the Segment Editor module by clicking the Threshold button",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "Segment Editor",
+            "Threshold",
+            "setActiveEffectByName"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_4_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_5",
+      "index": 4,
+      "description": "In the \"Segment Editor\" module, adjust the threshold slider to set the segmentation range.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_4"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_5_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Adjust the threshold range slider to set the segmentation range",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "Threshold",
+            "slider",
+            "range"
+          ],
+          "parameter_name": "thresholdRange",
+          "node_class": "",
+          "confidence": "medium",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_6",
+      "index": 5,
+      "description": "In the \"Segment Editor\" module, click the \"Apply\" button.",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_5"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_6_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Apply the threshold effect in the Segment Editor module",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "Segment Editor",
+            "Threshold",
+            "Apply"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_6_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_7",
+      "index": 6,
+      "description": "In the \"Segment Editor\" module, click the \"Islands\" button.",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_6"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_7_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Open the Islands effect in the Segment Editor module",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "Segment Editor",
+            "Islands"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_7_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_8",
+      "index": 7,
+      "description": "In the \"Segment Editor\" module, select the \"Keep largest island\" option.",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_7"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_8_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Select the 'Keep largest island' option in the Islands effect",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "Segment Editor",
+            "Islands",
+            "keepLargestIsland"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_8_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_9",
+      "index": 8,
+      "description": "In the \"Segment Editor\" module, click the \"Apply\" button.",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_8"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_9_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Apply the Islands effect in the Segment Editor module",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "Segment Editor",
+            "Islands",
+            "Apply"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_9_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_10",
+      "index": 9,
+      "description": "In the \"Bone segmentation\" section, select the segment node.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_9"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_10_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Select the bone segmentation node from the scene for further processing",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "segmentationNode",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_11",
+      "index": 10,
+      "description": "Click the \"3D Reconstruction\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_10"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_11_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Trigger the 3D reconstruction of the selected bone segmentation",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_11.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_12",
+      "index": 11,
+      "description": "In the \"Markups\" module, click \"Point List\" to create an empty MarkupsFiducial node named \"Prosthesis_center_point\".",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_11"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_12_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Create an empty MarkupsFiducial node named Prosthesis_center_point using the Point List button in Markups module",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "markups_display",
+          "slicer_api_keywords": [
+            "slicer.mrmlScene.AddNewNodeByClass",
+            "vtkMRMLMarkupsFiducialNode",
+            "Markups"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLMarkupsFiducialNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_12_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_13",
+      "index": 12,
+      "description": "Manually click on the glenoid cavity surface to select a point for the \"Prosthesis_center_point\".",
+      "operation_type": "user_interaction",
+      "depends_on": [
+        "cb_step_12"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_13_op_1",
+          "operation_type": "user_interaction",
+          "intent": "",
+          "description": "Place a fiducial point on the glenoid cavity surface to mark the prosthesis center",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "vtkMRMLMarkupsFiducialNode",
+            "place",
+            "AddControlPoint"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLMarkupsFiducialNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {
+        "interaction_kind": "markup_placement",
+        "interaction_type": "fiducial",
+        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "placement_instructions": "Click on the glenoid cavity surface to place the point",
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "previous_step"
+      },
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "markup_placement"
+        ]
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "templates/cb_step_13_pre.py.tpl",
+        "post_template_file": "templates/cb_step_13_post.py.tpl",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_14",
+      "index": 13,
+      "description": "In the \"Planning point\" section, select the MarkupsFiducial node.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_13"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_14_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Select the previously placed prosthesis center point fiducial node for planning",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "fiducialNode",
+          "node_class": "vtkMRMLMarkupsFiducialNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_15",
+      "index": 14,
+      "description": "Click the \"Prosthesis implantation\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_14"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_15_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Perform prosthesis implantation using the selected fiducial point",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "medium",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_15.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_16",
+      "index": 15,
+      "description": "If further adjustments are required, check the \"Adjust Prosthesis (3D transform handles)\" box. If not, proceed to Step 19.",
+      "operation_type": "branch_op",
+      "depends_on": [
+        "cb_step_15"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_16_op_1",
+          "operation_type": "branch_op",
+          "intent": "",
+          "description": "Ask the user if adjustment of the prosthesis via 3D transform handles is needed, and branch accordingly",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "adjustProsthesis",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "branch_op",
+        "op_types": [
+          "branch_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_17",
+      "index": 16,
+      "description": "Manually adjust the 3D transform handles.",
+      "operation_type": "user_interaction",
+      "depends_on": [
+        "cb_step_16"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_17_op_1",
+          "operation_type": "user_interaction",
+          "intent": "",
+          "description": "Manually adjust the 3D transform handles for the prosthesis",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "3D transform handles",
+            "Translate",
+            "Rotate",
+            "vtkMRMLTransformableNode"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "medium",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {
+        "interaction_kind": "view_adjustment",
+        "interaction_type": "generic",
+        "node_class": "",
+        "placement_instructions": "Adjust the 3D transform handles of the implanted prosthesis",
+        "interaction_owner": "",
+        "placement_starter_method": "",
+        "created_node_source": ""
+      },
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "view_adjustment"
+        ]
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "templates/cb_step_17_pre.py.tpl",
+        "post_template_file": "templates/cb_step_17_post.py.tpl",
+        "required": true,
+        "allow_instruction_only": true
+      }
+    },
+    {
+      "step_id": "cb_step_18",
+      "index": 17,
+      "description": "Click the \"Update Prosthesis\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_17"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_18_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Update the prosthesis after manual transformation adjustment",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "medium",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_18.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_19",
+      "index": 18,
+      "description": "Click the \"Plan\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_18"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_19_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Execute the final plan for the prosthesis placement",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_19.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_20",
+      "index": 19,
+      "description": "If further adjustments are required, check the \"Adjust screw\" box. If not, stop here.",
+      "operation_type": "branch_op",
+      "depends_on": [
+        "cb_step_19"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_20_op_1",
+          "operation_type": "branch_op",
+          "intent": "",
+          "description": "Ask the user if adjustment of the screw is needed, and branch accordingly (skip to end if not)",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "adjustScrew",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "branch_op",
+        "op_types": [
+          "branch_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_21",
+      "index": 20,
+      "description": "Manually adjust the endpoints of the planning paths.",
+      "operation_type": "user_interaction",
+      "depends_on": [
+        "cb_step_20"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_21_op_1",
+          "operation_type": "user_interaction",
+          "intent": "",
+          "description": "Manually adjust the endpoints of the screw planning paths",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "vtkMRMLMarkupsLineNode",
+            "Translate",
+            "handle"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "medium",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {
+        "interaction_kind": "view_adjustment",
+        "interaction_type": "generic",
+        "node_class": "",
+        "placement_instructions": "Adjust the endpoints of the planning paths for the screw",
+        "interaction_owner": "",
+        "placement_starter_method": "",
+        "created_node_source": ""
+      },
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "view_adjustment"
+        ]
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "templates/cb_step_21_pre.py.tpl",
+        "post_template_file": "templates/cb_step_21_post.py.tpl",
+        "required": true,
+        "allow_instruction_only": true
+      }
+    },
+    {
+      "step_id": "cb_step_22",
+      "index": 21,
+      "description": "Click the \"Update screw\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_21"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_22_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Update the screw placement after manual path adjustment",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "medium",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_22.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    }
+  ],
+  "metadata_refs": {
+    "parameter_bindings": [],
+    "operation_model_steps": [
+      "cb_step_1",
+      "cb_step_10",
+      "cb_step_11",
+      "cb_step_12",
+      "cb_step_13",
+      "cb_step_14",
+      "cb_step_15",
+      "cb_step_16",
+      "cb_step_17",
+      "cb_step_18",
+      "cb_step_19",
+      "cb_step_2",
+      "cb_step_20",
+      "cb_step_21",
+      "cb_step_22",
+      "cb_step_3",
+      "cb_step_4",
+      "cb_step_5",
+      "cb_step_6",
+      "cb_step_7",
+      "cb_step_8",
+      "cb_step_9"
+    ]
+  }
+}

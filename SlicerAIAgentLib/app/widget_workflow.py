@@ -1608,6 +1608,19 @@ class WidgetWorkflowMixin:
 
         self._waitingForUser = True
         self._currentWorkflowStepInfo = step_info
+
+        # Filter benign, high-frequency VTK render-loop warnings (interaction
+        # handle index vs control-point count) for the lifetime of this
+        # interactive wait — interaction handles are active during "adjust"
+        # steps and Slicer emits these harmless messages on every render. Real
+        # errors still reach the console. General across extensions; removed in
+        # _exitWorkflowWait.
+        try:
+            from SlicerAIAgentLib.WorkflowRuntime import install_filtered_vtk_output
+            self._vtkOutputRestore = install_filtered_vtk_output()
+        except Exception:
+            self._vtkOutputRestore = None
+
         self._showWorkflowInteraction(step_info)
         # The interaction is shown ONLY in the inline workflow panel (module UI).
         # The separate floating "AI Agent — workflow step" pop-up was removed at
@@ -1667,6 +1680,15 @@ class WidgetWorkflowMixin:
                     "node to re-arm with", step_info.get("step_id", "?"),
                 )
                 return
+            # Placement already produced at least one control point and place
+            # mode is no longer active: the interaction has completed (e.g.
+            # single place mode auto-exited after the expected point). Re-arming
+            # would let the user add unintended extra points, so leave it done.
+            try:
+                if not in_place_mode and node.GetNumberOfControlPoints() > 0:
+                    return
+            except Exception:
+                pass
             slicer.modules.markups.logic().SetActiveListID(node)
             if interactionNode:
                 interactionNode.SwitchToSinglePlaceMode()
@@ -1685,6 +1707,17 @@ class WidgetWorkflowMixin:
         """Exit workflow wait state and restore normal state."""
         self._waitingForUser = False
         self._currentWorkflowStepInfo = None
+
+        # Restore the original VTK output window installed on wait entry, so the
+        # benign-message filter is active only during the interactive wait.
+        _restore = getattr(self, "_vtkOutputRestore", None)
+        self._vtkOutputRestore = None
+        if _restore is not None:
+            try:
+                _restore()
+            except Exception:
+                pass
+
         self._closeFloatingWorkflowControl()
         self._setReadyStatus()
 

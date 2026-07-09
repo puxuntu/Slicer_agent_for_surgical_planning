@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "steps": {
+    "cb_step_1": {
+      "title": "Select CT Volume",
+      "simple": "Choose the CT volume to use for planning.",
+      "detailed": "This CT scan provides the bone density data needed to plan optimal screw placement and prosthesis alignment. Select the preoperative CT scan of the shoulder from the list of available volumes.",
+      "edited": false
+    },
+    "cb_step_2": {
+      "title": "Create Bone Segmentation",
+      "simple": "Create a new segmentation named 'Bone_Segmentation' in the Segment Editor.",
+      "detailed": "A segmentation will isolate the bone from surrounding soft tissues, which is essential for accurate 3D reconstruction and screw path planning. Switch to the Segment Editor module and create a new segmentation with the name 'Bone_Segmentation'.",
+      "edited": false
+    },
+    "cb_step_3": {
+      "title": "Add Bone Segment",
+      "simple": "Add a new segment and rename it to 'Bone_Segment'.",
+      "detailed": "This segment will hold the bone region extracted from the CT. Add a new segment and rename it to 'Bone_Segment' so the threshold and island operations can be applied to it.",
+      "edited": false
+    },
+    "cb_step_4": {
+      "title": "Open Threshold Tool",
+      "simple": "Click the Threshold button in the Segment Editor.",
+      "detailed": "Thresholding selects bone pixels based on Hounsfield units, separating dense cortical bone from marrow and soft tissue. Open the Threshold effect to prepare for setting the range.",
+      "edited": false
+    },
+    "cb_step_5": {
+      "title": "Set Threshold Range",
+      "simple": "Adjust the threshold slider to capture the bone region.",
+      "detailed": "Bone typically appears at high Hounsfield values; adjust the lower and upper bounds to include all visible bone while excluding soft tissue and noise. This range directly affects the accuracy of the 3D model used for screw planning.",
+      "edited": false
+    },
+    "cb_step_6": {
+      "title": "Apply Threshold",
+      "simple": "Click the Apply button to run the threshold effect.",
+      "detailed": "Applying the threshold converts selected Hounsfield values into the bone segment. This creates a binary mask of the bone that will be refined in the next steps.",
+      "edited": false
+    },
+    "cb_step_7": {
+      "title": "Open Islands Tool",
+      "simple": "Click the Islands button in the Segment Editor.",
+      "detailed": "The Islands tool removes stray disconnected fragments that are not part of the main bone structure, leaving a clean, contiguous bone region. Open the Islands effect to choose the keeping strategy.",
+      "edited": false
+    },
+    "cb_step_8": {
+      "title": "Keep Largest Island",
+      "simple": "Select 'Keep largest island' from the Islands menu.",
+      "detailed": "The largest island is typically the scapula or humeral bone you intend to operate on. Keeping only the largest island eliminates noise and small unrelated fragments from the segmentation.",
+      "edited": false
+    },
+    "cb_step_9": {
+      "title": "Apply Islands",
+      "simple": "Click the Apply button to keep the largest island.",
+      "detailed": "This finalizes the bone segmentation, giving you a clean 3D representation of the bone surface needed for prosthesis placement and screw path planning.",
+      "edited": false
+    },
+    "cb_step_10": {
+      "title": "Select Bone Segmentation",
+      "simple": "Choose the 'Bone_Segmentation' node from the scene.",
+      "detailed": "This segmentation will be used to generate a 3D surface model. Select the bone segmentation you just created to feed it into the 3D reconstruction step.",
+      "edited": false
+    },
+    "cb_step_11": {
+      "title": "3D Reconstruction",
+      "simple": "Click the '3D Reconstruction' button to generate a surface model.",
+      "detailed": "A 3D surface model of the bone is essential for visualizing anatomy and planning implant position. Click the button to convert the segmentation into a manipulable 3D object.",
+      "edited": false
+    },
+    "cb_step_12": {
+      "title": "Create Prosthesis Center Point",
+      "simple": "In the Markups module, create a point list named 'Prosthesis_center_point'.",
+      "detailed": "This fiducial will mark the planned center of the glenoid component. The implant will be positioned relative to this point, which you will place on the glenoid surface in the next step.",
+      "edited": false
+    },
+    "cb_step_13": {
+      "title": "Place Center Point on Glenoid",
+      "simple": "Click on the glenoid cavity surface to place the prosthesis center point.",
+      "detailed": "The glenoid cavity is the socket of the shoulder joint where the prosthetic baseplate will be implanted. Accurately placing this point determines the final position of the prosthesis \u2014 it should be centered on the glenoid surface.",
+      "edited": false
+    },
+    "cb_step_14": {
+      "title": "Select Center Point Fiducial",
+      "simple": "Choose the fiducial node you just placed from the list.",
+      "detailed": "This links the placed point to the prosthesis implantation algorithm. Select the 'Prosthesis_center_point' fiducial so the software knows where to position the implant.",
+      "edited": false
+    },
+    "cb_step_15": {
+      "title": "Implant Prosthesis",
+      "simple": "Click the 'Prosthesis implantation' button to place the virtual implant.",
+      "detailed": "The software will automatically align the prosthesis model at the selected center point and adjust it based on bone density data. This step creates the initial virtual implant that you can refine if needed.",
+      "edited": false
+    },
+    "cb_step_16": {
+      "title": "Decide on Prosthesis Adjustment",
+      "simple": "Choose whether to adjust the prosthesis position with 3D handles.",
+      "detailed": "If the initial implant position needs fine-tuning, enable the adjustment option to move, rotate, or scale the prosthesis using interactive 3D handles. If the position is satisfactory, skip ahead to the planning step.",
+      "edited": false
+    },
+    "cb_step_17": {
+      "title": "Adjust Prosthesis Position",
+      "simple": "Use the 3D transform handles to reposition the implant as needed.",
+      "detailed": "Fine-tune the placement of the glenoid component by dragging the handles in the 3D view. This ensures optimal alignment with the patient's anatomy and bone stock before finalizing the plan.",
+      "edited": false
+    },
+    "cb_step_18": {
+      "title": "Update Prosthesis",
+      "simple": "Click the 'Update Prosthesis' button to save the adjustments.",
+      "detailed": "This commits the position changes so the next steps \u2014 screw planning and final plan generation \u2014 use the updated implant location.",
+      "edited": false
+    },
+    "cb_step_19": {
+      "title": "Generate Plan",
+      "simple": "Click the 'Plan' button to compute the screw trajectory plan.",
+      "detailed": "The planning algorithm will generate recommended screw paths based on the implant position and bone density map. This step creates the initial screw plan that you can review and adjust.",
+      "edited": false
+    },
+    "cb_step_20": {
+      "title": "Decide on Screw Adjustment",
+      "simple": "Choose whether to manually adjust the screw paths.",
+      "detailed": "If the automatically generated screws are not optimally positioned relative to bone landmarks or fixation zones, you can manually refine their endpoints. Otherwise, the plan is complete.",
+      "edited": false
+    },
+    "cb_step_21": {
+      "title": "Adjust Screw Paths",
+      "simple": "Drag the endpoints of each screw path to improve placement.",
+      "detailed": "Manual adjustment allows you to avoid neurovascular structures, maximize bone purchase, and achieve the best fixation. Reposition the start and end points of each screw trajectory as needed.",
+      "edited": false
+    },
+    "cb_step_22": {
+      "title": "Update Screw Plan",
+      "simple": "Click the 'Update screw' button to save your manual adjustments.",
+      "detailed": "This finalizes the screw trajectories, incorporating any manual refinements. The updated plan is now ready for review or export.",
+      "edited": false
+    }
+  }
+}

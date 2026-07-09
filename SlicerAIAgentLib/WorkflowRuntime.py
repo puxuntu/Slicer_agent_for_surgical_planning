@@ -50,6 +50,58 @@ def _silenced_vtk_output():
             except Exception:
                 pass
 
+
+# Benign, high-frequency VTK render-loop messages emitted by Slicer's markups /
+# transform interaction-handle representations when a widget's handle index
+# exceeds its current control-point count. They are harmless but flood the
+# console while interaction handles are visible (e.g. during an interactive
+# "adjust" step). Keyed on VTK-internal substrings, never on any extension name,
+# so this stays general across every generated workflow.
+_BENIGN_VTK_RENDER_SUBSTRINGS = (
+    "GetInteractionHandlePositionWorld",
+    "Invalid handle index",
+)
+
+
+def install_filtered_vtk_output(extra_substrings=()):
+    """Route VTK console output through a filter that drops known benign,
+    high-frequency render-loop warnings and forwards everything else to the
+    previous output window unchanged.
+
+    Returns a ``restore()`` callable that reinstalls the original window. The
+    denylist keys on VTK-internal message substrings emitted for ANY extension
+    that shows markups/transform interaction handles, so nothing
+    extension-specific is hidden and real errors/warnings are still forwarded
+    verbatim (self-correction and debugging keep seeing them). Fail-open: if VTK
+    is unavailable or the build disallows subclassing ``vtkOutputWindow`` from
+    Python, a no-op restore is returned and console output is left untouched.
+    """
+    try:
+        import vtk
+        original = vtk.vtkOutputWindow.GetInstance()
+        denylist = tuple(_BENIGN_VTK_RENDER_SUBSTRINGS) + tuple(extra_substrings)
+
+        class _FilteredOutputWindow(vtk.vtkOutputWindow):
+            def DisplayText(self, text):
+                if text and any(s in text for s in denylist):
+                    return  # swallow benign render-loop noise
+                if original is not None:
+                    original.DisplayText(text)  # forward everything else verbatim
+
+        vtk.vtkOutputWindow.SetInstance(_FilteredOutputWindow())
+    except Exception:
+        return lambda: None
+
+    def _restore():
+        try:
+            import vtk
+            vtk.vtkOutputWindow.SetInstance(original)
+        except Exception:
+            pass
+
+    return _restore
+
+
 from .ExtensionCLILoader import (
     clear_workflow_step_completions,
     dispatch_extension_cli_tool,

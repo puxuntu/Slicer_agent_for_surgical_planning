@@ -1,6 +1,38 @@
 from .common import *
 
 
+def _resolve_qt_control_lines(widget_expr, control_name, out_var="_ctrl", indent=""):
+    """Emit Python source lines that resolve a Qt control by name and leave it
+    in ``out_var`` (or None).
+
+    Slicer extensions expose their controls in different ways: loaded from a Qt
+    Designer ``.ui`` file (``self.ui.<name>``), assigned as direct widget
+    attributes (``self.<name>``), or reachable only by objectName in the widget
+    tree. The old generator hardcoded ``_widget.ui.<name>`` which silently
+    fails (AttributeError swallowed) for extensions that use direct attributes,
+    leaving the control state unset — so a later ``setChecked(opposite)`` in an
+    "Update"/"Fix" handler emits no ``toggled`` signal and dependent UI (e.g.
+    3D interaction handles) never updates. This resolver is general: it tries
+    all three exposure styles and hardcodes nothing beyond the passed-in name.
+    """
+    q = repr(control_name)
+    i = indent
+    return [
+        f"{i}{out_var} = None",
+        f"{i}_ui = getattr({widget_expr}, 'ui', None)",
+        f"{i}if _ui is not None:",
+        f"{i}    {out_var} = getattr(_ui, {q}, None)",
+        f"{i}if {out_var} is None:",
+        f"{i}    {out_var} = getattr({widget_expr}, {q}, None)",
+        f"{i}if {out_var} is None:",
+        f"{i}    try:",
+        f"{i}        _found = slicer.util.findChildren({widget_expr}, name={q})",
+        f"{i}        {out_var} = _found[0] if _found else None",
+        f"{i}    except Exception:",
+        f"{i}        {out_var} = None",
+    ]
+
+
 class AnalyzerWorkflowTemplatesMixin:
     def _generate_workflow_templates(
         self,
@@ -819,9 +851,14 @@ class AnalyzerWorkflowTemplatesMixin:
         return [
             "# Sync the bound UI control (mirrors the user's click) so",
             "# GUI-driven parameter syncs cannot ratchet the value back.",
+            "# Resolve the control across .ui / direct-attribute / widget-tree",
+            "# exposure styles so this works for any extension, not only ones",
+            "# that load a Qt Designer .ui file.",
             "try:",
             f"    _module_widget = slicer.modules.{module_name.lower()}.widgetRepresentation().self()",
-            f"    _module_widget.ui.{widget_name}.checked = {target}",
+            *_resolve_qt_control_lines("_module_widget", widget_name, "_sync_ctrl", indent="    "),
+            "    if _sync_ctrl is not None:",
+            f"        _sync_ctrl.checked = {target}",
             "except Exception:",
             "    pass",
         ]
@@ -1013,14 +1050,15 @@ class AnalyzerWorkflowTemplatesMixin:
                     _tv = _intent["state"]
             checked = "False" if _tv is False else "True"
             lines += [
-                "# Set the control's checked state (signals blocked to avoid a",
-                "# double-fire), then invoke the handler once. The handler may read",
-                "# the widget state (no arg) or accept the new bool — try the bool.",
-                "_ctrl = None",
-                "try:",
-                f"    _ctrl = _widget.ui.{widget}",
-                "except Exception:",
-                "    _ctrl = None",
+                "# Resolve the bound control by name across the ways a Slicer",
+                "# extension can expose it (.ui object, direct self.<name>",
+                "# attribute, or objectName in the widget tree), then set its",
+                "# checked state (signals blocked to avoid a double-fire) and",
+                "# invoke the handler once. Setting the REAL control state is",
+                "# what lets a later programmatic setChecked(opposite) actually",
+                "# emit toggled and run the handler (e.g. an 'Update' button that",
+                "# unchecks the box to hide 3D interaction handles).",
+                *_resolve_qt_control_lines("_widget", widget, "_ctrl"),
                 "if _ctrl is not None:",
                 "    try:",
                 "        _ctrl.blockSignals(True)",

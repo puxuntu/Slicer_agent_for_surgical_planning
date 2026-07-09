@@ -1,0 +1,2661 @@
+[
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_1"
+    },
+    "description": "In the \"1. CT volume - bone density for optimization\" section, select the CT volume for processing.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "user_choice",
+    "ui_guidance": {
+      "title": "Select CT Volume",
+      "instruction": "Choose the CT volume for processing.",
+      "done_label": "Done",
+      "choice_label": "Volume",
+      "input_label": "Volume",
+      "object_label": "volume",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_choice",
+      "op_types": [
+        "user_choice"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "choice_descriptor": {
+      "question": "Select the CT volume for processing",
+      "choices": [],
+      "parameter_name": "inputVolume",
+      "default_value": null,
+      "ui_guidance": {
+        "title": "Select CT Volume",
+        "instruction": "Choose the CT volume for processing.",
+        "done_label": "Done",
+        "choice_label": "Volume",
+        "input_label": "Volume",
+        "object_label": "volume",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "user_choice",
+        "operation_type": "user_choice",
+        "description": "Select the CT volume for bone density optimization processing",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "medium",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Select the CT volume for processing",
+        "choices": [],
+        "parameter_name": "inputVolume",
+        "default_value": null,
+        "value_kind": "node"
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_2"
+    },
+    "description": "In the \"Segment Editor\" module, create a new segmentation named \"Bone_Segmentation\".",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "slicer_op",
+    "ui_guidance": {
+      "title": "Create Segmentation",
+      "instruction": "Switch to Segment Editor module and create a segmentation named 'Bone_Segmentation'.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "segmentation",
+      "repeat": {}
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "AddNewNodeByClass",
+        "CreateDefaultDisplayNodes",
+        "GetDisplayNode",
+        "GetName",
+        "mrmlScene",
+        "vtkMRMLSegmentationNode",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNumberOfItems",
+        "SetAttribute"
+      ],
+      "api_chains": [
+        "segmentationNode.CreateDefaultDisplayNodes",
+        "segmentationNode.GetDisplayNode",
+        "segmentationNode.GetName",
+        "slicer.mrmlScene.AddNewNodeByClass",
+        "_ses_c.GetName",
+        "_ses_seg.CreateDefaultDisplayNodes",
+        "_ses_seg.GetName",
+        "_ses_seg.SetAttribute",
+        "_ses_segs.GetItemAsObject",
+        "_ses_segs.GetNumberOfItems",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+      ],
+      "operation_descriptions": [
+        "Create a new segmentation node named Bone_Segmentation in the Segment Editor module"
+      ],
+      "slicer_op_categories": [
+        "generic_slicer_api"
+      ],
+      "slicer_api_keywords": [
+        "vtkMRMLSegmentationNode",
+        "AddNewNodeByClass",
+        "Segment Editor"
+      ]
+    },
+    "operation_model": {
+      "step_type": "slicer_op",
+      "op_types": [
+        "slicer_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_2_slicer.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "operation_type": "slicer_op",
+        "description": "Create a new segmentation node named Bone_Segmentation in the Segment Editor module",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": "generic_slicer_api",
+        "slicer_api_keywords": [
+          "vtkMRMLSegmentationNode",
+          "AddNewNodeByClass",
+          "Segment Editor"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": true,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          1
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_3"
+    },
+    "description": "In the \"Segment Editor\" module, click the \"Add\" button and rename the segment to \"Bone_Segment\".",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "slicer_op",
+    "ui_guidance": {
+      "title": "Add Segment",
+      "instruction": "Click 'Add' and rename the segment to 'Bone_Segment'.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "segment",
+      "repeat": {}
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "AddEmptySegment",
+        "GetFirstNodeByClass",
+        "GetName",
+        "GetNthNodeByClass",
+        "GetNumberOfNodesByClass",
+        "GetSegment",
+        "GetSegmentation",
+        "SetName",
+        "lower",
+        "mrmlScene",
+        "vtkMRMLSegmentationNode",
+        "GetAttribute",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNumberOfItems",
+        "GetSegmentIdBySegmentName",
+        "SetAttribute",
+        "GetFirstNodeByName"
+      ],
+      "api_chains": [
+        "node.GetName",
+        "node.GetName().lower",
+        "node_name.lower",
+        "segment.GetName",
+        "segment.SetName",
+        "segmentation.AddEmptySegment",
+        "segmentation.GetSegment",
+        "segmentationNode.GetSegmentation",
+        "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.mrmlScene.GetNthNodeByClass",
+        "slicer.mrmlScene.GetNumberOfNodesByClass",
+        "_ses_c.GetAttribute",
+        "_ses_seg.GetSegmentation",
+        "_ses_seg.SetAttribute",
+        "_ses_segmentation.AddEmptySegment",
+        "_ses_segmentation.GetSegmentIdBySegmentName",
+        "_ses_segs.GetItemAsObject",
+        "_ses_segs.GetNumberOfItems",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
+        "_segmentation.AddEmptySegment",
+        "_segmentation.GetSegmentIdBySegmentName",
+        "_segmentationNode.GetSegmentation",
+        "_segmentationNode.SetAttribute",
+        "slicer.mrmlScene.GetFirstNodeByName",
+        "slicer.mrmlScene.GetFirstNodeByName('Bone_Segmentation').GetSegmentation",
+        "slicer.mrmlScene.GetFirstNodeByName('Bone_Segmentation').GetSegmentation().AddEmptySegment",
+        "slicer.mrmlScene.GetFirstNodeByName('Bone_Segmentation').GetSegmentation().GetSegmentIdBySegmentName",
+        "slicer.mrmlScene.GetFirstNodeByName('Bone_Segmentation').SetAttribute"
+      ],
+      "operation_descriptions": [
+        "Add a new segment and rename it to Bone_Segment using the segment editor Add button"
+      ],
+      "slicer_op_categories": [
+        "generic_slicer_api"
+      ],
+      "slicer_api_keywords": [
+        "vtkMRMLSegmentationNode",
+        "AddSegment",
+        "vtkSegment"
+      ]
+    },
+    "operation_model": {
+      "step_type": "slicer_op",
+      "op_types": [
+        "slicer_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_3_slicer.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "operation_type": "slicer_op",
+        "description": "Add a new segment and rename it to Bone_Segment using the segment editor Add button",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": "generic_slicer_api",
+        "slicer_api_keywords": [
+          "vtkMRMLSegmentationNode",
+          "AddSegment",
+          "vtkSegment"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": true,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          2
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_4"
+    },
+    "description": "In the \"Segment Editor\" module, click the \"Threshold\" button.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "slicer_op",
+    "ui_guidance": {
+      "title": "Open Threshold",
+      "instruction": "Click the Threshold button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "threshold",
+      "repeat": {}
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "activeEffect",
+        "editor",
+        "modules",
+        "name",
+        "segmenteditor",
+        "self",
+        "setActiveEffectByName",
+        "widgetRepresentation",
+        "AddNewNodeByClass",
+        "GetAttribute",
+        "GetFirstNodeByClass",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNthSegmentID",
+        "GetNumberOfItems",
+        "GetNumberOfSegments",
+        "GetSegment",
+        "GetSegmentation",
+        "IsA",
+        "SetSelectedSegmentID",
+        "mrmlScene",
+        "setCurrentSegmentID",
+        "setMRMLScene",
+        "setMRMLSegmentEditorNode",
+        "setSegmentationNode",
+        "setSourceVolumeNode",
+        "vtkMRMLLabelMapVolumeNode",
+        "vtkMRMLScalarVolumeNode",
+        "vtkMRMLSegmentEditorNode",
+        "vtkMRMLSegmentationNode"
+      ],
+      "api_chains": [
+        "segmentEditorWidget.activeEffect",
+        "segmentEditorWidget.setActiveEffectByName",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().name",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
+        "_ses_c.GetAttribute",
+        "_ses_editor_node.SetSelectedSegmentID",
+        "_ses_seg.GetAttribute",
+        "_ses_seg.GetSegmentation",
+        "_ses_segmentation.GetNthSegmentID",
+        "_ses_segmentation.GetNumberOfSegments",
+        "_ses_segmentation.GetSegment",
+        "_ses_segs.GetItemAsObject",
+        "_ses_segs.GetNumberOfItems",
+        "_ses_vc.IsA",
+        "_ses_vols.GetItemAsObject",
+        "_ses_vols.GetNumberOfItems",
+        "_ses_widget.setActiveEffectByName",
+        "_ses_widget.setCurrentSegmentID",
+        "_ses_widget.setMRMLScene",
+        "_ses_widget.setMRMLSegmentEditorNode",
+        "_ses_widget.setSegmentationNode",
+        "_ses_widget.setSourceVolumeNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLSegmentEditorNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSegmentationNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSourceVolumeNode",
+        "slicer.mrmlScene",
+        "slicer.mrmlScene.AddNewNodeByClass",
+        "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+      ],
+      "operation_descriptions": [
+        "Open the Threshold effect in the Segment Editor module by clicking the Threshold button"
+      ],
+      "slicer_op_categories": [
+        "generic_slicer_api"
+      ],
+      "slicer_api_keywords": [
+        "Segment Editor",
+        "Threshold",
+        "setActiveEffectByName"
+      ]
+    },
+    "operation_model": {
+      "step_type": "slicer_op",
+      "op_types": [
+        "slicer_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_4_slicer.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "operation_type": "slicer_op",
+        "description": "Open the Threshold effect in the Segment Editor module by clicking the Threshold button",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": "generic_slicer_api",
+        "slicer_api_keywords": [
+          "Segment Editor",
+          "Threshold",
+          "setActiveEffectByName"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          3
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_5"
+    },
+    "description": "In the \"Segment Editor\" module, adjust the threshold slider to set the segmentation range.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "user_choice",
+    "ui_guidance": {
+      "title": "Adjust Threshold Range",
+      "instruction": "Set the threshold range for bone segmentation.",
+      "done_label": "Done",
+      "choice_label": "Range",
+      "input_label": "Range",
+      "object_label": "range",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_choice",
+      "op_types": [
+        "user_choice"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "choice_descriptor": {
+      "question": "Adjust the threshold range",
+      "choices": [],
+      "parameter_name": "thresholdRange",
+      "default_value": null,
+      "ui_guidance": {
+        "title": "Adjust Threshold Range",
+        "instruction": "Set the threshold range for bone segmentation.",
+        "done_label": "Done",
+        "choice_label": "Range",
+        "input_label": "Range",
+        "object_label": "range",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "user_choice",
+        "operation_type": "user_choice",
+        "description": "Adjust the threshold range slider to set the segmentation range",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [
+          "Threshold",
+          "slider",
+          "range"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          4
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "medium",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Adjust the threshold range",
+        "choices": [],
+        "parameter_name": "thresholdRange",
+        "default_value": null,
+        "value_kind": "range"
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_6"
+    },
+    "description": "In the \"Segment Editor\" module, click the \"Apply\" button.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "slicer_op",
+    "ui_guidance": {
+      "title": "Apply Threshold",
+      "instruction": "Click Apply to run the threshold effect.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "apply",
+      "repeat": {}
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "AddNode",
+        "CreateNodeByClass",
+        "GetSingletonNode",
+        "SetAndObserveSegmentationNode",
+        "SetAndObserveSourceVolumeNode",
+        "SetSelectedSegmentID",
+        "SetSingletonTag",
+        "UnRegister",
+        "effectByName",
+        "getNode",
+        "mrmlScene",
+        "onApply",
+        "parameter",
+        "qMRMLSegmentEditorWidget",
+        "self",
+        "setMRMLScene",
+        "setMRMLSegmentEditorNode",
+        "setParameter",
+        "updateWidgetFromMRML",
+        "util",
+        "vtkMRMLSegmentEditorNode",
+        "AddNewNodeByClass",
+        "GetAttribute",
+        "GetFirstNodeByClass",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNthSegmentID",
+        "GetNumberOfItems",
+        "GetNumberOfSegments",
+        "GetSegment",
+        "GetSegmentation",
+        "IsA",
+        "activeEffect",
+        "editor",
+        "modules",
+        "segmenteditor",
+        "setActiveEffectByName",
+        "setCurrentSegmentID",
+        "setSegmentationNode",
+        "setSourceVolumeNode",
+        "vtkMRMLLabelMapVolumeNode",
+        "vtkMRMLScalarVolumeNode",
+        "vtkMRMLSegmentationNode",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "editorWidget.effectByName",
+        "editorWidget.setMRMLScene",
+        "editorWidget.setMRMLSegmentEditorNode",
+        "editorWidget.updateWidgetFromMRML",
+        "qSlicerSegmentationsModuleWidgetsPythonQt.qMRMLSegmentEditorWidget",
+        "segmentEditorNode.SetAndObserveSegmentationNode",
+        "segmentEditorNode.SetAndObserveSourceVolumeNode",
+        "segmentEditorNode.SetSelectedSegmentID",
+        "segmentEditorNode.SetSingletonTag",
+        "segmentEditorNode.UnRegister",
+        "slicer.mrmlScene",
+        "slicer.mrmlScene.AddNode",
+        "slicer.mrmlScene.CreateNodeByClass",
+        "slicer.mrmlScene.GetSingletonNode",
+        "slicer.util.getNode",
+        "thresholdEffect.parameter",
+        "thresholdEffect.self",
+        "thresholdEffect.self().onApply",
+        "thresholdEffect.setParameter",
+        "_ses_c.GetAttribute",
+        "_ses_editor_node.SetSelectedSegmentID",
+        "_ses_eff.self",
+        "_ses_eff.self().onApply",
+        "_ses_eff.setParameter",
+        "_ses_seg.GetAttribute",
+        "_ses_seg.GetSegmentation",
+        "_ses_segmentation.GetNthSegmentID",
+        "_ses_segmentation.GetNumberOfSegments",
+        "_ses_segmentation.GetSegment",
+        "_ses_segs.GetItemAsObject",
+        "_ses_segs.GetNumberOfItems",
+        "_ses_vc.IsA",
+        "_ses_vols.GetItemAsObject",
+        "_ses_vols.GetNumberOfItems",
+        "_ses_widget.activeEffect",
+        "_ses_widget.setActiveEffectByName",
+        "_ses_widget.setCurrentSegmentID",
+        "_ses_widget.setMRMLScene",
+        "_ses_widget.setMRMLSegmentEditorNode",
+        "_ses_widget.setSegmentationNode",
+        "_ses_widget.setSourceVolumeNode",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self().onApply",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().setParameter",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLSegmentEditorNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSegmentationNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSourceVolumeNode",
+        "slicer.mrmlScene.AddNewNodeByClass",
+        "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+      ],
+      "operation_descriptions": [
+        "Apply the threshold effect in the Segment Editor module"
+      ],
+      "slicer_op_categories": [
+        "generic_slicer_api"
+      ],
+      "slicer_api_keywords": [
+        "Segment Editor",
+        "Threshold",
+        "Apply"
+      ]
+    },
+    "operation_model": {
+      "step_type": "slicer_op",
+      "op_types": [
+        "slicer_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_6_slicer.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "operation_type": "slicer_op",
+        "description": "Apply the threshold effect in the Segment Editor module",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": "generic_slicer_api",
+        "slicer_api_keywords": [
+          "Segment Editor",
+          "Threshold",
+          "Apply"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          5
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_7"
+    },
+    "description": "In the \"Segment Editor\" module, click the \"Islands\" button.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "slicer_op",
+    "ui_guidance": {
+      "title": "Open Islands",
+      "instruction": "Click the Islands button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "islands",
+      "repeat": {}
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "activeEffect",
+        "editor",
+        "modules",
+        "name",
+        "segmenteditor",
+        "self",
+        "setActiveEffectByName",
+        "widgetRepresentation",
+        "AddNewNodeByClass",
+        "GetAttribute",
+        "GetFirstNodeByClass",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNthSegmentID",
+        "GetNumberOfItems",
+        "GetNumberOfSegments",
+        "GetSegment",
+        "GetSegmentation",
+        "IsA",
+        "SetSelectedSegmentID",
+        "mrmlScene",
+        "setCurrentSegmentID",
+        "setMRMLScene",
+        "setMRMLSegmentEditorNode",
+        "setSegmentationNode",
+        "setSourceVolumeNode",
+        "vtkMRMLLabelMapVolumeNode",
+        "vtkMRMLScalarVolumeNode",
+        "vtkMRMLSegmentEditorNode",
+        "vtkMRMLSegmentationNode"
+      ],
+      "api_chains": [
+        "segmentEditorWidget.activeEffect",
+        "segmentEditorWidget.setActiveEffectByName",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().name",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
+        "_ses_c.GetAttribute",
+        "_ses_editor_node.SetSelectedSegmentID",
+        "_ses_seg.GetAttribute",
+        "_ses_seg.GetSegmentation",
+        "_ses_segmentation.GetNthSegmentID",
+        "_ses_segmentation.GetNumberOfSegments",
+        "_ses_segmentation.GetSegment",
+        "_ses_segs.GetItemAsObject",
+        "_ses_segs.GetNumberOfItems",
+        "_ses_vc.IsA",
+        "_ses_vols.GetItemAsObject",
+        "_ses_vols.GetNumberOfItems",
+        "_ses_widget.setActiveEffectByName",
+        "_ses_widget.setCurrentSegmentID",
+        "_ses_widget.setMRMLScene",
+        "_ses_widget.setMRMLSegmentEditorNode",
+        "_ses_widget.setSegmentationNode",
+        "_ses_widget.setSourceVolumeNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLSegmentEditorNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSegmentationNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSourceVolumeNode",
+        "slicer.mrmlScene",
+        "slicer.mrmlScene.AddNewNodeByClass",
+        "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+      ],
+      "operation_descriptions": [
+        "Open the Islands effect in the Segment Editor module"
+      ],
+      "slicer_op_categories": [
+        "generic_slicer_api"
+      ],
+      "slicer_api_keywords": [
+        "Segment Editor",
+        "Islands"
+      ]
+    },
+    "operation_model": {
+      "step_type": "slicer_op",
+      "op_types": [
+        "slicer_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_7_slicer.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "operation_type": "slicer_op",
+        "description": "Open the Islands effect in the Segment Editor module",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": "generic_slicer_api",
+        "slicer_api_keywords": [
+          "Segment Editor",
+          "Islands"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          6
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_8"
+    },
+    "description": "In the \"Segment Editor\" module, select the \"Keep largest island\" option.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "slicer_op",
+    "ui_guidance": {
+      "title": "Keep Largest Island",
+      "instruction": "Select 'Keep largest island' from the Islands menu.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "island",
+      "repeat": {}
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "AddNewNodeByClass",
+        "GetNodesByClass",
+        "SetAndObserveSegmentationNode",
+        "editor",
+        "effectByName",
+        "getNode",
+        "modules",
+        "mrmlScene",
+        "onApply",
+        "parameter",
+        "segmenteditor",
+        "self",
+        "setMRMLScene",
+        "setParameter",
+        "util",
+        "vtkMRMLSegmentEditorNode",
+        "vtkMRMLSegmentationNode",
+        "widgetRepresentation",
+        "GetAttribute",
+        "GetFirstNodeByClass",
+        "GetItemAsObject",
+        "GetNthSegmentID",
+        "GetNumberOfItems",
+        "GetNumberOfSegments",
+        "GetSegment",
+        "GetSegmentation",
+        "IsA",
+        "SetSelectedSegmentID",
+        "activeEffect",
+        "setActiveEffectByName",
+        "setCurrentSegmentID",
+        "setMRMLSegmentEditorNode",
+        "setSegmentationNode",
+        "setSourceVolumeNode",
+        "vtkMRMLLabelMapVolumeNode",
+        "vtkMRMLScalarVolumeNode"
+      ],
+      "api_chains": [
+        "islandEffect.parameter",
+        "islandEffect.self",
+        "islandEffect.self().onApply",
+        "islandEffect.setParameter",
+        "segmentEditorNode.SetAndObserveSegmentationNode",
+        "segmentEditorWidget.effectByName",
+        "segmentEditorWidget.setMRMLScene",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').parameter",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').self().onApply",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').setParameter",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
+        "slicer.mrmlScene",
+        "slicer.mrmlScene.AddNewNodeByClass",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.util.getNode",
+        "_ses_c.GetAttribute",
+        "_ses_editor_node.SetSelectedSegmentID",
+        "_ses_eff.self",
+        "_ses_eff.self().onApply",
+        "_ses_eff.setParameter",
+        "_ses_seg.GetAttribute",
+        "_ses_seg.GetSegmentation",
+        "_ses_segmentation.GetNthSegmentID",
+        "_ses_segmentation.GetNumberOfSegments",
+        "_ses_segmentation.GetSegment",
+        "_ses_segs.GetItemAsObject",
+        "_ses_segs.GetNumberOfItems",
+        "_ses_vc.IsA",
+        "_ses_vols.GetItemAsObject",
+        "_ses_vols.GetNumberOfItems",
+        "_ses_widget.activeEffect",
+        "_ses_widget.setActiveEffectByName",
+        "_ses_widget.setCurrentSegmentID",
+        "_ses_widget.setMRMLScene",
+        "_ses_widget.setMRMLSegmentEditorNode",
+        "_ses_widget.setSegmentationNode",
+        "_ses_widget.setSourceVolumeNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self().onApply",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().setParameter",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLSegmentEditorNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSegmentationNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSourceVolumeNode",
+        "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+      ],
+      "operation_descriptions": [
+        "Select the 'Keep largest island' option in the Islands effect"
+      ],
+      "slicer_op_categories": [
+        "generic_slicer_api"
+      ],
+      "slicer_api_keywords": [
+        "Segment Editor",
+        "Islands",
+        "keepLargestIsland"
+      ]
+    },
+    "operation_model": {
+      "step_type": "slicer_op",
+      "op_types": [
+        "slicer_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_8_slicer.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "operation_type": "slicer_op",
+        "description": "Select the 'Keep largest island' option in the Islands effect",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": "generic_slicer_api",
+        "slicer_api_keywords": [
+          "Segment Editor",
+          "Islands",
+          "keepLargestIsland"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          7
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_9"
+    },
+    "description": "In the \"Segment Editor\" module, click the \"Apply\" button.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "slicer_op",
+    "ui_guidance": {
+      "title": "Apply Islands",
+      "instruction": "Click Apply to keep the largest island.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "apply",
+      "repeat": {}
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetName",
+        "GetNodesByClass",
+        "GetNumberOfValues",
+        "GetSegment",
+        "GetSegmentIDs",
+        "GetSegmentation",
+        "GetValue",
+        "SegmentEditorWidget",
+        "SetAndObserveSegmentationNode",
+        "SetAndObserveTransformNodeID",
+        "SetSelectedSegmentID",
+        "activeEffect",
+        "editor",
+        "lower",
+        "modules",
+        "mrmlScene",
+        "mrmlSegmentEditorNode",
+        "name",
+        "onApply",
+        "parameter",
+        "self",
+        "setActiveEffectByName",
+        "setParameter",
+        "setSegmentationNode",
+        "vtkMRMLSegmentationNode",
+        "vtkStringArray",
+        "AddNewNodeByClass",
+        "GetAttribute",
+        "GetFirstNodeByClass",
+        "GetItemAsObject",
+        "GetNthSegmentID",
+        "GetNumberOfItems",
+        "GetNumberOfSegments",
+        "IsA",
+        "segmenteditor",
+        "setCurrentSegmentID",
+        "setMRMLScene",
+        "setMRMLSegmentEditorNode",
+        "setSourceVolumeNode",
+        "vtkMRMLLabelMapVolumeNode",
+        "vtkMRMLScalarVolumeNode",
+        "vtkMRMLSegmentEditorNode",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "'{segment_name}'.lower",
+        "'{segmentation_node_name}'.lower",
+        "effect.parameter",
+        "effect.self",
+        "effect.self().onApply",
+        "effect.setParameter",
+        "node.GetName",
+        "node.GetName().lower",
+        "seg.GetName",
+        "seg.GetName().lower",
+        "segEditorNode.SetAndObserveSegmentationNode",
+        "segEditorNode.SetSelectedSegmentID",
+        "segmentEditorWidget.activeEffect",
+        "segmentEditorWidget.mrmlSegmentEditorNode",
+        "segmentEditorWidget.setActiveEffectByName",
+        "segmentEditorWidget.setSegmentationNode",
+        "segmentIDs.GetNumberOfValues",
+        "segmentIDs.GetValue",
+        "segmentation.GetSegment",
+        "segmentation.GetSegmentIDs",
+        "segmentationNode.GetSegmentation",
+        "segmentationNode.SetAndObserveTransformNodeID",
+        "slicer.modules.SegmentEditorWidget.editor",
+        "slicer.modules.SegmentEditorWidget.editor.activeEffect",
+        "slicer.modules.SegmentEditorWidget.editor.activeEffect().name",
+        "slicer.modules.SegmentEditorWidget.editor.activeEffect().parameter",
+        "slicer.modules.SegmentEditorWidget.editor.activeEffect().self",
+        "slicer.modules.SegmentEditorWidget.editor.activeEffect().self().onApply",
+        "slicer.modules.SegmentEditorWidget.editor.activeEffect().setParameter",
+        "slicer.modules.SegmentEditorWidget.editor.mrmlSegmentEditorNode",
+        "slicer.modules.SegmentEditorWidget.editor.mrmlSegmentEditorNode().SetAndObserveSegmentationNode",
+        "slicer.modules.SegmentEditorWidget.editor.mrmlSegmentEditorNode().SetSelectedSegmentID",
+        "slicer.modules.SegmentEditorWidget.editor.setActiveEffectByName",
+        "slicer.modules.SegmentEditorWidget.editor.setSegmentationNode",
+        "slicer.mrmlScene.GetNodesByClass",
+        "vtk.vtkStringArray",
+        "vtk.vtkStringArray().GetNumberOfValues",
+        "vtk.vtkStringArray().GetValue",
+        "_ses_c.GetAttribute",
+        "_ses_editor_node.SetSelectedSegmentID",
+        "_ses_eff.self",
+        "_ses_eff.self().onApply",
+        "_ses_eff.setParameter",
+        "_ses_seg.GetAttribute",
+        "_ses_seg.GetSegmentation",
+        "_ses_segmentation.GetNthSegmentID",
+        "_ses_segmentation.GetNumberOfSegments",
+        "_ses_segmentation.GetSegment",
+        "_ses_segs.GetItemAsObject",
+        "_ses_segs.GetNumberOfItems",
+        "_ses_vc.IsA",
+        "_ses_vols.GetItemAsObject",
+        "_ses_vols.GetNumberOfItems",
+        "_ses_widget.activeEffect",
+        "_ses_widget.setActiveEffectByName",
+        "_ses_widget.setCurrentSegmentID",
+        "_ses_widget.setMRMLScene",
+        "_ses_widget.setMRMLSegmentEditorNode",
+        "_ses_widget.setSegmentationNode",
+        "_ses_widget.setSourceVolumeNode",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self().onApply",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().setParameter",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLSegmentEditorNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSegmentationNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSourceVolumeNode",
+        "slicer.mrmlScene",
+        "slicer.mrmlScene.AddNewNodeByClass",
+        "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+      ],
+      "operation_descriptions": [
+        "Apply the Islands effect in the Segment Editor module"
+      ],
+      "slicer_op_categories": [
+        "generic_slicer_api"
+      ],
+      "slicer_api_keywords": [
+        "Segment Editor",
+        "Islands",
+        "Apply"
+      ]
+    },
+    "operation_model": {
+      "step_type": "slicer_op",
+      "op_types": [
+        "slicer_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_9_slicer.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "operation_type": "slicer_op",
+        "description": "Apply the Islands effect in the Segment Editor module",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": "generic_slicer_api",
+        "slicer_api_keywords": [
+          "Segment Editor",
+          "Islands",
+          "Apply"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          8
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_10"
+    },
+    "description": "In the \"Bone segmentation\" section, select the segment node.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "user_choice",
+    "ui_guidance": {
+      "title": "Select Bone Segmentation",
+      "instruction": "Choose the bone segmentation node from the scene.",
+      "done_label": "Done",
+      "choice_label": "Segmentation",
+      "input_label": "Segmentation",
+      "object_label": "segmentation",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_choice",
+      "op_types": [
+        "user_choice"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "choice_descriptor": {
+      "question": "Select the bone segmentation node",
+      "choices": [],
+      "parameter_name": "segmentationNode",
+      "default_value": null,
+      "ui_guidance": {
+        "title": "Select Bone Segmentation",
+        "instruction": "Choose the bone segmentation node from the scene.",
+        "done_label": "Done",
+        "choice_label": "Segmentation",
+        "input_label": "Segmentation",
+        "object_label": "segmentation",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "user_choice",
+        "operation_type": "user_choice",
+        "description": "Select the bone segmentation node from the scene for further processing",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          9
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Select the bone segmentation node",
+        "choices": [],
+        "parameter_name": "segmentationNode",
+        "default_value": null,
+        "value_kind": "node"
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_11"
+    },
+    "description": "Click the \"3D Reconstruction\" button.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "3D Reconstruction",
+      "instruction": "Click the '3D Reconstruction' button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "button",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_11.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Trigger the 3D reconstruction of the selected bone segmentation",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "reconstruct3DButton",
+        "ui_parameter_binding": null,
+        "target_value": true,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": true,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          10
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onReconstruct3D",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "slicerscrewplanner",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onReconstruct3D",
+        "slicer.modules.slicerscrewplanner.widgetRepresentation",
+        "slicer.modules.slicerscrewplanner.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Trigger the 3D reconstruction of the selected bone segmentation"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_12"
+    },
+    "description": "In the \"Markups\" module, click \"Point List\" to create an empty MarkupsFiducial node named \"Prosthesis_center_point\".",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "slicer_op",
+    "ui_guidance": {
+      "title": "Create Point List",
+      "instruction": "Switch to Markups module and click 'Point List' to create a fiducial named 'Prosthesis_center_point'.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "point",
+      "repeat": {}
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "AddNewNodeByClass",
+        "CreateDefaultDisplayNodes",
+        "GetDisplayNode",
+        "GetName",
+        "GetNumberOfControlPoints",
+        "mrmlScene",
+        "vtkMRMLMarkupsFiducialNode"
+      ],
+      "api_chains": [
+        "markupsNode.CreateDefaultDisplayNodes",
+        "markupsNode.GetDisplayNode",
+        "markupsNode.GetName",
+        "markupsNode.GetNumberOfControlPoints",
+        "slicer.mrmlScene.AddNewNodeByClass"
+      ],
+      "operation_descriptions": [
+        "Create an empty MarkupsFiducial node named Prosthesis_center_point using the Point List button in Markups module"
+      ],
+      "slicer_op_categories": [
+        "markups_display"
+      ],
+      "slicer_api_keywords": [
+        "slicer.mrmlScene.AddNewNodeByClass",
+        "vtkMRMLMarkupsFiducialNode",
+        "Markups"
+      ]
+    },
+    "operation_model": {
+      "step_type": "slicer_op",
+      "op_types": [
+        "slicer_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "node_roles": [
+      {
+        "role_kind": "extension_output",
+        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "parameter_name": null,
+        "step_id": "cb_step_12"
+      }
+    ],
+    "template_file": "templates/cb_step_12_slicer.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "operation_type": "slicer_op",
+        "description": "Create an empty MarkupsFiducial node named Prosthesis_center_point using the Point List button in Markups module",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": "markups_display",
+        "slicer_api_keywords": [
+          "slicer.mrmlScene.AddNewNodeByClass",
+          "vtkMRMLMarkupsFiducialNode",
+          "Markups"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "creates_node": true,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          11
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [
+          {
+            "role_kind": "extension_output",
+            "node_class": "vtkMRMLMarkupsFiducialNode",
+            "parameter_name": null,
+            "step_id": "cb_step_12"
+          }
+        ],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_13"
+    },
+    "description": "Manually click on the glenoid cavity surface to select a point for the \"Prosthesis_center_point\".",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "user_interaction",
+    "ui_guidance": {
+      "title": "Place Prosthesis Center Point",
+      "instruction": "Click on the glenoid cavity surface to place the center point.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "point",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_interaction",
+      "op_types": [
+        "user_interaction"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": true,
+      "interaction_kinds": [
+        "interaction"
+      ]
+    },
+    "node_roles": [
+      {
+        "role_kind": "interaction_output",
+        "step_id": "cb_step_13",
+        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "parameter_name": ""
+      }
+    ],
+    "pre_template_file": "templates/cb_step_13_pre.py.tpl",
+    "post_template_file": "templates/cb_step_13_post.py.tpl",
+    "interaction_descriptor": {
+      "interaction_type": "fiducial",
+      "interaction_kind": "markup_placement",
+      "node_class": "vtkMRMLMarkupsFiducialNode",
+      "placement_instructions": "Click on the glenoid cavity surface to place the point",
+      "ui_guidance": {
+        "title": "Place Prosthesis Center Point",
+        "instruction": "Click on the glenoid cavity surface to place the center point.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "point",
+        "repeat": {}
+      },
+      "interaction_owner": "runtime_template",
+      "created_node_source": "previous_step",
+      "placement_policy": {
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "previous_step"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetDisplayNode",
+        "GetID",
+        "GetItemAsObject",
+        "GetNodeByID",
+        "GetNodesByClass",
+        "GetNumberOfItems",
+        "SetActiveListID",
+        "SetVisibility",
+        "SwitchToSinglePlaceMode",
+        "logic",
+        "markups",
+        "modules",
+        "mrmlScene",
+        "vtkMRMLInteractionNodeSingleton",
+        "vtkMRMLMarkupsFiducialNode",
+        "GetNumberOfControlPoints",
+        "SwitchToViewTransformMode"
+      ],
+      "api_chains": [
+        "displayNode.SetVisibility",
+        "interactionNode.SwitchToSinglePlaceMode",
+        "node.GetDisplayNode",
+        "node.GetID",
+        "nodes.GetItemAsObject",
+        "nodes.GetNumberOfItems",
+        "slicer.modules.markups.logic",
+        "slicer.modules.markups.logic().SetActiveListID",
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToSinglePlaceMode",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetNumberOfItems",
+        "interactionNode.SwitchToViewTransformMode",
+        "node.GetNumberOfControlPoints",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+      ],
+      "operation_descriptions": [
+        "Manually click on the glenoid cavity surface to select a point for the \"Prosthesis_center_point\"."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_14"
+    },
+    "description": "In the \"Planning point\" section, select the MarkupsFiducial node.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "user_choice",
+    "ui_guidance": {
+      "title": "Select Center Point",
+      "instruction": "Choose the fiducial node for the prosthesis center point.",
+      "done_label": "Done",
+      "choice_label": "Fiducial",
+      "input_label": "Fiducial",
+      "object_label": "fiducial",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_choice",
+      "op_types": [
+        "user_choice"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "node_roles": [
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "parameter_name": "",
+        "step_id": "cb_step_14"
+      }
+    ],
+    "choice_descriptor": {
+      "question": "Select the prosthesis center point fiducial node",
+      "choices": [],
+      "parameter_name": "fiducialNode",
+      "default_value": null,
+      "ui_guidance": {
+        "title": "Select Center Point",
+        "instruction": "Choose the fiducial node for the prosthesis center point.",
+        "done_label": "Done",
+        "choice_label": "Fiducial",
+        "input_label": "Fiducial",
+        "object_label": "fiducial",
+        "repeat": {}
+      },
+      "node_roles": [
+        {
+          "role_kind": "extension_input",
+          "node_class": "vtkMRMLMarkupsFiducialNode",
+          "parameter_name": "",
+          "step_id": "cb_step_14"
+        }
+      ]
+    },
+    "sub_operations": [
+      {
+        "op_type": "user_choice",
+        "operation_type": "user_choice",
+        "description": "Select the previously placed prosthesis center point fiducial node for planning",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          13
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [
+          {
+            "role_kind": "extension_input",
+            "node_class": "vtkMRMLMarkupsFiducialNode",
+            "parameter_name": "",
+            "step_id": "cb_step_14"
+          }
+        ],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Select the prosthesis center point fiducial node",
+        "choices": [],
+        "parameter_name": "fiducialNode",
+        "default_value": null,
+        "value_kind": "node"
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_15"
+    },
+    "description": "Click the \"Prosthesis implantation\" button.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Prosthesis Implantation",
+      "instruction": "Click the 'Prosthesis implantation' button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "button",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_15.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Perform prosthesis implantation using the selected fiducial point",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "positionBaseplateButton",
+        "ui_parameter_binding": null,
+        "target_value": true,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          14
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "medium",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onPositionBaseplate",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "slicerscrewplanner",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onPositionBaseplate",
+        "slicer.modules.slicerscrewplanner.widgetRepresentation",
+        "slicer.modules.slicerscrewplanner.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Perform prosthesis implantation using the selected fiducial point"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_16"
+    },
+    "description": "If further adjustments are required, check the \"Adjust Prosthesis (3D transform handles)\" box. If not, proceed to Step 19.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "branch_op",
+    "ui_guidance": {
+      "title": "Adjust Prosthesis?",
+      "instruction": "Choose Yes to adjust with 3D handles, or No to skip.",
+      "done_label": "Done",
+      "choice_label": "Option",
+      "input_label": "Option",
+      "object_label": "choice",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "branch_op",
+      "op_types": [
+        "branch_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "choice_descriptor": {
+      "question": "Are further adjustments required for the prosthesis?",
+      "choices": [
+        {
+          "label": "Yes",
+          "value": true
+        },
+        {
+          "label": "No",
+          "value": false
+        }
+      ],
+      "parameter_name": "adjustProsthesis",
+      "default_value": false,
+      "ui_guidance": {
+        "title": "Adjust Prosthesis?",
+        "instruction": "Choose Yes to adjust with 3D handles, or No to skip.",
+        "done_label": "Done",
+        "choice_label": "Option",
+        "input_label": "Option",
+        "object_label": "choice",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "branch_op",
+        "operation_type": "branch_op",
+        "description": "Ask the user if adjustment of the prosthesis via 3D transform handles is needed, and branch accordingly",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "adjustBaseplateCheckBox",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          15
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Are further adjustments required for the prosthesis?",
+        "choices": [
+          {
+            "label": "Yes",
+            "value": true
+          },
+          {
+            "label": "No",
+            "value": false
+          }
+        ],
+        "parameter_name": "adjustProsthesis",
+        "default_value": false,
+        "value_kind": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_17"
+    },
+    "description": "Manually adjust the 3D transform handles.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "user_interaction",
+    "ui_guidance": {
+      "title": "Adjust Prosthesis Handles",
+      "instruction": "Adjust the 3D transform handles of the implanted prosthesis.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "handles",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_interaction",
+      "op_types": [
+        "user_interaction"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": true,
+      "interaction_kinds": [
+        "interaction"
+      ]
+    },
+    "pre_template_file": "templates/cb_step_17_pre.py.tpl",
+    "post_template_file": "templates/cb_step_17_post.py.tpl",
+    "interaction_descriptor": {
+      "interaction_type": "generic",
+      "interaction_kind": "view_adjustment",
+      "node_class": "",
+      "placement_instructions": "Adjust the 3D transform handles of the implanted prosthesis",
+      "ui_guidance": {
+        "title": "Adjust Prosthesis Handles",
+        "instruction": "Adjust the 3D transform handles of the implanted prosthesis.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "handles",
+        "repeat": {}
+      }
+    },
+    "repeat_block": {
+      "repeat_id": "adjust_prosthesis_block",
+      "body_steps": [
+        "cb_step_17",
+        "cb_step_18"
+      ],
+      "entry_step": "cb_step_17",
+      "terminal_step": "cb_step_18",
+      "exit_step": "cb_step_19",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_16",
+        "prompt": "Are further adjustments required for the prosthesis?",
+        "exit_value": false,
+        "exit_target": 19
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          16,
+          17,
+          18
+        ],
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetNodeByID",
+        "SwitchToViewTransformMode",
+        "mrmlScene",
+        "vtkMRMLInteractionNodeSingleton"
+      ],
+      "api_chains": [
+        "interactionNode.SwitchToViewTransformMode",
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+      ],
+      "operation_descriptions": [
+        "Manually adjust the 3D transform handles."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_18"
+    },
+    "description": "Click the \"Update Prosthesis\" button.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Update Prosthesis",
+      "instruction": "Click the 'Update Prosthesis' button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "button",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_18.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Update the prosthesis after manual transformation adjustment",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "fixBaseplateButton",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          17
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "medium",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "repeat_block": {
+      "repeat_id": "adjust_prosthesis_block",
+      "body_steps": [
+        "cb_step_17",
+        "cb_step_18"
+      ],
+      "entry_step": "cb_step_17",
+      "terminal_step": "cb_step_18",
+      "exit_step": "cb_step_19",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_16",
+        "prompt": "Are further adjustments required for the prosthesis?",
+        "exit_value": false,
+        "exit_target": 19
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          16,
+          17,
+          18
+        ],
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onFixBaseplate",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "slicerscrewplanner",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onFixBaseplate",
+        "slicer.modules.slicerscrewplanner.widgetRepresentation",
+        "slicer.modules.slicerscrewplanner.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Update the prosthesis after manual transformation adjustment"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_19"
+    },
+    "description": "Click the \"Plan\" button.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Plan",
+      "instruction": "Click the 'Plan' button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "button",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_19.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Execute the final plan for the prosthesis placement",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "planButton",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          18
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onPlan",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "slicerscrewplanner",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onPlan",
+        "slicer.modules.slicerscrewplanner.widgetRepresentation",
+        "slicer.modules.slicerscrewplanner.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Execute the final plan for the prosthesis placement"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_20"
+    },
+    "description": "If further adjustments are required, check the \"Adjust screw\" box. If not, stop here.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "branch_op",
+    "ui_guidance": {
+      "title": "Adjust Screw?",
+      "instruction": "Choose Yes to adjust the screw, or No to finish.",
+      "done_label": "Done",
+      "choice_label": "Option",
+      "input_label": "Option",
+      "object_label": "choice",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "branch_op",
+      "op_types": [
+        "branch_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "choice_descriptor": {
+      "question": "Are further adjustments required for the screw?",
+      "choices": [
+        {
+          "label": "Yes",
+          "value": true
+        },
+        {
+          "label": "No",
+          "value": false
+        }
+      ],
+      "parameter_name": "adjustScrew",
+      "default_value": false,
+      "ui_guidance": {
+        "title": "Adjust Screw?",
+        "instruction": "Choose Yes to adjust the screw, or No to finish.",
+        "done_label": "Done",
+        "choice_label": "Option",
+        "input_label": "Option",
+        "object_label": "choice",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "branch_op",
+        "operation_type": "branch_op",
+        "description": "Ask the user if adjustment of the screw is needed, and branch accordingly (skip to end if not)",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "adjustScrewCheckBox",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          19
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Are further adjustments required for the screw?",
+        "choices": [
+          {
+            "label": "Yes",
+            "value": true
+          },
+          {
+            "label": "No",
+            "value": false
+          }
+        ],
+        "parameter_name": "adjustScrew",
+        "default_value": false,
+        "value_kind": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_21"
+    },
+    "description": "Manually adjust the endpoints of the planning paths.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "user_interaction",
+    "ui_guidance": {
+      "title": "Adjust Screw Paths",
+      "instruction": "Adjust the endpoints of the planning paths for the screw.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "paths",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_interaction",
+      "op_types": [
+        "user_interaction"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": true,
+      "interaction_kinds": [
+        "interaction"
+      ]
+    },
+    "pre_template_file": "templates/cb_step_21_pre.py.tpl",
+    "post_template_file": "templates/cb_step_21_post.py.tpl",
+    "interaction_descriptor": {
+      "interaction_type": "generic",
+      "interaction_kind": "view_adjustment",
+      "node_class": "",
+      "placement_instructions": "Adjust the endpoints of the planning paths for the screw",
+      "ui_guidance": {
+        "title": "Adjust Screw Paths",
+        "instruction": "Adjust the endpoints of the planning paths for the screw.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "paths",
+        "repeat": {}
+      }
+    },
+    "repeat_block": {
+      "repeat_id": "adjust_screw_block",
+      "body_steps": [
+        "cb_step_21",
+        "cb_step_22"
+      ],
+      "entry_step": "cb_step_21",
+      "terminal_step": "cb_step_22",
+      "exit_step": "",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_20",
+        "prompt": "Are further adjustments required for the screw?",
+        "exit_value": false,
+        "exit_target": "stop"
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          20,
+          21,
+          22
+        ],
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetNodeByID",
+        "SwitchToViewTransformMode",
+        "mrmlScene",
+        "vtkMRMLInteractionNodeSingleton"
+      ],
+      "api_chains": [
+        "interactionNode.SwitchToViewTransformMode",
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+      ],
+      "operation_descriptions": [
+        "Manually adjust the endpoints of the planning paths."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "ReverseShoulderArthroplasty",
+    "param_signature": {
+      "workflow_step": "cb_step_22"
+    },
+    "description": "Click the \"Update screw\" button.",
+    "requirements": [
+      "ReverseShoulderArthroplasty extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Update Screw",
+      "instruction": "Click the 'Update screw' button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "button",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_22.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Update the screw placement after manual path adjustment",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "fixScrewButton",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          21
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "medium",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "repeat_block": {
+      "repeat_id": "adjust_screw_block",
+      "body_steps": [
+        "cb_step_21",
+        "cb_step_22"
+      ],
+      "entry_step": "cb_step_21",
+      "terminal_step": "cb_step_22",
+      "exit_step": "",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_20",
+        "prompt": "Are further adjustments required for the screw?",
+        "exit_value": false,
+        "exit_target": "stop"
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          20,
+          21,
+          22
+        ],
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onFixScrewBoth",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "slicerscrewplanner",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onFixScrewBoth",
+        "slicer.modules.slicerscrewplanner.widgetRepresentation",
+        "slicer.modules.slicerscrewplanner.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Update the screw placement after manual path adjustment"
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  }
+]
