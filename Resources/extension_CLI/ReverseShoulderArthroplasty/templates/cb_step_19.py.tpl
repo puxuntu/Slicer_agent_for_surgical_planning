@@ -1,4 +1,4 @@
-# --- ReverseShoulderArthroplasty: Click the "Plan" button. ---
+# --- ReverseShoulderArthroplasty: Click the "Update Prosthesis" button. ---
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -24,9 +24,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the SlicerScrewPlanner module widget for 'planButton'.")
-if not hasattr(_widget, 'onPlan'):
-    raise RuntimeError("SlicerScrewPlanner widget has no handler 'onPlan' for 'planButton'; regenerate the CLI.")
-_widget.onPlan()
-print("[ReverseShoulderArthroplasty] Step 'cb_step_19': clicked 'planButton' via onPlan().")
+    raise RuntimeError("Could not obtain the SlicerScrewPlanner module widget for 'fixBaseplateButton'.")
+if not hasattr(_widget, 'onFixBaseplate'):
+    raise RuntimeError("SlicerScrewPlanner widget has no handler 'onFixBaseplate' for 'fixBaseplateButton'; regenerate the CLI.")
+_widget.onFixBaseplate()
+print("[ReverseShoulderArthroplasty] Step 'cb_step_19': clicked 'fixBaseplateButton' via onFixBaseplate().")
 

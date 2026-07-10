@@ -28,5 +28,5 @@ if _widget is None:
 if not hasattr(_widget, 'onPositionBaseplate'):
     raise RuntimeError("SlicerScrewPlanner widget has no handler 'onPositionBaseplate' for 'positionBaseplateButton'; regenerate the CLI.")
 _widget.onPositionBaseplate()
-print("[ReverseShoulderArthroplasty] Step 'cb_step_15': clicked 'positionBaseplateButton' via onPositionBaseplate().")
+print("[ReverseShoulderArthroplasty] Step 'cb_step_16': clicked 'positionBaseplateButton' via onPositionBaseplate().")
 

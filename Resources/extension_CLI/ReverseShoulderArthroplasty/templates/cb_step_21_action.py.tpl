@@ -10,9 +10,7 @@ if _active_module_name != 'SlicerScrewPlanner':
         print(f"Warning: could not activate module 'SlicerScrewPlanner': {_module_enter_error}")
 # precondition:end
 
-# Drive the extension's own widget handler on the live module widget:
-# it performs the full action (reads selected nodes, creates the
-# output nodes downstream steps depend on, toggles dependent UI).
+# Drive the extension's own widget handler on the live module widget
 _widget = None
 try:
     _widget = slicer.util.getModuleWidget('SlicerScrewPlanner')
@@ -27,27 +25,18 @@ if _widget is None:
     raise RuntimeError("Could not obtain the SlicerScrewPlanner module widget for 'adjustScrewCheckBox'.")
 if not hasattr(_widget, 'onToggleAdjustScrewBoth'):
     raise RuntimeError("SlicerScrewPlanner widget has no handler 'onToggleAdjustScrewBoth' for 'adjustScrewCheckBox'; regenerate the CLI.")
-# Resolve the bound control by name across the ways a Slicer
-# extension can expose it (.ui object, direct self.<name>
-# attribute, or objectName in the widget tree), then set its
-# checked state (signals blocked to avoid a double-fire) and
-# invoke the handler once.
+# Resolve the bound control by name
 _ctrl = None
-_ui = None
 try:
     _ui = _widget.ui
+    _ctrl = _ui.adjustScrewCheckBox
 except AttributeError:
-    _ui = None
-if _ui is not None:
-    try:
-        _ctrl = _ui.adjustScrewCheckBox
-    except AttributeError:
-        _ctrl = None
+    pass
 if _ctrl is None:
     try:
         _ctrl = _widget.adjustScrewCheckBox
     except AttributeError:
-        _ctrl = None
+        pass
 if _ctrl is None:
     try:
         _found = slicer.util.findChildren(_widget, name='adjustScrewCheckBox')
@@ -65,4 +54,4 @@ try:
     _widget.onToggleAdjustScrewBoth(True)
 except TypeError:
     _widget.onToggleAdjustScrewBoth()
-print("[ReverseShoulderArthroplasty] Step 'cb_step_20': set 'adjustScrewCheckBox' = True via onToggleAdjustScrewBoth.")
+print("[ReverseShoulderArthroplasty] Step 'cb_step_21': set 'adjustScrewCheckBox' = True via onToggleAdjustScrewBoth.")

@@ -40,13 +40,5 @@ if _ses_seg is not None:
     if _ses_target:
         _ses_editor_node.SetSelectedSegmentID(_ses_target)
         _ses_widget.setCurrentSegmentID(_ses_target)
-_ses_widget.setActiveEffectByName("Threshold")
-_ses_eff = _ses_widget.activeEffect()
-if _ses_eff is not None:
-    _ses_eff.setParameter("MinimumThreshold", {threshold_min: 150.0})
-    _ses_eff.setParameter("MaximumThreshold", {threshold_max: 3000.0})
-    try:
-        _ses_eff.self().onApply()
-    except Exception:
-        pass
+_ses_widget.setActiveEffectByName("Islands")
 # --- [end Segment Editor session] ---

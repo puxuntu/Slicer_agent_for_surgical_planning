@@ -31,7 +31,8 @@
     "cb_step_19",
     "cb_step_20",
     "cb_step_21",
-    "cb_step_22"
+    "cb_step_22",
+    "cb_step_23"
   ],
   "cookbook_driven": true,
   "cookbook_file": "ReverseShoulderArthroplasty.md",
@@ -83,11 +84,11 @@
       "valid": true,
       "issues": []
     },
-    "cb_step_15": {
+    "cb_step_14": {
       "valid": true,
       "issues": []
     },
-    "cb_step_17": {
+    "cb_step_16": {
       "valid": true,
       "issues": []
     },
@@ -99,16 +100,20 @@
       "valid": true,
       "issues": []
     },
-    "cb_step_21": {
+    "cb_step_20": {
       "valid": true,
       "issues": []
     },
     "cb_step_22": {
       "valid": true,
       "issues": []
+    },
+    "cb_step_23": {
+      "valid": true,
+      "issues": []
     }
   },
-  "partial_valid_step_count": 16,
+  "partial_valid_step_count": 17,
   "validation_state": {
     "static_valid": true,
     "api_probe_valid": true,
@@ -120,18 +125,18 @@
     "overall_valid": true,
     "api_proof_valid": true,
     "api_inventory_complete": true,
-    "generate_syntax_valid_at_generate": true,
+    "generate_syntax_valid_at_generate": false,
     "final_syntax_valid": true,
     "placeholder_closure_valid": true,
     "generator_template_sync_valid": true
   },
   "api_proof_coverage": {
-    "total_calls": 307,
-    "state_changing_calls": 89,
-    "proven_calls": 211,
+    "total_calls": 302,
+    "state_changing_calls": 87,
+    "proven_calls": 210,
     "invalid_calls": 0,
     "blocking_unproven_calls": 0,
-    "warning_unproven_reads": 96,
+    "warning_unproven_reads": 92,
     "inventory_complete": true
   },
   "workflow_contract_file": "workflow_contract.json",

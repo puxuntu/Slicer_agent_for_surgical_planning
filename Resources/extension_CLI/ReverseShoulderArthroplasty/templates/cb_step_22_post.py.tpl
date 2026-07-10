@@ -5,4 +5,4 @@ interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton"
 if interactionNode is not None:
     interactionNode.SwitchToViewTransformMode()
 
-print("[ReverseShoulderArthroplasty] Step 'cb_step_21' view adjustment completed.")
+print("[ReverseShoulderArthroplasty] Step 'cb_step_22' view adjustment completed.")
