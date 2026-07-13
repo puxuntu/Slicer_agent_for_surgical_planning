@@ -1,0 +1,133 @@
+==============================================================================
+Extension CLI pipeline  |  round: generation
+  extension : OrbitalFractureReconstruction
+  source    : C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions/OrbitalFractureReconstruction
+  started   : 2026-07-13T16:33:43
+==============================================================================
+[2026-07-13T16:33:43 +    0.9s] [discover] Discover Source And Cookbook — Scanning extension files...
+[2026-07-13T16:33:45 +    3.2s] [discover] Discover Source And Cookbook — Found 7 Python files
+[2026-07-13T16:33:48 +    5.5s] [discover] Discover Source And Cookbook — Logic class: OrbitalFractureReconstructionLogic in OrbitalFractureReconstruction.py, Widget class: OrbitalFractureReconstructionWidget, UI files: 1
+[2026-07-13T16:33:51 +    8.5s] [discover] Discover Source And Cookbook — Parsed cookbook: C:\Users\20152\Desktop\slicer-skill\SlicerAgent\Slicer_agent\Resources\extensions_cookbook\OrbitalFractureReconstruction.md (15 steps)
+[2026-07-13T16:33:51 +    8.9s] [discover] Discover Source And Cookbook — Phase 'discover' took 8.0s (cumulative 8.0s)
+[2026-07-13T16:33:51 +    9.3s] [analyze] Analyze Extension Logic — Reading OrbitalFractureReconstructionLogic from OrbitalFractureReconstruction.py...
+[2026-07-13T16:33:52 +   10.2s] [analyze] Analyze Extension Logic — AST enumerated 27 methods; requesting LLM annotation...
+[2026-07-13T16:34:58 +   75.9s] [llm_call] analyze — call 000 -> analyze_call_000.json (out 17956 chars)
+[2026-07-13T16:34:58 +   76.2s] [analyze] Analyze Extension Logic — Analyzed 27 methods (AST universe + LLM annotation)
+[2026-07-13T16:35:08 +   85.8s] [analyze] Analyze Extension Logic — Phase 'analyze' took 76.9s (cumulative 76.9s)
+[2026-07-13T16:35:08 +   86.2s] [contract] Build Workflow Contract — LLM interpreting cookbook steps and repeat intent...
+[2026-07-13T16:36:51 +  189.4s] [llm_call] contract — call 001 -> contract_call_001.json (out 17560 chars)
+[2026-07-13T16:36:52 +  189.8s] [contract] Build Workflow Contract — LLM interpreted 15 cookbook steps
+[2026-07-13T16:36:52 +  190.1s] [contract] Build Workflow Contract — LLM analyzing data flow between steps...
+[2026-07-13T16:37:52 +  250.1s] [llm_call] contract — call 002 -> contract_call_002.json (out 5762 chars)
+[2026-07-13T16:37:53 +  250.5s] [contract] Build Workflow Contract — AST verification: -1 unverifiable, +1 closure connection(s)
+[2026-07-13T16:37:53 +  251.0s] [contract] Build Workflow Contract — LLM identified 23 cross-stage connections
+[2026-07-13T16:38:04 +  262.0s] [contract] Build Workflow Contract — Placement-starter methods detected: 0
+[2026-07-13T16:38:33 +  290.5s] [llm_call] contract — call 003 -> contract_call_003.json (out 4728 chars)
+[2026-07-13T16:38:55 +  312.4s] [llm_call] contract — call 004 -> contract_call_004.json (out 5498 chars)
+[2026-07-13T16:38:55 +  312.9s] [contract] Build Workflow Contract — Phase 'contract' took 227.1s (cumulative 227.1s)
+[2026-07-13T16:38:55 +  313.3s] [audit_contract] Audit Workflow Contract — Auditing workflow contract against cookbook/source evidence...
+[2026-07-13T16:38:56 +  314.2s] [audit_contract] Audit Workflow Contract — PASS
+[2026-07-13T16:38:57 +  314.6s] [audit_contract] Audit Workflow Contract — Phase 'audit_contract' took 1.7s (cumulative 1.7s)
+[2026-07-13T16:39:02 +  319.8s] [ground] Ground Slicer APIs — Generating templates for 5 slicer_op operations...
+[2026-07-13T16:39:04 +  321.8s] [ground] Ground Slicer APIs — [0/5] starting 5 slicer_op templates
+[2026-07-13T16:39:04 +  322.3s] [ground] Ground Slicer APIs — [0/5] running Create an empty MarkupsROI node named Orbital_Region in the 
+[2026-07-13T16:39:17 +  335.2s] [ground] Ground Slicer APIs — [0/5] Create an empty MarkupsROI node named Orbital_Region in the : round 1 search: [Search] Round 1: |   VectorSearch: "create empty MarkupsROI node vtkMRMLMarkupsROINode Python Slicer" |   VectorSearch: "CreateNodeByClass vtkMRMLMarkupsROINode slicer.mrmlScene Python example"
+[2026-07-13T16:39:27 +  345.3s] [ground] Ground Slicer APIs — [0/5] Create an empty MarkupsROI node named Orbital_Region in the : round 2 read: [Read] Round 2: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/markups.md
+[2026-07-13T16:39:33 +  350.7s] [ground] Ground Slicer APIs — [0/5] Create an empty MarkupsROI node named Orbital_Region in the : round 3 search: [Search] Round 3: |   Grep: "AddNewNodeByClass.*vtkMRMLMarkupsROINode" → slicer-source/Base/Python
+[2026-07-13T16:39:38 +  355.6s] [ground] Ground Slicer APIs — [1/5] done Create an empty MarkupsROI node named Orbital_Region in the 
+[2026-07-13T16:39:39 +  356.4s] [ground] Ground Slicer APIs — [1/5] running Create a new segmentation named Bone_Segmentation for the cu
+[2026-07-13T16:39:45 +  363.4s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 1 search: [Search] Round 1: |   VectorSearch: "create segmentation Segment Editor segmentationNode AddEmptySegment Python"
+[2026-07-13T16:39:49 +  367.3s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 2 read: [Read] Round 2: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md
+[2026-07-13T16:39:58 +  375.4s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 3 search: [Search] Round 3: |   Grep: "Bone_Segmentation|CreateNodeByClass|segmentation|SegmentEditor" → ext:OrbitalFractureReconstruction/
+[2026-07-13T16:40:07 +  385.2s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 4 read: [Read] Round 4: |   ReadFile: ext:OrbitalFractureReconstruction/OrbitalFractureReconstruction.py
+[2026-07-13T16:40:17 +  394.4s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 5 read: [Read] Round 5: |   ReadFile: ext:OrbitalFractureReconstruction/OrbitalFractureReconstruction.py
+[2026-07-13T16:40:24 +  401.6s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 6 search: [Search] Round 6: |   VectorSearch: "Segment Editor create segmentationNode set reference image geometry volumeNode Python API"
+[2026-07-13T16:40:28 +  405.8s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 7 read: [Read] Round 7: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md
+[2026-07-13T16:40:35 +  413.0s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 8 search: [Search] Round 8: |   VectorSearch: "Segment Editor set segmentation node parameterSetNode vtkMRMLSegmentEditorNode Python"
+[2026-07-13T16:40:40 +  418.4s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 9 read: [Read] Round 9: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md
+[2026-07-13T16:40:49 +  426.6s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 10 search: [Search] Round 10: |   VectorSearch: "vtkMRMLSegmentationNode AddEmptySegment segmentation.GetSegmentation()"
+[2026-07-13T16:40:58 +  435.9s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 11 search: [Search] Round 11: |   Grep: "AddEmptySegment" → slicer-source/Libs/MRML/Core
+[2026-07-13T16:41:04 +  441.4s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 12 search: [Search] Round 12: |   Grep: "AddEmptySegment\|SetName" → slicer-source/Libs/vtkSegmentationCore
+[2026-07-13T16:41:12 +  449.5s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 13 search: [Search] Round 13: |   Grep: "SetName" → slicer-source/Libs/vtkSegmentationCore
+[2026-07-13T16:41:20 +  457.6s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 14 read: [Read] Round 14: |   ReadFile: slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.cxx
+[2026-07-13T16:41:25 +  463.4s] [ground] Ground Slicer APIs — [1/5] Create a new segmentation named Bone_Segmentation for the cu: round 15 read: [Read] Round 15: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md
+[2026-07-13T16:41:37 +  474.7s] [ground] Ground Slicer APIs — [2/5] done Create a new segmentation named Bone_Segmentation for the cu
+[2026-07-13T16:41:38 +  475.6s] [ground] Ground Slicer APIs — [2/5] running Add a segment named Bone_Segment to the segmentation
+[2026-07-13T16:41:58 +  495.9s] [ground] Ground Slicer APIs — [2/5] Add a segment named Bone_Segment to the segmentation: round 1 search: [Search] Round 1: |   VectorSearch: "AddEmptySegment segmentation vtkMRMLSegmentationNode Python API" |   Grep: "AddEmptySegment" → slicer-source
+[2026-07-13T16:42:07 +  505.1s] [ground] Ground Slicer APIs — [2/5] Add a segment named Bone_Segment to the segmentation: round 2 read: [Read] Round 2: |   ReadFile: slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.h
+[2026-07-13T16:42:13 +  511.3s] [ground] Ground Slicer APIs — [2/5] Add a segment named Bone_Segment to the segmentation: round 3 search: [Search] Round 3: |   Grep: "AddEmptySegment.*segmentName" → slicer-source/Docs/developer_guide/script_repository
+[2026-07-13T16:42:17 +  514.9s] [ground] Ground Slicer APIs — [2/5] Add a segment named Bone_Segment to the segmentation: round 4 read: [Read] Round 4: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md
+[2026-07-13T16:42:29 +  526.7s] [ground] Ground Slicer APIs — [2/5] Add a segment named Bone_Segment to the segmentation: round 5 read: [Read] Round 5: |   ReadFile: slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.h
+[2026-07-13T16:42:38 +  536.1s] [ground] Ground Slicer APIs — [2/5] Add a segment named Bone_Segment to the segmentation: round 6 search: [Search] Round 6: |   Grep: "GetSegmentIdBySegmentName" → slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.h
+[2026-07-13T16:42:46 +  544.0s] [ground] Ground Slicer APIs — [3/5] done Add a segment named Bone_Segment to the segmentation
+[2026-07-13T16:42:47 +  545.0s] [ground] Ground Slicer APIs — [3/5] running Activate the Threshold tool in Segment Editor
+[2026-07-13T16:42:58 +  556.4s] [ground] Ground Slicer APIs — [3/5] Activate the Threshold tool in Segment Editor: round 1 search: [Search] Round 1: |   VectorSearch: "Segment Editor activate effect threshold tool Python API" |   Grep: "setActiveEffect|activateEffect|setCurrentEffect" → slicer-source/Modules/Loadable/Segmentations
+[2026-07-13T16:43:08 +  565.5s] [ground] Ground Slicer APIs — [3/5] Activate the Threshold tool in Segment Editor: round 2 search: [Search] Round 2: |   Grep: "selectEffect" → slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects |   Grep: "setActiveEffectByName|selectEffect" → slicer-source/Docs/developer_guide/script_repository/segmentations.md
+[2026-07-13T16:43:13 +  571.1s] [ground] Ground Slicer APIs — [3/5] Activate the Threshold tool in Segment Editor: round 3 read: [Read] Round 3: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md
+[2026-07-13T16:43:22 +  579.9s] [ground] Ground Slicer APIs — [3/5] Activate the Threshold tool in Segment Editor: round 4 search: [Search] Round 4: |   Grep: "setActiveEffectByName|setActiveEffect" → slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx |   Grep: "scriptedEffect\.selectEffect|scriptedEffect\.setActiveEffect" → slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python
+[2026-07-13T16:43:28 +  586.3s] [ground] Ground Slicer APIs — [3/5] Activate the Threshold tool in Segment Editor: round 5 search: [Search] Round 5: |   Grep: "def selectEffect" → slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python |   Grep: "\.editor" → slicer-source/Docs/developer_guide/script_repository/segmentations.md
+[2026-07-13T16:43:39 +  596.8s] [ground] Ground Slicer APIs — [3/5] Activate the Threshold tool in Segment Editor: round 6 read: [Read] Round 6: |   ReadFile: slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h
+[2026-07-13T16:43:45 +  603.4s] [ground] Ground Slicer APIs — [3/5] Activate the Threshold tool in Segment Editor: round 7 search: [Search] Round 7: |   Grep: "void qMRMLSegmentEditorWidget::setActiveEffectByName" → slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx
+[2026-07-13T16:43:52 +  610.1s] [ground] Ground Slicer APIs — [4/5] done Activate the Threshold tool in Segment Editor
+[2026-07-13T16:43:53 +  611.4s] [ground] Ground Slicer APIs — [4/5] running Apply the threshold to segment the bone
+[2026-07-13T16:44:02 +  619.6s] [ground] Ground Slicer APIs — [4/5] Apply the threshold to segment the bone: round 1 search: [Search] Round 1: |   VectorSearch: "Segment Editor threshold effect apply Python API scripted"
+[2026-07-13T16:44:13 +  630.6s] [ground] Ground Slicer APIs — [4/5] Apply the threshold to segment the bone: round 2 search: [Search] Round 2: |   Grep: "threshold|Segmentation|segment.*bone" → slicer-extensions/OrbitalFractureReconstruction
+[2026-07-13T16:44:21 +  639.3s] [ground] Ground Slicer APIs — [4/5] Apply the threshold to segment the bone: round 3 read: [Read] Round 3: |   ReadFile: ext:OrbitalFractureReconstruction/OrbitalFractureReconstruction.py
+[2026-07-13T16:44:26 +  643.4s] [ground] Ground Slicer APIs — [4/5] Apply the threshold to segment the bone: round 4 read: [Read] Round 4: |   ReadFile: ext:OrbitalFractureReconstruction/OrbitalFractureReconstructionLib/pipeline.py
+[2026-07-13T16:44:30 +  648.0s] [ground] Ground Slicer APIs — [4/5] Apply the threshold to segment the bone: round 5 read: [Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md
+[2026-07-13T16:44:37 +  655.3s] [ground] Ground Slicer APIs — [4/5] Apply the threshold to segment the bone: round 6 search: [Search] Round 6: |   VectorSearch: "qMRMLSegmentEditorWidget segment editor threshold effect apply script Python"
+[2026-07-13T16:44:50 +  668.2s] [ground] Ground Slicer APIs — [4/5] Apply the threshold to segment the bone: round 7 search: [Search] Round 7: |   Grep: "class qSlicerSegmentEditorAbstractEffect" → slicer-source/Modules/Loadable/Segmentations
+[2026-07-13T16:45:25 +  702.7s] [ground] Ground Slicer APIs — [4/5] Apply the threshold to segment the bone: round 8 read: [Read] Round 8: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md
+[2026-07-13T16:45:44 +  721.5s] [ground] Ground Slicer APIs — [5/5] done Apply the threshold to segment the bone
+[2026-07-13T16:45:45 +  722.8s] [ground] Ground Slicer APIs — Generated 5 slicer_op templates
+[2026-07-13T16:45:45 +  723.2s] [ground] Ground Slicer APIs — Grounded 5 slicer_op template(s); 1 reporting MISSING_EVIDENCE (cb_step_10_4)
+[2026-07-13T16:45:46 +  723.6s] [ground] Ground Slicer APIs — Phase 'ground' took 408.9s (cumulative 408.9s)
+[2026-07-13T16:45:46 +  724.0s] [generate] Generate Schemas And Templates — Building tool definitions...
+[2026-07-13T16:45:46 +  724.2s] [generate] Generate Schemas And Templates — Generated interactive workflow schema with 15 steps
+[2026-07-13T16:45:47 +  724.6s] [generate] Generate Schemas And Templates — Determining node creation patterns via AST...
+[2026-07-13T16:45:56 +  734.0s] [generate] Generate Schemas And Templates — Asking LLM about node creation patterns...
+[2026-07-13T16:46:24 +  762.2s] [llm_call] generate — call 005 -> generate_call_005.json (out 2692 chars)
+[2026-07-13T16:46:25 +  762.6s] [generate] Generate Schemas And Templates — Analyzed 9 output nodes via AST
+[2026-07-13T16:46:40 +  777.5s] [llm_call] generate — call 006 -> generate_call_006.json (out 363 chars)
+[2026-07-13T16:47:04 +  801.7s] [llm_call] generate — call 007 -> generate_call_007.json (out 1143 chars)
+[2026-07-13T16:47:30 +  827.6s] [llm_call] generate — call 008 -> generate_call_008.json (out 385 chars)
+[2026-07-13T16:47:47 +  845.1s] [llm_call] generate — call 009 -> generate_call_009.json (out 361 chars)
+[2026-07-13T16:47:48 +  845.9s] [generate] Generate Schemas And Templates — Generated 13 workflow templates
+[2026-07-13T16:47:48 +  846.4s] [generate] Generate Schemas And Templates — Sending templates to LLM for correctness review...
+[2026-07-13T16:48:49 +  907.4s] [llm_call] generate — call 010 -> generate_call_010.json (out 1413 chars)
+[2026-07-13T16:49:05 +  923.1s] [llm_call] generate — call 011 -> generate_call_011.json (out 48 chars)
+[2026-07-13T16:49:13 +  931.0s] [llm_call] generate — call 012 -> generate_call_012.json (out 48 chars)
+[2026-07-13T16:49:24 +  942.0s] [llm_call] generate — call 013 -> generate_call_013.json (out 48 chars)
+[2026-07-13T16:49:25 +  942.6s] [generate] Generate Schemas And Templates — LLM corrected 1 template(s)
+[2026-07-13T16:49:25 +  943.2s] [audit_contract] Audit Workflow Contract — Auditing workflow contract against cookbook/source evidence...
+[2026-07-13T16:49:26 +  943.5s] [audit_contract] Audit Workflow Contract — PASS
+[2026-07-13T16:49:26 +  943.9s] [generate] Generate Schemas And Templates — Phase 'generate' took 220.3s (cumulative 220.3s)
+[2026-07-13T16:49:28 +  945.4s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
+[2026-07-13T16:49:29 +  946.8s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-07-13T16:49:31 +  948.6s] [verify_repair] Verify And Repair Templates — All 16 API probes passed
+[2026-07-13T16:49:32 +  950.0s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-07-13T16:49:37 +  954.5s] [verify_repair] Verify And Repair Templates — FAIL: ['templates/cb_step_14.py.tpl: Required template contains unresolved placeholders: side', "templates/cb_step_3_pre.py.tpl: UnprovenApiCall: method_unproven for 'node.CreateDefaultDisplayNodes' (line 20, effect=state_change)", "templates/cb_step_7_slicer.py.tpl: UnprovenApiCall: method_unproven for '_ses_seg.SetAttribute' (line 29, effect=state_change)"]
+[2026-07-13T16:49:37 +  954.9s] [verify_repair] Verify And Repair Templates — Attempt 1 found 3 repairable issue(s) [UnprovenReceiverx2, UnresolvedPlaceholderx1]
+[2026-07-13T16:49:37 +  955.3s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_3:UnprovenReceiver -> contract_aware_template_repair; cb_step_7:UnprovenReceiver -> contract_aware_template_repair; cb_step_14:UnresolvedPlaceholder -> parameter_contract_repair
+[2026-07-13T16:50:20 +  997.6s] [llm_call] verify_repair — call 014 -> verify_repair_call_014.json (out 3917 chars)
+[2026-07-13T16:50:20 +  998.4s] [verify_repair] Verify And Repair Templates — Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair
+[2026-07-13T16:50:21 +  998.8s] [verify_repair] Verify And Repair Templates — Validation attempt 2/5
+[2026-07-13T16:50:22 + 1000.3s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-07-13T16:50:24 + 1002.0s] [verify_repair] Verify And Repair Templates — All 16 API probes passed
+[2026-07-13T16:50:26 + 1003.5s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-07-13T16:50:30 + 1007.5s] [verify_repair] Verify And Repair Templates — PASS
+[2026-07-13T16:50:32 + 1010.1s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 2 validation attempt(s)
+[2026-07-13T16:50:33 + 1010.6s] [package] Final Gate — status=validated_with_warnings | api_proof=OK | final_syntax=OK | placeholders=OK | generator_sync=OK | steps_valid=10/10 | unproven_read_warnings=42
+[2026-07-13T16:50:33 + 1011.0s] [verify_repair] Verify And Repair Templates — Phase 'verify_repair' took 67.1s (cumulative 67.1s)
+[2026-07-13T16:50:33 + 1011.3s] [package] Package Validated CLI — Building usage instructions...
+[2026-07-13T16:50:34 + 1011.6s] [package] Package Validated CLI — Generated workflow prompt
+[2026-07-13T16:50:45 + 1023.0s] [package] Package Validated CLI — Phase 'package' took 12.1s (cumulative 12.1s)
+[2026-07-13T16:50:46 + 1023.4s] [summary] Run Summary — SUCCESS | total 1023.4s | phases: discover 8.0s, analyze 76.9s, contract 227.1s, audit_contract 1.7s, ground 408.9s, generate 220.3s, verify_repair 67.1s, package 12.1s | LLM calls: 15 | events: 118
+------------------------------------------------------------------------------
+SUMMARY
+  success         : True
+  phases_completed: discover, analyze, contract, audit_contract, ground, generate, verify_repair, package
+  llm_calls       : 15
+  events          : 119
+  phase_durations : discover=8.0s  analyze=76.9s  contract=227.1s  audit_contract=1.7s  ground=408.9s  generate=220.3s  verify_repair=67.1s  package=12.1s
+------------------------------------------------------------------------------

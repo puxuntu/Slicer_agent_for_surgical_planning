@@ -93,12 +93,13 @@ class WidgetCLIMixin:
         )
         cliLayout.addWidget(self._cliFunctionErrorInput)
 
-        # Row 8: Repair button — fixes recorded runtime API errors + the
-        # function-level errors described above.
+        # Row 8: Repair button — fixes the function-level (behavior) errors
+        # described above. Runtime API errors are handled by the runtime
+        # self-correction loop, which writes the fix straight into the template.
         self._repairCliButton = qt.QPushButton("Repair Generated CLI")
         self._repairCliButton.setToolTip(
-            "Fix the generated CLI from auto-recorded runtime API errors and the "
-            "function-level errors described above"
+            "Fix the generated CLI from the function-level (behavior) errors "
+            "described above"
         )
         self._repairCliButton.setEnabled(False)
         cliLayout.addWidget(self._repairCliButton)
@@ -199,10 +200,16 @@ class WidgetCLIMixin:
         for name in sorted(best_by_name):
             ext, _usable = best_by_name[name]
             label = name
-            if ext.get("cli_status"):
-                label += f" [{ext['cli_status']}]"
-            if not ext.get("has_python"):
-                label += " (no Python)"
+            status = ext.get("cli_status") or ""
+            if status:
+                # Collapse the "with warnings" variant into a plain "Validated"
+                # badge; other statuses (draft, failed, ...) show as-is.
+                display_status = (
+                    "Validated"
+                    if status in ("validated", "validated_with_warnings")
+                    else status
+                )
+                label += f" [{display_status}]"
             self._extensionDataMap[label] = {
                 "type": "installed",
                 "name": name,
@@ -353,11 +360,13 @@ class WidgetCLIMixin:
         thread.start()
 
     def _onRepairCliClicked(self):
-        """Repair the generated CLI: recorded runtime API errors + function errors.
+        """Repair the generated CLI from the user's function-error descriptions.
 
         Runs the LLM template repair in a background thread (repair_generated_cli),
         then — on the main thread (via cli_repair_complete) — live-validates the
         rewritten templates to catch any API crash, auto-repairing those too.
+        Runtime API errors are handled separately by the runtime self-correction
+        loop, which writes its fix directly into the step template.
         """
         data = self._getSelectedExtensionData()
         if not data or self._cliGeneratorRunning:
@@ -379,6 +388,13 @@ class WidgetCLIMixin:
             if self._cliFunctionErrorInput else ""
         )
         function_errors = [line.strip() for line in func_text.split("\n") if line.strip()]
+        if not function_errors:
+            self._cliProgressDisplay.append(
+                "Nothing to repair: describe the mis-behaving step(s) in the "
+                "'Function-level errors' box above, then click Repair. (Runtime API "
+                "errors are fixed automatically while the CLI runs.)"
+            )
+            return
 
         manifest = {}
         manifest_path = os.path.join(cli_dir, "manifest.json")
@@ -395,10 +411,8 @@ class WidgetCLIMixin:
         self._cliStatusLabel.setText("Repairing...")
         self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
         self._cliProgressDisplay.append(
-            f"Repairing '{ext_name}': recorded runtime API errors"
-            + (f" + {len(function_errors)} function-error description(s)"
-               if function_errors else "")
-            + "..."
+            f"Repairing '{ext_name}': {len(function_errors)} "
+            "function-error description(s)..."
         )
 
         # Stash so _handleCliRepairComplete can launch live validation afterward.

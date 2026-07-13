@@ -344,6 +344,136 @@ class AnalyzerStage4DecompositionMixin:
             return "view_adjustment"
         return "none"
 
+    # Markups node classes recoverable from step-text keywords, longest/most
+    # specific phrase first so "bounding box" wins over the bare "box" token.
+    _MARKUP_TEXT_CLASS_MAP = (
+        ("closed curve", "vtkMRMLMarkupsClosedCurveNode"),
+        ("curve", "vtkMRMLMarkupsCurveNode"),
+        ("plane", "vtkMRMLMarkupsPlaneNode"),
+        ("angle", "vtkMRMLMarkupsAngleNode"),
+        ("line", "vtkMRMLMarkupsLineNode"),
+        ("region of interest", "vtkMRMLMarkupsROINode"),
+        ("bounding box", "vtkMRMLMarkupsROINode"),
+        ("roi", "vtkMRMLMarkupsROINode"),
+        ("box", "vtkMRMLMarkupsROINode"),
+        ("point list", "vtkMRMLMarkupsFiducialNode"),
+        ("fiducial", "vtkMRMLMarkupsFiducialNode"),
+        ("point", "vtkMRMLMarkupsFiducialNode"),
+    )
+
+    def _recover_markup_node_class(self, sub_op: Dict[str, Any], description: str) -> str:
+        """Recover a Markups node class for a user_interaction step.
+
+        Order of trust: an already-set Markups node_class, then any Markups
+        class named in slicer_api_keywords (the LLM often lists the class there
+        even when it leaves node_class null), then a keyword in the step text.
+        Returns "" when no Markups node is identifiable.
+        """
+        node_class = _text_or_empty(sub_op.get("node_class"))
+        if self._is_markup_node_class(node_class):
+            return node_class
+        for keyword in sub_op.get("slicer_api_keywords", []) or []:
+            keyword = _text_or_empty(keyword)
+            if self._is_markup_node_class(keyword):
+                return keyword
+        text = _text_or_empty(description).lower()
+        for token, cls in self._MARKUP_TEXT_CLASS_MAP:
+            if token in text:
+                return cls
+        return ""
+
+    @staticmethod
+    def _text_places_markup(description: str) -> bool:
+        """True when the step text asks the user to CREATE/DRAW/PLACE a markup
+        by interacting with a view, as opposed to purely adjusting existing
+        geometry (drag slice-intersection handles, rotate an already-placed
+        plane). A create/draw/place verb wins even when 'adjust' co-occurs
+        (e.g. 'click and adjust on the views to create the ROI')."""
+        text = _text_or_empty(description).lower()
+        placement_verbs = (
+            "create", "draw", "place", "define", "outline", "mark out",
+        )
+        if any(verb in text for verb in placement_verbs):
+            return True
+        adjust_only = any(
+            word in text for word in ("drag", "adjust", "rotate", "translate", "resize", "move")
+        )
+        # No placement verb and only adjust-verbs -> genuine view adjustment.
+        return not adjust_only
+
+    @staticmethod
+    def _prior_stage_creates_markup(prior_stages: List[Dict[str, Any]], markup_class: str) -> bool:
+        """True when an earlier (non-interactive) step already created a Markups
+        node of ``markup_class`` — e.g. a slicer_op 'create an empty MarkupsROI'.
+        Such a co-located create means the interactive step must REUSE that node
+        and enter place mode on it rather than add a duplicate."""
+        if not markup_class:
+            return False
+        for stage in prior_stages:
+            for so in stage.get("sub_operations", []) or []:
+                if not isinstance(so, dict):
+                    continue
+                if so.get("op_type") == "user_interaction":
+                    continue  # a placement step, not a static create
+                for role in so.get("node_roles", []) or []:
+                    if (
+                        isinstance(role, dict)
+                        and role.get("role_kind") in ("interaction_output", "extension_output")
+                        and _text_or_empty(role.get("node_class")) == markup_class
+                    ):
+                        return True
+                if so.get("creates_node") and _text_or_empty(so.get("node_class")) == markup_class:
+                    return True
+                keywords = [_text_or_empty(k) for k in so.get("slicer_api_keywords", []) or []]
+                if markup_class in keywords and any(
+                    k in ("AddNewNodeByClass", "CreateNodeByClass") for k in keywords
+                ):
+                    return True
+        return False
+
+    def _reconcile_markup_interaction(
+        self,
+        sub_op: Dict[str, Any],
+        prior_stages: List[Dict[str, Any]],
+    ) -> None:
+        """Generic reconciliation for user_interaction steps.
+
+        The LLM (and legacy heuristics) can mislabel "click in a view to create
+        the ROI/curve/plane" as a view_adjustment with a null node_class — most
+        often because a preceding step already 'created' the node, so the step
+        reads as adjusting existing geometry. That routes generation to an inert
+        print-only template and the user never enters Slicer place mode.
+
+        This pass reconstructs the true contract from the step's own evidence:
+        if a Markups node is identifiable AND the step either creates/draws/
+        places it or a co-located earlier step created it empty, the step is a
+        markup_placement. creates_node is decided structurally (reuse the
+        upstream node vs. create-and-place in one step), never trusting the
+        LLM's create/adjust guess. Steps with no identifiable Markups node, or
+        that only adjust existing geometry, are left untouched.
+        """
+        if sub_op.get("op_type") != "user_interaction":
+            return
+        description = sub_op.get("description") or ""
+        markup_class = self._recover_markup_node_class(sub_op, description)
+        if not markup_class:
+            return  # non-markup interaction (view adjustment / handle drag) — leave as-is
+        prior_create = self._prior_stage_creates_markup(prior_stages, markup_class)
+        if not prior_create and not self._text_places_markup(description):
+            return  # adjusting an already-placed markup — genuine view_adjustment
+        sub_op["interaction_kind"] = "markup_placement"
+        sub_op["node_class"] = markup_class
+        sub_op["interaction_type"] = (
+            _text_or_empty(sub_op.get("interaction_type"))
+            or _derive_interaction_type(markup_class)
+        )
+        # Reuse the upstream node (do not duplicate) when an earlier step made it;
+        # otherwise this single step both creates and places the markup.
+        sub_op["creates_node"] = not prior_create
+        sub_op["requires_place_mode"] = True
+        if not _text_or_empty(sub_op.get("placement_instructions")):
+            sub_op["placement_instructions"] = description
+
     def _infer_slicer_op_category(self, text: str, evidence: Optional[Dict[str, Any]] = None) -> Optional[str]:
         desc = _text_or_empty(text).lower()
         if evidence:
@@ -709,15 +839,33 @@ class AnalyzerStage4DecompositionMixin:
 
         For user_interaction steps, fill in these descriptor fields precisely — they
         drive template dispatch and KB retrieval downstream:
-        - creates_node: true if the user's interaction creates a NEW MRML node
-          (e.g. drawing a new curve/plane/fiducial). false if the user is
-          interacting with EXISTING geometry or viewport state (e.g. dragging
-          slice intersection handles, rotating an already-placed plane, toggling
-          visibility). When in doubt, false.
-        - requires_place_mode: true only when the user must enter Slicer's
-          persistent place mode (SwitchToPersistentPlaceMode) to add new control
-          points to a fresh Markups node. false for view adjustments, drag-handle
-          interactions, and any case where creates_node is false.
+        - interaction_kind: use "markup_placement" whenever the user clicks in a 2D
+          or 3D view to CREATE, DRAW, PLACE, DEFINE or OUTLINE a Markups node —
+          this includes drawing an ROI/bounding box by clicking its corners. The
+          click-in-a-view IS the placement, so classify it markup_placement EVEN IF
+          the step text also says "adjust" (e.g. "click and adjust on the slice
+          views to create the ROI"). Use "view_adjustment" ONLY for interactions on
+          geometry that already exists and needs no placement — dragging slice
+          intersection handles, rotating an already-placed plane, toggling
+          visibility.
+        - node_class: for a markup_placement step this MUST be the concrete Markups
+          class the user is placing — never null. Map the object being placed:
+          curve->vtkMRMLMarkupsCurveNode, closed curve->vtkMRMLMarkupsClosedCurveNode,
+          plane->vtkMRMLMarkupsPlaneNode, line->vtkMRMLMarkupsLineNode,
+          angle->vtkMRMLMarkupsAngleNode, fiducial/point->vtkMRMLMarkupsFiducialNode,
+          ROI/bounding box/region of interest->vtkMRMLMarkupsROINode. Leave null only
+          for a true view_adjustment.
+        - creates_node: true if THIS step both creates and places a NEW Markups node.
+          FALSE when a PRIOR step already created the node (e.g. an earlier
+          "click ROI to create an empty MarkupsROI node" slicer_op): this step then
+          PLACES that existing node — set creates_node false so the runtime reuses it
+          instead of adding a duplicate. It is still interaction_kind
+          "markup_placement" with requires_place_mode true. false also for pure view
+          adjustments and drag-handle interactions.
+        - requires_place_mode: true for every markup_placement step (the user must
+          enter Slicer place mode to click the control points / box corners),
+          whether the node is freshly created here or reused from a prior step.
+          false for view adjustments and drag-handle interactions.
         - slicer_api_keywords: 3-8 short API hints that a KB search would use to
           find relevant Slicer code. For markups placement: include the node class
           and verbs (e.g. ["vtkMRMLMarkupsCurveNode", "place", "SetActiveListID"]).
@@ -739,6 +887,14 @@ class AnalyzerStage4DecompositionMixin:
         "creates_node": true, "requires_place_mode": true,
         "slicer_api_keywords": ["vtkMRMLMarkupsCurveNode", "place", "draw"],
         "setup_dependencies": []
+
+        Example for a markup_placement step that PLACES a node an earlier step
+        created (e.g. step 2 "click ROI to create an empty MarkupsROI node", then
+        this step "click and adjust on the slice views to create the ROI"):
+        "interaction_kind": "markup_placement", "node_class": "vtkMRMLMarkupsROINode",
+        "creates_node": false, "requires_place_mode": true,
+        "slicer_api_keywords": ["vtkMRMLMarkupsROINode", "place", "SetActiveListID"],
+        "setup_dependencies": [2]
         {repair}
         Candidate context:
         {json.dumps(context, indent=2)}
@@ -1234,6 +1390,12 @@ class AnalyzerStage4DecompositionMixin:
                 getattr(self, "_segments_table_bindings", {}),
                 getattr(self, "_ui_widget_properties", {}),
             )
+            # Reconcile "click in a view to create/draw/place a Markups node"
+            # (incl. ROI box drawing) into a real markup_placement contract even
+            # when the LLM labeled it view_adjustment with a null node_class.
+            # `stages` holds the already-built prior steps, so a co-located
+            # earlier create is detected and the step reuses that node.
+            self._reconcile_markup_interaction(sub_op, stages)
             method_name = semantic.get("extension_method_hint")
             method_details = [all_methods[method_name]] if method_name else []
             stages.append({
@@ -1685,6 +1847,10 @@ class AnalyzerStage4DecompositionMixin:
                 node_class, interaction_type = "vtkMRMLMarkupsPlaneNode", "plane"
             elif "line" in text:
                 node_class, interaction_type = "vtkMRMLMarkupsLineNode", "line"
+            elif "angle" in text:
+                node_class, interaction_type = "vtkMRMLMarkupsAngleNode", "angle"
+            elif "roi" in text or "region of interest" in text or "bounding box" in text or "box" in text:
+                node_class, interaction_type = "vtkMRMLMarkupsROINode", "roi"
             elif "point" in text or "fiducial" in text:
                 node_class, interaction_type = "vtkMRMLMarkupsFiducialNode", "fiducial"
             # Revision B: previously this else-block defaulted

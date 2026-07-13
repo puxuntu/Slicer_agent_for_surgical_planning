@@ -1,20 +1,19 @@
 """Shared on-disk layout for generated Extension CLI artifacts.
 
-Centralizes where generation/repair debug output, versioned package snapshots,
-and per-run runtime-error files live, so the generation pipeline, the repair
-pipeline, and the main agent all agree on the structure:
+Centralizes where generation/repair debug output and versioned package snapshots
+live, so the generation pipeline, the repair pipeline, and the main agent all
+agree on the structure:
 
     Resources/extension_CLI/<Ext>/
       manifest.json, workflow*.json, templates/, ...   <- ACTIVE package (latest)
       versions/
-        generation/        <- snapshot of the first-generation package
-        repair_001/ ...    <- snapshot after each repair round
+        generation/         <- snapshot of the first-generation package
+        repair_001/ ...     <- snapshot after each repair round
+        runtime_fix_<ts>/   <- snapshot before a runtime self-correction rewrote
+                               a step template (pre-revision backup)
       debug/
         generation/        <- first-generation LLM calls + ui_output.log
         repair_001/ ...    <- each repair round, isolated (never clobbered)
-      runtime_errors/
-        <run_id>.json      <- API errors recorded during one workflow run
-        consumed/          <- run files already used by a repair
 
 Pure path/IO helpers only — no Slicer or heavy dependencies — so any layer can
 import this without pulling in the analyzer.
@@ -169,66 +168,3 @@ def discard_active_backup(ext_dir: str) -> None:
         pass
 
 
-# ── per-run runtime errors ───────────────────────────────────────────────────
-
-_LEGACY_RUNTIME_FILE = "runtime_repairs.json"
-
-
-def runtime_errors_dir(ext_dir: str) -> str:
-    return os.path.join(ext_dir, "runtime_errors")
-
-
-def _safe_run_id(run_id: str) -> str:
-    cleaned = re.sub(r"[^A-Za-z0-9_.-]", "_", str(run_id or "")).strip("_")
-    return cleaned or "unknown_run"
-
-
-def runtime_error_file(ext_dir: str, run_id: str) -> str:
-    """Path to the runtime-error file for one workflow run (``<run_id>.json``)."""
-    return os.path.join(runtime_errors_dir(ext_dir), f"{_safe_run_id(run_id)}.json")
-
-
-def latest_runtime_error_file(ext_dir: str) -> Optional[str]:
-    """Most recent per-run runtime-error file (by mtime), or ``None``.
-
-    Falls back to the legacy flat ``runtime_repairs.json`` so packages recorded
-    before the per-run split still repair.
-    """
-    directory = runtime_errors_dir(ext_dir)
-    files = []
-    if os.path.isdir(directory):
-        files = [
-            os.path.join(directory, name)
-            for name in os.listdir(directory)
-            if name.endswith(".json")
-        ]
-    if not files:
-        legacy = os.path.join(ext_dir, _LEGACY_RUNTIME_FILE)
-        return legacy if os.path.isfile(legacy) else None
-    return max(files, key=os.path.getmtime)
-
-
-def archive_runtime_error_file(ext_dir: str, path: str) -> None:
-    """Move a consumed runtime-error file into ``runtime_errors/consumed/``.
-
-    Keeps a record of what a repair used without leaving it to be re-applied on
-    the next Repair click. No-op for the legacy flat file location (left for the
-    legacy clear path to archive). Fail-soft.
-    """
-    try:
-        if not path or not os.path.isfile(path):
-            return
-        if os.path.basename(path) == _LEGACY_RUNTIME_FILE:
-            return
-        consumed_dir = os.path.join(runtime_errors_dir(ext_dir), "consumed")
-        os.makedirs(consumed_dir, exist_ok=True)
-        dest = os.path.join(consumed_dir, os.path.basename(path))
-        if os.path.exists(dest):
-            base, ext = os.path.splitext(os.path.basename(path))
-            index = 1
-            while os.path.exists(dest):
-                dest = os.path.join(consumed_dir, f"{base}.{index}{ext}")
-                index += 1
-        shutil.move(path, dest)
-    except Exception:
-        pass

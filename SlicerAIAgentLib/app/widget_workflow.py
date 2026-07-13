@@ -1657,7 +1657,7 @@ class WidgetWorkflowMixin:
             node_class = str(interaction.get("node_class") or "")
             if not node_class.startswith("vtkMRMLMarkups") and step_info.get(
                 "interaction_type", ""
-            ) not in ("plane", "curve", "line", "fiducial"):
+            ) not in ("plane", "curve", "line", "fiducial", "angle", "roi"):
                 return
 
             interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
@@ -2215,17 +2215,16 @@ class WidgetWorkflowMixin:
     def _handleCliRepairComplete(self, repair):
         """Resume after the LLM template repair (Repair button), then live-validate.
 
-        The off-thread `repair_generated_cli` has rewritten templates from recorded
-        runtime API errors + the user's function-error descriptions. Now live-execute
-        the rewritten templates to catch any API crash (introduced or pre-existing
-        in a precondition-free step) and auto-repair it, then finalize.
+        The off-thread `repair_generated_cli` has rewritten templates from the user's
+        function-error descriptions. Now live-execute the rewritten templates to catch
+        any API crash (introduced or pre-existing in a precondition-free step) and
+        auto-repair it, then finalize.
         """
         result = getattr(self, "_cliRepairResult", None)
         if repair.get("repaired"):
             self._cliProgressDisplay.append(
                 f"Repair rewrote {len(repair.get('repaired', []))} template(s) "
-                f"(recorded API errors: {repair.get('runtime_error_count', 0)}, "
-                f"function errors: {repair.get('function_error_count', 0)}). "
+                f"({repair.get('function_error_count', 0)} function error(s)). "
                 "Live-validating…"
             )
             if getattr(self, "_cliFunctionErrorInput", None):

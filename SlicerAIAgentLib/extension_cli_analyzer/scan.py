@@ -581,6 +581,52 @@ class AnalyzerScanMixin:
                         "logic_methods": logic_methods,
                     })
 
+        # Pattern 3: INDIRECT button-helper. Many extensions wire buttons through a
+        # helper, e.g.  self.fooButton = self._button(layout, "Foo", self.onFoo)
+        # where the real `<btn>.connect("clicked(bool)", handler)` lives INSIDE the
+        # helper and the handler arrives as a PARAMETER. Patterns 1/2 miss this
+        # because the connect's handler arg is a bare parameter name, not `self.onX`,
+        # so the button->handler binding actually lives at the CALL SITE (self.onFoo
+        # passed as an arg). Resolve helper methods whose body connects a parameter to
+        # a signal, then read their call sites to recover (button_widget_name, handler).
+        button_helpers = self._find_button_helper_methods(class_node, _SUPPORTED_SIGNALS)
+        if button_helpers:
+            for method_node in class_node.body:
+                if not isinstance(method_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for stmt in ast.walk(method_node):
+                    if not isinstance(stmt, ast.Assign) or not isinstance(stmt.value, ast.Call):
+                        continue
+                    call = stmt.value
+                    func = call.func
+                    if not (isinstance(func, ast.Attribute)
+                            and isinstance(func.value, ast.Name)
+                            and func.value.id == "self"
+                            and func.attr in button_helpers):
+                        continue
+                    helper = button_helpers[func.attr]
+                    handler_name = self._handler_arg_from_helper_call(call, helper)
+                    if not handler_name:
+                        continue
+                    button_bare = ""
+                    for tgt in stmt.targets:
+                        if (isinstance(tgt, ast.Attribute)
+                                and isinstance(tgt.value, ast.Name)
+                                and tgt.value.id == "self"):
+                            button_bare = tgt.attr
+                            break
+                    signal_name = helper.get("signal") or "clicked"
+                    key = (button_bare, signal_name, handler_name)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    connections.append({
+                        "button_widget_name": button_bare,
+                        "signal": signal_name,
+                        "handler_method": handler_name,
+                        "logic_methods": handler_logic_map.get(handler_name, []),
+                    })
+
         # Flag handlers that share `self.<attr>` WIDGET STATE with another handler
         # (a handler-state chain, e.g. onLoadSkull writes self.resultSeg which
         # onAddRoi reads). Such a handler MUST be driven, not reimplemented — the
@@ -593,6 +639,95 @@ class AnalyzerScanMixin:
             c["shares_widget_state"] = c.get("handler_method") in chain
 
         return connections
+
+    @staticmethod
+    def _ast_const_str(node):
+        """Return a string-literal's value across Python versions (Constant / Str), else None."""
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        _Str = getattr(ast, "Str", None)
+        if _Str is not None and isinstance(node, _Str):
+            return node.s
+        return None
+
+    @staticmethod
+    def _find_button_helper_methods(class_node, supported_signals) -> Dict[str, Dict]:
+        """Find helper methods that wire one of their PARAMETERS to a Qt signal.
+
+        Detects the common factory pattern where a widget is created and connected
+        inside a helper, with the handler passed in, e.g.::
+
+            def _button(self, layout, text, handler, tooltip=""):
+                button = qt.QPushButton(text)
+                button.connect("clicked(bool)", handler)   # handler is a parameter
+
+        Returns {helper_method_name: {"handler_param_name", "handler_param_index",
+        "signal"}}. ``handler_param_index`` counts ``self`` (so the first real
+        positional call arg maps to index 1).
+        """
+        helpers: Dict[str, Dict] = {}
+        for item in class_node.body:
+            if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            params = [a.arg for a in item.args.args]
+            param_set = set(params)
+            for stmt in ast.walk(item):
+                if not isinstance(stmt, ast.Call):
+                    continue
+                func = stmt.func
+                if not (isinstance(func, ast.Attribute) and func.attr == "connect"):
+                    continue
+                signal = ""
+                handler_arg = None
+                receiver = func.value
+                # recv.<signal>.connect(handler)
+                if isinstance(receiver, ast.Attribute) and receiver.attr in supported_signals:
+                    signal = receiver.attr
+                    if stmt.args:
+                        handler_arg = stmt.args[0]
+                # recv.connect("clicked(bool)", handler)
+                elif stmt.args:
+                    sig_str = AnalyzerScanMixin._ast_const_str(stmt.args[0])
+                    if sig_str is not None and any(sig in sig_str for sig in supported_signals):
+                        signal = sig_str
+                        if len(stmt.args) > 1:
+                            handler_arg = stmt.args[1]
+                if handler_arg is None:
+                    continue
+                # The handler must be a bare PARAMETER of this helper (not self.X).
+                if isinstance(handler_arg, ast.Name) and handler_arg.id in param_set:
+                    helpers[item.name] = {
+                        "handler_param_name": handler_arg.id,
+                        "handler_param_index": params.index(handler_arg.id),
+                        "signal": signal,
+                    }
+                    break
+        return helpers
+
+    @staticmethod
+    def _handler_arg_from_helper_call(call, helper) -> str:
+        """Resolve the `self.onX` handler passed to a button-helper call.
+
+        Returns the handler method name (e.g. "onFullBone") when the call supplies
+        ``self.<attr>`` at the helper's handler-parameter position (positional) or by
+        keyword; otherwise "".
+        """
+        pname = helper.get("handler_param_name")
+        for kw in getattr(call, "keywords", []) or []:
+            if kw.arg == pname:
+                a = kw.value
+                if (isinstance(a, ast.Attribute) and isinstance(a.value, ast.Name)
+                        and a.value.id == "self"):
+                    return a.attr
+                return ""
+        # Positional call args exclude the implicit `self`, so shift the index by 1.
+        pos = helper.get("handler_param_index", 0) - 1
+        if 0 <= pos < len(call.args):
+            a = call.args[pos]
+            if (isinstance(a, ast.Attribute) and isinstance(a.value, ast.Name)
+                    and a.value.id == "self"):
+                return a.attr
+        return ""
 
     @staticmethod
     def _handler_state_chain(class_node, handler_names) -> set:

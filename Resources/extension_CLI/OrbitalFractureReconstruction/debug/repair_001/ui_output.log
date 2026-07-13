@@ -1,0 +1,29 @@
+==============================================================================
+Extension CLI pipeline  |  round: repair_001
+  extension : OrbitalFractureReconstruction
+  source    : (repair round — no cookbook parse)
+  started   : 2026-07-13T17:15:50
+==============================================================================
+[2026-07-13T17:15:55 +    5.0s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
+[2026-07-13T17:15:56 +    6.4s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-07-13T17:15:58 +    7.8s] [verify_repair] Verify And Repair Templates — All 16 API probes passed
+[2026-07-13T17:15:59 +    9.0s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-07-13T17:16:02 +   12.5s] [verify_repair] Verify And Repair Templates — FAIL: ['templates/cb_step_5.py.tpl: logic.cutWithRoi() called with 2 args, expected 0', 'templates/cb_step_12.py.tpl: logic.reconstructFullBone() called with 1 args, expected 0', 'templates/cb_step_14.py.tpl: logic.segmentOrbits() called with 1 args, expected 0']
+[2026-07-13T17:16:03 +   12.8s] [verify_repair] Verify And Repair Templates — Attempt 1 found 5 repairable issue(s) [LiveExecutionErrorx2, ValidationErrorx3]
+[2026-07-13T17:16:03 +   13.3s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_5:ValidationError -> contract_aware_template_repair; cb_step_12:ValidationError -> contract_aware_template_repair; cb_step_14:ValidationError -> contract_aware_template_repair; cb_step_5:LiveExecutionError -> contract_aware_template_repair; cb_step_14:LiveExecutionError -> contract_aware_template_repair
+[2026-07-13T17:16:37 +   46.9s] [llm_call] llm — call 000 -> _call_000.json (out 4491 chars)
+[2026-07-13T17:16:38 +   47.8s] [verify_repair] Verify And Repair Templates — Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair
+[2026-07-13T17:16:38 +   48.0s] [verify_repair] Verify And Repair Templates — Validation attempt 2/5
+[2026-07-13T17:16:40 +   49.6s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-07-13T17:16:41 +   50.6s] [verify_repair] Verify And Repair Templates — All 18 API probes passed
+[2026-07-13T17:16:42 +   51.8s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-07-13T17:16:45 +   55.2s] [verify_repair] Verify And Repair Templates — PASS
+[2026-07-13T17:16:50 +   59.9s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 2 validation attempt(s)
+------------------------------------------------------------------------------
+SUMMARY
+  success         : True
+  phases_completed: (none)
+  llm_calls       : 1
+  events          : 15
+  templates_changed: 3  ['templates/cb_step_5.py.tpl', 'templates/cb_step_12.py.tpl', 'templates/cb_step_14.py.tpl']
+------------------------------------------------------------------------------

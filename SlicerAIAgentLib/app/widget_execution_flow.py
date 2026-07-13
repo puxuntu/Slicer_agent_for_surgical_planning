@@ -387,28 +387,22 @@ class WidgetExecutionFlowMixin:
 
         self._autoExecuteCodeConfirmed(attempt, max_attempts)
 
-    def _persistGeneratedTemplateRepair(
-        self, step_info, corrected_code, error_detail, resolved=True
-    ):
-        """Persist a runtime failure of a generated workflow step.
+    def _persistGeneratedTemplateRepair(self, step_info, corrected_code, error_detail):
+        """Write a runtime self-correction fix back into the step's code template.
 
-        Writes <ext>/runtime_errors/<run_id>.json — one file per workflow run, so
-        the Repair button loads the MOST RECENT run's failures (consumed as
-        failure [+ working-fix] evidence) — and records the outcome in the
-        cross-run repair memory. Generic: records the failure shape and, when
-        self-correction succeeded, the code that worked.
-
-        resolved=True  → self-correction fixed it; `corrected_code` is the fix.
-        resolved=False → the raw failure (no working fix yet); these are exactly
-            the errors the offline Repair must fix at the template level, and the
-            ones live-validation can't reach for data/interaction-gated steps.
-        An unresolved record is deduped per (step_id, error) so repeated turns
-        don't flood the log.
+        After self-correction fixes a generated-CLI step at runtime, persist the
+        working code into that step's template so future runs load the corrected
+        template and skip self-correction entirely. The pre-revision templates are
+        backed up first (versions/runtime_fix_<ts>/). Fail-soft throughout.
         """
-        from datetime import datetime
+        import time
         from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
-        from SlicerAIAgentLib.cli_artifacts import runtime_error_file
 
+        if not isinstance(step_info, dict):
+            return
+        corrected_code = str(corrected_code or "")
+        if not corrected_code.strip():
+            return
         step_id = str(step_info.get("step_id", "") or "")
         session = getattr(getattr(self, "_workflowRuntime", None), "session", None)
         ext_name = str(
@@ -417,70 +411,127 @@ class WidgetExecutionFlowMixin:
             or getattr(session, "extension_name", "")
             or ""
         )
-        if not ext_name:
+        if not ext_name or not step_id:
             return
         cli_dir = os.path.join(get_cli_base_dir(), ext_name)
         if not os.path.isdir(cli_dir):
             return
 
-        # Separate runtime errors per workflow run (keyed by the run's workflow_id),
-        # so the offline Repair loads the MOST RECENT run's failures rather than a
-        # pile accumulated across every session.
-        run_id = str(getattr(session, "workflow_id", "") or "unknown_run")
-        path = runtime_error_file(cli_dir, run_id)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        records = []
-        if os.path.isfile(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    records = json.load(f)
-                if not isinstance(records, list):
-                    records = []
-            except Exception:
-                records = []
-        error_text = str(error_detail)[:1000]
-        # Dedup unresolved records by (step_id, error) so repeated failing turns
-        # don't flood the log; a later resolved record still appends its fix.
-        if not resolved:
-            records = [
-                r for r in records
-                if not (
-                    not r.get("resolved", True)
-                    and r.get("step_id") == step_id
-                    and r.get("error") == error_text
-                )
-            ]
-        records.append({
-            "step_id": step_id,
-            "error": error_text,
-            "corrected_code": str(corrected_code)[:20000],
-            "resolved": bool(resolved),
-            "timestamp": datetime.now().isoformat(),
-        })
-        records = records[-50:]
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(records, f, indent=2, ensure_ascii=False)
+        # Which template file does this step use? (pre/post for interactive steps.)
+        tpl_rel = self._templateFileForStep(cli_dir, step_id, str(step_info.get("type", "")))
+        if not tpl_rel:
+            return
+        tpl_path = os.path.join(cli_dir, tpl_rel)
+        if not os.path.isfile(tpl_path):
+            return
 
-        if resolved:
-            try:
-                from SlicerAIAgentLib.extension_cli_analyzer.repair_memory import RepairMemory
-                RepairMemory(get_cli_base_dir()).record(
-                    "RuntimeExecutionFailure", "runtime_api",
-                    str(error_detail)[:160],
-                    "main_agent_correction", "succeeded",
-                    f"step {step_id}: corrected at runtime; fix persisted to runtime_errors/<run>.json",
-                )
-            except Exception:
-                logger.debug("Repair memory record for runtime repair failed", exc_info=True)
+        # Recover template-level content from the runtime-executed code: drop any
+        # injected workflow prelude (re-added fresh on every dispatch) and escape
+        # braces so _fill_template restores the concrete body verbatim next run.
+        body = self._stripRuntimePrelude(corrected_code)
+        safe_body = body.replace("{", "{{").replace("}", "}}")
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        first_error_line = ""
+        if error_detail:
+            _err_lines = str(error_detail).strip().splitlines()
+            first_error_line = _err_lines[0][:200] if _err_lines else ""
+        header = (
+            "# [runtime-fixed] Auto-revised by runtime self-correction at "
+            f"{ts}.\n"
+            f"# Pre-revision templates backed up under versions/runtime_fix_{ts}/.\n"
+        )
+        if first_error_line:
+            header += f"# Fixed runtime error: {first_error_line}\n"
+        new_tpl = header + safe_body
+        if not new_tpl.endswith("\n"):
+            new_tpl += "\n"
 
-        self._recordRoleEvent("Repairer", "runtime_repair_persisted", {
+        # Back up the whole templates/ package once before overwriting (pre-revision).
+        try:
+            from SlicerAIAgentLib.cli_artifacts import snapshot_package_version
+            snapshot_package_version(cli_dir, f"runtime_fix_{ts}")
+        except Exception:
+            logger.debug("Pre-revision template backup failed", exc_info=True)
+
+        try:
+            with open(tpl_path, "w", encoding="utf-8") as f:
+                f.write(new_tpl)
+        except Exception:
+            logger.debug("Template write-back failed", exc_info=True)
+            return
+
+        # Keep the cross-run repair-memory learning signal (shared with generation).
+        try:
+            from SlicerAIAgentLib.extension_cli_analyzer.repair_memory import RepairMemory
+            RepairMemory(get_cli_base_dir()).record(
+                "RuntimeExecutionFailure", "runtime_api",
+                str(error_detail)[:160],
+                "main_agent_correction", "succeeded",
+                f"step {step_id}: corrected at runtime; fix written into {tpl_rel}",
+            )
+        except Exception:
+            logger.debug("Repair memory record for runtime repair failed", exc_info=True)
+
+        self._recordRoleEvent("Repairer", "runtime_template_revised", {
             "extension": ext_name,
             "step_id": step_id,
+            "template": tpl_rel,
         })
         logger.info(
-            "Runtime repair persisted for %s/%s into runtime_errors/%s.json",
-            ext_name, step_id, run_id,
+            "Runtime fix written into template %s for %s/%s (backup: versions/runtime_fix_%s)",
+            tpl_rel, ext_name, step_id, ts,
         )
+
+    def _templateFileForStep(self, cli_dir, step_id, step_type):
+        """Resolve a step's template file (relative to cli_dir) from code_generators.json.
+
+        Interactive steps have separate pre/post templates; pick by the dispatch
+        result type (``interactive`` -> pre, ``interactive_done`` -> post).
+        """
+        try:
+            with open(os.path.join(cli_dir, "code_generators.json"), encoding="utf-8") as f:
+                generators = json.load(f)
+        except Exception:
+            return ""
+        for gen in generators if isinstance(generators, list) else []:
+            if not isinstance(gen, dict):
+                continue
+            if gen.get("param_signature", {}).get("workflow_step") == step_id:
+                if step_type == "interactive_done":
+                    return gen.get("post_template_file") or ""
+                if step_type == "interactive":
+                    return gen.get("pre_template_file") or ""
+                return (
+                    gen.get("template_file")
+                    or gen.get("code_template")
+                    or gen.get("pre_template_file")
+                    or ""
+                )
+        return ""
+
+    @staticmethod
+    def _stripRuntimePrelude(code):
+        """Drop the runtime-injected workflow prelude from corrected code, leaving
+        template-level content.
+
+        The prelude (metadata-apply, hidden runtime globals, input guard) is
+        re-added fresh on every dispatch, so it must not be baked into the saved
+        template. Only acts when a distinctive prelude marker is present (the
+        corrected code is usually already prelude-free); then cuts everything before
+        the template's first ``import slicer``.
+        """
+        markers = (
+            "# [Workflow metadata] Apply source-derived defaults",
+            "# [Workflow runtime] Hidden generated-CLI workflow context",
+            "# [Workflow preconditions]",
+        )
+        if not any(m in code for m in markers):
+            return code
+        lines = code.splitlines()
+        for i, line in enumerate(lines):
+            if line.strip() == "import slicer":
+                return "\n".join(lines[i:])
+        return code
 
     def _autoExecuteCodeConfirmed(self, attempt=1, max_attempts=5):
         """Run already-validated code after optional confirmation has passed."""
@@ -576,6 +627,7 @@ class WidgetExecutionFlowMixin:
                 # session re-paying the same runtime failure + correction.
                 if (
                     attempt > 1
+                    and runtime_managed
                     and isinstance(step_info, dict)
                     and step_info.get("origin") == "generated_template"
                 ):
@@ -601,21 +653,6 @@ class WidgetExecutionFlowMixin:
                 feedback_lines.append(f"Status: failed\nExecution time: {execution_time:.2f}s\nError: {error_msg[:500]}")
                 self._lastExecutionResult = dict(result)
                 self._lastOutputHasErrors = True
-                # Record the raw runtime error of a generated-template step on the
-                # FIRST failure (before self-correction), so the offline Repair has
-                # the field error even when self-correction never succeeds. Resolved
-                # records (the working fix) are added separately by the success path.
-                if (
-                    attempt == 1
-                    and isinstance(step_info, dict)
-                    and step_info.get("origin") == "generated_template"
-                ):
-                    try:
-                        self._persistGeneratedTemplateRepair(
-                            step_info, "", error_msg, resolved=False,
-                        )
-                    except Exception:
-                        logger.debug("Runtime-failure feedback failed", exc_info=True)
 
             # Semantic scene verification: compare before/after snapshots against agent_plan expectations
             if result.get("success") and not result.get("timed_out", False) and before_snapshot:

@@ -1,0 +1,107 @@
+{
+  "manifest_version": 3,
+  "pipeline_version": "agentic-cli-v3",
+  "extension_name": "OrbitalFractureReconstruction",
+  "extension_module_name": "OrbitalFractureReconstruction",
+  "logic_class_name": "OrbitalFractureReconstructionLogic",
+  "version": "1.0.0",
+  "status": "validated_with_warnings",
+  "workflow_type": "interactive",
+  "workflow_graph_file": "workflow.json",
+  "workflow_metadata_file": "workflow_metadata.json",
+  "stages": [
+    "cb_step_1",
+    "cb_step_2",
+    "cb_step_3",
+    "cb_step_4",
+    "cb_step_5",
+    "cb_step_6",
+    "cb_step_7",
+    "cb_step_8",
+    "cb_step_9",
+    "cb_step_10",
+    "cb_step_11",
+    "cb_step_12",
+    "cb_step_13",
+    "cb_step_14",
+    "cb_step_15"
+  ],
+  "cookbook_driven": true,
+  "cookbook_file": "OrbitalFractureReconstruction.md",
+  "operation_types": [
+    "extension_op",
+    "slicer_op",
+    "user_choice",
+    "user_interaction"
+  ],
+  "step_validation": {
+    "cb_step_2": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_3": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_5": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_6": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_7": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_8": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_10": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_12": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_14": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_15": {
+      "valid": true,
+      "issues": []
+    }
+  },
+  "partial_valid_step_count": 10,
+  "validation_state": {
+    "static_valid": true,
+    "api_probe_valid": true,
+    "contract_valid": true,
+    "prelude_valid": true,
+    "contract_audit_valid": true,
+    "workflow_state_valid": true,
+    "prelude_bytes_max": 2764,
+    "overall_valid": true,
+    "api_proof_valid": true,
+    "api_inventory_complete": true,
+    "generate_syntax_valid_at_generate": true,
+    "final_syntax_valid": true,
+    "placeholder_closure_valid": true,
+    "generator_template_sync_valid": true
+  },
+  "api_proof_coverage": {
+    "total_calls": 146,
+    "state_changing_calls": 47,
+    "proven_calls": 104,
+    "invalid_calls": 0,
+    "blocking_unproven_calls": 0,
+    "warning_unproven_reads": 42,
+    "inventory_complete": true
+  },
+  "workflow_contract_file": "workflow_contract.json",
+  "source_path": "C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions/OrbitalFractureReconstruction"
+}

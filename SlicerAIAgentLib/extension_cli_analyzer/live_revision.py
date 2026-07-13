@@ -1,9 +1,7 @@
 from .common import *
 from .phases import PIPELINE_VERSION
 from ..cli_artifacts import (
-    archive_runtime_error_file,
     debug_round_dir,
-    latest_runtime_error_file,
     next_repair_round_label,
     snapshot_package_version,
 )
@@ -601,49 +599,6 @@ class AnalyzerLiveRevisionMixin:
                 mapping[sid] = tpl
         return mapping
 
-    def _runtime_repair_error_strings(self, cli_dir: str, generators: List[Dict]) -> List[str]:
-        """Turn the most recent run's recorded API errors into repair strings.
-
-        Runtime errors are separated per workflow run under runtime_errors/. This
-        loads the MOST RECENT run's file (falling back to the legacy flat
-        runtime_repairs.json) and remembers its path so _clear_runtime_repairs can
-        archive exactly the file it consumed. The 'Live execution failed' marker
-        routes these as template-class LiveExecutionError. Latest record per step
-        wins; resolved records also carry the runtime-working fix as evidence.
-        """
-        self._last_runtime_error_path = None
-        path = latest_runtime_error_file(cli_dir)
-        if not path or not os.path.isfile(path):
-            return []
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                records = json.load(f)
-        except Exception:
-            return []
-        self._last_runtime_error_path = path
-        if not isinstance(records, list) or not records:
-            return []
-        by_step = {}
-        for rec in records:
-            if isinstance(rec, dict):
-                by_step[rec.get("step_id", "")] = rec  # later record wins
-        tpl_by_step = self._template_file_by_step(generators)
-        strings = []
-        for sid, rec in by_step.items():
-            tpl = tpl_by_step.get(sid, "")
-            if not tpl:
-                continue  # no code template for this step — nothing to repair
-            error = str(rec.get("error", ""))[:300]
-            corrected = str(rec.get("corrected_code", ""))[:1500]
-            parts = [f"{tpl}: Live execution failed (recorded at runtime): {error}"]
-            if corrected.strip():
-                parts.append(
-                    "A correction that succeeded at runtime (use as evidence for the "
-                    "template fix, adapting it to template conventions):\n" + corrected
-                )
-            strings.append("\n".join(parts))
-        return strings
-
     def _function_error_strings(
         self, function_errors: List[str], generators: List[Dict], workflow_data: Dict,
     ) -> List[str]:
@@ -729,55 +684,6 @@ class AnalyzerLiveRevisionMixin:
             logger.debug("LLM step mapping failed", exc_info=True)
             return ""
 
-    def _clear_runtime_repairs(self, cli_dir: str) -> None:
-        """Consume the runtime-error file a repair just used.
-
-        Moves the most recent per-run file (the one _runtime_repair_error_strings
-        loaded, remembered on self._last_runtime_error_path) into
-        runtime_errors/consumed/ so a second Repair click does not re-apply it.
-        For a legacy flat runtime_repairs.json, archives its records to
-        debug/runtime_repairs.consumed.json and empties it (old behavior).
-        """
-        path = getattr(self, "_last_runtime_error_path", None)
-        if path and os.path.basename(path) != "runtime_repairs.json":
-            archive_runtime_error_file(cli_dir, path)
-            self._last_runtime_error_path = None
-            return
-
-        # Legacy flat-file fallback.
-        legacy = path or os.path.join(cli_dir, "runtime_repairs.json")
-        if not os.path.isfile(legacy):
-            return
-        try:
-            with open(legacy, "r", encoding="utf-8") as f:
-                consumed = json.load(f)
-        except Exception:
-            consumed = []
-        try:
-            archive_dir = os.path.join(cli_dir, "debug")
-            os.makedirs(archive_dir, exist_ok=True)
-            archive = os.path.join(archive_dir, "runtime_repairs.consumed.json")
-            existing = []
-            if os.path.isfile(archive):
-                try:
-                    with open(archive, "r", encoding="utf-8") as f:
-                        existing = json.load(f)
-                        if not isinstance(existing, list):
-                            existing = []
-                except Exception:
-                    existing = []
-            if isinstance(consumed, list):
-                existing.extend(consumed)
-            with open(archive, "w", encoding="utf-8") as f:
-                json.dump(existing[-200:], f, indent=2)
-        except Exception:
-            logger.debug("archive runtime_repairs failed", exc_info=True)
-        try:
-            with open(legacy, "w", encoding="utf-8") as f:
-                json.dump([], f)
-        except Exception:
-            logger.debug("clear runtime_repairs failed", exc_info=True)
-        self._last_runtime_error_path = None
 
     def _reconstruct_logic_analysis_from_metadata(self) -> Optional[Dict]:
         """Rebuild a minimal logic_analysis from persisted workflow_metadata.
@@ -839,14 +745,14 @@ class AnalyzerLiveRevisionMixin:
         function_errors: Optional[List[str]] = None,
         source_path: Optional[str] = None,
     ) -> Dict:
-        """Repair an existing CLI from recorded runtime API errors + behavior reports.
+        """Repair an existing CLI from user-reported function/behavior errors.
 
-        Two error sources, fixed by the SAME grounded verify/repair loop that
-        generation uses (`_verify_and_repair_templates`), seeded with:
-          - runtime_repairs.json — API errors auto-recorded while the main agent ran
-            the CLI (LiveExecutionError issues), and
-          - function_errors — free-form user descriptions of steps that run without
-            error but behave wrong (FunctionBehaviorError issues, mapped to steps).
+        `function_errors` — free-form user descriptions of steps that run without
+        error but behave wrong (FunctionBehaviorError issues, mapped to steps) — are
+        fixed by the SAME grounded verify/repair loop that generation uses
+        (`_verify_and_repair_templates`). Runtime API errors are NOT handled here:
+        the runtime self-correction loop fixes those and writes the corrected code
+        straight back into the step's template.
 
         slicer_op API/behavior issues are re-grounded via KB + extension-source
         search (`_reground_slicer_template` → SlicerOpGenerator); the loop validates
@@ -917,20 +823,15 @@ class AnalyzerLiveRevisionMixin:
                     with open(tpl_path, "r", encoding="utf-8") as f:
                         templates[tpl_file] = f.read()
 
-        runtime_error_strings = self._runtime_repair_error_strings(cli_dir, generators)
         function_error_strings = self._function_error_strings(
             function_errors, generators, workflow_data
         )
-        all_errors = runtime_error_strings + function_error_strings
+        all_errors = function_error_strings
         if not all_errors:
             return {
                 "success": False,
-                "error": (
-                    "No recorded runtime API errors and no function-error descriptions "
-                    "to repair."
-                ),
+                "error": "No function-error descriptions to repair.",
                 "repaired": [],
-                "runtime_error_count": 0,
                 "function_error_count": 0,
             }
 
@@ -979,18 +880,12 @@ class AnalyzerLiveRevisionMixin:
         if changed:
             snapshot_package_version(cli_dir, repair_round)
 
-        # Consume the recorded runtime errors we just addressed so a second Repair
-        # click does not re-apply them. Function errors come fresh from the chatbox.
-        if changed and runtime_error_strings:
-            self._clear_runtime_repairs(cli_dir)
-
         invalidate_cache()
         repair_result = {
             "success": bool(changed),
             "repaired": changed,
             "valid": bool(validation_result.get("valid")),
             "fix_description": getattr(self, "_last_fix_description", ""),
-            "runtime_error_count": len(runtime_error_strings),
             "function_error_count": len(function_error_strings),
         }
         self._flush_progress_artifacts(repair_result)
@@ -1243,33 +1138,6 @@ class AnalyzerLiveRevisionMixin:
             except Exception:
                 workflow_metadata = {}
         self._workflow_metadata = workflow_metadata
-
-        # Merge the most recent workflow run's persisted runtime errors (the main
-        # agent's corrections of this package's steps) into the revision inputs:
-        # the verified failure plus the code that actually worked are the strongest
-        # available evidence for fixing the template generically.
-        runtime_repairs_path = latest_runtime_error_file(cli_dir)
-        if runtime_repairs_path and os.path.isfile(runtime_repairs_path):
-            try:
-                with open(runtime_repairs_path, "r", encoding="utf-8") as f:
-                    runtime_repairs = json.load(f)
-                if isinstance(runtime_repairs, list) and runtime_repairs:
-                    errors = list(errors or [])
-                    for record in runtime_repairs[-10:]:
-                        errors.append(
-                            f"{record.get('step_id', '?')}: runtime execution failed with "
-                            f"'{str(record.get('error', ''))[:300]}'. A correction that "
-                            "succeeded at runtime (use as evidence for the template fix, "
-                            "adapting it to template conventions):\n"
-                            + str(record.get("corrected_code", ""))[:1500]
-                        )
-                    self.on_progress(
-                        "verify_repair", "Verify And Repair Templates",
-                        f"Merged {min(len(runtime_repairs), 10)} persisted runtime "
-                        "repair(s) as revision evidence",
-                    )
-            except Exception:
-                logger.debug("Runtime repairs merge failed", exc_info=True)
 
         # Load workflow.json to provide semantic context for revision
         workflow_path = os.path.join(cli_dir, manifest.get("workflow_graph_file", "workflow.json"))

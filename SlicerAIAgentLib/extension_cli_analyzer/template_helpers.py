@@ -444,15 +444,34 @@ class AnalyzerTemplateHelpersMixin:
             return None
         return count
 
+    # Markups classes with a fixed, small required control-point count: placement
+    # completes deterministically (ROI box = 2 corners, line = 2, angle = 3), so
+    # single place mode is correct — Slicer auto-exits to view-transform once the
+    # required points are placed, matching the native Markups create-button UX.
+    # Open-ended markups (curve, fiducial list) stay persistent so the user keeps
+    # clicking until Done.
+    _FIXED_POINT_MARKUP_CLASSES = frozenset({
+        "vtkMRMLMarkupsROINode",
+        "vtkMRMLMarkupsLineNode",
+        "vtkMRMLMarkupsAngleNode",
+    })
+
+    def _markup_uses_single_place_mode(self, node_class: str) -> bool:
+        return _text_or_empty(node_class) in self._FIXED_POINT_MARKUP_CLASSES
+
     def _placement_mode_policy(self, step: Dict, starter_info: Optional[Dict] = None) -> Dict:
         """Decide how generated code should enter Markups placement mode."""
         owner = step.get("interaction_owner", "")
         starter_info = starter_info or {}
-        # A step that expects exactly one control point should use single place
-        # mode so Slicer auto-exits after the first click instead of letting the
-        # user keep adding points. Derived from the step's own text, so it stays
+        # A step that expects exactly one control point — or places a fixed-count
+        # markup (ROI/line/angle) — should use single place mode so Slicer
+        # auto-exits after the required clicks instead of letting the user keep
+        # adding points. Derived from the step's own text/node class, so it stays
         # general across extensions (never keyed on a specific step id).
-        wants_single_point = self._expected_interaction_point_count(step) == 1
+        wants_single_point = (
+            self._expected_interaction_point_count(step) == 1
+            or self._markup_uses_single_place_mode(step.get("node_class", ""))
+        )
         if owner in ("extension_method", "previous_extension_method"):
             if starter_info.get("starts_markup_placement"):
                 return {
@@ -521,7 +540,12 @@ class AnalyzerTemplateHelpersMixin:
             "if node is None:",
             f"    raise RuntimeError(\"No {node_class} found from previous placement step.\")",
             "",
+            "# A node made by a plain AddNewNodeByClass has no display node, so it",
+            "# is neither visible nor interactive — create one before placement.",
             "displayNode = node.GetDisplayNode()",
+            "if displayNode is None:",
+            "    node.CreateDefaultDisplayNodes()",
+            "    displayNode = node.GetDisplayNode()",
             "if displayNode is not None:",
             "    displayNode.SetVisibility(True)",
         ]

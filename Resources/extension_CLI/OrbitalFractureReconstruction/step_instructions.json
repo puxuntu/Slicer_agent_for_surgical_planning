@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "steps": {
+    "cb_step_1": {
+      "title": "Select the CT volume",
+      "simple": "Select the CT volume for processing.",
+      "detailed": "This is the input CT scan of the patient's face, used to visualize the bony anatomy and fracture. Choose the scan that best shows the orbital region. This scan will be used for all subsequent analysis and reconstruction steps.",
+      "edited": false
+    },
+    "cb_step_2": {
+      "title": "Create ROI node",
+      "simple": "Create an ROI node named 'Orbital_Region'.",
+      "detailed": "A region-of-interest (ROI) box allows you to limit processing to the orbital area, reducing computation and focusing the analysis. In the Markups module, click the ROI button and rename the new node to 'Orbital_Region'.",
+      "edited": false
+    },
+    "cb_step_3": {
+      "title": "Adjust ROI over the orbit",
+      "simple": "Adjust the ROI to cover the orbital region.",
+      "detailed": "Drag the ROI handles on the axial, coronal, and sagittal views to enclose the entire orbit on the affected side (and a margin around it). A correctly placed ROI ensures the volume cut and subsequent segmentation are accurate and efficient.",
+      "edited": false
+    },
+    "cb_step_4": {
+      "title": "Select the ROI",
+      "simple": "Select the ROI node from the list.",
+      "detailed": "This ROI will be used as the bounding box to crop the CT volume. Choose the ROI you just adjusted (named 'Orbital_Region') from the dropdown.",
+      "edited": false
+    },
+    "cb_step_5": {
+      "title": "Cut the volume with ROI",
+      "simple": "Click 'Cut the volume with ROI'.",
+      "detailed": "This crops the original CT volume to the region inside the ROI. The resulting smaller volume contains only the orbital area, making subsequent segmentation and reconstruction faster and more memory-efficient.",
+      "edited": false
+    },
+    "cb_step_6": {
+      "title": "Create bone segmentation",
+      "simple": "Create a new segmentation named 'Bone_Segmentation' for the cut volume.",
+      "detailed": "A segmentation will hold the bone mask that you will generate by thresholding. Switch to the Segment Editor module, create a new segmentation, and select the cut volume as the reference. Name it 'Bone_Segmentation' to keep your data organized.",
+      "edited": false
+    },
+    "cb_step_7": {
+      "title": "Add and rename segment",
+      "simple": "Add a segment and rename it 'Bone_Segment'.",
+      "detailed": "Within the segmentation, add a new segment that will contain the bone threshold result. Rename it 'Bone_Segment' so it is clearly identified in later steps.",
+      "edited": false
+    },
+    "cb_step_8": {
+      "title": "Open Threshold effect",
+      "simple": "Click 'Threshold'.",
+      "detailed": "The Threshold effect lets you select a Hounsfield unit range that corresponds to bone. This isolates the bony structures from soft tissue and air, creating a precise bone mask.",
+      "edited": false
+    },
+    "cb_step_9": {
+      "title": "Set threshold range",
+      "simple": "Adjust the threshold slider to select the bone range.",
+      "detailed": "Slide the lower and upper threshold values so the preview highlights the orbital bones (typically 200\u20131000+ HU). Adjust until the bone appears well-defined without including adjacent soft tissues. This defines the segment that will be used for the 3D model.",
+      "edited": false
+    },
+    "cb_step_10": {
+      "title": "Apply threshold",
+      "simple": "Click 'Apply'.",
+      "detailed": "This runs the threshold operation and creates the bone mask in the 'Bone_Segment' segment. Verify that the preview correctly covers the orbital bones before proceeding.",
+      "edited": false
+    },
+    "cb_step_11": {
+      "title": "Select bone segmentation",
+      "simple": "Select the bone segmentation node.",
+      "detailed": "Choose the segmentation that contains the bone mask ('Bone_Segmentation') from the dropdown. This tells the extension which segmentation to use for the full bone reconstruction.",
+      "edited": false
+    },
+    "cb_step_12": {
+      "title": "Reconstruct full bone",
+      "simple": "Click 'Reconstruct full bone'.",
+      "detailed": "This generates a 3D surface model from the bone segmentation. The resulting model shows the current bony anatomy of the orbital region and serves as the geometric basis for the fracture reconstruction.",
+      "edited": false
+    },
+    "cb_step_13": {
+      "title": "Select fractured side",
+      "simple": "Select the fractured side (left or right).",
+      "detailed": "Indicate which orbit is fractured by choosing 'Left' or 'Right'. This tells the software which side to segment and reconstruct, so it can focus the algorithms on the correct anatomy.",
+      "edited": false
+    },
+    "cb_step_14": {
+      "title": "Segment orbit",
+      "simple": "Click 'Segment orbit'.",
+      "detailed": "This automatically segments the orbital bone on the selected side, isolating the orbital cavity walls from the full bone model. The orbital segmentation is essential for identifying the fracture boundaries and planning the reconstruction.",
+      "edited": false
+    },
+    "cb_step_15": {
+      "title": "Reconstruct fractured orbit",
+      "simple": "Click 'Reconstruct fractured'.",
+      "detailed": "This runs the fracture reconstruction algorithm, which analyzes the fragmented orbital walls and estimates the original, pre-fracture orbital shape. The result is a reconstructed 3D model that guides implant sizing and placement for surgical repair.",
+      "edited": false
+    }
+  }
+}

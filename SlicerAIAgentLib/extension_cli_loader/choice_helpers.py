@@ -868,6 +868,25 @@ def _build_node_choice_materialization_code(
         f"{id_global} = _chosen_node.GetID()",
         f"print({log_prefix!r} + _chosen_node.GetName())",
     ]
+    # Cache the chosen node's id under every consumer's parameter name whose
+    # node_class matches. The unbound-choice writer names the cached-id global after
+    # THIS choice's param (often the widget name, e.g. `fullBoneSelector`), but a
+    # later extension_op template reads it under the consuming method's role param
+    # (e.g. `segmentationNode`). Emitting matching-class aliases makes writer and
+    # reader agree regardless of which naming convention the reader used. Generic:
+    # keyed only on node_class; CodeValidator-safe (only `.GetID()`).
+    _alias_seen = {param_name}
+    for _alias_roles in ((ctx.metadata or {}).get("node_roles", {}) or {}).values():
+        for _alias_role in (_alias_roles or []):
+            if not isinstance(_alias_role, dict):
+                continue
+            if str(_alias_role.get("node_class") or "").strip() != node_class:
+                continue
+            _alias = str(_alias_role.get("parameter_name") or "").strip()
+            if not _alias or not _alias.isidentifier() or _alias in _alias_seen:
+                continue
+            _alias_seen.add(_alias)
+            lines.append(f"_{ext_slug}_{_alias}_id = _chosen_node.GetID()")
     # Also mirror the pick into the extension's own LIVE selector widget, so a
     # later button-click step (which drives the widget handler) reads the chosen
     # node as its input — e.g. onLoadSkull reads segTree.currentItem(), which is

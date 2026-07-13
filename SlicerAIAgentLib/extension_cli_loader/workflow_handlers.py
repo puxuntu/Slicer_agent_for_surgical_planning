@@ -233,8 +233,11 @@ def _handle_interactive_start(ctx: _WorkflowContext) -> Dict:
     nc = interaction_desc.get("node_class", "")
     _NC_MAP = {
         "vtkMRMLMarkupsCurveNode": "curve",
+        "vtkMRMLMarkupsClosedCurveNode": "curve",
         "vtkMRMLMarkupsPlaneNode": "plane",
         "vtkMRMLMarkupsLineNode": "line",
+        "vtkMRMLMarkupsAngleNode": "angle",
+        "vtkMRMLMarkupsROINode": "roi",
         "vtkMRMLMarkupsFiducialNode": "fiducial",
     }
 
@@ -676,8 +679,11 @@ def _build_mixed_interaction_response(
     # Derive interaction_type from node_class for display
     _NC_MAP = {
         "vtkMRMLMarkupsCurveNode": "curve",
+        "vtkMRMLMarkupsClosedCurveNode": "curve",
         "vtkMRMLMarkupsPlaneNode": "plane",
         "vtkMRMLMarkupsLineNode": "line",
+        "vtkMRMLMarkupsAngleNode": "angle",
+        "vtkMRMLMarkupsROINode": "roi",
         "vtkMRMLMarkupsFiducialNode": "fiducial",
     }
     interaction_type = _NC_MAP.get(node_class, "generic")
