@@ -76,6 +76,10 @@ class SlicerAIAgentWidget(
         self._stepInstrTitle = None
         self._stepInstrSimple = None
         self._stepInstrDetailed = None
+        # Per-step button-label editor (fixed-default buttons only)
+        self._stepInstrButtonsContainer = None
+        self._stepInstrButtonsForm = None
+        self._stepInstrButtonFields = {}
         self._currentWorkflowUiState = {"active": False}
         self._taskWorkflowPanelActive = False
         self._announcedWorkflowIds = set()

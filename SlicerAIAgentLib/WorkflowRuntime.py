@@ -499,6 +499,11 @@ class WorkflowRuntime:
         # (shown by default), simple -> the terse "Show brief" body. The widget
         # picks which to show. Re-looked up live so manual edits show at once.
         instr = self._step_instructions_for(current_step)
+        # Per-step button-label overrides (edited in the "Step instructions"
+        # panel, stored in step_instructions.json under "buttons"). Purely
+        # user-authored presentational text; the generation pipeline neither
+        # writes nor reads them, so they survive regeneration untouched.
+        button_overrides = instr.get("buttons") if isinstance(instr.get("buttons"), dict) else {}
         if instr.get("title"):
             description = instr["title"]
         if instr.get("simple"):
@@ -574,8 +579,12 @@ class WorkflowRuntime:
             "scalar_source_widget": scalar_meta.get("source_widget", ""),
             "choice_label": ui_guidance.get("choice_label", ""),
             "input_label": ui_guidance.get("input_label", ""),
-            "done_label": ui_guidance.get("done_label", "Done") or "Done",
+            "done_label": button_overrides.get("primary") or ui_guidance.get("done_label", "Done") or "Done",
             "object_label": ui_guidance.get("object_label", ""),
+            # Per-step button-label overrides: the single "primary" advance button
+            # (Done / Confirm / Set) and per-choice labels keyed by choice value.
+            "primary_label": str(button_overrides.get("primary") or ""),
+            "choice_label_overrides": button_overrides.get("choices") if isinstance(button_overrides.get("choices"), dict) else {},
             "repeat_progress": repeat_progress,
             "needs_choice_input": result_type == "user_choice" and not choices,
             "can_done": self.session.status == "waiting_for_user",
@@ -1948,6 +1957,7 @@ class WorkflowRuntime:
         # Clinically-informed instructions override the recorded guidance (live
         # lookup so manual edits show in replay too).
         instr = self._step_instructions_for(cp.step_id)
+        button_overrides = instr.get("buttons") if isinstance(instr.get("buttons"), dict) else {}
         return {
             "active": True,
             "extension_name": self.session.extension_name,
@@ -1987,6 +1997,8 @@ class WorkflowRuntime:
             "scalar_source_widget": scalar_meta.get("source_widget", ""),
             "choice_label": guidance.get("choice_label", ""),
             "input_label": guidance.get("input_label", ""),
+            "primary_label": str(button_overrides.get("primary") or ""),
+            "choice_label_overrides": button_overrides.get("choices") if isinstance(button_overrides.get("choices"), dict) else {},
             "repeat_progress": cp.repeat or {},
             "can_done": False,
             "can_skip": False,

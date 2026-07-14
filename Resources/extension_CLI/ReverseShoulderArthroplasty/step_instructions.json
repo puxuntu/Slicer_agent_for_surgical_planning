@@ -101,7 +101,13 @@
       "title": "Adjust Prosthesis?",
       "simple": "If you need to adjust the position of the prosthesis, check the 'Adjust Prosthesis (3D transform handles)' box. Otherwise, click Done to continue.",
       "detailed": "You can fine-tune the prosthesis placement using interactive 3D handles. If the initial position looks good, skip to the next step.",
-      "edited": false
+      "edited": true,
+      "buttons": {
+        "choices": {
+          "True": "Yes",
+          "False": "No"
+        }
+      }
     },
     "cb_step_18": {
       "title": "Adjust View for Prosthesis",
@@ -125,7 +131,13 @@
       "title": "Adjust Screw?",
       "simple": "If you need to modify the screw paths, check the 'Adjust screw' box. Otherwise, click Done to finish.",
       "detailed": "You can adjust the endpoints of the planning paths to improve screw placement. If the plan is satisfactory, you are done.",
-      "edited": false
+      "edited": true,
+      "buttons": {
+        "choices": {
+          "True": "Yes",
+          "False": "No"
+        }
+      }
     },
     "cb_step_22": {
       "title": "Adjust View for Screw Paths",

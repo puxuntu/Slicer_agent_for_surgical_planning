@@ -123,6 +123,16 @@ class WidgetCLIMixin:
         self._stepInstrDetailed = qt.QTextEdit()
         self._stepInstrDetailed.setMaximumHeight(90)
         instrLayout.addWidget(self._stepInstrDetailed)
+        # Per-step button-label overrides (fixed-default buttons only: the
+        # Done/Confirm/Set advance button and literal choice options). Rebuilt
+        # per selected step; node/segment pickers use live scene names and get
+        # no field. Stored in step_instructions.json under the step's "buttons".
+        instrLayout.addWidget(qt.QLabel("Button labels (blank = default):"))
+        self._stepInstrButtonsContainer = qt.QWidget()
+        self._stepInstrButtonsForm = qt.QFormLayout(self._stepInstrButtonsContainer)
+        self._stepInstrButtonsForm.setContentsMargins(0, 0, 0, 0)
+        instrLayout.addWidget(self._stepInstrButtonsContainer)
+        self._stepInstrButtonFields = {}
         instrButtons = qt.QHBoxLayout()
         self._stepInstrSaveButton = qt.QPushButton("Save step")
         self._stepInstrSaveButton.setToolTip("Save this step's instructions (marks it as checked)")
@@ -590,6 +600,123 @@ class WidgetCLIMixin:
         self._stepInstrTitle.setText(str(entry.get("title", "")))
         self._stepInstrSimple.setPlainText(str(entry.get("simple", "")))
         self._stepInstrDetailed.setPlainText(str(entry.get("detailed", "")))
+        self._rebuildStepInstrButtonFields(step_id, entry)
+
+    def _workflowStepById(self, step_id):
+        """Return the selected extension's workflow.json step dict (read-only)."""
+        cli_dir = self._selectedExtCliDir()
+        if not cli_dir or not step_id:
+            return {}
+        try:
+            with open(os.path.join(cli_dir, "workflow.json"), "r", encoding="utf-8") as f:
+                for step in (json.load(f).get("steps", []) or []):
+                    if step.get("step_id") == step_id:
+                        return step
+        except Exception:
+            logger.debug("Failed to read workflow step for button editor", exc_info=True)
+        return {}
+
+    def _editorStepButtonSpec(self, step):
+        """Which fixed-default buttons a step shows, for the label editor.
+
+        Returns ``{"primary": <default or None>, "choices": [(value, label)...],
+        "note": <str>}``. Read-only heuristic over the workflow.json step. Only
+        the fixed-default buttons are editable: the single advance button
+        (Done / Confirm / Set) and literal choice options. Node/segment pickers
+        render live scene names and get no field (``note`` explains why).
+        """
+        step = step or {}
+        subops = step.get("sub_operations") or []
+        subop = subops[0] if subops and isinstance(subops[0], dict) else {}
+        op_type = (step.get("operation_type")
+                   or (step.get("operation_model", {}) or {}).get("step_type") or "")
+        ui_g = step.get("ui_guidance", {}) or {}
+        ci = step.get("choice_info", {}) or {}
+        literal = ci.get("choices") or subop.get("choices") or []
+        value_kind = str(subop.get("value_kind") or ci.get("value_kind") or "").lower()
+        interaction_kind = str(subop.get("interaction_kind") or "").lower()
+        is_interactive = (op_type in ("interactive", "mixed")
+                          or (interaction_kind and interaction_kind not in ("none", "")))
+        spec = {"primary": None, "choices": [], "note": ""}
+        if literal:
+            for ch in literal:
+                if not isinstance(ch, dict):
+                    continue
+                val = ch.get("value", ch.get("label"))
+                lbl = ch.get("label") or ch.get("value") or "Choice"
+                spec["choices"].append((str(val), str(lbl)))
+            if spec["choices"]:
+                return spec
+        if is_interactive:
+            spec["primary"] = ui_g.get("done_label") or "Done"
+            return spec
+        if op_type in ("user_choice", "branch"):
+            if value_kind == "node" or value_kind.startswith("segment"):
+                spec["note"] = ("This step selects a live scene item — its button "
+                                "text is the node/segment name and can't be preset.")
+            elif value_kind in ("range", "scalar"):
+                spec["primary"] = "Confirm"
+            else:
+                spec["primary"] = "Set"
+            return spec
+        spec["note"] = "This step runs automatically — it has no button."
+        return spec
+
+    def _rebuildStepInstrButtonFields(self, step_id, entry):
+        """Rebuild the per-step button-label edit fields for the selected step."""
+        form = getattr(self, "_stepInstrButtonsForm", None)
+        if form is None:
+            return
+        while form.count():
+            item = form.takeAt(0)
+            widget = item.widget() if item else None
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+        self._stepInstrButtonFields = {}
+        spec = self._editorStepButtonSpec(self._workflowStepById(step_id))
+        saved = entry.get("buttons", {}) if isinstance(entry.get("buttons"), dict) else {}
+        saved_choices = saved.get("choices", {}) if isinstance(saved.get("choices"), dict) else {}
+        added = False
+        if spec.get("primary"):
+            edit = qt.QLineEdit()
+            edit.setText(str(saved.get("primary", "")))
+            edit.setPlaceholderText(f"default: {spec['primary']}")
+            form.addRow("Advance button:", edit)
+            self._stepInstrButtonFields["primary"] = edit
+            added = True
+        for value, default_label in spec.get("choices", []):
+            edit = qt.QLineEdit()
+            edit.setText(str(saved_choices.get(value, "")))
+            edit.setPlaceholderText(f"default: {default_label}")
+            form.addRow(f"Option '{default_label[:24]}':", edit)
+            self._stepInstrButtonFields[f"choice:{value}"] = edit
+            added = True
+        if not added:
+            note = qt.QLabel(spec.get("note") or "This step has no editable button.")
+            note.setWordWrap(True)
+            note.setStyleSheet("color: gray; font-style: italic;")
+            form.addRow(note)
+
+    def _collectStepInstrButtonOverrides(self):
+        """Gather the current button-label fields into a ``buttons`` dict (or {})."""
+        buttons = {}
+        fields = getattr(self, "_stepInstrButtonFields", {}) or {}
+        primary_edit = fields.get("primary")
+        if primary_edit is not None:
+            val = primary_edit.text.strip()
+            if val:
+                buttons["primary"] = val
+        choice_overrides = {}
+        for key, edit in fields.items():
+            if not key.startswith("choice:"):
+                continue
+            val = edit.text.strip()
+            if val:
+                choice_overrides[key[len("choice:"):]] = val
+        if choice_overrides:
+            buttons["choices"] = choice_overrides
+        return buttons
 
     def _onSaveStepInstructions(self):
         """Write the edited step back to step_instructions.json (edited=true)."""
@@ -613,12 +740,16 @@ class WidgetCLIMixin:
                     doc = json.load(f) or doc
             except Exception:
                 pass
-        doc.setdefault("steps", {})[step_id] = {
+        new_entry = {
             "title": self._stepInstrTitle.text.strip(),
             "simple": self._stepInstrSimple.toPlainText().strip(),
             "detailed": self._stepInstrDetailed.toPlainText().strip(),
             "edited": True,
         }
+        buttons = self._collectStepInstrButtonOverrides()
+        if buttons:
+            new_entry["buttons"] = buttons
+        doc.setdefault("steps", {})[step_id] = new_entry
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(doc, f, indent=2)
@@ -668,6 +799,16 @@ class WidgetCLIMixin:
                 result = analyzer.generate_step_instructions(
                     wf, md, {"module_name": ext_name}, {}, cookbook_def=None, existing=existing,
                 )
+                # Preserve per-step button-label overrides: they are user-authored
+                # UI text the generation pipeline does not manage, so carry them
+                # over from the pre-regen file instead of dropping them.
+                ex_steps = (existing or {}).get("steps", {}) or {}
+                for sid, sdata in (result.get("steps", {}) or {}).items():
+                    if not isinstance(sdata, dict):
+                        continue
+                    btns = (ex_steps.get(sid, {}) or {}).get("buttons")
+                    if btns:
+                        sdata["buttons"] = btns
                 with open(ipath, "w", encoding="utf-8") as f:
                     json.dump(result, f, indent=2)
                 invalidate_cache()

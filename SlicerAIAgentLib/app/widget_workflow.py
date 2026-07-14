@@ -350,6 +350,20 @@ class WidgetWorkflowMixin:
             str(widget_class or "").strip(), ""
         )
 
+    @staticmethod
+    def _workflowPrimaryLabel(state, default):
+        """Per-step override for a step's primary advance button (Done/Confirm/Set).
+
+        Returns the user-authored label from the "Step instructions" panel
+        (``state['primary_label']``, sourced from step_instructions.json) when
+        non-empty, else the built-in default. Purely presentational.
+        """
+        try:
+            override = str((state or {}).get("primary_label") or "").strip()
+        except Exception:
+            override = ""
+        return override or default
+
     def _renderWorkflowChoices(self, state):
         """Render choice buttons for generated CLI user_choice steps."""
         if getattr(self, "_workflowChoiceInput", None) is not None:
@@ -510,7 +524,7 @@ class WidgetWorkflowMixin:
                 self._workflowChoiceInput.setText(str(default_value))
             self._workflowChoiceInput.returnPressed.connect(self._onWorkflowChoiceInputSubmitted)
 
-            self._workflowChoiceSubmitButton = qt.QPushButton("Set")
+            self._workflowChoiceSubmitButton = qt.QPushButton(self._workflowPrimaryLabel(state, "Set"))
             self._workflowChoiceSubmitButton.setToolTip("Use this value")
             self._workflowChoiceSubmitButton.clicked.connect(self._onWorkflowChoiceInputSubmitted)
 
@@ -522,9 +536,13 @@ class WidgetWorkflowMixin:
         if not choices:
             return
 
+        choice_overrides = state.get("choice_label_overrides") or {}
         for choice in choices:
-            label = str(choice.get("label") or choice.get("value") or "Choice")
-            value = choice.get("value", label)
+            base_label = str(choice.get("label") or choice.get("value") or "Choice")
+            value = choice.get("value", base_label)
+            # Per-step label override (edited in the "Step instructions" panel),
+            # keyed by the choice value; falls back to the recorded label.
+            label = str(choice_overrides.get(str(value)) or base_label)
             # Cap the visible label so a long choice (e.g. a long node name) can't
             # make a wide button that forces the whole module panel wider; the
             # full text stays available in the tooltip.
@@ -1345,8 +1363,9 @@ class WidgetWorkflowMixin:
         # (the Threshold effect drives its own slider the same way).
         rangeWidget.setMinimumValue(cur_min)
         rangeWidget.setMaximumValue(cur_max)
-        # A clear ACTION label, never the value noun (choice_label).
-        button = qt.QPushButton("Confirm")
+        # A clear ACTION label, never the value noun (choice_label). A per-step
+        # override (Step instructions panel) can rename it.
+        button = qt.QPushButton(self._workflowPrimaryLabel(state, "Confirm"))
         button.setToolTip("Use this range and continue")
         button.clicked.connect(self._onWorkflowRangeSelected)
         vbox.addWidget(rangeWidget)
@@ -1497,8 +1516,8 @@ class WidgetWorkflowMixin:
         sliderWidget.value = cur
         # A clear ACTION label ("Confirm"), never the value noun (choice_label is
         # e.g. "Radius", which reads as a mislabelled button); the number itself is
-        # shown in the slider's spinbox.
-        button = qt.QPushButton("Confirm")
+        # shown in the slider's spinbox. A per-step override can rename it.
+        button = qt.QPushButton(self._workflowPrimaryLabel(state, "Confirm"))
         button.setToolTip("Use this value and continue")
         button.clicked.connect(self._onWorkflowScalarSelected)
         vbox.addWidget(sliderWidget)
