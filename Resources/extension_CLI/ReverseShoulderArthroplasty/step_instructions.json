@@ -2,141 +2,141 @@
   "version": 1,
   "steps": {
     "cb_step_1": {
-      "title": "Select CT volume for processing",
-      "simple": "Choose the CT scan of the shoulder from the volume list.",
-      "detailed": "This CT will be used to analyze bone density and geometry for optimal screw placement. A good-quality scan ensures accurate segmentation and prosthesis planning. Select the appropriate CT volume from the dropdown.",
+      "title": "Select CT Volume",
+      "simple": "Select the CT scan of the shoulder to use for bone density analysis.",
+      "detailed": "This scan will be used to assess bone density and create a 3D model of the bone. Choose the appropriate CT volume from the dropdown list in the module's first section.",
       "edited": false
     },
     "cb_step_2": {
-      "title": "Create bone segmentation",
+      "title": "Create Bone Segmentation",
       "simple": "Switch to the Segment Editor module and create a new segmentation named 'Bone_Segmentation'.",
-      "detailed": "This segmentation will isolate the bone from surrounding tissues, enabling accurate measurement and prosthetic planning. In the Segment Editor, click 'Add' to create a new segmentation and name it 'Bone_Segmentation'.",
+      "detailed": "Segmentation isolates the bone from surrounding tissues, which is necessary for accurate 3D reconstruction and screw path planning. Use the Segment Editor to create this segmentation.",
       "edited": false
     },
     "cb_step_3": {
-      "title": "Add bone segment",
-      "simple": "Click the 'Add' button to create a new segment and rename it 'Bone_Segment'.",
-      "detailed": "This segment will represent the bone region used for density optimization and 3D reconstruction. The segment name helps organize your work. Click 'Add', then rename the new segment to 'Bone_Segment'.",
+      "title": "Add Bone Segment",
+      "simple": "Click the 'Add' button in the Segment Editor and rename the new segment to 'Bone_Segment'.",
+      "detailed": "This segment will hold the bone density threshold segmentation. Naming it clearly helps keep the scene organized.",
       "edited": false
     },
     "cb_step_4": {
-      "title": "Open threshold tool",
+      "title": "Open Threshold",
       "simple": "Click the 'Threshold' button in the Segment Editor toolbar.",
-      "detailed": "Thresholding converts CT Hounsfield units into a binary mask of bone tissue. Adjusting the range will determine which pixels are included as bone. Click 'Threshold' to open the thresholding options.",
+      "detailed": "Thresholding selects pixels within a certain density range, making it possible to isolate bone from soft tissue. This opens the threshold effect panel.",
       "edited": false
     },
     "cb_step_5": {
-      "title": "Set bone density threshold",
-      "simple": "Adjust the threshold slider so that bone is highlighted and other tissues are excluded.",
-      "detailed": "The threshold range separates bone from soft tissue based on density. Accurate thresholding ensures the reconstruction represents the true bone anatomy. Set the lower and upper bounds to match cortical and trabecular bone values typical for your patient.",
+      "title": "Set Threshold Range",
+      "simple": "Adjust the threshold slider to select the bone density range appropriate for your CT scan.",
+      "detailed": "Bone has a characteristic density (in Hounsfield units) that differs from soft tissue. Set the lower and upper limits to capture the bone while excluding air and muscle. The segmentation preview will update in real time.",
       "edited": false
     },
     "cb_step_6": {
-      "title": "Apply threshold",
-      "simple": "Click the 'Apply' button to create the bone mask.",
-      "detailed": "This applies the threshold to the current segment, creating a binary mask of bone. Review the result in the slice views before proceeding.",
+      "title": "Apply Threshold",
+      "simple": "Click the 'Apply' button to run the threshold segmentation.",
+      "detailed": "This creates a binary mask of the bone based on your selected density range. You will see the bone highlighted in the segmentation overlay.",
       "edited": false
     },
     "cb_step_7": {
-      "title": "Open island removal tool",
+      "title": "Open Islands Effect",
       "simple": "Click the 'Islands' button in the Segment Editor.",
-      "detailed": "The islands tool helps clean the segmentation by removing disconnected fragments that are not part of the main bone structure. This improves the quality of the 3D model.",
+      "detailed": "The threshold may include small disconnected regions (islands) from noise. The Islands effect allows you to remove these and keep only the main bone structure.",
       "edited": false
     },
     "cb_step_8": {
-      "title": "Keep largest bone island",
-      "simple": "Choose the 'Keep largest island' option from the dropdown.",
-      "detailed": "This retains only the largest connected bone region, typically the glenoid and scapula, while discarding smaller artifacts or separate bone fragments. This ensures the reconstruction is focused on the relevant anatomy.",
+      "title": "Keep Largest Island",
+      "simple": "Select the 'Keep largest island' option.",
+      "detailed": "This will discard all smaller disconnected regions, leaving only the main bone (e.g., the scapula and humeral head). This cleans up the segmentation.",
       "edited": false
     },
     "cb_step_9": {
-      "title": "Apply island filter",
-      "simple": "Click the 'Apply' button to keep only the largest island.",
-      "detailed": "This finalizes the cleaned bone segmentation, removing any extraneous islands. Your bone mask should now accurately represent the glenoid and surrounding bone.",
+      "title": "Apply Islands",
+      "simple": "Click the 'Apply' button to finalize the island removal.",
+      "detailed": "The segmentation now contains only the largest connected bone region, which will be used for 3D reconstruction.",
       "edited": false
     },
     "cb_step_10": {
-      "title": "Select bone segment",
-      "simple": "Choose the 'Bone_Segment' node from the segment list.",
-      "detailed": "This identifies the segment that will be used for 3D reconstruction and screw planning. Selecting the correct segment ensures the subsequent steps use the right anatomy.",
+      "title": "Select Bone Segment",
+      "simple": "Select the bone segment you just created from the scene.",
+      "detailed": "This identifies the segment to be used for 3D reconstruction. Choose 'Bone_Segment' from the list.",
       "edited": false
     },
     "cb_step_11": {
-      "title": "Generate 3D bone model",
-      "simple": "Click the '3D Reconstruction' button to create a 3D surface model of the bone.",
-      "detailed": "This converts the binary segmentation into a 3D surface that can be visualized and manipulated for planning. The model provides a realistic view of the glenoid anatomy for screw trajectory planning.",
+      "title": "3D Reconstruction",
+      "simple": "Click the '3D Reconstruction' button to generate a 3D model from the bone segmentation.",
+      "detailed": "This creates a surface model of the bone that will be used for planning the prosthesis placement and screw trajectories.",
       "edited": false
     },
     "cb_step_12": {
-      "title": "Adjust 3D view angle",
-      "simple": "Rotate and zoom the 3D view to get a clear view of the glenoid cavity surface.",
-      "detailed": "A good view of the glenoid is essential for accurately placing the prosthesis center point. Adjust the view so you can see the articular surface clearly.",
+      "title": "Adjust View for Fiducial Placement",
+      "simple": "Rotate and zoom the 3D view to get a clear angle of the glenoid cavity surface.",
+      "detailed": "A good view of the glenoid (the socket of the shoulder) is essential for accurately placing the prosthesis center point. Position the camera so the glenoid surface is clearly visible and easy to click when you reach the placement step.",
       "edited": false
     },
     "cb_step_13": {
-      "title": "Create fiducial point",
-      "simple": "Switch to the Markups module and create a new point list named 'Prosthesis_center_point'.",
-      "detailed": "This point will mark the planned center of the glenoid prosthesis on the bone surface. It serves as the reference for prosthesis alignment. Create a new MarkupsFiducial node and name it accordingly.",
+      "title": "Create Prosthesis Center Point",
+      "simple": "Switch to the Markups module, click 'Point List', and create a new fiducial node named 'Prosthesis_center_point'.",
+      "detailed": "This point marks the center of the glenoid where the prosthesis will be positioned. Creating it now prepares the fiducial for precise placement in the next step.",
       "edited": false
     },
     "cb_step_14": {
-      "title": "Place prosthesis center",
-      "simple": "Click on the glenoid cavity surface in the 3D view to place the fiducial point at the desired prosthesis center.",
-      "detailed": "Place the point exactly at the center of the glenoid articular surface. This defines the position of the prosthetic component and influences screw angulation. Confirm the placement by reviewing in multiple slice views.",
+      "title": "Place Prosthesis Center Point",
+      "simple": "Click on the glenoid cavity surface to place a single fiducial point.",
+      "detailed": "Place the point exactly at the intended center of the glenoid cavity \u2014 this will be used to align the prosthesis. Ensure it is positioned accurately before clicking Done.",
       "edited": false
     },
     "cb_step_15": {
-      "title": "Select prosthesis center fiducial",
-      "simple": "Choose the 'Prosthesis_center_point' fiducial from the list.",
-      "detailed": "This identifies the point you just placed as the input for prosthesis implantation. Selection ensures the extension uses the correct anatomical landmark.",
+      "title": "Select Planning Point",
+      "simple": "Select the MarkupsFiducial node you just created ('Prosthesis_center_point').",
+      "detailed": "This tells the module which point to use as the prosthesis center. Choose it from the dropdown list in the 'Planning point' section.",
       "edited": false
     },
     "cb_step_16": {
-      "title": "Run prosthesis implantation",
-      "simple": "Click the 'Prosthesis implantation' button to generate the initial prosthesis plan.",
-      "detailed": "The extension uses the bone model and center point to optimally size and position a glenoid prosthesis, including screw trajectories. This is the core planning step.",
+      "title": "Prosthesis Implantation",
+      "simple": "Click the 'Prosthesis implantation' button to generate the prosthesis based on the center point.",
+      "detailed": "The module will create a 3D model of the prosthesis and position it at the marked glenoid center. This is a key step in planning the surgery.",
       "edited": false
     },
     "cb_step_17": {
-      "title": "Decide if prosthesis adjustment needed",
-      "simple": "If you are satisfied with the prosthesis position, choose 'No, proceed to next step'. Otherwise, check 'Adjust prosthesis'.",
-      "detailed": "The automatic placement may need fine-tuning. Selecting adjustment will activate transform handles to modify the prosthesis position. If it looks correct, you can skip to the Plan step.",
+      "title": "Adjust Prosthesis?",
+      "simple": "If you need to adjust the position of the prosthesis, check the 'Adjust Prosthesis (3D transform handles)' box. Otherwise, click Done to continue.",
+      "detailed": "You can fine-tune the prosthesis placement using interactive 3D handles. If the initial position looks good, skip to the next step.",
       "edited": false
     },
     "cb_step_18": {
-      "title": "Fine-tune prosthesis position",
-      "simple": "Drag the 3D transform handles to reposition the prosthesis as needed.",
-      "detailed": "Use the handles to translate or rotate the prosthesis for better alignment with the glenoid anatomy. This ensures optimal fit and screw placement.",
+      "title": "Adjust View for Prosthesis",
+      "simple": "Rotate and zoom the 3D view to inspect the prosthesis placement from all angles.",
+      "detailed": "Check that the prosthesis is correctly aligned with the glenoid surface and the planned screw paths. A thorough visual inspection helps ensure good fit.",
       "edited": false
     },
     "cb_step_19": {
-      "title": "Update prosthesis position",
-      "simple": "Click the 'Update Prosthesis' button to apply your manual adjustments.",
-      "detailed": "This confirms the new position and recalculates screw trajectories based on the adjusted prosthesis location.",
+      "title": "Update Prosthesis",
+      "simple": "Click the 'Update Prosthesis' button to apply any changes after manual adjustment.",
+      "detailed": "This recalculates the prosthesis position based on your modifications. The model will update in the 3D view.",
       "edited": false
     },
     "cb_step_20": {
-      "title": "Generate final screw plan",
-      "simple": "Click the 'Plan' button to generate the screw trajectories.",
-      "detailed": "The extension computes optimal screw paths based on the prosthesis position and bone density data. This produces the final surgical plan.",
+      "title": "Generate Screw Plan",
+      "simple": "Click the 'Plan' button to generate the screw plan.",
+      "detailed": "This calculates optimal screw trajectories for securing the prosthesis to the bone. The plan will be shown as lines in the 3D view.",
       "edited": false
     },
     "cb_step_21": {
-      "title": "Decide if screw adjustment needed",
-      "simple": "If the screw paths look correct, choose 'No, stop'. Otherwise, check 'Adjust screw' to modify endpoints.",
-      "detailed": "The automatic screw planning may require fine-tuning of entry points or trajectories. If adjustment is needed, you can drag screw path endpoints. If satisfied, the plan is complete.",
+      "title": "Adjust Screw?",
+      "simple": "If you need to modify the screw paths, check the 'Adjust screw' box. Otherwise, click Done to finish.",
+      "detailed": "You can adjust the endpoints of the planning paths to improve screw placement. If the plan is satisfactory, you are done.",
       "edited": false
     },
     "cb_step_22": {
-      "title": "Fine-tune screw paths",
-      "simple": "Drag the endpoints of each screw path to adjust the entry point and trajectory.",
-      "detailed": "Modify the screw start and end points to avoid critical structures and achieve optimal bone purchase. Verify in the 3D view and axial slices.",
+      "title": "Adjust View for Screw Paths",
+      "simple": "Rotate and zoom the 3D view to clearly see the screw planning paths.",
+      "detailed": "A clear view of the screw trajectories is needed to evaluate their positions relative to the bone and prosthesis. Use the view controls to inspect from multiple angles.",
       "edited": false
     },
     "cb_step_23": {
-      "title": "Update screw plan",
-      "simple": "Click the 'Update screw' button to save your adjustments.",
-      "detailed": "This finalizes the screw trajectories. The plan is now ready for surgical reference.",
+      "title": "Update Screw",
+      "simple": "Click the 'Update screw' button to finalize any screw path adjustments.",
+      "detailed": "This applies your changes and updates the screw plan. The final screw trajectories are now ready for surgical reference.",
       "edited": false
     }
   }

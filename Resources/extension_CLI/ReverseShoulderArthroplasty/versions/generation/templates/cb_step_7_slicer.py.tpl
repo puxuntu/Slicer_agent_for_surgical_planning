@@ -40,5 +40,5 @@ if _ses_seg is not None:
     if _ses_target:
         _ses_editor_node.SetSelectedSegmentID(_ses_target)
         _ses_widget.setCurrentSegmentID(_ses_target)
-_ses_widget.setActiveEffectByName("Threshold")
+_ses_widget.setActiveEffectByName("Islands")
 # --- [end Segment Editor session] ---

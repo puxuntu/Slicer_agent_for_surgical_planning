@@ -159,6 +159,12 @@ class AnalyzerStepInstructionsMixin:
             Rules: do not mention code, methods, or node names. Do not tell the user
             to type "done" (the UI has a Done button). For repeated placement steps,
             describe exactly one item per Done click.
+            IMPORTANT: if a step's "interaction_kind" is "view_adjustment" (it only
+            reorients the camera / 3D view and its "node_class" is null/empty), the
+            "simple" and "detailed" text must describe ONLY adjusting the view
+            (rotate/zoom/pan to a clear vantage) — do NOT tell the user to click,
+            place, mark, or draw a point/markup. Creating and placing markups happens
+            in separate, later steps; conflating them here misleads the user.
 
             Return ONLY JSON:
             {{

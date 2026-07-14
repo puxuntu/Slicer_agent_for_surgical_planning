@@ -12,12 +12,12 @@ and wait for them to complete the interaction before proceeding.
 
 **Workflow Steps:**
 1. `cb_step_1` [user_choice] — In the "1. CT volume - bone density for optimization" section, select the CT volume for processing.
-   - Ask user: Select the CT volume for bone density optimization.
+   - Ask user: Select the CT volume for processing.
 2. `cb_step_2` [slicer_op] — In the "Segment Editor" module, create a new segmentation named "Bone_Segmentation".
 3. `cb_step_3` [slicer_op] — In the "Segment Editor" module, click the "Add" button and rename the segment to "Bone_Segment".
 4. `cb_step_4` [slicer_op] — In the "Segment Editor" module, click the "Threshold" button.
 5. `cb_step_5` [user_choice] — In the "Segment Editor" module, adjust the threshold slider to set the segmentation range.
-   - Ask user: Adjust the threshold slider to set the segmentation range.
+   - Ask user: Set the threshold range for segmentation.
 6. `cb_step_6` [slicer_op] — In the "Segment Editor" module, click the "Apply" button.
 7. `cb_step_7` [slicer_op] — In the "Segment Editor" module, click the "Islands" button.
 8. `cb_step_8` [slicer_op] — In the "Segment Editor" module, select the "Keep largest island" option.
@@ -30,19 +30,20 @@ and wait for them to complete the interaction before proceeding.
 13. `cb_step_13` [slicer_op] — In the "Markups" module, click "Point List" to create an empty MarkupsFiducial node named "Prosthesis_center_point".
 14. `cb_step_14` [user_interaction] — Manually click on the glenoid cavity surface to select a point for the "Prosthesis_center_point".
    - Interaction: fiducial
+   - Tell user: Click on the glenoid cavity surface in the 3D view to place the point.
 15. `cb_step_15` [user_choice] — In the "Planning point" section, select the MarkupsFiducial node.
-   - Ask user: Select the planning point fiducial node.
+   - Ask user: Select the MarkupsFiducial node.
 16. `cb_step_16` [extension_op] — Click the "Prosthesis implantation" button.
 17. `cb_step_17` [branch_op] — If further adjustments are required, check the "Adjust Prosthesis (3D transform handles)" box. If not, proceed to Step 20.
-   - Ask user: Check the 'Adjust Prosthesis (3D transform handles)' box if further adjustments are required.
+   - Ask user: Do you need to adjust the prosthesis?
 18. `cb_step_18` [user_interaction] — Manually adjust the 3D transform handles.
    - Interaction: generic
 19. `cb_step_19` [extension_op] — Click the "Update Prosthesis" button.
 20. `cb_step_20` [extension_op] — Click the "Plan" button.
 21. `cb_step_21` [branch_op] — If further adjustments are required, check the "Adjust screw" box. If not, stop here.
-   - Ask user: Check the 'Adjust screw' box if further adjustments are required.
+   - Ask user: Do you need to adjust the screw?
 22. `cb_step_22` [user_interaction] — Manually adjust the endpoints of the planning paths.
-   - Interaction: generic
+   - Interaction: line
 23. `cb_step_23` [extension_op] — Click the "Update screw" button.
 
 **Protocol:**

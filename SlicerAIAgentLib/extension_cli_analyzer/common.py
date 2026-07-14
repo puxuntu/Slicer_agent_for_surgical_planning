@@ -49,8 +49,10 @@ _JS_COMMENT_RE = _re.compile(r'(?<=[,\[\]{}:\s])\s*//[^\n]*')
 # authoritative signal that a step requires user interaction.
 _NODE_CLASS_TO_INTERACTION_TYPE = {
     "vtkMRMLMarkupsCurveNode": "curve",
+    "vtkMRMLMarkupsClosedCurveNode": "closed_curve",
     "vtkMRMLMarkupsPlaneNode": "plane",
     "vtkMRMLMarkupsLineNode": "line",
+    "vtkMRMLMarkupsAngleNode": "angle",
     "vtkMRMLMarkupsFiducialNode": "fiducial",
     "vtkMRMLMarkupsROINode": "roi",
 }

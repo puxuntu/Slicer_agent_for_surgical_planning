@@ -1,0 +1,62 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "ReverseShoulderArthroplasty",
+      "description": "Guided interactive workflow for ReverseShoulderArthroplasty. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"1. CT volume - bone density for optimization\" section, select the CT volume for processing.; 'cb_step_2': In the \"Segment Editor\" module, create a new segmentation named \"Bone_Segmentation\".; 'cb_step_3': In the \"Segment Editor\" module, click the \"Add\" button and rename the segment to \"Bone_Segment\".; 'cb_step_4': In the \"Segment Editor\" module, click the \"Threshold\" button.; 'cb_step_5': In the \"Segment Editor\" module, adjust the threshold slider to set the segmentation range.; 'cb_step_6': In the \"Segment Editor\" module, click the \"Apply\" button.; 'cb_step_7': In the \"Segment Editor\" module, click the \"Islands\" button.; 'cb_step_8': In the \"Segment Editor\" module, select the \"Keep largest island\" option.; 'cb_step_9': In the \"Segment Editor\" module, click the \"Apply\" button.; 'cb_step_10': In the \"Bone segmentation\" section, select the segment node.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workflow_step": {
+            "type": "string",
+            "enum": [
+              "cb_step_1",
+              "cb_step_2",
+              "cb_step_3",
+              "cb_step_4",
+              "cb_step_5",
+              "cb_step_6",
+              "cb_step_7",
+              "cb_step_8",
+              "cb_step_9",
+              "cb_step_10",
+              "cb_step_11",
+              "cb_step_12",
+              "cb_step_13",
+              "cb_step_14",
+              "cb_step_15",
+              "cb_step_16",
+              "cb_step_17",
+              "cb_step_18",
+              "cb_step_19",
+              "cb_step_20",
+              "cb_step_21",
+              "cb_step_22",
+              "cb_step_23"
+            ],
+            "description": "Which workflow step to execute"
+          },
+          "user_action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "proceed",
+              "skip",
+              "cancel",
+              "choice_made"
+            ],
+            "description": "Action: 'start' to begin a step, 'proceed' after user completes interaction, 'skip' for optional steps, 'cancel' to abort workflow, 'choice_made' for user_choice steps"
+          },
+          "choice_value": {
+            "type": "string",
+            "description": "Value selected by the user for user_choice steps. Required when user_action is 'choice_made'."
+          }
+        },
+        "required": [
+          "workflow_step",
+          "user_action"
+        ]
+      }
+    }
+  }
+]

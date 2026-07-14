@@ -330,6 +330,11 @@ class AnalyzerWorkflowContractsMixin:
             Focus on what the user should do now, not implementation details.
             For repeated placement steps, describe exactly one item per Done click.
             Do not tell the user to type done. The UI has a Done button.
+            If a step's "interaction_kind" is "view_adjustment" (it only reorients
+            the camera / 3D view, "node_class" null), the title and instruction must
+            describe ONLY adjusting the view (rotate/zoom to a clear angle) — never
+            tell the user to click/place/draw a point or markup; that happens in a
+            separate step.
 
             Return ONLY JSON:
             {{

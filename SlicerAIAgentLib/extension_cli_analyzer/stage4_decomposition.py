@@ -361,6 +361,228 @@ class AnalyzerStage4DecompositionMixin:
         ("point", "vtkMRMLMarkupsFiducialNode"),
     )
 
+    # ── Interaction classification: placement vs. view/camera adjustment ──────
+    # A user_interaction step is a Markups PLACEMENT only when it contains an
+    # ACTIVE, non-deferred gesture to click/draw/create a markup in THIS step.
+    # A step that merely manipulates the camera/3D view, or adjusts geometry
+    # that already exists, creates NO scene node and must stay a view_adjustment.
+    #
+    # Naive keyword matching conflated the two by reading markup keywords out of
+    # clauses that describe something OTHER than this step's gesture:
+    #   • purpose/deferred clauses — "adjust the 3D view *to get the best angle
+    #     for placing the fiducial point*" (the fiducial is placed in a LATER
+    #     step); "...*before you begin drawing the resection curve*".
+    #   • negated clauses — "...*without placing any markup yet*".
+    #   • references to pre-existing geometry — "drag the *already-placed* plane",
+    #     "the *previously created* symmetry plane".
+    #   • the common word "angle" in its camera sense — "best/viewing angle".
+    # This turned pure "position the 3D view" steps into markups the user was
+    # forced to draw. The classifier below keys off ACTIVE-clause gestures only
+    # and is fully extension-neutral.
+
+    # Clause connectors after which the right-hand text is a consequence / goal /
+    # future action, never THIS step's gesture — everything to their right is
+    # dropped before looking for a placement gesture.
+    _DEFERRING_CONNECTORS = (
+        " before ", " after ", " so that ", " so you ", " so we ", " so as ",
+        " so the ", " because ", " until ", " giving ", " ready for ",
+        " ready to ", " in order ", " in preparation ", " in advance ",
+        " that will ", " which will ", " to prepare ",
+    )
+    # Purpose/goal/future/negation phrases; an active clause containing one is a
+    # description of intent or a later step, not this step's gesture.
+    _DEFERRAL_MARKERS = (
+        "will ", "would ", "going to ", "about to ", "eventually", "afterward",
+        "later step", "next step", "following step", "in a later", "subsequently",
+        "for placing", "for positioning", "for creating", "for drawing",
+        "for marking", "for defining", "without ", "do not ", "don't ",
+        "not yet", "markup yet",
+    )
+    # Active-form gestures that CREATE/PLACE a markup now. Regex, imperative /
+    # present forms only — past participles ("drawn", "created", "defined",
+    # "placed") denote existing geometry and are intentionally NOT matched.
+    _STRONG_PLACEMENT_GESTURES = (
+        r"\bclick", r"\btap\b", r"\bpick\b", r"\bplac(e|es|ing)\b",
+        r"\bdraw(s|ing)?\b", r"\btrac(e|es|ing)\b", r"\bcreat(e|es|ing)\b",
+        r"\bdefin(e|es|ing)\b", r"\boutlin(e|es|ing)\b", r"\blay(s|ing)? down\b",
+        r"\bdrop(s|ping)?\b", r"\bmark out\b", r"\bput(s|ting)? down\b",
+    )
+    # Weak cues that imply a NEW measurement markup only in the absence of any
+    # camera / existing-geometry context (e.g. "measure the angle between …").
+    _MEASURE_GESTURES = (r"\bmeasure", r"\bquantif", r"\bsize the\b")
+    # Strong camera/view verbs — appear in view manipulations, essentially never
+    # in markup placements. Matched anywhere in the description.
+    _CAMERA_VERBS = (
+        r"\brotat", r"\bzoom", r"\bpan\b", r"\borbit(s|ing)?\b", r"\bdolly",
+        r"\btilt", r"\bspin\b", r"\btumble", r"\breorient", r"\borient\b",
+        r"\bscroll", r"\breset the", r"\bframe the",
+        r"\blook (down|straight|at|along)",
+        # Article-optional so LLM rephrasings without "the" still match
+        # ("adjust 3D view", "position 3-D view").
+        r"\bposition (the )?(3d |3-d )?(view|camera|scene)",
+        r"\breposition (the )?(3d |3-d )?(view|camera)",
+        r"\badjust (the )?(3d |3-d )?(view|camera)", r"\bmove the camera",
+        r"\bfit .*in (the )?view", r"\bcenter the view", r"\bre-?center",
+    )
+    # "angle" phrases denoting a VIEWING orientation, never a measurement. Note:
+    # no bare "right angle" (a 90-degree geometry term).
+    _VIEW_ANGLE_PHRASES = (
+        "viewing angle", "view angle", "best angle", "good angle",
+        "better angle", "optimal angle", "ideal angle", "clear angle",
+        "camera angle", "wide angle", "at an angle", "proper angle",
+        "correct angle", "nice angle", "different angle", "any angle",
+    )
+    # Phrases naming geometry that ALREADY EXISTS — acting on it is an adjustment.
+    _EXISTING_GEOMETRY_MARKERS = (
+        "already placed", "already-placed", "previously placed", "existing",
+        "already created", "already-created", "previously created",
+        "already drawn", "previously drawn", "already defined",
+        "previously defined", "that you placed", "that you drew", "you drew",
+        "the placed", "re-measure",
+    )
+
+    @staticmethod
+    def _text_has_markup_token(text: str, token: str) -> bool:
+        """Word-boundary markup-keyword match with camera-sense disambiguation.
+
+        Avoids substring false positives (``line`` in "outline", ``point`` in
+        "endpoint") and, for ``angle``, rejects camera-orientation phrasing
+        ("best/viewing angle") that is not a vtkMRMLMarkupsAngleNode.
+        """
+        low = _text_or_empty(text).lower()
+        if not _re.search(r"\b" + _re.escape(token) + r"\b", low):
+            return False
+        if token == "angle" and any(
+            phrase in low for phrase in AnalyzerStage4DecompositionMixin._VIEW_ANGLE_PHRASES
+        ):
+            return False
+        return True
+
+    def _active_segments(self, description: str) -> List[str]:
+        """Split the description into ACTIVE clauses — the parts that describe
+        this step's own gesture, with purpose/consequence/future tails removed.
+
+        Coordinate connectors (comma, "then", "and", "but", "while") keep BOTH
+        sides (each is a current action — so "orbit … then trace a curve" keeps
+        the trace). Within each coordinate clause, everything from the first
+        deferring connector (before/after/so/until/giving/…) OR the first purpose
+        infinitive (" to <verb>", e.g. "adjust the view *to place* the point")
+        onward is dropped as intent, not gesture. A clause carrying a deferral/
+        negation/future marker is discarded entirely. What survives is only what
+        the user does NOW — so a camera action whose fiducial appears only in a
+        "to place …" purpose tail is not mistaken for a placement."""
+        low = " " + _text_or_empty(description).lower().strip() + " "
+        segments = []
+        for part in _re.split(r"[,;]| then | and then | and | but | while ", low):
+            part = " " + part.strip() + " "
+            cut = len(part)
+            for conn in self._DEFERRING_CONNECTORS:
+                idx = part.find(conn)
+                if 0 <= idx < cut:
+                    cut = idx
+            # First purpose infinitive " to <word>" (kept after the coordinate
+            # split so a real second action — "then trace …" — survives on its
+            # own clause). Guards "into"/"onto"/"custom" via the \bto\s+ anchor.
+            m = _re.search(r"\bto\s+\w", part)
+            if m and m.start() < cut:
+                cut = m.start()
+            head = part[:cut].strip()
+            if not head:
+                continue
+            if any(marker in head for marker in self._DEFERRAL_MARKERS):
+                continue
+            # Word-boundary "later" (a deferred action) without colliding with
+            # "lateral".
+            if _re.search(r"\blater\b", head):
+                continue
+            segments.append(head)
+        return segments
+
+    def _has_active_placement(self, description: str, markup_class: str) -> bool:
+        """True when an ACTIVE clause contains a create/click/draw/place gesture
+        AND a Markups node is identifiable (from the recovered class or a markup
+        noun in that clause). This is the sole trigger for a placement upgrade."""
+        for seg in self._active_segments(description):
+            if not any(_re.search(g, seg) for g in self._STRONG_PLACEMENT_GESTURES):
+                continue
+            if markup_class or any(
+                self._text_has_markup_token(seg, tok) for tok, _ in self._MARKUP_TEXT_CLASS_MAP
+            ) or "markup" in seg or "control point" in seg:
+                return True
+        return False
+
+    def _has_measure_placement(self, description: str) -> bool:
+        """True when an active clause asks to MEASURE/quantify — implies a new
+        measurement markup, but only trusted when no camera/existing context."""
+        for seg in self._active_segments(description):
+            if any(_re.search(g, seg) for g in self._MEASURE_GESTURES):
+                return True
+        return False
+
+    def _has_camera_context(self, description: str) -> bool:
+        """True when a strong camera/view verb appears anywhere in the step."""
+        low = _text_or_empty(description).lower()
+        return any(_re.search(v, low) for v in self._CAMERA_VERBS)
+
+    def _has_existing_geometry(self, description: str) -> bool:
+        low = _text_or_empty(description).lower()
+        return any(m in low for m in self._EXISTING_GEOMETRY_MARKERS)
+
+    def _classify_user_interaction(
+        self, description: str, markup_class: str, prior_create: bool
+    ) -> Optional[str]:
+        """Classify a user_interaction step as 'markup_placement', 'view_adjustment',
+        or None (leave whatever upstream decided). Priority:
+          1. Existing geometry + no fresh placement gesture → view_adjustment.
+          2. An active placement gesture on a markup → markup_placement.
+          3. Camera/view manipulation with no placement → view_adjustment.
+          4. A prior step created the markup empty → markup_placement (reuse).
+          5. A measurement gesture with no camera/existing context → markup_placement.
+          6. Otherwise leave as-is.
+        """
+        active_placement = self._has_active_placement(description, markup_class)
+        existing = self._has_existing_geometry(description)
+        camera = self._has_camera_context(description)
+        if existing and not active_placement:
+            return "view_adjustment"
+        if active_placement and markup_class:
+            return "markup_placement"
+        if camera and not active_placement:
+            return "view_adjustment"
+        if markup_class and prior_create:
+            return "markup_placement"
+        if (
+            markup_class
+            and not camera
+            and not existing
+            and self._has_measure_placement(description)
+        ):
+            return "markup_placement"
+        return None
+
+    def _force_view_adjustment(self, sub_op: Dict[str, Any]) -> None:
+        """Coerce a user_interaction sub-op into a pure camera/view adjustment
+        that creates no scene node, and drop any Markups interaction-output role
+        a mis-recovery attached so downstream contract/validation passes do not
+        re-introduce a placement node.
+        """
+        sub_op["interaction_kind"] = "view_adjustment"
+        sub_op["node_class"] = None
+        sub_op["creates_node"] = False
+        sub_op["requires_place_mode"] = False
+        if not _text_or_empty(sub_op.get("interaction_type")):
+            sub_op["interaction_type"] = "generic"
+        roles = sub_op.get("node_roles")
+        if isinstance(roles, list):
+            sub_op["node_roles"] = [
+                r for r in roles
+                if not (
+                    isinstance(r, dict)
+                    and r.get("role_kind") in ("interaction_output", "extension_output")
+                    and self._is_markup_node_class(_text_or_empty(r.get("node_class")))
+                )
+            ]
+
     def _recover_markup_node_class(self, sub_op: Dict[str, Any], description: str) -> str:
         """Recover a Markups node class for a user_interaction step.
 
@@ -378,28 +600,9 @@ class AnalyzerStage4DecompositionMixin:
                 return keyword
         text = _text_or_empty(description).lower()
         for token, cls in self._MARKUP_TEXT_CLASS_MAP:
-            if token in text:
+            if self._text_has_markup_token(text, token):
                 return cls
         return ""
-
-    @staticmethod
-    def _text_places_markup(description: str) -> bool:
-        """True when the step text asks the user to CREATE/DRAW/PLACE a markup
-        by interacting with a view, as opposed to purely adjusting existing
-        geometry (drag slice-intersection handles, rotate an already-placed
-        plane). A create/draw/place verb wins even when 'adjust' co-occurs
-        (e.g. 'click and adjust on the views to create the ROI')."""
-        text = _text_or_empty(description).lower()
-        placement_verbs = (
-            "create", "draw", "place", "define", "outline", "mark out",
-        )
-        if any(verb in text for verb in placement_verbs):
-            return True
-        adjust_only = any(
-            word in text for word in ("drag", "adjust", "rotate", "translate", "resize", "move")
-        )
-        # No placement verb and only adjust-verbs -> genuine view adjustment.
-        return not adjust_only
 
     @staticmethod
     def _prior_stage_creates_markup(prior_stages: List[Dict[str, Any]], markup_class: str) -> bool:
@@ -435,6 +638,7 @@ class AnalyzerStage4DecompositionMixin:
         self,
         sub_op: Dict[str, Any],
         prior_stages: List[Dict[str, Any]],
+        cookbook_description: str = "",
     ) -> None:
         """Generic reconciliation for user_interaction steps.
 
@@ -444,35 +648,55 @@ class AnalyzerStage4DecompositionMixin:
         reads as adjusting existing geometry. That routes generation to an inert
         print-only template and the user never enters Slicer place mode.
 
-        This pass reconstructs the true contract from the step's own evidence:
-        if a Markups node is identifiable AND the step either creates/draws/
-        places it or a co-located earlier step created it empty, the step is a
-        markup_placement. creates_node is decided structurally (reuse the
-        upstream node vs. create-and-place in one step), never trusting the
-        LLM's create/adjust guess. Steps with no identifiable Markups node, or
-        that only adjust existing geometry, are left untouched.
+        This pass reconstructs the true contract from the step's own evidence
+        via _classify_user_interaction, which upgrades to markup_placement ONLY
+        when an active (non-deferred, non-negated) clause actually places a
+        markup, or a co-located earlier step created it empty. A pure camera/
+        view manipulation or an adjust-existing-geometry step is forced back to a
+        node-less view_adjustment, so markup-keyword bleed from purpose clauses
+        ("...to get the best angle for placing the point later") or the common
+        word "angle" can never turn it into a placement. Genuinely ambiguous
+        steps are left untouched (upstream/LLM decision stands).
+
+        The cookbook author's own step text (``cookbook_description``) is the
+        ground-truth intent and is classified FIRST — the LLM's ``semantic_intent``
+        paraphrase (``sub_op["description"]``) can distort a view adjustment into
+        placement-sounding wording (cookbook "adjust the 3D view … for placing the
+        fiducial" → paraphrase "adjust 3D view … to place fiducial"), so the
+        paraphrase is only a fallback when the cookbook text is absent/ambiguous.
         """
         if sub_op.get("op_type") != "user_interaction":
             return
         description = sub_op.get("description") or ""
-        markup_class = self._recover_markup_node_class(sub_op, description)
-        if not markup_class:
-            return  # non-markup interaction (view adjustment / handle drag) — leave as-is
-        prior_create = self._prior_stage_creates_markup(prior_stages, markup_class)
-        if not prior_create and not self._text_places_markup(description):
-            return  # adjusting an already-placed markup — genuine view_adjustment
-        sub_op["interaction_kind"] = "markup_placement"
-        sub_op["node_class"] = markup_class
-        sub_op["interaction_type"] = (
-            _text_or_empty(sub_op.get("interaction_type"))
-            or _derive_interaction_type(markup_class)
+        cookbook_description = _text_or_empty(cookbook_description)
+        markup_class = self._recover_markup_node_class(
+            sub_op, cookbook_description or description
         )
-        # Reuse the upstream node (do not duplicate) when an earlier step made it;
-        # otherwise this single step both creates and places the markup.
-        sub_op["creates_node"] = not prior_create
-        sub_op["requires_place_mode"] = True
-        if not _text_or_empty(sub_op.get("placement_instructions")):
-            sub_op["placement_instructions"] = description
+        prior_create = self._prior_stage_creates_markup(prior_stages, markup_class)
+        verdict = None
+        if cookbook_description:
+            verdict = self._classify_user_interaction(
+                cookbook_description, markup_class, prior_create
+            )
+        if verdict is None:
+            verdict = self._classify_user_interaction(description, markup_class, prior_create)
+        if verdict == "view_adjustment":
+            self._force_view_adjustment(sub_op)
+            return
+        if verdict == "markup_placement" and markup_class:
+            sub_op["interaction_kind"] = "markup_placement"
+            sub_op["node_class"] = markup_class
+            sub_op["interaction_type"] = (
+                _text_or_empty(sub_op.get("interaction_type"))
+                or _derive_interaction_type(markup_class)
+            )
+            # Reuse the upstream node (do not duplicate) when an earlier step made
+            # it; otherwise this single step both creates and places the markup.
+            sub_op["creates_node"] = not prior_create
+            sub_op["requires_place_mode"] = True
+            if not _text_or_empty(sub_op.get("placement_instructions")):
+                sub_op["placement_instructions"] = description
+        # verdict None -> leave whatever upstream/the LLM decided untouched.
 
     def _infer_slicer_op_category(self, text: str, evidence: Optional[Dict[str, Any]] = None) -> Optional[str]:
         desc = _text_or_empty(text).lower()
@@ -847,7 +1071,13 @@ class AnalyzerStage4DecompositionMixin:
           views to create the ROI"). Use "view_adjustment" ONLY for interactions on
           geometry that already exists and needs no placement — dragging slice
           intersection handles, rotating an already-placed plane, toggling
-          visibility.
+          visibility. ALSO use "view_adjustment" (node_class null) for a step
+          whose action is manipulating the CAMERA / 3D view — rotate, zoom, pan,
+          or "position the 3D view to get a good viewing angle". Such a step
+          creates NO node. Do not be misled by the word "angle" here (a *viewing*
+          angle is not a vtkMRMLMarkupsAngleNode) or by a purpose clause naming a
+          later placement ("...to get the best angle FOR PLACING the fiducial
+          point" — the fiducial is placed in a separate, later step, not this one).
         - node_class: for a markup_placement step this MUST be the concrete Markups
           class the user is placing — never null. Map the object being placed:
           curve->vtkMRMLMarkupsCurveNode, closed curve->vtkMRMLMarkupsClosedCurveNode,
@@ -1394,8 +1624,10 @@ class AnalyzerStage4DecompositionMixin:
             # (incl. ROI box drawing) into a real markup_placement contract even
             # when the LLM labeled it view_adjustment with a null node_class.
             # `stages` holds the already-built prior steps, so a co-located
-            # earlier create is detected and the step reuses that node.
-            self._reconcile_markup_interaction(sub_op, stages)
+            # earlier create is detected and the step reuses that node. The raw
+            # cookbook text is passed as the ground-truth intent so an LLM
+            # paraphrase can't distort a view adjustment into a placement.
+            self._reconcile_markup_interaction(sub_op, stages, cb_step.description)
             method_name = semantic.get("extension_method_hint")
             method_details = [all_methods[method_name]] if method_name else []
             stages.append({
@@ -1829,54 +2061,35 @@ class AnalyzerStage4DecompositionMixin:
         evidence: Dict[str, Any],
     ) -> None:
         interaction = (evidence.get("interaction_candidates") or [{}])[0]
-        text = _text_or_empty(description).lower()
-        node_class = interaction.get("node_class", "")
-        interaction_type = interaction.get("interaction_type", "")
-        adjusts_existing = (
-            any(word in text for word in ("drag", "adjust", "rotate", "translate"))
-            and not any(word in text for word in ("add", "create", "draw", "place"))
+        # Recover the markup class (evidence-provided, or from the step text via
+        # word-boundary + camera-sense matching so "best angle"/"endpoint" don't
+        # spuriously match angle/point).
+        node_class = _text_or_empty(interaction.get("node_class", ""))
+        if not self._is_markup_node_class(node_class):
+            node_class = self._recover_markup_node_class(sub_op, description)
+        # Classify from active-clause gestures. This is the heuristic (non-LLM)
+        # path, so a None verdict is resolved locally: a recoverable markup with
+        # no camera/existing context leans placement, otherwise view_adjustment.
+        verdict = self._classify_user_interaction(description, node_class, prior_create=False)
+        if verdict is None:
+            verdict = "markup_placement" if node_class else "view_adjustment"
+        if verdict != "markup_placement":
+            self._force_view_adjustment(sub_op)
+            sub_op.setdefault("setup_dependencies", [])
+            sub_op["placement_instructions"] = description
+            sub_op["evidence_type"] = "viewport_action"
+            sub_op["evidence_id"] = "view_adjustment"
+            return
+        interaction_type = (
+            _text_or_empty(interaction.get("interaction_type"))
+            or _derive_interaction_type(node_class)
         )
-        if adjusts_existing:
-            interaction = {}
-            node_class = ""
-            interaction_type = "generic"
-        if not node_class and not adjusts_existing:
-            if "curve" in text:
-                node_class, interaction_type = "vtkMRMLMarkupsCurveNode", "curve"
-            elif "plane" in text:
-                node_class, interaction_type = "vtkMRMLMarkupsPlaneNode", "plane"
-            elif "line" in text:
-                node_class, interaction_type = "vtkMRMLMarkupsLineNode", "line"
-            elif "angle" in text:
-                node_class, interaction_type = "vtkMRMLMarkupsAngleNode", "angle"
-            elif "roi" in text or "region of interest" in text or "bounding box" in text or "box" in text:
-                node_class, interaction_type = "vtkMRMLMarkupsROINode", "roi"
-            elif "point" in text or "fiducial" in text:
-                node_class, interaction_type = "vtkMRMLMarkupsFiducialNode", "fiducial"
-            # Revision B: previously this else-block defaulted
-            # `node_class = "vtkMRMLCrosshairNode"` for any drag/adjust/
-            # rotate/translate action without an explicit markup keyword.
-            # That conflated view_adjustment with crosshair and broke the
-            # generate dispatch for non-crosshair viewport adjustments.
-            # node_class now stays empty for view_adjustment fallbacks.
-        interaction_kind = (
-            interaction.get("interaction_kind")
-            or ("view_adjustment" if adjusts_existing else "markup_placement")
-        )
-        sub_op["interaction_kind"] = interaction_kind
-        sub_op["interaction_type"] = interaction_type or _derive_interaction_type(node_class)
-        sub_op["node_class"] = node_class
-        # Revision B: populate the new descriptor fields so the heuristic
-        # path matches the LLM semantic path's contract.
         is_markup = self._is_markup_node_class(node_class)
-        sub_op["creates_node"] = bool(
-            interaction_kind == "markup_placement" and is_markup and not adjusts_existing
-        )
-        sub_op["requires_place_mode"] = bool(
-            interaction_kind == "markup_placement"
-            and is_markup
-            and not adjusts_existing
-        )
+        sub_op["interaction_kind"] = "markup_placement"
+        sub_op["interaction_type"] = interaction_type
+        sub_op["node_class"] = node_class
+        sub_op["creates_node"] = bool(is_markup)
+        sub_op["requires_place_mode"] = bool(is_markup)
         sub_op.setdefault("setup_dependencies", [])
         sub_op["placement_instructions"] = description
         sub_op["evidence_type"] = "viewport_action"
@@ -2264,6 +2477,17 @@ class AnalyzerStage4DecompositionMixin:
                             step_evidence, so.get("node_class", "")
                         )
                     )
+                    # Camera/view manipulation and adjust-existing steps create
+                    # no node: force view_adjustment so an evidence-inferred
+                    # markup_placement (from a viewing "angle" or a downstream
+                    # "...place a point" clause) can't leave a spurious node.
+                    _so_desc = so.get("description", "")
+                    if self._classify_user_interaction(
+                        _so_desc,
+                        self._recover_markup_node_class(so, _so_desc),
+                        prior_create=False,
+                    ) == "view_adjustment":
+                        self._force_view_adjustment(so)
                     # Revision B: previously this block forcibly injected
                     # `node_class = "vtkMRMLCrosshairNode"` whenever a
                     # view_adjustment step had empty node_class. That hack

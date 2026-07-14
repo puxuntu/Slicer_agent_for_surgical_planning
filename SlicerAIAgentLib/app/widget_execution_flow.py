@@ -533,6 +533,67 @@ class WidgetExecutionFlowMixin:
                 return "\n".join(lines[i:])
         return code
 
+    # ------------------------------------------------------------------
+    # Structural detector for a printed-but-not-raised failure in captured
+    # execution output. This replaces a bare substring test
+    # (``'error' in output`` etc.) that false-positived on benign metric text
+    # such as "Screw 1 alignment error: 0.0000 mm" or "0 errors" — which used
+    # to drag a fully-successful run into an endless self-correction loop.
+    #
+    # Every signal is structural/typographic, NOT a domain word blacklist, and
+    # capitalization is used as a discriminator on purpose: Python exception
+    # classes are CamelCase and log levels are uppercase, so lowercasing (what
+    # the old net did) is exactly what made "alignment error:" collide with
+    # "ValueError:". Feed these the ORIGINAL-CASE, VTK-stripped output.
+    # ------------------------------------------------------------------
+
+    # A Python traceback header, plus the two chained-exception connector lines.
+    _PRINTED_TRACEBACK_RE = re.compile(
+        r'^\s*(?:Traceback \(most recent call last\):'
+        r'|During handling of the above exception,'
+        r'|The above exception was the direct cause)',
+        re.MULTILINE,
+    )
+    # An exception repr anchored at line start: a (possibly dotted) identifier
+    # whose final component ends in ``Error``/``Exception``, immediately followed
+    # by a colon — e.g. "ValueError:", "slicer.util.MRMLNodeNotFoundException:".
+    # "Screw 1 alignment error:" cannot anchor here: the identifier must run
+    # unbroken from the line start, and the spaces before "error" break it.
+    _PRINTED_EXCEPTION_LINE_RE = re.compile(
+        r'^\s*[A-Za-z_][\w.]*(?:Error|Exception):', re.MULTILINE,
+    )
+    # Explicit failure sigils: cross/ballot glyphs (❌ ✗ ✘, given as codepoint
+    # escapes so source encoding is irrelevant), and bracketed or
+    # colon-terminated UPPERCASE log levels (uppercase distinguishes a log level
+    # from the lowercase noun in "reprojection error: 0.3").
+    _PRINTED_FAILURE_SIGIL_RE = re.compile(
+        r'[❌✗✘]'  # cross/ballot marks: ❌ ✗ ✘
+        r'|\[(?:ERROR|FATAL|CRITICAL)\]'
+        r'|(?:^|\s)(?:ERROR|FATAL|CRITICAL):',
+        re.MULTILINE,
+    )
+
+    @classmethod
+    def _outputIndicatesFailure(cls, output):
+        """True iff captured stdout/stderr shows a printed-but-not-raised failure.
+
+        Secondary net only — genuinely raised exceptions already surface as
+        ``result['success'] == False`` and are handled on that branch. Pass the
+        ORIGINAL-CASE, VTK-stripped output. Fail-open (returns False on any
+        internal error) so a detector bug can never fabricate a failure and
+        re-arm self-correction on a successful run.
+        """
+        if not output:
+            return False
+        try:
+            return bool(
+                cls._PRINTED_TRACEBACK_RE.search(output)
+                or cls._PRINTED_EXCEPTION_LINE_RE.search(output)
+                or cls._PRINTED_FAILURE_SIGIL_RE.search(output)
+            )
+        except Exception:
+            return False
+
     def _autoExecuteCodeConfirmed(self, attempt=1, max_attempts=5):
         """Run already-validated code after optional confirmation has passed."""
         import time
@@ -600,15 +661,19 @@ class WidgetExecutionFlowMixin:
                 if not runtime_managed:
                     self.appendToChat("System", msg)
                 feedback_lines.append(f"Status: success\nExecution time: {execution_time:.2f}s\nOutput: {output}")
-                # Detect actual errors (excluding VTK warnings which are often benign)
-                lower_output = output.lower()
-                # Strip VTK output lines — they frequently contain words like "error"
-                # in benign messages (e.g., "Decimation completed without errors")
+                # Detect a printed-but-not-raised failure. A genuinely raised
+                # exception already surfaces as success=False (handled below);
+                # this is only a SECONDARY net. Strip VTK output lines first
+                # (they carry "error" in benign messages) but KEEP original case,
+                # then use the structural detector — a bare substring match on
+                # "error"/"failed" false-positives on benign metric text like
+                # "Screw 1 alignment error: 0.0000 mm", which used to drag a
+                # successful run into an endless self-correction loop.
                 non_vtk_output = "\n".join(
                     line for line in output.split("\n")
                     if not line.strip().startswith("[VTK")
-                ).lower()
-                if any(k in non_vtk_output for k in ('traceback', 'exception', 'failed', 'error')):
+                )
+                if self._outputIndicatesFailure(non_vtk_output):
                     output_has_errors = True
                     feedback_lines.append("Warning: execution output contains error indicators even though no uncaught exception was raised.")
                 self._lastExecutionResult = dict(result)
@@ -820,7 +885,20 @@ class WidgetExecutionFlowMixin:
                     and self._workflowOrchestrator.is_workflow_active()
                 )
             )
-            if not result.get("timed_out", False) and (not result["success"] or (output_has_errors and not workflow_active)):
+            # ``runtime_managed`` was snapshotted at callback entry, BEFORE the
+            # workflow-completed branch above ran _clearCompletedWorkflowState().
+            # On the FINAL workflow step, handle_execution_result flips the
+            # session to "completed" (so workflow_active is already False here),
+            # yet the step is still a workflow-managed one that merely succeeded.
+            # Without this term, a benign "…error…" line in the final step's own
+            # output would satisfy ``output_has_errors and not workflow_active``
+            # and drive a spurious self-correction loop after the workflow is
+            # done. A genuine failure still corrects: result["success"] is False
+            # then, which short-circuits the OR regardless of runtime_managed.
+            if not result.get("timed_out", False) and (
+                not result["success"]
+                or (output_has_errors and not workflow_active and not runtime_managed)
+            ):
                 if attempt < max_attempts:
                     self.appendToChat("System", "Auto-correcting...")
                     error_for_correction = result.get('error', '')
