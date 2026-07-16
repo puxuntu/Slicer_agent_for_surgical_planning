@@ -421,6 +421,16 @@ def _handle_user_choice_step(ctx: _WorkflowContext) -> Dict:
     choices = choice_desc.get("choices", [])
     param_name = choice_desc.get("parameter_name", "")
     default = choice_desc.get("default_value")
+    # A branch_op is a Yes/No decision (accept -> run body, decline -> jump/stop),
+    # and a boolean-default choice is likewise Yes/No. If the pipeline left the
+    # choices empty, present two BUTTONS instead of a free-text True/False box.
+    # Yes -> True (accept) / No -> False (decline); the branch polarity reader
+    # (_branch_choice_accepts / WorkflowRuntime._loop_should_exit) normalizes
+    # True/Yes and False/No identically, so the mapping is consistent. Generic.
+    if not choices:
+        op_type = (ctx.target_step or {}).get("operation_type") or (ctx.target_step or {}).get("op_type")
+        if op_type == "branch_op" or isinstance(default, bool):
+            choices = [{"label": "Yes", "value": True}, {"label": "No", "value": False}]
 
     if ctx.user_action == "choice_made":
         choice_value = ctx.arguments.get("choice_value", default or "")

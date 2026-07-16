@@ -639,6 +639,7 @@ class WidgetWorkflowMixin:
 
     def _onWorkflowCancelClicked(self):
         self._closeFloatingWorkflowControl()
+        self._clearThresholdPreview()
         current_step = self._currentWorkflowUiState.get("current_step")
         self.sendButton.setEnabled(False)
         self._runWorkflowStepDirect(current_step, "cancel")
@@ -1384,12 +1385,12 @@ class WidgetWorkflowMixin:
         return True
 
     def _onWorkflowRangePreview(self, _value=None):
-        """Drive the live Segment Editor effect range so its preview (green glow)
-        tracks the slider as the user drags. Prefers driving the effect's own
-        range widget (its handler then applies the values); falls back to setting
-        the effect's Minimum/MaximumThreshold parameters. Visual only; the
-        committed value is sent by the Set button. Silent no-op if no live effect
-        (runs in the agent process, not the sandbox)."""
+        """Show a live threshold mask as the user drags the range slider. The
+        Segment Editor Threshold effect's own preview is unusable here (it crashes
+        every timer tick when the module isn't entered), so this DEACTIVATES the
+        effect and thresholds the source volume straight into the target segment
+        (debounced). Visual only; the committed value is sent by the Set button.
+        Silent no-op outside a Segment Editor session (runs in the agent process)."""
         state = getattr(self, "_currentWorkflowUiState", None) or {}
         if state.get("replay_previewing"):
             return
@@ -1400,21 +1401,234 @@ class WidgetWorkflowMixin:
             v_min, v_max = float(panel.minimumValue), float(panel.maximumValue)
         except Exception:
             return
-        live = self._activeEffectRangeWidget()
-        if live is not None and live is not panel:
+        # Prefer the NATIVE Segment Editor Threshold preview — a GPU, per-visible-
+        # slice pipeline that is as fast as the module's own bar. Its ONLY crash
+        # (GetCustomSegmentRendererTag arg2) is a NULL selected segment, so bind a
+        # valid target segment + source + slice background first. Driving the effect
+        # parameters then updates the preview instantly (no CPU whole-volume pass).
+        if self._ensureThresholdEffectReady():
+            eff = self._activeSegmentEditorEffect()
+            if eff is not None:
+                try:
+                    eff.setParameter("MinimumThreshold", v_min)
+                    eff.setParameter("MaximumThreshold", v_max)
+                    return
+                except Exception:
+                    pass
+        # Fallback (effect can't be made ready): a throttled direct labelmap preview.
+        try:
+            editor = slicer.modules.segmenteditor.widgetRepresentation().self().editor
+            if editor.activeEffect() is not None:
+                editor.setActiveEffectByName("")
+        except Exception:
+            pass
+        self._pendingPreviewRange = (v_min, v_max)
+        timer = getattr(self, "_workflowRangePreviewTimer", None)
+        if timer is None:
+            timer = qt.QTimer()
+            timer.setSingleShot(True)
+            timer.timeout.connect(self._onLivePreviewTick)
+            self._workflowRangePreviewTimer = timer
+        if not timer.isActive():
+            self._applyLivePreviewThreshold()
+            timer.start(60)
+
+    def _ensureThresholdEffectReady(self):
+        """Bind the Segment Editor Threshold effect so its NATIVE preview renders
+        from the agent module: shared editor + session segmentation + source volume
+        + a VALID selected segment (a null id is the effect's only preview-crash
+        cause) + the source volume in the slice background + the segment visible.
+        Returns True only when it is safe + ready to drive the native preview."""
+        try:
+            editor = slicer.modules.segmenteditor.widgetRepresentation().self().editor
+            editor.setMRMLScene(slicer.mrmlScene)
+            en = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode")
+            if en is None:
+                en = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
+            editor.setMRMLSegmentEditorNode(en)
+            seg = self._sessionSegmentationNode()
+            if seg is None:
+                return False
+            editor.setSegmentationNode(seg)
+            vol = self._activeSourceVolume()
+            if vol is None or vol.GetImageData() is None:
+                return False
+            editor.setSourceVolumeNode(vol)
+            g = seg.GetSegmentation()
+            sid = en.GetSelectedSegmentID()
+            if not sid or g.GetSegment(sid) is None:
+                sid = seg.GetAttribute("SlicerAIAgent.SegmentEditorTargetSegmentID")
+                if not sid or g.GetSegment(sid) is None:
+                    sid = g.GetNthSegmentID(0) if g.GetNumberOfSegments() else ""
+            if not sid:
+                return False  # no segment -> native preview would crash
+            en.SetSelectedSegmentID(sid)
             try:
-                live.setMinimumValue(v_min)
-                live.setMaximumValue(v_max)
+                editor.setCurrentSegmentID(sid)
+            except Exception:
+                pass
+            disp = slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast(seg.GetDisplayNode())
+            if disp is not None:
+                disp.SetVisibility(True)
+                disp.SetSegmentVisibility(sid, True)
+            try:
+                slicer.util.setSliceViewerLayers(background=vol)
+            except Exception:
+                pass
+            editor.setActiveEffectByName("Threshold")
+            return editor.activeEffect() is not None
+        except Exception:
+            return False
+
+    def _onLivePreviewTick(self):
+        """Throttle tick: if the slider moved during the rate-limit window, apply the
+        latest range and keep the throttle running until it settles (trailing edge)."""
+        if getattr(self, "_pendingPreviewRange", None) != getattr(self, "_lastPreviewRange", None):
+            self._applyLivePreviewThreshold()
+            try:
+                self._workflowRangePreviewTimer.start(60)
+            except Exception:
+                pass
+
+    def _applyLivePreviewThreshold(self):
+        """FAST live threshold preview. Threshold the source volume between the
+        slider's [min, max] into a REUSED labelmap volume shown as the slice label
+        layer, via ``updateVolumeFromArray`` (a deep-copy memcpy). This replaces the
+        earlier per-tick ``updateSegmentBinaryLabelmapFromArray`` — a full segment
+        import that re-contoured the whole segmentation every tick and made dragging
+        lag. The chosen value is written into the ACTUAL segment ONCE, on the Set
+        button (_onWorkflowRangeSelected -> _commitThresholdToSegment)."""
+        rng = getattr(self, "_pendingPreviewRange", None)
+        if not rng:
+            return
+        v_min, v_max = rng
+        self._lastPreviewRange = rng  # throttle bookkeeping (see _onLivePreviewTick)
+        try:
+            import numpy as np
+            # The effect's own preview crashes without the module entered — keep it off.
+            vol = None
+            try:
+                editor = slicer.modules.segmenteditor.widgetRepresentation().self().editor
+                if editor.activeEffect() is not None:
+                    editor.setActiveEffectByName("")
+                vol = editor.sourceVolumeNode()
+            except Exception:
+                vol = None
+            if vol is None or vol.GetImageData() is None:
+                vol = self._activeSourceVolume()
+            # Only preview inside a Segment Editor threshold context.
+            if vol is None or vol.GetImageData() is None or self._sessionSegmentationNode() is None:
                 return
-            except Exception:
-                pass
-        effect = self._activeSegmentEditorEffect()
-        if effect is not None:
+            arr = slicer.util.arrayFromVolume(vol)
+            mask = ((arr >= v_min) & (arr <= v_max)).astype("uint8")
+            lm = self._ensureThresholdPreviewLabelmap(vol)
+            if lm is None:
+                return
+            slicer.util.updateVolumeFromArray(lm, mask)  # fast memcpy; auto-refreshes the label layer
+            if not getattr(self, "_thresholdPreviewShown", False):
+                try:
+                    slicer.util.setSliceViewerLayers(label=lm, labelOpacity=0.5)
+                except Exception:
+                    pass
+                self._thresholdPreviewShown = True
+        except Exception:
+            logger.debug("Live threshold preview failed", exc_info=True)
+
+    def _ensureThresholdPreviewLabelmap(self, vol):
+        """Reuse (create once) a temporary labelmap volume matching ``vol``'s
+        geometry for the fast threshold preview. None on failure."""
+        lm = getattr(self, "_thresholdPreviewLabelmap", None)
+        try:
+            if lm is not None and slicer.mrmlScene.IsNodePresent(lm):
+                return lm
+        except Exception:
+            pass
+        try:
+            lm = slicer.modules.volumes.logic().CreateAndAddLabelVolume(vol, "AIAgentThresholdPreview")
+        except Exception:
+            lm = None
+        self._thresholdPreviewLabelmap = lm
+        self._thresholdPreviewShown = False
+        return lm
+
+    def _clearThresholdPreview(self):
+        """Drop the fast-preview label layer + its temporary labelmap volume."""
+        try:
+            slicer.util.setSliceViewerLayers(label=None)
+        except Exception:
+            pass
+        self._thresholdPreviewShown = False
+        lm = getattr(self, "_thresholdPreviewLabelmap", None)
+        if lm is not None:
             try:
-                effect.setParameter("MinimumThreshold", v_min)
-                effect.setParameter("MaximumThreshold", v_max)
+                slicer.mrmlScene.RemoveNode(lm)
             except Exception:
                 pass
+        self._thresholdPreviewLabelmap = None
+
+    def _commitThresholdToSegment(self, rng):
+        """On Set: write the chosen threshold ONCE into the tracked target segment,
+        so the mask is really in the segment for the Islands step (robust to a flaky
+        effect onApply). One write — not per drag tick, so cost is irrelevant here."""
+        if not rng:
+            return
+        v_min, v_max = rng
+        try:
+            import numpy as np
+            seg = sid = vol = None
+            try:
+                editor = slicer.modules.segmenteditor.widgetRepresentation().self().editor
+                if editor.activeEffect() is not None:
+                    editor.setActiveEffectByName("")
+                en = editor.mrmlSegmentEditorNode()
+                seg = en.GetSegmentationNode() if en else None
+                sid = en.GetSelectedSegmentID() if en else None
+                vol = en.GetSourceVolumeNode() if en else None
+            except Exception:
+                pass
+            if seg is None:
+                seg = self._sessionSegmentationNode()
+            if seg is not None:
+                g = seg.GetSegmentation()
+                if not sid or g.GetSegment(sid) is None:
+                    sid = seg.GetAttribute("SlicerAIAgent.SegmentEditorTargetSegmentID")
+                    if not sid or g.GetSegment(sid) is None:
+                        sid = g.GetNthSegmentID(0) if g.GetNumberOfSegments() else ""
+            if vol is None or vol.GetImageData() is None:
+                vol = self._activeSourceVolume()
+            if seg is None or not sid or vol is None or vol.GetImageData() is None:
+                return
+            arr = slicer.util.arrayFromVolume(vol)
+            mask = ((arr >= v_min) & (arr <= v_max)).astype("uint8")
+            slicer.util.updateSegmentBinaryLabelmapFromArray(mask, seg, sid, vol)
+            disp = slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast(seg.GetDisplayNode())
+            if disp is None:
+                seg.CreateDefaultDisplayNodes()
+                disp = slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast(seg.GetDisplayNode())
+            if disp is not None:
+                disp.SetVisibility(True)
+                disp.SetVisibility2DFill(True)
+                disp.SetVisibility2DOutline(True)
+                disp.SetSegmentVisibility(sid, True)
+        except Exception:
+            logger.debug("Commit threshold to segment failed", exc_info=True)
+
+    def _sessionSegmentationNode(self):
+        """The Segment Editor session's segmentation: the one marked by the session
+        driver (``SlicerAIAgent.SegmentEditorSession == '1'``), else the
+        most-recently-added segmentation. None if the scene has none."""
+        marked = None
+        last = None
+        try:
+            for seg in slicer.util.getNodesByClass("vtkMRMLSegmentationNode"):
+                if seg is None:
+                    continue
+                last = seg
+                if seg.GetAttribute("SlicerAIAgent.SegmentEditorSession") == "1":
+                    marked = seg
+        except Exception:
+            return None
+        return marked or last
 
     def _onWorkflowRangeSelected(self):
         panel = getattr(self, "_workflowRangeWidget", None)
@@ -1429,6 +1643,10 @@ class WidgetWorkflowMixin:
             if index is not None:
                 self._rerunFromCheckpoint(index, {"choice_value": value})
             return
+        # Commit the chosen threshold into the real segment ONCE, then drop the fast
+        # label-layer preview so only the segment mask remains.
+        self._commitThresholdToSegment(value)
+        self._clearThresholdPreview()
         step_id = self._currentWorkflowUiState.get("current_step")
         if step_id:
             self.sendButton.setEnabled(False)

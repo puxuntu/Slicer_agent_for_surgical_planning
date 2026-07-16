@@ -440,6 +440,28 @@ class AnalyzerStage4DecompositionMixin:
         "previously defined", "that you placed", "that you drew", "you drew",
         "the placed", "re-measure",
     )
+    # Verbs for a direct view interaction consumed by an active module tool/effect
+    # (clicking/painting/scribbling on a slice), and the view-context nouns that
+    # confirm the gesture happens IN a view. Used only to route an in-effect click
+    # to module_tool_interaction — after camera and markup verdicts are excluded.
+    _VIEW_INTERACTION_VERBS = (
+        r"\bclick", r"\bselect", r"\bpick", r"\btap\b", r"\bpaint",
+        r"\bdraw", r"\berase", r"\bscribble", r"\bbrush", r"\btrace",
+    )
+    _VIEW_CONTEXT_TOKENS = (
+        r"\bview\b", r"\bviews\b", r"\bslice\b", r"\bslices\b",
+        r"\b2d\b", r"\b3d\b",
+    )
+    # Gestures that MANIPULATE an already-existing markup (drag its handles / resize
+    # it) rather than PLACE control points. On a markup a prior step fully created
+    # (e.g. an extension-fitted ROI), such a step must NOT enter placement mode —
+    # that would re-place the markup (draw a NEW box). Present-form verbs only.
+    _ADJUST_GESTURES = (
+        r"\badjust", r"\bresize", r"\breshape", r"\brefine", r"\bmodif(y|ies)",
+        r"\bfine[ -]?tune", r"\bmanipulat", r"\benlarge", r"\bshrink", r"\bexpand",
+        r"\bre-?position", r"\bre-?size", r"\bdrag the\b", r"\bmove the\b",
+        r"\bset the (?:size|boundaries|extent|bounds)\b",
+    )
 
     @staticmethod
     def _text_has_markup_token(text: str, token: str) -> bool:
@@ -524,6 +546,12 @@ class AnalyzerStage4DecompositionMixin:
         low = _text_or_empty(description).lower()
         return any(_re.search(v, low) for v in self._CAMERA_VERBS)
 
+    def _has_adjust_gesture(self, description: str) -> bool:
+        """True when the step manipulates an existing markup (adjust/resize/drag its
+        handles) rather than placing new control points."""
+        low = _text_or_empty(description).lower()
+        return any(_re.search(g, low) for g in self._ADJUST_GESTURES)
+
     def _has_existing_geometry(self, description: str) -> bool:
         low = _text_or_empty(description).lower()
         return any(m in low for m in self._EXISTING_GEOMETRY_MARKERS)
@@ -582,6 +610,100 @@ class AnalyzerStage4DecompositionMixin:
                     and self._is_markup_node_class(_text_or_empty(r.get("node_class")))
                 )
             ]
+
+    def _is_in_view_interaction_gesture(self, description: str) -> bool:
+        """True when the step describes a direct click/drag/paint interaction that
+        happens IN a 2D/3D/slice view — the shape of an in-effect interaction. Kept
+        deliberately loose (verb + view-context anywhere in the text); it is only
+        consulted after camera (view_adjustment) and Markups (markup_placement)
+        verdicts are excluded and when no Markups class is identifiable, so it
+        cannot steal a real placement or a camera move."""
+        low = _text_or_empty(description).lower()
+        has_verb = any(_re.search(v, low) for v in self._VIEW_INTERACTION_VERBS)
+        has_view = any(_re.search(v, low) for v in self._VIEW_CONTEXT_TOKENS)
+        return has_verb and has_view
+
+    def _active_module_tool_context(self, prior_stages: List[Dict[str, Any]]) -> str:
+        """Return the module whose ACTIVE tool/effect owns view interaction at this
+        point in the workflow, or "". Walks the prior steps tracking the current
+        module (from each step's "In the 'X' module" text) and, while inside a
+        module that has a session driver, whether a step activated a view-owning
+        tool (delegated to the driver — Segment Editor: any effect activation).
+        The active tool is DROPPED when the workflow leaves the module: a step in a
+        different named module, an explicit module switch ("switch to / open the X
+        module"), or the extension's own action (op_type extension_op — a button in
+        the extension's panel, not a core-module op). Generic: the module + the
+        driver's tool model + these leave-signals decide it, never step identity.
+
+        Reads each prior step's RAW cookbook text (``cookbook_step.description``),
+        NOT the sub-op description — the latter is the LLM's lossy ``semantic_intent``
+        paraphrase, which routinely drops the "in the X module" phrasing and the
+        quoted effect label the module/effect detectors depend on (mirrors the
+        current-step handling, which is already classified from the raw text)."""
+        try:
+            from .module_sessions import extract_module, driver_for_module
+        except Exception:
+            return ""
+        active_module = ""
+        active_driver = None
+        tool_active = False
+        for stage in prior_stages or []:
+            if not isinstance(stage, dict):
+                continue
+            sub_ops = stage.get("sub_operations", []) or []
+            cb = stage.get("cookbook_step")
+            desc = _text_or_empty(getattr(cb, "description", "")) or _text_or_empty(stage.get("description"))
+            if not desc:
+                for so in sub_ops:
+                    if isinstance(so, dict) and _text_or_empty(so.get("description")):
+                        desc = _text_or_empty(so.get("description"))
+                        break
+            op_type = _text_or_empty(stage.get("op_type") or stage.get("operation_type"))
+            module = extract_module(desc)
+            if module:
+                driver = driver_for_module(module)
+                active_module = module
+                active_driver = driver
+                if driver is None:
+                    tool_active = False  # a different named module — the effect is gone
+            elif op_type == "extension_op" or self._is_explicit_module_switch_text(desc):
+                # Left the core module (extension-panel action / explicit switch) —
+                # a re-entry step would re-activate the effect and re-arm this.
+                active_module = ""
+                active_driver = None
+                tool_active = False
+            if active_driver is not None:
+                step_view = {"description": desc, "sub_operations": sub_ops}
+                if active_driver.activates_view_owning_tool(step_view):
+                    tool_active = True
+        if active_driver is not None and tool_active and active_module:
+            return active_module
+        return ""
+
+    def _force_module_tool_interaction(self, sub_op: Dict[str, Any], module: str) -> None:
+        """Coerce a user_interaction sub-op into a module_tool_interaction: the user
+        drives an already-active module tool/effect that consumes the view clicks
+        itself, so NO Markups node is created and NO placement mode is entered.
+        Records ``module_context`` so the pre-template can re-bind that tool."""
+        sub_op["interaction_kind"] = "module_tool_interaction"
+        sub_op["node_class"] = None
+        sub_op["creates_node"] = False
+        sub_op["requires_place_mode"] = False
+        sub_op["module_context"] = module
+        if not _text_or_empty(sub_op.get("interaction_type")):
+            sub_op["interaction_type"] = "generic"
+        roles = sub_op.get("node_roles")
+        if isinstance(roles, list):
+            sub_op["node_roles"] = [
+                r for r in roles
+                if not (
+                    isinstance(r, dict)
+                    and r.get("role_kind") in ("interaction_output", "extension_output")
+                    and self._is_markup_node_class(_text_or_empty(r.get("node_class")))
+                )
+            ]
+        if not _text_or_empty(sub_op.get("placement_instructions")):
+            sub_op["placement_instructions"] = _text_or_empty(sub_op.get("description"))
 
     def _recover_markup_node_class(self, sub_op: Dict[str, Any], description: str) -> str:
         """Recover a Markups node class for a user_interaction step.
@@ -683,6 +805,19 @@ class AnalyzerStage4DecompositionMixin:
         if verdict == "view_adjustment":
             self._force_view_adjustment(sub_op)
             return
+        # In-tool interaction: a click/drag in a view consumed by an ALREADY-ACTIVE
+        # module tool/effect (e.g. a Segment Editor island click). Gated on: no
+        # Markups object to place (so it never competes with markup_placement, which
+        # requires a markup_class), an in-view interaction gesture, and a prior step
+        # in the current module session having activated a view-owning tool. This is
+        # what stops the generic user_interaction default from creating a fiducial.
+        if not markup_class and self._is_in_view_interaction_gesture(
+            cookbook_description or description
+        ):
+            module = self._active_module_tool_context(prior_stages)
+            if module:
+                self._force_module_tool_interaction(sub_op, module)
+                return
         if verdict == "markup_placement" and markup_class:
             sub_op["interaction_kind"] = "markup_placement"
             sub_op["node_class"] = markup_class
@@ -693,7 +828,22 @@ class AnalyzerStage4DecompositionMixin:
             # Reuse the upstream node (do not duplicate) when an earlier step made
             # it; otherwise this single step both creates and places the markup.
             sub_op["creates_node"] = not prior_create
-            sub_op["requires_place_mode"] = True
+            # An "adjust the boundaries/handles of the <existing markup>" step drags
+            # the handles of a markup a PRIOR step already fully created (e.g. an
+            # extension-fitted ROI). It must NOT enter placement mode — that re-places
+            # its control points, i.e. draws a NEW box. Detected as reuse (prior_create)
+            # + an adjust gesture + no active placement gesture. A draw-into-empty
+            # reuse ("click to create the ROI") has an active placement gesture and
+            # keeps place mode.
+            is_adjust = (
+                prior_create
+                and self._has_adjust_gesture(cookbook_description or description)
+                and not self._has_active_placement(cookbook_description or description, markup_class)
+            )
+            sub_op["requires_place_mode"] = not is_adjust
+            if is_adjust:
+                sub_op["interaction_owner"] = "runtime_template"
+                sub_op["created_node_source"] = "previous_step"
             if not _text_or_empty(sub_op.get("placement_instructions")):
                 sub_op["placement_instructions"] = description
         # verdict None -> leave whatever upstream/the LLM decided untouched.
@@ -933,6 +1083,7 @@ class AnalyzerStage4DecompositionMixin:
             ],
             "allowed_interaction_kinds": [
                 "none", "markup_placement", "view_adjustment",
+                "module_tool_interaction",
             ],
             "allowed_operation_intents": [
                 "extension_parameter_update", "extension_node_reference_update",
@@ -993,7 +1144,7 @@ class AnalyzerStage4DecompositionMixin:
             "target_value_mode": null,
             "slicer_op_category": null,
             "slicer_api_keywords": [],
-            "interaction_kind": "none|markup_placement|view_adjustment",
+            "interaction_kind": "none|markup_placement|view_adjustment|module_tool_interaction",
             "interaction_type": null,
             "node_class": null,
             "creates_node": false,
@@ -1078,6 +1229,16 @@ class AnalyzerStage4DecompositionMixin:
           angle is not a vtkMRMLMarkupsAngleNode) or by a purpose clause naming a
           later placement ("...to get the best angle FOR PLACING the fiducial
           point" — the fiducial is placed in a separate, later step, not this one).
+          Use "module_tool_interaction" when the user clicks/drags in a view to
+          drive an ALREADY-ACTIVE module tool or effect that consumes the clicks
+          ITSELF — e.g. after activating a Segment Editor effect ("click the
+          Islands button" then "select Keep selected island"), a step "click in the
+          2D view to select the reference part" is the effect processing the click,
+          NOT a Markups placement. It creates NO node (node_class null, creates_node
+          false, requires_place_mode false). Distinguish from markup_placement by
+          context: if a prior step activated a module tool/effect and this step just
+          clicks in a view without naming a Markups object to place, it is
+          module_tool_interaction.
         - node_class: for a markup_placement step this MUST be the concrete Markups
           class the user is placing — never null. Map the object being placed:
           curve->vtkMRMLMarkupsCurveNode, closed curve->vtkMRMLMarkupsClosedCurveNode,

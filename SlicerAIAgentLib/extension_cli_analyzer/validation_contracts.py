@@ -715,10 +715,14 @@ class AnalyzerValidationContractsMixin:
             (gen.get("interaction_descriptor") or {}).get("interaction_kind")
             or gen.get("interaction_kind")
         )
-        allow_instruction_only = role == "pre" and (
-            (node_class and not is_markup)
-            or interaction_kind == "view_adjustment"
-        )
+        # A node-less interaction (view_adjustment / module_tool_interaction) may be
+        # instruction-only in BOTH roles: its PRE just arms/instructs and its POST
+        # has nothing to finalize (no markup node to resolve — the active effect
+        # already committed on the click), so a print-only POST is correct, not a stub.
+        node_less_interaction = interaction_kind in ("view_adjustment", "module_tool_interaction")
+        allow_instruction_only = (
+            role == "pre" and ((node_class and not is_markup) or node_less_interaction)
+        ) or (role == "post" and node_less_interaction)
         if not allow_instruction_only and not self._template_has_meaningful_code(code):
             result["errors"].append("Required template is a stub (only pass/comments/prints)")
 

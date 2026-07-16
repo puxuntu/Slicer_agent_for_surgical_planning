@@ -165,6 +165,14 @@ class AnalyzerStepInstructionsMixin:
             (rotate/zoom/pan to a clear vantage) — do NOT tell the user to click,
             place, mark, or draw a point/markup. Creating and placing markups happens
             in separate, later steps; conflating them here misleads the user.
+            IMPORTANT: if a step's "interaction_kind" is "module_tool_interaction",
+            the user interacts DIRECTLY with an already-active module tool/effect that
+            consumes the clicks itself (e.g. clicking an island in a slice view while
+            the Segment Editor "Keep selected island" effect is active). Describe
+            clicking/painting in the view ON THE ANATOMY as the tool intends (e.g.
+            "click on the reference bone fragment in a slice view to keep it") — do
+            NOT tell the user they are placing a point/markup or entering a placement
+            mode; the effect, not a markup, acts on the click.
 
             Return ONLY JSON:
             {{

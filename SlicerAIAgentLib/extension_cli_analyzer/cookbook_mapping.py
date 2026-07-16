@@ -396,6 +396,10 @@ class AnalyzerCookbookMappingMixin:
                         "placement_instructions": so.get("placement_instructions", ""),
                         "min_control_points": so.get("min_control_points", 0),
                     }
+                    # A module_tool_interaction carries the module whose active tool
+                    # consumes the clicks, so the pre-template can re-bind that tool.
+                    if so.get("module_context"):
+                        interaction_info["module_context"] = so.get("module_context")
                     break
 
             # Extract user_choice info if present (branch_op carries the same

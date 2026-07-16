@@ -109,7 +109,8 @@ class AnalyzerV2ContractsMixin:
                     "allow_instruction_only": bool(
                         operation_type == "user_interaction"
                         and interaction
-                        and interaction.get("interaction_kind") == "view_adjustment"
+                        and interaction.get("interaction_kind")
+                        in ("view_adjustment", "module_tool_interaction")
                     ),
                 },
             })

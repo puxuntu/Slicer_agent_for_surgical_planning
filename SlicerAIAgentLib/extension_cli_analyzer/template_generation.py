@@ -186,6 +186,18 @@ If the template is correct with no issues, return:
             if not review:
                 logger.warning("LLM review returned unparseable response for %s", tpl_name)
                 continue
+            # The critic prompt asks for an object {"issues": [...],
+            # "corrected_template": ...}, but the LLM occasionally returns a bare
+            # JSON array (e.g. just the issues list). A list is truthy, so without
+            # this guard the next line does list.get(...) -> "'list' object has no
+            # attribute 'get'" and the whole generate phase aborts. Treat any
+            # non-object review as "no usable correction" and skip this template.
+            if not isinstance(review, dict):
+                logger.warning(
+                    "LLM review for %s returned a %s, not an object; skipping review",
+                    tpl_name, type(review).__name__,
+                )
+                continue
 
             issues = review.get("issues", [])
             corrected = review.get("corrected_template")

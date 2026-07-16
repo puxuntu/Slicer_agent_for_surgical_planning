@@ -99,6 +99,24 @@ def _build_format_kwargs(arguments: Dict, ext_name: str = "") -> Dict[str, str]:
             if stem and stem != key:
                 format_kwargs.setdefault(f"{stem}_min", repr(lo))
                 format_kwargs.setdefault(f"{stem}_max", repr(hi))
+                # ALSO fill the last word of the stem, so a QUALIFIED choice name
+                # (e.g. ``referenceThresholdRange`` -> ``reference_threshold``) lines
+                # up with a template that uses the generic effect-concept placeholder
+                # (``{threshold_min}``, emitted by the Segment Editor driver's Apply
+                # block, which cannot know the step's qualified parameter name).
+                # Without this the Apply falls back to a hard-coded default range that
+                # is meaningless for a non-Hounsfield volume. OVERWRITE (not
+                # setdefault) so the MOST-RECENTLY-recorded range choice wins — this
+                # keeps consecutive cycles correct (the reference cycle's range fills
+                # the reference Apply; once the moving range is recorded it fills the
+                # moving Apply) and respects replay truncation. Explicit tool
+                # arguments still win (guarded below).
+                last = stem.rsplit("_", 1)[-1]
+                if last and last != stem:
+                    if f"{last}_min" not in arguments:
+                        format_kwargs[f"{last}_min"] = repr(lo)
+                    if f"{last}_max" not in arguments:
+                        format_kwargs[f"{last}_max"] = repr(hi)
     # Provide the structural vol_lookup expansion (raw code, not repr-wrapped) so
     # a template's bare {vol_lookup} fills instead of raising "placeholder not
     # filled". Harmless when the template has no such placeholder.

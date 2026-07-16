@@ -463,6 +463,20 @@ class AnalyzerTemplateHelpersMixin:
         """Decide how generated code should enter Markups placement mode."""
         owner = step.get("interaction_owner", "")
         starter_info = starter_info or {}
+        # An ADJUST-existing-markup step (Stage 4 set creates_node False +
+        # requires_place_mode False) drags the handles of a markup a prior step
+        # already fully created. It must NOT enter placement mode (that re-places the
+        # control points = a NEW box); it just enables the markup's interaction
+        # handles so the user can resize it. Highest priority — checked before the
+        # extension-starter / repeat branches.
+        if step.get("creates_node") is False and step.get("requires_place_mode") is False:
+            return {
+                "should_set_active_list": True,
+                "should_enter_placement_mode": False,
+                "placement_mode": None,
+                "enable_handles": True,
+                "reason": "adjust_existing_markup_no_placement",
+            }
         # A step that expects exactly one control point — or places a fixed-count
         # markup (ROI/line/angle) — should use single place mode so Slicer
         # auto-exits after the required clicks instead of letting the user keep
@@ -549,6 +563,22 @@ class AnalyzerTemplateHelpersMixin:
             "if displayNode is not None:",
             "    displayNode.SetVisibility(True)",
         ]
+        if policy.get("enable_handles"):
+            # Adjust an existing markup: turn on its interaction handles so the user
+            # can DRAG the boundaries, and do NOT enter placement mode (which would
+            # re-place the control points = draw a new box). Guarded — not every
+            # markup display node exposes every handle setter.
+            lines.extend([
+                "# Enable interaction handles for adjusting the existing markup.",
+                "if displayNode is not None:",
+                "    try:",
+                "        displayNode.SetHandlesInteractive(True)",
+                "        displayNode.SetTranslationHandleVisibility(True)",
+                "        displayNode.SetScaleHandleVisibility(True)",
+                "        displayNode.SetRotationHandleVisibility(True)",
+                "    except Exception:",
+                "        pass",
+            ])
         if policy.get("should_set_active_list"):
             lines.append("slicer.modules.markups.logic().SetActiveListID(node)")
         if policy.get("should_enter_placement_mode"):
@@ -599,6 +629,67 @@ class AnalyzerTemplateHelpersMixin:
             "    interactionNode.SwitchToViewTransformMode()",
             "",
             f"print(\"[{extension_name}] Step '{step_id}' view adjustment completed.\")",
+        ]
+        return "\n".join(lines) + "\n"
+
+    def _module_tool_interaction_preamble(self, step) -> str:
+        """Return the CREATION-FREE code that re-binds the active module tool/effect
+        just before the user interacts with it, delegated to the module's session
+        driver (via the step's recorded ``module_context``). Empty when the module
+        has no interactive-tool driver — then the pre-template is a plain wait."""
+        module = _text_or_empty(step.get("module_context"))
+        if not module:
+            return ""
+        try:
+            from .module_sessions import driver_for_module
+            driver = driver_for_module(module)
+        except Exception:
+            driver = None
+        if driver is None:
+            return ""
+        try:
+            return driver.interaction_preamble() or ""
+        except Exception:
+            return ""
+
+    def _generate_module_tool_interaction_pre_template(self, extension_name, step) -> str:
+        """Pre-template for a module_tool_interaction step: the user interacts
+        DIRECTLY with an already-active module tool/effect (e.g. clicking an island
+        in a slice view while the Segment Editor's Islands 'Keep selected island'
+        effect is active). It re-asserts the tool is bound to its target, then waits
+        for the user — it creates NO Markups node and enters NO placement mode, so
+        the active effect (not a fiducial) consumes the clicks. Mirrors the
+        view_adjustment pre-template's node-less wait, plus the tool re-bind."""
+        instructions = self._sanitize_interaction_instruction(
+            step.get("placement_instructions"),
+            fallback=step.get("description", ""),
+        )
+        preamble = self._module_tool_interaction_preamble(step)
+        lines = [
+            *self._template_header_lines(extension_name, step, "Setup"),
+            "import slicer",
+            "",
+            "# In-tool interaction: the active module tool/effect consumes the view",
+            "# clicks itself; do NOT create a Markups node or enter placement mode.",
+        ]
+        if preamble:
+            lines.extend(["", preamble.rstrip("\n"), ""])
+        lines.extend([
+            f"print(\"[{extension_name}] Please {instructions}\")",
+            "print(\"When finished, press the 'Done' button in the workflow panel.\")",
+        ])
+        return "\n".join(lines) + "\n"
+
+    def _generate_module_tool_interaction_post_template(self, extension_name, step) -> str:
+        """Completion code for a module_tool_interaction step. The active effect
+        already committed the edit on each slice-view click, so there is no node to
+        resolve and no placement mode to exit — just report completion."""
+        step_id = step.get("step_id", "")
+        lines = [
+            *self._template_header_lines(extension_name, step, "Done"),
+            "import slicer",
+            "",
+            f"print(\"[{extension_name}] Step '{step_id}' in-tool interaction completed.\")",
         ]
         return "\n".join(lines) + "\n"
 

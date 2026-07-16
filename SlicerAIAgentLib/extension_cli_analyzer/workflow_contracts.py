@@ -335,6 +335,13 @@ class AnalyzerWorkflowContractsMixin:
             describe ONLY adjusting the view (rotate/zoom to a clear angle) — never
             tell the user to click/place/draw a point or markup; that happens in a
             separate step.
+            If a step's "interaction_kind" is "module_tool_interaction", the user
+            drives an already-active module tool/effect that consumes the view clicks
+            itself (e.g. clicking an island in a slice view while a Segment Editor
+            island effect is active). The instruction must describe clicking/painting
+            in the view on the anatomy as that tool intends (e.g. "Click the fragment
+            you want to keep in a slice view") — never say the user is placing a
+            point/markup.
 
             Return ONLY JSON:
             {{
@@ -515,12 +522,18 @@ class AnalyzerWorkflowContractsMixin:
         return "interaction"
 
     def _interaction_guidance_title(self, step: Dict, object_label: str) -> str:
+        if step.get("interaction_kind") == "module_tool_interaction":
+            return self._clean_guidance_title(step.get("description", "")) or "Interact in the view"
         if object_label in ("view", "interaction"):
             return self._clean_guidance_title(step.get("description", "")) or "Adjust view"
         verb = "Draw" if object_label == "curve" else "Place"
         return f"{verb} {object_label}"
 
     def _interaction_guidance_instruction(self, step: Dict, object_label: str) -> str:
+        if step.get("interaction_kind") == "module_tool_interaction":
+            # In-tool interaction: keep the anatomy-facing instruction, never "Place …".
+            current = self._interaction_instructions_for_template(step)
+            return _text_or_empty(current).strip() or "Interact in the view, then click Done."
         if object_label == "curve":
             return "Draw the curve, then click Done."
         if object_label in ("plane", "cutting plane", "line", "point", "fiducial"):

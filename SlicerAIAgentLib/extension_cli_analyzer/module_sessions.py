@@ -69,8 +69,30 @@ class ModuleSessionDriver:
     def claims(self, module):
         return bool(module) and module in self.module_names
 
-    def wrap(self, code, description=""):
+    def wrap(self, code, description="", active_effect=None):
         return code
+
+    # --- hooks consumed by the interaction classifier / template threading ---
+    def effect_activated_by(self, step):
+        """If ``step`` activates a named tool/effect in this module (e.g. clicks
+        the 'Islands' button), return that tool's name; else None. Used to thread
+        the active tool across a module session. Default: no tool model."""
+        return None
+
+    def activates_view_owning_tool(self, step):
+        """True when ``step`` puts this module into a state where an active tool
+        consumes direct view interaction (clicks/drags in a slice/3D view) itself
+        — so a following 'click in the view' user_interaction is an in-tool
+        interaction, not a Markups placement. Default: this module has no such
+        tool concept."""
+        return False
+
+    def interaction_preamble(self):
+        """CodeValidator-safe, CREATION-FREE code that re-asserts this module's
+        active tool is bound to the right target just before the user interacts
+        with it (no node creation, no place mode). Empty for modules with no
+        interactive tool concept."""
+        return ""
 
 
 # --- Segment Editor session driver -----------------------------------------
@@ -79,6 +101,13 @@ class ModuleSessionDriver:
 _SEG_SESSION_ATTR = "SlicerAIAgent.SegmentEditorSession"
 _SEG_TARGET_ATTR = "SlicerAIAgent.SegmentEditorTargetSegmentID"
 _SEG_SESSION_MARK = "[Segment Editor session]"
+# Structural button/label words that are NOT effect names — used to tell an
+# effect-activation step ("click the 'Islands' button") from a segment/structural
+# op ("click the 'Add' button"). Generic across effects; not an effect enumeration.
+_SEG_STRUCTURAL_LABELS = frozenset({
+    "add", "apply", "remove", "delete", "create", "new", "ok", "cancel",
+    "done", "close", "show", "hide", "show 3d", "toggle", "undo", "redo",
+})
 
 # Effect/tool drivers on qMRMLSegmentEditorWidget that need a bound segmentation +
 # source volume + a valid selected segment before they are safe/correct to call.
@@ -140,34 +169,43 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
 
     @classmethod
     def _extract_segmentation_name(cls, code, description):
-        name = cls._first_group([
-            r"AddNewNodeByClass\(\s*[\"']vtkMRMLSegmentationNode[\"']\s*,\s*[\"']([^\"']+)[\"']",
-            r"\.SetName\(\s*[\"']([^\"']+)[\"']",
-        ], code)
+        # Prefer the COOKBOOK name from the step description — it is authoritative and
+        # SHARED with the add step and the downstream node selection. The LLM's
+        # grounded-code name is per-roll variance (e.g. it grounded
+        # "ReferenceBone_segmentation" for a cookbook that says "Reference_Segmentation"),
+        # so trusting the code diverges the create step from every other step that
+        # references the cookbook name -> a second, empty segmentation + a
+        # self-correction cascade. Fall back to the grounded code only when the
+        # description declares no name.
+        m = re.search(r"segmentation\b[^.]*?\b(?:as|to|named|called)\s+[\"']?([\w \-]+?)[\"']?\s*[.,;)]?\s*$",
+                      str(description or ""), re.IGNORECASE)
+        name = m.group(1) if m else ""
         if not name:
-            m = re.search(r"segmentation\b[^.]*?\b(?:as|to|named|called)\s+[\"']?([\w \-]+?)[\"']?\s*[.,;)]?\s*$",
-                          str(description or ""), re.IGNORECASE)
-            if m:
-                name = m.group(1)
+            name = cls._first_group([
+                r"AddNewNodeByClass\(\s*[\"']vtkMRMLSegmentationNode[\"']\s*,\s*[\"']([^\"']+)[\"']",
+                r"\.SetName\(\s*[\"']([^\"']+)[\"']",
+            ], code)
         return _safe_name(name, "Segmentation")
 
     @classmethod
     def _extract_segment_name(cls, code, description):
-        name = cls._first_group([
-            r"AddEmptySegment\(\s*segmentName\s*=\s*[\"']([^\"']+)[\"']",
-            r"GetName\(\)\s*(?:!=|==)\s*[\"']([^\"']+)[\"']",
-            r"GetSegmentIdBySegmentName\(\s*[\"']([^\"']+)[\"']",
-        ], code)
+        # Prefer the COOKBOOK name from the description (authoritative + shared with
+        # downstream), see _extract_segmentation_name. ``segment\b`` matches the
+        # standalone word, never "segmentation".
+        m = re.search(r"segment\b[^.]*?\b(?:as|to|named|called)\s+[\"']?([\w \-]+?)[\"']?\s*[.,;)]?\s*$",
+                      str(description or ""), re.IGNORECASE)
+        name = m.group(1) if m else ""
+        if not name:
+            name = cls._first_group([
+                r"AddEmptySegment\(\s*segmentName\s*=\s*[\"']([^\"']+)[\"']",
+                r"GetName\(\)\s*(?:!=|==)\s*[\"']([^\"']+)[\"']",
+                r"GetSegmentIdBySegmentName\(\s*[\"']([^\"']+)[\"']",
+            ], code)
         if not name:
             # AddEmptySegment("id", "name") -> take the 2nd literal as the name.
-            m = re.search(r"AddEmptySegment\(\s*[\"']([^\"']+)[\"']\s*,\s*[\"']([^\"']+)[\"']", code)
-            if m:
-                name = m.group(2)
-        if not name:
-            m = re.search(r"segment\b[^.]*?\b(?:as|to|named|called)\s+[\"']?([\w \-]+?)[\"']?\s*[.,;)]?\s*$",
-                          str(description or ""), re.IGNORECASE)
-            if m:
-                name = m.group(1)
+            m2 = re.search(r"AddEmptySegment\(\s*[\"']([^\"']+)[\"']\s*,\s*[\"']([^\"']+)[\"']", code)
+            if m2:
+                name = m2.group(2)
         return _safe_name(name, "Segment")
 
     @staticmethod
@@ -198,10 +236,102 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
             return "create"
         return ""
 
+    # ---- effect / option model (generic; no per-effect enumeration) --------
+    @staticmethod
+    def _quoted_label_before(description, nouns):
+        """Return the quoted 'X' label in a phrase like "... the 'X' <noun> ..."
+        where <noun> is one of ``nouns`` (e.g. button/effect/tool or
+        option/mode/operation), else "". Generic — reads the cookbook's own quoted
+        UI label, never a hard-coded effect/option list."""
+        text = str(description or "")
+        noun_alt = "|".join(re.escape(n) for n in nouns)
+        m = re.search(
+            r"[\"']([^\"']+)[\"']\s+(?:" + noun_alt + r")\b",
+            text, re.IGNORECASE,
+        )
+        return m.group(1).strip() if m else ""
+
+    @classmethod
+    def _effect_button_label(cls, description, code=""):
+        """The effect a step ACTIVATES, from "click/activate the 'X' button/effect/
+        tool" (X not a structural label) or a ``setActiveEffectByName("X")`` in the
+        grounded code; else ""."""
+        label = cls._quoted_label_before(description, ("button", "effect", "tool"))
+        if label and label.strip().lower() not in _SEG_STRUCTURAL_LABELS:
+            return label
+        m = re.search(r"setActiveEffectByName\(\s*[\"']([^\"']+)[\"']", code or "")
+        if m:
+            return m.group(1)
+        return ""
+
+    @classmethod
+    def _option_label(cls, description):
+        """The option/mode a step SELECTS within the active effect, from
+        "select/choose/set the 'Y' option/mode/operation/method"; else ""."""
+        return cls._quoted_label_before(
+            description, ("option", "mode", "operation", "method", "setting"),
+        )
+
+    @classmethod
+    def _is_select_option_step(cls, description):
+        low = str(description or "").lower()
+        if not re.search(r"\b(select|choose|set|pick|enable|use|switch to)\b", low):
+            return False
+        return bool(cls._option_label(description))
+
+    def effect_activated_by(self, step):
+        """Return the effect name a Segment Editor step activates, else None.
+        A structural (create/add/apply) or option-select step activates nothing."""
+        if not isinstance(step, dict):
+            return None
+        desc = step.get("description", "") or ""
+        if self._step_kind_from_description(desc) in ("create", "add", "apply"):
+            return None
+        if self._is_select_option_step(desc):
+            return None
+        code = self._step_grounded_code(step)
+        label = self._effect_button_label(desc, code)
+        return label or None
+
+    def activates_view_owning_tool(self, step):
+        """In the Segment Editor an ACTIVE effect owns slice-view interaction, so
+        activating any effect means a following 'click in the view' step is an
+        in-effect interaction. Keyed on effect activation, not on which effect."""
+        return self.effect_activated_by(step) is not None
+
+    @staticmethod
+    def _step_grounded_code(step):
+        """Concatenate a step's grounded sub-op code / slicer_api_keywords so the
+        effect detectors can read a ``setActiveEffectByName`` the LLM emitted."""
+        if not isinstance(step, dict):
+            return ""
+        parts = []
+        for so in step.get("sub_operations", []) or []:
+            if not isinstance(so, dict):
+                continue
+            for key in ("generated_code", "code", "implementation"):
+                val = so.get(key)
+                if isinstance(val, str):
+                    parts.append(val)
+            for kw in so.get("slicer_api_keywords", []) or []:
+                if isinstance(kw, str):
+                    parts.append(kw)
+        return "\n".join(parts)
+
     # ---- dispatch ---------------------------------------------------------
-    def wrap(self, code, description=""):
+    def wrap(self, code, description="", active_effect=None):
         if not isinstance(code, str) or not code or _SEG_SESSION_MARK in code:
             return code
+        # An OPTION/MODE selection within an already-active effect ("select the
+        # 'Keep selected island' option") sets the effect's sub-mode via the
+        # effect's OWN option widget, keeping the effect active. It has no
+        # create/add/apply word, so it must be routed before those branches, and
+        # it must NOT re-activate a defaulted "Threshold" effect (which dropped
+        # the mode entirely). Generic across effects: drives the option widget
+        # whose visible label matches the cookbook's quoted option.
+        option_label = self._option_label(description)
+        if option_label and self._is_select_option_step(description):
+            return self._select_option_block(active_effect, option_label)
         kind = self._step_kind_from_description(description)
         drives = self._drives_effect(code)
         creates = self._creates_segmentation(code)
@@ -232,9 +362,12 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
             # ``def activateThresholdEffect(): ...`` (or re-creates the
             # segmentation/segment statelessly), so trusting it leaves the effect
             # NEVER activated — no live Threshold preview at the range step and the
-            # apply is a no-op. _effect_operation_block reads the effect name from
-            # the grounded code (default "Threshold") and emits real top-level API.
-            return self._effect_operation_block(code, description)
+            # apply is a no-op. _effect_operation_block prefers the THREADED active
+            # effect (from a prior activate step) over the grounded code's own
+            # setActiveEffectByName, so an effect step whose isolated grounding
+            # omitted the effect no longer defaults to "Threshold" (which for an
+            # Islands/Paint/… session would switch effects and re-threshold).
+            return self._effect_operation_block(code, description, active_effect)
         # Create-vs-add: the DESCRIPTION is authoritative (the LLM frequently
         # grounds "add the segment" as create-segmentation -> a bogus extra
         # "Segmentation" node, and the target segment is never added). So a step
@@ -275,7 +408,19 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
             "if _ses_seg is None:\n"
             "    _ses_seg = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\", \"{name}\")\n".format(name=name)
             + "_ses_seg.CreateDefaultDisplayNodes()\n"
-            "_ses_seg.SetAttribute(\"{attr}\", \"1\")\n".format(attr=_SEG_SESSION_ATTR)
+            # A cookbook with MORE THAN ONE segmentation (e.g. Reference then Moving,
+            # each with its own Threshold->Islands cycle) forms consecutive sessions.
+            # The session flag must mark ONLY the current segmentation — clear it on
+            # every other one first, else the first-match resolver
+            # (_resolve_session_segmentation_lines) keeps binding the effects + the
+            # interaction to the FIRST-created segmentation and the later cycle
+            # writes into the wrong segment. Clear-all-then-set is idempotent.
+            "_ses_all = slicer.mrmlScene.GetNodesByClass(\"vtkMRMLSegmentationNode\")\n"
+            "for _ses_k in range(_ses_all.GetNumberOfItems()):\n"
+            "    _ses_o = _ses_all.GetItemAsObject(_ses_k)\n"
+            "    if _ses_o is not None:\n"
+            "        _ses_o.SetAttribute(\"{attr}\", \"0\")\n".format(attr=_SEG_SESSION_ATTR)
+            + "_ses_seg.SetAttribute(\"{attr}\", \"1\")\n".format(attr=_SEG_SESSION_ATTR)
             + "segmentationNode = _ses_seg\n"
             "if _ses_seg.GetName() != \"{name}\":\n".format(name=name)
             + "    raise RuntimeError(\"STATE_NOT_APPLIED: segmentation name\")\n"
@@ -329,18 +474,35 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
         )
 
     @classmethod
-    def _bind_and_select_body(cls):
-        """Bind the shared editor + SESSION segmentation + source volume + a single
+    def _bind_and_select_body(cls, create_editor_node=True):
+        """Bind the shared editor + SESSION segmentation + source volume + the
         editor node, and select the tracked TARGET segment on the editor node (the
-        effect reads GetSelectedSegmentID from it) and the widget. No markers."""
+        effect reads GetSelectedSegmentID from it) and the widget. No markers.
+
+        ``create_editor_node`` False emits a CREATION-FREE variant (reuse the
+        existing segment-editor node if present, never AddNewNodeByClass) so it can
+        be embedded in a user_interaction pre-template whose descriptor declares
+        creates_node=false (the interaction contract validator rejects any
+        AddNewNodeByClass there). By that point a prior effect step has already
+        created the editor node, so reuse is sufficient."""
+        if create_editor_node:
+            editor_lines = (
+                "_ses_editor_node = slicer.mrmlScene.GetFirstNodeByClass(\"vtkMRMLSegmentEditorNode\")\n"
+                "if _ses_editor_node is None:\n"
+                "    _ses_editor_node = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentEditorNode\")\n"
+                "_ses_widget.setMRMLSegmentEditorNode(_ses_editor_node)\n"
+            )
+        else:
+            editor_lines = (
+                "_ses_editor_node = slicer.mrmlScene.GetFirstNodeByClass(\"vtkMRMLSegmentEditorNode\")\n"
+                "if _ses_editor_node is not None:\n"
+                "    _ses_widget.setMRMLSegmentEditorNode(_ses_editor_node)\n"
+            )
         return (
             "import slicer\n"
             "_ses_widget = slicer.modules.segmenteditor.widgetRepresentation().self().editor\n"
             "_ses_widget.setMRMLScene(slicer.mrmlScene)\n"
-            "_ses_editor_node = slicer.mrmlScene.GetFirstNodeByClass(\"vtkMRMLSegmentEditorNode\")\n"
-            "if _ses_editor_node is None:\n"
-            "    _ses_editor_node = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentEditorNode\")\n"
-            "_ses_widget.setMRMLSegmentEditorNode(_ses_editor_node)\n"
+            + editor_lines
             + cls._resolve_session_segmentation_lines()
             + "if _ses_seg is not None:\n"
             "    _ses_widget.setSegmentationNode(_ses_seg)\n"
@@ -353,7 +515,7 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
             "        break\n"
             "if _ses_vol is not None:\n"
             "    _ses_widget.setSourceVolumeNode(_ses_vol)\n"
-            "if _ses_seg is not None:\n"
+            "if _ses_seg is not None and _ses_editor_node is not None:\n"
             "    _ses_segmentation = _ses_seg.GetSegmentation()\n"
             "    _ses_target = _ses_seg.GetAttribute(\"{attr}\")\n".format(attr=_SEG_TARGET_ATTR)
             + "    if not _ses_target or _ses_segmentation.GetSegment(_ses_target) is None:\n"
@@ -361,6 +523,44 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
             "    if _ses_target:\n"
             "        _ses_editor_node.SetSelectedSegmentID(_ses_target)\n"
             "        _ses_widget.setCurrentSegmentID(_ses_target)\n"
+            # Show the target segment MASK in the 2D slice views. An interactive
+            # effect that acts on a slice-view click (Islands 'Keep selected island',
+            # Paint, Draw, ...) needs the mask visible so the user can SEE the islands
+            # to click, and it CANCELS the click on a hidden segment
+            # (confirmCurrentSegmentVisible). Turn on the segmentation display's 2D
+            # fill + outline + overall visibility + the segment's own visibility —
+            # binding the segmentation on the editor programmatically does NOT do this
+            # (that happens on Segment Editor module-enter, which the agent bypasses).
+            # SafeDownCast typed so the api-proof pass keeps it (an untyped
+            # GetDisplayNode() gets stripped). Idempotent.
+            "        _ses_disp = slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast(_ses_seg.GetDisplayNode())\n"
+            "        if _ses_disp is not None:\n"
+            "            _ses_disp.SetVisibility(True)\n"
+            "            _ses_disp.SetVisibility2DFill(True)\n"
+            "            _ses_disp.SetVisibility2DOutline(True)\n"
+            "            _ses_disp.SetSegmentVisibility(_ses_target, True)\n"
+        )
+
+    def interaction_preamble(self):
+        """Creation-free bind for a module_tool_interaction pre-template: re-assert
+        the segment editor is bound to the SESSION segmentation + target segment +
+        source volume so the ACTIVE effect (already set by the prior activate/option
+        steps) consumes the user's slice-view clicks. No node creation, no place
+        mode — so the interaction contract (creates_node=false / requires_place_mode
+        =false) holds."""
+        return (
+            "# --- {mark} prepare the active effect for in-view interaction ---\n".format(mark=_SEG_SESSION_MARK)
+            + "# The prior steps activated the effect and set its mode; re-bind the\n"
+            "# session segmentation + target so the effect's own slice-view clicks work.\n"
+            + self._bind_and_select_body(create_editor_node=False)
+            # Put the source volume in the slice backgrounds and fit the view so the
+            # user sees the anatomy + the segment mask overlay and can aim the click.
+            + "if _ses_vol is not None:\n"
+            "    try:\n"
+            "        slicer.util.setSliceViewerLayers(background=_ses_vol, fit=True)\n"
+            "    except Exception:\n"
+            "        pass\n"
+            + "# --- [end Segment Editor session] ---\n"
         )
 
     @classmethod
@@ -377,15 +577,23 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
         )
 
     @classmethod
-    def _effect_operation_block(cls, code, description=""):
+    def _effect_operation_block(cls, code, description="", active_effect=None):
         """OVERRIDE for an effect step whose grounded code (wrongly) re-creates the
         segmentation / re-adds a segment statelessly. Bind the SESSION segmentation
-        + tracked target, activate the effect, and — for an APPLY step — set the
-        Threshold range from the user's choice and commit onApply, WITHOUT creating
-        any garbage segmentation/segment. ``{threshold_min}``/``{threshold_max}``
-        are runtime placeholders filled from the range user_choice (see
-        _build_format_kwargs); they stay literal here (not inside a string)."""
-        effect = _safe_name(cls._effect_name(code), "Threshold")
+        + tracked target, activate the effect, and — for an APPLY step — commit it.
+
+        The effect name is the THREADED ``active_effect`` (from a prior activate
+        step) when available, else parsed from the grounded code, else "Threshold".
+        This stops an effect/apply step whose isolated grounding omitted
+        ``setActiveEffectByName`` from silently switching to Threshold (which for an
+        Islands/Paint/… session would change effects and re-threshold the segment).
+
+        Apply is effect-aware: the Threshold range placeholders
+        (``{threshold_min}``/``{threshold_max}``, filled from the range user_choice
+        by _build_format_kwargs) are emitted ONLY for the Threshold effect — for any
+        other effect the apply is just the effect's own onApply (a safe no-op for the
+        interactive island/paint modes, which commit on the slice-view click)."""
+        effect = _safe_name(active_effect or cls._effect_name(code), "Threshold")
         out = (
             "# --- {mark} run the effect on the target segment ---\n".format(mark=_SEG_SESSION_MARK)
             + "# The grounded effect code re-created the segmentation/segment statelessly;\n"
@@ -394,18 +602,92 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
             + "_ses_widget.setActiveEffectByName(\"{effect}\")\n".format(effect=effect)
         )
         if cls._is_apply(code, description):
-            out += (
-                "_ses_eff = _ses_widget.activeEffect()\n"
-                "if _ses_eff is not None:\n"
-                "    _ses_eff.setParameter(\"MinimumThreshold\", {threshold_min: 150.0})\n"
-                "    _ses_eff.setParameter(\"MaximumThreshold\", {threshold_max: 3000.0})\n"
-                "    try:\n"
-                "        _ses_eff.self().onApply()\n"
-                "    except Exception:\n"
-                "        pass\n"
-            )
+            if effect == "Threshold":
+                out += (
+                    "_ses_eff = _ses_widget.activeEffect()\n"
+                    "if _ses_eff is not None:\n"
+                    "    _ses_eff.setParameter(\"MinimumThreshold\", {threshold_min: 150.0})\n"
+                    "    _ses_eff.setParameter(\"MaximumThreshold\", {threshold_max: 3000.0})\n"
+                    "    try:\n"
+                    "        _ses_eff.self().onApply()\n"
+                    "    except Exception:\n"
+                    "        pass\n"
+                )
+            else:
+                out += (
+                    "_ses_eff = _ses_widget.activeEffect()\n"
+                    "if _ses_eff is not None:\n"
+                    "    try:\n"
+                    "        _ses_eff.self().onApply()\n"
+                    "    except Exception:\n"
+                    "        pass\n"
+                )
         out += "# --- [end Segment Editor session] ---\n"
         return out
+
+    @classmethod
+    def _select_option_block(cls, active_effect, option_label):
+        """OVERRIDE for an option/mode selection within the active effect ("select
+        the 'Keep selected island' option"). Bind + select target, ensure the
+        effect is active (the LIVE active effect from the prior activate step, else
+        re-activate the threaded ``active_effect``), then drive the effect's OWN
+        option widget whose visible label matches ``option_label`` — a radio button
+        / push button / checkbox (``.click()`` fires the effect's handler which sets
+        the parameter) or a combo box (``findText``/``setCurrentIndex``). Generic
+        across effects and options: it reproduces the exact GUI action the cookbook
+        describes, so it needs no per-effect parameter/enum table."""
+        label = _safe_name(option_label, "")
+        reactivate = ""
+        eff = _safe_name(active_effect, "")
+        if eff:
+            reactivate = (
+                "if _ses_widget.activeEffect() is None:\n"
+                "    _ses_widget.setActiveEffectByName(\"{effect}\")\n".format(effect=eff)
+            )
+        return (
+            "# --- {mark} select an option/mode of the active effect ---\n".format(mark=_SEG_SESSION_MARK)
+            + "# Keep the current effect active (do NOT switch to a default) and set its\n"
+            "# mode by driving the effect's own option widget matching the cookbook label,\n"
+            "# so the effect's handler applies the parameter exactly as a click would.\n"
+            + cls._bind_and_select_body()
+            + reactivate
+            + "_opt_label = \"{label}\"\n".format(label=label)
+            + "_opt_hit = False\n"
+            # slicer.util.findChildren walks .children() manually — the native
+            # PythonQt QWidget.findChildren is unreliable — and returns ALL
+            # descendants (no className filter, which would be an EXACT match and
+            # miss QRadioButton under 'QAbstractButton'). Match any child whose
+            # visible text equals the option label (case-insensitive, mnemonic-
+            # stripped) and click it: for a radio/checkbox/push button that fires
+            # the effect's own toggled/clicked handler, which sets the parameter.
+            "import slicer\n"
+            "for _opt_w in slicer.util.findChildren(_ses_widget):\n"
+            "    try:\n"
+            "        _opt_t = _opt_w.text\n"
+            "    except Exception:\n"
+            "        _opt_t = None\n"
+            "    if isinstance(_opt_t, str) and _opt_t.replace(\"&\", \"\").strip().lower() == _opt_label.strip().lower():\n"
+            "        try:\n"
+            "            _opt_w.click()\n"
+            "            _opt_hit = True\n"
+            "            break\n"
+            "        except Exception:\n"
+            "            pass\n"
+            "if not _opt_hit:\n"
+            "    for _opt_cb in slicer.util.findChildren(_ses_widget, className=\"QComboBox\"):\n"
+            "        _opt_idx = _opt_cb.findText(_opt_label)\n"
+            "        if _opt_idx >= 0:\n"
+            "            _opt_cb.setCurrentIndex(_opt_idx)\n"
+            "            _opt_hit = True\n"
+            "            break\n"
+            + (
+                "if _opt_hit:\n"
+                "    print(\"[SegmentEditor] Option '{label}' selected.\")\n"
+                "else:\n"
+                "    print(\"[SegmentEditor] Option '{label}' not found (effect options may not be shown).\")\n"
+            ).format(label=label)
+            + "# --- [end Segment Editor session] ---\n"
+        )
 
 
 # Registry — extension point. Add a new core module by appending its driver.

@@ -269,6 +269,11 @@ class AnalyzerWorkflowTemplatesMixin:
                         step["placement_binding_reason"] = starter_binding.get("reason", "")
 
                 is_view_adjustment = interaction_kind == "view_adjustment"
+                # An in-tool interaction: the user drives an already-active module
+                # tool/effect (e.g. a Segment Editor island click) that consumes the
+                # view clicks itself — node-less, no place mode, like view_adjustment
+                # but with a tool re-bind and interaction-affirming instruction text.
+                is_module_tool = interaction_kind == "module_tool_interaction"
 
                 # A draw/place step whose Stage-4 contract says it does NOT
                 # create its own node (creates_node is False) is operating on a
@@ -299,6 +304,10 @@ class AnalyzerWorkflowTemplatesMixin:
                     pre_tpl = self._generate_existing_placement_pre_template(
                         extension_name, step, "",
                     )
+                elif is_module_tool:
+                    pre_tpl = self._generate_module_tool_interaction_pre_template(
+                        extension_name, step,
+                    )
                 elif is_view_adjustment:
                     pre_tpl = self._generate_view_adjustment_pre_template(
                         extension_name, step,
@@ -318,7 +327,11 @@ class AnalyzerWorkflowTemplatesMixin:
                 step["pre_template"] = f"templates/{step_id}_pre.py.tpl"
 
                 # Post-interaction template — mirror the same dispatch.
-                if is_view_adjustment:
+                if is_module_tool:
+                    post_tpl = self._generate_module_tool_interaction_post_template(
+                        extension_name, step,
+                    )
+                elif is_view_adjustment:
                     post_tpl = self._generate_view_adjustment_post_template(
                         extension_name, step,
                     )
@@ -427,6 +440,7 @@ class AnalyzerWorkflowTemplatesMixin:
 
                     is_view_adjustment = interaction_kind == "view_adjustment"
                     is_markup_placement = interaction_kind == "markup_placement"
+                    is_module_tool = interaction_kind == "module_tool_interaction"
 
                     if (
                         is_markup_placement
@@ -470,6 +484,18 @@ class AnalyzerWorkflowTemplatesMixin:
                         ])
                         interaction_block = "\n".join(block_lines)
                         auto_parts.append(interaction_block)
+                    elif is_module_tool:
+                        step["interaction_kind"] = "module_tool_interaction"
+                        # Ensure the module_context propagates to the interaction
+                        # descriptor so the pre-template can re-bind the active tool.
+                        if not step.get("module_context"):
+                            step["module_context"] = iso.get("module_context", "")
+                        auto_parts.append(
+                            "\n\n# --- In-tool interaction (active module tool consumes the clicks) ---\n"
+                            + self._generate_module_tool_interaction_pre_template(
+                                extension_name, step,
+                            )
+                        )
                     elif is_view_adjustment:
                         step["interaction_kind"] = "view_adjustment"
                         instructions = iso.get(
@@ -494,9 +520,17 @@ class AnalyzerWorkflowTemplatesMixin:
                 # Post-interaction template for the user_interaction part
                 post_key = f"templates/{step_id}_post.py.tpl"
                 step["post_template"] = post_key
+                mixed_interaction_kind = (
+                    (interaction_sub_ops[0].get("interaction_kind") if interaction_sub_ops else "")
+                    or step.get("interaction_kind", "")
+                )
                 if placement_starter_method:
                     templates[post_key] = self._generate_placement_starter_post_template(
                         extension_name, step, placement_starter_method,
+                    )
+                elif mixed_interaction_kind == "module_tool_interaction":
+                    templates[post_key] = self._generate_module_tool_interaction_post_template(
+                        extension_name, step,
                     )
                 elif interaction_sub_ops and not self._is_markup_node_class(
                     interaction_sub_ops[0].get("node_class") or step.get("node_class", "")
@@ -1417,10 +1451,34 @@ class AnalyzerWorkflowTemplatesMixin:
         from .module_sessions import all_drivers, extract_module
         drivers = all_drivers()
         desc_by_key = {}
+        # Thread the active tool/effect across the ORDERED steps so an option /
+        # apply / interaction step operates on the effect a PRIOR step activated
+        # (e.g. Islands) instead of a defaulted Threshold. Keyed on the module +
+        # the driver's own effect-activation detection — generic, no step identity.
+        effect_by_key = {}
+        active_effect = None
         for step in (steps or []):
-            key = step.get("code_template") if isinstance(step, dict) else None
+            if not isinstance(step, dict):
+                continue
+            desc = step.get("description", "") or ""
+            module = extract_module(desc)
+            matched_driver = None
+            for driver in drivers:
+                if driver.claims(module):
+                    matched_driver = driver
+                    break
+            if module and matched_driver is None:
+                # Entered a different named module — the prior active tool no
+                # longer governs interaction; drop it so it can't leak forward.
+                active_effect = None
+            elif matched_driver is not None:
+                activated = matched_driver.effect_activated_by(step)
+                if activated:
+                    active_effect = activated
+            key = step.get("code_template")
             if key:
-                desc_by_key[key] = step.get("description", "") or ""
+                desc_by_key[key] = desc
+                effect_by_key[key] = active_effect
         changed = 0
         for tpl_key in list(templates.keys()):
             if not isinstance(tpl_key, str) or not tpl_key.endswith(".py.tpl"):
@@ -1440,9 +1498,10 @@ class AnalyzerWorkflowTemplatesMixin:
             # the module label, never on the extension or a specific step; a step
             # with no module context (extension_op / interaction) matches no driver.
             module = extract_module(desc)
+            step_active_effect = effect_by_key.get(tpl_key)
             for driver in drivers:
                 if driver.claims(module):
-                    code = driver.wrap(code, desc)
+                    code = driver.wrap(code, desc, active_effect=step_active_effect)
             if code != orig:
                 templates[tpl_key] = code
                 changed += 1
