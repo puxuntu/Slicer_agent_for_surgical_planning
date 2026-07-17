@@ -1457,6 +1457,12 @@ class AnalyzerWorkflowTemplatesMixin:
         # the driver's own effect-activation detection — generic, no step identity.
         effect_by_key = {}
         active_effect = None
+        # The LAST template each driver claims: where its session run ends, and so
+        # where the module's tool must be released (see ModuleSessionDriver.
+        # session_teardown). Every step a driver governs carries the module label —
+        # including a module_tool_interaction, whose module_context comes from the
+        # same phrasing — so the last claimed step IS the end of the run.
+        last_session_key = {}
         for step in (steps or []):
             if not isinstance(step, dict):
                 continue
@@ -1479,6 +1485,8 @@ class AnalyzerWorkflowTemplatesMixin:
             if key:
                 desc_by_key[key] = desc
                 effect_by_key[key] = active_effect
+                if matched_driver is not None:
+                    last_session_key[id(matched_driver)] = key
         changed = 0
         for tpl_key in list(templates.keys()):
             if not isinstance(tpl_key, str) or not tpl_key.endswith(".py.tpl"):
@@ -1502,6 +1510,13 @@ class AnalyzerWorkflowTemplatesMixin:
             for driver in drivers:
                 if driver.claims(module):
                     code = driver.wrap(code, desc, active_effect=step_active_effect)
+                    # Last step of this driver's run: release the module's tool, which
+                    # otherwise stays active (with its cursor + view observations) for
+                    # every later step and after the workflow ends.
+                    if last_session_key.get(id(driver)) == tpl_key:
+                        teardown = driver.session_teardown()
+                        if teardown and teardown.strip() not in code:
+                            code = code + teardown
             if code != orig:
                 templates[tpl_key] = code
                 changed += 1

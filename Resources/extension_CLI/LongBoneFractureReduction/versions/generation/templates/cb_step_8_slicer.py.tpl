@@ -49,7 +49,7 @@ if _ses_seg is not None and _ses_editor_node is not None:
             _ses_disp.SetSegmentVisibility(_ses_target, True)
 if _ses_widget.activeEffect() is None:
     _ses_widget.setActiveEffectByName("Islands")
-_opt_label = "Keep selected island"
+_opt_label = "Split islands to segments"
 _opt_hit = False
 import slicer
 for _opt_w in slicer.util.findChildren(_ses_widget):
@@ -72,7 +72,7 @@ if not _opt_hit:
             _opt_hit = True
             break
 if _opt_hit:
-    print("[SegmentEditor] Option 'Keep selected island' selected.")
+    print("[SegmentEditor] Option 'Split islands to segments' selected.")
 else:
-    print("[SegmentEditor] Option 'Keep selected island' not found (effect options may not be shown).")
+    print("[SegmentEditor] Option 'Split islands to segments' not found (effect options may not be shown).")
 # --- [end Segment Editor session] ---

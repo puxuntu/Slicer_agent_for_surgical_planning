@@ -27,21 +27,7 @@
     "cb_step_15",
     "cb_step_16",
     "cb_step_17",
-    "cb_step_18",
-    "cb_step_19",
-    "cb_step_20",
-    "cb_step_21",
-    "cb_step_22",
-    "cb_step_23",
-    "cb_step_24",
-    "cb_step_25",
-    "cb_step_26",
-    "cb_step_27",
-    "cb_step_28",
-    "cb_step_29",
-    "cb_step_30",
-    "cb_step_31",
-    "cb_step_32"
+    "cb_step_18"
   ],
   "cookbook_driven": true,
   "cookbook_file": "LongBoneFractureReduction.md",
@@ -81,15 +67,7 @@
       "valid": true,
       "issues": []
     },
-    "cb_step_10": {
-      "valid": true,
-      "issues": []
-    },
     "cb_step_11": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_12": {
       "valid": true,
       "issues": []
     },
@@ -97,11 +75,11 @@
       "valid": true,
       "issues": []
     },
-    "cb_step_15": {
+    "cb_step_14": {
       "valid": true,
       "issues": []
     },
-    "cb_step_16": {
+    "cb_step_15": {
       "valid": true,
       "issues": []
     },
@@ -112,61 +90,17 @@
     "cb_step_18": {
       "valid": true,
       "issues": []
-    },
-    "cb_step_19": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_21": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_23": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_24": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_25": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_26": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_27": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_28": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_29": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_31": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_32": {
-      "valid": true,
-      "issues": []
     }
   },
-  "partial_valid_step_count": 26,
+  "partial_valid_step_count": 13,
   "validation_state": {
     "static_valid": true,
-    "api_probe_valid": false,
+    "api_probe_valid": true,
     "contract_valid": true,
     "prelude_valid": true,
     "contract_audit_valid": true,
     "workflow_state_valid": true,
-    "prelude_bytes_max": 3890,
+    "prelude_bytes_max": 3904,
     "overall_valid": true,
     "api_proof_valid": true,
     "api_inventory_complete": true,
@@ -176,12 +110,12 @@
     "generator_template_sync_valid": true
   },
   "api_proof_coverage": {
-    "total_calls": 599,
-    "state_changing_calls": 195,
-    "proven_calls": 389,
+    "total_calls": 295,
+    "state_changing_calls": 98,
+    "proven_calls": 195,
     "invalid_calls": 0,
     "blocking_unproven_calls": 0,
-    "warning_unproven_reads": 210,
+    "warning_unproven_reads": 100,
     "inventory_complete": true
   },
   "workflow_contract_file": "workflow_contract.json",

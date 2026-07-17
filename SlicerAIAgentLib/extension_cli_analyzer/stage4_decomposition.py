@@ -1012,6 +1012,10 @@ class AnalyzerStage4DecompositionMixin:
         # qMRMLSegmentsTableView to (setSegmentationNode), so the segments-table
         # step can target the exact segmentation, not just the node class.
         self._segments_table_bindings = (scan_result or {}).get("segments_table_bindings", {}) or {}
+        # widget_name -> what that selector actually selects (a whole node vs a segment
+        # inside a segmentation), read from the source's own selection-resolution code.
+        # Only "segment" verdicts appear; an absent widget means a node pick.
+        self._selection_granularity = (scan_result or {}).get("selection_granularity", {}) or {}
         for name in ui_widgets:
             if name and name not in seen:
                 widgets.append({
@@ -1780,6 +1784,7 @@ class AnalyzerStage4DecompositionMixin:
                 sub_op, getattr(self, "_ui_widget_classes", {}),
                 getattr(self, "_segments_table_bindings", {}),
                 getattr(self, "_ui_widget_properties", {}),
+                getattr(self, "_selection_granularity", {}),
             )
             # Reconcile "click in a view to create/draw/place a Markups node"
             # (incl. ROI box drawing) into a real markup_placement contract even
@@ -1914,10 +1919,19 @@ class AnalyzerStage4DecompositionMixin:
             "repeat_blocks": repeat_blocks,
         }
 
+    # Selector classes that can express a segment-level pick: a subject-hierarchy view
+    # shows segments as child rows, and a combobox can list segment names. A plain
+    # qMRMLNodeComboBox shows scene nodes only, so it can never take a segment pick.
+    _SEGMENT_CAPABLE_WIDGET_CLASSES = (
+        "qMRMLSubjectHierarchyTreeView", "qMRMLSubjectHierarchyComboBox",
+        "QComboBox", "ctkComboBox", "qMRMLSegmentsTableView",
+    )
+
     @staticmethod
     def _record_source_widget(sub_op: Dict[str, Any], widget_classes: Dict[str, str],
                               segments_table_bindings: Dict[str, str] = None,
-                              widget_props: Dict[str, Dict[str, Any]] = None) -> None:
+                              widget_props: Dict[str, Dict[str, Any]] = None,
+                              selection_granularity: Dict[str, Dict] = None) -> None:
         """Record the original selection widget's Qt class on a user_choice sub-op,
         and tag segments-table-specific semantics.
 
@@ -1933,6 +1947,12 @@ class AnalyzerStage4DecompositionMixin:
         record a segment-visibility-selection intent plus the
         ``vtkMRMLSegmentationNode`` class so the runtime renders the real table.
         Generic: keyed purely on the Qt widget class, no extension-specific names.
+
+        Selection GRANULARITY (does the user pick a whole node, or a segment inside a
+        segmentation?) is recorded as a separate axis, because the Qt class does not
+        determine it -- one ``qMRMLSubjectHierarchyTreeView`` serves a volume pick and a
+        segment pick in the same extension. It is written before any class dispatch
+        below, so a class with no dispatch cell still keeps its granularity.
         """
         if not isinstance(sub_op, dict) or sub_op.get("op_type") != "user_choice":
             return
@@ -1940,6 +1960,27 @@ class AnalyzerStage4DecompositionMixin:
         widget_class = (widget_classes or {}).get(widget_name, "") or ""
         if widget_class:
             sub_op.setdefault("widget_class", widget_class)
+        # Granularity axis, from the source's own selection-resolution code (scan.py).
+        # Orthogonal to widget_class, so it is recorded first and never discarded by a
+        # class branch that returns early. Absent => unset => the runtime defaults to a
+        # node pick, i.e. today's behavior for every extension without this evidence.
+        gran_info = (selection_granularity or {}).get(widget_name) or {}
+        if (gran_info.get("granularity") == "segment"
+                and (not widget_class
+                     or widget_class in
+                     AnalyzerStage4DecompositionMixin._SEGMENT_CAPABLE_WIDGET_CLASSES)):
+            sub_op["selection_granularity"] = "segment"
+            sub_op["choices"] = []
+            if gran_info.get("segment_id_param"):
+                sub_op["segment_id_param"] = gran_info["segment_id_param"]
+            if gran_info.get("node_param"):
+                sub_op["segmentation_target_param"] = gran_info["node_param"]
+            # The wrapper field's annotation is the authoritative node class. The .ui
+            # carries no nodeTypes when the filter is applied through a helper, and the
+            # language classifier that would otherwise supply it reads LLM-authored text
+            # that drifts between regenerations.
+            if gran_info.get("node_class"):
+                sub_op["node_class"] = gran_info["node_class"]
         # A double-handled numeric range widget (ctkRangeWidget etc.): the user
         # adjusts a min/max band on a slider. Tag a range selection and carry the
         # .ui limits (minimum/maximum/singleStep) so the runtime can seed the slider

@@ -480,6 +480,12 @@ class WorkflowRuntime:
         segment_name_meta = self._segment_name_selection_meta(current_meta) if result_type == "user_choice" else {}
         if segment_name_meta:
             choices = []
+        # Segment-REF step: the source selector picks a SEGMENT inside a segmentation
+        # (tree row), so the panel keeps the node tree but accepts a segment row and
+        # commits the (node, segment id) pair the source's handler expects.
+        segment_ref_meta = self._segment_ref_meta(current_meta) if result_type == "user_choice" else {}
+        if segment_ref_meta:
+            choices = []
         # Numeric RANGE adjustment step (a double-handled min/max slider like the
         # Segment Editor Threshold range): surface a flag so the panel renders a
         # range bar. Drop the placeholder choice the LLM co-emits ("range") so
@@ -545,6 +551,10 @@ class WorkflowRuntime:
             "source_widget_class": source_widget_class,
             "segment_selection": bool(segment_meta),
             "segment_name_selection": bool(segment_name_meta),
+            # A segment-REF pick reuses the node tree (filtered to segmentations); this
+            # tells the panel to accept a SEGMENT row and commit the (node, segment id)
+            # pair the source's handler expects, instead of a node name.
+            "segment_ref_selection": bool(segment_ref_meta),
             # The extension's own source combobox name (e.g. "fragmentSelector"),
             # so the picker can drive it live for immediate handle feedback.
             "segment_name_source_widget": segment_name_meta.get("source_widget", ""),
@@ -1945,6 +1955,16 @@ class WorkflowRuntime:
             # enumerated choice; mirror the live path so the table re-renders.
             choices = []
             needs_input = True
+        # Mirror the live path for the two single-pick segment families too, so
+        # replaying back to one re-renders its picker rather than a free-text box.
+        segment_name_meta = self._segment_name_selection_meta(meta)
+        if segment_name_meta:
+            choices = []
+            needs_input = True
+        segment_ref_meta = self._segment_ref_meta(meta)
+        if segment_ref_meta:
+            choices = []
+            needs_input = True
         # Mirror the live path: a range step re-renders its slider on replay.
         range_meta = self._range_selection_meta(meta)
         if range_meta:
@@ -1978,10 +1998,20 @@ class WorkflowRuntime:
             "node_keywords": binding.get("keywords", []) or [],
             "source_widget_class": source_widget_class,
             "segment_selection": bool(segment_meta),
-            "segmentation_node_class": segment_meta.get("segmentation_node_class", ""),
+            # Kept in step with the live path (state_for_ui): every selection-widget
+            # family must appear at BOTH sites or replay silently degrades the step to
+            # a free-text box.
+            "segment_name_selection": bool(segment_name_meta),
+            "segment_name_source_widget": segment_name_meta.get("source_widget", ""),
+            "segment_ref_selection": bool(segment_ref_meta),
+            "segmentation_node_class": segment_meta.get("segmentation_node_class", "")
+            or segment_name_meta.get("segmentation_node_class", ""),
             # Mirror the live path: binding keywords win, else widget-name-derived.
-            "segmentation_keywords": (binding.get("keywords", []) or []) or segment_meta.get("keywords", []),
-            "segmentation_target_param": segment_meta.get("target_param", ""),
+            "segmentation_keywords": (binding.get("keywords", []) or [])
+            or segment_meta.get("keywords", [])
+            or segment_name_meta.get("keywords", []),
+            "segmentation_target_param": segment_meta.get("target_param", "")
+            or segment_name_meta.get("target_param", ""),
             "range_selection": bool(range_meta),
             "range_param": range_meta.get("param", ""),
             "range_min": range_meta.get("min"),
@@ -2414,6 +2444,44 @@ class WorkflowRuntime:
             "source_widget": widget_name,
         }
 
+    @staticmethod
+    def _segment_ref_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+        """Resolution metadata for a step whose source selector picks a SEGMENT inside
+        a segmentation (rather than a whole node), else {}.
+
+        Recognized by the ``selection_granularity == "segment"`` axis the capture stage
+        reads off the extension's own selection-resolution code -- NOT by the Qt class
+        (one qMRMLSubjectHierarchyTreeView serves both a node pick and a segment pick in
+        the same extension) and NOT by step text (a cookbook may call a segment pick a
+        "segmentation node"). Absent => a node pick, i.e. today's behavior.
+
+        Kept distinct from _segment_name_selection_meta (a content COMBOBOX of segment
+        names, where the segmentation is resolved for the user) and from
+        _segment_selection_meta (the multi-untick segments TABLE): here the user picks
+        the segmentation AND the segment together, by clicking a segment row in the tree.
+        Deliberately does NOT suppress node_class -- the reproduced widget IS the node
+        tree, filtered to segmentations; only which row is acceptable, and what gets
+        committed, differ.
+        """
+        if not isinstance(meta, dict):
+            return {}
+        for so in meta.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            if str(so.get("selection_granularity") or "").strip() != "segment":
+                continue
+            # The tree's node class arrives via the normal node_class path (the capture
+            # stage writes the wrapper field's annotation onto the sub-op), so this
+            # carries only what is specific to the segment pick.
+            return {
+                # The wrapper field holding the segment id (e.g. "referenceSegmentId").
+                "segment_id_param": str(so.get("segment_id_param") or "").strip(),
+                # The extension's own selector; the picker drives it live to the chosen
+                # SEGMENT row so the source's connected handler writes both halves.
+                "source_widget": str(so.get("widget_name") or "").strip(),
+            }
+        return {}
+
     # Qt classes of a double-handled numeric range control (min/max slider).
     # Shared by _is_range_selection / _range_selection_meta and the node-selection
     # exclusions so a range step never routes to the node tree / segments table.
@@ -2670,10 +2738,21 @@ class WorkflowRuntime:
         desc = str(meta.get("description") or meta.get("step_id") or "Step").strip()
         if kind in ("choice", "loop_count"):
             label = (meta.get("choice_info") or {}).get("parameter_name") or desc
-            return f"{label}: {value}"
+            return f"{label}: {WorkflowRuntime._format_choice_summary(value)}"
         if kind == "loop_decision":
             return f"Loop decision: {value}"
         return desc
+
+    @staticmethod
+    def _format_choice_summary(value: Any) -> str:
+        """Human-readable form of a recorded choice for the replay timeline. Compound
+        values (a segment pick) would otherwise render as a raw dict. Shape-keyed, so
+        every scalar choice is unaffected."""
+        if (isinstance(value, dict) and value.get("node_id") and value.get("segment_id")):
+            node = str(value.get("node_name") or "").strip()
+            segment = str(value.get("segment_name") or "").strip() or str(value.get("segment_id"))
+            return f"{node} / {segment}" if node else segment
+        return str(value)
 
     @staticmethod
     def _scene_node_ids() -> set:

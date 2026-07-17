@@ -48,6 +48,38 @@ def _is_range_value(value) -> bool:
     )
 
 
+def _is_segment_ref_value(value) -> bool:
+    """True for a segment pick: the ``{node_id, segment_id, ...}`` pair committed by
+    the node-tree picker for a step whose source selector selects a SEGMENT inside a
+    segmentation. A dict is self-describing (it cannot collide with the list-shaped
+    range value) and JSON-round-trips through checkpoints unchanged."""
+    return (
+        isinstance(value, dict)
+        and bool(value.get("node_id"))
+        and bool(value.get("segment_id"))
+    )
+
+
+def _segment_ref_stem(key: str) -> str:
+    """Map a segment choice's parameter_name to the stem an independently-grounded
+    template is likely to use: camelCase->snake, then drop a trailing
+    'segment_id'/'segment'/'segmentation' segment. E.g. ``referenceSegmentId`` ->
+    ``reference``. Same convention as _range_stem; generic, no extension-specific
+    strings."""
+    src = str(key or "")
+    out = []
+    for i, ch in enumerate(src):
+        if ch.isupper() and i > 0 and (src[i - 1].islower() or src[i - 1].isdigit()):
+            out.append("_")
+        out.append(ch.lower())
+    s = "".join(out)
+    for suffix in ("_segment_id", "_segmentid", "_segmentation", "_segment"):
+        if s.endswith(suffix):
+            s = s[: -len(suffix)]
+            break
+    return s.strip("_")
+
+
 def _range_stem(key: str) -> str:
     """Map a range choice's parameter_name to the stem an independently-grounded
     template is likely to use for its min/max placeholders: camelCase->snake, then
@@ -90,6 +122,28 @@ def _build_format_kwargs(arguments: Dict, ext_name: str = "") -> Dict[str, str]:
     # Merge recorded choices (do not overwrite explicit arguments).
     choices = _workflow_choices.get(ext_name, {}) if ext_name else {}
     for key, value in (choices or {}).items():
+        if _is_segment_ref_value(value):
+            # A segment pick is compound: expand it so a grounded template can take the
+            # segmentation and the segment id as separate arguments (the shape every
+            # segment-consuming extension method uses, e.g.
+            # reconstruct(segmentationNode, segmentId)).
+            #
+            # Expanded BEFORE the bare {key} below, because a de-suffixed stem alias can
+            # reproduce the key exactly: parameter_name "reference_segment_id" has stem
+            # "reference", so its "_segment_id" alias IS "reference_segment_id". Filling
+            # the alias first makes that placeholder mean the segment id under either
+            # naming the LLM emits (reference_segment_id / referenceSegmentId), instead
+            # of the dict repr no template asks for.
+            stem = _segment_ref_stem(key)
+            for suffix, part in (
+                ("node_id", value.get("node_id")),
+                ("node_name", value.get("node_name") or ""),
+                ("segment_id", value.get("segment_id")),
+                ("segment_name", value.get("segment_name") or ""),
+            ):
+                format_kwargs.setdefault(f"{key}_{suffix}", repr(part))
+                if stem and stem != key:
+                    format_kwargs.setdefault(f"{stem}_{suffix}", repr(part))
         format_kwargs.setdefault(key, repr(value))
         if _is_range_value(value):
             lo, hi = value[0], value[1]
@@ -300,6 +354,11 @@ def _record_choice_and_advance(
         # effect, NOT a scene node. Checked before the segment-name / node
         # materializers so the list value is never resolved as a node/name.
         choice_code = _build_range_choice_materialization_code(ctx, param_name, choice_value)
+    if not choice_code:
+        # A SEGMENT pick ({node_id, segment_id}) identifies a segment inside a
+        # segmentation, not a scene node. Checked before the node materializer, which
+        # would resolve the compound value as a node name and raise.
+        choice_code = _build_segment_ref_choice_materialization_code(ctx, param_name, choice_value)
     if not choice_code:
         # A segment-NAME pick (content combobox like the 'Fragment' box) is an
         # in-content item, NOT a scene node: mirror it onto the extension's own
@@ -735,6 +794,160 @@ def _build_segment_name_choice_materialization_code(ctx: _WorkflowContext, param
         f"print({log_msg!r})",
         "",
     ]
+    return "\n".join(lines)
+
+
+def _is_segment_ref_choice(ctx: _WorkflowContext) -> bool:
+    """True when this choice reproduces a selector that picks a SEGMENT inside a
+    segmentation, mirroring WorkflowRuntime._segment_ref_meta over the loader's ctx
+    (the duplication the two mirrors already mandate for the other families).
+    Keyed on the ``selection_granularity`` axis the capture stage reads off the
+    extension's own selection-resolution code."""
+    for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
+        for so in src.get("sub_operations") or []:
+            if (isinstance(so, dict)
+                    and str(so.get("selection_granularity") or "").strip() == "segment"):
+                return True
+    return False
+
+
+def _build_segment_ref_choice_materialization_code(
+    ctx: _WorkflowContext,
+    param_name: str,
+    choice_value: Any,
+) -> str:
+    """For a SEGMENT pick ``{node_id, segment_id, ...}``, drive the extension's own
+    subject-hierarchy selector to the chosen SEGMENT ROW so its connected handler
+    stores both the segmentation and the segment id.
+
+    This is what makes the pick usable: such an extension keeps the segment id in its
+    own state, and a later button-click step drives that handler, so selecting only
+    the segmentation row leaves the id empty and the later step fails. Selecting a
+    segment row means matching the segmentID subject-hierarchy attribute on the
+    segmentation's children -- a segment row has no data node, so
+    ``GetItemByDataNode`` (what the node materializer uses) cannot reach it, and
+    segment names are not unique so the row name cannot identify it either.
+
+    Also publishes the chosen segmentation under the cross-stage cached-id global and
+    the segment id alongside it, so a grounded template can consume the pair directly.
+    CodeValidator-safe (only ``import slicer``/``vtk`` and method calls -- no
+    ``getattr``/``globals``), fail-soft. Returns "" when this is not a segment pick.
+    """
+    if not (param_name and param_name.isidentifier()):
+        return ""
+    if not _is_segment_ref_choice(ctx):
+        return ""
+    if not _is_segment_ref_value(choice_value):
+        return ""
+    node_id = str(choice_value.get("node_id") or "")
+    segment_id = str(choice_value.get("segment_id") or "")
+    if not (node_id and segment_id):
+        return ""
+    ext_slug = ctx.ext_name.lower()
+    id_global = f"_{ext_slug}_{param_name}_id"
+    module_name = str((ctx.metadata or {}).get("extension_module_name") or "").strip()
+    selector = _choice_selector_widget(ctx, param_name)
+    err_msg = (
+        f"Could not resolve the selected segmentation {node_id!r} in the scene "
+        f"for '{param_name}'."
+    )
+    log_prefix = (
+        f"[{ctx.ext_name}] Step '{ctx.workflow_step}': selected segment for "
+        f"'{param_name}': "
+    )
+    lines = [
+        f"# --- {ctx.ext_name}: {ctx.workflow_step} segment selection ---",
+        "import slicer",
+        "import vtk",
+        f"_seg_node = slicer.mrmlScene.GetNodeByID({node_id!r})",
+        "if _seg_node is None:",
+        f"    raise RuntimeError({err_msg!r})",
+        f"_seg_id = {segment_id!r}",
+        f"{param_name} = _seg_id",
+        f"{id_global} = _seg_node.GetID()",
+        f"_{ext_slug}_{param_name}_segment_id = _seg_id",
+    ]
+    # Publish the segmentation under every same-class consumer's parameter name, so a
+    # later template reading it under the consuming method's role param agrees with
+    # this writer (mirrors the node materializer's alias channel).
+    _alias_seen = {param_name}
+    for _alias_roles in ((ctx.metadata or {}).get("node_roles", {}) or {}).values():
+        for _alias_role in (_alias_roles or []):
+            if not isinstance(_alias_role, dict):
+                continue
+            if str(_alias_role.get("node_class") or "").strip() != "vtkMRMLSegmentationNode":
+                continue
+            _alias = str(_alias_role.get("parameter_name") or "").strip()
+            if not _alias or not _alias.isidentifier() or _alias in _alias_seen:
+                continue
+            _alias_seen.add(_alias)
+            lines.append(f"_{ext_slug}_{_alias}_id = _seg_node.GetID()")
+    if module_name:
+        # Find the segment's own row: the child of the segmentation item whose
+        # segmentID attribute matches, then make it current so the handler fires.
+        lines.extend([
+            "_seg_row = 0",
+            "try:",
+            "    _seg_shn = slicer.mrmlScene.GetSubjectHierarchyNode()",
+            "    _seg_parent = _seg_shn.GetItemByDataNode(_seg_node)",
+            "    _seg_kids = vtk.vtkIdList()",
+            "    _seg_shn.GetItemChildren(_seg_parent, _seg_kids)",
+            "    _seg_attr = slicer.vtkMRMLSegmentationNode.GetSegmentIDAttributeName()",
+            "    for _seg_i in range(_seg_kids.GetNumberOfIds()):",
+            "        _seg_kid = _seg_kids.GetId(_seg_i)",
+            "        if _seg_shn.GetItemAttribute(_seg_kid, _seg_attr) == _seg_id:",
+            "            _seg_row = _seg_kid",
+            "            break",
+            "except Exception:",
+            "    _seg_row = 0",
+            "_seg_driven = False",
+        ])
+        if selector.isidentifier():
+            lines.extend([
+                "_seg_widget = None",
+                "try:",
+                f"    _seg_widget = slicer.util.getModuleWidget({module_name!r})",
+                "except Exception:",
+                "    _seg_widget = None",
+                "if _seg_widget is not None and _seg_row:",
+                "    try:",
+                f"        _seg_widget.ui.{selector}.setCurrentItem(_seg_row)",
+                "        _seg_driven = True",
+                "    except Exception:",
+                "        pass",
+            ])
+        # Fallback for Python-built UIs (no `.ui` entry): drive every SH tree whose
+        # nodeTypes filter IsA-matches the segmentation. The filter match keeps an
+        # unrelated selector (e.g. a curve tree) out of it.
+        lines.extend([
+            "if not _seg_driven and _seg_row:",
+            "    _seg_root = None",
+            "    try:",
+            f"        _seg_root = slicer.util.getModule({module_name!r}).widgetRepresentation()",
+            "    except Exception:",
+            "        _seg_root = None",
+            "    try:",
+            "        _seg_trees = slicer.util.findChildren(",
+            "            _seg_root, className='qMRMLSubjectHierarchyTreeView')",
+            "    except Exception:",
+            "        _seg_trees = []",
+            "    for _seg_t in _seg_trees:",
+            "        try:",
+            "            _seg_nt = _seg_t.nodeTypes",
+            "            _seg_types = list(_seg_nt() if callable(_seg_nt) else _seg_nt)",
+            "        except Exception:",
+            "            _seg_types = []",
+            "        if not _seg_types:",
+            "            continue",
+            "        if not any(_seg_node.IsA(str(_seg_ty)) for _seg_ty in _seg_types):",
+            "            continue",
+            "        try:",
+            "            _seg_t.setCurrentItem(_seg_row)",
+            "        except Exception:",
+            "            pass",
+        ])
+    lines.append(f"print({log_prefix!r} + _seg_node.GetName() + ' / ' + _seg_id)")
+    lines.append("")
     return "\n".join(lines)
 
 

@@ -1,17 +1,18 @@
-# --- [Segment Editor session] add or reuse the target segment ---
-# Directly retrieve the segmentation node by name 'Reference_Segmentation' (created in step 2)
+# [runtime-fixed] Auto-revised by runtime self-correction at 20260716_214416.
+# Pre-revision templates backed up under versions/runtime_fix_20260716_214416/.
+# Fixed runtime error: could not find nodes in the scene by name or id 'Bone_Segmentation'
+# --- [Segment Editor session] get existing bone_segmentation node, add segment ---
 import slicer
 
-_ses_seg = slicer.util.getNode('Reference_Segmentation')
-if _ses_seg is None:
-    raise RuntimeError("STATE_NOT_APPLIED: Segmentation 'Reference_Segmentation' not found.")
+# The segmentation node was created in cb_step_2 with name "bone_segmentation"
+_segmentation_node = slicer.util.getNode("bone_segmentation")
+print(f"[SegmentEditor] Found segmentation node '{{_segmentation_node.GetName()}}'.")
 
-_ses_segmentation = _ses_seg.GetSegmentation()
-_ses_sid = _ses_segmentation.GetSegmentIdBySegmentName("Reference_Segment")
-if not _ses_sid:
-    _ses_sid = _ses_segmentation.AddEmptySegment("Reference_Segment", "Reference_Segment")
-if not _ses_sid:
+_seg = _segmentation_node.GetSegmentation()
+_segment_id = _seg.GetSegmentIdBySegmentName("bone_segment")
+if not _segment_id:
+    _segment_id = _seg.AddEmptySegment("bone_segment", "bone_segment")
+if not _segment_id:
     raise RuntimeError("STATE_NOT_APPLIED: AddEmptySegment returned empty id")
-_ses_seg.SetAttribute("SlicerAIAgent.SegmentEditorTargetSegmentID", _ses_sid)
-segmentId = _ses_sid
-print("[SegmentEditor] Segment 'Reference_Segment' ready.")
+segmentId = _segment_id
+print("[SegmentEditor] Segment 'bone_segment' ready.")

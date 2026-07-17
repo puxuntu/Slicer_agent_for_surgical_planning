@@ -170,8 +170,15 @@ class AnalyzerScanMixin:
         # extension binds them to (via setSegmentationNode/ID), so a generated
         # segments-table step can target the exact segmentation rather than just
         # the node class (e.g. fractureSegmentsTable -> OutputFracSeg).
-        wrapper_fields = set((parameter_node_wrapper or {}).get("fields") or {})
+        wrapper_field_types = (parameter_node_wrapper or {}).get("fields") or {}
+        wrapper_fields = set(wrapper_field_types)
         segments_table_bindings = self._scan_segments_table_bindings(py_files, wrapper_fields)
+
+        # What each selector actually SELECTS (a whole node vs a segment inside a
+        # segmentation), read from the source's own selection-resolution code. The Qt
+        # class cannot answer this -- the same tree class serves both -- and the cookbook
+        # prose is unreliable. Absent entry => node, i.e. today's behavior.
+        selection_granularity = self._scan_selection_granularity(py_files, wrapper_field_types)
 
         # Find the entry point module (the main module file)
         entry_module = None
@@ -197,6 +204,7 @@ class AnalyzerScanMixin:
             "parameter_node_wrapper": parameter_node_wrapper,
             "parameter_node_wrappers": parameter_node_wrappers,
             "segments_table_bindings": segments_table_bindings,
+            "selection_granularity": selection_granularity,
         }
 
     @staticmethod
@@ -291,6 +299,212 @@ class AnalyzerScanMixin:
                     if field:
                         bindings.setdefault(widget, field)
         return bindings
+
+    # Canonical Slicer API for reading a SEGMENT row out of a subject-hierarchy
+    # selector. An extension that lets the user pick a segment (rather than a whole
+    # segmentation node) must go through one of these to turn the current item into
+    # a segment id -- there is no other public way.
+    _SEGMENT_RESOLUTION_MARKERS = frozenset({
+        "GetSegmentIDAttributeName",
+        "GetSegmentationNodeForSegmentSubjectHierarchyItem",
+    })
+    # Reading the current DATA NODE. Present in node pickers and, incidentally, inside
+    # segment resolvers too (a segment pick must also resolve its segmentation), so
+    # these only ever imply "node" in the ABSENCE of a segment marker.
+    _NODE_RESOLUTION_MARKERS = frozenset({"currentNode", "currentNodeID", "GetItemDataNode"})
+
+    @staticmethod
+    def _widget_of_expr(expr) -> str:
+        """``self.ui.<w>`` / ``self.<w>`` -> ``w``; "" for anything else."""
+        parts, cur = [], expr
+        while isinstance(cur, ast.Attribute):
+            parts.append(cur.attr)
+            cur = cur.value
+        if not isinstance(cur, ast.Name) or cur.id != "self":
+            return ""
+        parts.reverse()
+        if len(parts) >= 2 and parts[0] == "ui":
+            return parts[1]
+        if len(parts) == 1:
+            return parts[0]
+        return ""
+
+    @classmethod
+    def _scan_selection_granularity(cls, py_files: List[str], wrapper_field_types) -> Dict[str, Dict]:
+        """Map ``widget_name -> {granularity, segment_id_param, node_param, node_class}``
+        for selector widgets whose own source resolves a SEGMENT inside a segmentation
+        rather than a whole MRML node.
+
+        Granularity is NOT a function of the selector's Qt class: one
+        ``qMRMLSubjectHierarchyTreeView`` serves a volume pick and a segment pick in the
+        same extension, and the cookbook prose is unreliable (it may call a segment pick
+        a "segmentation node"). The only sound evidence is what the source itself does
+        with the selection, so this reads that directly, on two independent gates:
+
+        P1 ATTRIBUTION -- a segment-resolution marker is attributed to THAT widget:
+          A. rooted:   ``self.[ui.]w.<marker>()``                       -> w
+          B. unrooted: ``shNode.GetItemAttribute(...)`` -> the function's UNIQUE widget
+             scope; a function touching 0 or >=2 widgets ABSTAINS, so a handler shared by
+             several selectors can never leak one widget's granularity onto another.
+          C. one level of interprocedural binding: ``self._helper(self.[ui.]w)``
+             attributes the helper's markers to w -- per call site, so a single helper
+             yields "segment" for one tree and "node" for another.
+          Within a scope segment beats node (a segment pick must also resolve the node).
+
+        P2 PERSISTENCE -- the resolved segment id is committed to persistent SELECTION
+        state: assigned to a parameterNodeWrapper field of non-node type, in the same
+        function that resolved it from this widget. This separates a widget that SELECTS
+        a segment from one that merely READS a segment id incidentally (e.g. a handler
+        that derives an id at click time and passes it straight to a logic call, or
+        caches it in a never-read attribute) -- those remain node pickers, which is what
+        their total "first segment" fallbacks already assume.
+
+        Only "segment" verdicts are returned: an absent entry means node, i.e. exactly
+        today's behavior. Both gates fail toward node, so an unrecognized shape degrades
+        rather than mis-renders. Generic -- keyed on the wrapper field set and Slicer's
+        own segmentation API, with no extension- or widget-specific names.
+        """
+        field_types = dict(wrapper_field_types or {})
+        out: Dict[str, Dict] = {}
+        if not field_types:
+            # P2 is unsatisfiable without a wrapper: every verdict would be node anyway.
+            return out
+
+        def _calls(fn):
+            return {c.func.attr for c in ast.walk(fn)
+                    if isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute)}
+
+        def _scope(fn):
+            """Widgets this function touches (``self.logic`` is not a widget)."""
+            found = set()
+            for c in ast.walk(fn):
+                if isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute):
+                    w = cls._widget_of_expr(c.func.value)
+                    if w and w != "logic":
+                        found.add(w)
+            return found
+
+        def _resolves_segment(fn, methods, depth=0, seen=frozenset()):
+            if depth > 2 or fn.name in seen:
+                return False
+            if _calls(fn) & cls._SEGMENT_RESOLUTION_MARKERS:
+                return True
+            for c in ast.walk(fn):
+                if (isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute)
+                        and isinstance(c.func.value, ast.Name) and c.func.value.id == "self"
+                        and c.func.attr in methods
+                        and _resolves_segment(methods[c.func.attr], methods,
+                                              depth + 1, seen | {fn.name})):
+                    return True
+            return False
+
+        for fpath in py_files:
+            try:
+                with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                    tree = ast.parse(f.read())
+            except Exception:
+                continue
+            methods = {f.name: f for f in ast.walk(tree)
+                       if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef))}
+            granular: Dict[str, set] = {}
+            persisted: Dict[str, Dict[str, str]] = {}
+
+            for fn in methods.values():
+                # ---- P1 -------------------------------------------------------
+                rooted_seg, rooted_node, unrooted = set(), set(), set()
+                for c in ast.walk(fn):
+                    if not (isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute)):
+                        continue
+                    w = cls._widget_of_expr(c.func.value)
+                    if w:
+                        if c.func.attr in cls._SEGMENT_RESOLUTION_MARKERS:
+                            rooted_seg.add(w)
+                        if c.func.attr in cls._NODE_RESOLUTION_MARKERS:
+                            rooted_node.add(w)
+                    elif c.func.attr in cls._SEGMENT_RESOLUTION_MARKERS:
+                        unrooted.add("segment")
+                    elif c.func.attr in cls._NODE_RESOLUTION_MARKERS:
+                        unrooted.add("node")
+                for w in rooted_seg:
+                    granular.setdefault(w, set()).add("segment")
+                for w in rooted_node:
+                    granular.setdefault(w, set()).add("node")
+                scope = _scope(fn)
+                if unrooted and len(scope) == 1:                       # Pass B
+                    granular.setdefault(next(iter(scope)), set()).update(unrooted)
+                for c in ast.walk(fn):                                  # Pass C
+                    if not (isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute)
+                            and isinstance(c.func.value, ast.Name)
+                            and c.func.value.id == "self" and c.func.attr in methods):
+                        continue
+                    helper = methods[c.func.attr]
+                    targets = {w for w in (cls._widget_of_expr(a) for a in c.args) if w}
+                    if len(targets) != 1 or _scope(helper):
+                        continue
+                    hm = _calls(helper)
+                    w = next(iter(targets))
+                    if hm & cls._SEGMENT_RESOLUTION_MARKERS:
+                        granular.setdefault(w, set()).add("segment")
+                    if hm & cls._NODE_RESOLUTION_MARKERS:
+                        granular.setdefault(w, set()).add("node")
+
+                # ---- P2 -------------------------------------------------------
+                tainted, from_widgets = set(), set()
+                for st in ast.walk(fn):
+                    if not isinstance(st, ast.Assign):
+                        continue
+                    v = st.value
+                    if not (isinstance(v, ast.Call) and isinstance(v.func, ast.Attribute)
+                            and isinstance(v.func.value, ast.Name)
+                            and v.func.value.id == "self" and v.func.attr in methods
+                            and _resolves_segment(methods[v.func.attr], methods)):
+                        continue
+                    args = {w for w in (cls._widget_of_expr(a) for a in v.args) if w}
+                    if not args and len(scope) == 1:
+                        args = set(scope)
+                    from_widgets |= args
+                    for t in st.targets:
+                        for n in ast.walk(t):
+                            if isinstance(n, ast.Name):
+                                tainted.add(n.id)
+                if not (tainted and from_widgets):
+                    continue
+                for st in ast.walk(fn):
+                    if not (isinstance(st, ast.Assign)
+                            and isinstance(st.value, ast.Name) and st.value.id in tainted):
+                        continue
+                    for t in st.targets:
+                        if not isinstance(t, ast.Attribute):
+                            continue
+                        ann = str(field_types.get(t.attr) or "")
+                        if not ann or ann.startswith("vtkMRML"):
+                            continue
+                        for w in from_widgets:
+                            persisted.setdefault(w, {})["segment_id_param"] = t.attr
+                # The node half of the same resolved pair names the wrapper's node field,
+                # whose annotation is the authoritative node class (the .ui carries none
+                # when the type filter is applied through a helper).
+                for st in ast.walk(fn):
+                    if not (isinstance(st, ast.Assign)
+                            and isinstance(st.value, ast.Name) and st.value.id in tainted):
+                        continue
+                    for t in st.targets:
+                        if not isinstance(t, ast.Attribute):
+                            continue
+                        ann = str(field_types.get(t.attr) or "")
+                        if ann.startswith("vtkMRML"):
+                            for w in from_widgets:
+                                if w in persisted:
+                                    persisted[w].setdefault("node_param", t.attr)
+                                    persisted[w].setdefault("node_class", ann)
+
+            for widget, kinds in granular.items():
+                if "segment" not in kinds or widget not in persisted:
+                    continue
+                info = dict(persisted[widget])
+                info["granularity"] = "segment"
+                out.setdefault(widget, info)
+        return out
 
     @staticmethod
     def _annotation_node_class(annotation) -> str:

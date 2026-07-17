@@ -198,6 +198,8 @@ class WidgetWorkflowMixin:
 
         workflow_done = bool(self._currentWorkflowUiState.get("workflow_done")) or \
             self._currentWorkflowUiState.get("raw_status") in ("completed", "cancelled")
+        if workflow_done:
+            self._releaseModuleSessionTools()
         self._workflowTitleLabel.setText(str(title))
         self._workflowStatusLabel.setText(str(status))
         if total > 0:
@@ -749,6 +751,7 @@ class WidgetWorkflowMixin:
         # nodes when ``node_class`` is set); the earlier "shows everything" was a
         # stale-library reload bug (node_class arrived empty), now fixed. The
         # candidate gate above already guarantees >=1 node of this class exists.
+        segment_ref = bool(state.get("segment_ref_selection"))
         tree = slicer.qMRMLSubjectHierarchyTreeView()
         tree.setMRMLScene(slicer.mrmlScene)     # scene BEFORE filtering
         tree.nodeTypes = [node_class]           # exact class, subclass-inclusive
@@ -757,10 +760,15 @@ class WidgetWorkflowMixin:
         # other-class outputs). The proxy property is ``showEmptyHierarchyItems``
         # (set False), driven via its setter -- a bare attribute assignment does
         # not bind through PythonQt here. Generic; no extension-specific attrs.
-        try:
-            tree.sortFilterProxyModel().setShowEmptyHierarchyItems(False)
-        except Exception:
-            logger.debug("Tree setShowEmptyHierarchyItems setup failed", exc_info=True)
+        # NOT for a segment pick: a segment row is itself a data-node-less, childless
+        # hierarchy item, so hiding empty hierarchy items rejects the very rows the
+        # user must click. The source extension leaves this at its default for the
+        # same reason.
+        if not segment_ref:
+            try:
+                tree.sortFilterProxyModel().setShowEmptyHierarchyItems(False)
+            except Exception:
+                logger.debug("Tree setShowEmptyHierarchyItems setup failed", exc_info=True)
         # Exclude subject-hierarchy items tagged as created-after-this-step during
         # replay (see WorkflowRuntime.REPLAY_HIDDEN_SH_ATTR): with those data nodes
         # excluded, their output folder reads empty and is hidden too, so a
@@ -787,16 +795,33 @@ class WidgetWorkflowMixin:
 
         # Default to the best keyword/name match (only a guess; user can change).
         try:
+            # On replay a segment-ref step's recorded value is the compound pair, whose
+            # str() matches no node name; match on the segmentation it names instead.
+            match_value = default_value
+            if segment_ref and isinstance(default_value, dict):
+                match_value = default_value.get("node_name") or ""
             idx = self._bestNodeMatchIndex(
-                candidates, default_value, state.get("node_keywords") or []
+                candidates, match_value, state.get("node_keywords") or []
             )
             if 0 <= idx < len(candidates):
                 tree.setCurrentNode(candidates[idx]["node"])
+                if segment_ref:
+                    # The pick must land on a SEGMENT row, so open the segmentation to
+                    # show its segments; with >1 segment Select stays disabled until the
+                    # user picks one, exactly as the source extension requires.
+                    try:
+                        shNode = tree.subjectHierarchyNode()
+                        tree.expandItem(shNode.GetItemByDataNode(candidates[idx]["node"]))
+                    except Exception:
+                        logger.debug("Expanding segmentation row failed", exc_info=True)
         except Exception:
             logger.debug("Defaulting node tree selection failed", exc_info=True)
 
         button = qt.QPushButton("Select")
-        button.setToolTip("Use the selected node")
+        button.setToolTip(
+            "Expand the segmentation and select the segment to use"
+            if segment_ref else "Use the selected node"
+        )
         button.clicked.connect(self._onWorkflowNodeTreeSelected)
         self._workflowNodeTreeSelectButton = button
 
@@ -832,10 +857,54 @@ class WidgetWorkflowMixin:
                 return None
         return node
 
+    def _nodeTreeCurrentSegmentRef(self):
+        """``(segmentationNode, segmentId)`` for the tree's current row, else
+        ``(None, "")`` — for steps whose source selector picks a SEGMENT.
+
+        Mirrors the resolution any such extension must perform, using Slicer's own
+        segment-row contract: a segment row carries the segmentID subject-hierarchy
+        attribute, and a segmentation row is unambiguous only when it holds exactly one
+        segment. ``currentNode()`` is structurally unusable here — a segment row has no
+        data node — which is why this reads ``currentItem()``.
+        """
+        tree = getattr(self, "_workflowNodeTree", None)
+        if tree is None:
+            return None, ""
+        try:
+            shNode = tree.subjectHierarchyNode()
+            itemId = tree.currentItem()
+            if shNode is None or not itemId:
+                return None, ""
+            segmentId = shNode.GetItemAttribute(
+                itemId, slicer.vtkMRMLSegmentationNode.GetSegmentIDAttributeName())
+            segNode = slicer.vtkSlicerSegmentationsModuleLogic.\
+                GetSegmentationNodeForSegmentSubjectHierarchyItem(itemId, slicer.mrmlScene)
+            if segNode is None:
+                return None, ""
+            if not segmentId:
+                # The segmentation's own row: only unambiguous with a single segment.
+                segmentation = segNode.GetSegmentation()
+                if segmentation is not None and segmentation.GetNumberOfSegments() == 1:
+                    ids = vtk.vtkStringArray()
+                    segmentation.GetSegmentIDs(ids)
+                    segmentId = ids.GetValue(0)
+            return segNode, segmentId
+        except Exception:
+            logger.debug("Segment-ref resolution from node tree failed", exc_info=True)
+            return None, ""
+
     def _updateNodeTreeSelectButtonEnabled(self):
         button = getattr(self, "_workflowNodeTreeSelectButton", None)
-        if button is not None:
-            button.setEnabled(self._nodeTreeValidCurrentNode() is not None)
+        if button is None:
+            return
+        if (self._currentWorkflowUiState or {}).get("segment_ref_selection"):
+            # A segment pick is only complete once a segment is actually resolved:
+            # an empty id is what the source's own enable-guard rejects, and it makes
+            # the downstream step fail rather than merely pick wrongly.
+            node, segmentId = self._nodeTreeCurrentSegmentRef()
+            button.setEnabled(node is not None and bool(segmentId))
+            return
+        button.setEnabled(self._nodeTreeValidCurrentNode() is not None)
 
     def _onWorkflowNodeTreeSelectionChanged(self, *args):
         self._updateNodeTreeSelectButtonEnabled()
@@ -867,7 +936,39 @@ class WidgetWorkflowMixin:
                 return best_i
         return 0
 
+    def _commitWorkflowChoice(self, value):
+        """Hand a chosen value to the runtime (replay-preview or live), the shared tail
+        of every node-tree commit."""
+        if self._currentWorkflowUiState.get("replay_previewing"):
+            index = self._currentWorkflowUiState.get("preview_index")
+            if index is not None:
+                self._rerunFromCheckpoint(index, {"choice_value": value})
+            return
+        step_id = self._currentWorkflowUiState.get("current_step")
+        if step_id:
+            self.sendButton.setEnabled(False)
+            self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": value})
+
     def _onWorkflowNodeTreeSelected(self):
+        if (self._currentWorkflowUiState or {}).get("segment_ref_selection"):
+            # A segment pick is a (node, segment id) PAIR: the segment id is what the
+            # source's handler stores, and a name cannot identify a segment (segment
+            # names are not unique). Commit both halves.
+            node, segmentId = self._nodeTreeCurrentSegmentRef()
+            if node is None or not segmentId:
+                return
+            segmentName = ""
+            try:
+                segment = node.GetSegmentation().GetSegment(segmentId)
+                segmentName = str(segment.GetName() or "") if segment else ""
+            except Exception:
+                logger.debug("Segment name lookup failed", exc_info=True)
+            return self._commitWorkflowChoice({
+                "node_id": node.GetID(),
+                "node_name": str(node.GetName() or ""),
+                "segment_id": segmentId,
+                "segment_name": segmentName,
+            })
         node = self._nodeTreeValidCurrentNode()
         if node is None:
             return
@@ -878,15 +979,7 @@ class WidgetWorkflowMixin:
             name = ""
         if not name:
             return
-        if self._currentWorkflowUiState.get("replay_previewing"):
-            index = self._currentWorkflowUiState.get("preview_index")
-            if index is not None:
-                self._rerunFromCheckpoint(index, {"choice_value": name})
-            return
-        step_id = self._currentWorkflowUiState.get("current_step")
-        if step_id:
-            self.sendButton.setEnabled(False)
-            self._runWorkflowStepDirect(step_id, "choice_made", args={"choice_value": name})
+        self._commitWorkflowChoice(name)
 
     # ------------------------------------------------------------------
     # Segment-selection step (qMRMLSegmentsTableView)
@@ -1143,7 +1236,11 @@ class WidgetWorkflowMixin:
         combo = qt.QComboBox()
         for nm in names:
             combo.addItem(nm)
-        combo.setCurrentIndex(0)
+        # Restore the recorded pick when replaying back to this step; index 0 only when
+        # there is nothing to restore (the live path, where default_value is unset).
+        _recorded = str(state.get("default_value") or "").strip()
+        _recorded_index = names.index(_recorded) if _recorded in names else 0
+        combo.setCurrentIndex(_recorded_index)
         button = qt.QPushButton(state.get("choice_label") or "Select")
         button.setToolTip("Pick this item and continue")
         button.clicked.connect(self._onWorkflowSegmentNameSelected)
@@ -1154,7 +1251,7 @@ class WidgetWorkflowMixin:
         # Live preview: as the user changes the selection, drive the extension's own
         # source combobox so its connected handler fires immediately (the 3D
         # interaction handles track the selection, like the original extension).
-        # Connected after populate/setCurrentIndex(0) so it doesn't fire on build.
+        # Connected after populate/setCurrentIndex so it doesn't fire on build.
         try:
             combo.currentIndexChanged.connect(self._onWorkflowSegmentNamePreview)
         except Exception:
@@ -1238,6 +1335,28 @@ class WidgetWorkflowMixin:
                 sel.setCurrentIndex(idx)
         except Exception:
             pass
+
+    def _releaseModuleSessionTools(self):
+        """Release any core-module tool a finished workflow left active.
+
+        A generated session drives the Segment Editor widget directly and never enters
+        the module, so Slicer's own ``SegmentEditor.exit()`` -- which does
+        ``setActiveEffect(None)`` -- never runs. The last effect a session activated
+        (e.g. Islands) therefore keeps its cursor and view observations installed in
+        every slice view after the workflow ends, so the pointer carries the effect's
+        icon around the 2D views. Reproduce that exit contract.
+
+        The generated session tears itself down at the end of its run; this is the net
+        for the paths that never reach it (cancelled mid-session, an older generated
+        CLI, a module with no session driver). Idempotent and fail-soft: a no-op when
+        nothing is active.
+        """
+        try:
+            editor = slicer.modules.segmenteditor.widgetRepresentation().self().editor
+            if editor.activeEffect() is not None:
+                editor.setActiveEffect(None)
+        except Exception:
+            logger.debug("Releasing module-session tools failed", exc_info=True)
 
     # ---- Numeric range slider (e.g. Segment Editor Threshold range) ----------
     def _activeSegmentEditorEffect(self):

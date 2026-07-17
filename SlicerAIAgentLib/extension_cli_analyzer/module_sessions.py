@@ -94,6 +94,17 @@ class ModuleSessionDriver:
         interactive tool concept."""
         return ""
 
+    def session_teardown(self):
+        """CodeValidator-safe code releasing this module's active tool, appended to
+        the LAST step of a session run.
+
+        A session drives its module's widget directly and never enters the module, so
+        the module's own ``exit()`` never runs and whatever the session left active
+        stays active for the rest of the Slicer session. A driver that activates a
+        tool must reproduce its module's exit contract here. Empty for modules with
+        no active-tool concept, so they are unaffected."""
+        return ""
+
 
 # --- Segment Editor session driver -----------------------------------------
 # MRML attributes that thread the session across steps (stored on the session
@@ -101,6 +112,7 @@ class ModuleSessionDriver:
 _SEG_SESSION_ATTR = "SlicerAIAgent.SegmentEditorSession"
 _SEG_TARGET_ATTR = "SlicerAIAgent.SegmentEditorTargetSegmentID"
 _SEG_SESSION_MARK = "[Segment Editor session]"
+_SEG_SESSION_END_MARK = "[Segment Editor session end]"
 # Structural button/label words that are NOT effect names — used to tell an
 # effect-activation step ("click the 'Islands' button") from a segment/structural
 # op ("click the 'Add' button"). Generic across effects; not an effect enumeration.
@@ -298,6 +310,33 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
         activating any effect means a following 'click in the view' step is an
         in-effect interaction. Keyed on effect activation, not on which effect."""
         return self.effect_activated_by(step) is not None
+
+    def session_teardown(self):
+        """Reproduce ``SegmentEditor.exit()``'s ``setActiveEffect(None)``.
+
+        An active effect owns slice-view interaction: it installs its own cursor and
+        view observations into every slice view, and only deactivating it takes them
+        back out. Slicer's Segment Editor module does that on exit
+        (Modules/Scripted/SegmentEditor/SegmentEditor.py), but a session drives the
+        editor widget directly and never enters the module, so exit() never runs --
+        the last effect a session activated (e.g. Islands) keeps its cursor on the 2D
+        views for every later step and after the workflow finishes.
+
+        Only the effect is released: keyboard shortcuts and the editor's own view
+        observations belong to the module's enter()/exit() pair, which this session
+        never triggered, so undoing them here would clear state the session never set.
+        """
+        return (
+            "\n# --- " + _SEG_SESSION_END_MARK + " release the active effect ---\n"
+            "# The session never entered the module, so SegmentEditor.exit() never runs;\n"
+            "# an effect left active keeps its cursor on every slice view. Release it.\n"
+            "import slicer\n"
+            "_ses_end = slicer.modules.segmenteditor.widgetRepresentation().self().editor\n"
+            "if _ses_end.activeEffect() is not None:\n"
+            "    _ses_end.setActiveEffect(None)\n"
+            "print(\"[SegmentEditor] Session finished; active effect released.\")\n"
+            "# --- [end Segment Editor session] ---\n"
+        )
 
     @staticmethod
     def _step_grounded_code(step):
