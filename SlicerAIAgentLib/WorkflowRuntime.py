@@ -139,7 +139,15 @@ class WorkflowCheckpoint:
     is preserved). The commit (rewind_to_checkpoint) deletes the downstream
     ``created_node_ids``, truncates session/global state to the captured prefix,
     then re-dispatches ``step_id`` with ``action``/``args``. ``sceneview_node_id``
-    is unused (kept only so older saved snapshots are cleaned up).
+    holds a full vtkMRMLSceneViewNode of the scene BEFORE the step; both
+    Back/Forward (_restore_to_view) and the commit (_commit_node_state)
+    property-copy its stored nodes onto matching live nodes via
+    _restore_scene_properties, and it is deleted during downstream cleanup on
+    rewind. ``before_wizard_step_id`` records the extension's ctkWorkflow page id
+    at this point (wizard extensions only; "" for classic) so rewind can put the
+    wizard back on the right page — the page whose onEntry re-creates that step's
+    scene (ROI/volume-rendering/slice-centering are wizard onEntry side effects,
+    not CLI-template output).
     """
 
     index: int
@@ -162,6 +170,7 @@ class WorkflowCheckpoint:
     created_node_ids: List[str] = field(default_factory=list)       # scene nodes this step produced
     layout_before: int = -1                                         # layoutManager.layout BEFORE this step (-1 = unknown)
     sceneview_node_id: Optional[str] = None                         # vtkMRMLSceneViewNode (scene before step)
+    before_wizard_step_id: str = ""                                 # ctkWorkflow page id before step (wizard only, "" = classic)
     summary: str = ""
     timestamp: float = 0.0
 
@@ -327,6 +336,17 @@ class WorkflowRuntime:
         # WorkflowCheckpoint when the step completes. One step is in flight at
         # a time, so a single pending slot is sufficient.
         self._pending_checkpoint: Optional[Dict[str, Any]] = None
+        # Modules the widget has invisibly entered this session. The wizard-page
+        # probe (_capture_wizard_step) only runs AFTER entry: calling getModuleWidget
+        # before the widget enters the module would force the module's setup() early
+        # (a second setup + a fresh, reference-less parameter node -> "addTransition
+        # ... previously created transition" + baselineVolume None crashes).
+        self._entered_modules: set = set()
+
+    def mark_module_entered(self, module_name: str) -> None:
+        """Called by the widget once it has invisibly entered ``module_name``."""
+        if module_name:
+            self._entered_modules.add(str(module_name))
 
     def has_active_workflow(self) -> bool:
         return bool(self.session and self.session.active)
@@ -1470,6 +1490,24 @@ class WorkflowRuntime:
         # A different step's pending was never finalized (prior step failed or
         # was retried by self-correction); drop it first.
         self._discard_pending_checkpoint()
+        # Wizard pages create their nodes (ROI/VR/etc.) via deferred QTimer/observer
+        # callbacks that land AFTER the prior step's checkpoint was finalized but
+        # before this one begins, so they belong to no checkpoint's created set.
+        # Attribute such orphans to the step that just finished, so rewind deletes
+        # them (letting the wizard re-create cleanly) and Back/Forward hides them.
+        # Wizard-only, live-run only; classic extensions create nodes synchronously
+        # inside their own template so there are never cross-step orphans.
+        if self.session.checkpoints and self.session.preview_index is None:
+            wiz, _mod = self._wizard_context()
+            if wiz:
+                try:
+                    owned = self._all_workflow_node_ids() | set(self.session.baseline_node_ids or [])
+                    orphans = {nid for nid in self._scene_node_ids() if nid not in owned}
+                    if orphans:
+                        last = self.session.checkpoints[-1]
+                        last.created_node_ids = sorted(set(last.created_node_ids or []) | orphans)
+                except Exception:
+                    logger.debug("Wizard orphan re-attribution failed", exc_info=True)
         self._pending_checkpoint = {
             "step_id": step_id,
             "call_args": dict(call_args or {}),
@@ -1482,6 +1520,8 @@ class WorkflowRuntime:
             # Full before-step snapshot; restored by property-copy (never
             # delete) so ALL node state recovers without losing display nodes.
             "sceneview_node_id": self._capture_sceneview(step_id),
+            # Wizard page id before the step (wizard extensions only; "" otherwise).
+            "wizard_step_id": self._capture_wizard_step(),
         }
 
     def _discard_pending_checkpoint(self) -> None:
@@ -1520,6 +1560,7 @@ class WorkflowRuntime:
                 "node_ids_before": self._scene_node_ids(),
                 "layout_before": self._current_layout(),
                 "sceneview_node_id": self._capture_sceneview(step_id),
+                "wizard_step_id": self._capture_wizard_step(),
             }
         self._pending_checkpoint = None
         progress = repeat_decision.get("repeat_progress") or {}
@@ -1622,6 +1663,7 @@ class WorkflowRuntime:
             created_node_ids=created,
             layout_before=int(pending.get("layout_before", -1)),
             sceneview_node_id=pending.get("sceneview_node_id"),
+            before_wizard_step_id=str(pending.get("wizard_step_id", "") or ""),
             summary=summary,
             timestamp=round(time.time(), 3),
         )
@@ -1749,6 +1791,12 @@ class WorkflowRuntime:
             import slicer
         except Exception:
             return
+        # Wizard pages zoom/center the slice views on their ROI via the slice logic;
+        # vtkMRMLSliceNode.Copy restores the node's stored FieldOfView but does not
+        # always re-fit the RENDERED view, so scrubbing Back leaves the slices zoomed.
+        # For wizard sessions, additionally re-apply the stored slice geometry and
+        # refresh. Gated so the 5 classic CLIs keep their exact current behaviour.
+        refresh_slices = bool(self._wizard_context()[0])
         try:
             sv = slicer.mrmlScene.GetNodeByID(sceneview_id)
             if sv is None:
@@ -1763,15 +1811,109 @@ class WorkflowRuntime:
                         continue
                     if snode.IsA("vtkMRMLSceneViewNode"):
                         continue
+                    # Wizard sessions: NEVER Copy onto the ctkWorkflow parameter node.
+                    # vtkMRMLNode.Copy -> CopyReferences would overwrite its cross-page
+                    # references (baselineVolume/roiNode/roiTransform) with the
+                    # before-step snapshot (where they are unset), stranding
+                    # DefineROIStep.onEntry on a None deref. Mirrors the delete-guard
+                    # already in _commit_node_state -- refusing to DELETE the node but
+                    # erasing its contents was the asymmetry that broke the re-run.
+                    if refresh_slices and snode.IsA("vtkMRMLScriptedModuleNode"):
+                        continue
                     live = slicer.mrmlScene.GetNodeByID(snode.GetID())
                     if live is None or live is snode:
                         continue
                     try:
                         live.Copy(snode)
+                        if refresh_slices and live.IsA("vtkMRMLSliceNode"):
+                            self._refresh_slice_node(live, snode)
                     except Exception:
                         pass
+            # Second pass, AFTER the copy loop has restored the slice composite
+            # backgrounds: re-fit any slice whose restored absolute offset now lands
+            # OFF its background volume. A wizard step (PSP LoadDataStep) hardens/
+            # recentres the baseline volume in RAS after this snapshot was captured,
+            # so the restored pre-move offset can strand the plane off the moved
+            # volume -> a black slice (axial/Red for a spine CT). Wizard-only.
+            if refresh_slices:
+                self._reconcile_slice_offsets_to_volume()
         except Exception:
             logger.debug("Scene property restore failed", exc_info=True)
+
+    def _reconcile_slice_offsets_to_volume(self) -> None:
+        """Wizard-only, fail-open. After the property-copy restore, detect whether the
+        background volume was moved since the snapshot and, if so, re-fit EVERY slice
+        view to it (field of view + centering), reproducing the first-time
+        whole-volume auto-load view -- the same thing the slice controller's "Reset
+        field of view" button does.
+
+        A wizard step (PSP LoadDataStep.doStepProcessing) HARDEN-recentres the
+        baseline volume in RAS AFTER this step's snapshot was captured. The copy loop
+        then restores each slice's PRE-move absolute offset + field of view onto a
+        volume that has since moved, so across ALL views the geometry is stale: the
+        recentre-axis slice (axial/Red for a spine CT) lands off-volume and renders
+        black, and the FOV/centering of the others no longer matches. Detecting ANY
+        off-volume slice proves the volume moved -> re-fit ALL of them. When NO slice
+        is off-volume (snapshot frame matches the live volume -- e.g. scrubbing to a
+        step that deliberately zoomed on an in-bounds ROI), do NOTHING, preserving the
+        restored zoom. Classic (non-wizard) CLIs never reach here."""
+        try:
+            import slicer
+            lm = slicer.app.layoutManager()
+            if lm is None:
+                return
+        except Exception:
+            return
+        logics = []
+        any_off_volume = False
+        for name in ("Red", "Yellow", "Green"):
+            try:
+                w = lm.sliceWidget(name)
+                logic = w.sliceLogic() if w is not None else None
+                if logic is None:
+                    continue
+                logics.append(logic)
+                bounds = [0.0] * 6
+                logic.GetSliceBounds(bounds)      # bounds[4],[5] = offset min/max
+                lo, hi = bounds[4], bounds[5]
+                if hi <= lo:
+                    continue                       # no background volume -> ignore
+                offset = logic.GetSliceOffset()
+                if offset < lo or offset > hi:     # restored offset off the moved volume
+                    any_off_volume = True
+            except Exception:
+                pass
+        if not any_off_volume:
+            return  # volume unchanged since snapshot -> keep the restored geometry
+        for logic in logics:
+            try:
+                logic.FitSliceToBackground()       # reproduce first-time whole-volume view
+            except Exception:
+                pass
+
+    @staticmethod
+    def _refresh_slice_node(live, snode) -> None:
+        """Re-apply a stored slice node's view geometry (field of view + origin +
+        orientation matrix) onto the live node and recompute its matrices, so a
+        prior step's zoom/centering is actually undone in the rendered slice view."""
+        try:
+            fov = snode.GetFieldOfView()
+            live.SetFieldOfView(fov[0], fov[1], fov[2])
+        except Exception:
+            pass
+        try:
+            xyz = snode.GetXYZOrigin()
+            live.SetXYZOrigin(xyz[0], xyz[1], xyz[2])
+        except Exception:
+            pass
+        try:
+            live.GetSliceToRAS().DeepCopy(snode.GetSliceToRAS())
+        except Exception:
+            pass
+        try:
+            live.UpdateMatrices()   # recompute XY->RAS from the restored FOV/origin
+        except Exception:
+            pass
 
     def _hide_nodes_after(self, index: int) -> None:
         """Hide workflow nodes created at/after step ``index`` (not in its snapshot)."""
@@ -1893,6 +2035,15 @@ class WorkflowRuntime:
     def _set_node_visibility(node, visible: bool) -> None:
         """Toggle a node's display visibility; create a display node if missing."""
         try:
+            # A node that IS a display node (e.g. a volume-rendering display node) has
+            # no sub-display-nodes -- the loop below would be a no-op and it would stay
+            # visible on scrub Back. Toggle its own visibility directly.
+            if node is not None and node.IsA("vtkMRMLDisplayNode"):
+                try:
+                    node.SetVisibility(1 if visible else 0)
+                except Exception:
+                    pass
+                return
             if not hasattr(node, "GetNumberOfDisplayNodes"):
                 return
             count = node.GetNumberOfDisplayNodes()
@@ -1944,23 +2095,70 @@ class WorkflowRuntime:
         # (display, transforms, layout, slice/view) without deleting anything.
         self._restore_scene_properties(cp.sceneview_node_id)
         keep = set(cp.before_node_ids or [])
+        is_wizard = bool(self._wizard_context()[0])
+        if is_wizard:
+            # WIZARD sessions: do NOT delete any downstream node. The extension's
+            # per-page step objects cache their scene nodes as Python attributes
+            # (self.__roi, self.__vrDisplayNode, self.__roiTransformNode) and their
+            # onEntry re-fire is guarded on those PYTHON refs, NOT on scene
+            # membership -- e.g. InitVRDisplayNode checks `if self.__vrDisplayNode ==
+            # None`. RemoveNode empties the scene node but the Python attr survives
+            # non-None, so the re-run's onEntry skips re-creation and operates on the
+            # dead node -> the "Generating Volume Rendering..." dialog hangs. Keeping
+            # the nodes lets the wizard's own onEntry REUSE + update them (exactly how
+            # its Back button already works); the reposition (goBackward) + property
+            # restore already put the scene back. Scrub Back/Forward still HIDES these
+            # nodes via _hide_nodes_after (non-destructive), so nothing leaks visually.
+            self._reset_wizard_interaction_nodes(keep)
+            self._set_layout(cp.layout_before)
+            return
+        # A wizard's persistent parameter node (vtkMRMLScriptedModuleNode) is created
+        # once at the invisible module entry, holds the ctkWorkflow's cross-page
+        # state, and is referenced by the extension's Python step objects.
         try:
             removed = 0
             for node_id in self._all_workflow_node_ids():
                 if node_id in keep:
                     continue
                 node = slicer.mrmlScene.GetNodeByID(node_id)
-                if node is not None:
-                    try:
-                        slicer.mrmlScene.RemoveNode(node)    # downstream: delete for re-run
-                        removed += 1
-                    except Exception:
-                        pass
+                if node is None:
+                    continue
+                try:
+                    slicer.mrmlScene.RemoveNode(node)    # downstream: delete for re-run
+                    removed += 1
+                except Exception:
+                    pass
             if removed:
                 logger.info("[Replay] Removed %d downstream node(s) for re-run", removed)
         except Exception:
             logger.debug("Commit node state failed", exc_info=True)
         self._set_layout(cp.layout_before)
+
+    def _reset_wizard_interaction_nodes(self, keep: set) -> None:
+        """Wizard Run-from-here: downstream user-placed FIDUCIAL nodes are KEPT (Fix B,
+        to avoid the extension's cached-Python-ref hang) but must be EMPTIED + re-shown
+        so a re-run of a placement step starts fresh -- otherwise its count gate reads
+        the prior round's points as already-Done (e.g. "3/3 points"), and the scrub-Back
+        hide left them invisible in the 2D views. Only markups FIDUCIAL nodes are
+        touched: the extension fetches them via a get-or-create parameter-node reference
+        (fiducialNode() -> GetNodeReference/AddNewFiducialNode), so emptying is safe and
+        they re-populate as the user re-places; ROI/VR are cached by Python attr and are
+        deliberately left intact. Wizard-only, fail-open."""
+        try:
+            import slicer
+        except Exception:
+            return
+        for node_id in self._all_workflow_node_ids():
+            if node_id in keep:
+                continue
+            node = slicer.mrmlScene.GetNodeByID(node_id)
+            if node is None or not node.IsA("vtkMRMLMarkupsFiducialNode"):
+                continue
+            try:
+                node.RemoveAllControlPoints()
+            except Exception:
+                pass
+            self._set_node_visibility(node, True)   # undo the scrub-Back hide
 
     def _preview_ui_state(self) -> Dict[str, Any]:
         """UI-state dict for the current navigation position.
@@ -2050,7 +2248,11 @@ class WorkflowRuntime:
             "workflow_title": self._display_name(self.session.extension_name),
             "current_step": cp.step_id,
             "current_index": current_index,
-            "completed_steps": idx,
+            # Distinct graph steps completed before this one -- NOT the raw checkpoint
+            # ordinal `idx`, which counts loop iterations + loop-decision checkpoints
+            # and overflows total_steps on looped runs (e.g. "20/18"). Mirrors the
+            # live path's len(set(completed_steps)); bounded by total_steps.
+            "completed_steps": len(set(cp.completed_prefix)),
             "total_steps": int(total_steps or 0),
             "status": f"Reviewing step {idx + 1}",
             "description": instr.get("title") or cp.guidance_description or cp.summary,
@@ -2150,9 +2352,29 @@ class WorkflowRuntime:
         cp = checkpoints[index]
         ext = self.session.extension_name
 
-        # 1. Recover the before-step state (property-copy, no delete) then delete
-        #    the downstream nodes so the re-run recreates them on a clean scene.
+        self._wizard_replay_diag("rewind-start idx=%d target_page=%r" % (
+            index, cp.before_wizard_step_id))
+        # 1. Wizard extensions: walk the ctkWorkflow back to the page this step ran
+        #    from BEFORE tearing down the scene. Repositioning first means the
+        #    wizard's page onExit/onEntry fire against the still-intact scene (valid
+        #    baseline volume, ROI + display nodes) exactly as its own Back button
+        #    would -- deleting those nodes first (as step 2 does) makes the very same
+        #    handlers dereference None (baselineVolume / ROI display) and crash.
+        #    No-op for classic extensions.
+        self._restore_wizard_step(cp.before_wizard_step_id)
+        self._wizard_replay_diag("after-reposition")
+
+        # 2. Recover the before-step state (property-copy, no delete) then delete
+        #    the downstream nodes so the re-run recreates them on a clean scene. The
+        #    wizard's persistent parameter node is preserved (see _commit_node_state),
+        #    so the re-run's goForward() re-enters the following page and re-fires its
+        #    onEntry (which rebuilds the ROI / volume rendering / centered slices).
         self._commit_node_state(index)
+        # Going live for the re-run: drop the scrub-Back picker-exclusion tags so the
+        # kept downstream nodes (wizard) / any survivors are not left hidden from the
+        # node picker. Display visibility is handled per-node above.
+        self._clear_replay_hidden_tags()
+        self._wizard_replay_diag("after-commit")
 
         # 2. Truncate the in-memory session to the checkpoint prefix.
         self.session.completed_steps = list(cp.completed_prefix)
@@ -2972,6 +3194,218 @@ class WorkflowRuntime:
                 )
         except Exception:
             logger.debug("Replay node prune failed", exc_info=True)
+
+    # ------------------------------------------------------------------ wizard
+    # ctkWorkflow wizard extensions (workflow_metadata.wizard.present) build their
+    # scene (ROI/volume-rendering/slice-centering) inside per-page onEntry handlers,
+    # which fire only on a real page transition -- NOT in the CLI step's template.
+    # The replay stepper snapshots MRML nodes only, so it must ALSO rewind the
+    # wizard's page on a re-run, else a re-dispatched goForward() advances from the
+    # stale page the prior run parked on and the target page's onEntry never re-runs.
+    # Every method here no-ops for classic extensions (no wizard block).
+    def _wizard_replay_diag(self, tag: str) -> None:
+        """One-shot, read-only diagnostics for wizard replay, logged at INFO with a
+        grep-able ``===WZDIAG===`` tag so a single repro run reveals the true state
+        (how many parameter nodes exist + their baselineVolume/roiNode refs + the
+        wizard's current page + entry status). Fail-open; wizard sessions only."""
+        wiz, module_name = self._wizard_context()
+        if not wiz:
+            return
+        out = ["===WZDIAG=== [%s] ext=%s entered=%s" % (
+            tag, module_name, module_name in self._entered_modules)]
+        try:
+            import slicer
+            cnt = slicer.mrmlScene.GetNumberOfNodesByClass("vtkMRMLScriptedModuleNode")
+            found = 0
+            for i in range(cnt):
+                pn = slicer.mrmlScene.GetNthNodeByClass(i, "vtkMRMLScriptedModuleNode")
+                if pn is None or pn.GetModuleName() != module_name:
+                    continue
+                found += 1
+                out.append("  param[%s] step=%r baselineVolume=%r roiNode=%r roiTransform=%r" % (
+                    pn.GetID(), pn.GetParameter("currentStep"),
+                    pn.GetNodeReferenceID("baselineVolume"),
+                    pn.GetNodeReferenceID("roiNode"),
+                    pn.GetNodeReferenceID("roiTransform")))
+            out.append("  param_node_count=%d" % found)
+            if module_name in self._entered_modules:
+                mw = slicer.util.getModuleWidget(module_name)
+                wf = getattr(mw, str(wiz.get("workflow_attr") or "workflow"), None)
+                cur = wf.currentStep() if wf is not None else None
+                out.append("  wizard_currentStep=%r" % (cur.id() if cur is not None else None))
+            # slice FOVs (for the FOV-reset issue)
+            for cid in ("vtkMRMLSliceNodeRed", "vtkMRMLSliceNodeYellow", "vtkMRMLSliceNodeGreen"):
+                sn = slicer.mrmlScene.GetNodeByID(cid)
+                if sn is not None:
+                    out.append("  %s FOV=%r" % (cid, tuple(sn.GetFieldOfView())))
+        except Exception as exc:
+            out.append("  diag-error: %r" % (exc,))
+        logger.info("\n".join(out))
+
+    def _wizard_context(self):
+        """(wizard_meta_block, module_name) for a wizard extension, else (None, "")."""
+        if not self.session:
+            return None, ""
+        try:
+            ext_data = get_validated_extensions().get(self.session.extension_name) or {}
+            meta = ext_data.get("workflow_metadata") or {}
+            wiz = meta.get("wizard") or None
+            if isinstance(wiz, dict) and wiz.get("present"):
+                module_name = (
+                    str(meta.get("extension_module_name") or "").strip()
+                    or self.session.extension_name
+                )
+                return wiz, module_name
+        except Exception:
+            logger.debug("Wizard metadata lookup failed", exc_info=True)
+        return None, ""
+
+    def _wizard_widget_ready(self, module_name: str) -> bool:
+        """True once probing getModuleWidget(module_name) is SAFE -- i.e. the module's
+        setup() has already run, so a probe reuses the widget instead of forcing a
+        premature fresh setup. Either signal suffices (fail-open):
+          - the widget invisibly-entered path marked it (`_entered_modules`), OR
+          - the extension's own parameter node already exists in the scene. setup()
+            creates that vtkMRMLScriptedModuleNode (and REUSES it by module name), so
+            its presence PROVES setup ran. This read-only probe replaces the old
+            `_entered_modules`-only gate, which was permanently dead for wizard CLIs:
+            their generated templates carry no `# precondition:begin` marker, so
+            `_ensureModuleEnteredInvisibly` (the only caller of mark_module_entered)
+            never fires, and capture/restore silently no-op'd. The wizard-drive step
+            template itself calls getModuleWidget during the forward run, so by
+            capture/restore time the widget is always set up.
+        """
+        if not module_name:
+            return False
+        if module_name in self._entered_modules:
+            return True
+        try:
+            import slicer
+            cnt = slicer.mrmlScene.GetNumberOfNodesByClass("vtkMRMLScriptedModuleNode")
+            for i in range(cnt):
+                pn = slicer.mrmlScene.GetNthNodeByClass(i, "vtkMRMLScriptedModuleNode")
+                if pn is not None and pn.GetModuleName() == module_name:
+                    return True
+        except Exception:
+            logger.debug("Wizard widget-ready probe failed", exc_info=True)
+        return False
+
+    def _capture_wizard_step(self) -> str:
+        """The wizard's current ctkWorkflow page id (matches metadata stepid), "" if
+        unavailable (classic extension, wizard not yet started, or any error).
+
+        Returns "" until the module's setup() has run (probing before that would
+        force it prematurely). "" is safe -- rewind falls back to the wizard's first
+        page for those (early) steps.
+        """
+        wiz, module_name = self._wizard_context()
+        if not wiz or not self._wizard_widget_ready(module_name):
+            return ""
+        try:
+            import slicer
+            mw = slicer.util.getModuleWidget(module_name)
+            wf = getattr(mw, str(wiz.get("workflow_attr") or "workflow"), None)
+            cur = wf.currentStep() if wf is not None else None
+            return str(cur.id() or "") if cur is not None else ""
+        except Exception:
+            logger.debug("Wizard current-step capture failed", exc_info=True)
+            return ""
+
+    def _restore_wizard_step(self, target_step_id: str) -> None:
+        """Reposition the extension's ctkWorkflow onto the page recorded for the
+        rewound step (or the FIRST page when the id is empty/unknown -- the
+        fresh-run initial page), so the re-run's goForward() chain re-enters the
+        right pages and re-fires their onEntry side effects. Wizard-only; fail-open
+        (leave the wizard as-is on any error, degrading to prior behaviour).
+
+        Navigates with goBackward() ONLY -- the exact transition the wizard's own
+        Back button fires -- and NEVER stop()/start(). stop() drives the current
+        page's onExit with goingTo=None, and extensions dereference goingTo.id()
+        (AttributeError); worse, QStateMachine::stop() is asynchronous, so a
+        following start() reports "already running" yet leaves the machine stopped,
+        after which every goForward() fails ("workflow is not running"). goBackward()
+        keeps the machine running and always passes a real goingTo. On a re-run the
+        wizard sits at or ahead of the rewound step's page, so walking backward
+        reaches it; if a backward transition is unavailable the walk stops (best
+        effort) rather than looping.
+        """
+        wiz, module_name = self._wizard_context()
+        if not wiz or not self._wizard_widget_ready(module_name):
+            return  # not a wizard, or module not set up -> nothing to reposition
+        steps = [s for s in (wiz.get("steps") or []) if isinstance(s, dict) and s.get("stepid")]
+        if not steps:
+            return
+        valid_ids = {str(s.get("stepid")) for s in steps}
+        target = str(target_step_id or "").strip()
+        if target not in valid_ids:
+            target = str(steps[0].get("stepid"))  # empty/unknown -> the wizard's first page
+        try:
+            import slicer
+            try:
+                import qt
+                _exclude = qt.QEventLoop.ExcludeUserInputEvents
+            except Exception:
+                qt = None
+                _exclude = None
+            mw = slicer.util.getModuleWidget(module_name)
+            wf = getattr(mw, str(wiz.get("workflow_attr") or "workflow"), None)
+            if wf is None:
+                return
+
+            def _cur_id():
+                try:
+                    cur = wf.currentStep()
+                    return str(cur.id()) if cur is not None else ""
+                except Exception:
+                    return ""
+
+            def _drain():
+                try:
+                    if _exclude is not None:
+                        slicer.app.processEvents(_exclude)
+                    else:
+                        slicer.app.processEvents()
+                except Exception:
+                    pass
+
+            def _drain_until_change(prev_id, max_spins=25):
+                """Spin the event loop until currentStep() leaves prev_id, or give up.
+                A ctkWorkflow transition posts async QStateMachine events that a SINGLE
+                processEvents may not fully deliver (its onEntry also defers work via
+                QTimer.singleShot), so one drain then reading currentStep misreads a
+                still-pending transition as a stall and under-shoots. Bounded spin."""
+                for _ in range(max_spins):
+                    _drain()
+                    if _cur_id() != prev_id:
+                        return True
+                return False
+
+            # Walk BACK to the target page. Bounded by the step count; stop only when
+            # a goBackward() genuinely fails to change the page after draining.
+            logger.info("===WZDIAG=== reposition-begin target=%r start_page=%r", target, _cur_id())
+            for _ in range(len(steps) + 1):
+                here = _cur_id()
+                if not here or here == target:
+                    break
+                try:
+                    wf.goBackward()
+                except Exception as exc:
+                    logger.info("===WZDIAG=== goBackward raised: %r", exc)
+                    break
+                changed = _drain_until_change(here)
+                now = _cur_id()
+                logger.info("===WZDIAG=== goBackward hop %r -> %r (changed=%s)", here, now, changed)
+                if not changed:
+                    break  # genuinely no backward transition -> best effort
+            _final = _cur_id()
+            if _final and target and _final != target:
+                logger.info("===WZDIAG=== reposition UNDERSHOOT: wanted %r got %r", target, _final)
+            logger.info(
+                "===WZDIAG=== reposition-end wizard '%s' toward '%s' now_on '%s'",
+                module_name, target, _cur_id(),
+            )
+        except Exception:
+            logger.debug("Wizard page reset failed (continuing)", exc_info=True)
 
     def _capture_sceneview(self, step_id: str) -> Optional[str]:
         try:

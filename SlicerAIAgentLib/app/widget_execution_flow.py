@@ -1045,6 +1045,12 @@ class WidgetExecutionFlowMixin:
                     "[Workflow] Fired %s.enter() without switching the active module",
                     module_name,
                 )
+            # Tell the replay runtime the module is now set up + entered, so its
+            # wizard-page probe may safely query it (before this it must NOT, or it
+            # would force a premature second setup()).
+            runtime = getattr(self, "_workflowRuntime", None)
+            if runtime is not None and hasattr(runtime, "mark_module_entered"):
+                runtime.mark_module_entered(module_name)
         except Exception:
             logger.debug(
                 "Invisible enter() failed for %s (continuing without it)",
