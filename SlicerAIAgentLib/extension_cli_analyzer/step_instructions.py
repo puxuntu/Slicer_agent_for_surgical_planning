@@ -131,7 +131,7 @@ class AnalyzerStepInstructionsMixin:
         extension_name = (
             scan_result.get("module_name")
             or scan_result.get("extension_name")
-            or scan_result.get("logic_class", {}).get("class_name", "")
+            or (scan_result.get("logic_class") or {}).get("class_name", "")
             or logic_analysis.get("class_name", "")
             or "the extension"
         )

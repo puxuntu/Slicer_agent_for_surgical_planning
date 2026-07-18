@@ -64,6 +64,9 @@ CANONICAL_OPERATION_TYPES = {
     "user_choice",
     # Decision + on-accept extension action + branch (jump/stop/run body).
     "branch_op",
+    # Human review checkpoint: show generated results, Confirm advances. No
+    # template, no selection -- the runtime renders the review panel directly.
+    "review_op",
 }
 
 

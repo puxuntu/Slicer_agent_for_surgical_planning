@@ -237,8 +237,9 @@ class AnalyzerSlicerOpManifestMixin:
             "manifest_version": 3,
             "pipeline_version": PIPELINE_VERSION,
             "extension_name": extension_name,
-            "extension_module_name": os.path.splitext(os.path.basename(scan_result.get("entry_module", "")))[0],
-            "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
+            "extension_module_name": os.path.splitext(os.path.basename(scan_result.get("entry_module") or ""))[0],
+            # logic_class is None (not merely absent) for a wizard-style module.
+            "logic_class_name": (scan_result.get("logic_class") or {}).get("class_name", ""),
             "version": "1.0.0",
             "status": "draft",
             "workflow_type": "interactive",
@@ -465,11 +466,18 @@ class AnalyzerSlicerOpManifestMixin:
             "extension_module_name": os.path.splitext(
                 os.path.basename(scan_result.get("entry_module", ""))
             )[0],
-            "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
+            # logic_class is None (not merely absent) for a wizard-style module.
+            "logic_class_name": (scan_result.get("logic_class") or {}).get("class_name", ""),
             "version": "1.0.0",
             "generated_at": datetime.now().isoformat(),
             "source_type": "analyzed_extension",
             "source_path": scan_result.get("source_path", ""),
+            # Every directory this module's source spans: the module folder plus
+            # any sibling packages its files import (a wizard-step package in a
+            # multi-module repo). The agent's ext:/installed-source search reads
+            # these so runtime lookups see the SAME files the scan analyzed.
+            "source_roots": ([scan_result.get("source_path", "")]
+                             + list(scan_result.get("sibling_packages") or [])),
             "status": "draft",
             "tool_count": 1,
             "stages": stage_names,

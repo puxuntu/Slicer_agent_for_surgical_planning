@@ -413,8 +413,57 @@ def _handle_branch_step(ctx: _WorkflowContext) -> Dict:
     return result
 
 
+def _step_is_native_widget(ctx: _WorkflowContext) -> bool:
+    """True when this choice defers to the extension's OWN visible widget (the
+    cookbook said "following the original selection widget"). Mirrors the
+    native_widget flag the capture stage records over the loader's ctx."""
+    for src in ((ctx.target_step or {}), (ctx.target_gen or {})):
+        for so in (src.get("sub_operations") or []):
+            if isinstance(so, dict) and so.get("native_widget"):
+                return True
+    return False
+
+
+def _handle_native_widget_step(ctx: _WorkflowContext) -> Dict:
+    """A choice the user makes in the extension's OWN widget (visible on the current
+    wizard page). The runtime shows the guidance and a Confirm button and records no
+    value -- the extension's widget holds the selection. Reuses the review wait flow
+    (instruction + Confirm) with NO results table (this is input, not a report)."""
+    if ctx.user_action in ("proceed", "done", "choice_made"):
+        ctx.done.add(ctx.workflow_step)
+        next_step = _find_next_step_local(ctx.workflow_graph, ctx.done)
+        result = {
+            "tool": ctx.tool_name,
+            "type": "review_done",
+            "step_id": ctx.workflow_step,
+            "message": "Selection confirmed in the module's own widget.",
+        }
+        result["instruction"] = _build_next_step_instruction(ctx.tool_name, next_step)
+        if next_step:
+            result["next_step"] = next_step
+        return result
+    return {
+        "tool": ctx.tool_name,
+        "type": "user_review",
+        # native_widget: the panel REPRODUCES the extension's own selection widget
+        # (e.g. a per-row-combo table) from its live state, rather than snapshotting
+        # it read-only -- the extension's module panel is entered invisibly, so its
+        # own widget is never on screen.
+        "native_widget": True,
+        "step_id": ctx.workflow_step,
+        "explanation": ctx.target_step.get("description", ""),
+        "review_table": {},
+        "instruction": (
+            "STOP. Present the selection controls to the user and wait for them to "
+            "confirm. Do NOT call any more tools until the user confirms."
+        ),
+    }
+
+
 def _handle_user_choice_step(ctx: _WorkflowContext) -> Dict:
     """Handle a user_choice workflow step."""
+    if _step_is_native_widget(ctx):
+        return _handle_native_widget_step(ctx)
     choice_desc = ctx.target_gen.get("choice_descriptor", {}) if ctx.target_gen else {}
     ui_guidance = _ui_guidance_for_context(ctx, choice_desc)
     question = choice_desc.get("question", ctx.target_step.get("description", "Please make a selection:"))
@@ -722,4 +771,121 @@ def _build_mixed_interaction_response(
         "display_properties": ctx.target_step.get("display_properties"),
         "sub_operations": sub_ops,
         "interaction": interaction_desc,
+    }
+
+
+def _snapshot_review_table(module_name: str) -> Dict:
+    """Read the most content-rich results table visible in the extension's own UI.
+
+    A review step presents ALREADY-GENERATED results; for a Qt-built extension
+    those live in a QTableWidget on the module widget (not in MRML), so the only
+    faithful source is the live widget itself. Resolution order: the fullest
+    QTableWidget under the module widget's representation, then the newest
+    vtkMRMLTableNode, else nothing (the panel falls back to instructions only).
+    Runs in-process (this is loader code, not a sandboxed template).
+    """
+    try:
+        import slicer
+    except Exception:
+        return {}
+    # Qt widgets may only be touched on the main thread; the LLM tool path
+    # dispatches handlers from a worker thread. Returning {} is fully recovered:
+    # the panel payload is built on the main thread, which re-snapshots live
+    # (WorkflowRuntime._live_review_table) when the result carries no table.
+    try:
+        import qt
+        if qt.QThread.currentThread() != slicer.app.thread():
+            return {}
+    except Exception:
+        pass
+    best = None
+    best_score = 0
+    try:
+        root = slicer.util.getModule(module_name).widgetRepresentation()
+        for table in slicer.util.findChildren(root, className="QTableWidget"):
+            try:
+                rows, cols = table.rowCount, table.columnCount
+                filled = 0
+                for r in range(rows):
+                    for c in range(cols):
+                        item = table.item(r, c)
+                        if item is not None and str(item.text()).strip():
+                            filled += 1
+                if filled > best_score:
+                    best, best_score = table, filled
+            except Exception:
+                continue
+    except Exception:
+        best = None
+    if best is not None:
+        try:
+            headers = []
+            for c in range(best.columnCount):
+                h = best.horizontalHeaderItem(c)
+                headers.append(str(h.text()) if h is not None else f"Col {c + 1}")
+            rows = []
+            for r in range(best.rowCount):
+                row = []
+                for c in range(best.columnCount):
+                    item = best.item(r, c)
+                    row.append(str(item.text()) if item is not None else "")
+                rows.append(row)
+            return {"headers": headers, "rows": rows, "source": "widget_table"}
+        except Exception:
+            pass
+    # MRML fallback: the newest table node with content.
+    try:
+        nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLTableNode")
+        for i in range(nodes.GetNumberOfItems() - 1, -1, -1):
+            node = nodes.GetItemAsObject(i)
+            table = node.GetTable() if node is not None else None
+            if table is None or table.GetNumberOfRows() <= 0:
+                continue
+            headers = [table.GetColumnName(c) or f"Col {c + 1}"
+                       for c in range(table.GetNumberOfColumns())]
+            rows = []
+            for r in range(table.GetNumberOfRows()):
+                rows.append([str(table.GetValue(r, c)) for c in range(len(headers))])
+            return {"headers": headers, "rows": rows, "source": "table_node",
+                    "node_name": node.GetName()}
+    except Exception:
+        pass
+    return {}
+
+
+def _handle_review_step(ctx: _WorkflowContext) -> Dict:
+    """Handle a review_op step: show generated results, Confirm advances.
+
+    A pure human checkpoint -- no template, no choice value. "start" returns the
+    guidance plus a snapshot of the results table so the agent panel can render
+    it; "proceed"/"done" marks the step complete and advances.
+    """
+    if ctx.user_action in ("proceed", "done", "choice_made"):
+        ctx.done.add(ctx.workflow_step)
+        next_step = _find_next_step_local(ctx.workflow_graph, ctx.done)
+        result = {
+            "tool": ctx.tool_name,
+            "type": "review_done",
+            "step_id": ctx.workflow_step,
+            "message": "Review confirmed.",
+        }
+        result["instruction"] = _build_next_step_instruction(ctx.tool_name, next_step)
+        if next_step:
+            result["next_step"] = next_step
+        return result
+
+    module_name = str((ctx.metadata or {}).get("extension_module_name") or "").strip() \
+        or ctx.ext_name
+    return {
+        "tool": ctx.tool_name,
+        "type": "user_review",
+        "step_id": ctx.workflow_step,
+        "explanation": ctx.target_step.get("description", ""),
+        "review_table": _snapshot_review_table(module_name),
+        "ui_guidance": _ui_guidance_for_context(ctx),
+        "instruction": (
+            "STOP. Present the review results to the user and wait for them to "
+            "confirm in the workflow panel. Do NOT call any more tools until the "
+            "user confirms."
+        ),
     }

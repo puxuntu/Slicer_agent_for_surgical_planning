@@ -108,7 +108,7 @@ class AnalyzerCookbookMappingMixin:
     def _build_ui_summary(self, scan_result: Dict) -> str:
         """Build a text summary of UI elements from scan_result."""
         parts = []
-        logic = scan_result.get("logic_class", {})
+        logic = scan_result.get("logic_class") or {}
         methods = logic.get("methods", [])
         if methods:
             if isinstance(methods, list):
@@ -403,17 +403,31 @@ class AnalyzerCookbookMappingMixin:
                     break
 
             # Extract user_choice info if present (branch_op carries the same
-            # Yes/No choice_info as a user_choice decision).
+            # Yes/No choice_info as a user_choice decision). A step may carry
+            # SEVERAL choice sub-ops (one cookbook sentence per selector, e.g. four
+            # combos on one wizard page): choice_info stays the FIRST for every
+            # single-choice consumer, and choice_info_list carries them ALL so the
+            # runtime can render one form with every item.
             choice_info = {}
+            choice_info_list = []
             for so in sub_ops:
                 if so["op_type"] in ("user_choice", "branch_op"):
-                    choice_info = {
+                    item = {
                         "question": so.get("question", cb_step.description),
                         "choices": so.get("choices", []),
                         "parameter_name": so.get("parameter_name", f"choice_step_{cb_step.step_number}"),
                         "default_value": so.get("default_value"),
                     }
-                    break
+                    if so.get("live_items"):
+                        item["live_items"] = True
+                    if so.get("wizard_combo"):
+                        # The source combo this item drives (page class + attr) --
+                        # lets the runtime enumerate a dynamic combo's LIVE items
+                        # and mirror the pick back onto the extension's own widget.
+                        item["wizard_combo"] = so.get("wizard_combo")
+                    if not choice_info:
+                        choice_info = item
+                    choice_info_list.append(item)
 
             # Extract method name for template generation
             method_name = None
@@ -458,6 +472,8 @@ class AnalyzerCookbookMappingMixin:
                 step.update(interaction_info)
             if choice_info:
                 step["choice_info"] = choice_info
+            if len(choice_info_list) > 1:
+                step["choice_info_list"] = choice_info_list
             if is_optional:
                 step["is_optional"] = True
 

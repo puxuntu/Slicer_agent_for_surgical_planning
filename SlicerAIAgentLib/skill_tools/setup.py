@@ -5,6 +5,10 @@ class SkillToolSetupMixin:
     def __init__(self, skill_path: str):
         self.skill_path = skill_path
         self.extra_roots: Dict[str, str] = {}  # {prefix: abs_path} for extension source dirs
+        # {prefix: [abs dirs]} -- sibling packages an extension's source imports
+        # (e.g. a shared wizard-step package in a multi-module repo). Searched as
+        # fallback roots after the extension's own directory.
+        self.extra_sibling_roots: Dict[str, List[str]] = {}
         self.platform = platform.system().lower()  # 'windows', 'linux', 'darwin'
         self._tree_sitter_available = self._ensure_tree_sitter()
         self._tree_sitter_parsers = {}  # ext -> parser cache
@@ -272,7 +276,10 @@ class SkillToolSetupMixin:
             if slash >= 0:
                 prefix, sub = rest[:slash], rest[slash + 1:]
                 if prefix in self.extra_roots:
-                    return self._resolve_in_extension_root(self.extra_roots[prefix], sub)
+                    return self._resolve_in_extension_root(
+                        self.extra_roots[prefix], sub,
+                        self.extra_sibling_roots.get(prefix, ()),
+                    )
             return path
         # Redirect an installed extension's knowledge-base path to its installed
         # source (the version the runtime imports). Path form:
@@ -285,17 +292,21 @@ class SkillToolSetupMixin:
             ext_name = rest[:slash] if slash >= 0 else rest
             sub = rest[slash + 1:] if slash >= 0 else ""
             if ext_name in self.extra_roots:
-                return self._resolve_in_extension_root(self.extra_roots[ext_name], sub)
+                return self._resolve_in_extension_root(
+                    self.extra_roots[ext_name], sub,
+                    self.extra_sibling_roots.get(ext_name, ()),
+                )
         return os.path.join(self.skill_path, path)
 
-    def _resolve_in_extension_root(self, root: str, sub: str) -> str:
+    def _resolve_in_extension_root(self, root: str, sub: str, siblings=()) -> str:
         """Resolve ``sub`` under an installed extension root, with basename fallback.
 
         Installed extensions place their modules under a build-specific subtree
         (e.g. ``lib/Slicer-X.Y/qt-scripted-modules/``) that differs from the
         knowledge-base layout, so an exact relative path often does not exist.
         Fall back to the first file with the same basename anywhere under the
-        installed root.
+        installed root, then under the extension's sibling source roots (shared
+        packages a multi-module repo keeps outside the module folder).
         """
         if not sub:
             return root
@@ -304,12 +315,13 @@ class SkillToolSetupMixin:
             return direct
         base = os.path.basename(sub.replace("\\", "/"))
         if base:
-            try:
-                for dirpath, _dirs, files in os.walk(root):
-                    if base in files:
-                        return os.path.join(dirpath, base)
-            except Exception:
-                pass
+            for search_root in (root,) + tuple(siblings or ()):
+                try:
+                    for dirpath, _dirs, files in os.walk(search_root):
+                        if base in files:
+                            return os.path.join(dirpath, base)
+                except Exception:
+                    pass
         return direct
 
     def _init_vector_retriever(self) -> Any:

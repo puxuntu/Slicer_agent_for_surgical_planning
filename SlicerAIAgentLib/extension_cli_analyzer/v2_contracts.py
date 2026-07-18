@@ -105,7 +105,10 @@ class AnalyzerV2ContractsMixin:
                     "template_file": step.get("code_template", ""),
                     "pre_template_file": step.get("pre_template", ""),
                     "post_template_file": step.get("post_template", ""),
-                    "required": operation_type in CANONICAL_OPERATION_TYPES,
+                    # A review_op is a pure human checkpoint -- no code ever runs, so
+                    # a template is not merely optional but structurally absent.
+                    "required": (operation_type in CANONICAL_OPERATION_TYPES
+                                 and operation_type != "review_op"),
                     "allow_instruction_only": bool(
                         operation_type == "user_interaction"
                         and interaction
@@ -122,7 +125,8 @@ class AnalyzerV2ContractsMixin:
             "extension_module_name": os.path.splitext(
                 os.path.basename(scan_result.get("entry_module", ""))
             )[0],
-            "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
+            # logic_class is None (not merely absent) for a wizard-style module.
+            "logic_class_name": (scan_result.get("logic_class") or {}).get("class_name", ""),
             "source_path": scan_result.get("source_path", ""),
             "cookbook_file": os.path.basename(cookbook_path or ""),
             "steps": steps,

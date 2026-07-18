@@ -56,10 +56,12 @@ class AnalyzerSchemasMixin:
                             ),
                         },
                         "choice_value": {
-                            "type": "string",
+                            "type": ["string", "object"],
                             "description": (
                                 "Value selected by the user for user_choice steps. "
-                                "Required when user_action is 'choice_made'."
+                                "Required when user_action is 'choice_made'. A "
+                                "multi-selection step takes a JSON object mapping "
+                                "each parameter_name to its value."
                             ),
                         },
                     },

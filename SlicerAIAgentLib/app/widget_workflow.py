@@ -2,6 +2,13 @@ from .common import *
 
 
 class WidgetWorkflowMixin:
+    # Inert first item for every multi-selection combo: no option is pre-selected, so
+    # the user must ACTIVELY pick each selector. Picking a real option is what drives
+    # the extension's live combo (and thus activates the corresponding geometry). A
+    # pre-selected default would show a value the extension never activated. Excluded
+    # from the option list used to match/drive the live combo, so it never drives.
+    _MULTI_CHOICE_PLACEHOLDER = "-- Select --"
+
     def _setupWorkflowUI(self):
         """Set up UI components for guided interactive workflows."""
         from SlicerAIAgentLib.WorkflowOrchestrator import WorkflowOrchestrator
@@ -257,7 +264,11 @@ class WidgetWorkflowMixin:
         self._workflowSkipButton.setEnabled(bool(self._currentWorkflowUiState.get("can_skip")))
         self._workflowCancelButton.setEnabled(bool(self._currentWorkflowUiState.get("can_cancel")))
         done_label = self._currentWorkflowUiState.get("done_label") or "Done"
+        if self._currentWorkflowUiState.get("review_selection") and done_label == "Done":
+            # A review checkpoint's action is confirmation, not task completion.
+            done_label = "Confirm"
         self._workflowDoneButton.setText(str(done_label) if self._currentWorkflowUiState.get("can_done") else "Done")
+        self._updateInteractionCountGate()
 
     def _workflowUiStateFromStepResult(self, result):
         """Fallback panel state for workflow results not tracked by WorkflowRuntime."""
@@ -269,6 +280,9 @@ class WidgetWorkflowMixin:
             if isinstance(choice, dict):
                 label = choice.get("label") or choice.get("value") or "Choice"
                 value = choice.get("value", label)
+                # A null value means the label IS the value (see _renderWorkflowChoices).
+                if value is None:
+                    value = label
                 choices.append({"label": label, "value": value})
         status = "Running"
         guidance = result.get("ui_guidance") if isinstance(result.get("ui_guidance"), dict) else {}
@@ -315,7 +329,9 @@ class WidgetWorkflowMixin:
             "object_label": guidance.get("object_label", ""),
             "repeat_progress": result.get("repeat_progress") or {},
             "needs_choice_input": result_type == "user_choice" and not choices,
-            "can_done": result_type in ("interactive", "mixed"),
+            "can_done": result_type in ("interactive", "mixed", "user_review"),
+            "review_selection": result_type == "user_review",
+            "review_table": result.get("review_table") or {},
             "can_skip": bool(result.get("is_optional")),
             "can_cancel": not result.get("workflow_completed"),
         }
@@ -459,14 +475,57 @@ class WidgetWorkflowMixin:
                 self._workflowChoiceLayout.removeWidget(button)
             button.setParent(None)
         self._workflowChoiceButtons = []
+        if getattr(self, "_workflowReviewContainer", None) is not None:
+            # The container owns the read-only results table; reparenting to None
+            # destroys it.
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowReviewContainer)
+            self._workflowReviewContainer.setParent(None)
+            self._workflowReviewContainer = None
+        self._workflowMultiChoiceCombos = {}
+        if getattr(self, "_workflowMultiChoiceContainer", None) is not None:
+            # The container owns the per-selector combos + Confirm; reparenting to
+            # None destroys them together.
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowMultiChoiceContainer)
+            self._workflowMultiChoiceContainer.setParent(None)
+            self._workflowMultiChoiceContainer = None
+        self._nativeWidgetLiveTable = None
+        self._nativeWidgetComboCol = None
+        self._nativeWidgetRowCombos = []
+        if getattr(self, "_workflowNativeWidgetContainer", None) is not None:
+            # The container owns the reproduced per-row-combo table + Confirm.
+            if self._workflowChoiceLayout is not None:
+                self._workflowChoiceLayout.removeWidget(self._workflowNativeWidgetContainer)
+            self._workflowNativeWidgetContainer.setParent(None)
+            self._workflowNativeWidgetContainer = None
 
         choices = state.get("choices") or []
         step_id = state.get("current_step")
         needs_input = bool(state.get("needs_choice_input"))
+        review = bool(state.get("review_selection"))
+        native_widget = bool(state.get("native_widget"))
         if self._workflowChoiceContainer is not None:
-            self._workflowChoiceContainer.setVisible(bool(choices) or needs_input)
+            self._workflowChoiceContainer.setVisible(
+                bool(choices) or needs_input or review or native_widget)
         if self._workflowChoiceLayout is None:
             return
+        if native_widget:
+            # Reproduce the extension's OWN selection widget (its module panel is
+            # entered invisibly, so the real widget is never on screen). Own Confirm
+            # button writes selections back to the live widget and advances.
+            self._renderWorkflowNativeWidget(state)
+            return
+        if review:
+            # Review checkpoint: show the generated results read-only; the existing
+            # Done button (relabeled Confirm) advances. No choice input.
+            self._renderWorkflowReviewTable(state)
+            return
+        if state.get("multi_choice") and needs_input:
+            # Multi-selection step: every selector on one form, one Confirm,
+            # committed together as a {param: value} dict.
+            if self._renderWorkflowMultiChoiceForm(state):
+                return
         if not choices and needs_input:
             default_value = state.get("default_value")
             # The original extension's selection widget class (recorded by the
@@ -542,6 +601,20 @@ class WidgetWorkflowMixin:
         for choice in choices:
             base_label = str(choice.get("label") or choice.get("value") or "Choice")
             value = choice.get("value", base_label)
+            # A Yes/No decision (branch_op loop/guard) carries its accept/decline
+            # polarity in the LABEL, but the LLM attaches an inconsistent value --
+            # null, or an arbitrary string ("done"/"not_done"). Map a Yes/No label
+            # to True/False so the loop-polarity reader normalizes it. Without this
+            # the value never matches the boolean exit_value and the loop can't
+            # exit (Yes keeps looping back). Enumerated options (Left/Right, …) keep
+            # their own values -- only exact Yes/No synonyms are coerced.
+            _bl = base_label.strip().lower()
+            if _bl in ("yes", "true", "y"):
+                value = True
+            elif _bl in ("no", "false", "n"):
+                value = False
+            elif value is None:
+                value = base_label
             # Per-step label override (edited in the "Step instructions" panel),
             # keyed by the choice value; falls back to the recorded label.
             label = str(choice_overrides.get(str(value)) or base_label)
@@ -856,6 +929,451 @@ class WidgetWorkflowMixin:
             except Exception:
                 return None
         return node
+
+    # ------------------------------------------------------------------
+    # Interaction count gate (expected_count > 0 on a placement step)
+    # ------------------------------------------------------------------
+    def _resolveInteractionCountNode(self):
+        """The markups node whose points the current interaction step counts.
+
+        Resolution: the node the runtime recorded for this step's interaction,
+        then the live markups place widget's current node (a wizard page's own
+        place button targets it), then the newest fiducial node. None disables the
+        gate rather than guessing wrong."""
+        step_id = (self._currentWorkflowUiState or {}).get("current_step")
+        try:
+            from SlicerAIAgentLib.workflow_state import latest_interaction_node_for_step
+            node = latest_interaction_node_for_step(step_id)
+            if node is not None:
+                return node
+        except Exception:
+            pass
+        try:
+            ext = self._workflowRuntime.session.extension_name
+            from SlicerAIAgentLib.extension_cli_loader import get_validated_extensions
+            metadata = (get_validated_extensions().get(ext) or {}).get("workflow_metadata", {}) or {}
+            module_name = str(metadata.get("extension_module_name") or "").strip() or ext
+            root = slicer.util.getModule(module_name).widgetRepresentation()
+            for pw in slicer.util.findChildren(root, className="qSlicerMarkupsPlaceWidget"):
+                try:
+                    node = pw.currentNode()
+                    if node is not None:
+                        return node
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return None
+
+    def _updateInteractionCountGate(self):
+        """Show placed-vs-expected progress on the Done button while a counted
+        placement step waits.
+
+        Advisory, never blocking: the Done button stays ENABLED throughout. The
+        cookbook's stated count can be wrong for the path the user actually took
+        (e.g. "three times ..." holds for the both-sides choice but the extension
+        needs only two-per-level for a single side), and a hard gate would leave
+        Cancel as the only way out. The progress text carries the expectation; the
+        user decides when the placement is complete."""
+        state = self._currentWorkflowUiState or {}
+        expected = int(state.get("expected_count") or 0)
+        timer = getattr(self, "_workflowCountTimer", None)
+        done_label = state.get("done_label") or "Done"
+        if expected <= 0 or not state.get("can_done") or state.get("workflow_done"):
+            if timer is not None and timer.isActive():
+                timer.stop()
+            return
+        node = self._resolveInteractionCountNode()
+        if node is None:
+            if timer is not None and timer.isActive():
+                timer.stop()
+            self._workflowDoneButton.setEnabled(bool(state.get("can_done")))
+            self._workflowDoneButton.setText(str(done_label))
+            return
+        try:
+            count = int(node.GetNumberOfDefinedControlPoints())
+        except Exception:
+            try:
+                count = int(node.GetNumberOfControlPoints())
+            except Exception:
+                count = 0
+        self._workflowDoneButton.setEnabled(True)
+        self._workflowDoneButton.setText(f"{done_label} ({count}/{expected} points)")
+        if timer is None:
+            timer = qt.QTimer()
+            timer.setInterval(500)
+            timer.timeout.connect(self._updateInteractionCountGate)
+            self._workflowCountTimer = timer
+        if not timer.isActive():
+            timer.start()
+
+    def _liveComboItemsByAnchor(self, anchor):
+        """Items of the LIVE module combobox whose placeholder first row matches
+        ``anchor`` (minus that placeholder). A dynamically-populated source combo
+        carries its real items only at runtime; its placeholder row restates the
+        question, which is what identifies it among sibling combos."""
+        from SlicerAIAgentLib.extension_cli_loader import _norm_anchor_text
+        anchor = _norm_anchor_text(anchor)
+        if not anchor:
+            return []
+        try:
+            ext = self._workflowRuntime.session.extension_name
+            from SlicerAIAgentLib.extension_cli_loader import get_validated_extensions
+            metadata = (get_validated_extensions().get(ext) or {}).get("workflow_metadata", {}) or {}
+            module_name = str(metadata.get("extension_module_name") or "").strip() or ext
+            root = slicer.util.getModule(module_name).widgetRepresentation()
+            if root is None:
+                return []
+        except Exception:
+            return []
+        for cls in ("ctkComboBox", "QComboBox"):
+            try:
+                combos = slicer.util.findChildren(root, className=cls)
+            except Exception:
+                combos = []
+            for combo in combos:
+                try:
+                    items = [combo.itemText(i) for i in range(combo.count)]
+                except Exception:
+                    continue
+                if items and _norm_anchor_text(items[0]) == anchor:
+                    return [i for i in items[1:] if str(i).strip()]
+        return []
+
+    def _findLiveWizardCombo(self, options, anchor):
+        """The extension's live combobox this multi-choice item drives: the one whose
+        items contain all `options` (a static list), else whose placeholder first
+        item matches `anchor` (a dynamic list). None if not found. Same content
+        matching the loader's drive code uses -- no captured widget name needed."""
+        from SlicerAIAgentLib.extension_cli_loader import _norm_anchor_text
+        anchor_n = _norm_anchor_text(anchor)
+        opts = [str(o) for o in (options or [])]
+        try:
+            ext = self._workflowRuntime.session.extension_name
+            from SlicerAIAgentLib.extension_cli_loader import get_validated_extensions
+            metadata = (get_validated_extensions().get(ext) or {}).get("workflow_metadata", {}) or {}
+            module_name = str(metadata.get("extension_module_name") or "").strip() or ext
+            root = slicer.util.getModule(module_name).widgetRepresentation()
+            if root is None:
+                return None
+        except Exception:
+            return None
+        for cls in ("ctkComboBox", "QComboBox"):
+            try:
+                combos = slicer.util.findChildren(root, className=cls)
+            except Exception:
+                combos = []
+            for combo in combos:
+                try:
+                    items = [combo.itemText(i) for i in range(combo.count)]
+                except Exception:
+                    continue
+                if not items:
+                    continue
+                if opts and all(o in items for o in opts):
+                    return combo
+                if not opts and _norm_anchor_text(items[0]) == anchor_n:
+                    return combo
+        return None
+
+    def _driveMultiChoicePreview(self, options, anchor, agent_combo):
+        """Drive the extension's live combo to the agent combo's current text so its
+        connected handler fires (e.g. sSelector_chosen -> camera focus + slice-plane
+        update), giving the same immediate 2D-view feedback as the original widget.
+        setCurrentText alone does not fire ctk/Qt 'activated'; emit it explicitly."""
+        live = self._findLiveWizardCombo(options, anchor)
+        if live is None:
+            return
+        try:
+            text = str(agent_combo.currentText)
+        except Exception:
+            return
+        if not text:
+            return
+        try:
+            live.setCurrentText(text)
+        except Exception:
+            pass
+        try:
+            live.activated(text)
+        except Exception:
+            try:
+                live.activated(live.currentIndex)
+            except Exception:
+                pass
+
+    def _renderWorkflowMultiChoiceForm(self, state):
+        """One form for a multi-selection step: a labeled combo per item, one
+        Confirm; commits {parameter_name: text} for every item at once. Each combo
+        also drives its extension counterpart LIVE on selection, so the 2D views
+        update immediately as in the original widget."""
+        items = [i for i in (state.get("choice_items") or []) if isinstance(i, dict)]
+        if len(items) < 2:
+            return False
+        container = qt.QWidget()
+        form = qt.QFormLayout(container)
+        form.setContentsMargins(0, 0, 0, 0)
+        self._workflowMultiChoiceCombos = {}
+        ordered = []  # (combo, options, anchor) in item order (drive order matters)
+        for item in items:
+            param = str(item.get("parameter_name") or "")
+            if not param:
+                continue
+            options = [
+                str(c.get("label", c.get("value", "")))
+                for c in (item.get("choices") or []) if isinstance(c, dict)
+            ]
+            if not options and item.get("live_items"):
+                options = [str(o) for o in self._liveComboItemsByAnchor(item.get("question"))]
+            combo = qt.QComboBox()
+            if options:
+                # Lead with an inert placeholder; do NOT pre-select any real option.
+                # The user must actively pick, and that pick is what activates the
+                # extension geometry (see _MULTI_CHOICE_PLACEHOLDER). Deliberately no
+                # default_value: mirrors the original combo, which starts unselected.
+                combo.addItem(self._MULTI_CHOICE_PLACEHOLDER)
+            for option in options:
+                combo.addItem(option)
+            combo.setEditable(not options)  # free text only when nothing resolved
+            if options:
+                combo.setCurrentIndex(0)  # the placeholder -- nothing chosen yet
+            form.addRow(str(item.get("question") or param), combo)
+            self._workflowMultiChoiceCombos[param] = combo
+            ordered.append((combo, options, item.get("question")))
+        if not self._workflowMultiChoiceCombos:
+            container.setParent(None)
+            return False
+        self._workflowMultiChoiceOrdered = list(ordered)
+        # Wire each combo to drive its live counterpart on USER selection, for the
+        # immediate 2D-view feedback the original widget gives. Deliberately NOT
+        # driven on initial render: on a loop-back re-entry the combos default to the
+        # first (already-configured) item, and some handlers are destructive (PSP's
+        # diameter handler calls Helper.Screw, which delNode()s + recreates the screw
+        # line at a DEFAULT position). Driving on render would silently reset the
+        # item the user already fixed in a prior iteration. The FINAL selections are
+        # driven once, in item order, at commit instead (see the confirm handler).
+        for combo, options, anchor in ordered:
+            combo.currentIndexChanged.connect(
+                lambda *a, o=options, an=anchor, cb=combo:
+                    self._driveMultiChoicePreview(o, an, cb)
+            )
+        button = qt.QPushButton("Confirm")
+        button.setToolTip("Apply these selections and continue")
+        button.clicked.connect(self._onWorkflowMultiChoiceConfirmed)
+        form.addRow(button)
+        self._workflowMultiChoiceContainer = container
+        self._workflowChoiceLayout.addWidget(container, 1)
+        container.setVisible(True)
+        return True
+
+    def _onWorkflowMultiChoiceConfirmed(self):
+        combos = getattr(self, "_workflowMultiChoiceCombos", {}) or {}
+        values = {}
+        for param, combo in combos.items():
+            try:
+                text = str(combo.currentText).strip()
+            except Exception:
+                text = ""
+            if text and text != self._MULTI_CHOICE_PLACEHOLDER:
+                values[param] = text
+        if len(values) < len(combos):
+            return  # every selector needs a real (non-placeholder) answer before committing
+        # Drive the extension's live combos to the FINAL selections, in item order,
+        # so every connected handler fires for the CURRENT item -- covers combos the
+        # user left at their default (no change event) and guarantees the ordering a
+        # later handler depends on (e.g. the diameter handler reads the fiducial index
+        # the puncture-site handler set). This targets only the item the user is
+        # configuring now (its selected index), never a previously fixed one.
+        for combo, options, anchor in getattr(self, "_workflowMultiChoiceOrdered", []) or []:
+            self._driveMultiChoicePreview(options, anchor, combo)
+        self._commitWorkflowChoice(values)
+
+    @staticmethod
+    def _isComboWidget(widget):
+        """True for a QComboBox / ctkComboBox cell widget. Duck-typed: the Qt class
+        name first, then the combo-specific API (``itemText`` + ``count``), so it
+        works for whatever PythonQt hands back as the cell widget."""
+        if widget is None:
+            return False
+        try:
+            if "ComboBox" in widget.className():
+                return True
+        except Exception:
+            pass
+        try:
+            widget.itemText  # combo-specific method
+            _ = widget.count  # combo-specific property
+            return True
+        except Exception:
+            return False
+
+    def _findLivePerRowComboTable(self):
+        """The extension's live QTableWidget that has per-row combo cell widgets
+        (e.g. the landmarks Level/Side/Landmarks table). None when none exists.
+
+        Searches the whole module representation -- the same root
+        ``_snapshot_review_table`` uses (a wizard's ``workflow.currentStep()`` is a
+        step CONTROLLER, not a QWidget, so findChildren on it reaches nothing). The
+        per-row-combo filter uniquely identifies the table: only this kind carries
+        combo cell widgets (a results table is item-based). When several qualify,
+        the one with the most rows wins.
+        """
+        try:
+            ext = self._workflowRuntime.session.extension_name
+            from SlicerAIAgentLib.extension_cli_loader import get_validated_extensions
+            metadata = (get_validated_extensions().get(ext) or {}).get("workflow_metadata", {}) or {}
+            module_name = str(metadata.get("extension_module_name") or "").strip() or ext
+            root = slicer.util.getModule(module_name).widgetRepresentation()
+        except Exception:
+            return None
+        try:
+            tables = slicer.util.findChildren(root, className="QTableWidget")
+        except Exception:
+            tables = []
+        best = None
+        best_rows = 0
+        for table in tables:
+            try:
+                has_combo = False
+                for c in range(table.columnCount):
+                    for r in range(table.rowCount):
+                        if self._isComboWidget(table.cellWidget(r, c)):
+                            has_combo = True
+                            break
+                    if has_combo:
+                        break
+                if has_combo and table.rowCount > best_rows:
+                    best, best_rows = table, table.rowCount
+            except Exception:
+                continue
+        return best
+
+    def _renderWorkflowNativeWidget(self, state):
+        """Reproduce the extension's own per-row-combo selection table in the agent
+        panel, populated from the live widget, with a Confirm button that writes the
+        selections back to the live combos and advances. Falls back to a plain
+        Confirm when no such table resolves (still lets the user proceed)."""
+        container = qt.QWidget()
+        vbox = qt.QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        self._nativeWidgetLiveTable = None
+        self._nativeWidgetComboCol = None
+        self._nativeWidgetRowCombos = []
+
+        live = self._findLivePerRowComboTable()
+        if live is not None:
+            try:
+                cols, rows = live.columnCount, live.rowCount
+                combo_col = None
+                for c in range(cols):
+                    if any(self._isComboWidget(live.cellWidget(r, c)) for r in range(rows)):
+                        combo_col = c
+                        break
+                headers = []
+                for c in range(cols):
+                    h = live.horizontalHeaderItem(c)
+                    headers.append(str(h.text()) if h is not None else f"Col {c + 1}")
+                agent = qt.QTableWidget(rows, cols)
+                agent.setHorizontalHeaderLabels(headers)
+                agent.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+                agent.verticalHeader().setVisible(False)
+                agent.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
+                for r in range(rows):
+                    for c in range(cols):
+                        if c == combo_col and self._isComboWidget(live.cellWidget(r, c)):
+                            live_combo = live.cellWidget(r, c)
+                            combo = qt.QComboBox()
+                            for i in range(live_combo.count):
+                                combo.addItem(live_combo.itemText(i))
+                            try:
+                                combo.setCurrentIndex(live_combo.currentIndex)
+                            except Exception:
+                                pass
+                            agent.setCellWidget(r, c, combo)
+                            self._nativeWidgetRowCombos.append((r, combo))
+                        else:
+                            item = live.item(r, c)
+                            agent.setItem(r, c, qt.QTableWidgetItem(
+                                str(item.text()) if item is not None else ""))
+                agent.setMinimumHeight(110)
+                agent.setMaximumHeight(260)
+                vbox.addWidget(agent)
+                self._nativeWidgetLiveTable = live
+                self._nativeWidgetComboCol = combo_col
+            except Exception:
+                logger.debug("Reproducing the extension's per-row table failed", exc_info=True)
+                self._nativeWidgetLiveTable = None
+                self._nativeWidgetRowCombos = []
+
+        button = qt.QPushButton("Confirm")
+        button.setToolTip("Apply these selections in the module and continue")
+        button.clicked.connect(self._onWorkflowNativeWidgetConfirmed)
+        vbox.addWidget(button)
+        self._workflowNativeWidgetContainer = container
+        self._workflowChoiceLayout.addWidget(container, 1)
+        container.setVisible(True)
+        return True
+
+    def _onWorkflowNativeWidgetConfirmed(self):
+        # Write each reproduced selection back to the extension's live combo so its
+        # own connected handlers / downstream steps see the state a manual user
+        # would have left. Fail-soft per row.
+        live = getattr(self, "_nativeWidgetLiveTable", None)
+        combo_col = getattr(self, "_nativeWidgetComboCol", None)
+        if live is not None and combo_col is not None:
+            for row, agent_combo in getattr(self, "_nativeWidgetRowCombos", []):
+                try:
+                    live_combo = live.cellWidget(row, combo_col)
+                    if self._isComboWidget(live_combo):
+                        live_combo.setCurrentIndex(agent_combo.currentIndex)
+                        try:
+                            live_combo.activated(agent_combo.currentIndex)
+                        except Exception:
+                            pass
+                except Exception:
+                    logger.debug("Native-widget write-back (row %s) failed", row, exc_info=True)
+        # Advance the step (the extension's widget holds the selection; no value).
+        if self._currentWorkflowUiState.get("replay_previewing"):
+            index = self._currentWorkflowUiState.get("preview_index")
+            if index is not None:
+                self._rerunFromCheckpoint(index, {"choice_value": ""})
+            return
+        step_id = self._currentWorkflowUiState.get("current_step")
+        if step_id:
+            self.sendButton.setEnabled(False)
+            self._runWorkflowStepDirect(step_id, "proceed")
+
+    def _renderWorkflowReviewTable(self, state):
+        """Read-only results table for a review checkpoint (review_op).
+
+        Renders the snapshot the loader read from the extension's own UI (or a
+        table node). With no snapshot the step still works as instructions +
+        Confirm -- the results are visible in the module panel itself.
+        """
+        table_data = state.get("review_table") or {}
+        headers = [str(h) for h in (table_data.get("headers") or [])]
+        rows = table_data.get("rows") or []
+        if not headers or not rows:
+            return
+        container = qt.QWidget()
+        vbox = qt.QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        table = qt.QTableWidget(len(rows), len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        table.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
+        table.setSelectionMode(qt.QAbstractItemView.NoSelection)
+        table.horizontalHeader().setSectionResizeMode(qt.QHeaderView.Stretch)
+        table.verticalHeader().setVisible(False)
+        for r, row in enumerate(rows):
+            for c in range(len(headers)):
+                value = str(row[c]) if c < len(row) else ""
+                table.setItem(r, c, qt.QTableWidgetItem(value))
+        table.setMinimumHeight(110)
+        table.setMaximumHeight(240)
+        vbox.addWidget(table)
+        self._workflowReviewContainer = container
+        self._workflowChoiceLayout.addWidget(container, 1)
+        container.setVisible(True)
 
     def _nodeTreeCurrentSegmentRef(self):
         """``(segmentationNode, segmentId)`` for the tree's current row, else

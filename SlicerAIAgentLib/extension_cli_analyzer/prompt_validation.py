@@ -43,6 +43,8 @@ class AnalyzerPromptValidationMixin:
                 marker = "[user_choice]"
             elif op_type == "branch_op":
                 marker = "[branch_op]"
+            elif op_type == "review_op":
+                marker = "[review_op]"
             else:
                 marker = f"[unsupported: {op_type or 'missing'}]"
             # Truncate long descriptions for readability
@@ -65,8 +67,9 @@ class AnalyzerPromptValidationMixin:
             "3. For **user_interaction** steps: output the returned `pre_code` verbatim in a ```python block. Relay instructions to the user. Wait for them to click 'Done'.",
             "4. For **user_choice** steps: ask the returned question. After the user answers, call the same step with `user_action='choice_made'` and `choice_value`.",
             "5. For **branch_op** steps: a yes/no decision that also acts and branches. Ask the returned question, then call the same step with `user_action='choice_made'` and `choice_value` ('Yes'/'No'). 'Yes' performs the step's action (e.g. ticks a checkbox) and runs the optional body once; 'No' jumps to the indicated step or stops.",
-            "6. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.",
-            "7. Continue until all steps are done.",
+            "6. For **review_op** steps: the panel shows the generated results for the user to review. Relay the instructions and wait for them to click Confirm — no code, no question.",
+            "7. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.",
+            "8. Continue until all steps are done.",
             "",
             "**CRITICAL RULES:**",
             "- Execute ONE step per turn. Do NOT call multiple steps in a single turn.",

@@ -1192,7 +1192,7 @@ class AnalyzerParameterMetadataMixin:
         )
         method_parameter_effects = self._extract_parameter_method_effects(source)
         widget_method_universe = self._extract_widget_method_universe(
-            source, scan_result.get("logic_class", {}).get("class_name", "")
+            source, (scan_result.get("logic_class") or {}).get("class_name", "")
         )
         parameter_appliers = self._compute_parameter_appliers(
             bindings, method_parameter_effects, logic_analysis, source,
@@ -1208,8 +1208,15 @@ class AnalyzerParameterMetadataMixin:
             )
         )
         metadata = {
-            "extension_module_name": os.path.splitext(os.path.basename(entry_module))[0],
-            "logic_class_name": scan_result.get("logic_class", {}).get("class_name", ""),
+            "extension_module_name": (
+                os.path.splitext(os.path.basename(entry_module))[0] if entry_module else ""
+            ),
+            # logic_class is None (not merely absent) for a wizard-style module.
+            "logic_class_name": (scan_result.get("logic_class") or {}).get("class_name", ""),
+            # ctkWorkflow wizard facts (workflow attr + step objects). Persisted so
+            # repair rounds -- which re-enter without the scan on self -- can
+            # re-derive a deterministic wizard template instead of an LLM rewrite.
+            "wizard": scan_result.get("wizard") or {},
             "metadata_version": 10,
             "parameter_bindings": bindings,
             "parameter_defaults": parameter_defaults,

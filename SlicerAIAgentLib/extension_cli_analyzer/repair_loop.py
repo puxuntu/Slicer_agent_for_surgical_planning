@@ -498,6 +498,43 @@ class AnalyzerRepairLoopMixin:
         if not affected:
             return None
 
+        # Wizard-grounded templates are DETERMINISTIC -- an LLM rewrite would lose
+        # the [wizard drive] marker (their only footprint acceptance) and strand
+        # the step permanently. Re-derive them from the recorded wizard evidence
+        # instead, and keep them away from the LLM.
+        wizard_repaired: Dict[str, str] = {}
+        module_name = str(
+            (workflow_contract or {}).get("extension_module_name")
+            or (getattr(self, "_workflow_metadata", {}) or {}).get("extension_module_name")
+            or extension_name
+        )
+        for gen in generators or []:
+            key = gen.get("template_file") or ""
+            if key not in affected:
+                continue
+            sub_ops = gen.get("sub_operations") or []
+            if not any(isinstance(so, dict) and (so.get("wizard_nav")
+                                                 or so.get("wizard_button")
+                                                 or so.get("wizard_place_button"))
+                       for so in sub_ops):
+                continue
+            step_id = (gen.get("param_signature") or {}).get("workflow_step", "")
+            regenerated = self._maybe_generate_wizard_template(
+                extension_name,
+                {"step_id": step_id, "description": gen.get("description", ""),
+                 "sub_operations": sub_ops},
+                module_name,
+            )
+            if regenerated:
+                wizard_repaired[key] = regenerated
+                affected.discard(key)
+        if wizard_repaired and not affected:
+            # Every affected template was wizard-grounded -- no LLM round needed.
+            merged = dict(templates)
+            merged.update(wizard_repaired)
+            self._last_fix_description = "Re-derived wizard drive template(s) deterministically"
+            return self._sanitize_templates(merged)
+
         issue_text = json.dumps(issues, indent=2)
         contract_steps = []
         for step in (workflow_contract or {}).get("steps", []):
@@ -630,6 +667,12 @@ Return:
                 failure_label="Targeted template repair",
             )
         except RuntimeError:
+            if wizard_repaired:
+                # The LLM round failed but the wizard templates were still
+                # re-derived deterministically -- keep them.
+                merged = dict(templates)
+                merged.update(wizard_repaired)
+                return self._sanitize_templates(merged)
             return None
         self._last_fix_description = _text_or_empty(fixed.get("fix_description"))
         repaired = dict(templates)
@@ -637,6 +680,9 @@ Return:
             key = tpl_name if tpl_name.startswith("templates/") else f"templates/{tpl_name}"
             if key in affected and isinstance(tpl_content, str):
                 repaired[key] = tpl_content
+        # The deterministically re-derived wizard templates win over anything the
+        # LLM may have emitted for those keys.
+        repaired.update(wizard_repaired)
         return self._sanitize_templates(repaired)
 
     @staticmethod

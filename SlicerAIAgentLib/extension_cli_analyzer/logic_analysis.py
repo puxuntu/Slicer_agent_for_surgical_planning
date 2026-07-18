@@ -14,6 +14,23 @@ class AnalyzerLogicAnalysisMixin:
         same complete universe on every run.
         """
         logic_info = scan_result["logic_class"]
+        if not logic_info:
+            # A ctkWorkflow wizard module has no logic class at all (the analyzer's
+            # discover gate only lets such modules through). Its operations are
+            # grounded from the scanned wizard facts, so the method universe is
+            # legitimately empty -- return a well-formed empty analysis instead of
+            # crashing, and let the semantic validator enforce null method hints.
+            self.on_progress(
+                "analyze", "Analyze Extension Logic",
+                "No logic class (wizard-style module) — empty method universe.",
+            )
+            return {
+                "class_name": "",
+                "file": "",
+                "methods": [],
+                "helper_functions": [],
+                "module_level_functions": [],
+            }
         logic_file = logic_info["file"]
         class_name = logic_info["class_name"]
 

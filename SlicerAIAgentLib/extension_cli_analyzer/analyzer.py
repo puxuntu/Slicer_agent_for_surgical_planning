@@ -642,7 +642,12 @@ class ExtensionCLIAnalyzer(
                 result["error"] = "Cancelled during discover"
                 return result
 
-            if not scan_result.get("logic_class"):
+            if not scan_result.get("logic_class") \
+                    and not (scan_result.get("wizard") or {}).get("present"):
+                # A ctkWorkflow wizard module legitimately has NO logic class -- its
+                # operations live on the wizard page objects and are grounded from
+                # the scanned wizard facts, so only a module that is neither shape
+                # is un-analyzable.
                 result["error"] = (
                     f"No ScriptedLoadableModuleLogic subclass found in {source_path}. "
                     "The extension may be C++-only or have no Python logic class."
@@ -670,6 +675,28 @@ class ExtensionCLIAnalyzer(
                 )
                 if widget_source:
                     self._widget_connections = self._extract_widget_connections(widget_source)
+            # Wizard module: the user-facing controls live on the wizard PAGE
+            # classes, not the module widget, so merge each page's connections too
+            # (labels come from the scanned button text, there being no .ui).
+            wizard = scan_result.get("wizard") or {}
+            wizard_pages = scan_result.get("wizard_pages") or {}
+            if wizard.get("present"):
+                for page_class, page_file in (wizard.get("page_files") or {}).items():
+                    page_source = self._extract_class_source(page_file, page_class)
+                    if not page_source:
+                        continue
+                    page_conns = self._extract_widget_connections(page_source)
+                    page_buttons = {
+                        b.get("attr"): b.get("text", "")
+                        for b in (wizard_pages.get(page_class) or {}).get("buttons", [])
+                    }
+                    for conn in page_conns:
+                        conn.setdefault(
+                            "ui_text",
+                            page_buttons.get(conn.get("button_widget_name"), ""),
+                        )
+                        conn["wizard_page"] = page_class
+                    self._widget_connections.extend(page_conns)
             scan_result["ui_widgets"] = self._extract_ui_widget_inventory(
                 scan_result.get("ui_files", [])
             )

@@ -277,6 +277,9 @@ def dispatch_workflow_step(
         # (on accept) attaches its captured extension action; the pre-guard
         # repeat_block routes accept->body / decline->jump/stop.
         "branch_op": _handle_branch_step,
+        # review_op is a pure human checkpoint: show generated results, Confirm
+        # advances. No template, no recorded value.
+        "review_op": _handle_review_step,
     }
     handler = handlers.get(operation_type)
     if not handler:

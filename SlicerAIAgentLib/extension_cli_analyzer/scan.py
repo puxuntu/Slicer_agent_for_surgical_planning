@@ -21,9 +21,28 @@ class AnalyzerScanMixin:
                 elif f.endswith(".ui"):
                     ui_files.append(os.path.join(root, f))
 
+        # A multi-module extension repo may keep shared code in a SIBLING package
+        # (e.g. a wizard-step package the selected module imports). Those files are
+        # part of this module's real source surface -- its widget instantiates their
+        # classes -- so resolve top-level imports of the scanned files against the
+        # repo root (the selected module folder's parent) and include any package
+        # directory that actually exists there. Bounded to one parent level and to
+        # imports the source really makes, so an unrelated sibling module's files
+        # are never pulled in.
+        sibling_packages = self._resolve_sibling_packages(py_files, source_path)
+        for pkg_dir in sibling_packages:
+            for root, dirs, files in os.walk(pkg_dir):
+                dirs[:] = [d for d in dirs if not d.startswith((".", "__")) and d != "build"]
+                for f in files:
+                    if f.endswith(".py"):
+                        py_files.append(os.path.join(root, f))
+                    elif f.endswith(".ui"):
+                        ui_files.append(os.path.join(root, f))
+
         self.on_progress(
             "discover", "Discover Source And Cookbook",
             f"Found {len(py_files)} Python files"
+            + (f" (incl. {len(sibling_packages)} sibling package(s))" if sibling_packages else "")
         )
 
         # Parse each file's AST
@@ -180,10 +199,22 @@ class AnalyzerScanMixin:
         # prose is unreliable. Absent entry => node, i.e. today's behavior.
         selection_granularity = self._scan_selection_granularity(py_files, wrapper_field_types)
 
-        # Find the entry point module (the main module file)
+        # ctkWorkflow wizard-style module: UI lives on per-step page objects, the
+        # Next/Back navigation is the workflow's own button box, and there is usually
+        # no logic class. The wizard facts (workflow attr, step objects, per-page
+        # widget inventory) are what later stages ground such steps on. {present:
+        # False} for every classic extension -> no behavior change.
+        wizard = self._scan_wizard_workflow(widget_class, py_files)
+        wizard_pages = self._scan_wizard_pages(wizard)
+
+        # Find the entry point module (the main module file). A wizard module has
+        # no logic class; its widget file IS the module entry point (and its
+        # basename is the slicer.util.getModuleWidget key later stages drive).
         entry_module = None
         if logic_class:
             entry_module = logic_class["file"]
+        elif widget_class:
+            entry_module = widget_class["file"]
 
         self.on_progress(
             "discover", "Discover Source And Cookbook",
@@ -205,6 +236,9 @@ class AnalyzerScanMixin:
             "parameter_node_wrappers": parameter_node_wrappers,
             "segments_table_bindings": segments_table_bindings,
             "selection_granularity": selection_granularity,
+            "sibling_packages": sibling_packages,
+            "wizard": wizard,
+            "wizard_pages": wizard_pages,
         }
 
     @staticmethod
@@ -299,6 +333,375 @@ class AnalyzerScanMixin:
                     if field:
                         bindings.setdefault(widget, field)
         return bindings
+
+    @staticmethod
+    def _resolve_sibling_packages(py_files: List[str], source_path: str) -> List[str]:
+        """Package directories OUTSIDE ``source_path`` that the scanned files import
+        and that exist as importable packages under the extension repo root (the
+        selected module folder's parent).
+
+        A multi-module repo shares wizard/helper packages across its modules by a
+        plain top-level import; at runtime each MODULE folder is on Slicer's path,
+        so a package inside a sibling module folder resolves too. Candidates are
+        therefore ``<repo_root>/X`` and ``<repo_root>/<child>/X`` -- bounded to the
+        repo, and only for packages the source actually imports, so an unrelated
+        sibling module is never included.
+        """
+        source_abs = os.path.abspath(source_path)
+        repo_root = os.path.dirname(source_abs)
+        candidate_roots = [repo_root]
+        try:
+            for child in sorted(os.listdir(repo_root)):
+                child_dir = os.path.join(repo_root, child)
+                if os.path.isdir(child_dir) and not child.startswith((".", "__")):
+                    candidate_roots.append(child_dir)
+        except OSError:
+            pass
+        found: List[str] = []
+        seen = set()
+        for fpath in py_files:
+            try:
+                with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                    tree = ast.parse(f.read())
+            except Exception:
+                continue
+            names = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        names.add(alias.name.split(".")[0])
+                elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                    names.add(node.module.split(".")[0])
+            for name in names:
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+                for croot in candidate_roots:
+                    cand = os.path.abspath(os.path.join(croot, name))
+                    if (os.path.isdir(cand)
+                            and os.path.isfile(os.path.join(cand, "__init__.py"))
+                            and cand != source_abs
+                            # Separator-anchored: a sibling named <module>Xyz must
+                            # not be dropped by a bare string-prefix match.
+                            and not cand.startswith(source_abs + os.sep)
+                            and cand not in found):
+                        found.append(cand)
+                        break
+        return sorted(found)
+
+    @staticmethod
+    def _ast_const_int(node):
+        """Return an int-literal's value across Python versions (Constant / Num), else None."""
+        if isinstance(node, ast.Constant) and isinstance(node.value, int) \
+                and not isinstance(node.value, bool):
+            return node.value
+        _Num = getattr(ast, "Num", None)
+        if _Num is not None and isinstance(node, _Num) and isinstance(node.n, int):
+            return node.n
+        return None
+
+    @classmethod
+    def _scan_wizard_workflow(cls, widget_info: Dict, py_files: List[str]) -> Dict:
+        """Detect a ctkWorkflow wizard-style module widget and map its step objects.
+
+        Such a widget builds its UI as ``ctk.ctkWorkflow()`` + per-step
+        ``ctkWorkflowWidgetStep`` subclasses instead of a .ui file, so every widget
+        the user touches lives on a STEP object, navigation happens through the
+        workflow's own Next/Back button box (named nowhere in the source), and there
+        is typically no logic class at all. Returns::
+
+            {"present": True, "workflow_attr": "workflow", "module_class": "...Widget",
+             "steps": [{"attr", "class_name", "stepid"}],
+             "page_files": {class_name: fpath}}
+
+        or ``{"present": False}``. Keyed purely on the ctkWorkflow API surface.
+        """
+        result = {"present": False}
+        if not widget_info:
+            return result
+        wfile = widget_info.get("file") or ""
+        wclass = widget_info.get("class_name") or ""
+        try:
+            with open(wfile, "r", encoding="utf-8", errors="ignore") as f:
+                tree = ast.parse(f.read())
+        except Exception:
+            return result
+        cls_node = next((n for n in ast.walk(tree)
+                         if isinstance(n, ast.ClassDef) and n.name == wclass), None)
+        if cls_node is None:
+            return result
+
+        def _dotted(node):
+            parts, cur = [], node
+            while isinstance(cur, ast.Attribute):
+                parts.append(cur.attr)
+                cur = cur.value
+            if isinstance(cur, ast.Name):
+                parts.append(cur.id)
+                return ".".join(reversed(parts))
+            return ""
+
+        workflow_attr = ""
+        steps = []
+        for st in ast.walk(cls_node):
+            if not isinstance(st, ast.Assign) or not isinstance(st.value, ast.Call):
+                continue
+            call = st.value
+            callee = _dotted(call.func)
+            targets = [t for t in st.targets if isinstance(t, ast.Attribute)
+                       and isinstance(t.value, ast.Name) and t.value.id == "self"]
+            if not targets:
+                continue
+            attr = targets[0].attr
+            if callee.endswith("ctkWorkflow"):
+                workflow_attr = attr
+                continue
+            # self.someStep = SomePackage.SomeStep('StepId', ...)
+            if callee:
+                step_class = callee.split(".")[-1]
+                stepid = cls._ast_const_str(call.args[0]) if call.args else None
+                if step_class.endswith("Step") and stepid:
+                    steps.append({"attr": attr, "class_name": step_class, "stepid": stepid})
+        if not workflow_attr or not steps:
+            return result
+
+        # Map each step class to the file that defines it (module dir or sibling pkg).
+        page_files = {}
+        wanted = {s["class_name"] for s in steps}
+        for fpath in py_files:
+            try:
+                with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                    ftree = ast.parse(f.read())
+            except Exception:
+                continue
+            for n in ast.walk(ftree):
+                if isinstance(n, ast.ClassDef) and n.name in wanted:
+                    page_files.setdefault(n.name, fpath)
+        return {
+            "present": True,
+            "workflow_attr": workflow_attr,
+            "module_class": wclass,
+            "steps": steps,
+            "page_files": page_files,
+        }
+
+    @classmethod
+    def _scan_wizard_pages(cls, wizard: Dict) -> Dict[str, Dict]:
+        """Per-page widget inventory for a wizard module: combos (with their static
+        item lists and the visible LABEL each is paired with), text buttons with
+        their handlers, per-row-combo tables, and markups place widgets.
+
+        The cookbook quotes the on-screen labels ("Choose the '1st Instrumented
+        Level:'"), while the widgets themselves are unnamed Python attributes on the
+        step objects -- so the label pairing is what lets later stages match a
+        cookbook sentence to a concrete widget. Pairing uses the page's own layout
+        calls (``addRow(label, w)``, grid ``addWidget(label, r, c)`` over
+        ``addWidget(w, r+1, c)``, then same-layout sequence), never word heuristics.
+        Returns {class_name: {combos: [...], buttons: [...], tables: [...],
+        place_widgets: [...]}}.
+        """
+        pages: Dict[str, Dict] = {}
+        if not wizard.get("present"):
+            return pages
+
+        def _dotted(node):
+            parts, cur = [], node
+            while isinstance(cur, ast.Attribute):
+                parts.append(cur.attr)
+                cur = cur.value
+            if isinstance(cur, ast.Name):
+                parts.append(cur.id)
+                return ".".join(reversed(parts))
+            return ""
+
+        def _self_attr(node):
+            d = _dotted(node)
+            return d[len("self."):] if d.startswith("self.") and d.count(".") == 1 else ""
+
+        def _name_key(node, fn_name):
+            """Widget-identity key: a self attribute is class-wide (it legitimately
+            persists across methods); a PLAIN LOCAL is scoped to its function --
+            two methods reusing a local name like ``label`` or ``layout`` are
+            different objects and must never pair across methods."""
+            sa = _self_attr(node)
+            if sa:
+                return sa
+            d = _dotted(node)
+            if d and "." not in d and d != "self":
+                return f"{fn_name}.{d}"
+            return d
+
+        for class_name, fpath in (wizard.get("page_files") or {}).items():
+            try:
+                with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                    tree = ast.parse(f.read())
+            except Exception:
+                continue
+            cls_node = next((n for n in ast.walk(tree)
+                             if isinstance(n, ast.ClassDef) and n.name == class_name), None)
+            if cls_node is None:
+                continue
+
+            combos: Dict[str, Dict] = {}      # attr -> {attr, widget_class, items, label}
+            labels: Dict[str, str] = {}       # var/attr name -> label text
+            buttons: Dict[str, Dict] = {}     # attr -> {attr, text, handler}
+            tables: Dict[str, Dict] = {}      # attr -> {attr, headers, per_row_combo}
+            place_widgets: List[str] = []
+            layout_seq: Dict[str, List] = {}  # layout expr -> ordered widget names
+            grid_adds: List[tuple] = []       # ordered (layout, row, col, widget name)
+
+            # Pass 1 -- creations. Collected over the whole class first, because a
+            # widget created in one method (createUserInterface) is used from
+            # methods that appear EARLIER in the class body (updateTable calling
+            # setCellWidget on it), and a single walk in body order would miss those.
+            for fn in cls_node.body:
+                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for st in ast.walk(fn):
+                    if not (isinstance(st, ast.Assign) and isinstance(st.value, ast.Call)):
+                        continue
+                    callee = _dotted(st.value.func)
+                    short = callee.split(".")[-1]
+                    name = ""
+                    for t in st.targets:
+                        name = _name_key(t, fn.name)
+                        if name:
+                            break
+                    if not name:
+                        continue
+                    if short in ("QComboBox", "ctkComboBox"):
+                        combos.setdefault(name, {
+                            "attr": name, "widget_class": short,
+                            "items": [], "label": "",
+                        })
+                    elif short == "QLabel":
+                        args = st.value.args
+                        text = cls._ast_const_str(args[0]) if args else None
+                        if text is not None:
+                            labels[name] = text
+                    elif short == "QPushButton":
+                        args = st.value.args
+                        text = (cls._ast_const_str(args[0]) if args else None) or ""
+                        buttons.setdefault(name, {"attr": name, "text": text, "handler": ""})
+                    elif short == "QTableWidget":
+                        tables.setdefault(name, {
+                            "attr": name, "headers": [], "per_row_combo": False,
+                        })
+                    elif short == "qSlicerMarkupsPlaceWidget":
+                        place_widgets.append(name)
+
+            # Pass 2 -- uses (items, headers, cell widgets, connects, layout adds).
+            for fn in cls_node.body:
+                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for st in ast.walk(fn):
+                    if not isinstance(st, ast.Call):
+                        continue
+                    fnc = st.func
+                    if not isinstance(fnc, ast.Attribute):
+                        continue
+                    recv = _name_key(fnc.value, fn.name)
+                    # combo.addItems([...]) with a literal list
+                    if fnc.attr == "addItems" and recv in combos and st.args:
+                        arg = st.args[0]
+                        items = []
+                        if isinstance(arg, (ast.List, ast.Tuple)):
+                            items = [v for v in (cls._ast_const_str(el) for el in arg.elts)
+                                     if v is not None]
+                        elif isinstance(arg, ast.Attribute) or isinstance(arg, ast.Name):
+                            # addItems(self.levels) -- resolve a tuple/list assigned
+                            # to that name anywhere in the class (static data attr).
+                            # Prefer a NON-EMPTY literal: the same attr is often
+                            # initialized to [] in __init__ and given its real
+                            # content later.
+                            tgt = _name_key(arg, fn.name)
+                            for st2 in ast.walk(cls_node):
+                                if (isinstance(st2, ast.Assign)
+                                        and any(_name_key(t, fn.name) == tgt
+                                                or (_self_attr(t) and _self_attr(t) == tgt)
+                                                for t in st2.targets)
+                                        and isinstance(st2.value, (ast.List, ast.Tuple))):
+                                    resolved = [v for v in (cls._ast_const_str(el)
+                                                            for el in st2.value.elts)
+                                                if v is not None]
+                                    if resolved:
+                                        items = resolved
+                                        break
+                        if items:
+                            combos[recv]["items"] = items
+                    # table headers + per-row combos
+                    elif fnc.attr == "setHorizontalHeaderLabels" and recv in tables and st.args:
+                        arg = st.args[0]
+                        if isinstance(arg, (ast.List, ast.Tuple)):
+                            tables[recv]["headers"] = [
+                                v for v in (cls._ast_const_str(el) for el in arg.elts)
+                                if v is not None
+                            ]
+                        elif isinstance(arg, ast.Name):
+                            for st2 in ast.walk(fn):
+                                if (isinstance(st2, ast.Assign)
+                                        and any(isinstance(t, ast.Name) and t.id == arg.id
+                                                for t in st2.targets)
+                                        and isinstance(st2.value, (ast.List, ast.Tuple))):
+                                    tables[recv]["headers"] = [
+                                        v for v in (cls._ast_const_str(el)
+                                                    for el in st2.value.elts)
+                                        if v is not None
+                                    ]
+                                    break
+                    elif fnc.attr == "setCellWidget" and recv in tables:
+                        tables[recv]["per_row_combo"] = True
+                    # button connects: btn.connect('clicked(bool)', self.handler)
+                    elif fnc.attr == "connect" and recv in buttons and len(st.args) >= 2:
+                        second = st.args[1]
+                        if (isinstance(second, ast.Attribute)
+                                and isinstance(second.value, ast.Name)
+                                and second.value.id == "self"):
+                            buttons[recv]["handler"] = second.attr
+                    # layout pairing signals
+                    elif fnc.attr == "addRow" and len(st.args) >= 2:
+                        first = _name_key(st.args[0], fn.name)
+                        second = _name_key(st.args[1], fn.name)
+                        if first in labels and second in combos and not combos[second]["label"]:
+                            combos[second]["label"] = labels[first]
+                    elif fnc.attr == "addWidget":
+                        lay = _name_key(fnc.value, fn.name)
+                        arg0 = st.args[0] if st.args else None
+                        wname = _name_key(arg0, fn.name) if arg0 is not None else ""
+                        if len(st.args) >= 3:
+                            r = cls._ast_const_int(st.args[1])
+                            c = cls._ast_const_int(st.args[2])
+                            if r is not None and c is not None and wname:
+                                grid_adds.append((lay, r, c, wname))
+                        elif wname:
+                            layout_seq.setdefault(lay, []).append(wname)
+
+            # Grid pairing: label at (r, c) <-> widget at (r+1, c), matched on the
+            # ORDERED add list searching backwards from the widget's own add -- the
+            # same cell coordinates may be reused by mutually exclusive layout
+            # branches (if/else), where a plain cell map would keep only the last
+            # branch's label.
+            for idx, (lay, r, c, wname) in enumerate(grid_adds):
+                if wname not in combos or combos[wname]["label"]:
+                    continue
+                for lay2, r2, c2, above in reversed(grid_adds[:idx]):
+                    if lay2 == lay and r2 == r - 1 and c2 == c and above in labels:
+                        combos[wname]["label"] = labels[above]
+                        break
+            # Same-layout sequence pairing: a label immediately before a combo.
+            for lay, seq in layout_seq.items():
+                for i in range(len(seq) - 1):
+                    if seq[i] in labels and seq[i + 1] in combos \
+                            and not combos[seq[i + 1]]["label"]:
+                        combos[seq[i + 1]]["label"] = labels[seq[i]]
+
+            pages[class_name] = {
+                "combos": list(combos.values()),
+                "buttons": list(buttons.values()),
+                "tables": list(tables.values()),
+                "place_widgets": place_widgets,
+            }
+        return pages
 
     # Canonical Slicer API for reading a SEGMENT row out of a subject-hierarchy
     # selector. An extension that lets the user pick a segment (rather than a whole

@@ -1,3 +1,5 @@
+import re
+
 from .common import *
 
 
@@ -1016,6 +1018,11 @@ class AnalyzerStage4DecompositionMixin:
         # inside a segmentation), read from the source's own selection-resolution code.
         # Only "segment" verdicts appear; an absent widget means a node pick.
         self._selection_granularity = (scan_result or {}).get("selection_granularity", {}) or {}
+        # ctkWorkflow wizard facts: workflow attr + step objects + per-page widget
+        # inventory (combos with labels/items, buttons with text, tables, place
+        # widgets). {present: False} / {} for every classic extension.
+        self._wizard = (scan_result or {}).get("wizard", {}) or {}
+        self._wizard_pages = (scan_result or {}).get("wizard_pages", {}) or {}
         for name in ui_widgets:
             if name and name not in seen:
                 widgets.append({
@@ -1138,7 +1145,7 @@ class AnalyzerStage4DecompositionMixin:
         {{
           "steps": [{{
             "step_number": 1,
-            "operation_type": "extension_op|slicer_op|user_interaction|user_choice|branch_op",
+            "operation_type": "extension_op|slicer_op|user_interaction|user_choice|branch_op|review_op",
             "semantic_intent": "concise meaning",
             "extension_method_hint": null,
             "extension_function_hint": null,
@@ -1180,6 +1187,10 @@ class AnalyzerStage4DecompositionMixin:
         For choice, use null or:
         {{"question":"", "choices":[{{"label":"","value":null}}],
           "parameter_name":"", "default_value":null, "value_kind":""}}
+        A user_choice step whose text asks for SEVERAL selections ("Choose the 'A'.
+        Choose the 'B'. ...") carries a LIST of those choice objects (in text order,
+        one per selection, each with its own parameter_name); a single selection
+        stays a single object.
         value_kind classifies HOW the choice is entered so the runtime renders the
         right control: "node" (pick an MRML node from the scene), "range" (adjust a
         continuous numeric range on a double-handled min/max slider, e.g. a Threshold
@@ -1213,6 +1224,16 @@ class AnalyzerStage4DecompositionMixin:
         Emit a Yes/No choice (default_value = the skip answer, widget_name = the
         checkbox) AND a repeat_block whose source_step is this branch_op step. A plain
         user_choice is for choice-only selections (pick a node/value) with no action.
+        EXCEPTION: when a branch_op's BOTH answers jump -- one clause jumps BACKWARD to
+        an earlier step and the other continues forward or stops (a decision-at-END
+        per-item loop, e.g. "If done, jump to step 15; if not, jump back to step 10") --
+        emit ONLY the branch_op step with its Yes/No choice and NO repeat_block: that
+        backward loop is reconstructed deterministically. A repeat_block is for a
+        FORWARD pre-guard only (decide, then optionally run the steps that FOLLOW).
+        A review_op step is a pure human review checkpoint: the user inspects results
+        an earlier step produced (e.g. an output table) and confirms to continue. Emit
+        it with ALL hints null, choice null, interaction_kind "none" -- it runs no code
+        and selects nothing.
         Every step requires medium or high confidence. Include exactly one output step
         for every input step, even when most optional semantic fields are null.
 
@@ -1596,12 +1617,20 @@ class AnalyzerStage4DecompositionMixin:
                         )
             if expected[number]["operation_type"] in ("user_choice", "branch_op"):
                 choice = item.get("choice")
-                if not isinstance(choice, dict) or not _text_or_empty(choice.get("question")):
+                # A multi-selection step carries a LIST of choice objects (one per
+                # selection); a single selection stays one object. Validate each
+                # item by the same rules.
+                choice_items = choice if isinstance(choice, list) else [choice]
+                if not choice_items:
                     errors.append(f"step {number} user_choice requires a choice question")
-                elif not _text_or_empty(choice.get("parameter_name")):
-                    errors.append(f"step {number} user_choice requires parameter_name")
-                elif not isinstance(choice.get("choices", []), list):
-                    errors.append(f"step {number} user_choice choices must be a list")
+                for choice_item in choice_items:
+                    if not isinstance(choice_item, dict) \
+                            or not _text_or_empty(choice_item.get("question")):
+                        errors.append(f"step {number} user_choice requires a choice question")
+                    elif not _text_or_empty(choice_item.get("parameter_name")):
+                        errors.append(f"step {number} user_choice requires parameter_name")
+                    elif not isinstance(choice_item.get("choices", []), list):
+                        errors.append(f"step {number} user_choice choices must be a list")
 
         repeats = result.get("repeat_blocks", [])
         if not isinstance(repeats, list):
@@ -1678,7 +1707,17 @@ class AnalyzerStage4DecompositionMixin:
         for cb_step in cookbook_def.steps:
             semantic = semantic_steps[cb_step.step_number]
             op_type = cb_step.operation_type
-            choice = semantic.get("choice") or {}
+            raw_choice = semantic.get("choice")
+            # A multi-selection step carries a LIST of choice objects; normalize so
+            # the first populates the base sub-op exactly as before and the rest
+            # become sibling user_choice sub-ops below.
+            if isinstance(raw_choice, list):
+                choice_items = [c for c in raw_choice if isinstance(c, dict)]
+            elif isinstance(raw_choice, dict):
+                choice_items = [raw_choice]
+            else:
+                choice_items = []
+            choice = choice_items[0] if choice_items else {}
             semantic_binding = semantic.get("ui_parameter_binding")
             resolved_binding = None
             if isinstance(semantic_binding, dict):
@@ -1764,6 +1803,21 @@ class AnalyzerStage4DecompositionMixin:
                 # generator to emit `checked = True` for the captured widget.
                 if op_type == "branch_op":
                     sub_op.setdefault("target_value", True)
+                    # A branch_op is a boolean decision, but the LLM attaches
+                    # inconsistent choice values (null, or arbitrary strings like
+                    # "done"/"not_done"). Overwrite each Yes/No-labelled choice with
+                    # a True/False value so accept/decline is unambiguous downstream
+                    # (the loop-polarity reader compares against a boolean
+                    # exit_value). Non-yes/no choices are left alone.
+                    _yes = {"yes", "true", "y", "confirm", "ok", "proceed"}
+                    _no = {"no", "false", "n", "cancel", "skip"}
+                    for _c in sub_op.get("choices") or []:
+                        if isinstance(_c, dict):
+                            _lbl = str(_c.get("label") or "").strip().lower()
+                            if _lbl in _yes:
+                                _c["value"] = True
+                            elif _lbl in _no:
+                                _c["value"] = False
             elif op_type == "extension_op" and sub_op.get("target_value") is None:
                 # A checkbox/toggle step (e.g. "Untick the X checkbox") must drive
                 # the right polarity: infer tick/untick from the step text so the
@@ -1777,15 +1831,47 @@ class AnalyzerStage4DecompositionMixin:
                 if _intent.get("state") is not None:
                     sub_op["target_value"] = _intent["state"]
                     sub_op.setdefault("target_value_mode", _intent.get("mode"))
+            # A multi-selection user_choice becomes one sub-op PER selection: the
+            # base sub-op carries the first item; each further item is a sibling
+            # clone with its own question/choices/parameter_name. The wizard
+            # reconciler below then aligns every item against the scanned page
+            # combos (labels + static item lists) deterministically.
+            step_sub_ops = [sub_op]
+            # Multi-item expansion is WIZARD-ONLY: the deterministic reconciler can
+            # verify the items against scanned page combos there. For a classic
+            # extension an LLM-emitted list would replace a node-tree/segments-table
+            # step with an unverifiable free-text form, so only the first item is
+            # kept -- byte-identical to the previous behavior.
+            if (op_type == "user_choice" and len(choice_items) > 1
+                    and (getattr(self, "_wizard", {}) or {}).get("present")):
+                for extra in choice_items[1:]:
+                    clone = dict(sub_op)
+                    clone.update({
+                        "question": extra.get("question", ""),
+                        "choices": extra.get("choices", []),
+                        "parameter_name": extra.get(
+                            "parameter_name", f"choice_step_{cb_step.step_number}"
+                        ),
+                        "default_value": extra.get("default_value"),
+                        "value_kind": extra.get("value_kind", ""),
+                    })
+                    if clone.get("value_kind") in ("node", "range"):
+                        clone["choices"] = []
+                    step_sub_ops.append(clone)
+            if op_type == "user_choice":
+                step_sub_ops = self._reconcile_multi_choice(
+                    step_sub_ops, cb_step.description
+                )
             # Record the original selection widget's Qt class from the .ui
             # inventory so the runtime can reproduce it (e.g. a qMRMLSegmentsTableView
             # renders the real segments table, not a free-text box / generic node tree).
-            self._record_source_widget(
-                sub_op, getattr(self, "_ui_widget_classes", {}),
-                getattr(self, "_segments_table_bindings", {}),
-                getattr(self, "_ui_widget_properties", {}),
-                getattr(self, "_selection_granularity", {}),
-            )
+            for _so in step_sub_ops:
+                self._record_source_widget(
+                    _so, getattr(self, "_ui_widget_classes", {}),
+                    getattr(self, "_segments_table_bindings", {}),
+                    getattr(self, "_ui_widget_properties", {}),
+                    getattr(self, "_selection_granularity", {}),
+                )
             # Reconcile "click in a view to create/draw/place a Markups node"
             # (incl. ROI box drawing) into a real markup_placement contract even
             # when the LLM labeled it view_adjustment with a null node_class.
@@ -1794,6 +1880,24 @@ class AnalyzerStage4DecompositionMixin:
             # cookbook text is passed as the ground-truth intent so an LLM
             # paraphrase can't distort a view adjustment into a placement.
             self._reconcile_markup_interaction(sub_op, stages, cb_step.description)
+            # A placement step whose cookbook text states HOW MANY points (a
+            # literal, or a multiple of an earlier choice) gets a structural
+            # expected-count rule so the runtime can show progress + gate Done.
+            self._extract_count_rule(sub_op, cb_step.description, stages)
+            # Wizard module: ground Next/Back + page-button + place-button steps
+            # from the scanned wizard facts (no logic class to bind against).
+            self._reconcile_wizard_ops(sub_op, cb_step.description)
+            # A placement step that FOLLOWS a wizard place-button activation is an
+            # in-tool interaction: the extension's own place widget (enabled by the
+            # prior step) owns the multi-point placement, so the runtime must not
+            # create its own single-shot markup. `stages` holds the prior steps.
+            self._reconcile_wizard_placement(sub_op, stages)
+            # A step whose cookbook text says the input is made "following the
+            # original selection widget" defers to the extension's OWN visible
+            # widget instead of a reproduced control (runtime shows guidance +
+            # Confirm). Applies to every sub-op of the step.
+            for _so in step_sub_ops:
+                self._reconcile_native_widget(_so, cb_step.description)
             method_name = semantic.get("extension_method_hint")
             method_details = [all_methods[method_name]] if method_name else []
             stages.append({
@@ -1812,7 +1916,7 @@ class AnalyzerStage4DecompositionMixin:
                 "op_type": op_type,
                 "operation_type": op_type,
                 "cookbook_step": cb_step,
-                "sub_operations": [sub_op],
+                "sub_operations": step_sub_ops,
                 "is_optional": bool(semantic.get("is_optional")),
             })
 
@@ -1868,35 +1972,60 @@ class AnalyzerStage4DecompositionMixin:
             _parts = _low.split("if not", 1)
             _accept_clause = _parts[0]
             _decline_clause = _parts[1] if len(_parts) > 1 else ""
-            if "jump" not in _accept_clause:
-                continue
-            _am = _re_loop.search(r"step\s+(\d+)", _accept_clause)
+            _am = _re_loop.search(r"step\s+(\d+)", _accept_clause) if "jump" in _accept_clause else None
             _accept = int(_am.group(1)) if _am else None
-            if _accept is None or _accept >= _cb.step_number:
-                continue  # not a BACKWARD jump -> not a loop-back
+            _dm = _re_loop.search(r"step\s+(\d+)", _decline_clause) if "jump" in _decline_clause else None
+            _decline = int(_dm.group(1)) if _dm else None
             _this = _cb.step_number
+            # Which clause loops BACKWARD decides both the loop entry and the exit
+            # polarity: "If done, jump forward; if not, jump back to N" is the same
+            # per-item do-while as "If more needed, jump back to N; if not, continue"
+            # -- only the answer that EXITS is inverted. The synthesized controller
+            # carries that polarity deterministically (polarity="deterministic"), so
+            # the runtime does not consult the LLM-authored choice default for it.
+            if _accept is not None and _accept < _this:
+                _loop_entry, _exit_value = _accept, False       # accept loops back
+                _fwd_clause_num, _fwd_clause_stop = _decline, "stop" in _decline_clause
+            elif _decline is not None and _decline < _this:
+                _loop_entry, _exit_value = _decline, True       # decline loops back
+                _fwd_clause_num, _fwd_clause_stop = _accept, "stop" in _accept_clause
+            else:
+                continue  # neither clause jumps backward -> not a loop-back
             _term = f"cb_step_{_this}"
+            # The stage-4 prompt tells the LLM to emit a repeat_block for EVERY
+            # branch_op, but it cannot model a decision-at-END backward loop: it
+            # emits a garbled pre-guard (body = the steps AFTER the branch, exit
+            # jumping backward), whose exit lands before the body and fails contract
+            # validation. This deterministic synthesis is authoritative for such
+            # branches, so drop the LLM's own block for this branch (it names this
+            # step as its controller source, per the prompt) before adding the
+            # correct loop-back. A FORWARD pre-guard branch never reaches here (the
+            # else-continue above), so its LLM block is untouched.
+            _n_before = len(repeat_blocks)
+            repeat_blocks[:] = [
+                _b for _b in repeat_blocks
+                if str((_b.get("controller") or {}).get("source_step") or "") != _term
+            ]
+            if len(repeat_blocks) != _n_before:
+                _existing_terminals = {_b.get("terminal_step") for _b in repeat_blocks}
             if _term in _existing_terminals:
                 continue
-            _body = [n for n in step_numbers if _accept <= n <= _this]
-            if not _body or _body[0] != _accept or _body[-1] != _this:
+            _body = [n for n in step_numbers if _loop_entry <= n <= _this]
+            if not _body or _body[0] != _loop_entry or _body[-1] != _this:
                 continue
-            if "stop" in _decline_clause:
+            if _fwd_clause_stop:
                 _exit_step, _exit_target = "", "stop"
+            elif _fwd_clause_num is not None and _fwd_clause_num in step_numbers:
+                _exit_step, _exit_target = f"cb_step_{_fwd_clause_num}", _fwd_clause_num
+            elif step_numbers.index(_this) + 1 < len(step_numbers):
+                _nx = step_numbers[step_numbers.index(_this) + 1]
+                _exit_step, _exit_target = f"cb_step_{_nx}", _nx
             else:
-                _dm = _re_loop.search(r"step\s+(\d+)", _decline_clause)
-                _decl = int(_dm.group(1)) if _dm else None
-                if _decl is not None and _decl in step_numbers:
-                    _exit_step, _exit_target = f"cb_step_{_decl}", _decl
-                elif step_numbers.index(_this) + 1 < len(step_numbers):
-                    _nx = step_numbers[step_numbers.index(_this) + 1]
-                    _exit_step, _exit_target = f"cb_step_{_nx}", _nx
-                else:
-                    _exit_step, _exit_target = "", "stop"
+                _exit_step, _exit_target = "", "stop"
             repeat_blocks.append({
                 "repeat_id": f"loop_back_step_{_this}",
                 "body_steps": [f"cb_step_{n}" for n in _body],
-                "entry_step": f"cb_step_{_accept}",
+                "entry_step": f"cb_step_{_loop_entry}",
                 "terminal_step": _term,
                 "exit_step": _exit_step,
                 "controller": {
@@ -1904,7 +2033,8 @@ class AnalyzerStage4DecompositionMixin:
                     "source_step": _term,
                     "loop_back": True,
                     "prompt": (getattr(_cb, "description", "") or "").strip() or "Repeat this section?",
-                    "exit_value": False,
+                    "exit_value": _exit_value,
+                    "polarity": "deterministic",
                     "exit_target": _exit_target,
                 },
                 "max_iterations": 20,
@@ -1918,6 +2048,341 @@ class AnalyzerStage4DecompositionMixin:
             "source": "llm_semantic_decomposition",
             "repeat_blocks": repeat_blocks,
         }
+
+    def _reconcile_wizard_ops(self, sub_op: Dict[str, Any], cb_desc: str) -> None:
+        """Ground an extension_op button step of a ctkWorkflow wizard module.
+
+        A wizard module has no logic class and its Next/Back buttons belong to the
+        workflow's own button box (named nowhere in the source), so the normal
+        evidence chain (method hints / widget connections) has nothing to bind and
+        the step would fall to an ungrounded LLM template. The scanned wizard facts
+        ground it deterministically instead:
+
+        - "Next"/"Back" -> ``wizard_nav`` (the programmatic equivalent is
+          workflow.goForward()/goBackward(), which runs the SAME validate/onExit/
+          onEntry chain as the real button);
+        - a quoted label matching a scanned page button's text -> ``wizard_button``
+          (clicked by visible text at runtime);
+        - a "place ..." label with a scanned markups place widget ->
+          ``wizard_place_button`` (place mode enabled on the live place widget).
+
+        No wizard / no match -> untouched, so classic extensions and normally
+        grounded steps are byte-identical.
+        """
+        wizard = getattr(self, "_wizard", {}) or {}
+        pages = getattr(self, "_wizard_pages", {}) or {}
+        if not wizard.get("present"):
+            return
+        if not isinstance(sub_op, dict) or sub_op.get("op_type") != "extension_op":
+            return
+        if sub_op.get("extension_method_hint") or sub_op.get("extension_function_hint"):
+            return
+        # class name -> the step-object attribute on the module widget
+        # (e.g. "PlanningMeasurementsStep" -> "measurementsStep"). Lets a page
+        # button/place widget be reached DIRECTLY via the step object
+        # (slicer.modules.<Widget>.<step_attr>.<...>), which is deterministic --
+        # a ctkWorkflow currentStep() is a controller, not a QWidget, so a Qt-tree
+        # search scoped to it finds nothing.
+        class_to_step_attr = {
+            s.get("class_name"): s.get("attr")
+            for s in (wizard.get("steps") or []) if s.get("class_name")
+        }
+        text = str(cb_desc or "")
+        quotes = re.findall(r'["“]([^"”]+)["”]', text)
+        low = text.lower()
+        # A page button clicked by its visible text -- checked BEFORE navigation,
+        # so a step like 'Click the "Add Screw" button next to the table' grounds
+        # to ITS button, never to a false "next" hit (the wizard's own Next/Back
+        # never appear among the scanned page buttons, so real navigation steps
+        # always fall through to the nav detection below).
+        page_buttons = []
+        for page_class, page in pages.items():
+            for button in page.get("buttons", []):
+                if button.get("text"):
+                    page_buttons.append((page_class, button))
+        for quote in quotes:
+            nq = self._norm_choice_label(quote)
+            for page_class, button in page_buttons:
+                if self._norm_choice_label(button.get("text")) == nq:
+                    sub_op["wizard_button"] = {
+                        "text": str(button.get("text")),
+                        "page_class": page_class,
+                        "handler": str(button.get("handler") or ""),
+                        # Direct-access route: the step object + the button's own
+                        # attribute; the runtime prefers calling the connected
+                        # handler on the step, falling back to a text search.
+                        "step_attr": str(class_to_step_attr.get(page_class) or ""),
+                        "button_attr": str(button.get("attr") or ""),
+                    }
+                    return
+        # Navigation: a quoted 'Next'/'Back', or "next"/"back" IMMEDIATELY before
+        # "button"/"page"/"step" (an adjacency requirement, so a prepositional
+        # "button next to ..." never reads as navigation).
+        nav_words = {q.strip().lower() for q in quotes} | (
+            {"next"} if re.search(r"\bnext\s+(?:button|page|step)\b", low) else set()
+        ) | (
+            {"back"} if re.search(r"\b(?:back|previous)\s+(?:button|page|step)\b", low) else set()
+        )
+        if "next" in nav_words:
+            sub_op["wizard_nav"] = "forward"
+            return
+        if nav_words & {"back", "previous"}:
+            sub_op["wizard_nav"] = "backward"
+            return
+        # The markups place button (a qSlicerMarkupsPlaceWidget's own control --
+        # never in the scanned button texts). Record the step object + place-widget
+        # attribute for direct access (a wizard typically has ONE place widget).
+        place_step_attr, place_attr = "", ""
+        for page_class, page in pages.items():
+            place_widgets = page.get("place_widgets") or []
+            if place_widgets:
+                place_step_attr = str(class_to_step_attr.get(page_class) or "")
+                place_attr = str(place_widgets[0] or "")
+                break
+        if place_attr and ("place" in low and ("point" in low or "markup" in low
+                                               or "fiducial" in low)):
+            sub_op["wizard_place_button"] = {
+                "step_attr": place_step_attr,
+                "place_attr": place_attr,
+            }
+
+    def _reconcile_wizard_placement(self, sub_op: Dict[str, Any], stages: List[Dict[str, Any]]) -> None:
+        """Reclassify a markup-placement step that follows a wizard place-button
+        activation as an in-tool interaction (module_tool_interaction).
+
+        A wizard extension enables its OWN markups place widget when the "place a
+        control point" button is clicked (typically ForcePlaceMultipleMarkups, so the
+        user adds many points). If the runtime then created its own single-shot
+        markup and entered single-place mode, it would override that widget -- the
+        user could place only ONE point. Deferring to the extension's active widget
+        (no own node, no place mode) restores multi-point placement; the recorded
+        expected-count rule is kept so the panel still shows placed-vs-expected. Fires
+        only when a place-button step precedes this one on the SAME wizard page
+        (searching back until a page navigation), so no other step is affected.
+        """
+        if not (getattr(self, "_wizard", {}) or {}).get("present"):
+            return
+        if not isinstance(sub_op, dict) or sub_op.get("op_type") != "user_interaction":
+            return
+        if sub_op.get("interaction_kind") != "markup_placement":
+            return
+        for prev in reversed(stages):
+            prev_sub = None
+            for so in (prev.get("sub_operations") or []):
+                if isinstance(so, dict):
+                    prev_sub = so
+                    break
+            if not isinstance(prev_sub, dict):
+                continue
+            if prev_sub.get("wizard_nav"):
+                return  # crossed a page boundary before finding a place button
+            if prev_sub.get("wizard_place_button"):
+                sub_op["interaction_kind"] = "module_tool_interaction"
+                sub_op["creates_node"] = False
+                sub_op["requires_place_mode"] = False
+                # Marker: the extension's own place widget owns this placement.
+                sub_op["native_placement"] = True
+                return
+
+    # "following the original selection widget" / "using the original widget" /
+    # "in the module's own widget" -- an explicit request to defer to the
+    # extension's OWN visible control rather than a reproduced one.
+    _NATIVE_WIDGET_RE = re.compile(
+        r"(?:following|using|per|via)\s+the\s+original\s+[\w /]*?widget"
+        r"|(?:following|using)\s+the\s+original\s+[\w /]*?(?:selector|table|control|panel|dropdown)"
+        r"|in\s+the\s+(?:module|extension)'?s?\s+own\s+[\w /]*?widget",
+        re.IGNORECASE,
+    )
+
+    def _reconcile_native_widget(self, sub_op: Dict[str, Any], cb_desc: str) -> None:
+        """Mark a choice step whose cookbook text asks to use the extension's OWN
+        selection widget (e.g. "Set the Level/Side/Landmarks following the original
+        selection widget"). The runtime then shows the guidance plus a Confirm button
+        and lets the user fill the extension's own widget -- visible on the current
+        wizard page -- rather than reproducing an approximate control. Wizard-only
+        (the extension's UI is on screen there); a classic module's UI is entered
+        invisibly, so deferring to it would show nothing.
+        """
+        if not (getattr(self, "_wizard", {}) or {}).get("present"):
+            return
+        if not isinstance(sub_op, dict) or sub_op.get("op_type") != "user_choice":
+            return
+        if not self._NATIVE_WIDGET_RE.search(str(cb_desc or "")):
+            return
+        sub_op["native_widget"] = True
+        # No reproduced control: the user acts on the extension's own widget.
+        sub_op["choices"] = []
+
+    _COUNT_WORDS = {
+        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        "twice": 2, "double": 2, "triple": 3,
+    }
+
+    @classmethod
+    def _extract_count_rule(cls, sub_op: Dict[str, Any], cb_desc: str,
+                            stages: List[Dict[str, Any]]) -> None:
+        """Record how many points an interaction step expects, when the cookbook
+        states it -- either a literal count ("place 6 points") or a multiple of an
+        EARLIER choice ("three times the value specified in '# to Instrument'").
+
+        The rule is structural data (multiplier + the referenced choice's
+        parameter_name), resolved against the values the user actually picks at
+        RUN time -- so the wait panel can show placed-vs-expected progress and gate
+        Done. Steps whose text states no count are untouched (no rule, no gate).
+        """
+        if not isinstance(sub_op, dict) or sub_op.get("op_type") != "user_interaction":
+            return
+        text = str(cb_desc or "")
+        low = text.lower()
+        num = r"(\d+|" + "|".join(cls._COUNT_WORDS) + r")"
+        # "<N> times the value specified/chosen/selected in '<label>'"
+        m = re.search(
+            num + r"\s+times\s+the\s+value\s+\w*\s*(?:specified|chosen|selected|set)?"
+            r"[^\"'“]*[\"'“]([^\"'”]+)[\"'”]",
+            low,
+        )
+        if m:
+            raw_mult, label = m.group(1), m.group(2)
+            multiplier = cls._COUNT_WORDS.get(raw_mult) or int(raw_mult)
+            wanted = cls._norm_choice_label(label)
+            param = ""
+            source_step = ""
+            for stage in stages:
+                for so in stage.get("sub_operations", []) or []:
+                    if not isinstance(so, dict) or so.get("op_type") not in ("user_choice", "branch_op"):
+                        continue
+                    q = cls._norm_choice_label(so.get("question"))
+                    p = str(so.get("parameter_name") or "")
+                    if q and (q == wanted or wanted in q or q in wanted):
+                        param = p
+                        # Stage dicts carry stage_index (step_number - 1), not step_id.
+                        idx = stage.get("stage_index")
+                        source_step = f"cb_step_{int(idx) + 1}" if isinstance(idx, int) else ""
+                        break
+                if param:
+                    break
+            if param:
+                sub_op["expected_count_rule"] = {
+                    "multiplier": multiplier,
+                    "param": param,
+                    "source_step": source_step,
+                }
+            return
+        # Literal count: "add/place/click <N> (fiducial) points"
+        m = re.search(r"\b(?:place|add|click|put|mark)\b[^.]*?\b" + num
+                      + r"\b[^.]*?\bpoints?\b", low)
+        if m:
+            raw = m.group(1)
+            count = cls._COUNT_WORDS.get(raw) or int(raw)
+            if count > 0:
+                sub_op["expected_count_rule"] = {"count": count}
+
+    @staticmethod
+    def _choice_param_slug(label: str, step_number: int = 0) -> str:
+        """A stable, identifier-safe parameter name derived from a widget label
+        ("1st Instrumented Level:" -> "c_1st_instrumented_level"). Deterministic so
+        every regeneration and every runtime mirror agree on the key."""
+        slug = re.sub(r"[^0-9a-zA-Z]+", "_", str(label or "").strip().lower()).strip("_")
+        if not slug:
+            slug = f"choice_step_{step_number}" if step_number else "choice"
+        if not slug[:1].isalpha() and not slug.startswith("_"):
+            slug = f"c_{slug}"
+        return slug
+
+    @staticmethod
+    def _norm_choice_label(text: str) -> str:
+        """Normalize a visible label / cookbook quote for matching: casefold, strip
+        trailing colons/units/whitespace runs."""
+        t = re.sub(r"\s+", " ", str(text or "")).strip().strip(":").strip()
+        return t.casefold()
+
+    def _reconcile_multi_choice(self, sub_ops: List[Dict[str, Any]], cb_desc: str) -> List[Dict[str, Any]]:
+        """Align a user_choice step's items with the wizard page combos the cookbook
+        quotes -- deterministically, from the scanned widget inventory.
+
+        The cookbook writes one sentence per selector, quoting the ON-SCREEN label
+        ('Choose the "1st Instrumented Level:"...'); the scan recorded each page
+        combo's label, static item list, and attr. Matching the quotes against the
+        labels (and against a placeholder first item, for a combo whose label was
+        never laid out) recovers exactly which selectors the step drives -- however
+        many items the LLM emitted. Each matched combo becomes one user_choice
+        sub-op with a label-derived parameter_name, the scanned items as choices
+        (placeholder row dropped), and the combo recorded as ``wizard_combo`` so
+        the runtime can drive the live widget. A combo whose items are only its
+        placeholder is dynamic -> ``live_items`` (the runtime enumerates the live
+        widget). Fires only when >=2 combos match; otherwise the sub-ops pass
+        through untouched, so classic extensions and single-choice steps are
+        byte-identical.
+        """
+        wizard = getattr(self, "_wizard", {}) or {}
+        pages = getattr(self, "_wizard_pages", {}) or {}
+        if not wizard.get("present") or not pages:
+            return sub_ops
+        quotes = re.findall(r'["“]([^"”]+)["”]', str(cb_desc or ""))
+        if len(quotes) < 2:
+            return sub_ops
+        matched = []
+        seen_attrs = set()
+        for quote in quotes:
+            nq = self._norm_choice_label(quote)
+            if not nq:
+                continue
+            hit = None
+            for page_class, page in pages.items():
+                for combo in page.get("combos", []):
+                    key = (page_class, combo.get("attr"))
+                    if key in seen_attrs:
+                        continue
+                    label_norm = self._norm_choice_label(combo.get("label"))
+                    items = [str(i) for i in (combo.get("items") or [])]
+                    placeholder_norm = self._norm_choice_label(items[0]) if items else ""
+                    if (label_norm and (label_norm == nq or nq in label_norm
+                                        or label_norm in nq)) \
+                            or (placeholder_norm and placeholder_norm == nq):
+                        hit = (page_class, combo)
+                        seen_attrs.add(key)
+                        break
+                if hit:
+                    break
+            if hit:
+                matched.append((quote, hit[0], hit[1]))
+        if len(matched) < 2:
+            return sub_ops
+        base = dict(sub_ops[0])
+        rebuilt = []
+        for quote, page_class, combo in matched:
+            items = [str(i) for i in (combo.get("items") or [])]
+            label = str(combo.get("label") or "").strip() or quote
+            # The first item often just restates the label ("Select screw
+            # diametermm") -- a prompt row, not a real option.
+            options = list(items)
+            if options and (self._norm_choice_label(options[0])
+                            == self._norm_choice_label(label)
+                            or self._norm_choice_label(options[0])
+                            == self._norm_choice_label(quote)):
+                options = options[1:]
+            so = dict(base)
+            so.update({
+                "question": label.rstrip(":"),
+                "choices": [{"label": o, "value": o} for o in options],
+                "parameter_name": self._choice_param_slug(label),
+                "default_value": None,
+                "value_kind": "",
+                "widget_name": combo.get("attr"),
+                "widget_class": combo.get("widget_class", ""),
+                "wizard_combo": {
+                    "page_class": page_class,
+                    "attr": combo.get("attr"),
+                    "label": label,
+                },
+            })
+            if not options:
+                # Placeholder-only: the real items are computed at runtime -- the
+                # panel enumerates them from the LIVE widget.
+                so["live_items"] = True
+            rebuilt.append(so)
+        return rebuilt
 
     # Selector classes that can express a segment-level pick: a subject-hierarchy view
     # shows segments as child rows, and a combobox can list segment names. A plain

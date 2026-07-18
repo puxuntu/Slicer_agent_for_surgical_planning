@@ -51,7 +51,8 @@ class AnalyzerWorkflowTemplatesMixin:
         """
         steps = workflow_graph.get("steps", [])
         templates = {}
-        logic_class_name = scan_result.get("logic_class", {}).get("class_name", "")
+        # logic_class is None (not merely absent) for a wizard-style module.
+        logic_class_name = (scan_result.get("logic_class") or {}).get("class_name", "")
         entry_module = scan_result.get("entry_module", "")
         module_name = os.path.splitext(os.path.basename(entry_module))[0] if entry_module else extension_name
 
@@ -195,6 +196,17 @@ class AnalyzerWorkflowTemplatesMixin:
 
             elif step_type == "automated":
                 # Single code template for automated steps.
+                # A wizard-grounded step (Next/Back navigation, a page button
+                # clicked by text, the markups place button) has a DETERMINISTIC
+                # template -- there is no logic method to bind and no .ui widget
+                # to drive, so it must intercept before every evidence-based
+                # generator and before the ungrounded LLM fallback. Returns None
+                # for non-wizard steps.
+                tpl = self._maybe_generate_wizard_template(extension_name, step, module_name)
+                if tpl is not None:
+                    templates[f"templates/{step_id}.py.tpl"] = tpl
+                    step["code_template"] = f"templates/{step_id}.py.tpl"
+                    continue
                 # A button-click step (cookbook "Click the X button") whose widget
                 # drives a connected handler IS that handler -- prefer it over a
                 # module-function / logic-method match the LLM may have proposed
@@ -1435,6 +1447,151 @@ class AnalyzerWorkflowTemplatesMixin:
                         return response
         except Exception:
             logger.debug("Slicer API LLM template generation failed", exc_info=True)
+        return None
+
+    def _maybe_generate_wizard_template(self, extension_name, step, module_name):
+        """Deterministic template for a wizard-grounded extension_op, else None.
+
+        Grounding comes from the stage-4 wizard reconciler (``wizard_nav`` /
+        ``wizard_button`` / ``wizard_place_button`` on the sub-op), which only
+        fires for a scanned ctkWorkflow module -- classic extensions always get
+        None here. Emitted code is CodeValidator-safe (imports + method calls, no
+        getattr/globals) and carries the ``[wizard drive]`` marker the footprint
+        validator accepts.
+
+        - Navigation drives ``workflow.goForward()/goBackward()`` -- the exact
+          chain the real Next/Back click runs (validate -> onExit incl.
+          doStepProcessing -> transition -> onEntry).
+        - A page button is triggered by calling its connected handler DIRECTLY on
+          the step object (``slicer.modules.<Widget>.<step_attr>.<handler>()``),
+          which is deterministic. A ctkWorkflow ``currentStep()`` is a step
+          CONTROLLER, not a QWidget, so a Qt-tree search scoped to it finds nothing
+          -- the earlier version failed every button step for exactly this reason.
+          A text search over the WHOLE module representation is the fallback.
+        - The place button enables place mode on the step's own markups place
+          widget the same way, whole-rep search as fallback.
+        """
+        wizard = getattr(self, "_wizard", {}) or {}
+        if not wizard:
+            # Repair rounds re-enter without the scan facts on self; the manifest
+            # metadata persists them so a wizard template can be re-derived.
+            wizard = (getattr(self, "_workflow_metadata", {}) or {}).get("wizard", {}) or {}
+        sub_op = None
+        for so in step.get("sub_operations", []) or []:
+            if isinstance(so, dict) and (so.get("wizard_nav") or so.get("wizard_button")
+                                         or so.get("wizard_place_button")):
+                sub_op = so
+                break
+        if sub_op is None:
+            return None
+        workflow_attr = str(wizard.get("workflow_attr") or "workflow")
+        if not workflow_attr.isidentifier():
+            workflow_attr = "workflow"
+        step_id = step.get("step_id", "")
+        desc = str(step.get("description") or "").strip()
+        header = [
+            f"# --- {extension_name}: {step_id} [wizard drive] {desc[:80]} ---",
+            "import slicer",
+            "import qt",
+        ]
+
+        def _pub_ident(name):
+            # A directly-referenceable attribute: a plain identifier, never a
+            # name-mangled private (``__x`` would mangle to the WRONG class here).
+            return bool(name) and name.isidentifier() and not name.startswith("__")
+
+        nav = str(sub_op.get("wizard_nav") or "")
+        if nav in ("forward", "backward"):
+            direction = "goForward" if nav == "forward" else "goBackward"
+            return "\n".join(header + [
+                f"_wiz_widget = slicer.util.getModuleWidget({module_name!r})",
+                f"_wiz_flow = _wiz_widget.{workflow_attr}",
+                f"_wiz_flow.{direction}()",
+                # Let the ctkWorkflow transition (validate/onExit/onEntry, incl.
+                # any modal progress dialog) fully settle before the next step.
+                # User input excluded -> no reentrancy into the agent UI.
+                "slicer.app.processEvents(qt.QEventLoop.ExcludeUserInputEvents)",
+                f"print(\"[{extension_name}] Wizard page navigation: {direction}.\")",
+                "",
+            ])
+        button = sub_op.get("wizard_button") or {}
+        if button.get("text"):
+            label = str(button["text"])
+            step_attr = str(button.get("step_attr") or "")
+            handler = str(button.get("handler") or "")
+            lines = header + [
+                f"_wiz_widget = slicer.util.getModuleWidget({module_name!r})",
+                "_wiz_hit = False",
+            ]
+            # Primary: call the button's connected handler on its step object. Only
+            # an AttributeError (wrong/missing attr) falls through -- a genuine
+            # handler error propagates instead of being masked by the fallback.
+            if _pub_ident(step_attr) and _pub_ident(handler):
+                lines += [
+                    "try:",
+                    f"    _wiz_widget.{step_attr}.{handler}()",
+                    "    _wiz_hit = True",
+                    "except AttributeError:",
+                    "    _wiz_hit = False",
+                ]
+            lines += [
+                "if not _wiz_hit:",
+                "    # Fallback: click by visible text anywhere in the module widget.",
+                f"    _wiz_root = slicer.util.getModule({module_name!r}).widgetRepresentation()",
+                f"    _wiz_label = {label!r}.replace('&', '').strip().lower()",
+                "    for _wiz_cls in ('QPushButton', 'QToolButton'):",
+                "        for _wiz_btn in slicer.util.findChildren(_wiz_root, className=_wiz_cls):",
+                "            try:",
+                "                _wiz_text = _wiz_btn.text",
+                "            except Exception:",
+                "                continue",
+                "            if isinstance(_wiz_text, str) and _wiz_text.replace('&', '').strip().lower() == _wiz_label:",
+                "                _wiz_btn.click()",
+                "                _wiz_hit = True",
+                "                break",
+                "        if _wiz_hit:",
+                "            break",
+                "slicer.app.processEvents(qt.QEventLoop.ExcludeUserInputEvents)",
+                "if _wiz_hit:",
+                f"    print(\"[{extension_name}] Triggered the '{label}' action.\")",
+                "else:",
+                f"    raise RuntimeError(\"Could not trigger the '{label}' button in the {module_name} wizard.\")",
+                "",
+            ]
+            return "\n".join(lines)
+        place = sub_op.get("wizard_place_button")
+        if place:
+            step_attr = str(place.get("step_attr") or "") if isinstance(place, dict) else ""
+            place_attr = str(place.get("place_attr") or "") if isinstance(place, dict) else ""
+            lines = header + [
+                f"_wiz_widget = slicer.util.getModuleWidget({module_name!r})",
+                "_wiz_hit = False",
+            ]
+            if _pub_ident(step_attr) and _pub_ident(place_attr):
+                lines += [
+                    "try:",
+                    f"    _wiz_widget.{step_attr}.{place_attr}.setPlaceModeEnabled(True)",
+                    "    _wiz_hit = True",
+                    "except AttributeError:",
+                    "    _wiz_hit = False",
+                ]
+            lines += [
+                "if not _wiz_hit:",
+                f"    _wiz_root = slicer.util.getModule({module_name!r}).widgetRepresentation()",
+                "    for _wiz_pw in slicer.util.findChildren(_wiz_root, className='qSlicerMarkupsPlaceWidget'):",
+                "        try:",
+                "            _wiz_pw.setPlaceModeEnabled(True)",
+                "            _wiz_hit = True",
+                "            break",
+                "        except Exception:",
+                "            continue",
+                "if _wiz_hit:",
+                f"    print(\"[{extension_name}] Place mode enabled -- click in the views to add points.\")",
+                "else:",
+                f"    raise RuntimeError(\"No markups place widget found in the {module_name} wizard.\")",
+                "",
+            ]
+            return "\n".join(lines)
         return None
 
     def _apply_module_session_drivers(self, templates, steps=None):

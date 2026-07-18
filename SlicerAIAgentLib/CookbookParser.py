@@ -33,6 +33,10 @@ VALID_OPERATION_TYPES = {
     # (run the optional body, jump to a step, or stop). Distinct from a
     # choice-only user_choice (which just selects a value/node).
     "branch_op",
+    # Present already-generated results (e.g. an output table) for the user to
+    # inspect; the only interaction is a Confirm that advances the workflow. No
+    # code runs and nothing is selected -- purely a checkpoint for human review.
+    "review_op",
 }
 
 # ---------------------------------------------------------------------------

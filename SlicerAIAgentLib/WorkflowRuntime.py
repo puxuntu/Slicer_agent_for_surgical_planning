@@ -118,13 +118,14 @@ from .ExtensionCLILoader import (
 )
 
 
-WAIT_TYPES = {"interactive", "user_interaction", "user_choice"}
+WAIT_TYPES = {"interactive", "user_interaction", "user_choice", "user_review"}
 COMPLETE_TYPES = {
     "automated",
     "extension_op",
     "slicer_op",
     "interactive_done",
     "choice_made",
+    "review_done",
     "skipped",
 }
 
@@ -486,6 +487,31 @@ class WorkflowRuntime:
         segment_ref_meta = self._segment_ref_meta(current_meta) if result_type == "user_choice" else {}
         if segment_ref_meta:
             choices = []
+        # native_widget: the panel reproduces the extension's OWN selection widget
+        # (e.g. a per-row-combo table) from its live state -- distinct from a
+        # read-only review snapshot, which item-based reads cannot capture for
+        # cell-widget combos.
+        native_widget = bool(source.get("native_widget"))
+        # Review checkpoint: show the generated results (a table snapshot the loader
+        # read from the extension's own UI) + a Confirm that advances. No choice.
+        review_selection = (result_type == "user_review" or (
+            str(current_meta.get("operation_type") or "") == "review_op"
+            and self.session.status == "waiting_for_user"
+        )) and not native_widget
+        review_table = source.get("review_table") or {}
+        if review_selection and not review_table:
+            review_table = self._live_review_table()
+        # Multi-selection step: several selectors answered together on one form
+        # (one commit = a {param: value} dict). Literal choices are dropped so the
+        # panel routes to the form renderer instead of per-choice buttons. NOT gated
+        # on result_type == "user_choice": on the transient "choice_made" render at
+        # commit time, the step's own choice_info.choices (e.g. 25 vertebral levels)
+        # would otherwise surface as a flashing button row that expands the panel.
+        multi_choice_items = (
+            self._multi_choice_items(current_meta) if not is_repeat_decision else []
+        )
+        if multi_choice_items:
+            choices = []
         # Numeric RANGE adjustment step (a double-handled min/max slider like the
         # Segment Editor Threshold range): surface a flag so the panel renders a
         # range bar. Drop the placeholder choice the LLM co-emits ("range") so
@@ -555,6 +581,23 @@ class WorkflowRuntime:
             # tells the panel to accept a SEGMENT row and commit the (node, segment id)
             # pair the source's handler expects, instead of a node name.
             "segment_ref_selection": bool(segment_ref_meta),
+            # Review checkpoint: the panel renders the results table read-only and
+            # relabels Done as Confirm; confirming advances the workflow.
+            "review_selection": bool(review_selection),
+            "review_table": review_table if review_selection else {},
+            # native_widget: reproduce the extension's own selection widget live.
+            "native_widget": native_widget,
+            # Multi-selection form: one combo/input per item, one Confirm, commit =
+            # {parameter_name: value} dict.
+            "multi_choice": bool(multi_choice_items),
+            "choice_items": multi_choice_items,
+            # Interaction count gate: >0 when the step's cookbook text states how
+            # many points to place (literal or multiplier x an earlier choice); the
+            # panel shows placed-vs-expected and gates Done until reached.
+            "expected_count": (
+                self._expected_interaction_count(current_meta)
+                if result_type in ("interactive", "user_interaction", "mixed") else 0
+            ),
             # The extension's own source combobox name (e.g. "fragmentSelector"),
             # so the picker can drive it live for immediate handle feedback.
             "segment_name_source_widget": segment_name_meta.get("source_widget", ""),
@@ -597,7 +640,9 @@ class WorkflowRuntime:
             "choice_label_overrides": button_overrides.get("choices") if isinstance(button_overrides.get("choices"), dict) else {},
             "repeat_progress": repeat_progress,
             "needs_choice_input": result_type == "user_choice" and not choices,
-            "can_done": self.session.status == "waiting_for_user",
+            # native_widget renders its OWN Confirm button (write-back + advance), so
+            # the generic Done is suppressed to avoid a second, no-write-back path.
+            "can_done": self.session.status == "waiting_for_user" and not native_widget,
             "can_skip": self.session.active and is_optional,
             "can_cancel": self.session.active,
             "timeline": self._timeline_for_ui(),
@@ -747,7 +792,9 @@ class WorkflowRuntime:
             })
             return result
 
-        if result_type in {"interactive", "user_interaction"}:
+        if result_type in {"interactive", "user_interaction", "user_review"}:
+            # A review checkpoint waits exactly like an interactive step: the user
+            # inspects the results and clicks Confirm (dispatched as "proceed").
             self.session.status = "waiting_for_user"
             self.session.current_step = step_id
             self._write_event("step_waiting_for_user", {"step_id": step_id})
@@ -854,6 +901,13 @@ class WorkflowRuntime:
         elif result_type in {"interactive", "user_interaction"}:
             self.session.status = "running"
             self.session.current_step = result.get("step_id")
+        elif result_type == "user_review":
+            # A review result carries NO code, so no execution round-trip ever
+            # re-renders the panel -- the waiting status must be set BEFORE the
+            # register-time render or can_done stays False and the Confirm button
+            # never appears.
+            self.session.status = "waiting_for_user"
+            self.session.current_step = result.get("step_id")
         elif result_type == "skipped" and result.get("step_id"):
             self._mark_completed(result["step_id"])
             next_step = result.get("next_step") or self._next_step()
@@ -956,6 +1010,14 @@ class WorkflowRuntime:
         Generic: keys only on ``source_step`` presence + the guard's choice_info.
         """
         norm = self._normalize_control_value(choice_value)
+        # A deterministically SYNTHESIZED controller (backward-jump loop) carries
+        # its own exit polarity: which clause loops back decides which answer
+        # exits, and the guard step's LLM-authored default cannot know that (for a
+        # decline-backward loop -- "if done jump forward, if not jump back" -- the
+        # accept answer exits, the opposite of the default convention). The flag is
+        # only ever written by the synthesis, never by the LLM.
+        if controller.get("polarity") == "deterministic":
+            return norm == self._normalize_control_value(controller.get("exit_value"))
         source_step = controller.get("source_step")
         if source_step:
             choice_info = (self._step_meta(source_step) or {}).get("choice_info") or {}
@@ -1965,6 +2027,10 @@ class WorkflowRuntime:
         if segment_ref_meta:
             choices = []
             needs_input = True
+        # Mirror the live path: a multi-selection step re-renders its form.
+        if self._multi_choice_items(meta):
+            choices = []
+            needs_input = True
         # Mirror the live path: a range step re-renders its slider on replay.
         range_meta = self._range_selection_meta(meta)
         if range_meta:
@@ -2004,6 +2070,20 @@ class WorkflowRuntime:
             "segment_name_selection": bool(segment_name_meta),
             "segment_name_source_widget": segment_name_meta.get("source_widget", ""),
             "segment_ref_selection": bool(segment_ref_meta),
+            # native_widget re-derived from the step's sub-op flag on replay.
+            "native_widget": self._is_native_widget(meta),
+            # Replaying back to a review step re-reads the LIVE results (the module
+            # widget is still on screen); the checkpoint stores no table snapshot.
+            "review_selection": str(meta.get("operation_type") or "") == "review_op"
+            and not self._is_native_widget(meta),
+            "review_table": (self._live_review_table()
+                             if str(meta.get("operation_type") or "") == "review_op" else {}),
+            # Mirror the live path: a multi-selection step re-renders its form.
+            "multi_choice": bool(self._multi_choice_items(meta)),
+            "choice_items": self._multi_choice_items(meta),
+            # Reviewing a past interaction step: no live gate (the points already
+            # exist); 0 disables the progress display.
+            "expected_count": 0,
             "segmentation_node_class": segment_meta.get("segmentation_node_class", "")
             or segment_name_meta.get("segmentation_node_class", ""),
             # Mirror the live path: binding keywords win, else widget-name-derived.
@@ -2445,6 +2525,78 @@ class WorkflowRuntime:
         }
 
     @staticmethod
+    def _is_native_widget(meta: Dict[str, Any]) -> bool:
+        """True when the step defers to the extension's OWN selection widget (the
+        cookbook said "following the original selection widget"). Mirrors the
+        native_widget flag the capture stage records on the sub-op."""
+        if not isinstance(meta, dict):
+            return False
+        for so in meta.get("sub_operations") or []:
+            if isinstance(so, dict) and so.get("native_widget"):
+                return True
+        return False
+
+    @staticmethod
+    def _multi_choice_items(meta: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """The step's multi-selection items ([] for a single-choice step).
+
+        A cookbook step may drive SEVERAL selectors at once ("Choose the 'A'.
+        Choose the 'B'. ..."); the pipeline records one choice item per selector in
+        ``choice_info_list``. The panel renders them as ONE form with a single
+        Confirm, and the commit is a {parameter_name: value} dict.
+        """
+        if not isinstance(meta, dict):
+            return []
+        items = meta.get("choice_info_list")
+        if not isinstance(items, list) or len(items) < 2:
+            return []
+        return [i for i in items if isinstance(i, dict) and i.get("parameter_name")]
+
+    def _expected_interaction_count(self, meta: Dict[str, Any]) -> int:
+        """How many points the current interaction step expects, resolved from its
+        structural count rule -- a literal, or multiplier x the value of an EARLIER
+        recorded choice. 0 = no rule -> no progress display, no Done gate (exactly
+        today's behavior). Fail-open: an unreadable rule resolves to 0, never
+        blocking the workflow."""
+        if not isinstance(meta, dict):
+            return 0
+        for so in meta.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            rule = so.get("expected_count_rule")
+            if not isinstance(rule, dict):
+                continue
+            try:
+                if rule.get("count"):
+                    return max(0, int(rule["count"]))
+                multiplier = int(rule.get("multiplier") or 0)
+                param = str(rule.get("param") or "")
+                if multiplier > 0 and param and self.session:
+                    choices = get_workflow_choices(self.session.extension_name) or {}
+                    return max(0, multiplier * int(str(choices.get(param))))
+            except (TypeError, ValueError):
+                return 0
+        return 0
+
+    def _live_review_table(self) -> Dict[str, Any]:
+        """Live results-table snapshot for a review step (delegates to the loader's
+        reader, which resolves the fullest QTableWidget in the extension's own UI,
+        then the newest table node). Empty dict when nothing resolves -- the panel
+        falls back to instructions + Confirm."""
+        try:
+            from .extension_cli_loader import _snapshot_review_table
+            module_name = ""
+            try:
+                ext_data = get_validated_extensions().get(self.session.extension_name) or {}
+                metadata = ext_data.get("workflow_metadata", {}) or {}
+                module_name = str(metadata.get("extension_module_name") or "").strip()
+            except Exception:
+                module_name = ""
+            return _snapshot_review_table(module_name or self.session.extension_name) or {}
+        except Exception:
+            return {}
+
+    @staticmethod
     def _segment_ref_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
         """Resolution metadata for a step whose source selector picks a SEGMENT inside
         a segmentation (rather than a whole node), else {}.
@@ -2752,6 +2904,9 @@ class WorkflowRuntime:
             node = str(value.get("node_name") or "").strip()
             segment = str(value.get("segment_name") or "").strip() or str(value.get("segment_id"))
             return f"{node} / {segment}" if node else segment
+        if isinstance(value, dict):
+            # Multi-selection commit: one {param: value} pair per selector.
+            return ", ".join(f"{k}={v}" for k, v in value.items())
         return str(value)
 
     @staticmethod

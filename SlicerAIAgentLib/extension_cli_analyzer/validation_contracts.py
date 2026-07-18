@@ -664,6 +664,15 @@ class AnalyzerValidationContractsMixin:
                                 break
                         if (handler_name and handler_name in code) or so_widget in code:
                             found = True
+                # A wizard-grounded extension_op (Next/Back navigation, a page
+                # button clicked by text, the markups place button) is emitted
+                # deterministically with the [wizard drive] marker -- that template
+                # IS the operation; there is no method or widget name to look for.
+                if not found and so_type == "extension_op" and (
+                        so.get("wizard_nav") or so.get("wizard_button")
+                        or so.get("wizard_place_button")):
+                    if "[wizard drive]" in code:
+                        found = True
                 if not found:
                     result["errors"].append(
                         f"Sub-operation '{so_desc[:60]}' ({so_type}) has no code in template"

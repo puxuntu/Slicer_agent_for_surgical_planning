@@ -301,6 +301,180 @@ def _repeat_progress_for_context(ctx: _WorkflowContext) -> Dict:
     }
 
 
+def _norm_anchor_text(text) -> str:
+    """Normalize a combo placeholder / question for identity matching: strip,
+    drop a trailing colon, casefold. The SAME normalization must be applied on
+    every side (pipeline label, emitted drive compare, panel live enumeration)
+    or a cosmetic label tweak silently desyncs them."""
+    return str(text or "").strip().rstrip(":").strip().lower()
+
+
+def _multi_choice_items_for_step(ctx: _WorkflowContext) -> List[Dict]:
+    """The step's multi-selection items ([] for single-choice steps). Mirrors
+    WorkflowRuntime._multi_choice_items over the loader's ctx."""
+    items = (ctx.target_step or {}).get("choice_info_list")
+    if not isinstance(items, list) or len(items) < 2:
+        return []
+    return [i for i in items if isinstance(i, dict) and i.get("parameter_name")]
+
+
+def _build_multi_choice_drive_code(ctx: _WorkflowContext, picks: List[Dict]) -> str:
+    """Mirror every pick of a multi-selection step onto the extension's own combos.
+
+    Each pick names its target combo by CONTENT, not by attribute path: a static
+    combo is the one whose live items contain all the recorded options; a dynamic
+    combo is the one whose first (placeholder) item matches the recorded question.
+    That identification is what the scan recorded, needs no widget names, and holds
+    for combos on wizard page objects (which have no .ui and mangled attrs).
+    setCurrentText alone does not fire ctk/Qt 'activated' handlers, so the signal
+    is invoked as a callable afterwards (a PythonQt signal emit), fail-soft.
+    CodeValidator-safe: only slicer/method calls, no getattr/globals.
+    """
+    module_name = str((ctx.metadata or {}).get("extension_module_name") or "").strip() \
+        or ctx.ext_name
+    lines = [
+        f"# --- {ctx.ext_name}: {ctx.workflow_step} multi-selection drive ---",
+        "import slicer",
+        "import qt",
+        "_mc_root = None",
+        "try:",
+        f"    _mc_root = slicer.util.getModule({module_name!r}).widgetRepresentation()",
+        "except Exception:",
+        "    _mc_root = None",
+        # Let a freshly-created wizard finish entering its first page before the
+        # combos are searched (user input excluded -> no reentrancy).
+        "slicer.app.processEvents(qt.QEventLoop.ExcludeUserInputEvents)",
+        "_mc_combos = []",
+        # findChildren(None) silently scans the WHOLE application window --
+        # never search when the module widget could not be resolved.
+        "if _mc_root is not None:",
+        "    for _mc_cls in ('ctkComboBox', 'QComboBox'):",
+        "        try:",
+        "            for _mc_w in slicer.util.findChildren(_mc_root, className=_mc_cls):",
+        "                if _mc_w not in _mc_combos:",
+        "                    _mc_combos.append(_mc_w)",
+        "        except Exception:",
+        "            pass",
+        "_mc_missed = []",
+    ]
+    for pick in picks:
+        value = str(pick.get("value", ""))
+        options = [str(o) for o in (pick.get("options") or [])]
+        anchor = _norm_anchor_text(pick.get("anchor"))
+        param = str(pick.get("param") or "")
+        if not value:
+            continue
+        lines.extend([
+            f"_mc_target = {value!r}",
+            f"_mc_opts = {options!r}",
+            f"_mc_anchor = {anchor!r}",
+            "_mc_hit = False",
+            "for _mc_w in _mc_combos:",
+            "    _mc_items = [_mc_w.itemText(_mc_i) for _mc_i in range(_mc_w.count)]",
+            "    _mc_static = _mc_opts and all(_mc_o in _mc_items for _mc_o in _mc_opts)",
+            # Anchor compare normalized the same way the pipeline normalized it
+            # (case, whitespace, trailing colon) so a label tweak cannot desync.
+            "    _mc_first = _mc_items[0].strip().rstrip(':').strip().lower() if _mc_items else ''",
+            "    _mc_dynamic = (not _mc_opts) and _mc_first == _mc_anchor",
+            "    if not (_mc_static or _mc_dynamic):",
+            "        continue",
+            "    if _mc_target not in _mc_items:",
+            "        continue",
+            "    try:",
+            "        _mc_w.setCurrentText(_mc_target)",
+            "        _mc_hit = True",
+            "    except Exception:",
+            "        pass",
+            # Fire the combo's activated handler the way a real click would --
+            # PythonQt signals are callable; try the QString overload, then the
+            # int one. Fail-soft: combos with no connected handler need neither.
+            "    try:",
+            "        _mc_w.activated(_mc_target)",
+            "    except Exception:",
+            "        try:",
+            "            _mc_w.activated(_mc_w.currentIndex)",
+            "        except Exception:",
+            "            pass",
+            "    break",
+            "if not _mc_hit:",
+            f"    _mc_missed.append({param!r})",
+        ])
+    lines.extend([
+        "if _mc_missed:",
+        "    raise RuntimeError(",
+        f"        \"Could not apply selection(s) %s to the {module_name} module's own \"",
+        "        \"controls -- open the module and verify its page is built.\" % _mc_missed",
+        "    )",
+        f"print({('[' + ctx.ext_name + '] Step ' + repr(ctx.workflow_step) + ': selections applied.')!r})",
+        "",
+    ])
+    return "\n".join(lines)
+
+
+def _record_multi_choice_and_advance(
+    ctx: _WorkflowContext,
+    items: List[Dict],
+    values: Dict[str, Any],
+) -> Dict:
+    """Record every selector of a multi-selection step and advance once.
+
+    Each {parameter_name: value} pair lands in the choice mirror under its own key
+    (later templates read {param} per selector), the checkpoint keeps the whole
+    dict, and the emitted code mirrors every pick onto the extension's live combos
+    so its own handlers see the state a manual user would have left.
+    """
+    ext_choices = _workflow_choices.setdefault(ctx.ext_name, {})
+    picks = []
+    for item in items:
+        param = str(item.get("parameter_name") or "")
+        if not param or param not in values:
+            continue
+        value = values[param]
+        ext_choices[param] = value
+        picks.append({
+            "param": param,
+            "value": value,
+            "options": [
+                str(c.get("label", c.get("value", "")))
+                for c in (item.get("choices") or []) if isinstance(c, dict)
+            ],
+            # For a dynamic (live-items) combo the placeholder row restates the
+            # question -- the anchor that identifies the combo among its siblings.
+            "anchor": str(item.get("question") or ""),
+        })
+
+    ctx.done.add(ctx.workflow_step)
+    next_step = _find_next_step_local(ctx.workflow_graph, ctx.done)
+    summary = ", ".join(f"{p}={values[p]}" for p in
+                        [i.get("parameter_name") for i in items]
+                        if p in values)
+    result = {
+        "tool": ctx.tool_name,
+        "type": "choice_made",
+        "step_id": ctx.workflow_step,
+        "parameter_name": (items[0].get("parameter_name") if items else ""),
+        "choice_value": dict(values),
+        "message": f"Selected {summary or 'values'}.",
+    }
+    choice_code = _build_multi_choice_drive_code(ctx, picks) if picks else ""
+    if choice_code:
+        result["code"] = choice_code
+        result["instruction"] = (
+            "STOP. Do NOT make any more tool calls. "
+            "Your NEXT response must be an ```agent_plan JSON block followed by a ```python block "
+            "containing the 'code' field above VERBATIM. "
+            "Do NOT call any more tools until this code has been executed."
+        )
+        if next_step:
+            result["next_step"] = next_step
+            result["after_execution_instruction"] = _build_next_step_instruction(ctx.tool_name, next_step)
+        return result
+    result["instruction"] = _build_next_step_instruction(ctx.tool_name, next_step)
+    if next_step:
+        result["next_step"] = next_step
+    return result
+
+
 def _record_choice_and_advance(
     ctx: _WorkflowContext,
     param_name: str,
@@ -308,6 +482,15 @@ def _record_choice_and_advance(
     auto_selected: bool = False,
 ) -> Dict:
     """Store a choice, initialize repeat state when needed, and advance."""
+    # A multi-selection step commits ALL its selectors at once as a
+    # {parameter_name: value} dict (the step's choice_info_list names them).
+    # Every pair lands in the mirror under its OWN key -- so later templates fill
+    # {param} per selector -- and the source wizard combos are driven live. Keyed
+    # on the step META (choice_info_list), never on the value shape, so a compound
+    # single-choice value (a segment pick) is never mistaken for one.
+    multi_items = _multi_choice_items_for_step(ctx)
+    if multi_items and isinstance(choice_value, dict):
+        return _record_multi_choice_and_advance(ctx, multi_items, choice_value)
     choice_desc = (ctx.target_gen or {}).get("choice_descriptor", {}) or {}
     choices = choice_desc.get("choices") or (ctx.target_step.get("choice_info") or {}).get("choices") or []
     choice_value = _normalize_choice_value(choice_value, choices)
@@ -1173,6 +1356,12 @@ def _build_node_choice_materialization_code(
             f"        _choice_root = slicer.util.getModule({module_name!r}).widgetRepresentation()",
             "    except Exception:",
             "        _choice_root = None",
+            # widgetRepresentation() may have CREATED the widget just now; a
+            # wizard-style module builds its first page asynchronously (its
+            # QStateMachine enters the page on the next event-loop spin), so pump
+            # queued events (user input excluded) before searching for selectors.
+            "    import qt as _choice_qt",
+            "    slicer.app.processEvents(_choice_qt.QEventLoop.ExcludeUserInputEvents)",
             "    for _choice_cls in ('qMRMLSubjectHierarchyTreeView', 'qMRMLNodeComboBox', 'qMRMLSubjectHierarchyComboBox'):",
             "        try:",
             "            _choice_sels = slicer.util.findChildren(_choice_root, className=_choice_cls)",

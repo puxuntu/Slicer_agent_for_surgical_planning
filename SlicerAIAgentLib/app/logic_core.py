@@ -41,6 +41,15 @@ class LogicCoreMixin:
                 source_path = ext_data["manifest"].get("source_path", "")
                 if source_path and os.path.isdir(source_path):
                     self.toolExecutor.extra_roots[ext_name] = source_path
+                # Sibling packages the module's source imports (recorded by the
+                # scan for multi-module repos) -- searched after the module dir so
+                # ext:<Ext>/ lookups reach shared wizard/helper files too.
+                siblings = [
+                    p for p in (ext_data["manifest"].get("source_roots") or [])[1:]
+                    if p and os.path.isdir(p)
+                ]
+                if siblings:
+                    self.toolExecutor.extra_sibling_roots[ext_name] = siblings
 
             # Publish this executor so other consumers (extension CLI
             # generation) reuse it instead of loading a second ONNX
