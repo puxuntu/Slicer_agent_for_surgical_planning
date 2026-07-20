@@ -11,57 +11,40 @@ SlicerAIAgent operates in two complementary modes:
 
 ## Demos
 
-### Demo 1 — Pelvic fracture reduction
-
-https://github.com/user-attachments/assets/f3448345-08d9-45c8-9660-9fe4003c8f0b
-
-
+### Demo 1 — Mandible Reconstruction
+https://github.com/user-attachments/assets/95f02328-f035-43c1-b8fe-8ea94b12766b
 
 ---
-
-### Demo 2 — Voxtell Segmentation
-
-1. load an example CT chest volume
-2. segment the Spine  
-3. segment the left lung with the red color
-4. segment the right lung with the green color
-5. segment the rib with the yellow color
-
-https://github.com/user-attachments/assets/59d5265e-e488-413f-84b5-55eb2f8a2da9
+### Demo 2 — Skull Repairing
+https://github.com/user-attachments/assets/729b5133-a568-48b4-8b04-894068f7a398
 
 ---
+### Demo 3 — Pelvic fracture reduction 
+https://github.com/user-attachments/assets/915ed031-f1cd-4312-bf5a-e4c51d0dbd18
 
-### Demo 3 — surgical planning of mandibular reconstruction
+---
+### Demo 4 — Zygomatic Implantation 
+https://github.com/user-attachments/assets/5321032a-aeb0-42cd-9f45-7929ed3d4e27
 
-1. If the fibula is from the right leg, tick the "Right side leg" checkbox.
-2. In the "Select mandibular segmentation" section, choose the mandibular segmentation.
-3. In the "Select fibula segmentation" section, choose the fibula segmentation.
-4. For the "Current Scalar Volume" option, select the Mandible Volume.
-5. Click "Create bone models from segmentations" button.
-6. Change the layout to "Conventional".
-7. For the R (red) view, toggle on "slice visibility in 3D view".
-8. For the R (red) view, toggle on "FOV, Spacing match 2D" (adjusts slice resolution to match the 2D viewport pixel spacing).
-9. In the toolbar, turn on "slice intersection visibility". In the slice intersection interaction options, turn on "set interaction", then enable both "Translate" and "Rotate".
-10. Manually adjust the slice intersection position by holding Shift and moving the mouse in a view.
-11. Click the "Add mandibular curve" button.
-12. Configure the display settings of the mandibular curve created by the "Add mandibular curve" button so it is shown in both "View 1" and "Red".
-13. Manually click and draw on the "Red" view to create a curve along the mandible.
-14. Change the layout to "BoneReconstructionPlanner".
-15. For the R (red) view, toggle off "slice visibility in 3D view".
-16. Manually set how many cut planes you want.
-17. Click "Add cut plane" button.
-18. Place one mandibular cut plane using the extension's Add cut plane workflow. If the user requested N cut planes, repeat the Add cut plane + place plane
-  interaction N times. Do not store these planes as a rotation plane; they are mandibular cut planes managed by the extension.
-19. Click "Add fibula line" button.
-20. Draw a line over the fibula in "3D View 2", starting with the first point distally and the last point proximally.
-21. Click "Center fibula line using fibula model" button to align the line with the anatomical axis of the fibula.
-22. Click "Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible" to generate the reconstruction and create the fibula cut planes.
+---
+### Demo 5 — Orbit implant simulation 
+https://github.com/user-attachments/assets/903a5fad-552c-4565-8048-8f9f961893f0
 
-https://github.com/user-attachments/assets/182ba9f6-1c55-4539-ad53-9f9dadfb5388
+---
+### Demo 6 — Reverse Shoulder Arthroplasty
+https://github.com/user-attachments/assets/3d923801-38f4-498f-b452-7e306014c5c2
 
-### Demo 4 — Orbit Surgery Simulation
+---
+### Demo 7 — Pedicle Screw Placement Planning
+https://github.com/user-attachments/assets/2622e5d5-1e8f-4915-b531-4ee800566df1
 
-https://github.com/user-attachments/assets/fdef73cf-6d79-4f96-879f-c250b057894c
+---
+### Demo 8 — Long bone fracture reduction
+https://github.com/user-attachments/assets/ee69d64e-7a5e-4c00-a3f1-43c1520e5199
+
+---
+### Demo 9 — Orbit Fracture Reconstruction
+https://github.com/user-attachments/assets/3ab12682-b8d2-4355-8c33-5301fef68e4f
 
 ---
 
