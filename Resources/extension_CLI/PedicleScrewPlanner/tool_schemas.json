@@ -1,0 +1,60 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "PedicleScrewPlanner",
+      "description": "Guided interactive workflow for PedicleScrewPlanner. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Spine CT\" section, select the CT volume for processing.; 'cb_step_2': Click the \"Next\" button in the \"1. Load Image Volume\" page.; 'cb_step_3': Manually adjust the boundaries of the ROI. (interactive: roi); 'cb_step_4': Choose the \"1st Instrumented Level:\". Choose the \"# Sides:\". Choose the \"# to Instrument:\". Choose the \"Approach Direction:\".; 'cb_step_5': Click the \"Next\" button in the \"2. Define Surgical Region of Interest (ROI)\" page.; 'cb_step_6': Click the \"Place a control point\" button.; 'cb_step_7': Manually click in the 2D views to add fiducial points. The total number of points added should be three times the value specified in '# to Instrument'. (interactive: fiducial); 'cb_step_8': Set the Level/Side/Landmarks following the original selection widget.; 'cb_step_9': Click the \"Next\" button in the \"3. Place the Landmarks\" page.; 'cb_step_10': Choose the \"Choose the puncture site\". Choose the \"Select screw diametermm\".",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workflow_step": {
+            "type": "string",
+            "enum": [
+              "cb_step_1",
+              "cb_step_2",
+              "cb_step_3",
+              "cb_step_4",
+              "cb_step_5",
+              "cb_step_6",
+              "cb_step_7",
+              "cb_step_8",
+              "cb_step_9",
+              "cb_step_10",
+              "cb_step_11",
+              "cb_step_12",
+              "cb_step_13",
+              "cb_step_14",
+              "cb_step_15",
+              "cb_step_16",
+              "cb_step_17",
+              "cb_step_18"
+            ],
+            "description": "Which workflow step to execute"
+          },
+          "user_action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "proceed",
+              "skip",
+              "cancel",
+              "choice_made"
+            ],
+            "description": "Action: 'start' to begin a step, 'proceed' after user completes interaction, 'skip' for optional steps, 'cancel' to abort workflow, 'choice_made' for user_choice steps"
+          },
+          "choice_value": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "description": "Value selected by the user for user_choice steps. Required when user_action is 'choice_made'. A multi-selection step takes a JSON object mapping each parameter_name to its value."
+          }
+        },
+        "required": [
+          "workflow_step",
+          "user_action"
+        ]
+      }
+    }
+  }
+]

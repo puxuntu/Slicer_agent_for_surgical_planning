@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "steps": {
+    "cb_step_1": {
+      "title": "Select CT Volume",
+      "simple": "In the 'Spine CT' section, choose the CT volume for processing.",
+      "detailed": "This CT scan provides the anatomical data needed for surgical planning. Select the appropriate volume from the list to begin the workflow. The chosen volume will be used for region-of-interest definition and subsequent landmark placement.",
+      "edited": false
+    },
+    "cb_step_2": {
+      "title": "Proceed to Next Step",
+      "simple": "Click the Next button on the Load Image Volume page.",
+      "detailed": "This confirms the selected CT volume and advances to the region-of-interest (ROI) definition step, where you will outline the surgical area.",
+      "edited": false
+    },
+    "cb_step_3": {
+      "title": "Adjust ROI Boundaries",
+      "simple": "Adjust the region of interest (ROI) to enclose the vertebrae and surgical target area.",
+      "detailed": "The ROI defines the anatomical region for subsequent analysis and screw planning. Drag the ROI handles in the 3D view or slice views to ensure all relevant vertebrae (e.g., L4\u2013S1) are included. A properly sized ROI prevents unnecessary computations and focuses planning on the surgical zone.",
+      "edited": false
+    },
+    "cb_step_4": {
+      "title": "Set Instrument Parameters",
+      "simple": "Choose the first instrumented level, number of sides, number of screws to place, and the approach direction.",
+      "detailed": "These parameters define the screw planning strategy. Select the vertebral level where instrumentation begins (e.g., L4), whether screws will be placed unilaterally or bilaterally, the total number of screws, and the surgical approach (e.g., anterior, posterior). These choices guide the number and location of landmarks you will place later.",
+      "edited": false
+    },
+    "cb_step_5": {
+      "title": "Proceed to Landmark Placement",
+      "simple": "Click the Next button on the Define Surgical ROI page.",
+      "detailed": "This advances to the landmark placement step, where you will mark specific anatomical points on the vertebrae to plan screw trajectories.",
+      "edited": false
+    },
+    "cb_step_6": {
+      "title": "Activate Control Point Placement",
+      "simple": "Click the 'Place a control point' button to start adding fiducial markers.",
+      "detailed": "This activates the fiducial placement tool. Once active, you can click in the 2D slice views to mark screw entry points and trajectory targets on the vertebrae.",
+      "edited": false
+    },
+    "cb_step_7": {
+      "title": "Place Fiducial Markers",
+      "simple": "Click in the 2D views to place fiducial points. Add three points for each screw you plan to place.",
+      "detailed": "Each screw requires three fiducial points: an entry point, an exit point, and a target point. The total number of points should equal three times the number of screws you selected earlier. These points define the screw\u2019s trajectory and are used to automatically generate the screw plan. Place them accurately on the correct vertebral levels.",
+      "edited": false
+    },
+    "cb_step_8": {
+      "title": "Assign Level and Side to Each Landmark",
+      "simple": "Use the selection widget to assign a vertebral level, side, and landmark type to each fiducial point.",
+      "detailed": "Each fiducial point must be labeled with its corresponding vertebral level (e.g., L4), side (left/right), and whether it is an entry, exit, or target landmark. This labeling ensures the planning algorithm correctly associates points with the screw trajectory for that level.",
+      "edited": false
+    },
+    "cb_step_9": {
+      "title": "Proceed to Screw Adjustment",
+      "simple": "Click the Next button on the 'Place the Landmarks' page.",
+      "detailed": "This moves to the Adjust Screws page, where you will define puncture sites, choose screw diameters, and fine-tune screw trajectories for each planned screw.",
+      "edited": false
+    },
+    "cb_step_10": {
+      "title": "Choose Puncture Site and Screw Diameter",
+      "simple": "Select the puncture site (entry point) and choose the screw diameter from the available options.",
+      "detailed": "For each screw, pick the puncture site that corresponds to the entry point you marked. Then select an appropriate screw diameter based on the patient\u2019s anatomy (e.g., 5.5 mm, 6.5 mm). Proper diameter selection is critical for maximizing fixation strength while avoiding pedicle breach.",
+      "edited": false
+    },
+    "cb_step_11": {
+      "title": "Adjust Puncture Line",
+      "simple": "Adjust the start and end points of the puncture site line in the 2D views to refine the screw trajectory.",
+      "detailed": "The puncture line represents the planned screw path from entry to target. Drag the start (entry) and end (target) points in the slice views to align the trajectory optimally through the pedicle and vertebral body. Fine adjustments here improve screw accuracy and reduce the risk of cortical breach.",
+      "edited": false
+    },
+    "cb_step_12": {
+      "title": "Update Screw Plan",
+      "simple": "Click the 'Update' button to recalculate the screw geometry based on your adjustments.",
+      "detailed": "This recomputes the screw model using your refined puncture line and selected diameter. The updated screw will be visualized in the 3D view for review.",
+      "edited": false
+    },
+    "cb_step_13": {
+      "title": "Confirm Screw Settings",
+      "simple": "Click the 'OK' button to confirm the current screw\u2019s settings.",
+      "detailed": "This finalizes the puncture site, diameter, and trajectory for this screw. You will then either proceed to the next puncture site or move to the grading step.",
+      "edited": false
+    },
+    "cb_step_14": {
+      "title": "All Puncture Sites Configured?",
+      "simple": "If you have configured all puncture sites, select 'Yes' to proceed; otherwise select 'No' to continue configuring the next puncture site.",
+      "detailed": "This branching step checks whether you have completed setting up all planned screws. If you still have screws to configure, selecting 'No' will return you to the puncture site selection and adjustment steps.",
+      "edited": false
+    },
+    "cb_step_15": {
+      "title": "Proceed to Screw Grading",
+      "simple": "Click the Next button on the 'Adjust Screws' page.",
+      "detailed": "This advances to the grading step, where an automated evaluation of your screw placements will be performed to assess their safety and quality.",
+      "edited": false
+    },
+    "cb_step_16": {
+      "title": "Grade Screws",
+      "simple": "Click the 'Grade Screws' button to evaluate the planned screw placements.",
+      "detailed": "This runs an automated analysis that grades each screw based on anatomical criteria such as pedicle breach risk, bone purchase, and trajectory angle. The results help you identify any screws that may require revision before surgery.",
+      "edited": false
+    },
+    "cb_step_17": {
+      "title": "Review Screw Grade Results",
+      "simple": "Review the generated Grade Screws output table.",
+      "detailed": "Examine each screw\u2019s grade (e.g., A\u2013D) and any associated warnings. High-grade screws are well-positioned; low grades may indicate potential complications. Use this information to decide whether to adjust any screws or proceed with the plan.",
+      "edited": false
+    },
+    "cb_step_18": {
+      "title": "Complete Workflow",
+      "simple": "Click the Next button on the Grading Step page to finish the workflow.",
+      "detailed": "This finalizes the planning session. The screw plans and grades are saved and can be exported for intraoperative navigation or reference.",
+      "edited": false
+    }
+  }
+}

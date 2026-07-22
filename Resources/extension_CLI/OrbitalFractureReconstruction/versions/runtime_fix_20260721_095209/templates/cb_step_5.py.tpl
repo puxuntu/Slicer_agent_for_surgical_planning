@@ -1,6 +1,6 @@
-# [runtime-fixed] Auto-revised by runtime self-correction at 20260721_095209.
-# Pre-revision templates backed up under versions/runtime_fix_20260721_095209/.
-# Fixed runtime error: could not find nodes in the scene by name or id 'OrbitalFracture082'
+# [runtime-fixed] Auto-revised by runtime self-correction at 20260720_111246.
+# Pre-revision templates backed up under versions/runtime_fix_20260720_111246/.
+# Fixed runtime error: could not find nodes in the scene by name or id 'case1'
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -21,12 +21,12 @@ except NameError:
 
 # Resolve the input volume and ROI node from the scene using their actual scene names
 import slicer
-inputVolume = slicer.util.getNode('OrbitalFracture098')
+inputVolume = slicer.util.getNode('OrbitalFracture082')
 roiNode = slicer.util.getNode('Orbital_Region')
 
 # Validate nodes are not None
 if inputVolume is None:
-    raise RuntimeError("Could not find 'OrbitalFracture098' volume node in the scene")
+    raise RuntimeError("Could not find 'OrbitalFracture082' volume node in the scene")
 if roiNode is None:
     raise RuntimeError("Could not find 'Orbital_Region' ROI node in the scene")
 

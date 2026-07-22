@@ -77,7 +77,13 @@
       "title": "Select fractured side",
       "simple": "Select the fractured side (left or right).",
       "detailed": "Indicate which orbit is fractured by choosing 'Left' or 'Right'. This tells the software which side to segment and reconstruct, so it can focus the algorithms on the correct anatomy.",
-      "edited": false
+      "edited": true,
+      "buttons": {
+        "choices": {
+          "left": "Red box",
+          "right": "Blue box"
+        }
+      }
     },
     "cb_step_14": {
       "title": "Segment orbit",
