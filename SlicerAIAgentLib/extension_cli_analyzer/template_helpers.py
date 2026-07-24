@@ -648,7 +648,9 @@ class AnalyzerTemplateHelpersMixin:
         if driver is None:
             return ""
         try:
-            return driver.interaction_preamble() or ""
+            return driver.interaction_preamble(
+                active_effect=_text_or_empty(step.get("module_tool_context")) or None,
+            ) or ""
         except Exception:
             return ""
 

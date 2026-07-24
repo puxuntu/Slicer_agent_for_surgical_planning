@@ -683,6 +683,19 @@ Return:
         # The deterministically re-derived wizard templates win over anything the
         # LLM may have emitted for those keys.
         repaired.update(wizard_repaired)
+        # An LLM rewrite DROPS the module-session driver blocks — the
+        # deterministic, idempotent standard-op code and the shared-state binding
+        # the session's later steps depend on. That is not hypothetical: the
+        # prover can flag a line INSIDE a driver block (an unproven receiver on
+        # the block's own bookkeeping), the repair then returns a template
+        # without the block, and the session invariant it carried (which segment
+        # is the target) is silently lost for every downstream step. Re-derive
+        # them, exactly as the revise path already does. Idempotent and
+        # marker-guarded, so a template the LLM left alone is untouched.
+        try:
+            self._apply_module_session_drivers(repaired)
+        except Exception:
+            logger.debug("Re-applying module session drivers after repair failed", exc_info=True)
         return self._sanitize_templates(repaired)
 
     @staticmethod
@@ -827,7 +840,19 @@ Return:
         # Re-grounding regenerates the slicer_op code from scratch, dropping any
         # binding preamble that generation injected. Re-apply the Segment Editor
         # crash-preventer so a re-grounded effect-drive template stays bound.
-        code = self._ensure_segment_editor_bindings(code)
+        #
+        # Only the COOKBOOK text may go with it. The driver's object names are
+        # description-authoritative, and `description` above prefers the sub-op's
+        # LLM paraphrase ("Add a new segment to the reference segmentation, name
+        # it, ...") which names nothing — feeding that in makes the driver emit a
+        # segment named after a stray token instead of the cookbook's name, and
+        # every later step then binds the wrong segment. Empty when no cookbook
+        # text is available, which restores the code-grounded fallback.
+        cookbook_description = (
+            _text_or_empty((issue.get("contract_step") or {}).get("description"))
+            or _text_or_empty(gen.get("description"))
+        )
+        code = self._ensure_segment_editor_bindings(code, cookbook_description)
         records = list(getattr(generator, "last_run_records", []) or [])
         evidence = {
             "source": "verify_repair_reground",

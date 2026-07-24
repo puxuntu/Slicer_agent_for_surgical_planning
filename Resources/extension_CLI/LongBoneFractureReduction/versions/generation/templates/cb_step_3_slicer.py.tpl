@@ -1,17 +1,35 @@
 # --- [Segment Editor session] add or reuse the target segment ---
-# Deterministic + IDEMPOTENT: reuse a segment already named 'bone_segment', else add one.
+# Deterministic + IDEMPOTENT: reuse a segment already named 'Reference_Segment' (so a
+# re-run / correction never creates a duplicate orphan), else
+# AddEmptySegment(id, name) with the correct arg order (a one-arg
+# AddEmptySegment auto-names the segment 'Segment_1'). Marks it the session
+# TARGET segment so the effect Apply writes into it.
 import slicer
-
-# Retrieve the segmentation node created in step 2
-_segmentation_node = slicer.util.getNode('Bone_Segmentation')
-if _segmentation_node is None:
-    raise RuntimeError("STATE_NOT_APPLIED: segmentation node 'Bone_Segmentation' not found. Ensure step 2 ran.")
-
-_seg = _segmentation_node.GetSegmentation()
-_segment_id = _seg.GetSegmentIdBySegmentName("bone_segment")
-if not _segment_id:
-    _segment_id = _seg.AddEmptySegment("bone_segment", "bone_segment")
-if not _segment_id:
+_ses_seg = None
+_ses_segs = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
+for _ses_i in range(_ses_segs.GetNumberOfItems()):
+    _ses_c = _ses_segs.GetItemAsObject(_ses_i)
+    if _ses_c is not None and _ses_c.GetAttribute("SlicerAIAgent.SegmentEditorSession") == "1":
+        _ses_seg = _ses_c
+        break
+if _ses_seg is None:
+    for _ses_i in range(_ses_segs.GetNumberOfItems() - 1, -1, -1):
+        _ses_c = _ses_segs.GetItemAsObject(_ses_i)
+        if _ses_c is not None:
+            _ses_seg = _ses_c
+            break
+if _ses_seg is None:
+    raise RuntimeError("STATE_NOT_APPLIED: no segmentation found for add-segment")
+_ses_segmentation = _ses_seg.GetSegmentation()
+_ses_sid = _ses_segmentation.GetSegmentIdBySegmentName("Reference_Segment")
+if not _ses_sid:
+    _ses_sid = _ses_segmentation.AddEmptySegment("Reference_Segment", "Reference_Segment")
+if not _ses_sid:
     raise RuntimeError("STATE_NOT_APPLIED: AddEmptySegment returned empty id")
-segmentId = _segment_id
-print("[SegmentEditor] Segment 'bone_segment' ready.")
+_ses_segment = _ses_segmentation.GetSegment(_ses_sid)
+if _ses_segment is not None:
+    _ses_segment.SetColor(0.0, 0.5, 0.0)
+_ses_seg.SetAttribute("SlicerAIAgent.SegmentEditorTargetSegmentID", _ses_sid)
+segmentId = _ses_sid
+print("[SegmentEditor] Segment 'Reference_Segment' ready.")
+# --- [end Segment Editor session] ---

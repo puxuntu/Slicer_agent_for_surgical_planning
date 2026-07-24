@@ -2,111 +2,171 @@
   "version": 1,
   "steps": {
     "cb_step_1": {
-      "title": "Select the CT scan",
-      "simple": "Select the CT scan of the fractured bone from the available volumes.",
-      "detailed": "This CT scan provides the anatomical data needed to segment and plan the reduction of the fractured long bone. Choose the volume that best shows the full extent of the fracture fragments.",
+      "title": "Select CT Volume",
+      "simple": "Choose the CT volume for fracture planning from the dropdown list.",
+      "detailed": "The CT scan of the fractured bone is the foundation for all subsequent segmentation and reduction planning. Select the appropriate volume from the list to begin.",
       "edited": false
     },
     "cb_step_2": {
-      "title": "Create a bone segmentation",
-      "simple": "Switch to the Segment Editor module and create a new segmentation named 'bone_segmentation'.",
-      "detailed": "The segmentation will contain the bone regions that we will extract and separate into fracture fragments. This is the initial container for all bone-related segments.",
+      "title": "Create Reference Segmentation",
+      "simple": "In the Segment Editor, add a new segmentation and name it 'Reference_Segmentation'.",
+      "detailed": "This segmentation will hold the fixed reference bone fragment \u2014 the part of the bone that remains in its anatomical position. Creating a dedicated segmentation keeps your work organized.",
       "edited": false
     },
     "cb_step_3": {
-      "title": "Add a bone segment",
-      "simple": "Click the 'Add' button to create a new segment called 'bone_segment'.",
-      "detailed": "This segment will hold the thresholded bone volume before we split it into individual fracture fragments. It captures the entire bone region visible on the CT.",
+      "title": "Add Reference Segment",
+      "simple": "Click Add, rename the segment to 'Reference_Segment', and set its color to Sage Green.",
+      "detailed": "This segment will contain the thresholded region corresponding to the reference (fixed) bone fragment. Using a distinct color helps you distinguish it from the moving fragment later.",
       "edited": false
     },
     "cb_step_4": {
-      "title": "Open threshold effect",
-      "simple": "Click the 'Threshold' button to open the bone thresholding tool.",
-      "detailed": "Thresholding uses Hounsfield unit values to separate dense bone from soft tissue. This effect will highlight the bone based on its radio-opacity in the CT scan.",
+      "title": "Open Threshold Effect",
+      "simple": "Click the Threshold button in the Segment Editor.",
+      "detailed": "Thresholding isolates bone tissue from soft tissue based on Hounsfield units. This step activates the threshold tool so you can define the intensity range that captures the reference fragment.",
       "edited": false
     },
     "cb_step_5": {
-      "title": "Set the bone threshold range",
-      "simple": "Adjust the threshold slider until the bone region is fully highlighted.",
-      "detailed": "The threshold range determines which voxels are included as bone. Set the lower bound high enough to exclude soft tissue but low enough to include all bone fragments. You can preview the result in the slice views.",
+      "title": "Set Threshold Range",
+      "simple": "Adjust the threshold slider to cover the bone density of the reference fragment.",
+      "detailed": "Set the lower bound high enough to exclude soft tissue but low enough to include all of the reference bone fragment. The range you choose determines which voxels become part of the segmentation.",
       "edited": false
     },
     "cb_step_6": {
-      "title": "Apply the threshold",
-      "simple": "Click 'Apply' to create the bone segment from the threshold range.",
-      "detailed": "This applies the threshold effect to the bone_segment, converting the highlighted voxels into a filled segment. The segment now represents the entire visible bone as a single mass.",
+      "title": "Apply Threshold",
+      "simple": "Click Apply to generate the segmentation mask for the reference fragment.",
+      "detailed": "This converts the threshold range into a visible segment in the segmentation node. Review the result to ensure the entire reference fragment is captured without holes or excess.",
       "edited": false
     },
     "cb_step_7": {
-      "title": "Open the Islands tool",
-      "simple": "Click the 'Islands' button to access tools for separating disconnected bone fragments.",
-      "detailed": "After thresholding, the bone segment may contain multiple disconnected fragments (e.g., separate pieces of the fracture). The Islands tool can identify these connected components as separate islands.",
+      "title": "Open Islands Effect",
+      "simple": "Click the Islands button in the Segment Editor.",
+      "detailed": "The Islands tool helps clean up the threshold result by removing disconnected components. This is essential for isolating just the reference bone fragment from surrounding bone fragments.",
       "edited": false
     },
     "cb_step_8": {
-      "title": "Split islands into separate segments",
-      "simple": "Select the 'Split islands to segments' option from the Islands menu.",
-      "detailed": "This option automatically separates each disconnected bone fragment into its own segment within the segmentation. Each island will become a new segment, allowing you to assign clinical labels (e.g., proximal, distal fragments).",
+      "title": "Select Keep Selected Island",
+      "simple": "Choose 'Keep selected island' from the Islands options.",
+      "detailed": "This mode lets you click on the fragment you want to keep \u2014 all other disconnected islands will be removed, leaving only the reference fragment.",
       "edited": false
     },
     "cb_step_9": {
-      "title": "Apply the island splitting",
-      "simple": "Click 'Apply' to split the bone segment into individual fragment segments.",
-      "detailed": "The segmentation now contains multiple segments, each representing a different bone fragment. You can rename them later to identify the fixed reference fragment and the moving fragment.",
+      "title": "Select Reference Fragment",
+      "simple": "Click on the reference bone fragment in a slice view to keep it.",
+      "detailed": "With the 'Keep selected island' effect active, clicking on the reference fragment in a slice view tells the tool to retain that connected component and discard the rest. Make sure to click on the correct fragment.",
       "edited": false
     },
     "cb_step_10": {
-      "title": "Select the reference fracture fragment",
-      "simple": "From the list of segments, choose the fracture fragment that will serve as the fixed reference (e.g., the proximal fragment).",
-      "detailed": "The reference fragment remains stationary during reduction planning. Typically this is the main proximal fragment that aligns with the anatomical axis. The moving fragment will be repositioned relative to this reference.",
+      "title": "Create Moving Segmentation",
+      "simple": "In the Segment Editor, add a new segmentation named 'Moving_Segmentation'.",
+      "detailed": "This second segmentation will hold the moving (displaced) bone fragment that will be realigned. Keeping it separate from the reference allows independent manipulation.",
       "edited": false
     },
     "cb_step_11": {
-      "title": "Generate 3D model of the reference fragment",
-      "simple": "Click the '3D Reconstruction (reference)' button to create a 3D surface model of the fixed fragment.",
-      "detailed": "A 3D model is generated from the reference segment, allowing you to visualize the fragment in the 3D view. This model aids in spatial understanding for fracture reduction planning.",
+      "title": "Add Moving Segment",
+      "simple": "Click Add, rename the segment to 'Moving_Segment', and set its color to Cyan.",
+      "detailed": "This segment will contain the thresholded region of the moving fragment. The cyan color contrasts with the sage green reference for easy identification.",
       "edited": false
     },
     "cb_step_12": {
-      "title": "Select the moving fracture fragment",
-      "simple": "Choose the fracture fragment that needs to be repositioned (e.g., the distal fragment).",
-      "detailed": "This is the fragment that will be moved relative to the fixed reference. Selecting the correct moving segment is critical for accurate reduction planning.",
+      "title": "Open Threshold Effect",
+      "simple": "Click the Threshold button again.",
+      "detailed": "Activate the threshold tool for the moving segmentation to define the intensity range for the displaced fragment.",
       "edited": false
     },
     "cb_step_13": {
-      "title": "Generate 3D model of the moving fragment",
-      "simple": "Click the '3D Reconstruction (moving)' button to create a 3D surface model of the moving fragment.",
-      "detailed": "A 3D model of the moving fragment is generated. You will be able to see both models in the 3D view and later manipulate the moving fragment's position.",
+      "title": "Set Threshold Range for Moving Fragment",
+      "simple": "Adjust the threshold slider to cover the moving fragment (the default matches the previous range).",
+      "detailed": "Use the same or a slightly adjusted threshold range to capture the moving bone fragment. The density of the displaced fragment may differ slightly due to rotation, so verify coverage.",
       "edited": false
     },
     "cb_step_14": {
-      "title": "Detect fracture surfaces",
-      "simple": "Click 'Detect fracture surfaces' to identify the mating surfaces between fragments.",
-      "detailed": "This analyzes the 3D models of both fragments and detects the fracture surfaces \u2014 the broken edges that were originally in contact. This information is used to compute the optimal reduction alignment.",
+      "title": "Apply Threshold",
+      "simple": "Click Apply to generate the segmentation mask for the moving fragment.",
+      "detailed": "This creates the initial segmentation of the moving fragment. Ensure it captures the entire displaced fragment.",
       "edited": false
     },
     "cb_step_15": {
-      "title": "Run reduction planning",
-      "simple": "Click 'Reduction planning' to automatically compute the transform that aligns the moving fragment to its anatomical position.",
-      "detailed": "The algorithm calculates the translation and rotation needed to bring the moving fragment into proper alignment with the fixed reference, based on fracture surface matching. The result is a transform that can be applied to the moving fragment.",
+      "title": "Open Islands Effect",
+      "simple": "Click the Islands button.",
+      "detailed": "Again, use the Islands tool to isolate the moving fragment from other disconnected components.",
       "edited": false
     },
     "cb_step_16": {
-      "title": "Assess reduction alignment",
-      "simple": "Check whether the automatic reduction is acceptable. If yes, select 'No, stop'; if you want to manually adjust, select 'Yes, adjust'.",
-      "detailed": "Examine the alignment of the fragments in the 3D view. If the reduction looks anatomically correct, you can finalize. If not, you can manually fine-tune the position of the moving fragment to achieve better apposition.",
+      "title": "Select Keep Selected Island",
+      "simple": "Choose 'Keep selected island'.",
+      "detailed": "This prepares the tool for you to click on the moving fragment to retain only that island.",
       "edited": false
     },
     "cb_step_17": {
-      "title": "Adjust the 3D view",
-      "simple": "Rotate and zoom the 3D view to get a clear perspective on the fragment positions.",
-      "detailed": "This step lets you view the fragments from all angles to assess the reduction. Use your mouse to rotate the 3D scene and zoom in/out. This visual inspection helps you decide if the automated reduction is satisfactory before proceeding.",
+      "title": "Select Moving Fragment",
+      "simple": "Click on the moving bone fragment in a slice view to keep it.",
+      "detailed": "With 'Keep selected island' active, click on the moving fragment to preserve it and remove any other islands, leaving just the displaced fragment.",
       "edited": false
     },
     "cb_step_18": {
-      "title": "Finalize moving fragment position",
-      "simple": "Click 'Harden transform into moving fragment' to apply the reduction transform permanently to the moving fragment's 3D model.",
-      "detailed": "This step locks the calculated alignment, incorporating the transform directly into the model's coordinates. After hardening, the moving fragment assumes its reduced position permanently in the scene.",
+      "title": "Select Reference Segmentation",
+      "simple": "From the dropdown, choose the 'Reference_Segmentation' node.",
+      "detailed": "This identifies which segmentation contains the fixed reference fragment. The extension uses this as the stationary target for registration.",
+      "edited": false
+    },
+    "cb_step_19": {
+      "title": "Reconstruct Reference in 3D",
+      "simple": "Click the '3D Reconstruction (reference)' button to generate a 3D model of the reference fragment.",
+      "detailed": "This creates a surface mesh from the reference segmentation, enabling 3D visualization and subsequent registration. A 3D model of the fixed fragment is essential for aligning the moving piece.",
+      "edited": false
+    },
+    "cb_step_20": {
+      "title": "Select Moving Segmentation",
+      "simple": "Choose the 'Moving_Segmentation' node from the dropdown.",
+      "detailed": "This tells the extension which segmentation contains the displaced fragment to be realigned.",
+      "edited": false
+    },
+    "cb_step_21": {
+      "title": "Reconstruct Moving in 3D",
+      "simple": "Click the '3D Reconstruction (moving)' button to generate a 3D model of the moving fragment.",
+      "detailed": "Creates a surface mesh for the moving fragment, which will be transformed during registration. Having both 3D models is prerequisite for fracture reduction planning.",
+      "edited": false
+    },
+    "cb_step_22": {
+      "title": "Detect Fracture Surfaces",
+      "simple": "Click the 'Detect fracture surfaces' button to automatically identify the fractured interfaces.",
+      "detailed": "The algorithm analyzes the 3D models to find the broken surfaces that should mate together. This detection guides the registration to align the fragments anatomically.",
+      "edited": false
+    },
+    "cb_step_23": {
+      "title": "Initialize Registration",
+      "simple": "Click the 'Initialize registration' button to compute an initial alignment.",
+      "detailed": "This performs an initial alignment of the moving fragment to the reference based on the detected fracture surfaces. It provides a starting point for fine-tuning.",
+      "edited": false
+    },
+    "cb_step_24": {
+      "title": "Adjust View for Alignment",
+      "simple": "Rotate, zoom, and pan the 3D view to inspect the initial alignment.",
+      "detailed": "Getting a clear view of the fracture interface from multiple angles helps you assess the alignment quality. Adjust the 3D view to see both fragments together \u2014 you are only adjusting the camera, not moving anything yet.",
+      "edited": false
+    },
+    "cb_step_25": {
+      "title": "Reduce Fracture",
+      "simple": "Click the 'Reduction planning' button to compute the optimal reduction plan.",
+      "detailed": "This uses the initialized registration and fracture surface detection to calculate a final repositioning transform. The result brings the moving fragment into near-anatomical alignment.",
+      "edited": false
+    },
+    "cb_step_26": {
+      "title": "Check Alignment Result",
+      "simple": "If the alignment looks good, stop here. If further refinements are needed, check the manual adjustment box.",
+      "detailed": "Review the reduced position. If the fragments are anatomically aligned, the planning is complete. If not, you can manually adjust the moving fragment with additional controls.",
+      "edited": false
+    },
+    "cb_step_27": {
+      "title": "Refine View for Manual Adjustment",
+      "simple": "Rotate, zoom, and pan the 3D view to thoroughly inspect the alignment from all angles.",
+      "detailed": "Before making any manual adjustments, ensure you have a clear vantage of the fracture gap and any rotation mismatch. Adjust your view to see small gaps or overlaps, allowing precise fine-tuning in the next step.",
+      "edited": false
+    },
+    "cb_step_28": {
+      "title": "Finalize Alignment",
+      "simple": "Click the 'Harden transform into moving fragment' button to permanently apply the transform to the moving fragment.",
+      "detailed": "This makes the alignment permanent in the volume data. After hardening, the moving fragment's segmentation and model are updated to their final position, completing the reduction planning.",
       "edited": false
     }
   }

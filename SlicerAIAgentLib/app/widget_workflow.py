@@ -105,6 +105,9 @@ class WidgetWorkflowMixin:
         self._workflowRangeContainer = None
         self._workflowScalarWidget = None
         self._workflowScalarContainer = None
+        # step_id -> value inherited from an earlier step, so every re-render of
+        # that step's slider seeds identically. Cleared per workflow, never across.
+        self._workflowInheritedDefaults = {}
 
         if getattr(self, "_workflowDoneButton", None):
             self._workflowDoneButton.clicked.connect(self._onWorkflowDoneClicked)
@@ -672,6 +675,9 @@ class WidgetWorkflowMixin:
         """Hide and reset the user-facing workflow panel."""
         self._currentWorkflowUiState = {"active": False}
         self._taskWorkflowPanelActive = False
+        # Per-workflow, never across: a later run's step ids would otherwise
+        # inherit a stale value from the previous run.
+        self._workflowInheritedDefaults = {}
         if not getattr(self, "_workflowUserFrame", None):
             return
         self._workflowUserFrame.setVisible(False)
@@ -1975,6 +1981,52 @@ class WidgetWorkflowMixin:
         if limit_lo is None or limit_hi is None or limit_hi <= limit_lo:
             return False  # no sensible limits -> free-text fallback
 
+        # A default INHERITED from an earlier step ("The default threshold is the
+        # same as in Step 5") outranks the live widget: re-activating the tool for
+        # this pass has just reset that widget to the tool's own factory default,
+        # so the live value is precisely what the cookbook says NOT to use. Limits
+        # still come from the sources above; only the handles move.
+        inherited = state.get("inherited_default")
+        # The panel re-renders the same step's slider more than once per step, and
+        # the LAST render is what the user sees. A later refresh can carry a state
+        # dict built without this key, which would silently fall back to the live
+        # widget — the tool's factory default — undoing the inheritance. Remember
+        # the value per step so every render of that step seeds identically.
+        step_key = str(state.get("current_step") or "")
+        memo = getattr(self, "_workflowInheritedDefaults", None)
+        if memo is None:
+            memo = {}
+            self._workflowInheritedDefaults = memo
+        if step_key:
+            if inherited is not None:
+                memo[step_key] = inherited
+            else:
+                inherited = memo.get(step_key)
+        _live_seed = [cur_min, cur_max]
+        _seed_source = "live" if cur_min is not None else "none"
+        if isinstance(inherited, (list, tuple)) and len(inherited) == 2:
+            try:
+                cur_min, cur_max = float(inherited[0]), float(inherited[1])
+                _seed_source = "inherited"
+            except (TypeError, ValueError):
+                pass
+        # Record how the handles were seeded into the run's event log, so a wrong
+        # default stays diagnosable from the artifacts. Log only — never printed.
+        try:
+            _rt = getattr(self, "_workflowRuntime", None)
+            if _rt is not None:
+                _rt._write_event("range_slider_seeded", {
+                    "step_id": step_key,
+                    "seed_source": _seed_source,
+                    "inherited_default": inherited,
+                    "state_has_key": "inherited_default" in state,
+                    "live": _live_seed,
+                    "limits": [limit_lo, limit_hi],
+                    "seeded": [cur_min, cur_max],
+                })
+        except Exception:
+            pass
+
         # Seed the handles: live values, else a declared default, else 25%-100%
         # (matches the Threshold effect's own default).
         if cur_min is None or cur_max is None:
@@ -2017,9 +2069,45 @@ class WidgetWorkflowMixin:
             pass
         self._workflowChoiceLayout.addWidget(container, 1)
         container.setVisible(True)
+        # Re-assert the handles AFTER the widget is parented and shown. ctkRangeWidget
+        # finalizes its spinboxes/slider on first show, and a value written before
+        # that can be discarded — which silently loses an inherited default and
+        # leaves the tool's own value on screen. Idempotent; the signals are already
+        # connected, so the preview follows the corrected values.
+        if (abs(float(rangeWidget.minimumValue) - cur_min) > 1e-6
+                or abs(float(rangeWidget.maximumValue) - cur_max) > 1e-6):
+            rangeWidget.setMinimumValue(cur_min)
+            rangeWidget.setMaximumValue(cur_max)
         # Drive the live target to the seeded values so the preview matches at once.
         self._onWorkflowRangePreview()
+        # Last line of defence: re-assert once more after the event loop settles.
+        # The widget's show/polish and the module's own observers run deferred, and
+        # either can rewrite the handles after this function returns — which is
+        # indistinguishable, on screen, from the seed never having been applied.
+        self._reassertWorkflowRange(rangeWidget, cur_min, cur_max, step_key)
         return True
+
+    def _reassertWorkflowRange(self, rangeWidget, cur_min, cur_max, step_key=""):
+        """Re-apply seeded range handles once the Qt event loop has settled."""
+        def _apply():
+            try:
+                if getattr(self, "_workflowRangeWidget", None) is not rangeWidget:
+                    return  # a newer step/render owns the panel now
+                drifted = (abs(float(rangeWidget.minimumValue) - cur_min) > 1e-6
+                           or abs(float(rangeWidget.maximumValue) - cur_max) > 1e-6)
+                if drifted:
+                    rangeWidget.setMinimumValue(cur_min)
+                    rangeWidget.setMaximumValue(cur_max)
+                    logger.debug(
+                        "Range handles for %s drifted after show; re-asserted to [%s, %s]",
+                        step_key, cur_min, cur_max,
+                    )
+            except Exception:
+                logger.debug("Deferred range re-assert failed", exc_info=True)
+        try:
+            qt.QTimer.singleShot(0, _apply)
+        except Exception:
+            logger.debug("Could not schedule deferred range re-assert", exc_info=True)
 
     def _onWorkflowRangePreview(self, _value=None):
         """Show a live threshold mask as the user drags the range slider. The
@@ -2348,6 +2436,19 @@ class WidgetWorkflowMixin:
 
         if limit_lo is None or limit_hi is None or limit_hi <= limit_lo:
             return False  # no sensible limits -> free-text fallback
+
+        # A default inherited from an earlier step outranks the live widget, for
+        # the same reason as the range slider: this pass has re-initialized the
+        # source widget, so its current value is the factory default, not the one
+        # the cookbook points at.
+        inherited = state.get("inherited_default")
+        if isinstance(inherited, (list, tuple)) and len(inherited) == 1:
+            inherited = inherited[0]
+        if isinstance(inherited, (int, float, str)) and not isinstance(inherited, bool):
+            try:
+                cur = float(inherited)
+            except (TypeError, ValueError):
+                pass
 
         # Seed the handle: live value, else a declared .ui default, else midpoint.
         if cur is None:

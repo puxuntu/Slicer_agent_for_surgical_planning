@@ -7,11 +7,11 @@ _ses_seg = None
 _ses_segs = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
 for _ses_i in range(_ses_segs.GetNumberOfItems()):
     _ses_c = _ses_segs.GetItemAsObject(_ses_i)
-    if _ses_c is not None and _ses_c.GetName() == "bone_segmentation":
+    if _ses_c is not None and _ses_c.GetName() == "Reference_Segmentation":
         _ses_seg = _ses_c
         break
 if _ses_seg is None:
-    _ses_seg = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", "bone_segmentation")
+    _ses_seg = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", "Reference_Segmentation")
 _ses_seg.CreateDefaultDisplayNodes()
 _ses_all = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
 for _ses_k in range(_ses_all.GetNumberOfItems()):
@@ -20,7 +20,7 @@ for _ses_k in range(_ses_all.GetNumberOfItems()):
         _ses_o.SetAttribute("SlicerAIAgent.SegmentEditorSession", "0")
 _ses_seg.SetAttribute("SlicerAIAgent.SegmentEditorSession", "1")
 segmentationNode = _ses_seg
-if _ses_seg.GetName() != "bone_segmentation":
+if _ses_seg.GetName() != "Reference_Segmentation":
     raise RuntimeError("STATE_NOT_APPLIED: segmentation name")
-print("[SegmentEditor] Segmentation 'bone_segmentation' ready.")
+print("[SegmentEditor] Segmentation 'Reference_Segmentation' ready.")
 # --- [end Segment Editor session] ---

@@ -1605,8 +1605,17 @@ class AnalyzerWorkflowTemplatesMixin:
         revisions. ``steps`` (the workflow steps) supplies each template's
         description for object-name extraction when the grounded code lacks it.
         Returns the number of templates changed."""
-        from .module_sessions import all_drivers, extract_module
+        from .module_sessions import all_drivers, extract_module, driver_for_module
         drivers = all_drivers()
+        # Remember the ordered steps so a LATER pass in the same run that has no
+        # steps to hand (the repair loop re-applying the drivers after an LLM
+        # rewrite) still gets descriptions, effect threading and session
+        # boundaries. Without them desc_by_key is empty, every claims("") is
+        # False, and the re-apply is a silent no-op.
+        if steps:
+            self._module_session_steps = list(steps)
+        else:
+            steps = getattr(self, "_module_session_steps", None) or []
         desc_by_key = {}
         # Thread the active tool/effect across the ORDERED steps so an option /
         # apply / interaction step operates on the effect a PRIOR step activated
@@ -1614,12 +1623,23 @@ class AnalyzerWorkflowTemplatesMixin:
         # the driver's own effect-activation detection — generic, no step identity.
         effect_by_key = {}
         active_effect = None
-        # The LAST template each driver claims: where its session run ends, and so
-        # where the module's tool must be released (see ModuleSessionDriver.
-        # session_teardown). Every step a driver governs carries the module label —
-        # including a module_tool_interaction, whose module_context comes from the
-        # same phrasing — so the last claimed step IS the end of the run.
-        last_session_key = {}
+        # Where each driver's session RUN ends — the step after which the module's
+        # tool must be released (see ModuleSessionDriver.session_teardown).
+        #
+        # Membership needs BOTH signals. A module_tool_interaction step ("In the
+        # 2D view, click to select the moving part") carries NO module label and
+        # NO code_template — its module_context is INJECTED by stage 4 from the
+        # threaded active driver, and its code lives in pre/post templates. Reading
+        # only the label + code_template made those steps invisible here, so the
+        # boundary fell on the step BEFORE the in-view click and the teardown
+        # released the very effect the user was about to click with.
+        #
+        # A run is a CONTIGUOUS span of member steps: a cookbook with two cycles
+        # (reference then moving, each create -> threshold -> islands -> click)
+        # forms two runs, and each must release its own tool. One global "last
+        # claimed step" emitted a single teardown for the whole workflow.
+        session_runs = []  # [driver, boundary_template_key]
+        current_driver = None
         for step in (steps or []):
             if not isinstance(step, dict):
                 continue
@@ -1630,6 +1650,16 @@ class AnalyzerWorkflowTemplatesMixin:
                 if driver.claims(module):
                     matched_driver = driver
                     break
+            # An in-tool interaction step belongs to the driver of its recorded
+            # module_context even though its own text names no module.
+            interaction_driver = None
+            if _text_or_empty(step.get("interaction_kind")) == "module_tool_interaction":
+                ctx = _text_or_empty(step.get("module_context"))
+                if ctx:
+                    try:
+                        interaction_driver = driver_for_module(ctx)
+                    except Exception:
+                        interaction_driver = None
             if module and matched_driver is None:
                 # Entered a different named module — the prior active tool no
                 # longer governs interaction; drop it so it can't leak forward.
@@ -1642,8 +1672,38 @@ class AnalyzerWorkflowTemplatesMixin:
             if key:
                 desc_by_key[key] = desc
                 effect_by_key[key] = active_effect
-                if matched_driver is not None:
-                    last_session_key[id(matched_driver)] = key
+
+            member_driver = matched_driver or interaction_driver
+            if member_driver is None:
+                # A step naming a DIFFERENT module ends the run, and so does the
+                # extension's own panel action — the same leave-signals stage 4
+                # uses to decide whether a module tool still owns view interaction
+                # (_active_module_tool_context). An unlabelled core step (a bare
+                # "Set the segment invisible") ends nothing, so a run survives the
+                # gaps between its own steps.
+                op_type = _text_or_empty(
+                    step.get("operation_type") or step.get("op_type")
+                )
+                if module or op_type == "extension_op":
+                    current_driver = None
+                continue
+            if current_driver is not member_driver:
+                current_driver = member_driver
+                session_runs.append([member_driver, ""])
+            # Boundary key: for an in-tool interaction, its POST template — that
+            # runs when the user presses Done, i.e. AFTER the clicks have been
+            # consumed. Otherwise the step's own template.
+            if matched_driver is None:
+                boundary = step.get("post_template") or step.get("pre_template") or ""
+            else:
+                boundary = key or ""
+            if boundary:
+                session_runs[-1][1] = boundary
+        # One teardown per run, at that run's last template.
+        teardown_at = {}
+        for run_driver, boundary in session_runs:
+            if boundary:
+                teardown_at[boundary] = run_driver
         changed = 0
         for tpl_key in list(templates.keys()):
             if not isinstance(tpl_key, str) or not tpl_key.endswith(".py.tpl"):
@@ -1667,26 +1727,34 @@ class AnalyzerWorkflowTemplatesMixin:
             for driver in drivers:
                 if driver.claims(module):
                     code = driver.wrap(code, desc, active_effect=step_active_effect)
-                    # Last step of this driver's run: release the module's tool, which
-                    # otherwise stays active (with its cursor + view observations) for
-                    # every later step and after the workflow ends.
-                    if last_session_key.get(id(driver)) == tpl_key:
-                        teardown = driver.session_teardown()
-                        if teardown and teardown.strip() not in code:
-                            code = code + teardown
+            # End of a session run: release the module's tool, which otherwise
+            # stays active (with its cursor + view observations) for every later
+            # step and after the workflow ends. Applied OUTSIDE the claims() loop
+            # above — an interaction step's boundary is its post template, which
+            # has no description entry here and so matches no driver by label.
+            run_driver = teardown_at.get(tpl_key)
+            if run_driver is not None:
+                teardown = run_driver.session_teardown()
+                if teardown and teardown.strip() not in code:
+                    code = code + teardown
             if code != orig:
                 templates[tpl_key] = code
                 changed += 1
         return changed
 
-    def _ensure_segment_editor_bindings(self, code: str) -> str:
+    def _ensure_segment_editor_bindings(self, code: str, description: str = "") -> str:
         """Apply the Segment Editor session driver to a single re-grounded template
         (used by the repair loop's re-grounding). Delegates to the generic
         module-session framework (``module_sessions.SegmentEditorSessionDriver``)
         so a re-grounded Segment Editor template gets the same coherent binding +
-        target-segment selection as the main generation pass. Idempotent."""
+        target-segment selection as the main generation pass. Idempotent.
+
+        ``description`` is the step's cookbook text and is REQUIRED for the
+        driver's description-authoritative routing (create-vs-add, apply, option
+        select, and the object names). Called without it, every such branch is
+        unreachable and only the generic wrap applies."""
         from .module_sessions import SegmentEditorSessionDriver
-        return SegmentEditorSessionDriver().wrap(code)
+        return SegmentEditorSessionDriver().wrap(code, description)
 
     def _generate_placement_starter_pre_template(
         self, extension_name, step, logic_class_name, module_name,

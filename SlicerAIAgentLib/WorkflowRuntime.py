@@ -641,6 +641,9 @@ class WorkflowRuntime:
             "range_max": range_meta.get("max"),
             "range_step": range_meta.get("step"),
             "range_default": range_meta.get("default"),
+            # Value an earlier step already recorded, when this step declares its
+            # default should match it. Outranks the live widget at render time.
+            "inherited_default": self._inherited_choice_default(current_meta),
             # Single-value slider: flag + resolution metadata. min/max/step/default
             # may be None (seeded at render time from the extension's live slider).
             "scalar_selection": bool(scalar_meta),
@@ -2300,6 +2303,8 @@ class WorkflowRuntime:
             "range_max": range_meta.get("max"),
             "range_step": range_meta.get("step"),
             "range_default": range_meta.get("default"),
+            # Mirror the live path: an inherited default from an earlier step.
+            "inherited_default": self._inherited_choice_default(meta),
             "scalar_selection": bool(scalar_meta),
             "scalar_param": scalar_meta.get("param", ""),
             "scalar_min": scalar_meta.get("min"),
@@ -2442,6 +2447,70 @@ class WorkflowRuntime:
             if step.get("step_id") == step_id:
                 return step
         return {}
+
+    def _inherited_choice_default(self, meta: Dict[str, Any]):
+        """The value an earlier step already recorded, when THIS step declares its
+        default should match it ("The default threshold is the same as in Step 5").
+
+        The cookbook's second pass through a repeated selector wants to start from
+        the value the user tuned the first time. Re-activating the module's tool
+        (e.g. clicking "Threshold" again) resets its widget to the tool's own
+        factory default, so the live widget cannot supply this — only the recorded
+        choice can. Resolved through the referenced step's OWN parameter name, so
+        it works whether or not the two steps share one parameter.
+
+        Returns None when nothing is declared, the reference does not resolve, or
+        the referenced step has not been answered yet — callers then keep their
+        existing seeding. Generic: no step identity or extension name involved.
+        """
+        if not isinstance(meta, dict) or not self.session:
+            return None
+        # Only a step that ASKS for a value can inherit one. Prose like "the same
+        # per-slice toggle as step 7" on a slicer_op re-references an ACTION, not a
+        # value, and must not be read as a default. Structural gate, so no
+        # value-noun vocabulary is needed to tell the two apart.
+        if str(meta.get("operation_type") or meta.get("op_type") or "") not in (
+            "user_choice", "branch_op",
+        ):
+            return None
+        source_step = str(
+            (meta.get("choice_info") or {}).get("default_from_step") or ""
+        ).strip()
+        if not source_step:
+            # Fall back to reading the declaration off the step text, so a package
+            # generated before the pipeline recorded it still honours the cookbook.
+            # Keep in sync with the generation-side pattern in
+            # extension_cli_analyzer/cookbook_mapping.py.
+            ref = re.search(
+                r"\b(?:same|default|initial|unchanged)\b[^.]*?\bstep\s+(\d+)\b",
+                str(meta.get("description") or ""), re.IGNORECASE,
+            )
+            here = re.search(r"(\d+)$", str(meta.get("step_id") or ""))
+            if not ref or not here:
+                return None
+            # Backward references only — a later step cannot seed an earlier one.
+            if int(ref.group(1)) >= int(here.group(1)):
+                return None
+            source_step = "cb_step_%s" % ref.group(1)
+        # PRIMARY: the checkpoint recorded when that step was answered. It is keyed
+        # by STEP ID, so it does not depend on the step's two independently-produced
+        # parameter_name fields (workflow.json choice_info vs code_generators.json
+        # choice_descriptor) agreeing — and replay rewind already truncates
+        # checkpoints, so a rewound run inherits the right value automatically.
+        for cp in reversed(getattr(self.session, "checkpoints", None) or []):
+            if getattr(cp, "step_id", "") == source_step and cp.recorded_value is not None:
+                return cp.recorded_value
+        # FALLBACK: the choice store, keyed by the referenced step's parameter name.
+        source_param = str(
+            ((self._step_meta(source_step) or {}).get("choice_info") or {}).get("parameter_name") or ""
+        ).strip()
+        if not source_param:
+            return None
+        try:
+            recorded = get_workflow_choices(self.session.extension_name) or {}
+        except Exception:
+            return None
+        return recorded.get(source_param)
 
     @staticmethod
     def _node_class_from_step_meta(meta: Dict[str, Any]) -> str:

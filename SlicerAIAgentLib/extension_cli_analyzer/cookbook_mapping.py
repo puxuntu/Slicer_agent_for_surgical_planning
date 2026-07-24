@@ -397,9 +397,12 @@ class AnalyzerCookbookMappingMixin:
                         "min_control_points": so.get("min_control_points", 0),
                     }
                     # A module_tool_interaction carries the module whose active tool
-                    # consumes the clicks, so the pre-template can re-bind that tool.
+                    # consumes the clicks, so the pre-template can re-bind that tool,
+                    # and which tool it is, so it can re-arm one that was released.
                     if so.get("module_context"):
                         interaction_info["module_context"] = so.get("module_context")
+                    if so.get("module_tool_context"):
+                        interaction_info["module_tool_context"] = so.get("module_tool_context")
                     break
 
             # Extract user_choice info if present (branch_op carries the same
@@ -410,6 +413,20 @@ class AnalyzerCookbookMappingMixin:
             # runtime can render one form with every item.
             choice_info = {}
             choice_info_list = []
+            # A step may declare that its DEFAULT is whatever the user chose at an
+            # earlier step ("The default threshold is the same as in Step 5"), so
+            # the second pass through a repeated selector starts from the value
+            # already tuned rather than from the widget's own factory default.
+            # Backward references only — a later step cannot seed an earlier one.
+            default_from_step = ""
+            _ref = _re.search(
+                r"\b(?:same|default|initial|unchanged)\b[^.]*?\bstep\s+(\d+)\b",
+                _text_or_empty(cb_step.description), _re.IGNORECASE,
+            )
+            if _ref:
+                _ref_num = int(_ref.group(1))
+                if _ref_num < cb_step.step_number:
+                    default_from_step = f"cb_step_{_ref_num}"
             for so in sub_ops:
                 if so["op_type"] in ("user_choice", "branch_op"):
                     item = {
@@ -418,6 +435,8 @@ class AnalyzerCookbookMappingMixin:
                         "parameter_name": so.get("parameter_name", f"choice_step_{cb_step.step_number}"),
                         "default_value": so.get("default_value"),
                     }
+                    if default_from_step:
+                        item["default_from_step"] = default_from_step
                     if so.get("live_items"):
                         item["live_items"] = True
                     if so.get("wizard_combo"):

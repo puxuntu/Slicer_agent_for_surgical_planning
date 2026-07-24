@@ -87,11 +87,12 @@ class ModuleSessionDriver:
         tool concept."""
         return False
 
-    def interaction_preamble(self):
+    def interaction_preamble(self, active_effect=None):
         """CodeValidator-safe, CREATION-FREE code that re-asserts this module's
         active tool is bound to the right target just before the user interacts
-        with it (no node creation, no place mode). Empty for modules with no
-        interactive tool concept."""
+        with it (no node creation, no place mode). ``active_effect`` names the
+        tool the session had armed, so the preamble can re-arm it if it was
+        released. Empty for modules with no interactive tool concept."""
         return ""
 
     def session_teardown(self):
@@ -179,6 +180,122 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
                 return m.group(group)
         return ""
 
+    @staticmethod
+    def _split_clauses(text):
+        """Split a step description into clauses on ``,`` / ``;`` / `` and ``,
+        without breaking a quoted span (a quoted UI label may contain them).
+
+        A cookbook step routinely appends further clauses that ALSO contain a
+        naming verb — 'rename the segment to "X" ..., and set its color to blue'
+        — so a description-wide, ``$``-anchored search takes the LAST one and
+        names the segment "blue". Clause scoping is what makes the naming phrase
+        attach to the clause that actually names the object."""
+        out, buf, quote = [], [], ""
+        i, n = 0, len(text)
+        while i < n:
+            ch = text[i]
+            if quote:
+                buf.append(ch)
+                if ch == quote:
+                    quote = ""
+                i += 1
+            elif ch in "\"'" and text.find(ch, i + 1) != -1 and not (
+                # A possessive / contraction apostrophe ("the volume's display",
+                # "it's") is not an opening quote. Treated as one it never closes,
+                # so the rest of the description merges into a single clause and
+                # the naming search then picks up an unrelated object's quoted
+                # name. Require an unquoted-word boundary before a `'`.
+                ch == "'" and i > 0 and text[i - 1].isalnum()
+            ):
+                quote = ch
+                buf.append(ch)
+                i += 1
+            elif ch in ",;":
+                out.append("".join(buf))
+                buf = []
+                i += 1
+            elif text.startswith(" and ", i):
+                out.append("".join(buf))
+                buf = []
+                i += 5
+            else:
+                buf.append(ch)
+                i += 1
+        out.append("".join(buf))
+        return [c.strip() for c in out if c.strip()]
+
+    # A naming verb introduces the object's name: 'named "X"', 'to "X"', 'as X'.
+    _NAMING_VERB = r"\b(?:as|to|named|called)\s+"
+
+    # Words that follow a naming verb but name nothing — a bare match on one of
+    # these is a grammatical artifact ("add a segment to the reference
+    # segmentation"), not a name, and must defer to the grounded code.
+    _NON_NAMES = frozenset({
+        "the", "a", "an", "it", "this", "that", "them", "its", "their",
+    })
+
+    @classmethod
+    def _name_from_description(cls, description, noun_pattern):
+        """The name a step assigns to an object matching ``noun_pattern``.
+
+        Scoped to the clause that mentions the noun, and preferring the QUOTED
+        object of the naming verb — the cookbook quotes real object names and
+        leaves bare words (colours, sizes) unquoted, so quoting is the reliable
+        discriminator. Returns "" when the description names nothing, letting
+        the caller fall back to the grounded code."""
+        clauses = cls._split_clauses(str(description or ""))
+        noun_re = re.compile(noun_pattern, re.IGNORECASE)
+        quoted = re.compile(cls._NAMING_VERB + r"[\"']([^\"']+)[\"']", re.IGNORECASE)
+        # The `$` anchor is safe here because this is applied to ONE clause, not
+        # the whole description — which is the entire point of clause scoping.
+        # Keep the space in the character class: an unquoted cookbook name may be
+        # several words ("Left Femur"), and truncating it to "Left" is worse than
+        # returning nothing, because a non-empty wrong name suppresses the
+        # grounded-code fallback.
+        bare = re.compile(
+            cls._NAMING_VERB + r"([\w \-]+?)\s*[.,;:)]?\s*$", re.IGNORECASE,
+        )
+        # A clause naming the object either mentions the noun, or CONTINUES a
+        # clause that did — "Add a segment and rename it to 'X'" / "... and
+        # rename to 'X'" put the noun in clause 1 and the name in clause 2.
+        # Without the continuation the name is missed entirely and the object
+        # silently takes its default name, diverging from every downstream step.
+        # A continuation is led by a naming verb, or by a pronoun standing in for
+        # the noun — NOT any following clause, so an appearance clause ("set its
+        # color to blue") is still excluded.
+        pronoun = re.compile(
+            r"^\s*(?:and\s+)?(?:(?:re)?name[sd]?|call(?:ed|s)?)\b"
+            r"|^\s*(?:and\s+)?\w+\s+(?:it|this|that|them)\b",
+            re.IGNORECASE,
+        )
+        naming, seen_noun = [], False
+        for clause in clauses:
+            if noun_re.search(clause):
+                seen_noun = True
+                naming.append(clause)
+            elif seen_noun and pronoun.search(clause):
+                naming.append(clause)
+        for clause in naming:
+            m = quoted.search(clause)
+            if m:
+                return m.group(1).strip()
+        # No quoted name anywhere for this noun -> accept a bare one, still only
+        # from a clause that names the object.
+        if not any(quoted.search(c) for c in clauses):
+            for clause in naming:
+                m = bare.search(clause)
+                if m:
+                    name = m.group(1).strip()
+                    # A naming verb followed by a determiner/pronoun names
+                    # nothing — "add a segment to the reference segmentation"
+                    # yields "the reference segmentation", which is a phrase, not
+                    # a name. Judge the leading token so both the bare word and
+                    # the whole phrase are rejected, deferring to grounded code.
+                    head = (name.split() or [""])[0].lower()
+                    if name.lower() not in cls._NON_NAMES and head not in cls._NON_NAMES:
+                        return name
+        return ""
+
     @classmethod
     def _extract_segmentation_name(cls, code, description):
         # Prefer the COOKBOOK name from the step description — it is authoritative and
@@ -189,9 +306,7 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
         # references the cookbook name -> a second, empty segmentation + a
         # self-correction cascade. Fall back to the grounded code only when the
         # description declares no name.
-        m = re.search(r"segmentation\b[^.]*?\b(?:as|to|named|called)\s+[\"']?([\w \-]+?)[\"']?\s*[.,;)]?\s*$",
-                      str(description or ""), re.IGNORECASE)
-        name = m.group(1) if m else ""
+        name = cls._name_from_description(description, r"\bsegmentations?\b")
         if not name:
             name = cls._first_group([
                 r"AddNewNodeByClass\(\s*[\"']vtkMRMLSegmentationNode[\"']\s*,\s*[\"']([^\"']+)[\"']",
@@ -204,9 +319,7 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
         # Prefer the COOKBOOK name from the description (authoritative + shared with
         # downstream), see _extract_segmentation_name. ``segment\b`` matches the
         # standalone word, never "segmentation".
-        m = re.search(r"segment\b[^.]*?\b(?:as|to|named|called)\s+[\"']?([\w \-]+?)[\"']?\s*[.,;)]?\s*$",
-                      str(description or ""), re.IGNORECASE)
-        name = m.group(1) if m else ""
+        name = cls._name_from_description(description, r"\bsegments?\b")
         if not name:
             name = cls._first_group([
                 r"AddEmptySegment\(\s*segmentName\s*=\s*[\"']([^\"']+)[\"']",
@@ -219,6 +332,61 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
             if m2:
                 name = m2.group(2)
         return _safe_name(name, "Segment")
+
+    # Colour words a cookbook uses to specify an object's appearance, as RGB in
+    # Slicer's 0-1 range. General English vocabulary, not extension- or
+    # step-specific; an unrecognized word yields NO colour rather than a guess.
+    _COLOR_WORDS = {
+        "black": (0.0, 0.0, 0.0), "white": (1.0, 1.0, 1.0),
+        "red": (1.0, 0.0, 0.0), "green": (0.0, 0.5, 0.0),
+        "blue": (0.0, 0.0, 1.0), "yellow": (1.0, 1.0, 0.0),
+        "cyan": (0.0, 1.0, 1.0), "magenta": (1.0, 0.0, 1.0),
+        "orange": (1.0, 0.5, 0.0), "purple": (0.5, 0.0, 0.5),
+        "pink": (1.0, 0.75, 0.8), "brown": (0.6, 0.3, 0.1),
+        "grey": (0.5, 0.5, 0.5), "gray": (0.5, 0.5, 0.5),
+    }
+
+    @classmethod
+    def _extract_color(cls, description):
+        """RGB triple a step assigns as the object's colour, else None.
+
+        A driver that OVERRIDES a step must not silently drop part of that step:
+        'click Add and rename the segment to "X", and set its color to blue'
+        is a name sub-op AND a colour sub-op, and emitting only the former makes
+        the cookbook's colour instruction a no-op. Accepts an explicit numeric
+        triple or a colour word; never guesses."""
+        text = str(description or "")
+        m = re.search(
+            r"colou?r\b[^.]*?\b(?:to|as|=)\s*\(?\s*"
+            r"([01](?:\.\d+)?)\s*,\s*([01](?:\.\d+)?)\s*,\s*([01](?:\.\d+)?)\s*\)?",
+            text, re.IGNORECASE,
+        )
+        if m:
+            return (float(m.group(1)), float(m.group(2)), float(m.group(3)))
+        # A colour is often a PHRASE ("Sage Green", "dark red"). Resolve the whole
+        # phrase first, then fall back to its head noun — the base colour — so a
+        # qualified name still yields a colour instead of silently dropping the
+        # cookbook's instruction. An unrecognized head noun still yields None.
+        m = re.search(
+            r"colou?r\b[^.]*?\b(?:to|as)\s+[\"']?([A-Za-z]+(?:[ \-][A-Za-z]+){0,2})[\"']?",
+            text, re.IGNORECASE,
+        )
+        if not m:
+            return None
+        phrase = re.sub(r"[\-\s]+", " ", m.group(1).strip().lower())
+        if phrase in cls._COLOR_WORDS:
+            return cls._COLOR_WORDS[phrase]
+        words = phrase.split()
+        base = cls._COLOR_WORDS.get(words[-1]) if words else None
+        if base is None:
+            return None
+        # Generic English shade modifiers, applied to the base colour.
+        modifier = words[-2] if len(words) > 1 else ""
+        if modifier in ("dark", "deep"):
+            return tuple(round(c * 0.55, 4) for c in base)
+        if modifier in ("light", "pale"):
+            return tuple(round(c + (1.0 - c) * 0.5, 4) for c in base)
+        return base
 
     @staticmethod
     def _effect_name(code):
@@ -413,7 +581,10 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
         # the cookbook calls an ADD emits the add-segment block even if its
         # grounded code (wrongly) created a segmentation, and vice versa.
         if kind == "add":
-            return self._add_segment_block(self._extract_segment_name(code, description))
+            return self._add_segment_block(
+                self._extract_segment_name(code, description),
+                self._extract_color(description),
+            )
         if kind == "create":
             return self._create_segmentation_block(self._extract_segmentation_name(code, description))
         # No decisive description -> fall back to what the grounded code does.
@@ -424,7 +595,8 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
                     self._extract_segmentation_name(code, description)))
             if adds:
                 blocks.append(self._add_segment_block(
-                    self._extract_segment_name(code, description)))
+                    self._extract_segment_name(code, description),
+                    self._extract_color(description)))
             return "\n".join(blocks)
         return code
 
@@ -488,7 +660,21 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
         ).format(i=indent, attr=_SEG_SESSION_ATTR)
 
     @classmethod
-    def _add_segment_block(cls, name):
+    def _add_segment_block(cls, name, color=None):
+        # The colour sub-op is applied AFTER the reuse-or-create resolve, so it
+        # holds on both paths (a re-run recolours the segment it reused) and is
+        # idempotent. vtkSegment.SetColor is the segment's own colour; the
+        # display node's per-segment override defaults to "no override", so this
+        # is what the user sees.
+        color_lines = ""
+        if color:
+            color_lines = (
+                "_ses_segment = _ses_segmentation.GetSegment(_ses_sid)\n"
+                "if _ses_segment is not None:\n"
+                "    _ses_segment.SetColor({r}, {g}, {b})\n".format(
+                    r=float(color[0]), g=float(color[1]), b=float(color[2]),
+                )
+            )
         return (
             "# --- {mark} add or reuse the target segment ---\n".format(mark=_SEG_SESSION_MARK)
             + "# Deterministic + IDEMPOTENT: reuse a segment already named '{name}' (so a\n".format(name=name)
@@ -506,7 +692,8 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
             "    _ses_sid = _ses_segmentation.AddEmptySegment(\"{name}\", \"{name}\")\n".format(name=name)
             + "if not _ses_sid:\n"
             "    raise RuntimeError(\"STATE_NOT_APPLIED: AddEmptySegment returned empty id\")\n"
-            "_ses_seg.SetAttribute(\"{attr}\", _ses_sid)\n".format(attr=_SEG_TARGET_ATTR)
+            + color_lines
+            + "_ses_seg.SetAttribute(\"{attr}\", _ses_sid)\n".format(attr=_SEG_TARGET_ATTR)
             + "segmentId = _ses_sid\n"
             "print(\"[SegmentEditor] Segment '{name}' ready.\")\n".format(name=name)
             + "# --- [end Segment Editor session] ---\n"
@@ -580,18 +767,39 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
             "            _ses_disp.SetSegmentVisibility(_ses_target, True)\n"
         )
 
-    def interaction_preamble(self):
+    @classmethod
+    def _reactivate_effect_lines(cls, active_effect):
+        """Idempotent re-arm of the session's effect: activate ``active_effect``
+        only if NOTHING is active, so a live effect (and its option/mode, set by
+        a prior step) is never disturbed. Empty when no effect is known."""
+        eff = _safe_name(active_effect, "")
+        if not eff:
+            return ""
+        return (
+            "if _ses_widget.activeEffect() is None:\n"
+            "    _ses_widget.setActiveEffectByName(\"{effect}\")\n".format(effect=eff)
+        )
+
+    def interaction_preamble(self, active_effect=None):
         """Creation-free bind for a module_tool_interaction pre-template: re-assert
         the segment editor is bound to the SESSION segmentation + target segment +
         source volume so the ACTIVE effect (already set by the prior activate/option
         steps) consumes the user's slice-view clicks. No node creation, no place
         mode — so the interaction contract (creates_node=false / requires_place_mode
-        =false) holds."""
+        =false) holds.
+
+        The effect is also RE-ARMED if nothing is active. The preamble used to
+        assume a prior step left the effect live, which silently fails whenever
+        anything released it in between (e.g. a session teardown emitted on the
+        preceding step) — the user then clicks in the view and nothing consumes
+        it. Idempotent, so a still-live effect keeps its mode."""
         return (
             "# --- {mark} prepare the active effect for in-view interaction ---\n".format(mark=_SEG_SESSION_MARK)
             + "# The prior steps activated the effect and set its mode; re-bind the\n"
-            "# session segmentation + target so the effect's own slice-view clicks work.\n"
+            "# session segmentation + target so the effect's own slice-view clicks work,\n"
+            "# and re-arm the effect if nothing is active (never override a live one).\n"
             + self._bind_and_select_body(create_editor_node=False)
+            + self._reactivate_effect_lines(active_effect)
             # Put the source volume in the slice backgrounds and fit the view so the
             # user sees the anatomy + the segment mask overlay and can aim the click.
             + "if _ses_vol is not None:\n"
@@ -676,13 +884,7 @@ class SegmentEditorSessionDriver(ModuleSessionDriver):
         across effects and options: it reproduces the exact GUI action the cookbook
         describes, so it needs no per-effect parameter/enum table."""
         label = _safe_name(option_label, "")
-        reactivate = ""
-        eff = _safe_name(active_effect, "")
-        if eff:
-            reactivate = (
-                "if _ses_widget.activeEffect() is None:\n"
-                "    _ses_widget.setActiveEffectByName(\"{effect}\")\n".format(effect=eff)
-            )
+        reactivate = cls._reactivate_effect_lines(active_effect)
         return (
             "# --- {mark} select an option/mode of the active effect ---\n".format(mark=_SEG_SESSION_MARK)
             + "# Keep the current effect active (do NOT switch to a default) and set its\n"

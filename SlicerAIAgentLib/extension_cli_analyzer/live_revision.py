@@ -516,6 +516,14 @@ class AnalyzerLiveRevisionMixin:
                     workflow_data = json.load(f)
             except Exception:
                 workflow_data = {"steps": []}
+        # This path builds a FRESH analyzer, so no generation pass has stashed the
+        # ordered steps. Without them _apply_module_session_drivers (which the
+        # repair loop calls to restore driver blocks an LLM rewrite dropped) has
+        # no descriptions, claims nothing, and is a silent no-op — in exactly the
+        # path a user runs to fix a broken CLI.
+        self._module_session_steps = list(
+            (workflow_data or {}).get("steps") or []
+        )
 
         # Read every template referenced by the generators.
         templates: Dict[str, str] = {}
@@ -811,6 +819,14 @@ class AnalyzerLiveRevisionMixin:
                     workflow_data = json.load(f)
             except Exception:
                 workflow_data = {"steps": []}
+        # This path builds a FRESH analyzer, so no generation pass has stashed the
+        # ordered steps. Without them _apply_module_session_drivers (which the
+        # repair loop calls to restore driver blocks an LLM rewrite dropped) has
+        # no descriptions, claims nothing, and is a silent no-op — in exactly the
+        # path a user runs to fix a broken CLI.
+        self._module_session_steps = list(
+            (workflow_data or {}).get("steps") or []
+        )
 
         templates: Dict[str, str] = {}
         for gen in generators:

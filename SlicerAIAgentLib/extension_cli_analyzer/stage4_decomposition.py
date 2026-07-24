@@ -625,9 +625,10 @@ class AnalyzerStage4DecompositionMixin:
         has_view = any(_re.search(v, low) for v in self._VIEW_CONTEXT_TOKENS)
         return has_verb and has_view
 
-    def _active_module_tool_context(self, prior_stages: List[Dict[str, Any]]) -> str:
-        """Return the module whose ACTIVE tool/effect owns view interaction at this
-        point in the workflow, or "". Walks the prior steps tracking the current
+    def _active_module_tool_context(self, prior_stages: List[Dict[str, Any]]):
+        """Return ``(module, tool)`` for the module whose ACTIVE tool/effect owns
+        view interaction at this point in the workflow, else ``("", "")``.
+        Walks the prior steps tracking the current
         module (from each step's "In the 'X' module" text) and, while inside a
         module that has a session driver, whether a step activated a view-owning
         tool (delegated to the driver — Segment Editor: any effect activation).
@@ -645,10 +646,11 @@ class AnalyzerStage4DecompositionMixin:
         try:
             from .module_sessions import extract_module, driver_for_module
         except Exception:
-            return ""
+            return "", ""
         active_module = ""
         active_driver = None
         tool_active = False
+        active_tool = ""
         for stage in prior_stages or []:
             if not isinstance(stage, dict):
                 continue
@@ -668,30 +670,43 @@ class AnalyzerStage4DecompositionMixin:
                 active_driver = driver
                 if driver is None:
                     tool_active = False  # a different named module — the effect is gone
+                    active_tool = ""
             elif op_type == "extension_op" or self._is_explicit_module_switch_text(desc):
                 # Left the core module (extension-panel action / explicit switch) —
                 # a re-entry step would re-activate the effect and re-arm this.
                 active_module = ""
                 active_driver = None
                 tool_active = False
+                active_tool = ""
             if active_driver is not None:
                 step_view = {"description": desc, "sub_operations": sub_ops}
                 if active_driver.activates_view_owning_tool(step_view):
                     tool_active = True
+                    # Remember WHICH tool, so the interaction pre-template can
+                    # re-arm it if something released it in between (a session
+                    # teardown, a module the driver does not claim). Without the
+                    # name the preamble can only re-bind, never re-activate.
+                    active_tool = active_driver.effect_activated_by(step_view) or active_tool
         if active_driver is not None and tool_active and active_module:
-            return active_module
-        return ""
+            return active_module, active_tool
+        return "", ""
 
-    def _force_module_tool_interaction(self, sub_op: Dict[str, Any], module: str) -> None:
+    def _force_module_tool_interaction(
+        self, sub_op: Dict[str, Any], module: str, module_tool: str = "",
+    ) -> None:
         """Coerce a user_interaction sub-op into a module_tool_interaction: the user
         drives an already-active module tool/effect that consumes the view clicks
         itself, so NO Markups node is created and NO placement mode is entered.
-        Records ``module_context`` so the pre-template can re-bind that tool."""
+        Records ``module_context`` so the pre-template can re-bind that tool, and
+        ``module_tool_context`` (which tool) so it can also RE-ARM it — the tool
+        may have been released between its activation and this step."""
         sub_op["interaction_kind"] = "module_tool_interaction"
         sub_op["node_class"] = None
         sub_op["creates_node"] = False
         sub_op["requires_place_mode"] = False
         sub_op["module_context"] = module
+        if module_tool:
+            sub_op["module_tool_context"] = module_tool
         if not _text_or_empty(sub_op.get("interaction_type")):
             sub_op["interaction_type"] = "generic"
         roles = sub_op.get("node_roles")
@@ -816,9 +831,9 @@ class AnalyzerStage4DecompositionMixin:
         if not markup_class and self._is_in_view_interaction_gesture(
             cookbook_description or description
         ):
-            module = self._active_module_tool_context(prior_stages)
+            module, module_tool = self._active_module_tool_context(prior_stages)
             if module:
-                self._force_module_tool_interaction(sub_op, module)
+                self._force_module_tool_interaction(sub_op, module, module_tool)
                 return
         if verdict == "markup_placement" and markup_class:
             sub_op["interaction_kind"] = "markup_placement"

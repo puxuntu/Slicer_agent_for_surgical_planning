@@ -184,6 +184,19 @@ class TypeProvenanceGraph:
         "getNodesByClass", "GetNodesByClass", "GetNodesByClassByName",
     })
 
+    # vtkCollection element accessors. `<typed collection>.GetItemAsObject(i)`
+    # returns an element of the collection's element class, so the INDEX-WALK
+    # form of the universal node-collection idiom stays typed:
+    #     coll = scene.GetNodesByClass("vtkMRMLSegmentationNode")
+    #     for i in range(coll.GetNumberOfItems()):
+    #         node = coll.GetItemAsObject(i)     # -> vtkMRMLSegmentationNode
+    # Only the `for x in coll` form was typed before (see _build's ast.For and
+    # ast.Subscript handling), yet generated code overwhelmingly emits the
+    # index walk. Keyed on the collection-API shape, not on any node class.
+    _COLLECTION_ITEM_ACCESSORS = frozenset({
+        "GetItemAsObject", "GetNextItemAsObject",
+    })
+
     def __init__(
         self,
         code: str,
@@ -372,6 +385,17 @@ class TypeProvenanceGraph:
                 cast_type = _unparse(node.args[0])
                 if cast_type:
                     return [self._evidence(cast_type, "medium", "typed_cast")]
+            # Element of a typed collection walked by index (see
+            # _COLLECTION_ITEM_ACCESSORS): either through a variable already
+            # recorded as a typed collection, or straight off the accessor call.
+            if func.attr in self._COLLECTION_ITEM_ACCESSORS:
+                if isinstance(func.value, ast.Name) and func.value.id in self.collections:
+                    return list(self.collections[func.value.id])
+                element_class = self._collection_element_class(func.value)
+                if element_class:
+                    return [self._evidence(
+                        element_class, "high", "typed_collection_api_contract"
+                    )]
             if (
                 func.attr == "SafeDownCast"
                 and isinstance(func.value, ast.Attribute)
@@ -800,6 +824,20 @@ class ApiProofValidator:
             item.get("type") for item in candidates
             if _confidence_rank(item.get("confidence", "")) >= _confidence_rank("medium")
         }
+        # A bare `x = None` SENTINEL says nothing about the receiver at the call
+        # site once the same name is also assigned a real value — the dominant
+        # generated-code shape:
+        #     x = None
+        #     for ...: x = <typed element>
+        #     x.SetAttribute(...)
+        # It is reported, not proved on: NoneType carries no type contract (the
+        # probe writers skip it and `getattr(slicer, "NoneType")` cannot resolve),
+        # so it contributes neither method nor invalid evidence and never decides
+        # a verdict on its own. Excluding it ONLY from the reported receiver_type
+        # keeps the diagnosis honest without weakening the gate — discarding it
+        # from high_types itself would silently downgrade a genuine None-receiver
+        # error to non-blocking the moment any NoneType contract does appear.
+        reported_types = high_types - {"NoneType"} if len(high_types) > 1 else high_types
         # A method call on the live module widget (obtained via getModuleWidget())
         # is the agent's deterministic button/checkbox handler-driver — the
         # handler was scanned from the widget's own connections, so it exists by
@@ -930,7 +968,7 @@ class ApiProofValidator:
             "source_span": obligation["source_span"],
             "diagnosis": diagnosis,
             "receiver_expression": receiver_expr,
-            "receiver_type": sorted(high_types)[0] if len(high_types) == 1 else "",
+            "receiver_type": sorted(reported_types)[0] if len(reported_types) == 1 else "",
             "method": method,
             "method_exists": False if obligation["proof_status"] == "invalid" else None,
             "effect": obligation["effect"],

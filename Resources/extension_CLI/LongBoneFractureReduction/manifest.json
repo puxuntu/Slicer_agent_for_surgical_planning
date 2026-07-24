@@ -27,7 +27,17 @@
     "cb_step_15",
     "cb_step_16",
     "cb_step_17",
-    "cb_step_18"
+    "cb_step_18",
+    "cb_step_19",
+    "cb_step_20",
+    "cb_step_21",
+    "cb_step_22",
+    "cb_step_23",
+    "cb_step_24",
+    "cb_step_25",
+    "cb_step_26",
+    "cb_step_27",
+    "cb_step_28"
   ],
   "cookbook_driven": true,
   "cookbook_file": "LongBoneFractureReduction.md",
@@ -67,11 +77,15 @@
       "valid": true,
       "issues": []
     },
+    "cb_step_10": {
+      "valid": true,
+      "issues": []
+    },
     "cb_step_11": {
       "valid": true,
       "issues": []
     },
-    "cb_step_13": {
+    "cb_step_12": {
       "valid": true,
       "issues": []
     },
@@ -83,16 +97,48 @@
       "valid": true,
       "issues": []
     },
+    "cb_step_16": {
+      "valid": true,
+      "issues": []
+    },
     "cb_step_17": {
       "valid": true,
       "issues": []
     },
-    "cb_step_18": {
+    "cb_step_19": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_21": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_22": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_23": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_24": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_25": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_27": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_28": {
       "valid": true,
       "issues": []
     }
   },
-  "partial_valid_step_count": 13,
+  "partial_valid_step_count": 22,
   "validation_state": {
     "static_valid": true,
     "api_probe_valid": true,
@@ -100,7 +146,7 @@
     "prelude_valid": true,
     "contract_audit_valid": true,
     "workflow_state_valid": true,
-    "prelude_bytes_max": 3904,
+    "prelude_bytes_max": 3890,
     "overall_valid": true,
     "api_proof_valid": true,
     "api_inventory_complete": true,
@@ -110,14 +156,14 @@
     "generator_template_sync_valid": true
   },
   "api_proof_coverage": {
-    "total_calls": 295,
-    "state_changing_calls": 98,
-    "proven_calls": 195,
+    "total_calls": 544,
+    "state_changing_calls": 180,
+    "proven_calls": 406,
     "invalid_calls": 0,
     "blocking_unproven_calls": 0,
-    "warning_unproven_reads": 100,
+    "warning_unproven_reads": 138,
     "inventory_complete": true
   },
   "workflow_contract_file": "workflow_contract.json",
-  "source_path": "C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions/LongBoneFractureReduction\\LongBoneFractureReduction"
+  "source_path": "C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions/LongBoneFractureReduction"
 }
