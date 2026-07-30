@@ -10,6 +10,10 @@ class WidgetSettingsMixin:
         self.codeDisplay.clear()
         self.currentCode = None
         self.currentAgentPlan = None
+        # Clear every parked Debug buffer too, not just the displayed one, so
+        # "Clear Chat" is a full reset rather than one that leaves a baseline's
+        # (or the pipeline's) transcript to reappear on the next context switch.
+        self._debugBuffers = {}
 
     def appendToChat(self, sender, message):
         if not hasattr(self, 'chatHistory') or self.chatHistory is None:
@@ -36,8 +40,10 @@ class WidgetSettingsMixin:
         <hr style="border: none; border-top: 1px solid #eee; margin: 5px 0;">
         """
 
-        self._chatEntriesHtml.append(html)
-        self._setChatHtml(''.join(self._chatEntriesHtml))
+        # Routed, not appended directly: while a baseline view is open the
+        # pipeline's own messages still belong to the pipeline buffer.
+        self._debugWriteEntries().append(html)
+        self._renderChatIfVisible()
 
     def escapeHtml(self, text):
         return (text

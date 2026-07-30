@@ -121,6 +121,8 @@ class WidgetWorkflowMixin:
         # which case the programmatic block above is skipped. This wraps the
         # progress bar with the Back / Forward / Run-from-here buttons.
         self._setupReplayControls()
+        # Baseline comparison section, inserted directly under the replay row.
+        self._setupBaselinePanel()
 
         self._positionWorkflowUserPanel()
         self._clearWorkflowPanel()
@@ -2728,7 +2730,7 @@ class WidgetWorkflowMixin:
                 "can_skip": True,
                 "can_cancel": True,
             })
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
             return
 
         # Auto-send a prompt to proceed with the next step

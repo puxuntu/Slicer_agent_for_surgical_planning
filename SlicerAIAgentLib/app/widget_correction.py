@@ -301,7 +301,7 @@ class WidgetCorrectionMixin:
                 "has_plan": bool(self.currentAgentPlan),
                 "code_chars": len(self.currentCode or ""),
             })
-            self.codeDisplay.setPlainText(response["code"])
+            self._setGeneratedCode(response["code"])
             self._displayAgentPlanSummary(self.currentAgentPlan)
             self._saveAgentPlanToFile(self.currentAgentPlan, suffix=f"_correction_{attempt}")
             self._saveGeneratedCodeToFile(response["code"], suffix=f"_correction_{attempt}")

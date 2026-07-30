@@ -136,7 +136,7 @@ class WidgetSendMixin:
 
     def onPromptTextChanged(self):
         hasText = bool(self.promptInput.toPlainText().strip())
-        self.sendButton.setEnabled(hasText)
+        self._setSendEnabled(hasText)
 
     def generateResponse(self, prompt):
         """Legacy non-streaming path (kept for backward compatibility)."""
@@ -155,7 +155,7 @@ class WidgetSendMixin:
                 self._recordRoleEvent("Programmer", "code_received", {
                     "code_chars": len(self.currentCode or ""),
                 })
-                self.codeDisplay.setPlainText(response["code"])
+                self._setGeneratedCode(response["code"])
                 self._displayAgentPlanSummary(self.currentAgentPlan)
                 self._saveAgentPlanToFile(self.currentAgentPlan)
                 self._saveGeneratedCodeToFile(response["code"])
@@ -179,4 +179,4 @@ class WidgetSendMixin:
             self.appendToChat("Error", f"Failed to generate response: {str(e)}")
         finally:
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)

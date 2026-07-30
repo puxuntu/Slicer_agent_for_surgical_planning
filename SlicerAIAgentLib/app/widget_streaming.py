@@ -11,6 +11,95 @@ class WidgetStreamingMixin:
             self.logic.resumeProcessing()
 
     # ------------------------------------------------------------------
+    # Debug-view contexts
+    #
+    # The Debug section's two pages (Conversation = chatHistory, Generated Code
+    # = codeDisplay) are shared by the real pipeline and by each comparison
+    # baseline, but their content must never mix: a baseline's thinking and code
+    # belong to that baseline alone, and the pipeline's belong to the pipeline.
+    #
+    # Two independent pointers do that:
+    #   _debugContext       which buffer is DISPLAYED (the user's ⚖ toggle /
+    #                       baseline selector picks this)
+    #   _debugWriteContext  which buffer new content is WRITTEN to (the producer
+    #                       currently running picks this)
+    #
+    # They are usually equal. They diverge exactly when a baseline run finishes
+    # and hands control back to the pipeline's auto-advance while the baseline
+    # view is still open: the pipeline's output then accumulates invisibly in
+    # the "pipeline" buffer and appears intact the moment the user closes the
+    # baseline section. `_chatEntriesHtml` and the two widgets always hold the
+    # DISPLAYED buffer; the others are parked in `_debugBuffers` and swapped in
+    # by _switchDebugContext.
+    # ------------------------------------------------------------------
+    PIPELINE_DEBUG_CONTEXT = "pipeline"
+
+    def _debugBuffer(self, key):
+        return self._debugBuffers.setdefault(key, {"entries": [], "code": ""})
+
+    def _debugWriteIsVisible(self):
+        return getattr(self, "_debugWriteContext", self.PIPELINE_DEBUG_CONTEXT) == \
+            getattr(self, "_debugContext", self.PIPELINE_DEBUG_CONTEXT)
+
+    def _debugWriteEntries(self):
+        """The chat-entry list new content must be appended to."""
+        if self._debugWriteIsVisible():
+            return self._chatEntriesHtml
+        return self._debugBuffer(self._debugWriteContext)["entries"]
+
+    def _renderChatIfVisible(self, with_streaming=False):
+        """Repaint the Conversation page, but only for the displayed buffer."""
+        if not self._debugWriteIsVisible():
+            return
+        html = ''.join(self._chatEntriesHtml)
+        if with_streaming:
+            html += self._buildStreamingEntryHtml()
+        self._setChatHtml(html)
+
+    def _setGeneratedCode(self, code):
+        """Write the Generated Code page for the CURRENT write context."""
+        text = str(code or "")
+        if not self._debugWriteIsVisible():
+            self._debugBuffer(self._debugWriteContext)["code"] = text
+            return
+        try:
+            self.codeDisplay.setPlainText(text)
+        except Exception:
+            logger.debug("Generated-code display write failed", exc_info=True)
+
+    def _switchDebugContext(self, key, banner_html=""):
+        """Show a different Debug buffer, stashing the current one intact."""
+        key = key or self.PIPELINE_DEBUG_CONTEXT
+        if key == getattr(self, "_debugContext", self.PIPELINE_DEBUG_CONTEXT):
+            return
+        current = self._debugBuffer(self._debugContext)
+        current["entries"] = list(self._chatEntriesHtml)
+        try:
+            current["code"] = self.codeDisplay.toPlainText()
+        except Exception:
+            logger.debug("Generated-code stash failed", exc_info=True)
+
+        target = self._debugBuffer(key)
+        if banner_html and not target["entries"]:
+            target["entries"].append(banner_html)
+        self._chatEntriesHtml = list(target["entries"])
+        self._debugContext = key
+
+        # Drop any half-rendered streaming fragment: it belongs to the buffer we
+        # just left and would otherwise bleed into the one we are entering.
+        self._streaming = False
+        self._streamContent = ""
+        self._streamReasoning = ""
+        self._thinkingDisplayText = ""
+        self._thinkingDisplayed = False
+
+        self._setChatHtml(''.join(self._chatEntriesHtml))
+        try:
+            self.codeDisplay.setPlainText(target["code"])
+        except Exception:
+            logger.debug("Generated-code restore failed", exc_info=True)
+
+    # ------------------------------------------------------------------
     # Streaming chat display helpers
     # ------------------------------------------------------------------
     def _setChatHtml(self, html):
@@ -61,7 +150,7 @@ class WidgetStreamingMixin:
         """Re-render the current streaming assistant entry in the chat box."""
         if not hasattr(self, 'chatHistory') or self.chatHistory is None:
             return
-        self._setChatHtml(''.join(self._chatEntriesHtml) + self._buildStreamingEntryHtml())
+        self._renderChatIfVisible(with_streaming=True)
 
     def _updateThinkingTimer(self):
         """Update the thinking timer display every 100ms."""
@@ -102,6 +191,83 @@ class WidgetStreamingMixin:
             and not (self._workflowRuntime and self._workflowRuntime.has_active_workflow())
         ):
             self._updateTraditionalTaskPanel(role, status)
+
+    # ------------------------------------------------------------------
+    # Free-text input availability
+    #
+    # In the guided step-by-step pipeline every step is dispatched by the
+    # runtime and driven from the workflow panel's own controls -- the user
+    # never needs to type. The prompt box and Send are therefore switched off
+    # for the duration of a generated-CLI workflow, and switched back on when
+    # baseline mode is engaged (the ⚖ button), which is exactly the mode that
+    # needs them: the baselines take their prompt in that same box.
+    #
+    # Every site that ENABLES Send goes through _setSendEnabled so the gate
+    # cannot be bypassed; the sites that disable it are left alone, since
+    # disabling is always safe.
+    # ------------------------------------------------------------------
+    def _guidedWorkflowOwnsInput(self):
+        """True while a guided workflow is driving and no baseline is engaged.
+
+        Keyed on ENGAGED, not on the raw toggle: on a step that cannot take a
+        baseline the selector row is hidden, so the input row must go back to
+        the workflow rather than sit enabled with nothing to drive.
+        """
+        if self._baselineEngaged():
+            return False
+        runtime = getattr(self, "_workflowRuntime", None)
+        try:
+            return bool(runtime and runtime.has_active_workflow())
+        except Exception:
+            return False
+
+    def _setSendEnabled(self, enabled):
+        """Single funnel for the Send button's enabled state."""
+        guided = self._guidedWorkflowOwnsInput()
+        try:
+            self.sendButton.setEnabled(bool(enabled) and not guided)
+        except Exception:
+            logger.debug("Send enable failed", exc_info=True)
+        self._refreshPromptAvailability(guided)
+
+    def _refreshPromptAvailability(self, guided=None):
+        """Grey out the prompt box exactly while the guided workflow owns input.
+
+        Kept independent of Send's transient state: during a normal turn Send is
+        disabled but the user may still type ahead, so the box follows only the
+        guided/baseline gate.
+        """
+        if guided is None:
+            guided = self._guidedWorkflowOwnsInput()
+        box = getattr(self, "promptInput", None)
+        if box is None:
+            return
+        try:
+            box.setEnabled(not guided)
+            box.setToolTip(
+                "The guided workflow is driving these steps — use the panel's "
+                "controls, or press ⚖ to run a comparison baseline here."
+                if guided else ""
+            )
+        except Exception:
+            logger.debug("Prompt availability refresh failed", exc_info=True)
+
+    def _refreshInputAvailability(self):
+        """Re-apply the gate after any workflow/baseline state change."""
+        if getattr(self, "promptInput", None) is None or getattr(self, "sendButton", None) is None:
+            return
+        guided = self._guidedWorkflowOwnsInput()
+        self._refreshPromptAvailability(guided)
+        if guided:
+            try:
+                self.sendButton.setEnabled(False)
+            except Exception:
+                logger.debug("Send disable failed", exc_info=True)
+        elif not getattr(self, "_streaming", False) and not self._baselineBusy():
+            # Not guided and nothing in flight: Send follows the prompt box,
+            # except in baseline mode where some producers need no prompt.
+            self._setSendEnabled(bool(self.promptInput.toPlainText().strip())
+                                 or self._baselineEngaged())
 
     def _setReadyStatus(self):
         """Reset status label after a turn finishes or is cancelled."""
@@ -317,7 +483,7 @@ class WidgetStreamingMixin:
                 queued_state["status"] = "Queued request"
                 self._updateWorkflowPanel(queued_state)
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
             return True
 
         if route.route_type == ROUTE_WORKFLOW_UNRESOLVED:
@@ -327,7 +493,7 @@ class WidgetStreamingMixin:
                 f"action, so the workflow state was not changed. {route.reason}",
             )
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
             return True
 
         if route.route_type != ROUTE_WORKFLOW_CONTROL:
@@ -368,7 +534,7 @@ class WidgetStreamingMixin:
         if not self._workflowRuntime:
             self.appendToChat("Error", "No active generated CLI workflow runtime.")
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
             return
 
         self._setAgentStatus("Workflow", f"Running {step_id or 'current step'}...")
@@ -397,7 +563,7 @@ class WidgetStreamingMixin:
         if not isinstance(result, dict):
             self.appendToChat("Error", "Generated CLI workflow returned an invalid result.")
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
             return
         if result.get("error"):
             self.appendToChat("Error", result["error"])
@@ -414,7 +580,7 @@ class WidgetStreamingMixin:
             self._recordRoleEvent("Workflow", "dispatch_failed", {"error": result["error"]})
             self._saveRoleTraceToFile()
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
             return
 
         self._registerWorkflowRuntimeResult(result)
@@ -428,7 +594,7 @@ class WidgetStreamingMixin:
             self._recordRoleEvent("Workflow", "cancelled", {})
             self._saveRoleTraceToFile()
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
             return
 
         if result_type == "user_choice":
@@ -441,14 +607,14 @@ class WidgetStreamingMixin:
             })
             self._saveRoleTraceToFile()
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
             return
 
         code = result.get("code") or result.get("pre_code") or result.get("post_code")
         if code:
             self.currentCode = code
             self.currentAgentPlan = self._buildWorkflowAgentPlan(result)
-            self.codeDisplay.setPlainText(code)
+            self._setGeneratedCode(code)
             self._saveAgentPlanToFile(self.currentAgentPlan)
             self._saveGeneratedCodeToFile(code, suffix=f"_{result.get('step_id', 'workflow')}")
             self._recordRoleEvent("Programmer", "workflow_template_received", {
@@ -589,7 +755,7 @@ class WidgetStreamingMixin:
             self._clearCompletedWorkflowState()
             self._flushQueuedWorkflowPrompts()
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
             return
         if next_step:
             self._updateWorkflowPanel(result)
@@ -597,7 +763,7 @@ class WidgetStreamingMixin:
             qt.QTimer.singleShot(100, lambda: self._autoAdvanceNextStep(next_step))
         else:
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
 
     def _flushQueuedWorkflowPrompts(self):
         """Replay queued traditional prompts after a generated CLI workflow ends."""
@@ -636,8 +802,8 @@ class WidgetStreamingMixin:
     def _finalizeStreamingEntry(self):
         """Commit the current streaming assistant entry into chat history."""
         if self._streaming or self._streamReasoning or self._streamContent:
-            self._chatEntriesHtml.append(self._buildStreamingEntryHtml())
-            self._setChatHtml(''.join(self._chatEntriesHtml))
+            self._debugWriteEntries().append(self._buildStreamingEntryHtml())
+            self._renderChatIfVisible()
 
     def _drainStreamQueue(self):
         """Drain queued streaming events on the Qt main thread.
@@ -742,6 +908,15 @@ class WidgetStreamingMixin:
             elif event_type == 'workflow_wait':
                 self._enterWorkflowWait(payload)
                 i += 1
+            elif event_type == 'baseline_generated':
+                self._handleBaselineGenerated(payload)
+                i += 1
+            elif event_type == 'baseline_status':
+                self._setBaselineStatus(payload)
+                i += 1
+            elif event_type == 'baseline_thinking':
+                self._handleBaselineThinkingRound(payload)
+                i += 1
             else:
                 i += 1
 
@@ -769,8 +944,8 @@ class WidgetStreamingMixin:
             f'<div style="margin-left: 10px; margin-top: 3px; white-space: pre-wrap; color: #555;">{self.escapeHtml(progress_text).replace(chr(10), "<br>")}</div>'
             f'</div>'
         )
-        self._chatEntriesHtml.append(html)
-        self._setChatHtml(''.join(self._chatEntriesHtml) + self._buildStreamingEntryHtml())
+        self._debugWriteEntries().append(html)
+        self._renderChatIfVisible(with_streaming=True)
 
     def _onStreamComplete(self, response):
         """Called on the main thread when streaming finishes successfully."""
@@ -896,7 +1071,7 @@ class WidgetStreamingMixin:
             self._recordRoleEvent("Programmer", "code_received", {
                 "code_chars": len(self.currentCode or ""),
             })
-            self.codeDisplay.setPlainText(response["code"])
+            self._setGeneratedCode(response["code"])
             self._displayAgentPlanSummary(self.currentAgentPlan)
             self._saveAgentPlanToFile(self.currentAgentPlan)
             self._saveGeneratedCodeToFile(response["code"])
@@ -920,7 +1095,7 @@ class WidgetStreamingMixin:
 
         self._stopThinkingTimer("Done")
         self._setReadyStatus()
-        self.sendButton.setEnabled(True)
+        self._setSendEnabled(True)
 
     def _onStreamError(self, error_msg):
         """Called on the main thread when the streaming request fails."""
@@ -955,4 +1130,4 @@ class WidgetStreamingMixin:
             self._taskWorkflowPanelActive = False
         self._stopThinkingTimer("Error")
         self._setReadyStatus()
-        self.sendButton.setEnabled(True)
+        self._setSendEnabled(True)

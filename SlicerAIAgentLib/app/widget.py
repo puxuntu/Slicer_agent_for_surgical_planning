@@ -4,6 +4,7 @@ from .widget_core import WidgetCoreMixin
 from .widget_cli import WidgetCLIMixin
 from .widget_workflow import WidgetWorkflowMixin
 from .widget_replay import WidgetReplayMixin
+from .widget_baseline import WidgetBaselineMixin
 from .widget_streaming import WidgetStreamingMixin
 from .widget_execution import WidgetExecutionMixin
 from .widget_settings import WidgetSettingsMixin
@@ -14,6 +15,7 @@ class SlicerAIAgentWidget(
     WidgetCLIMixin,
     WidgetWorkflowMixin,
     WidgetReplayMixin,
+    WidgetBaselineMixin,
     WidgetStreamingMixin,
     WidgetExecutionMixin,
     WidgetSettingsMixin,
@@ -29,6 +31,11 @@ class SlicerAIAgentWidget(
         self._parameterNode = None
         self._updatingGUIFromParameterNode = False
         self._chatEntriesHtml = []
+        # Debug-view isolation: the pipeline and each baseline keep their own
+        # Conversation/Generated-Code content (see WidgetStreamingMixin).
+        self._debugBuffers = {}
+        self._debugContext = "pipeline"
+        self._debugWriteContext = "pipeline"
         # Streaming state
         self._streamReasoning = ""
         self._streamContent = ""
@@ -89,6 +96,19 @@ class SlicerAIAgentWidget(
         self._replayBackButton = None
         self._replayForwardButton = None
         self._replayActionButton = None
+        # Baseline comparison (pure LLM / online only / Claude Code MCP). The
+        # harness drives the EXISTING promptInput + sendButton; the only extra
+        # widget is one selector row inserted above them.
+        self._baselineToggleButton = None
+        self._baselineRow = None
+        self._baselineModeCombo = None
+        self._baselineInfoLabel = None
+        self._baselineActive = False
+        self._baselineSendText = "Send"
+        self._baselineSendStyle = ""
+        self._baselineMcpServer = None
+        self._baselineActiveRun = None
+        self._baselineRejection = ""
         self._lastInjectedPreludeKeys = []
 
     def onReload(self):

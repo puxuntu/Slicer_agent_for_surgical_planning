@@ -29,6 +29,8 @@ __all__ = [
     'TurnRouter',
     'WorkflowRuntime',
     'WorkflowIntentResolver',
+    'BaselineRunner',
+    'BaselineMCPServer',
 ]
 
 # Import main classes for convenient access

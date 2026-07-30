@@ -54,6 +54,22 @@ class WidgetReplayMixin:
             "Re-run the workflow from this step",
             self._onReplayAction,
         )
+        # Baseline comparison: re-run THIS step with an alternative code
+        # producer instead of the generated CLI template. Text-only so it reads
+        # as a different kind of action from the three transport controls.
+        self._baselineToggleButton = self._makeReplayButton(
+            None, "⚖",
+            "Run this step with a comparison baseline "
+            "(pure LLM / online only / Claude Code + Slicer skill)",
+            self._onBaselineToggleClicked,
+        )
+        # Checkable so the armed state stays legible even where the selector row
+        # is hidden — which it is on any step the pipeline does not answer with
+        # generated code (user_choice / user_interaction / branch_op / review_op).
+        try:
+            self._baselineToggleButton.setCheckable(True)
+        except Exception:
+            logger.debug("Baseline toggle checkable failed", exc_info=True)
 
         # Move the progress bar out of the vertical layout and into a row that
         # also holds the three buttons; insert the row where the bar used to be.
@@ -66,16 +82,17 @@ class WidgetReplayMixin:
         row_layout.addWidget(progress_bar, 1)
         row_layout.addWidget(self._replayForwardButton)
         row_layout.addWidget(self._replayActionButton)
+        row_layout.addWidget(self._baselineToggleButton)
         frame_layout.insertWidget(bar_index, row)
         self._replayControlsRow = row
 
         for button in (self._replayBackButton, self._replayForwardButton,
-                       self._replayActionButton):
+                       self._replayActionButton, self._baselineToggleButton):
             button.setVisible(False)
 
     def _makeReplayButton(self, icon_resource, fallback_text, tooltip, handler):
         button = qt.QToolButton()
-        icon = self._nativeIcon(icon_resource)
+        icon = self._nativeIcon(icon_resource) if icon_resource else None
         if icon is not None:
             button.setIcon(icon)
         else:
@@ -95,7 +112,12 @@ class WidgetReplayMixin:
 
     # ----------------------------------------------------------------- render
     def _updateReplayControls(self, state):
-        """Show/enable the stepper buttons from a UI-state dict."""
+        """Show/enable the stepper buttons from a UI-state dict.
+
+        Also drives the baseline toggle, so every caller of this method
+        (_updateWorkflowPanel, _clearWorkflowPanel, _clearCompletedWorkflowState)
+        keeps the two rows consistent without having to know about both.
+        """
         if getattr(self, "_replayControlsRow", None) is None:
             return
         state = state or {}
@@ -104,16 +126,24 @@ class WidgetReplayMixin:
                        self._replayActionButton):
             if button is not None:
                 button.setVisible(has_replay)
-        if not has_replay:
-            return
-        self._replayBackButton.setEnabled(bool(state.get("replay_can_back")))
-        self._replayForwardButton.setEnabled(bool(state.get("replay_can_forward")))
-        self._replayActionButton.setEnabled(bool(state.get("replay_can_action")))
+        if has_replay:
+            self._replayBackButton.setEnabled(bool(state.get("replay_can_back")))
+            self._replayForwardButton.setEnabled(bool(state.get("replay_can_forward")))
+            self._replayActionButton.setEnabled(bool(state.get("replay_can_action")))
+        try:
+            self._updateBaselineControls(state)
+        except Exception:
+            logger.debug("Baseline control refresh failed", exc_info=True)
 
     # --------------------------------------------------------------- handlers
     def _onReplayBack(self):
         runtime = getattr(self, "_workflowRuntime", None)
         if runtime is None or runtime.session is None:
+            return
+        # Every step is judged on its own: leave baseline mode and empty the
+        # prompt box BEFORE moving, so the panel re-renders for the step we land
+        # on rather than carrying the previous step's mode and text along.
+        if not self._resetBaselineForNavigation():
             return
         # _updateWorkflowPanel renders the returned state verbatim (no
         # type/step_id/tool/next_step keys) and refreshes the controls.
@@ -123,6 +153,8 @@ class WidgetReplayMixin:
         runtime = getattr(self, "_workflowRuntime", None)
         if runtime is None or runtime.session is None:
             return
+        if not self._resetBaselineForNavigation():
+            return
         self._updateWorkflowPanel(runtime.navigate_forward())
 
     def _onReplayAction(self):
@@ -130,21 +162,27 @@ class WidgetReplayMixin:
         runtime = getattr(self, "_workflowRuntime", None)
         if runtime is None or runtime.session is None:
             return
+        # Same rule as Back/Forward: this hands the step back to the pipeline,
+        # so the comparison arm is disengaged first — Send must not stay amber
+        # and baseline-routed while the pipeline is driving.
+        if not self._resetBaselineForNavigation():
+            return
         self._rerunFromCheckpoint(runtime.session.preview_index)
 
-    def _rerunFromCheckpoint(self, index, modified_args=None):
-        """Rewind to checkpoint ``index`` and re-execute the workflow from there.
+    def _prepareReplayRewind(self, index, modified_args=None):
+        """Confirm, restore the scene to BEFORE checkpoint ``index``, truncate state.
 
-        ``modified_args`` overrides the recorded args (e.g. a different choice
-        the user clicked while scrubbing). The checkpoint's own action drives
-        the re-dispatch: "choice_made" for choice/loop steps (so the value is
-        applied), "start" for interactive/automated steps (re-present/re-run).
+        Shared by "Run from here" and the baseline harness: both need the scene
+        and the workflow state put back exactly as they were before that step
+        ran, they only differ in what produces the step's code afterwards.
+        Returns the {step_id, action, args} descriptor, or None when the user
+        declined or the rewind failed (the caller has already been told).
         """
         runtime = getattr(self, "_workflowRuntime", None)
         if runtime is None or runtime.session is None or index is None:
-            return
+            return None
         if not self._confirmReplayRewind(index):
-            return
+            return None
         try:
             self._interactionManager.cleanup()
         except Exception:
@@ -158,14 +196,27 @@ class WidgetReplayMixin:
         if not isinstance(descriptor, dict) or descriptor.get("error"):
             self.appendToChat("Error", (descriptor or {}).get("error", "Replay failed."))
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
-            return
+            self._setSendEnabled(True)
+            return None
 
         self._updateWorkflowPanel(runtime.state_for_ui())
         try:
             self._applyChosenVolumeBackground()
         except Exception:
             logger.debug("Re-asserting slice background after rewind failed", exc_info=True)
+        return descriptor
+
+    def _rerunFromCheckpoint(self, index, modified_args=None):
+        """Rewind to checkpoint ``index`` and re-execute the workflow from there.
+
+        ``modified_args`` overrides the recorded args (e.g. a different choice
+        the user clicked while scrubbing). The checkpoint's own action drives
+        the re-dispatch: "choice_made" for choice/loop steps (so the value is
+        applied), "start" for interactive/automated steps (re-present/re-run).
+        """
+        descriptor = self._prepareReplayRewind(index, modified_args)
+        if descriptor is None:
+            return
         self.appendToChat(
             "System",
             f"Re-running workflow from step '{descriptor.get('step_id')}'.",

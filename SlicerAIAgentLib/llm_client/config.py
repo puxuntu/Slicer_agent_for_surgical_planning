@@ -122,6 +122,11 @@ class LLMClientConfigMixin:
         self.turn_number = 1
         self.debug_suffix = ""  # e.g., "_correction" for self-correction turns
         self.debug_output_dir: Optional[str] = None
+        # Ablation switch for the "online only" baseline: when True,
+        # _buildSystemPrompt omits every generated-extension-CLI section (tool
+        # fragments, ext: source paths, the cookbook workflow block). Set and
+        # restored around a single call by SlicerAIAgentLib.BaselineRunner.
+        self.suppress_extension_cli = False
         self._system_prompt_template = self._loadSystemPromptTemplate()
 
     def _normalizeModelName(self, model: Optional[str]) -> str:
@@ -587,6 +592,15 @@ class LLMClientConfigMixin:
             except Exception:
                 base_prompt += str(scene)
             base_prompt += "\n```\n"
+
+        # Ablation for the "online only" baseline: skip every generated-CLI
+        # section below so the model sees the knowledge base and the built-in
+        # search tools but no generated extension CLI at all.
+        if getattr(self, "suppress_extension_cli", False):
+            if context and context.get("workflow_state"):
+                base_prompt += "\n\n## ACTIVE WORKFLOW\n"
+                base_prompt += context["workflow_state"]
+            return base_prompt
 
         # Inject dynamic extension CLI prompt fragments
         from SlicerAIAgentLib.ExtensionCLILoader import get_extension_prompt_fragments

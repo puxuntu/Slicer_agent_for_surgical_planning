@@ -56,6 +56,14 @@ class WidgetCoreMixin:
         panel already has. The only remaining width floor is the (small, fixed)
         labels and buttons, so opening the agent leaves the panel at the user's
         width — matching other modules. Vertical behaviour is left untouched.
+
+        A HORIZONTAL STRETCH of 1 goes on with it. ``Ignored`` is
+        ``Grow|Shrink|Ignore`` — it drops the ``Expand`` flag that ``Expanding``
+        (the QTextEdit default) carries, so in a row like ``inputLayout``
+        (promptInput + sendButton, no stretch factors in the .ui) the slack
+        would otherwise be split with the button and Send would balloon to half
+        the row. The stretch restores "the field fills the row, the buttons stay
+        at their natural size" without reintroducing a width floor.
         """
         root = getattr(self, "ui", None)
         if root is None:
@@ -66,12 +74,42 @@ class WidgetCoreMixin:
             for class_name in ("QComboBox", "QTextEdit", "QLineEdit", "QTabWidget", "QPlainTextEdit"):
                 targets += list(slicer.util.findChildren(root, className=class_name) or [])
             for widget in targets:
+                # In PythonQt `sizePolicy` is a PROPERTY, so the obvious
+                # `widget.sizePolicy()` calls the returned QSizePolicy and
+                # raises -- which, inside the old catch-all, silently skipped
+                # BOTH setters and made this whole method a no-op. Read the
+                # current vertical policy defensively and apply the setters
+                # outside the guard so the width relaxation always lands.
                 try:
-                    vertical = widget.sizePolicy().verticalPolicy()
-                    widget.setMinimumWidth(0)
-                    widget.setSizePolicy(qt.QSizePolicy.Ignored, vertical)
+                    vertical = widget.sizePolicy.verticalPolicy()
                 except Exception:
-                    pass
+                    vertical = qt.QSizePolicy.Preferred
+                try:
+                    widget.setMinimumWidth(0)
+                    policy = qt.QSizePolicy(qt.QSizePolicy.Ignored, vertical)
+                    policy.setHorizontalStretch(1)
+                    widget.setSizePolicy(policy)
+                except Exception:
+                    logger.debug("relax width failed for a widget", exc_info=True)
+                    try:
+                        widget.setSizePolicy(qt.QSizePolicy.Ignored, vertical)
+                    except Exception:
+                        pass
+
+            # Send is the only button sharing a row with a relaxed field. Pin
+            # its width to its size hint (>= the .ui's 80 px minimum) so the row
+            # reads "wide prompt box, compact Send" no matter how the layout
+            # ends up distributing slack. Height is left to the .ui.
+            button = getattr(self, "sendButton", None)
+            if button is not None:
+                try:
+                    vertical = button.sizePolicy.verticalPolicy()
+                except Exception:
+                    vertical = qt.QSizePolicy.Fixed
+                try:
+                    button.setSizePolicy(qt.QSizePolicy.Fixed, vertical)
+                except Exception:
+                    logger.debug("send button width pin failed", exc_info=True)
         except Exception:
             logger.debug("relax content width failed", exc_info=True)
 
@@ -253,6 +291,7 @@ class WidgetCoreMixin:
 
     def cleanup(self):
         self.disconnect()
+        self._teardownBaselineMcp()
         if self._streamPollTimer:
             self._streamPollTimer.stop()
         if hasattr(self, '_indexStatusTimer') and self._indexStatusTimer:

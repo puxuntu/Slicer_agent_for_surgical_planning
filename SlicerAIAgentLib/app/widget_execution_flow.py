@@ -204,7 +204,7 @@ class WidgetExecutionFlowMixin:
             resume_callback()
         else:
             self._setReadyStatus()
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
             self._recordRoleEvent("SafetyCritic", "execution_cancelled_by_user", {
                 "reason": reason,
             })
@@ -228,7 +228,7 @@ class WidgetExecutionFlowMixin:
             error_msg = "; ".join(plan_validation["errors"])
             if attempt >= max_attempts:
                 self._setReadyStatus()
-                self.sendButton.setEnabled(True)
+                self._setSendEnabled(True)
                 self._recordRoleEvent("Repairer", "max_attempts_reached", {
                     "attempts": max_attempts,
                     "final_error": error_msg,
@@ -278,7 +278,7 @@ class WidgetExecutionFlowMixin:
                 error_msg = validation['reason']
                 if attempt >= max_attempts:
                     self._setReadyStatus()
-                    self.sendButton.setEnabled(True)
+                    self._setSendEnabled(True)
                     self._recordRoleEvent("Repairer", "max_attempts_reached", {
                         "attempts": max_attempts,
                         "final_error": error_msg,
@@ -338,7 +338,7 @@ class WidgetExecutionFlowMixin:
                 })
                 if attempt >= max_attempts:
                     self._setReadyStatus()
-                    self.sendButton.setEnabled(True)
+                    self._setSendEnabled(True)
                     self._recordRoleEvent("Repairer", "max_attempts_reached", {
                         "attempts": max_attempts,
                         "final_error": error_msg,
@@ -774,7 +774,7 @@ class WidgetExecutionFlowMixin:
                 if updated_step.get("type") == "user_choice":
                     self._displayWorkflowChoice(updated_step)
                     self._setReadyStatus()
-                    self.sendButton.setEnabled(True)
+                    self._setSendEnabled(True)
                     return
                 next_step = updated_step.get("next_step")
                 if next_step:
@@ -1215,7 +1215,7 @@ class WidgetExecutionFlowMixin:
         self.appendToChat("Error", message)
         self._setReadyStatus()
         try:
-            self.sendButton.setEnabled(True)
+            self._setSendEnabled(True)
         except Exception:
             pass
         self._recordRoleEvent("Repairer", "generator_bug_detected", {

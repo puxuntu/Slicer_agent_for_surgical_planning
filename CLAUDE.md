@@ -125,6 +125,51 @@ An in-memory, per-step history of a generated-CLI workflow run, driven by three 
 - **`extension_cli_loader/workflow_state.py`** — `truncate_workflow_completions`, `set_workflow_choices`, `get_workflow_choices`, `set_all_workflow_repeat_states` overwrite the per-extension mirror dicts to a rewind prefix. `SlicerAIAgentLib/workflow_state.py` adds `prune_missing_interaction_nodes`.
 - **`app/widget_replay.py`** (`WidgetReplayMixin`) — `_setupReplayControls` wraps the existing `_workflowProgressBar` in a row with native-icon `QToolButton`s (`:/Icons/pqVcrBack24.png` / `pqVcrForward24.png` / `pqVcrPlay24.png`, text fallback). Stepping back updates the green-box guidance labels (`_workflowActionLabel`/`_workflowInstructionLabel`) via `_updateWorkflowPanel`'s direct-dict path. Recorded live, kept after completion, torn down on cancel or when a new workflow starts.
 
+### Baseline Comparison Harness
+
+Manual, per-step evaluation of the runtime pipeline against three alternative code producers. After a workflow has been run, step **Back** to a step and click the **⚖ Baseline** button (4th control in the replay row, right of "Run from here"); a section opens below it.
+
+- **`BaselineRunner.py`** — Qt-free core: mode metadata, prompt construction, tool ablation, JSON records. Three modes:
+  - `pure_llm` — one `LLMClient.chatIsolated` call with a minimal system prompt + the MRML scene summary. No retrieval, no tools, no knowledge base, no CLI, no conversation history.
+  - `online_only` — `chatWithToolsIsolated` with dense pre-retrieval and the built-in search tools, but the generated extension CLI ablated: `strip_generated_cli_tools()` removes CLI schemas *by identity* (from `get_dynamic_extension_tools()`, not by name pattern) and `LLMClient.suppress_extension_cli` short-circuits the CLI/`ext:`/cookbook sections of `_buildSystemPrompt`.
+  - `claude_code` — code arrives over MCP from an external Claude Code session running the `slicer-skill` skill.
+- **`BaselineMCPServer.py`** — two transports; the panel uses **`BaselineMCPBridge`**.
+  - `BaselineMCPBridge` (default) **attaches to the skill's own `slicer-mcp-server.py`**, which the user pastes into Slicer's Python console exactly as the skill documents (its MCP config section and `--add-dir` unchanged). It finds `TOOL_HANDLERS` / `mcpLogic` in `__main__`; while armed it swaps *only* `execute_python` for a wrapper and restores the original on disarm — every other tool is untouched, armed or not. Restoration is by identity and is skipped if the user re-pasted the script, so a stale handler can never clobber a fresh registry. Not pasted ⇒ arming is refused with instructions, never a silent substitution: the transport is recorded in every run record (`"transport"`).
+  - `BaselineMCPServer` (fallback, unused by the panel) — a self-hosted endpoint on port 2027 with the same tool surface, for when the console script cannot be used. Selecting it is a deliberate deviation from the skill's documented setup.
+
+  Under either transport, `execute_python` routes the code through the agent's CodeValidator + `SafeExecutor.execute()` *synchronously* (so the real stdout/stderr goes back to Claude Code) and advances the step on the next event-loop turn. A failed attempt stays armed so the external agent can iterate; every attempt is recorded separately.
+- **`app/widget_baseline.py`** (`WidgetBaselineMixin`) — run orchestration, and a UI that **reuses the existing prompt box and Send button** rather than adding a second pair. The ⚖ button toggles *baseline mode*: one selector row appears above the input row, Send's caption follows the selector (`send_label` in `BASELINE_MODES`) and turns amber, and `onSendButtonClicked` / `onPromptTextChanged` are overridden in the mixin (which precedes `WidgetExecutionMixin` in the MRO, so `super()` reaches `WidgetSendMixin` when baseline mode is off). In Claude Code mode Send arms the MCP endpoint and, while armed, becomes "Stop waiting". Generated code goes to the usual Debug ▸ Generated Code view.
+  `_prepareReplayRewind` (extracted from `_rerunFromCheckpoint`) restores the exact pre-step scene, then `WorkflowRuntime.begin_external_step()` opens the step *without* dispatching its CLI template — recording a replay checkpoint as `run_step` would — and `handle_execution_result()` completes it and auto-advances.
+
+All three conditions share the tail of the real pipeline (CodeValidator → SafeExecutor → WorkflowRuntime completion), so only the code producer differs. They deliberately do **not** get plan validation, `ApiSanityChecker`, or the self-correction loop — those are properties of the system under test.
+
+**Which steps are comparable.** A baseline substitutes a *code producer*, so the step must be one the pipeline answers with executable code. Of the six canonical operation types (`extension_cli_analyzer.common.CANONICAL_OPERATION_TYPES`) exactly two qualify — `WorkflowRuntime.CODE_STEP_OPERATION_TYPES`, an **allow-list** so a type added later defaults to not-comparable:
+
+| type | comparable | why not |
+|---|---|---|
+| `extension_op` | ✅ | — |
+| `slicer_op` | ✅ | — |
+| `user_choice` | ❌ | user picks a value/node; no code, and the pick is what later steps read via `_workflow_choices` |
+| `user_interaction` | ❌ | the surgeon acts in the 3D view; no producer can stand in for a hand |
+| `branch_op` | ❌ | the answer, not the code, decides the next step |
+| `review_op` | ❌ | human review checkpoint — has no template at all |
+
+Across the nine cookbook extensions that is 106 of 184 steps (58%). `external_step_eligibility(step_id)` returns `(ok, reason)`.
+
+**The prompt is never authored by the panel.** The box is only ever *emptied*, never pre-filled: the prompt is the independent variable of the comparison, so it is the user's to write for every step and every condition.
+
+**Stepping resets the arm.** `_resetBaselineForNavigation()` runs before Back / Forward / Run-from-here: it leaves baseline mode and empties the prompt box, so each step is judged on its own and neither the previous step's mode nor its prompt text follows the user along the timeline. The user re-arms with ⚖ on the step they land on (possible only where the ⚖ button is enabled, i.e. a comparable step). It returns False while a run is in flight, and the caller abandons the navigation — stepping out from under an executing baseline would orphan its checkpoint and its record.
+
+The ⚖ button is **hidden outright** on a step whose operation type cannot be compared — there is nothing to offer there. That is only safe because the arm can never outlive the step it was set on: Back/Forward reset it, and `_updateBaselineControls` also auto-disarms (and clears the box) when the workflow *auto-advances* onto a non-comparable step after a run. Without that invariant a hidden-but-armed toggle would be unreachable. During a run the icon stays visible-but-disabled so the row cannot vanish under an executing baseline.
+
+Two separate notions still drive the rest: **`_baselineActive`** is the toggle intent, while **`_baselineEngaged()`** is that intent resolved against the step in view (`active and eligible`, plus always-true while a run is in flight). Engagement — not the raw toggle — drives the selector row's visibility, the prompt/Send gate (`_guidedWorkflowOwnsInput`), Send's caption, and Send's routing. The button is `setCheckable(True)` so the armed state is legible.
+
+**Input gating** (`WidgetStreamingMixin`, "Free-text input availability"). Once a generated-CLI workflow is running, every step is dispatched by the runtime and driven from the workflow panel's own controls, so `promptInput` and `sendButton` are switched off for the duration — and switched back on by baseline mode, which is exactly the mode that needs them. `_guidedWorkflowOwnsInput()` is the predicate (`has_active_workflow() and not _baselineActive`); `_setSendEnabled()` is the single funnel every *enabling* call site goes through, so no stray `setEnabled(True)` can defeat the gate (the `setEnabled(False)` sites are left direct — disabling is always safe). `_refreshInputAvailability()` re-applies it and is called from `_updateBaselineControls`, which runs on every `_updateWorkflowPanel`. Escape hatch when a workflow is stuck: the panel's Cancel button ends the session and returns the input row.
+
+**Debug-view isolation** (`WidgetStreamingMixin`, "Debug-view contexts"). The Debug section's two pages are shared by the pipeline and each baseline, but their content never mixes. Two pointers do it: `_debugContext` (which buffer is *displayed* — the ⚖ toggle and the baseline selector move it) and `_debugWriteContext` (which buffer new content is *written to* — the producer currently running moves it). `_chatEntriesHtml` plus the two widgets always hold the displayed buffer; the others are parked in `_debugBuffers` and swapped by `_switchDebugContext`. Every chat append goes through `_debugWriteEntries()` and every code write through `_setGeneratedCode()`, so the two pointers may diverge: when a baseline run finishes and auto-advance hands back to the pipeline, the pipeline's output accumulates invisibly in the `pipeline` buffer and reappears complete the moment the baseline row is closed. Baseline reasoning is committed permanently (the pipeline's streaming entry hides it after `thinking_done`); the online-only tool loop commits one entry per reasoning round via the `baseline_thinking` queue event.
+
+Records land in the turn's run folder as `baseline_<step>_<mode>_a<attempt>_<HHMMSS>.json` and are appended to `logs/baseline_runs.jsonl` so a whole evaluation session collects from one file.
+
 ### Debug Artifacts
 
 Each turn writes artifacts under timestamped run folders:

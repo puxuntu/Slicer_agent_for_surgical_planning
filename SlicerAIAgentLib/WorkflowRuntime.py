@@ -794,6 +794,133 @@ class WorkflowRuntime:
         self._write_event("step_dispatched", {"args": call_args, "result": self._compact_result(result)})
         return result
 
+    #: The only operation types a comparison baseline can stand in for.
+    #:
+    #: A baseline substitutes an alternative CODE PRODUCER for one step, so the
+    #: step must be one the pipeline itself answers with executable code. Of the
+    #: six canonical operation types (see
+    #: ``extension_cli_analyzer.common.CANONICAL_OPERATION_TYPES``) exactly two
+    #: qualify: ``extension_op`` (drive the extension's own Logic/widget) and
+    #: ``slicer_op`` (drive Slicer core API). Both are fully automated, and the
+    #: generated template is the artifact under comparison.
+    #:
+    #: Deliberately an ALLOW-list, not a deny-list: an operation type added to
+    #: the pipeline later must default to "not comparable" rather than silently
+    #: becoming eligible and corrupting workflow state.
+    CODE_STEP_OPERATION_TYPES = frozenset({"extension_op", "slicer_op"})
+
+    #: Why each non-code type is refused, shown verbatim in the baseline panel.
+    _INELIGIBLE_REASONS = {
+        "user_choice": (
+            "the user picks a value or a node here; the pipeline emits no code "
+            "to compare against, and the pick is what later steps read"
+        ),
+        "user_interaction": (
+            "the surgeon acts in the 3D view here (draw, place, drag); no code "
+            "producer can stand in for a hand"
+        ),
+        "branch_op": (
+            "the answer, not the code, decides where the workflow goes next"
+        ),
+        "review_op": (
+            "this is a human review checkpoint — it has no template at all"
+        ),
+    }
+
+    def external_step_eligibility(self, step_id: Optional[str] = None):
+        """Return ``(ok, reason)`` for substituting an external producer at a step."""
+        if not self.session:
+            return False, "No active generated CLI workflow."
+        target = step_id or self.session.current_step
+        if not target:
+            return False, "No current workflow step."
+        meta = self._step_meta(target)
+        op_type = str(
+            meta.get("operation_type") or meta.get("op_type") or meta.get("step_type") or ""
+        )
+        if op_type in self.CODE_STEP_OPERATION_TYPES:
+            return True, ""
+        why = self._INELIGIBLE_REASONS.get(
+            op_type, "the pipeline does not answer this step with generated code"
+        )
+        return False, (
+            f"Step '{target}' is a {op_type or 'unknown'} step, so it cannot be "
+            f"compared against a baseline: {why}. Step to an extension_op or "
+            "slicer_op step instead."
+        )
+
+    def begin_external_step(
+        self,
+        step_id: Optional[str] = None,
+        action: str = "start",
+        args: Optional[Dict[str, Any]] = None,
+        origin: str = "external",
+    ) -> Dict[str, Any]:
+        """Open a step WITHOUT dispatching its generated CLI template.
+
+        The baseline harness uses this when an alternative code producer (a
+        bare LLM call, the CLI-ablated online agent, or an external Claude Code
+        session over MCP) supplies the code for one step. Everything around the
+        substitution stays on the normal path: a replay checkpoint is recorded
+        exactly as ``run_step`` would record it, and the returned descriptor is
+        shaped so ``handle_execution_result`` marks the step complete, runs the
+        repeat/loop transition and computes ``next_step``.
+
+        Returns a step-result dict, or ``{"type": "error", ...}`` when there is
+        no session or no resolvable step.
+        """
+        if not self.session:
+            return {"type": "error", "error": "No active generated CLI workflow"}
+
+        target_step = step_id or self.session.current_step
+        if not target_step:
+            return {"type": "error", "error": "No current workflow step"}
+
+        call_args = dict(args or {})
+        call_args.setdefault("workflow_step", target_step)
+        call_args.setdefault("user_action", action)
+        call_args.setdefault("_workflow_id", self.session.workflow_id)
+
+        self.session.current_step = target_step
+        self.session.status = "running"
+        self._begin_pending_checkpoint(target_step, call_args)
+
+        # Complete under the step's own operation type where that is already a
+        # completing type, so loop/branch bookkeeping downstream behaves the
+        # same as a template-driven run; otherwise fall back to "automated".
+        meta = self._step_meta(target_step)
+        op_type = str(
+            meta.get("operation_type") or meta.get("op_type") or meta.get("step_type") or ""
+        )
+        result_type = op_type if op_type in COMPLETE_TYPES else "automated"
+
+        instructions = self._step_instructions_for(target_step)
+        result = {
+            "type": result_type,
+            "step_id": target_step,
+            "tool": self.session.extension_name,
+            "extension": self.session.extension_name,
+            "origin": origin,
+            "description": instructions.get("title") or meta.get("description", "") or "",
+            "instruction": instructions.get("simple") or meta.get("instruction", "") or "",
+        }
+        # Echo any control value carried in ``args`` (a replay descriptor's
+        # recorded choice). The template dispatch path puts these on its own
+        # result, and _repeat_transition_after_completion / the loop pre-guard
+        # read them off the result -- without the echo a loop-control step
+        # decides its branch on None (int(None) -> target 0 -> the loop body is
+        # marked complete and skipped).
+        for key in ("choice_value", "parameter_name"):
+            if call_args.get(key) is not None:
+                result[key] = call_args[key]
+        self.session.last_result = result
+        self._write_event("external_step_started", {
+            "step_id": target_step,
+            "origin": origin,
+            "args": call_args,
+        })
+        return result
+
     def handle_execution_result(
         self,
         step_result: Dict[str, Any],
