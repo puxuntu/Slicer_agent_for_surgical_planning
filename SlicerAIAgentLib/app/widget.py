@@ -51,7 +51,26 @@ class SlicerAIAgentWidget(
         self.currentAgentPlan = None
         self._pendingConfirmation = None
         self._roleTrace = []
+        # Run-log state (see SlicerAIAgentLib/RunLog.py and _createRunLogDir):
+        # _currentLogDir is the RUN folder; _currentStepLogDir is the per-step
+        # subfolder every artifact goes into while a workflow step is running.
         self._currentLogDir = None
+        self._currentStepLogDir = ""
+        self._currentStepId = ""
+        self._currentRunManifest = None
+        self._currentCorrectionDir = ""
+        self._stepTraceStart = 0
+        self._baselineAttemptCounts = {}
+        # The pipeline's run folder, parked while a baseline owns _currentLogDir
+        # so the pipeline's next step does not log inside the baseline's folder.
+        self._pipelineLogDir = None
+        self._pipelineRunManifest = None
+        self._pipelineStepLogDir = ""
+        self._pipelineStepId = ""
+        self._pipelineRoleTrace = []
+        # Router instance kept when it DECLINED, so the full turn that runs
+        # instead can still record the routing call it paid for.
+        self._lastRouter = None
         self._currentAgentRole = "Idle"
         self._lastExecutionResult = None
         self._lastVerificationResult = None
@@ -107,8 +126,16 @@ class SlicerAIAgentWidget(
         self._baselineSendText = "Send"
         self._baselineSendStyle = ""
         self._baselineMcpServer = None
+        # The skill's slicer-mcp-server.py is started automatically when the
+        # Claude Code condition is selected; tried once per session on a passive
+        # refresh, and again on every explicit arm.
+        self._mcpAutoStartAttempted = False
+        self._mcpAutoStartError = ""
         self._baselineActiveRun = None
         self._baselineRejection = ""
+        # Last fast-router decision that DECLINED, so the full turn that follows
+        # can account for its cost (see WidgetStreamingMixin's router path).
+        self._lastRouterDecision = None
         self._lastInjectedPreludeKeys = []
 
     def onReload(self):

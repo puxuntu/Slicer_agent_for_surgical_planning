@@ -45,10 +45,11 @@ synchronously and return its output in the same response.
 import base64
 import json
 import logging
+import os
 import threading
 import traceback
 import urllib.parse
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import qt
 import slicer
@@ -455,6 +456,66 @@ def _BaselineMCPRequestHandler(server: BaselineMCPServer, base_class):
             return b"application/json", json.dumps(response).encode()
 
     return _Handler()
+
+
+# ---------------------------------------------------------------------------
+# Launching the skill's own server (so the user does not have to paste it)
+# ---------------------------------------------------------------------------
+
+#: The skill's shipped console script, relative to the project root.
+SKILL_MCP_SCRIPT = os.path.join(
+    "Resources", "Skills", "slicer-skill-full", "slicer-mcp-server.py"
+)
+
+
+def skill_mcp_script_path() -> str:
+    """Absolute path of the shipped ``slicer-mcp-server.py`` ("" when absent)."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(root, SKILL_MCP_SCRIPT)
+    return path if os.path.isfile(path) else ""
+
+
+def run_skill_mcp_script(path: str = "") -> Tuple[bool, str]:
+    """Execute the skill's server script exactly as pasting it would.
+
+    Returns ``(ok, detail)``. Automating the *invocation* is not a modification
+    of the skill: the same file is executed, byte for byte, in the same
+    namespace (``__main__``), so it defines the same ``TOOL_HANDLERS`` and
+    ``mcpLogic`` and exposes the same five tools. Only the user's copy-paste is
+    removed.
+
+    Deliberately NOT routed through CodeValidator/SafeExecutor. Those exist to
+    contain model-generated code; this is a first-party file on disk that the
+    user was otherwise going to paste by hand, and it legitimately needs the
+    imports the validator blocks (``json``, ``urllib``, ``base64``, ``open``).
+
+    Safe to call more than once: the script's own tail stops any previous
+    instance before starting a new one ("so the script can be re-pasted
+    safely"). Callers must still avoid re-running it while a step is ARMED,
+    because a fresh ``TOOL_HANDLERS`` would drop the armed wrapper.
+    """
+    path = path or skill_mcp_script_path()
+    if not path or not os.path.isfile(path):
+        return False, (
+            f"{os.path.basename(path) or 'slicer-mcp-server.py'} was not found "
+            f"(expected under {SKILL_MCP_SCRIPT}) — is the slicer-skill "
+            "submodule checked out?"
+        )
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+    except Exception as exc:
+        return False, f"Could not read {os.path.basename(path)}: {exc}"
+
+    try:
+        import sys
+        main_globals = sys.modules["__main__"].__dict__
+        # compile() with the real filename so any traceback points at the script.
+        exec(compile(source, path, "exec"), main_globals)  # noqa: S102
+    except Exception as exc:
+        logger.warning("Auto-start of the skill MCP server failed", exc_info=True)
+        return False, f"{type(exc).__name__}: {exc}"
+    return True, path
 
 
 # ---------------------------------------------------------------------------

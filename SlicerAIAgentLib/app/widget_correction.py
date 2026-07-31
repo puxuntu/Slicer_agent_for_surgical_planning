@@ -43,17 +43,39 @@ class WidgetCorrectionMixin:
         if self.logic and self.logic.llmClient:
             self.logic.llmClient.debug_suffix = "_correction"
 
+        # Repair inside a running generated-CLI workflow removes the CLI tool
+        # schemas from the tool list (_filtered_repair_tools below), so the
+        # prompt must not go on describing them: ~42 KB of instructions for
+        # tools that are not there, which invites a call that arrives as text
+        # and parses to no code. Decided here because it must match exactly the
+        # condition _filtered_repair_tools uses. The `ext:` source paths stay --
+        # searching the extension's own source is what a repair needs most.
+        _repair_workflow_active = False
+        try:
+            _repair_workflow_active = bool(
+                self._workflowRuntime and self._workflowRuntime.has_active_workflow()
+            )
+        except Exception:
+            _repair_workflow_active = False
+
         # Build system prompt on the main thread BEFORE starting the background thread.
         # _buildSceneContext() calls slicer.mrmlScene.GetSceneXMLString() which is a Qt
         # method and must run on the main thread.
         system_content = "You are an expert 3D Slicer Python coding assistant."
         if self.logic and self.logic.llmClient and hasattr(self.logic.llmClient, '_buildSystemPrompt'):
+            client = self.logic.llmClient
+            previous_suppress = getattr(client, 'suppress_cli_tool_fragments', False)
+            client.suppress_cli_tool_fragments = _repair_workflow_active
             try:
                 context = {"scene": self.logic._buildSceneContext()} if self.logic else None
-                system_content = self.logic.llmClient._buildSystemPrompt(context)
+                system_content = client._buildSystemPrompt(context)
             except Exception:
-                if hasattr(self.logic.llmClient, '_loadSystemPromptTemplate'):
-                    system_content = self.logic.llmClient._loadSystemPromptTemplate()
+                if hasattr(client, '_loadSystemPromptTemplate'):
+                    system_content = client._loadSystemPromptTemplate()
+            finally:
+                # Restored unconditionally: leaking this flag would silently
+                # strip the CLI tools from the NEXT normal turn's prompt.
+                client.suppress_cli_tool_fragments = previous_suppress
         elif self.logic and self.logic.llmClient and hasattr(self.logic.llmClient, '_loadSystemPromptTemplate'):
             system_content = self.logic.llmClient._loadSystemPromptTemplate()
 
@@ -63,6 +85,17 @@ class WidgetCorrectionMixin:
         _lastUserPrompt = getattr(self, '_lastUserPrompt', '')
         _currentTurn = getattr(self, '_currentTurn', 1)
         _system_content = system_content
+        # correction_N/ inside the step being repaired, so attempts from
+        # different steps of the same workflow can never overwrite each other.
+        try:
+            from SlicerAIAgentLib import RunLog
+            _correction_dir = RunLog.ensure_dir(
+                os.path.join(self._artifactDir(), f"correction_{attempt + 1}")
+            )
+        except Exception:
+            logger.debug("Correction directory creation failed", exc_info=True)
+            _correction_dir = self._getCurrentLogDir()
+        self._currentCorrectionDir = _correction_dir
 
         # Deterministic evidence for the Repairer (computed on the main
         # thread; capped, fail-open). Live close-match introspection for
@@ -88,15 +121,15 @@ class WidgetCorrectionMixin:
                     _ui_evidence = "\n".join(ui_lines)
         except Exception:
             _ui_evidence = ""
+        # Same predicate the system prompt above was built under, so the tool
+        # list and the prompt's description of it can never disagree.
+        _workflow_repair_active = _repair_workflow_active
         _workflow_state = {}
-        _workflow_repair_active = False
         try:
-            if self._workflowRuntime and self._workflowRuntime.has_active_workflow():
+            if _workflow_repair_active:
                 _workflow_state = self._workflowRuntime.state_for_router()
-                _workflow_repair_active = True
         except Exception:
             _workflow_state = {}
-            _workflow_repair_active = False
 
         def _filtered_repair_tools():
             tools = list(getattr(_logic, "skillTools", []) or [])
@@ -214,18 +247,39 @@ class WidgetCorrectionMixin:
                     'content': user_content
                 })
 
-                # Save isolated prompt to debug file before sending
+                # Save the isolated repair prompt beside the step it repairs.
+                # Correction artifacts used to be keyed by attempt number ALONE
+                # (`1_correction_0_...`), so two different steps each failing on
+                # attempt 0 overwrote each other.
                 try:
-                    suffix = f"_correction_{attempt}"
-                    first_debug = os.path.join(self._getCurrentLogDir(), f'{_currentTurn}{suffix}_first_prompt_debug.txt')
-                    with open(first_debug, 'w', encoding='utf-8') as f:
-                        for i, msg in enumerate(isolated_messages):
-                            f.write(f"{'='*60}\n")
-                            f.write(f"MESSAGE {i+1} | role: {msg.get('role', 'unknown')}\n")
-                            f.write(f"{'='*60}\n")
-                            f.write(f"{msg.get('content', '')}\n\n")
+                    from SlicerAIAgentLib import RunLog
+                    body = []
+                    for i, msg in enumerate(isolated_messages):
+                        body.append(f"{'='*60}")
+                        body.append(f"MESSAGE {i+1} | role: {msg.get('role', 'unknown')}")
+                        body.append(f"{'='*60}")
+                        body.append(f"{msg.get('content', '')}\n")
+                    RunLog.write_text(
+                        os.path.join(_correction_dir, "first_prompt.txt"),
+                        "\n".join(body),
+                    )
+                    RunLog.write_json(os.path.join(_correction_dir, "attempt.json"), {
+                        "attempt": attempt + 1,
+                        "step_id": getattr(self, "_currentStepId", "") or None,
+                        "error": error_detail,
+                        "workflow_repair": _workflow_repair_active,
+                        "system_prompt_chars": len(_system_content or ""),
+                        "prompt_chars": sum(
+                            len(m.get("content", "") or "") for m in isolated_messages
+                        ),
+                        "tools_offered": len(_filtered_repair_tools()),
+                        "evidence": {
+                            "live_attribute": bool(_evidence_block),
+                            "core_ui": bool(_ui_evidence),
+                        },
+                    })
                 except Exception:
-                    pass
+                    logger.debug("Correction artifact write failed", exc_info=True)
 
                 # Use tool-calling isolated chat so LLM can re-search if needed
                 def _on_correction_progress(progress):
@@ -303,8 +357,25 @@ class WidgetCorrectionMixin:
             })
             self._setGeneratedCode(response["code"])
             self._displayAgentPlanSummary(self.currentAgentPlan)
-            self._saveAgentPlanToFile(self.currentAgentPlan, suffix=f"_correction_{attempt}")
-            self._saveGeneratedCodeToFile(response["code"], suffix=f"_correction_{attempt}")
+            # Into this attempt's own correction_N/ folder (see _selfCorrectCode).
+            try:
+                from SlicerAIAgentLib import RunLog
+                correction_dir = getattr(self, "_currentCorrectionDir", "") \
+                    or self._artifactDir()
+                RunLog.write_text(os.path.join(correction_dir, "code.py"), response["code"])
+                if isinstance(self.currentAgentPlan, dict):
+                    RunLog.write_json(
+                        os.path.join(correction_dir, "agent_plan.json"),
+                        self.currentAgentPlan,
+                    )
+                RunLog.write_json(os.path.join(correction_dir, "response.json"), {
+                    "tokens": response.get("tokens"),
+                    "cost": response.get("cost"),
+                    "timing_report": response.get("timing_report"),
+                    "tool_calls": len(response.get("tool_calls_history") or []),
+                })
+            except Exception:
+                logger.debug("Correction result write failed", exc_info=True)
             self._stopThinkingTimer("Corrected")
 
             # Update conversation_history: replace wrong code with corrected code
@@ -370,18 +441,20 @@ class WidgetCorrectionMixin:
                 self._setReadyStatus()
 
     def _appendThinkingToFile(self, reasoning_content: str, turn: int = 1):
-        """Append LLM thinking/reasoning content to a local text file."""
+        """Append LLM reasoning to the CURRENT step's thinking log.
+
+        Header carries the step id, so a run-root log (a non-workflow turn) and
+        a per-step log read the same way.
+        """
         from datetime import datetime
-        try:
-            filepath = os.path.join(self._getCurrentLogDir(), f'{turn}_thinking_history.txt')
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            with open(filepath, 'a', encoding='utf-8') as f:
-                f.write(f"{'='*60}\n")
-                f.write(f"Turn {turn} | {timestamp}\n")
-                f.write(f"{'='*60}\n")
-                f.write(f"{reasoning_content}\n\n")
-        except Exception as e:
-            logger.warning(f"Failed to write thinking history: {e}")
+        from SlicerAIAgentLib import RunLog
+        step_id = getattr(self, "_currentStepId", "")
+        header = f"Turn {turn}" + (f" | {step_id}" if step_id else "")
+        RunLog.append_text(
+            os.path.join(self._artifactDir(), "thinking.txt"),
+            f"{'='*60}\n{header} | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"{'='*60}\n{reasoning_content}\n\n",
+        )
 
     def _handleCorrectionError(self, error_msg):
         """Handle self-correction error on the main thread."""

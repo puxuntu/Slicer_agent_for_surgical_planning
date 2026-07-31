@@ -2,41 +2,174 @@ from .common import *
 
 
 class WidgetExecutionFlowMixin:
-    def _saveGeneratedCodeToFile(self, code, suffix=""):
-        """Save the generated code to a local text file for user reference.
+    # ------------------------------------------------------------------
+    # Run log directories
+    #
+    # logs/<stamp>_<condition>_<extension|task>[_<step>][_a<n>][_turnN]/
+    #   run_manifest.json          what this folder is, without opening anything
+    #   <step_id>/                 one subfolder PER STEP of a guided workflow
+    #       step.json  code.py  agent_plan.json  execution.json  output.txt
+    #       role_trace.json  timing.txt  thinking.txt
+    #       correction_1/ ...
+    #
+    # The per-step split is not cosmetic. Before it, a 33-step workflow wrote
+    # every step's plan, role trace and timing report to the SAME three
+    # filenames in one folder, so only the last step's survived.
+    # ------------------------------------------------------------------
+    def _artifactDir(self):
+        """Where artifacts for the CURRENT step go (run root when no step)."""
+        root = self._getCurrentLogDir()
+        step_dir = getattr(self, "_currentStepLogDir", "")
+        if not step_dir:
+            return root
+        from SlicerAIAgentLib import RunLog
+        return RunLog.ensure_dir(step_dir)
 
-        Args:
-            code: The generated Python code string.
-            suffix: Optional suffix for the filename (e.g. '_correction_1').
+    def _setStepLogContext(self, step_id, extension=""):
+        """Open a per-step artifact folder inside the current run folder.
+
+        Also repoints the LLM client's debug output, so the prompts that step
+        sends land beside the code they produced instead of in the run root.
+        Pass a falsy ``step_id`` to go back to writing at the run root.
         """
-        try:
-            turn_number = getattr(self, '_currentTurn', 1)
-            latestPath = os.path.join(self._getCurrentLogDir(), f'{turn_number}{suffix}_code.txt')
-            with open(latestPath, 'w', encoding='utf-8') as f:
-                f.write(code)
-        except Exception as e:
-            logger.warning(f"Failed to save generated code to file: {e}")
+        from SlicerAIAgentLib import RunLog
+        if not step_id:
+            self._currentStepLogDir = ""
+            self._currentStepId = ""
+        else:
+            self._currentStepId = str(step_id)
+            self._currentStepLogDir = RunLog.ensure_dir(
+                os.path.join(self._getCurrentLogDir(), RunLog.pad_step(step_id))
+            )
+            # Where this step's slice of the run-wide role trace begins.
+            self._stepTraceStart = len(getattr(self, "_roleTrace", []) or [])
+        target = self._currentStepLogDir or self._getCurrentLogDir()
+        if self.logic and self.logic.llmClient:
+            self.logic.llmClient.setDebugOutputDir(target)
+        return target
+
+    def _runManifest(self):
+        return getattr(self, "_currentRunManifest", None)
+
+    def _saveGeneratedCodeToFile(self, code, suffix=""):
+        """Persist the code this step will execute (``code.py``).
+
+        ``suffix`` is kept for callers that write a variant beside the main file
+        (a self-correction attempt); it no longer has to disambiguate steps,
+        because each step now owns its own folder.
+        """
+        from SlicerAIAgentLib import RunLog
+        name = f"code{suffix}.py" if suffix else "code.py"
+        RunLog.write_text(os.path.join(self._artifactDir(), name), code or "")
 
     def _saveAgentPlanToFile(self, plan, suffix=""):
         """Persist the parsed agent_plan JSON as a standalone debug artifact."""
         if not isinstance(plan, dict):
             return
-        try:
-            turn_number = getattr(self, '_currentTurn', 1)
-            path = os.path.join(self._getCurrentLogDir(), f'{turn_number}{suffix}_agent_plan.json')
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump(plan, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logger.warning(f"Failed to save agent plan to file: {e}")
+        from SlicerAIAgentLib import RunLog
+        name = f"agent_plan{suffix}.json" if suffix else "agent_plan.json"
+        RunLog.write_json(os.path.join(self._artifactDir(), name), plan)
 
-    def _createRunLogDir(self, turn_number):
-        """Create logs/YYYYmmdd_HHMMSS_turnN for all artifacts from one run."""
-        from datetime import datetime
-        moduleDir = SLICER_AI_AGENT_ROOT
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_dir = os.path.join(moduleDir, "logs", f"{stamp}_turn{turn_number}")
-        os.makedirs(log_dir, exist_ok=True)
+    def _saveStepDescriptorToFile(self, result):
+        """Persist the dispatch result that defines this step (``step.json``).
+
+        Records the TRUE, unpadded ``step_id`` — the folder name is zero-padded
+        purely so steps sort in run order in a file browser.
+        """
+        if not isinstance(result, dict):
+            return
+        from SlicerAIAgentLib import RunLog
+        payload = {
+            "step_id": result.get("step_id"),
+            "folder": os.path.basename(self._artifactDir()),
+            "type": result.get("type"),
+            "operation_type": result.get("operation_type"),
+            "origin": result.get("origin"),
+            "extension": result.get("extension") or result.get("tool"),
+            "description": result.get("description") or result.get("explanation"),
+            "instruction": result.get("instruction"),
+            "choice_value": result.get("choice_value"),
+            "parameter_name": result.get("parameter_name"),
+            "is_optional": result.get("is_optional"),
+            "next_step": (result.get("next_step") or {}).get("step_id")
+            if isinstance(result.get("next_step"), dict) else None,
+        }
+        RunLog.write_json(os.path.join(self._artifactDir(), "step.json"),
+                          {k: v for k, v in payload.items() if v is not None})
+
+    def _saveExecutionResultToFile(self, execution, scene_delta=None, code=""):
+        """Persist what actually happened when the code ran.
+
+        The pipeline previously wrote NOTHING here: success, stdout, errors and
+        the scene delta lived only in the role trace, which the next step then
+        overwrote. The baselines have always recorded all of it, which left the
+        system under test the least-instrumented of the four conditions.
+        """
+        from SlicerAIAgentLib import RunLog
+        step_dir = self._artifactDir()
+        RunLog.write_execution(step_dir, execution, extra={
+            "step_id": getattr(self, "_currentStepId", "") or None,
+            "code_chars": len(code or ""),
+            "scene_delta": scene_delta or {},
+        })
+        manifest = self._runManifest()
+        step_id = getattr(self, "_currentStepId", "")
+        if manifest is not None and step_id:
+            execution = execution or {}
+            manifest.add_step(
+                step_id,
+                folder=os.path.basename(step_dir),
+                status="ok" if execution.get("success") else "failed",
+                seconds=execution.get("execution_time"),
+                code_chars=len(code or ""),
+                error=(execution.get("error") or "")[:500] or None,
+            )
+
+    def _createRunLogDir(self, turn_number=1, condition=None, extension="",
+                         step_id="", attempt=0, **manifest_fields):
+        """Create + open a run folder, and start its manifest.
+
+        The folder name is the only thing visible in a file browser, so it
+        carries when / which condition / which procedure / which step. See
+        SlicerAIAgentLib/RunLog.py for the grammar.
+        """
+        from SlicerAIAgentLib import RunLog
+        condition = condition or RunLog.CONDITION_PIPELINE
+        name = RunLog.run_dir_name(
+            condition, extension=extension, step_id=step_id,
+            attempt=attempt, turn=turn_number,
+        )
+        log_dir = RunLog.ensure_dir(os.path.join(SLICER_AI_AGENT_ROOT, "logs", name))
+        # A new run folder means a new run: any step context from the previous
+        # one must not leak into it.
+        self._currentStepLogDir = ""
+        self._currentStepId = ""
+        try:
+            self._currentRunManifest = RunLog.RunManifest(
+                log_dir, condition,
+                turn=turn_number,
+                extension=extension or None,
+                target_step=step_id or None,
+                attempt=attempt or None,
+                prompt=getattr(self, "_lastUserPrompt", "") or None,
+                model=self._logModelInfo(),
+                **manifest_fields,
+            )
+        except Exception:
+            logger.debug("Run manifest creation failed", exc_info=True)
+            self._currentRunManifest = None
         return log_dir
+
+    def _logModelInfo(self):
+        """Model/provider actually in use, recorded so a run is reproducible."""
+        client = getattr(self.logic, "llmClient", None) if self.logic else None
+        if client is None:
+            return None
+        return {
+            "model": getattr(client, "model", ""),
+            "provider": getattr(client, "provider", ""),
+            "base_url": getattr(client, "base_url", ""),
+        }
 
     def _getCurrentLogDir(self):
         """Return current run log directory, creating a fallback if needed."""
@@ -61,19 +194,32 @@ class WidgetExecutionFlowMixin:
             self._timing["role_trace"] = list(self._roleTrace)
 
     def _saveRoleTraceToFile(self, suffix=""):
-        """Persist the current role trace for academic/debug inspection."""
-        try:
-            turn_number = getattr(self, '_currentTurn', 1)
-            path = os.path.join(self._getCurrentLogDir(), f'{turn_number}{suffix}_role_trace.json')
-            payload = {
-                "turn": turn_number,
+        """Persist the role trace, both per-step and whole-run.
+
+        ``_roleTrace`` accumulates across the whole run, so the step folder gets
+        only the events recorded SINCE that step opened (otherwise every step's
+        file would repeat the entire run to date), while the run root keeps the
+        complete trace.
+        """
+        from SlicerAIAgentLib import RunLog
+        name = f"role_trace{suffix}.json" if suffix else "role_trace.json"
+        events = list(self._roleTrace)
+        step_dir = self._artifactDir()
+        run_dir = self._getCurrentLogDir()
+
+        if step_dir != run_dir:
+            start = int(getattr(self, "_stepTraceStart", 0) or 0)
+            RunLog.write_json(os.path.join(step_dir, name), {
+                "turn": getattr(self, "_currentTurn", 1),
+                "step_id": getattr(self, "_currentStepId", "") or None,
                 "prompt": getattr(self, "_lastUserPrompt", ""),
-                "events": self._roleTrace,
-            }
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump(payload, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            logger.warning(f"Failed to save role trace: {e}")
+                "events": events[start:],
+            })
+        RunLog.write_json(os.path.join(run_dir, "role_trace.json"), {
+            "turn": getattr(self, "_currentTurn", 1),
+            "prompt": getattr(self, "_lastUserPrompt", ""),
+            "events": events,
+        })
 
     def _displayAgentPlanSummary(self, plan):
         """Show a compact plan summary in chat without adding a new UI surface."""
@@ -611,11 +757,25 @@ class WidgetExecutionFlowMixin:
             "code_chars": len(self.currentCode or ""),
         })
 
-        # Capture scene state BEFORE execution for semantic verification
+        # Capture scene state BEFORE execution, so the step's execution.json can
+        # record what it changed.
+        #
+        # This used to read `self.buildSceneSnapshot()` behind a
+        # `hasattr(self, ...)` guard — but that method lives on the LOGIC
+        # (LogicSceneMixin), never on the widget, so the guard was ALWAYS false
+        # and `before_snapshot` was always None. Consequence, visible in the
+        # logs: every baseline recorded a full scene_delta while the pipeline —
+        # the system under test — recorded `"scene_delta": {}` for every step.
+        #
+        # Only the SNAPSHOT is fixed here. The `verifySceneAgainstPlan` call
+        # below keeps its own (also always-false) widget guard on purpose:
+        # enabling semantic verification would make failed expectations trigger
+        # self-correction, i.e. change the behaviour of the system under test,
+        # which must not happen silently mid-evaluation.
         before_snapshot = None
-        if hasattr(self, 'buildSceneSnapshot'):
+        if self.logic is not None:
             try:
-                before_snapshot = self.buildSceneSnapshot()
+                before_snapshot = self.logic.buildSceneSnapshot()
             except Exception as e:
                 logger.warning(f"Failed to build pre-execution scene snapshot: {e}")
 
@@ -759,6 +919,24 @@ class WidgetExecutionFlowMixin:
                 if 'executor_actual_start' in result:
                     self._timing['executor_actual_start'] = result['executor_actual_start']
                 self._writeTimingReport()
+
+            # Persist what actually happened, into this step's own folder. The
+            # pipeline used to write no execution record at all, leaving the
+            # system under test less instrumented than the baselines it is
+            # compared against.
+            try:
+                after = None
+                if self.logic and before_snapshot:
+                    after = self.logic.buildSceneSnapshot()
+                delta = {}
+                if before_snapshot and after:
+                    from SlicerAIAgentLib import BaselineRunner
+                    delta = BaselineRunner.scene_delta(before_snapshot, after)
+                self._saveExecutionResultToFile(
+                    result, scene_delta=delta, code=getattr(self, "currentCode", "") or "",
+                )
+            except Exception:
+                logger.debug("Execution artifact write failed", exc_info=True)
 
             if result.get("success") and runtime_managed:
                 updated_step = self._workflowRuntime.handle_execution_result(step_info, result)

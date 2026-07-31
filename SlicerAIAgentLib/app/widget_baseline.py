@@ -37,7 +37,7 @@ Generated Code view.
 
 from .common import *
 
-from SlicerAIAgentLib import BaselineRunner
+from SlicerAIAgentLib import BaselineRunner, RunLog
 from SlicerAIAgentLib.BaselineRunner import (
     MODE_CLAUDE_CODE,
     MODE_ONLINE_ONLY,
@@ -317,10 +317,15 @@ class WidgetBaselineMixin:
                 return
             available, url = self._baselineBridgeStatus()
             if not available:
+                # Selecting this condition starts the skill's own server, so the
+                # user never has to paste it into the Python console.
+                available, url = self._autoStartSkillMcpServer()
+            if not available:
                 self._setBaselineStatus(
-                    f"Step {step_id} — the Slicer skill's MCP server is NOT running "
-                    "in this session. Paste slicer-mcp-server.py into Slicer's "
-                    "Python console, then press 'Arm this step'."
+                    f"Step {step_id} — could not start the Slicer skill's MCP "
+                    f"server automatically. {self._mcpAutoStartError} You can "
+                    "still paste slicer-mcp-server.py into Slicer's Python "
+                    "console by hand, then press 'Arm this step'."
                 )
                 return
             self._setBaselineStatus(
@@ -552,8 +557,67 @@ class WidgetBaselineMixin:
         state = state or getattr(self, "_currentWorkflowUiState", {}) or {}
         return str(state.get("current_step") or session.current_step or "")
 
-    def _baselineSessionLogRoot(self):
-        return os.path.join(SLICER_AI_AGENT_ROOT, "logs")
+    #: Where the Claude Code condition reads its step brief from. This is that
+    #: session's own workspace, so it needs no --add-dir and no extra MCP tool —
+    #: the skill's tool surface stays exactly as it ships.
+    CLAUDE_CODE_WORKSPACE = "MCPConnection"
+
+    def _publishClaudeCodeStepBrief(self, step_context):
+        """Write the step brief where the external Claude Code session can read it.
+
+        Without this, Claude Code would be the only condition working from the
+        user's sentence alone, while pure-LLM and online-only each get ~1.8 KB of
+        task context injected into their messages — which would make any
+        comparison against it a comparison of briefings, not of approaches.
+
+        Identical text, identical allow-list (BaselineRunner.TASK_STEP_KEYS);
+        only the delivery differs, because that session takes its prompt
+        elsewhere. A copy also goes to the run folder, so what the condition was
+        given is auditable after the fact.
+        """
+        import time
+        try:
+            document = BaselineRunner.render_step_brief_document(
+                step_context, armed_at=time.strftime("%Y-%m-%d %H:%M:%S"),
+            )
+        except Exception:
+            logger.warning("Could not render the Claude Code step brief", exc_info=True)
+            return ""
+        target = os.path.join(
+            SLICER_AI_AGENT_ROOT, self.CLAUDE_CODE_WORKSPACE,
+            BaselineRunner.CLAUDE_CODE_BRIEF_NAME,
+        )
+        written = RunLog.write_text(target, document)
+        if not written:
+            self._setBaselineStatus(
+                f"Warning: could not write {BaselineRunner.CLAUDE_CODE_BRIEF_NAME} — "
+                "Claude Code will not see the step brief."
+            )
+        # Same bytes into the run folder, so a reviewer can confirm later what
+        # this condition was actually told.
+        RunLog.write_text(
+            os.path.join(self._currentLogDir, BaselineRunner.CLAUDE_CODE_BRIEF_NAME),
+            document,
+        )
+        self._recordRoleEvent("Baseline", "step_brief_published", {
+            "path": written,
+            "chars": len(document),
+        })
+        return written
+
+    def _nextBaselineAttempt(self, mode, step_id):
+        """1-based attempt number for this (condition, step) in this session.
+
+        Retrying a step under the same condition must not collide on the folder
+        name, and how many tries a condition needed is itself a result — so the
+        count is visible in the folder name (``_a2``) rather than averaged away.
+        """
+        counts = getattr(self, "_baselineAttemptCounts", None)
+        if counts is None:
+            counts = self._baselineAttemptCounts = {}
+        key = (str(mode), str(step_id))
+        counts[key] = int(counts.get(key, 0)) + 1
+        return counts[key]
 
     # ------------------------------------------------------------------ start
     def _beginBaselineRun(self, mode, prompt):
@@ -607,7 +671,41 @@ class WidgetBaselineMixin:
             return None
 
         import time
-        self._currentLogDir = self._createRunLogDir(getattr(self, "_currentTurn", 1))
+        from SlicerAIAgentLib import RunLog
+        # A baseline gets its OWN run folder, named for the condition, the
+        # procedure, the step and the attempt, e.g.
+        #   logs/20260730_143512_pureLLM_BoneReconstructionPlanner_cb_step_08_a1/
+        # so it can never be confused with the pipeline's own folder for the
+        # same step.
+        attempt = self._nextBaselineAttempt(mode, step_id)
+        # Park the pipeline's own run folder. When this baseline finishes it
+        # auto-advances the workflow, and that next step is dispatched by the
+        # PIPELINE — its artifacts must not end up nested inside this baseline's
+        # folder. Restored in _restoreAfterBaseline, before the advance fires.
+        # Guarded: a retry that re-arms before the previous restore would
+        # otherwise park the BASELINE's folder as if it were the pipeline's.
+        if not getattr(self, "_pipelineLogDir", None):
+            self._pipelineLogDir = self._currentLogDir
+            self._pipelineRunManifest = getattr(self, "_currentRunManifest", None)
+            self._pipelineStepLogDir = getattr(self, "_currentStepLogDir", "")
+            self._pipelineStepId = getattr(self, "_currentStepId", "")
+            # The role trace is parked too. It is cleared below for the
+            # baseline's own events; without parking, the pipeline's run-root
+            # trace would come back holding the BASELINE's events and none of
+            # its own (observed: a 10-step run whose run-root trace held 5
+            # events, 3 of them Baseline).
+            self._pipelineRoleTrace = list(getattr(self, "_roleTrace", []) or [])
+        self._currentLogDir = self._createRunLogDir(
+            getattr(self, "_currentTurn", 1),
+            condition=mode,
+            extension=session.extension_name,
+            step_id=step_id,
+            attempt=attempt,
+            transport=(
+                getattr(getattr(self, "_baselineMcpServer", None), "transport", "")
+                if mode == MODE_CLAUDE_CODE else None
+            ),
+        )
         self._roleTrace = []
         self._timing = {"turn_start": time.time(), "prompt": prompt, "mode": f"baseline_{mode}"}
         self._recordRoleEvent("Baseline", "run_started", {
@@ -631,8 +729,20 @@ class WidgetBaselineMixin:
             "started": time.time(),
             "before": self._baselineSnapshot(),
             "log_dir": self._currentLogDir,
+            "attempt": attempt,
+            # Computed HERE, for every mode, so all three conditions are given
+            # the identical task brief. The two prompt-driven modes get it
+            # injected into their messages; Claude Code reads it from a file in
+            # its workspace (see _publishClaudeCodeStepBrief).
+            "step_context": self._baselineStepContext(step_id),
         }
         self._baselineActiveRun = run
+        # The step this baseline stands in for, written up front so a run folder
+        # is self-explanatory even if the run never finishes.
+        self._saveStepDescriptorToFile(step_result)
+        RunLog.write_text(os.path.join(self._currentLogDir, "prompt.txt"), prompt or "")
+        if mode == MODE_CLAUDE_CODE:
+            self._publishClaudeCodeStepBrief(run["step_context"])
         # Everything this run produces — chat, thinking, generated code — is
         # written to THIS baseline's buffer, never the pipeline's.
         self._debugWriteContext = self._baselineDebugKey(mode)
@@ -640,6 +750,31 @@ class WidgetBaselineMixin:
         self._setBaselineRunUiEnabled(False)
         self._updateWorkflowPanel(runtime.state_for_ui())
         return run
+
+    def _restorePipelineLogDir(self):
+        """Point run-log writing back at the pipeline's folder after a baseline.
+
+        No-op when nothing was parked (a baseline that never started, or a
+        second call), so it is safe on every exit path.
+        """
+        parked = getattr(self, "_pipelineLogDir", None)
+        if not parked:
+            return
+        self._currentLogDir = parked
+        self._currentRunManifest = getattr(self, "_pipelineRunManifest", None)
+        self._currentStepLogDir = getattr(self, "_pipelineStepLogDir", "")
+        self._currentStepId = getattr(self, "_pipelineStepId", "")
+        # Give the pipeline its own event history back, so the run-root trace
+        # is the pipeline's story and the baseline's stays in its own folder.
+        self._roleTrace = list(getattr(self, "_pipelineRoleTrace", []) or [])
+        self._stepTraceStart = len(self._roleTrace)
+        self._pipelineRoleTrace = []
+        self._pipelineLogDir = None
+        self._pipelineRunManifest = None
+        if self.logic and self.logic.llmClient:
+            self.logic.llmClient.setDebugOutputDir(
+                self._currentStepLogDir or self._currentLogDir
+            )
 
     def _setBaselineRunUiEnabled(self, enabled):
         for name in ("_baselineModeCombo", "_baselineToggleButton"):
@@ -678,9 +813,14 @@ class WidgetBaselineMixin:
         run = self._beginBaselineRun(mode, prompt)
         if run is None:
             return
-        # The prompt is left in the box on purpose: running the SAME prompt
-        # through a second baseline on the same step is the common next action
-        # in this comparison, so clearing it would be hostile.
+        # Clear the box once the run has actually started. Only after
+        # _beginBaselineRun returns non-None: an attempt refused before that
+        # (ineligible step, rewind cancelled, run already in flight) must leave
+        # the text the user typed intact, or the refusal costs them their prompt.
+        #
+        # The prompt is not lost — it is echoed to the transcript below, stored
+        # on the run, and written to prompt.txt in the run folder.
+        self._clearBaselinePrompt()
         self.appendToChat("You", f"[{BaselineRunner.mode_label(mode)}] {prompt}")
         self._setBaselineStatus(
             f"{BaselineRunner.mode_label(mode)}: generating code for {run['step_id']}…"
@@ -703,15 +843,24 @@ class WidgetBaselineMixin:
         except Exception:
             logger.debug("Baseline scene context failed", exc_info=True)
             scene = None
+        # The step brief was computed once in _beginBaselineRun, so every
+        # condition works from exactly the same text. Node properties read live
+        # MRML state, so they are gathered here, before the worker starts.
+        step_context = run["step_context"]
+        node_details = (
+            self._baselineNodeDetails(scene) if mode == MODE_PURE_LLM else None
+        )
 
         def _generate():
             import time
             started = time.time()
             try:
                 if mode == MODE_PURE_LLM:
-                    payload = self._generatePureLlmCode(prompt, scene)
+                    payload = self._generatePureLlmCode(
+                        prompt, scene, step=step_context, node_details=node_details,
+                    )
                 elif mode == MODE_ONLINE_ONLY:
-                    payload = self._generateOnlineOnlyCode(prompt, scene)
+                    payload = self._generateOnlineOnlyCode(prompt, scene, step=step_context)
                 else:
                     raise RuntimeError(f"Unsupported prompt-driven baseline: {mode}")
                 payload["seconds"] = round(time.time() - started, 3)
@@ -724,10 +873,177 @@ class WidgetBaselineMixin:
 
         threading.Thread(target=_generate, daemon=True).start()
 
-    def _generatePureLlmCode(self, prompt, scene):
+    # ------------------------------------------------------- step context
+    #
+    # What a baseline is told about the step it stands in for. The boundary --
+    # task/world facts yes, offline-analysis artefacts no -- is defined and
+    # justified in BaselineRunner (TASK_STEP_KEYS / WITHHELD_STEP_KEYS); these
+    # methods only gather the allowed side of it from live runtime state.
+
+    #: Node classes worth pushing full properties for. Bulk display/view/storage
+    #: nodes are excluded: they bloat the prompt without describing the patient.
+    _BASELINE_DETAIL_CLASSES = (
+        "vtkMRMLScalarVolumeNode", "vtkMRMLLabelMapVolumeNode",
+        "vtkMRMLSegmentationNode", "vtkMRMLModelNode",
+        "vtkMRMLMarkupsFiducialNode", "vtkMRMLMarkupsCurveNode",
+        "vtkMRMLMarkupsClosedCurveNode", "vtkMRMLMarkupsLineNode",
+        "vtkMRMLMarkupsPlaneNode", "vtkMRMLMarkupsROINode",
+        "vtkMRMLMarkupsAngleNode", "vtkMRMLLinearTransformNode",
+        "vtkMRMLTransformNode", "vtkMRMLTableNode",
+    )
+    _BASELINE_DETAIL_LIMIT = 14
+
+    #: How many upcoming steps' DESCRIPTIONS to include, marked "context only".
+    #:
+    #: This is the one piece of forward-looking information a baseline gets, and
+    #: it is a deliberate choice rather than an oversight. It is cookbook prose —
+    #: no code, no step ids, no metadata — and it is what a surgeon following the
+    #: written procedure can see on the next page. It helps a condition leave the
+    #: scene in a state the procedure can continue from, which is part of doing
+    #: the step well.
+    #:
+    #: Note it is more than the PIPELINE has: the pipeline dispatches the step's
+    #: template with no lookahead at all. So this favours the baselines, in the
+    #: spirit of "give each condition every chance". Set to 0 for a strict
+    #: no-forward-information ablation; nothing else needs to change.
+    BASELINE_LOOKAHEAD_STEPS = 3
+
+    def _baselineStepContext(self, step_id):
+        """Task-side brief for ``step_id``, assembled from live runtime state."""
+        runtime = getattr(self, "_workflowRuntime", None)
+        session = getattr(runtime, "session", None) if runtime else None
+        if not (runtime and session and step_id):
+            return {}
+
+        try:
+            from SlicerAIAgentLib.ExtensionCLILoader import get_workflow_graph
+            graph = get_workflow_graph(session.extension_name) or {}
+        except Exception:
+            logger.debug("Baseline step context: workflow graph unavailable", exc_info=True)
+            graph = {}
+        steps = [s for s in (graph.get("steps") or []) if isinstance(s, dict)]
+        step_ids = [s.get("step_id") for s in steps]
+        index = step_ids.index(step_id) + 1 if step_id in step_ids else 0
+
+        meta = {}
+        for candidate in steps:
+            if candidate.get("step_id") == step_id:
+                # ALLOW-list: only the task-describing keys cross this line.
+                meta = {k: candidate.get(k) for k in BaselineRunner.TASK_STEP_KEYS}
+                break
+
+        instructions = {}
+        try:
+            instructions = runtime._step_instructions_for(step_id) or {}
+        except Exception:
+            logger.debug("Baseline step context: instructions unavailable", exc_info=True)
+
+        completed = []
+        done = set(session.completed_steps or [])
+        for candidate in steps:
+            sid = candidate.get("step_id")
+            if sid in done and sid != step_id:
+                completed.append({
+                    "step_id": sid,
+                    "description": " ".join(str(candidate.get("description") or "").split()),
+                })
+
+        remaining = []
+        if index and self.BASELINE_LOOKAHEAD_STEPS > 0:
+            for candidate in steps[index:index + self.BASELINE_LOOKAHEAD_STEPS]:
+                text = " ".join(str(candidate.get("description") or "").split())
+                if text:
+                    remaining.append(text)
+
+        choices = {}
+        try:
+            from SlicerAIAgentLib.ExtensionCLILoader import get_workflow_choices
+            choices = dict(get_workflow_choices(session.extension_name) or {})
+        except Exception:
+            logger.debug("Baseline step context: choices unavailable", exc_info=True)
+
+        context = {
+            "extension": session.extension_name,
+            "index": index,
+            "total": graph.get("step_count") or len(steps),
+            "title": instructions.get("title", ""),
+            "simple": instructions.get("simple", ""),
+            "detailed": instructions.get("detailed", ""),
+            "completed": completed,
+            "remaining": remaining,
+            "choices": choices,
+        }
+        context.update(meta)
+        context.setdefault("step_id", step_id)
+        return context
+
+    def _baselineNodeDetails(self, scene):
+        """Full properties of the data nodes in play, for the tool-free condition.
+
+        The pipeline's agent can call ``GetNodeProperties`` mid-turn; the pure
+        LLM cannot, so the same observable state is pushed to it up front rather
+        than being an advantage the comparison never intended to test.
+        """
+        nodes = (scene or {}).get("scene_summary") or []
+        wanted = [
+            entry.get("id") for entry in nodes
+            if isinstance(entry, dict)
+            and entry.get("id")
+            and str(entry.get("class") or "") in self._BASELINE_DETAIL_CLASSES
+        ]
+        if not wanted:
+            return {}
+        details = {}
+        try:
+            from SlicerAIAgentLib import SceneTools
+            for node_id in wanted[: self._BASELINE_DETAIL_LIMIT]:
+                details[node_id] = SceneTools.getNodeProperties(node_id)
+        except Exception:
+            logger.debug("Baseline node details failed", exc_info=True)
+            return {}
+        return details
+
+    def _saveBaselineMessages(self, messages, tools=None):
+        """Persist the EXACT payload a baseline was sent.
+
+        This is the artefact the comparison rests on: a reviewer has to be able
+        to confirm what each condition was told, and in particular that no
+        offline-analysis artefact reached it (see BaselineRunner.TASK_STEP_KEYS).
+        Written from the worker thread, which is safe — it touches only files.
+        """
+        try:
+            log_dir = (getattr(self, "_baselineActiveRun", None) or {}).get("log_dir") \
+                or self._getCurrentLogDir()
+            body = []
+            for i, message in enumerate(messages or []):
+                body.append("=" * 60)
+                body.append(f"MESSAGE {i + 1} | role: {message.get('role', 'unknown')}")
+                body.append("=" * 60)
+                body.append(f"{message.get('content', '')}\n")
+            RunLog.write_text(os.path.join(log_dir, "messages_sent.txt"), "\n".join(body))
+            RunLog.write_json(os.path.join(log_dir, "messages_sent.json"), {
+                "message_count": len(messages or []),
+                "prompt_chars": sum(
+                    len(m.get("content", "") or "") for m in (messages or [])
+                ),
+                "per_message_chars": [
+                    {"role": m.get("role"), "chars": len(m.get("content", "") or "")}
+                    for m in (messages or [])
+                ],
+                "tools_offered": sorted(
+                    filter(None, (BaselineRunner._tool_name(t) for t in (tools or [])))
+                ),
+            })
+        except Exception:
+            logger.debug("Baseline message dump failed", exc_info=True)
+
+    def _generatePureLlmCode(self, prompt, scene, step=None, node_details=None):
         """One bare call: no retrieval, no tools, no CLI, no history."""
         client = self.logic.llmClient
-        messages = BaselineRunner.build_pure_llm_messages(prompt, scene=scene)
+        messages = BaselineRunner.build_pure_llm_messages(
+            prompt, scene=scene, step=step, node_details=node_details,
+        )
+        self._saveBaselineMessages(messages)
         response = client.chatIsolated(messages)
         return {
             "code": response.get("code"),
@@ -737,15 +1053,28 @@ class WidgetBaselineMixin:
             "cost": response.get("cost"),
             "model": client.model,
             "provider": getattr(client, "provider", ""),
+            "prompt_chars": sum(len(m.get("content", "")) for m in messages),
         }
 
-    def _generateOnlineOnlyCode(self, prompt, scene):
+    #: Tool-round budget for the online-only condition.
+    #:
+    #: Higher than the production turn's 10 on purpose. This condition's entire
+    #: thesis is "can it find the API by searching, without the offline
+    #: analysis?", so cutting it off mid-search would measure the budget rather
+    #: than the approach. It must reach its own natural stopping point -- or
+    #: demonstrably fail to.
+    BASELINE_ONLINE_TOOL_ROUNDS = 16
+
+    def _generateOnlineOnlyCode(self, prompt, scene, step=None):
         """Full retrieval + built-in tool loop, generated CLI ablated.
 
         Isolated from ``conversation_history`` so the baseline neither reads the
         real run's context nor pollutes it, and the generated-CLI tool schemas
         are filtered out of the tool list by identity (see
         ``BaselineRunner.strip_generated_cli_tools``).
+
+        The *raw* extension source trees stay searchable and are advertised in
+        the prompt: what is ablated is the offline analysis, not the code base.
         """
         client = self.logic.llmClient
         context = {"scene": scene}
@@ -753,12 +1082,18 @@ class WidgetBaselineMixin:
         retrieval = self.logic._buildRetrievalContext(prompt, retrieval_timing)
         if retrieval:
             context["retrieval_results"] = retrieval
-        messages = BaselineRunner.build_online_only_messages(client, prompt, context)
+        messages = BaselineRunner.build_online_only_messages(
+            client, prompt, context,
+            step=step,
+            source_roots_block=BaselineRunner.extension_source_roots_block(),
+        )
         tools = BaselineRunner.strip_generated_cli_tools(getattr(self.logic, "skillTools", []))
+        self._saveBaselineMessages(messages, tools)
         response = client.chatWithToolsIsolated(
             messages=messages,
             tools=tools,
             tool_executor=self.logic._executeTool,
+            max_tool_rounds=self.BASELINE_ONLINE_TOOL_ROUNDS,
             on_status=lambda text: self._streamQueue.put(("baseline_status", text)),
             # Same event shapes the production turn uses, so tool-search
             # progress and live thinking render on the Conversation page.
@@ -780,6 +1115,7 @@ class WidgetBaselineMixin:
             "tool_rounds": timing_report.get("tool_rounds"),
             "tool_calls": len(response.get("tool_calls_history") or []),
             "retrieval_timing": retrieval_timing,
+            "prompt_chars": sum(len(m.get("content", "")) for m in messages),
         }
 
     def _handleBaselineGenerated(self, payload):
@@ -826,7 +1162,9 @@ class WidgetBaselineMixin:
             "seconds": payload.get("seconds"),
         })
         try:
-            self._saveGeneratedCodeToFile(code, suffix=f"_baseline_{run['mode']}")
+            # No suffix: a baseline folder is flat and already named for its
+            # condition, so `code_baseline_online_only.py` only repeated it.
+            self._saveGeneratedCodeToFile(code)
         except Exception:
             logger.debug("Baseline code artifact write failed", exc_info=True)
 
@@ -855,7 +1193,16 @@ class WidgetBaselineMixin:
             bridge = BaselineMCPBridge.instance()
             self._baselineMcpServer = bridge
         if not bridge.available:
-            self._setBaselineStatus(bridge.NOT_FOUND_MESSAGE)
+            # Arming is an explicit user action, so it always gets a fresh
+            # start attempt — unlike the passive panel refresh, which tries
+            # once per session. This is also the path that recovers when the
+            # server was stopped mid-session with mcpLogic.stop().
+            self._mcpAutoStartAttempted = False
+            self._autoStartSkillMcpServer()
+        if not bridge.available:
+            self._setBaselineStatus(
+                getattr(self, "_mcpAutoStartError", "") or bridge.NOT_FOUND_MESSAGE
+            )
             return None
         return bridge
 
@@ -876,6 +1223,57 @@ class WidgetBaselineMixin:
         except Exception:
             logger.debug("MCP bridge probe failed", exc_info=True)
             return False, ""
+
+    def _autoStartSkillMcpServer(self):
+        """Run the skill's ``slicer-mcp-server.py`` so the user need not paste it.
+
+        Returns ``(available, url)``. Attempted at most once per session unless
+        the previous attempt succeeded — a failing script must not be re-executed
+        on every panel refresh, which would spam the console and the log.
+
+        The script itself is unmodified and runs in ``__main__``, so what Claude
+        Code connects to is the skill's own server with its own five tools; only
+        the copy-paste step is automated. Refused while a step is ARMED, because
+        re-running rebuilds ``TOOL_HANDLERS`` and would silently drop the armed
+        ``execute_python`` wrapper.
+        """
+        server = getattr(self, "_baselineMcpServer", None)
+        if server is not None and server.armed:
+            return True, server.url
+        if getattr(self, "_mcpAutoStartAttempted", False):
+            return self._baselineBridgeStatus()
+
+        self._mcpAutoStartAttempted = True
+        from SlicerAIAgentLib.BaselineMCPServer import (
+            run_skill_mcp_script, skill_mcp_script_path,
+        )
+        script = skill_mcp_script_path()
+        self._setBaselineStatus(
+            f"Starting the Slicer skill's MCP server ({os.path.basename(script) or 'slicer-mcp-server.py'})…"
+        )
+        slicer.app.processEvents()
+
+        ok, detail = run_skill_mcp_script(script)
+        available, url = self._baselineBridgeStatus()
+        if ok and available:
+            self._mcpAutoStartError = ""
+            self.appendToChat(
+                "System",
+                f"Started the Slicer skill's MCP server at {url} "
+                f"(ran {detail} — the skill's own script, unmodified). "
+                "Stop it later with mcpLogic.stop() in the Python console.",
+            )
+            self._recordRoleEvent("Baseline", "mcp_server_autostarted", {
+                "script": detail, "url": url,
+            })
+        else:
+            # ok-but-unavailable means the script ran without defining the
+            # handler registry -- report that, not a misleading success.
+            self._mcpAutoStartError = detail if not ok else (
+                "The script ran but did not register its tools."
+            )
+            logger.warning("MCP auto-start unsuccessful: %s", self._mcpAutoStartError)
+        return available, url
 
     def _onBaselineArmClicked(self):
         server = self._ensureBaselineMcpServer()
@@ -938,7 +1336,7 @@ class WidgetBaselineMixin:
             "code_chars": len(code),
         })
         try:
-            self._saveGeneratedCodeToFile(code, suffix="_baseline_claude_code")
+            self._saveGeneratedCodeToFile(code)
         except Exception:
             logger.debug("Baseline code artifact write failed", exc_info=True)
 
@@ -1012,12 +1410,43 @@ class WidgetBaselineMixin:
             error=error,
             attempt=attempt,
             transport=run.get("transport", ""),
+            step_context=run.get("step_context") or {},
         )
-        path = BaselineRunner.write_record(
-            run.get("log_dir") or self._getCurrentLogDir(),
-            record,
-            session_root=self._baselineSessionLogRoot(),
-        )
+        log_dir = run.get("log_dir") or self._getCurrentLogDir()
+        path = BaselineRunner.write_record(log_dir, record)
+        # The same detail the pipeline now keeps per step, so the four
+        # conditions are read the same way.
+        RunLog.write_execution(log_dir, execution, extra={
+            "step_id": run.get("step_id"),
+            "attempt": attempt,
+            "code_chars": len(run.get("code") or ""),
+            "scene_delta": delta,
+        })
+        RunLog.write_json(os.path.join(log_dir, "step_context.json"),
+                          run.get("step_context") or {})
+        manifest = self._runManifest()
+        if manifest is not None:
+            generation = run.get("generation") or {}
+            manifest.add_step(
+                run.get("step_id", ""),
+                attempt=attempt,
+                status="ok" if succeeded else "failed",
+                seconds=(execution or {}).get("execution_time"),
+                code_chars=len(run.get("code") or ""),
+                error=(error or (execution or {}).get("error") or "")[:500] or None,
+            )
+            manifest.set_totals(
+                generation_seconds=generation.get("seconds"),
+                prompt_chars=generation.get("prompt_chars"),
+                tokens=generation.get("tokens"),
+                cost=generation.get("cost"),
+                tool_rounds=generation.get("tool_rounds"),
+                tool_calls=generation.get("tool_calls"),
+            )
+            manifest.finish(
+                "completed" if succeeded else ("waiting" if keep_waiting else "failed"),
+                record=os.path.basename(path) if path else None,
+            )
         self._recordRoleEvent("Baseline", "run_finished", {
             "mode": run["mode"],
             "step_id": run.get("step_id"),
@@ -1025,7 +1454,7 @@ class WidgetBaselineMixin:
             "success": succeeded,
             "record": path,
         })
-        self._saveRoleTraceToFile(suffix=f"_baseline_{run['mode']}")
+        self._saveRoleTraceToFile()
 
         label = BaselineRunner.mode_label(run["mode"])
         if keep_waiting:
@@ -1033,6 +1462,7 @@ class WidgetBaselineMixin:
             run["attempt"] = attempt + 1
             run["code"] = ""
             detail = (execution or {}).get("error") or "Execution failed."
+            rolled = self._rollbackFailedBaselineStep(run)
             self._setBaselineStatus(
                 f"{label}: attempt {attempt} failed — still waiting for Claude Code "
                 f"at {server.url}. {detail[:220]}"
@@ -1040,24 +1470,29 @@ class WidgetBaselineMixin:
             self.appendToChat(
                 "System",
                 f"Baseline ({label}) attempt {attempt} failed on step "
-                f"{run.get('step_id')}; still armed for a retry.",
+                f"{run.get('step_id')}; still armed for a retry.{rolled}",
             )
             self._setBaselineRunUiEnabled(True)
             self._syncBaselineSendButton()
             return
 
         if error and not execution:
+            rolled = self._rollbackFailedBaselineStep(run)
             self._setBaselineStatus(f"{label}: {error}")
-            self.appendToChat("Error", f"Baseline ({label}) failed: {error}")
+            self.appendToChat("Error", f"Baseline ({label}) failed: {error}{rolled}")
             self._restoreAfterBaseline(advanced=False)
             return
 
         if not succeeded:
             detail = (execution or {}).get("error") or "Execution failed."
+            rolled = self._rollbackFailedBaselineStep(run)
             self._setBaselineStatus(
                 f"{label}: execution failed — the step was not advanced. {detail[:300]}"
             )
-            self.appendToChat("Error", f"Baseline ({label}) execution failed:\n{detail[:1000]}")
+            self.appendToChat(
+                "Error",
+                f"Baseline ({label}) execution failed:\n{detail[:1000]}{rolled}",
+            )
             self._restoreAfterBaseline(advanced=False)
             return
 
@@ -1116,18 +1551,55 @@ class WidgetBaselineMixin:
             self._updateWorkflowPanel(updated)
             self.appendToChat("System", "Generated CLI workflow complete.")
             self._clearCompletedWorkflowState()
+            # Leave baseline mode BEFORE flushing. The workflow is over, so
+            # there is no step left to compare — and the flush fills the prompt
+            # box and auto-presses Send. With baseline mode still engaged, that
+            # Send routes through this mixin's override and would start an
+            # unintended baseline run on a queued *traditional* request.
+            self._exitBaselineMode()
             self._flushQueuedWorkflowPrompts()
         self._setReadyStatus()
+
+    def _rollbackFailedBaselineStep(self, run):
+        """Undo a failed baseline attempt so the next one starts clean.
+
+        Without this, whatever a failed attempt half-built stays in the scene
+        and belongs to no checkpoint, so no later rewind can remove it — the
+        NEXT condition tested on the same step would then start from this one's
+        debris. That is the one way the per-step comparison silently stops being
+        a comparison, so it is repaired at the moment of failure rather than
+        left for the next rewind to miss.
+
+        Returns a short suffix for the chat message (empty when nothing was
+        removed), so the user can see it happened.
+        """
+        runtime = getattr(self, "_workflowRuntime", None)
+        if runtime is None or not (run or {}).get("step_id"):
+            return ""
+        try:
+            outcome = runtime.rollback_failed_step(run["step_id"])
+        except Exception:
+            logger.warning("Failed-step rollback raised", exc_info=True)
+            return ""
+        self._recordRoleEvent("Baseline", "failed_step_rolled_back", dict(outcome))
+        removed = int(outcome.get("removed") or 0)
+        if removed:
+            return f" Rolled back {removed} node(s) it had created, so the scene is clean again."
+        if outcome.get("rolled_back"):
+            return " The scene was restored to its pre-step state."
+        return ""
 
     def _restoreAfterBaseline(self, advanced):
         """Re-enable the panel; refresh the workflow view when we did not advance.
 
-        Also hands the Debug pages' WRITE pointer back to the pipeline. Called
-        before the auto-advance timer fires, so the pipeline's next step writes
-        its conversation and code into the pipeline buffer even while the
-        baseline view is still the one on screen.
+        Also hands BOTH shared write targets back to the pipeline — the Debug
+        pages' write pointer and the run-log folder. Called before the
+        auto-advance timer fires, so the pipeline's next step writes its
+        conversation, code and artifacts to the pipeline's own destinations even
+        while the baseline view is still the one on screen.
         """
         self._debugWriteContext = self.PIPELINE_DEBUG_CONTEXT
+        self._restorePipelineLogDir()
         self._setBaselineRunUiEnabled(True)
         self._syncBaselineSendButton()
         if advanced:
@@ -1148,3 +1620,4 @@ class WidgetBaselineMixin:
         self._baselineMcpServer = None
         self._baselineActiveRun = None
         self._debugWriteContext = self.PIPELINE_DEBUG_CONTEXT
+        self._restorePipelineLogDir()

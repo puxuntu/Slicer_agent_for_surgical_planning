@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "C:/0APP_install/slicer/3D Slicer 5.10.0/slicer.org/Extensions-34045",
+      "C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions",
+      "C:/Users/20152/Desktop/slicer-skill/SlicerAgent/Slicer_agent/Resources/Skills/slicer-skill-full"
+    ],
+    "deny": [
+      "Read(//C:/Users/20152/Desktop/slicer-skill/SlicerAgent/Slicer_agent/Resources/extension_CLI/**)",
+      "Read(//C:/Users/20152/Desktop/slicer-skill/SlicerAgent/Slicer_agent/Resources/Prompts/**)",
+      "Read(//C:/Users/20152/Desktop/slicer-skill/SlicerAgent/Slicer_agent/SlicerAIAgentLib/**)",
+      "Read(//C:/Users/20152/Desktop/slicer-skill/SlicerAgent/Slicer_agent/logs/**)",
+      "Read(C:/Users/20152/Desktop/slicer-skill/SlicerAgent/Slicer_agent/Resources/extension_CLI/**)",
+      "Read(C:/Users/20152/Desktop/slicer-skill/SlicerAgent/Slicer_agent/Resources/Prompts/**)",
+      "Read(C:/Users/20152/Desktop/slicer-skill/SlicerAgent/Slicer_agent/SlicerAIAgentLib/**)",
+      "Read(C:/Users/20152/Desktop/slicer-skill/SlicerAgent/Slicer_agent/logs/**)"
+    ]
+  }
+}

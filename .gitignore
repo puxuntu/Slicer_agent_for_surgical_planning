@@ -73,3 +73,9 @@ EXECUTION_FLOW.md
 
 # CLI generation caches (repair experience memory)
 Resources/agent_cache/
+
+# Claude Code + Slicer skill baseline (MCPConnection workspace).
+# The runbook promises .mcp.json and .claude/settings.json are already present,
+# so they are force-added past the blanket `.*` rule above. current_step.md is
+# regenerated every time a step is armed, so it must NOT be tracked.
+MCPConnection/current_step.md

@@ -1661,6 +1661,91 @@ class WorkflowRuntime:
         if pending:
             self._delete_sceneview(pending.get("sceneview_node_id"))
 
+    def rollback_failed_step(self, step_id: Optional[str] = None) -> Dict[str, Any]:
+        """Undo what a FAILED attempt at ``step_id`` left in the scene.
+
+        The success path records a step's created nodes in its checkpoint, so a
+        later rewind can delete them. A failure records nothing -- the pending
+        checkpoint is never promoted -- so whatever the attempt half-built stays
+        in the scene, belongs to no checkpoint, and is therefore invisible to
+        every future rewind. Left alone, the next comparison baseline on that
+        same step starts from the previous one's debris instead of the clean
+        pre-step state, which silently invalidates the comparison.
+
+        This closes that gap by doing at failure time what ``_record_checkpoint``
+        does at success time: diff the live scene against the snapshot taken when
+        the step opened, and remove what appeared. Properties and layout are
+        restored from the same pending snapshot, so nodes the attempt *modified*
+        are reverted too.
+
+        The pending checkpoint is deliberately KEPT: it holds the pre-step scene
+        view and node set, so a retry of the same step reuses the identical
+        starting state (``_begin_pending_checkpoint`` reuses a pending whose
+        step_id matches). Returns a summary; never raises.
+        """
+        result = {"rolled_back": False, "removed": 0, "step_id": step_id or "", "reason": ""}
+        if not self.session:
+            result["reason"] = "no session"
+            return result
+        pending = self._pending_checkpoint
+        if not pending:
+            result["reason"] = "no pending checkpoint"
+            return result
+        target = step_id or pending.get("step_id")
+        if pending.get("step_id") != target:
+            result["reason"] = "pending checkpoint belongs to another step"
+            return result
+        result["step_id"] = target
+
+        before = set(pending.get("node_ids_before") or set())
+        # Restore first: property-copy never deletes, so it is safe to run
+        # before the removals and it recovers nodes the attempt only modified.
+        self._restore_scene_properties(pending.get("sceneview_node_id"))
+
+        if self._wizard_context()[0]:
+            # Wizard extensions cache their scene nodes as Python attributes and
+            # re-entry is gated on those refs, so deleting is what hangs them --
+            # exactly the reason _commit_node_state refuses to. Empty + re-show
+            # the interaction nodes instead, as the rewind path does.
+            self._reset_wizard_interaction_nodes(before)
+            self._set_layout(pending.get("layout_before", -1))
+            result.update(rolled_back=True, reason="wizard: kept nodes, reset interaction")
+            self._write_event("failed_step_rolled_back", dict(result))
+            return result
+
+        try:
+            import slicer
+            created = [nid for nid in self._scene_node_ids() if nid not in before]
+            removed = 0
+            for node_id in created:
+                node = slicer.mrmlScene.GetNodeByID(node_id)
+                if node is None:
+                    continue
+                try:
+                    slicer.mrmlScene.RemoveNode(node)
+                    removed += 1
+                except Exception:
+                    pass
+            result["removed"] = removed
+            if removed:
+                logger.info(
+                    "[Replay] Rolled back %d node(s) from the failed attempt at %s",
+                    removed, target,
+                )
+        except Exception:
+            logger.debug("Failed-step rollback could not remove nodes", exc_info=True)
+
+        self._set_layout(pending.get("layout_before", -1))
+        try:
+            from .workflow_state import prune_missing_interaction_nodes
+            prune_missing_interaction_nodes(self.session.extension_name)
+        except Exception:
+            logger.debug("prune_missing_interaction_nodes failed", exc_info=True)
+
+        result["rolled_back"] = True
+        self._write_event("failed_step_rolled_back", dict(result))
+        return result
+
     def _finalize_checkpoint(self, step_id: str) -> None:
         """Promote the pending snapshot for ``step_id`` into a WorkflowCheckpoint."""
         pending = self._pending_checkpoint

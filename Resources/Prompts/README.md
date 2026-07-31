@@ -1,43 +1,59 @@
-# System Prompts
+# Prompts
 
-This directory contains the system prompts used by SlicerAIAgent.
+Every prompt this project sends to an LLM lives in this directory as Markdown — never as a string
+literal in Python. A prompt is an experimental variable of this system: it has to be editable,
+diffable and citable without touching code, and a paper has to be able to point at the exact file.
+
+`SlicerAIAgentLib/PromptLibrary.py` is the only module that reads this directory. Files are
+re-read when their mtime changes, so an edit takes effect on the next call — no Slicer restart.
+
+Placeholders are `{{UPPER_SNAKE}}` (doubled braces, so ordinary Markdown/JSON braces in the prompt
+need no escaping). An unfilled placeholder collapses to an empty string.
 
 ## Files
 
-### system_prompt.md
+| File | Used by | When |
+|---|---|---|
+| `system_prompt.md` | `LLMClient._buildSystemPrompt` | The full coding agent: general Slicer requests, and self-correction |
+| `workflow_router_prompt.md` | `WorkflowRouter` | The opening turn, to pick which guided workflow the request means |
+| `baseline_pure_llm_prompt.md` | `BaselineRunner.pure_llm_system_prompt` | Baseline 1 — pure LLM, no tools |
+| `baseline_online_only_prompt.md` | `BaselineRunner.online_only_addendum` | Baseline 2 — online agent with the generated CLI ablated |
+| `extension_cli_analyzer_prompt.md` | `ExtensionCLIAnalyzer` | Offline CLI generation pipeline |
 
-The main system prompt template loaded by `LLMClient` when building prompts for the LLM API.
+Baseline 3 (Claude Code + Slicer skill over MCP) has **no prompt file here**: its context and
+prompt management live entirely on the Claude Code side, and this runtime only executes the code
+that arrives.
 
-**Location:** `SlicerAIAgent/Resources/Prompts/system_prompt.md`
+## Which prompt runs when
 
-**Contents:**
-- Core mission and role definition
-- Critical rules (MRML node access, array modifications, coordinate systems, etc.)
-- API preference order (slicer.util → MRML → module logics)
-- MRML node types reference
-- Common operations by topic with code examples
-- Output format requirements
-- Response structure guidelines
-- Common pitfalls to avoid
-- Coding style guidelines
+A request arrives:
 
-**Dynamic Content:**
+1. **A generated-CLI workflow is already running** → `WorkflowIntentResolver` (a small inline
+   JSON prompt, no file) maps the message to an allowed workflow action. No system prompt.
+2. **No workflow running, and the request names a planning procedure** → `workflow_router_prompt.md`.
+   One tool-free call, ~6 KB, whose entire job is choosing the workflow. On a match the runtime
+   dispatches step 1 and the LLM leaves the loop; every later step is driven by the runtime, not
+   by a prompt. This replaced a ~140 KB full agent turn whose only output was the same choice.
+3. **Anything else** (general Slicer request, or the router declined) → `system_prompt.md`, plus
+   dense-retrieval snippets, the scene, and the extension CLI sections. Unchanged.
+4. **Generated code failed at runtime** → self-correction reuses `system_prompt.md` in full, plus
+   the failed code, the error, the original tool trajectory and live API evidence. Deliberately
+   *not* short: repair is the one place that needs the whole history and the search tools.
 
-The following sections are dynamically appended at runtime based on the user's query:
+## Dynamic content appended at runtime
 
-- `## RELEVANT TOPICS FOR THIS QUERY:` - Lists relevant script repository files
-- `## RELEVANT CODE EXAMPLES FROM SLICER SCRIPT REPOSITORY:` - Code examples from markdown files
-- `## CURRENT SLICER SCENE STATE:` - Information about nodes in the current scene
+`_buildSystemPrompt` appends these to `system_prompt.md` — they are not in the file:
 
-**Customization:**
+- `## PLATFORM INFORMATION`, `## ROLE-COMPOSED AGENT PROTOCOL`, `## REQUIRED OUTPUT FORMAT`
+- `## RELEVANT KNOWLEDGE BASE SNIPPETS` — dense pre-retrieval results
+- `## CURRENT SLICER SCENE` — the MRML scene summary
+- `## EXTENSION CLI TOOLS`, `## EXTENSION SOURCE CODE`, `## COOKBOOK-GUIDED WORKFLOW` — suppressed
+  when `llm_client.suppress_extension_cli` is set (the online-only baseline's ablation)
+- `## ACTIVE WORKFLOW` — the running workflow's state fragment
 
-You can edit this file to customize the AI assistant's behavior without modifying Python code. Changes take effect immediately after saving (no restart required for the next API call).
+## Fallbacks
 
-## Fallback Mechanism
-
-If the system prompt file cannot be loaded (e.g., file missing or corrupted), `LLMClient` will automatically use a minimal built-in fallback prompt to ensure the system remains functional.
-
-## Related Files
-
-- `SlicerAIAgentLib/LLMClient.py` - Loads and uses this prompt
-- `Resources/Skills/script_repository/` - Source of dynamic code examples
+Every load has a minimal built-in fallback, so a missing or corrupt file degrades the run instead
+of crashing it. Fallbacks live next to their loader (`BaselineRunner._PURE_LLM_FALLBACK`,
+`WorkflowRouter._FALLBACK_ROUTER_PROMPT`, `LLMClient._getFallbackSystemPrompt`) and are the only
+prompt text in Python — they exist to survive a missing file, not to be edited.

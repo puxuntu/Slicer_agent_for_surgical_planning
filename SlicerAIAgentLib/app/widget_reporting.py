@@ -23,10 +23,35 @@ class WidgetReportingMixin:
                 suffix = ""
             # turn_number is already incremented after response, so current turn is turn_number-1
             turn_number = max(1, turn_number - 1)
-            logPath = os.path.join(self._getCurrentLogDir(), f'{turn_number}_performance_log{suffix}.txt')
+            # Into the CURRENT step's folder. Previously every step of a guided
+            # workflow wrote this to one filename in the run root, so a 33-step
+            # run retained only the last step's timing.
+            logPath = os.path.join(self._artifactDir(), f'timing{suffix}.txt')
 
             t = self._timing
             lines = ["="*50, "Performance Timing Report", "="*50, ""]
+            step_id = getattr(self, "_currentStepId", "")
+            if step_id:
+                lines.insert(3, f"Step: {step_id}")
+            if t.get("mode"):
+                lines.insert(3, f"Mode: {t['mode']}")
+            # The fast first-turn router's own cost, on whichever path it took.
+            if t.get("router"):
+                r = t["router"]
+                lines.append(
+                    f"Workflow router: matched {r.get('extension')} "
+                    f"(confidence {r.get('confidence')}) in {r.get('seconds')}s, "
+                    f"{r.get('prompt_chars')} prompt chars, {r.get('tokens')} tokens"
+                )
+                lines.append("")
+            if t.get("router_declined"):
+                r = t["router_declined"]
+                lines.append(
+                    f"Workflow router: declined ({r.get('reason')}) in "
+                    f"{r.get('seconds')}s, {r.get('prompt_chars')} prompt chars, "
+                    f"{r.get('tokens')} tokens — full agent turn used instead"
+                )
+                lines.append("")
 
             # ---- Compute phase times so the overview adds up ----
             phase1_scene = t.get('context_build_time', 0.0)

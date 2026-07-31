@@ -24,6 +24,13 @@ class WidgetSendMixin:
         if self._handleDirectWorkflowTurnIfNeeded(prompt):
             return
 
+        # Opening turn: if the request names a guided planning workflow, enter it
+        # through one small routing call instead of the full agent turn (whose
+        # only output would be the same tool call). Returns False for anything
+        # else, and the unchanged full turn below handles it.
+        if self._handleWorkflowRouterTurnIfNeeded(prompt):
+            return
+
         if not (self._workflowRuntime and self._workflowRuntime.has_active_workflow()):
             self._clearWorkflowResultMarkers()
 
@@ -58,9 +65,34 @@ class WidgetSendMixin:
             'turn_start': time.time(),
             'prompt': prompt,
         }
-        self._currentLogDir = self._createRunLogDir(getattr(self, "_currentTurn", 1))
+        # If the fast workflow router looked at this prompt and declined, its
+        # cost belongs to THIS turn -- record it so the performance log accounts
+        # for every API call the turn made, not just the ones below.
+        declined = getattr(self, '_lastRouterDecision', None)
+        if declined is not None:
+            self._timing['router_declined'] = {
+                'confidence': declined.confidence,
+                'reason': declined.reason or declined.error,
+                'seconds': declined.seconds,
+                'prompt_chars': declined.prompt_chars,
+                'tokens': declined.tokens,
+            }
+            self._lastRouterDecision = None
+        # A general (non-workflow) turn: logs/<stamp>_pipeline_task_turnN/
+        from SlicerAIAgentLib import RunLog
+        self._currentLogDir = self._createRunLogDir(
+            getattr(self, "_currentTurn", 1),
+            condition=RunLog.CONDITION_PIPELINE,
+            router_declined=self._timing.get("router_declined"),
+        )
         if self.logic and self.logic.llmClient:
             self.logic.llmClient.setDebugOutputDir(self._currentLogDir)
+        # A router call that DECLINED still happened and still cost tokens;
+        # record it in the folder of the turn that ran instead.
+        router = getattr(self, '_lastRouter', None)
+        if router is not None:
+            router.write_artifacts(self._currentLogDir)
+            self._lastRouter = None
         self._roleTrace = []
         self._setAgentStatus("Observer", "Reading request...")
         self._recordRoleEvent("Observer", "received_prompt", {

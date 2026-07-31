@@ -15,6 +15,10 @@ cmake --build build
 
 # Build/refresh the FAISS vector index (requires knowledge base in Resources/Skills/slicer-skill-full/)
 python scripts/build_rag.py
+
+# Comparison table across all four conditions, derived from logs/
+python scripts/collect_runs.py                  # summary + logs/runs_index.csv
+python scripts/collect_runs.py --step cb_step_9 # one step under every condition
 ```
 
 Dependencies are in `requirements.txt` — `httpx`, `numpy`, `jsonschema` are explicit; `faiss-cpu`, `onnxruntime`, `transformers` are auto-installed at runtime. CMake installs these into Slicer's Python environment during extension setup.
@@ -52,7 +56,7 @@ Tests live in `Testing/SlicerAIAgentTest.py` and also inline at the bottom of `S
 
 1. **User input** → `SlicerAIAgentWidget.onSendButtonClicked()` → background thread via `_backgroundStream()`.
 2. **Pre-Retrieval** — `LLMClient.decomposeQuery()` breaks complex prompts into sub-queries; `VectorRetriever` searches FAISS index (`SkillIndexer.py`).
-3. **Tool-Calling Loop** — LLM has five built-in tools (`SearchSymbol`, `Grep`, `ReadFile`, `VectorSearch`, `GenerateSegmentationCode`) plus dynamically loaded extension CLI tools. `SkillToolExecutor` dispatches via ripgrep/tree-sitter. Multiple tool calls execute in parallel via `ThreadPoolExecutor`.
+3. **Tool-Calling Loop** — LLM has **four** built-in tools (`Grep`, `ReadFile`, `VectorSearch` from `get_skill_tools()`, plus `GetNodeProperties` from `get_scene_tools()`) alongside the dynamically loaded extension CLI tools. `SkillToolExecutor` dispatches via ripgrep/tree-sitter. Multiple tool calls execute in parallel via `ThreadPoolExecutor`. `SearchSymbol` is *implemented* (`skill_tools/symbols.py`, dispatchable, memoized) but **not registered in any tool schema**, so the model is never offered it — confirmed in `messages_sent.json` of an online-only baseline, which lists exactly four. `GenerateSegmentationCode` is likewise unregistered. Either wire them into `get_skill_tools()` or treat them as dead code; do not describe them as available.
 4. **Plan + Code Generation** — LLM outputs `agent_plan` JSON (with `expected_scene_change` checks) then a Python code block. Tool loop terminates when executable code is detected.
 5. **Validation** — `CodeValidator` performs AST-based security checks (blocked modules/functions, destructive op detection).
 6. **Execution** — `SafeExecutor.execute()` runs code in Slicer's `__main__` namespace via `qt.QTimer.singleShot()` on the Qt main thread. Scene rollback on failure.
@@ -63,14 +67,50 @@ Tests live in `Testing/SlicerAIAgentTest.py` and also inline at the bottom of `S
 
 HTTP I/O runs in a background `threading.Thread`. Events are marshaled to Qt main thread via a `queue.Queue` (`_streamQueue`) polled every 50ms by a `QTimer`. All MRML scene access and UI updates must happen on the Qt main thread. Vector index warmup also runs in a background thread on startup.
 
-### System Prompt Construction
+### Prompt & Context Management
 
-`LLMClient._buildSystemPrompt()` assembles the prompt from:
-- Template loaded from `Resources/Prompts/system_prompt.md` (with `_getFallbackSystemPrompt()` as backup).
-- Current MRML scene context injected inline (node list, properties).
-- Pre-retrieval knowledge base snippets under `## RELEVANT KNOWLEDGE BASE SNIPPETS`.
-- Extension CLI tool descriptions (loaded at runtime).
-- Extension source code accessible via `ext:` path prefix (e.g., `ext:VoxTell/` exposes that extension's source to LLM search tools).
+**Every prompt lives in `Resources/Prompts/*.md`, never as a Python string.** A prompt is an
+experimental variable of this system, so it must be editable, diffable and citable without touching
+code. `SlicerAIAgentLib/PromptLibrary.py` is the only module that reads that directory (mtime-aware
+cache, so an edit applies on the next call; `{{PLACEHOLDER}}` substitution via `render()`). The only
+prompt text left in Python is a one-line fallback per loader, for surviving a missing file.
+`Resources/Prompts/README.md` is the index. Four prompt paths, each sized to its job:
+
+**1. Opening turn → `workflow_router_prompt.md` (~6 KB, one tool-free call).**
+Once a generated-CLI workflow starts, every step is dispatched by `WorkflowRuntime` — the LLM is out
+of the loop. So the only decision it makes on turn 1 is *which workflow the request means*. Making
+that decision through the full agent turn cost **140,611 characters** of system prompt (33 KB manual
++ 72 KB retrieval snippets, including whole markdown files + 41 KB of CLI fragments + scene) to emit
+one tool call. `WorkflowRouter` does it with ~6,200: the router prompt plus a catalog built from the
+workflow graphs (name, step count, seven step descriptions **spread evenly across** the procedure —
+the head names the inputs, the tail names the goal, which is what separates nine procedures that all
+open with the same Segment Editor boilerplate). Temperature 0, thinking off, no tools, no retrieval,
+no `conversation_history` write. On a match it calls `start_for_extension()` + `_runWorkflowStepDirect()`.
+It only ever *skips* work: unknown name, confidence < `DEFAULT_CONFIDENCE_THRESHOLD` (0.6), `null`, a
+malformed reply or an API failure all return False and the unchanged full turn answers the request.
+`ROUTER_ENABLED = False` restores the old behaviour in one line.
+
+**2. General Slicer requests → `system_prompt.md`, unchanged.** `_buildSystemPrompt()` assembles it
+from the template + platform info + role protocol + output format + `## RELEVANT KNOWLEDGE BASE
+SNIPPETS` (dense pre-retrieval) + `## CURRENT SLICER SCENE` + the extension CLI sections +
+`## ACTIVE WORKFLOW`. Extension source is searchable via the `ext:` prefix (`ext:VoxTell/`).
+
+**3. Self-correction → deliberately long.** Repair needs the whole history: the full system prompt,
+the original user prompt, the prior tool trajectory, the failed plan + code, the error, live
+`ApiSanityChecker` attribute evidence, core-UI control evidence, the workflow state, and the search
+tools. Kept as-is except for one fix: a repair inside a running workflow already strips the generated
+CLI tool *schemas* from its tool list (`_filtered_repair_tools`), so `suppress_cli_tool_fragments`
+now also strips their *descriptions* — ~42 KB per correction turn spent describing tools that are not
+there, and inviting a call that arrives as text and parses to no code. The `ext:` source paths stay:
+searching the extension's own source is exactly what a repair needs. Two independent ablation flags:
+
+| flag | CLI tool fragments | `ext:` source paths | cookbook block | used by |
+|---|---|---|---|---|
+| *(none)* | ✅ | ✅ | ✅ | normal turns |
+| `suppress_cli_tool_fragments` | ❌ | ✅ | ❌ | self-correction during a workflow |
+| `suppress_extension_cli` | ❌ | ❌ | ❌ | online-only baseline |
+
+**4. Baselines → see "Baseline prompt & context" below.**
 
 ### Dual API Support
 
@@ -101,6 +141,9 @@ HTTP I/O runs in a background `threading.Thread`. Events are marshaled to Qt mai
 | `SlicerCodeTemplates.py` | Reusable code patterns for common Slicer operations. |
 | `InteractionManager.py` | Low-level Slicer 3D interaction: markup node creation, placement mode entry/exit, VTK observer management with debounce timers. |
 | `WorkflowOrchestrator.py` | Runtime state machine for guided interactive workflows: step execution, interaction completion, workflow cancellation, prompt fragment generation. |
+| `PromptLibrary.py` | The only reader of `Resources/Prompts/`. mtime-aware cache, `{{PLACEHOLDER}}` rendering, per-file fallback. |
+| `RunLog.py` | Run-folder naming (`<stamp>_<condition>_<procedure>[_<step>][_a<n>]`), fail-soft artifact writers, `RunManifest`. |
+| `WorkflowRouter.py` | Fast first-turn router: one tool-free call over a compact workflow catalog, deciding which guided workflow a request means (or none). |
 
 ### Extension CLI Pipeline
 
@@ -143,6 +186,89 @@ Manual, per-step evaluation of the runtime pipeline against three alternative co
 
 All three conditions share the tail of the real pipeline (CodeValidator → SafeExecutor → WorkflowRuntime completion), so only the code producer differs. They deliberately do **not** get plan validation, `ApiSanityChecker`, or the self-correction loop — those are properties of the system under test.
 
+**Baseline prompt & context.** The goal is that each baseline is given every chance to solve the
+step, so a failure is a failure of the *approach* and not of the harness. What separates "generous"
+from "cheating" is not how much text a condition gets but **where the text came from**: a baseline
+gets everything that describes the **task and the world** — the same things a surgeon standing in
+front of the running application has — and nothing that is a product of the **offline analysis**,
+which is the artefact under test. `BaselineRunner.TASK_STEP_KEYS` is the ALLOW-list (`step_id`,
+`operation_type`, `description`), so a field added to `workflow.json` later defaults to withheld;
+`WITHHELD_STEP_KEYS` names the other side explicitly (`extension_method_hint`,
+`ui_parameter_binding`, `widget_name`, `value_property`, `operation_model`, `node_roles`, …) so the
+ablation is legible in review rather than implicit in the code. `build_step_brief()` renders the
+allowed side: the step's own cookbook description, its clinical guidance from `step_instructions.json`
+(title / simple / detailed — the same words the panel shows the surgeon), where it sits in the
+procedure, the steps already completed, the values and nodes the user already chose, and a
+`BASELINE_LOOKAHEAD_STEPS`-step lookahead marked *context only*. Every run record carries the full `step_context` and a
+`generation.prompt_chars`, so a reader can verify what the condition knew and compare context sizes
+across conditions directly.
+
+- **Pure LLM** — `baseline_pure_llm_prompt.md`. Comprehensive *situationally*, empty *technically*.
+  It gets the output contract, the execution environment (`__main__` level, no `self`, what is
+  pre-imported), the CodeValidator blocked list verbatim (so a rejection measures the model and not
+  a rule it was never told), how to reach a scripted module's widget/logic from Python in general
+  terms, the live scene, and — because it has no tools and cannot call `GetNodeProperties` mid-turn
+  like the pipeline can — full properties of up to 14 relevant data nodes pushed up front
+  (`_baselineNodeDetails`). What it does not get is any Slicer API answer: the code still comes from
+  the model's own knowledge, in one shot.
+- **Online only** — `baseline_online_only_prompt.md`, appended to the CLI-suppressed production
+  prompt. The ablation is of the **analysis**, not of the code base: ablating the CLI must not
+  silently also ablate the extension source, or the condition is not what it claims to be. So the
+  raw `ext:<Name>/` source trees stay searchable and are advertised (`extension_source_roots_block()`
+  — module name and path only, no logic-class shortcut, no workflow graph), with a concrete recipe
+  for deriving an extension's API from source: find the module → grep the `.ui` label for the
+  objectName → follow the `connect()` to the handler → check for `parameterNodeWrapper` → confirm
+  the signature with `ReadFile`. Tool budget is raised to 16 rounds
+  (`BASELINE_ONLINE_TOOL_ROUNDS`) because this condition's whole thesis is "can it find the API by
+  searching?", and cutting it off mid-search would measure the budget instead of the approach.
+- **Claude Code** — its *prompt* is authored on the Claude Code side, but its **task brief is not
+  optional**: arming a step writes `render_step_brief_document()` to `MCPConnection/current_step.md`,
+  and `MCPConnection/CLAUDE.md` tells that session to read it first. Without it Claude Code would be
+  the only condition working from the user's sentence alone while the other two get ~1.8 KB of task
+  context injected — a comparison of briefings rather than of approaches. Identical text, identical
+  `TASK_STEP_KEYS` allow-list; only the delivery differs, because that session takes its prompt
+  elsewhere. It needs no extra MCP tool (the skill's surface stays as it ships) and no `--add-dir`
+  (the file lands in its own workspace). A copy goes to the run folder so what it was told is
+  auditable. The live scene is deliberately *not* in the file — Claude Code pulls it with
+  `list_nodes` / `get_node_properties`, which is fresher than a snapshot.
+
+**Context parity across the three.** `step_context` is computed **once**, in `_beginBaselineRun`, for
+every mode — so the three conditions cannot drift apart by construction. The two prompt-driven modes
+have it injected into their messages; Claude Code reads the same bytes from a file.
+
+**Conditions tested back-to-back on one step are isolated from each other.** Running pure LLM,
+then stepping Back and running online-only, then Claude Code, gives all three the *identical*
+pre-step scene. The mechanism is self-healing: each successful baseline re-creates the step's
+checkpoint, and its before-snapshot is captured *after* the rewind, so it is the same pre-step
+state the previous condition saw. A **failed** attempt used to break this — the pending
+checkpoint is discarded, so whatever the attempt half-built belonged to no checkpoint and no
+later rewind could remove it, silently handing the next condition the previous one's debris.
+`WorkflowRuntime.rollback_failed_step()` closes that: on failure it does what
+`_record_checkpoint` does on success — diffs the live scene against the snapshot taken when the
+step opened, deletes what appeared, restores properties and layout, and **keeps** the pending
+checkpoint so a retry reuses the identical starting state. Called from every baseline failure
+path (`_rollbackFailedBaselineStep`), including the Claude Code still-armed retry. The pipeline
+is deliberately untouched: its pending checkpoint survives across self-correction attempts, so
+it is already self-healing, and it is the system under test.
+The one real exception is `PedicleScrewPlanner` — the only wizard extension, where downstream
+nodes are deliberately kept (deleting them hangs its cached-Python-ref `onEntry`), so
+conditions tested on it are *not* isolated and should be reported separately.
+
+**Nothing from after the stepped-back step reaches a baseline.** Rewinding to step N truncates
+`completed_steps`, the choices mirror, the completions mirror, `repeat_states`, `last_result` and the
+checkpoint list to the step-N prefix, and deletes the downstream nodes — and it happens *before*
+`_baselineStepContext`, the scene read and the node-property read, so all three see only pre-N state.
+No result object (`_currentWorkflowStepInfo`, `last_result`, `currentCode`, `conversation_history`)
+is ever passed into a baseline message, and `next_step` goes only to `step.json` in the log.
+
+The one deliberate exception is the **lookahead**: `BASELINE_LOOKAHEAD_STEPS` (default 3) upcoming
+step *descriptions*, marked "context only — do NOT do them". It is cookbook prose — no code, no step
+ids, no metadata — and it is what a surgeon reading the written procedure sees on the next page; it
+helps a condition leave the scene in a state the procedure can continue from. Note it is **more than
+the pipeline has**: the pipeline dispatches its template with no lookahead at all. So it favours the
+baselines, in the spirit of giving each condition every chance. Set it to `0` for a strict
+no-forward-information ablation — nothing else needs to change.
+
 **Which steps are comparable.** A baseline substitutes a *code producer*, so the step must be one the pipeline answers with executable code. Of the six canonical operation types (`extension_cli_analyzer.common.CANONICAL_OPERATION_TYPES`) exactly two qualify — `WorkflowRuntime.CODE_STEP_OPERATION_TYPES`, an **allow-list** so a type added later defaults to not-comparable:
 
 | type | comparable | why not |
@@ -158,6 +284,21 @@ Across the nine cookbook extensions that is 106 of 184 steps (58%). `external_st
 
 **The prompt is never authored by the panel.** The box is only ever *emptied*, never pre-filled: the prompt is the independent variable of the comparison, so it is the user's to write for every step and every condition.
 
+**The generated code is unreachable, by enforcement not by convention.** A baseline runs on a step the
+pipeline has already answered, so the obvious way to corrupt the comparison is for a baseline to read the
+template the pipeline used. Every channel is closed: the prompt is user-typed; `TASK_STEP_KEYS` is an
+allow-list carrying no template; `suppress_extension_cli` drops the CLI prompt sections; the CLI tool
+schemas are stripped by identity; the isolated chat calls never read `conversation_history`; and the
+rewind deletes the step's own output from the scene before the baseline runs. The one channel that was
+*open* was the online-only condition's search tools — `SkillToolExecutor._resolve_path` accepted absolute
+paths as-is and joined relative ones without normalising, so `ReadFile("../../extension_CLI/<Ext>/templates/<step>.tpl")`
+would have returned the answer. `_DENIED_SUBTREES` (`skill_tools/setup.py`) now refuses any path resolving
+inside `Resources/extension_CLI`, `Resources/Prompts`, `SlicerAIAgentLib` or `logs`, checked on the
+**resolved** path so neither an absolute path nor a `../` traversal gets through. Nothing legitimate reads
+those through this executor: the knowledge base is `skill_path`, extension source is `extra_roots`, and the
+CLI generation pipeline uses its own file access. The Claude Code condition is fenced the same way, by
+scoping its `--add-dir` set (see `MCPConnection/CLAUDE.md`).
+
 **Stepping resets the arm.** `_resetBaselineForNavigation()` runs before Back / Forward / Run-from-here: it leaves baseline mode and empties the prompt box, so each step is judged on its own and neither the previous step's mode nor its prompt text follows the user along the timeline. The user re-arms with ⚖ on the step they land on (possible only where the ⚖ button is enabled, i.e. a comparable step). It returns False while a run is in flight, and the caller abandons the navigation — stepping out from under an executing baseline would orphan its checkpoint and its record.
 
 The ⚖ button is **hidden outright** on a step whose operation type cannot be compared — there is nothing to offer there. That is only safe because the arm can never outlive the step it was set on: Back/Forward reset it, and `_updateBaselineControls` also auto-disarms (and clears the box) when the workflow *auto-advances* onto a non-comparable step after a run. Without that invariant a hidden-but-armed toggle would be unreachable. During a run the icon stays visible-but-disabled so the row cannot vanish under an executing baseline.
@@ -168,23 +309,88 @@ Two separate notions still drive the rest: **`_baselineActive`** is the toggle i
 
 **Debug-view isolation** (`WidgetStreamingMixin`, "Debug-view contexts"). The Debug section's two pages are shared by the pipeline and each baseline, but their content never mixes. Two pointers do it: `_debugContext` (which buffer is *displayed* — the ⚖ toggle and the baseline selector move it) and `_debugWriteContext` (which buffer new content is *written to* — the producer currently running moves it). `_chatEntriesHtml` plus the two widgets always hold the displayed buffer; the others are parked in `_debugBuffers` and swapped by `_switchDebugContext`. Every chat append goes through `_debugWriteEntries()` and every code write through `_setGeneratedCode()`, so the two pointers may diverge: when a baseline run finishes and auto-advance hands back to the pipeline, the pipeline's output accumulates invisibly in the `pipeline` buffer and reappears complete the moment the baseline row is closed. Baseline reasoning is committed permanently (the pipeline's streaming entry hides it after `thinking_done`); the online-only tool loop commits one entry per reasoning round via the `baseline_thinking` queue event.
 
-Records land in the turn's run folder as `baseline_<step>_<mode>_a<attempt>_<HHMMSS>.json` and are appended to `logs/baseline_runs.jsonl` so a whole evaluation session collects from one file.
+Records land in the run's own folder as `baseline_<step>_<mode>_a<attempt>_<HHMMSS>.json`. The
+cross-condition table is built on demand by `scripts/collect_runs.py` (see "Debug Artifacts"), not
+written a second time at runtime.
 
 ### Debug Artifacts
 
-Each turn writes artifacts under timestamped run folders:
+`SlicerAIAgentLib/RunLog.py` owns run-folder naming and artifact writing (Qt-free, fail-soft — a
+logging failure must never abort the run being logged). The folder name is the only thing visible in
+a file browser, so it carries the four facts a reader needs before opening anything:
 
 ```
-logs/YYYYMMDD_HHMMSS_turnN/
-  {turn}_agent_plan.json          — Parsed structured plan
-  {turn}_code.txt                 — Generated Python code
-  {turn}_first_prompt_debug.txt   — First prompt/messages sent to LLM
-  {turn}_last_prompt_debug.txt    — Final prompt/messages before code generation
-  {turn}_performance_log.txt      — Timing breakdown (retrieval, API wait, tools, validation, execution, correction)
-  {turn}_role_trace.json          — Structured role-composed pipeline events
-  {turn}_thinking_history.txt     — Reasoning/progress content
-  {turn}_correction_*             — Self-correction artifacts (up to 5 attempts)
+logs/20260730_143210_pipeline_BoneReconstructionPlanner/
+     20260730_143512_pureLLM_BoneReconstructionPlanner_cb_step_08_a1/
+     \______________/\______/\______________________/\___________/\_/
+          when       condition      procedure            step    attempt
 ```
+
+Sorting by name gives chronological order; `dir *pureLLM*` gives one condition. The condition token
+(`pipeline` / `pureLLM` / `onlineOnly` / `claudeCode`) is what separates the system under test from
+the three comparison baselines. A general, non-workflow turn is `<stamp>_pipeline_task_turnN`.
+
+**One run folder per workflow, one subfolder per step.** Chat turns that drive an already-active
+workflow ("done", a choice) keep writing into the same run folder rather than each opening a new
+one. Step folders are zero-padded (`cb_step_08`) purely so they sort in run order — the true,
+unpadded `step_id` is always in `step.json` and in the manifest.
+
+```
+logs/20260730_143210_pipeline_BoneReconstructionPlanner/
+  run_manifest.json        condition + label, prompt, model, router cost, per-step
+                           status/seconds/errors, totals. Rewritten on every mutation,
+                           so a session killed mid-workflow still leaves a usable record.
+  role_trace.json          the whole run's events
+  00_router/               the routing call: messages_sent.txt, reply.txt, call.json
+  cb_step_01/
+    step.json              step id, operation type, description, origin, next step
+    code.py                the code this step executed
+    agent_plan.json
+    execution.json         success, seconds, error, scene_delta   <- NEW
+    output.txt             raw stdout / stderr                    <- NEW
+    role_trace.json        only this step's slice of the trace
+    timing.txt             per-step performance breakdown
+    thinking.txt           reasoning for this step
+    correction_1/          attempt.json, first_prompt.txt, code.py, agent_plan.json,
+                           response.json — nested under the step it repairs
+  cb_step_02/ …
+```
+
+A baseline folder is flat (it is one step by construction) and additionally holds `prompt.txt`,
+`messages_sent.txt` / `.json` (the **exact** payload the condition received, so a reviewer can
+confirm no offline-analysis artefact reached it), `step_context.json`, and the
+`baseline_<step>_<mode>_a<n>_<time>.json` record.
+
+**The aggregate view is derived, not written.** `scripts/collect_runs.py` walks `logs/` and emits one
+row per (run, step) across **all four** conditions — `--step cb_step_9` prints that step under every
+condition side by side; `logs/runs_index.csv` is the full table. This replaced
+`logs/baseline_runs.jsonl`, an append-only file that duplicated the per-run record byte for byte and
+covered only the three baselines: a "whole session in one file" that silently omitted the system
+under test invites analysing whichever conditions are convenient, and a second live writer of the
+same facts can drift from the first. A derivation cannot.
+
+Three prior defects this replaced, all of which cost data:
+- Every step of a workflow wrote its plan, role trace and timing to the **same three filenames** in
+  one folder, so a 33-step run retained only the last step's.
+- Correction artifacts were keyed by attempt number alone (`1_correction_0_…`), so two steps each
+  failing on attempt 0 overwrote each other.
+- The pipeline persisted **no execution result at all** — success, stdout, errors and scene delta
+  reached only the role trace, which the next step then overwrote. That left the system under test
+  the least-instrumented of the four conditions.
+
+`_artifactDir()` is the single funnel every writer goes through; `_setStepLogContext(step_id)` opens
+a step's folder and repoints the LLM client's prompt dumps into it. A baseline parks the pipeline's
+folder, manifest, step context **and role trace** (`_restorePipelineLogDir`) so the step it
+auto-advances to — dispatched by the *pipeline* — neither logs inside the baseline's folder nor
+inherits its events.
+
+**No `thinking.txt` in a clean guided run is correct, not a bug.** The routing call is deliberately
+non-thinking (`thinking=False`, `reasoning_effort="low"`, `temperature=0`) — a 9-way classification
+against a fixed JSON schema does not need reasoning tokens, and thinking would slow the one turn
+this path exists to speed up. After it, the dispatched steps are deterministic template execution
+and call no model at all. So reasoning only appears when self-correction fires, or in an
+`onlineOnly` / `pureLLM` baseline folder. `00_router/call.json` records the flags and states this,
+so the absence is answerable from the artifacts alone.
 
 ## Coding Conventions
 

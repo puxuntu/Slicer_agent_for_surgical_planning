@@ -29,6 +29,9 @@ __all__ = [
     'TurnRouter',
     'WorkflowRuntime',
     'WorkflowIntentResolver',
+    'WorkflowRouter',
+    'PromptLibrary',
+    'RunLog',
     'BaselineRunner',
     'BaselineMCPServer',
 ]
@@ -55,3 +58,5 @@ from .WorkflowOrchestrator import WorkflowOrchestrator
 from .TurnRouter import TurnRouter, TurnRoute
 from .WorkflowRuntime import WorkflowRuntime
 from .WorkflowIntentResolver import WorkflowIntentResolver
+from .WorkflowRouter import WorkflowRouter, RouterDecision
+from . import RunLog

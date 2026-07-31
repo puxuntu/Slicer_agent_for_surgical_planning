@@ -1,6 +1,41 @@
 from .common import *
 
 
+#: Project directories the search tools must NEVER read, whatever path is asked
+#: for. These hold the agent's own implementation — above all the generated
+#: per-step CLI templates, which are the artefact the comparison baselines are
+#: measured against. A baseline that searched into them would be reading the
+#: answer to the very step it is standing in for, and the numbers would mean
+#: nothing.
+#:
+#: Enforced on the RESOLVED path, so neither an absolute path nor a `../`
+#: traversal gets through. Nothing legitimate reads these through the search
+#: tools: the knowledge base is `skill_path`, extension source is `extra_roots`,
+#: and the CLI generation pipeline uses its own file access, not this executor.
+_PROJECT_ROOT_FOR_DENY = os.path.dirname(_LIB_DIR)
+_DENIED_SUBTREES = tuple(
+    os.path.normcase(os.path.abspath(os.path.join(_PROJECT_ROOT_FOR_DENY, part)))
+    for part in (
+        os.path.join("Resources", "extension_CLI"),  # generated templates + graphs
+        os.path.join("Resources", "Prompts"),        # the agent's own prompts
+        "SlicerAIAgentLib",                          # the agent's runtime
+        "logs",                                      # prior runs, incl. their code
+    )
+)
+
+
+def _is_denied_path(path: str) -> bool:
+    """True when ``path`` resolves inside one of the agent's private subtrees."""
+    try:
+        target = os.path.normcase(os.path.abspath(path))
+    except Exception:
+        return False
+    for denied in _DENIED_SUBTREES:
+        if target == denied or target.startswith(denied + os.sep):
+            return True
+    return False
+
+
 class SkillToolSetupMixin:
     def __init__(self, skill_path: str):
         self.skill_path = skill_path
@@ -264,7 +299,23 @@ class SkillToolSetupMixin:
           same version it runs — avoids the knowledge-base-vs-installed version
           skew. Non-installed extensions stay in the knowledge base.
         - Relative path: resolved against skill_path (knowledge base)
+
+        Raises PermissionError if the resolved path lands in one of the agent's
+        own private subtrees (see _DENIED_SUBTREES). The tool executor turns that
+        into a normal tool error, so the model is told plainly rather than
+        getting a confusing "file not found".
         """
+        resolved = self._resolve_path_unchecked(path)
+        if _is_denied_path(resolved):
+            raise PermissionError(
+                f"'{path}' is inside the agent's own implementation, which is not "
+                "searchable. Use the knowledge base (relative paths) or an "
+                "installed extension's source (ext:<Name>/...)."
+            )
+        return resolved
+
+    def _resolve_path_unchecked(self, path: str) -> str:
+        """The raw resolution, without the private-subtree guard."""
         if os.path.isabs(path):
             return path
         if path == "slicer-ui-analysis" or path.startswith("slicer-ui-analysis/"):

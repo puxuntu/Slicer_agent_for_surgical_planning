@@ -388,6 +388,20 @@ class WidgetStreamingMixin:
         only torn down on an explicit cancel (``clear_replay=True``) or when a
         new workflow session starts.
         """
+        # Seal the run manifest: `cancelled` when the user stopped it, otherwise
+        # `completed`. Left as `running` if we never get here (a Slicer crash),
+        # which is itself the honest record of what happened.
+        manifest = self._runManifest()
+        if manifest is not None:
+            try:
+                manifest.set_totals(
+                    tokens=getattr(self, "_currentTurnTokens", 0),
+                    cost=round(getattr(self, "_currentTurnCost", 0.0), 6),
+                )
+                manifest.finish("cancelled" if clear_replay else "completed")
+            except Exception:
+                logger.debug("Run manifest finish failed", exc_info=True)
+        self._setStepLogContext("")
         self._clearWorkflowResultMarkers()
         self._currentWorkflowStepInfo = None
         self._waitingForUser = False
@@ -423,14 +437,29 @@ class WidgetStreamingMixin:
             logger.warning(f"Failed to register workflow runtime result: {exc}")
 
     def _beginWorkflowRuntimeTurn(self, prompt, route):
-        """Initialize compact per-turn state for a deterministic CLI step."""
+        """Initialize compact per-turn state for a deterministic CLI step.
+
+        A workflow run is ONE run folder. Chat turns that drive an already-active
+        workflow ("done", a choice, "yes") keep writing into it rather than each
+        opening a new one — otherwise a 33-step procedure with ten interactions
+        scattered itself across eleven identically-named folders. The role trace
+        is likewise not reset, so the run root's trace is the whole procedure.
+        """
         import time
-        self._currentLogDir = self._createRunLogDir(getattr(self, "_currentTurn", 1))
+        from SlicerAIAgentLib import RunLog
+        active = bool(self._workflowRuntime and self._workflowRuntime.has_active_workflow())
+        if not (active and self._currentLogDir):
+            session = getattr(self._workflowRuntime, "session", None)
+            self._currentLogDir = self._createRunLogDir(
+                getattr(self, "_currentTurn", 1),
+                condition=RunLog.CONDITION_PIPELINE,
+                extension=getattr(session, "extension_name", "") or "",
+            )
+            self._roleTrace = []
         if self.logic and self.logic.llmClient:
             self.logic.llmClient.setDebugOutputDir(self._currentLogDir)
         if self._workflowRuntime:
             self._workflowRuntime.log_dir = self._currentLogDir
-        self._roleTrace = []
         self._timing = {
             "turn_start": time.time(),
             "prompt": prompt,
@@ -510,6 +539,155 @@ class WidgetStreamingMixin:
         self._runWorkflowStepDirect(route.step_id, action, args=args)
         return True
 
+    def _handleWorkflowRouterTurnIfNeeded(self, prompt):
+        """Enter a guided workflow directly when the opening request names one.
+
+        Every step of a generated-CLI workflow is dispatched by the runtime, so
+        the ONLY decision the model makes on the first turn is which workflow the
+        request means. Making that decision through the full agent turn costs
+        ~140,000 characters of system prompt (the coding manual, dense-retrieval
+        snippets and all nine CLI prompt fragments) to produce one tool call.
+        The router does it with ~6,000.
+
+        Returns True when the turn was handled here. Every other outcome --
+        router disabled, no workflows loaded, no key, no match, low confidence,
+        API failure -- returns False and the caller runs the unchanged full
+        agent turn. The router can only skip work; it is never the sole path to
+        an answer.
+        """
+        from SlicerAIAgentLib.WorkflowRouter import ROUTER_ENABLED, WorkflowRouter
+
+        if not ROUTER_ENABLED:
+            return False
+        if not (self.logic and self.logic.llmClient):
+            return False
+        # An active workflow is handled by _handleDirectWorkflowTurnIfNeeded.
+        if self._workflowRuntime and self._workflowRuntime.has_active_workflow():
+            return False
+
+        router = WorkflowRouter(self.logic.llmClient)
+        if not router.is_available():
+            return False
+
+        self._setAgentStatus("Router", "Choosing workflow...")
+        slicer.app.processEvents()
+        decision = router.resolve(prompt)
+
+        if not decision.matched:
+            # Nothing is recorded to the role trace here: the full agent turn is
+            # about to clear it, and this decision belongs to that turn's story,
+            # which _timing['router_declined'] carries instead.
+            logger.info(
+                "Workflow router declined (confidence=%.2f, reason=%s) — "
+                "falling through to the full agent turn",
+                decision.confidence, decision.reason or decision.error,
+            )
+            # The full agent turn below creates its own folder; hand it the
+            # router so the declined call is recorded there rather than lost.
+            self._lastRouterDecision = decision
+            self._lastRouter = router
+            return False
+
+        # Establish this turn's log dir BEFORE the session starts, so the
+        # runtime's own workflow_started event lands in the right run folder.
+        # This also resets _roleTrace, so the decision event is recorded after.
+        self._beginWorkflowRouterTurn(prompt, decision)
+        # Now that the folder exists (it is named after the decision), flush the
+        # routing call into it. This is the ONLY model call a guided run makes,
+        # so without it the run has no record of the evidence behind its choice.
+        router.write_artifacts(self._currentLogDir)
+        self._recordRoleEvent("Router", "workflow_route_decided", {
+            "extension": decision.extension,
+            "confidence": decision.confidence,
+            "reason": decision.reason,
+            "seconds": decision.seconds,
+            "prompt_chars": decision.prompt_chars,
+            "tokens": decision.tokens,
+        })
+        try:
+            if not self._workflowRuntime:
+                from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime
+                self._workflowRuntime = WorkflowRuntime(log_dir=self._currentLogDir)
+            self._workflowRuntime.log_dir = self._currentLogDir
+            session = self._workflowRuntime.start_for_extension(decision.extension)
+        except Exception as exc:
+            logger.warning("Workflow router could not start %s: %s", decision.extension, exc)
+            self._recordRoleEvent("Router", "workflow_start_failed", {
+                "extension": decision.extension,
+                "error": str(exc),
+            })
+            return False
+
+        first_step = getattr(session, "current_step", None)
+        if not first_step:
+            # A graph with no dependency-satisfiable first step is broken; drop
+            # the half-started session so has_active_workflow() stays honest,
+            # and let the full agent turn answer the request.
+            logger.warning(
+                "Workflow %s has no runnable first step; using the full agent turn",
+                decision.extension,
+            )
+            self._workflowRuntime.session = None
+            return False
+
+        # Claim the announcement so _registerWorkflowRuntimeResult does not add a
+        # second, less informative "Workflow started" line for the same session.
+        self._announcedWorkflowIds.add(session.workflow_id)
+        self.appendToChat(
+            "System",
+            f"Entering the {decision.extension} guided workflow "
+            f"(router confidence {decision.confidence:.2f}).",
+        )
+        self.sendButton.setEnabled(False)
+        self._runWorkflowStepDirect(first_step, "start")
+        return True
+
+    def _beginWorkflowRouterTurn(self, prompt, decision):
+        """Per-turn bookkeeping for a router-dispatched workflow start."""
+        import time
+        from SlicerAIAgentLib import RunLog
+        self._lastUserPrompt = prompt
+        # Names the folder after the procedure it runs, e.g.
+        # logs/20260730_143210_pipeline_BoneReconstructionPlanner/
+        self._currentLogDir = self._createRunLogDir(
+            getattr(self, "_currentTurn", 1),
+            condition=RunLog.CONDITION_PIPELINE,
+            extension=decision.extension,
+            router={
+                "extension": decision.extension,
+                "confidence": decision.confidence,
+                "reason": decision.reason,
+                "seconds": decision.seconds,
+                "prompt_chars": decision.prompt_chars,
+                "tokens": decision.tokens,
+            },
+        )
+        if self.logic and self.logic.llmClient:
+            self.logic.llmClient.setDebugOutputDir(self._currentLogDir)
+        if self._workflowRuntime:
+            self._workflowRuntime.log_dir = self._currentLogDir
+        self._roleTrace = []
+        self._timing = {
+            "turn_start": time.time(),
+            "prompt": prompt,
+            "mode": "workflow_router_start",
+            "route": "workflow_router",
+            "route_reason": decision.reason,
+            # The headline efficiency number for this path: what the routing
+            # decision actually cost, against the full agent turn it replaced.
+            "router": {
+                "extension": decision.extension,
+                "confidence": decision.confidence,
+                "seconds": decision.seconds,
+                "prompt_chars": decision.prompt_chars,
+                "tokens": decision.tokens,
+            },
+            "retrieval_timing": {
+                "skipped": True,
+                "skip_reason": "workflow_router_start",
+            },
+        }
+
     def _buildWorkflowAgentPlan(self, result):
         """Create a valid lightweight plan for deterministic generated code."""
         step_id = result.get("step_id", "workflow_step")
@@ -536,6 +714,22 @@ class WidgetStreamingMixin:
             self._setReadyStatus()
             self._setSendEnabled(True)
             return
+
+        # Open this step's own artifact folder. Every artifact written from here
+        # on (code, plan, execution, thinking, timing, corrections, and the LLM
+        # client's prompt dumps) lands in it, so a 33-step workflow keeps 33
+        # complete records instead of overwriting one.
+        self._setStepLogContext(step_id)
+        manifest = self._runManifest()
+        if manifest is not None and step_id:
+            meta = self._workflowRuntime._step_meta(step_id) if self._workflowRuntime else {}
+            manifest.add_step(
+                step_id,
+                status="running",
+                action=action,
+                operation_type=(meta or {}).get("operation_type"),
+                description=" ".join(str((meta or {}).get("description") or "").split()) or None,
+            )
 
         self._setAgentStatus("Workflow", f"Running {step_id or 'current step'}...")
         if self._workflowRuntime and self._workflowRuntime.session:
@@ -585,6 +779,9 @@ class WidgetStreamingMixin:
 
         self._registerWorkflowRuntimeResult(result)
         self._currentWorkflowStepInfo = result
+        # Every step gets a descriptor, not only the ones that produce code —
+        # a user_choice or an interaction is part of the run's story too.
+        self._saveStepDescriptorToFile(result)
         result_type = result.get("type")
 
         if result_type == "cancelled":
@@ -616,7 +813,7 @@ class WidgetStreamingMixin:
             self.currentAgentPlan = self._buildWorkflowAgentPlan(result)
             self._setGeneratedCode(code)
             self._saveAgentPlanToFile(self.currentAgentPlan)
-            self._saveGeneratedCodeToFile(code, suffix=f"_{result.get('step_id', 'workflow')}")
+            self._saveGeneratedCodeToFile(code)
             self._recordRoleEvent("Programmer", "workflow_template_received", {
                 "step_id": result.get("step_id"),
                 "type": result_type,

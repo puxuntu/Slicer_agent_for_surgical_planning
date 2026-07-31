@@ -127,6 +127,11 @@ class LLMClientConfigMixin:
         # fragments, ext: source paths, the cookbook workflow block). Set and
         # restored around a single call by SlicerAIAgentLib.BaselineRunner.
         self.suppress_extension_cli = False
+        # Narrower switch used by self-correction inside a running workflow:
+        # omit the CLI TOOL descriptions (whose schemas the repair call removes
+        # from its tool list anyway) while KEEPING the `ext:` source paths the
+        # repair needs to search. Set and restored around one prompt build.
+        self.suppress_cli_tool_fragments = False
         self._system_prompt_template = self._loadSystemPromptTemplate()
 
     def _normalizeModelName(self, model: Optional[str]) -> str:
@@ -602,12 +607,23 @@ class LLMClientConfigMixin:
                 base_prompt += context["workflow_state"]
             return base_prompt
 
+        # Narrower ablation, for self-correction inside a running workflow: the
+        # repair call REMOVES the generated CLI tool schemas from its tool list
+        # (see WidgetCorrectionMixin._filtered_repair_tools) so the repairer
+        # cannot restart or re-dispatch the workflow. Describing those tools
+        # anyway costs ~42 KB per correction turn and invites the model to emit a
+        # call it has no tool for, which arrives as text and parses to no code.
+        # The `ext:` SOURCE paths below are kept -- searching the extension's
+        # source is exactly what a repair needs.
+        suppress_tool_fragments = getattr(self, "suppress_cli_tool_fragments", False)
+
         # Inject dynamic extension CLI prompt fragments
         from SlicerAIAgentLib.ExtensionCLILoader import get_extension_prompt_fragments
-        cli_fragments = get_extension_prompt_fragments()
-        if cli_fragments:
-            base_prompt += "\n\n## EXTENSION CLI TOOLS\n"
-            base_prompt += cli_fragments
+        if not suppress_tool_fragments:
+            cli_fragments = get_extension_prompt_fragments()
+            if cli_fragments:
+                base_prompt += "\n\n## EXTENSION CLI TOOLS\n"
+                base_prompt += cli_fragments
 
         # Inject extension source paths so LLM can search extension source code
         from SlicerAIAgentLib.ExtensionCLILoader import get_validated_extensions
@@ -626,7 +642,7 @@ class LLMClientConfigMixin:
             base_prompt += "\n".join(ext_source_info)
 
         # Inject cookbook-guided workflow info for interactive workflow extensions
-        for ext_name, ext_data in get_validated_extensions().items():
+        for ext_name, ext_data in ({} if suppress_tool_fragments else get_validated_extensions()).items():
             manifest = ext_data["manifest"]
             if manifest.get("workflow_type") == "interactive":
                 base_prompt += "\n\n## COOKBOOK-GUIDED WORKFLOW\n"
