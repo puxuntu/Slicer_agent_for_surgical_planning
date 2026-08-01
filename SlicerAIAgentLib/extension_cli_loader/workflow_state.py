@@ -14,10 +14,12 @@ def reset_workflow_state(extension_name: Optional[str] = None) -> None:
         _workflow_completed_steps.pop(extension_name, None)
         _workflow_choices.pop(extension_name, None)
         _workflow_repeat_state.pop(extension_name, None)
+        _workflow_started_steps.pop(extension_name, None)
     else:
         _workflow_completed_steps.clear()
         _workflow_choices.clear()
         _workflow_repeat_state.clear()
+        _workflow_started_steps.clear()
     try:
         from SlicerAIAgentLib.workflow_state import clear_workflow_state
         clear_workflow_state(extension_name)
@@ -73,6 +75,23 @@ def clear_workflow_step_completions(
     """Clear atomic step completion markers before a repeat iteration."""
     completed = _workflow_completed_steps.setdefault(extension_name, set())
     completed.difference_update(step_ids or [])
+    # A re-armed loop body must be re-OPENED, not just re-completed: the next
+    # iteration dispatches "start" again and its pre-templates run afresh.
+    _workflow_started_steps.setdefault(extension_name, set()).difference_update(
+        step_ids or []
+    )
+
+
+def mark_workflow_step_started(extension_name: str, step_id: str) -> None:
+    """Record that a step was OPENED (dispatched with user_action='start')."""
+    if not extension_name or not step_id:
+        return
+    _workflow_started_steps.setdefault(extension_name, set()).add(step_id)
+
+
+def workflow_step_was_started(extension_name: str, step_id: str) -> bool:
+    """Whether ``step_id`` has been opened in this workflow run."""
+    return step_id in _workflow_started_steps.get(extension_name, set())
 
 
 def set_workflow_repeat_state(
@@ -106,6 +125,9 @@ def truncate_workflow_completions(
     if not extension_name:
         return
     _workflow_completed_steps[extension_name] = set(keep_steps or set())
+    # Steps after the rewind point must be re-OPENED when replay reaches them,
+    # so the started set is truncated to the same prefix.
+    _workflow_started_steps[extension_name] = set(keep_steps or set())
 
 
 def get_workflow_choices(extension_name: str) -> Dict[str, Any]:
@@ -239,6 +261,11 @@ def dispatch_workflow_step(
     done = _workflow_completed_steps.setdefault(ext_name, set())
     for dep in target_step.get("depends_on", []):
         done.add(dep)
+
+    # Record the step as OPENED so its completion actions can verify the
+    # pre/post and ask/answer contracts (see _workflow_started_steps).
+    if user_action == "start":
+        mark_workflow_step_started(ext_name, workflow_step)
 
     # Find the matching generator entry
     target_gen = None

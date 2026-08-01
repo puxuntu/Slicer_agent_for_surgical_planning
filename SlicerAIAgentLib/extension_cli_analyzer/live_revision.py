@@ -528,7 +528,7 @@ class AnalyzerLiveRevisionMixin:
         # Read every template referenced by the generators.
         templates: Dict[str, str] = {}
         for gen in generators:
-            for key in ("template_file", "pre_template_file", "post_template_file"):
+            for key in TEMPLATE_FILE_FIELDS:
                 tpl_file = gen.get(key)
                 if not tpl_file:
                     continue
@@ -830,7 +830,7 @@ class AnalyzerLiveRevisionMixin:
 
         templates: Dict[str, str] = {}
         for gen in generators:
-            for key in ("template_file", "pre_template_file", "post_template_file"):
+            for key in TEMPLATE_FILE_FIELDS:
                 tpl_file = gen.get(key)
                 if not tpl_file:
                     continue
@@ -1279,13 +1279,7 @@ class AnalyzerLiveRevisionMixin:
             templates = {}
             for gen in generators:
                 # Collect all template file references from this generator
-                tpl_files = []
-                if gen.get("template_file"):
-                    tpl_files.append(gen["template_file"])
-                if gen.get("pre_template_file"):
-                    tpl_files.append(gen["pre_template_file"])
-                if gen.get("post_template_file"):
-                    tpl_files.append(gen["post_template_file"])
+                tpl_files = [gen[key] for key in TEMPLATE_FILE_FIELDS if gen.get(key)]
                 for tpl_file in tpl_files:
                     tpl_path = os.path.join(cli_dir, tpl_file)
                     if os.path.isfile(tpl_path):

@@ -1,4 +1,5 @@
-# --- ZygomaticImplantPlanner: Click the "4. Identify zygomatic bones" button. ---
+# --- ZygomaticImplantPlanner: Click the "3. Seperate maxilla / mandible" button. ---
+# [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -24,9 +25,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the ZygomaticImplantPlanner module widget for 'step4Button'.")
-if not hasattr(_widget, 'onStep4'):
-    raise RuntimeError("ZygomaticImplantPlanner widget has no handler 'onStep4' for 'step4Button'; regenerate the CLI.")
-_widget.onStep4()
-print("[ZygomaticImplantPlanner] Step 'cb_step_16': clicked 'step4Button' via onStep4().")
+    raise RuntimeError("Could not obtain the ZygomaticImplantPlanner module widget for 'step3Button'.")
+if not hasattr(_widget, 'onStep3'):
+    raise RuntimeError("ZygomaticImplantPlanner widget has no handler 'onStep3' for 'step3Button'; regenerate the CLI.")
+_widget.onStep3()
+print("[ZygomaticImplantPlanner] Step 'cb_step_16': clicked 'step3Button' via onStep3().")
 

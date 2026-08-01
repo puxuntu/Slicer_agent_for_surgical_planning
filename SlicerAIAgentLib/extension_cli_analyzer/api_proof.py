@@ -8,7 +8,7 @@ import hashlib
 import re
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from .common import _text_or_empty
+from .common import _text_or_empty, TEMPLATE_FILE_FIELDS
 
 
 _READ_PREFIXES = ("Get", "Is", "Has", "Can", "Find", "Lookup", "Compute", "Count")
@@ -592,6 +592,7 @@ class ApiProofValidator:
         extension_functions: Optional[Set[str]] = None,
         extension_attributes: Optional[Set[str]] = None,
         logic_class_name: str = "",
+        handler_required_args: Optional[Dict[str, int]] = None,
     ):
         self.type_contracts = type_contracts or {}
         self.live_evidence = live_evidence or {}
@@ -599,6 +600,11 @@ class ApiProofValidator:
         self.extension_functions = extension_functions or set()
         self.extension_attributes = extension_attributes or set()
         self.logic_class_name = logic_class_name
+        # handler name -> positional arguments it REQUIRES (excluding self), read
+        # from the widget class AST. Existence is not enough to prove a call: a
+        # 0-arg call to a 1-arg handler resolves, proves, and then raises TypeError
+        # the first time it runs.
+        self.handler_required_args = handler_required_args or {}
 
     @staticmethod
     def effect_for_method(method: str, contract: Optional[Dict] = None) -> str:
@@ -844,11 +850,58 @@ class ApiProofValidator:
         # construction. Prove it so the repair loop does not rewrite the (correct)
         # handler step into invented APIs.
         if "_module_widget" in high_types:
+            # Existence is necessary but NOT sufficient: the call must also satisfy
+            # the handler's SIGNATURE. A checkbox wired `clicked(bool)` has a
+            # handler taking `checked`, and a 0-arg call to it proved clean here and
+            # then raised "missing 1 required positional argument" on first use.
+            required = self.handler_required_args.get(method)
+            supplied = len(obligation.get("arguments") or [])
+            if isinstance(required, int) and supplied < required:
+                obligation["proof_status"] = "unproven"
+                obligation["evidence"].append({
+                    "kind": "module_widget_handler",
+                    "receiver_type": "_module_widget",
+                    "method_exists": True,
+                    "arity_satisfied": False,
+                    "required_args": required,
+                    "supplied_args": supplied,
+                    "effect": self.effect_for_method(method),
+                    "source": "module_widget_handler_invocation",
+                })
+                # Reuse the UnprovenApiCall schema rather than minting a new
+                # issue_type: the repair loop and the blocking counters both filter
+                # on that type, so a bespoke type would be silently ignored -- which
+                # is the exact failure mode being fixed here. The distinct
+                # `diagnosis` keeps it legible in the artifacts.
+                return obligation, {
+                    "issue_id": "api_proof_" + obligation["call_id"],
+                    "issue_type": "UnprovenApiCall",
+                    "severity": "error",
+                    "blocking": True,
+                    "template": obligation["template"],
+                    "call_id": obligation["call_id"],
+                    "source_span": obligation["source_span"],
+                    "diagnosis": "handler_arity_mismatch",
+                    "receiver_expression": receiver_expr,
+                    "receiver_type": "_module_widget",
+                    "method": method,
+                    "method_exists": True,
+                    "effect": self.effect_for_method(method),
+                    "evidence_sources": ["module_widget_handler_invocation"],
+                    "minimal_repair": (
+                        f"'{method}' requires {required} positional argument(s) but is "
+                        f"called with {supplied}; pass the control's state, e.g. "
+                        f"{method}(True)."
+                    ),
+                }
             obligation["proof_status"] = "proven"
             obligation["evidence"].append({
                 "kind": "module_widget_handler",
                 "receiver_type": "_module_widget",
                 "method_exists": True,
+                "arity_satisfied": True,
+                "required_args": required,
+                "supplied_args": supplied,
                 "effect": self.effect_for_method(method),
                 "source": "module_widget_handler_invocation",
             })
@@ -1400,7 +1453,7 @@ class AnalyzerApiProofMixin:
 
         generator_by_template = {}
         for gen in generators or []:
-            for key in ("template_file", "pre_template_file", "post_template_file"):
+            for key in TEMPLATE_FILE_FIELDS:
                 if gen.get(key):
                     generator_by_template[gen[key]] = gen
 
@@ -1443,6 +1496,16 @@ class AnalyzerApiProofMixin:
                 continue
             prepared.append((template, code, inventory))
 
+        # Handler name -> required positional arg count, from the scanned widget
+        # connections. Lets the proof check a handler call's SIGNATURE, not just
+        # that the method exists.
+        handler_required_args = {}
+        for _conn in getattr(self, "_widget_connections", []) or []:
+            _h = _conn.get("handler_method")
+            _n = _conn.get("handler_required_args")
+            if _h and isinstance(_n, int):
+                handler_required_args[_h] = _n
+
         def _run_proof_pass(contracts):
             validator = ApiProofValidator(
                 type_contracts=contracts,
@@ -1451,6 +1514,7 @@ class AnalyzerApiProofMixin:
                 extension_functions=extension_functions,
                 extension_attributes=extension_attributes,
                 logic_class_name=logic_class_name,
+                handler_required_args=handler_required_args,
             )
             pass_obligations = []
             pass_issues = []

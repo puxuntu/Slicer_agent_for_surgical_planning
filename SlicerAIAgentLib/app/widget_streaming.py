@@ -317,36 +317,27 @@ class WidgetStreamingMixin:
         })
 
     def _autoAdvanceNextStep(self, next_step):
-        """Auto-advance to the next workflow step after an automated step completes."""
+        """Auto-advance to the next workflow step after an automated step completes.
+
+        EVERY step is opened by dispatch, whatever its operation type and whether or
+        not it is optional. An earlier version short-circuited here for an optional
+        step that was not an ``extension_op`` / ``slicer_op``, hand-building a
+        Done/Skip panel instead of dispatching. That skipped the step's OPENING
+        action, so the user's only exits sent its COMPLETION actions ("proceed" /
+        "skip") to a step that had never started -- which silently corrupted two
+        step types: a ``branch_op`` never rendered its real question or its Yes/No
+        choices (and "proceed" recorded an empty choice, entering the optional body
+        without asking, with the on-accept action never attached), and a
+        ``user_interaction`` ran its POST template though the PRE template had never
+        created the markup node ("Node not found for step ...").
+
+        Dispatch already provides everything the short-circuit did: the runtime's own
+        panel offers Skip for exactly the optional steps (``can_skip``), offers Done
+        when the step is genuinely waiting on the user, and additionally renders the
+        step's real controls. Optionality is a property of the step the runtime
+        presents, not a reason to avoid presenting it.
+        """
         step_id = next_step.get("step_id", "")
-        is_optional = next_step.get("is_optional", False)
-        op_type = str(next_step.get("operation_type", "") or "")
-        # An optional AUTOMATED step (an extension button-click / slicer op) runs by
-        # construction once it is REACHED -- the branch that marked it optional
-        # already decided reachability (accept -> body runs). Re-asking with
-        # Done/Skip is redundant and makes a plain button click look like a manual
-        # step the user must confirm. Auto-execute it. Only an optional step that
-        # needs USER ACTION (a manual interaction or a choice) pauses for Done/Skip.
-        # Generic: keyed on the operation type, not on any extension/step.
-        auto_execute = op_type in ("extension_op", "slicer_op")
-        if is_optional and not auto_execute:
-            # For optional user-action steps, ask the user
-            self._updateWorkflowPanel({
-                "active": True,
-                "workflow_title": self._currentWorkflowUiState.get("workflow_title", "Workflow"),
-                "status": "Waiting for your choice",
-                "current_step": step_id,
-                "current_index": self._currentWorkflowUiState.get("current_index", 0),
-                "completed_steps": self._currentWorkflowUiState.get("completed_steps", 0),
-                "total_steps": self._currentWorkflowUiState.get("total_steps", 0),
-                "description": next_step.get("description", ""),
-                "instructions": "This step is optional.",
-                "can_done": True,
-                "can_skip": True,
-                "can_cancel": True,
-            })
-            self._setReadyStatus()
-            return
         self._runWorkflowStepDirect(step_id, "start")
 
     def _workflowRuntimeState(self):

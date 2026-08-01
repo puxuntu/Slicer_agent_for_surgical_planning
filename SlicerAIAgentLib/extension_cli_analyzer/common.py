@@ -57,6 +57,30 @@ _NODE_CLASS_TO_INTERACTION_TYPE = {
     "vtkMRMLMarkupsROINode": "roi",
 }
 
+# Every code_generators.json field that names an emitted .py.tpl file. The
+# single registry the probe / validation / repair / live-revision loops iterate
+# to discover generated code. A template referenced from anywhere ELSE (e.g.
+# only from workflow.json) is invisible to all of them: that is how a branch's
+# on-accept action template shipped a call that crashed on its first line while
+# the run reported "all API probes passed". Adding a new emitted-code channel
+# means adding its field HERE, not just writing the file.
+# Marker for a template whose body is DERIVED from the scanned source -- it drives
+# the extension's own connected handler or writes the parameterNodeWrapper field a
+# control is bound to. Such a template is evidence-backed, not guessed, so the LLM
+# critic must not rewrite it: its "does this change more state than the step asks?"
+# rule reads a checkbox step's whole purpose (ticking the box) as excess state
+# change and strips it, leaving an action that prints and does nothing. Mirrors the
+# existing ``[wizard drive]`` marker, which exempts wizard templates from the
+# footprint validator for the same reason.
+SOURCE_DRIVE_MARKER = "[source drive]"
+
+TEMPLATE_FILE_FIELDS = (
+    "template_file",
+    "pre_template_file",
+    "post_template_file",
+    "branch_action_template",
+)
+
 CANONICAL_OPERATION_TYPES = {
     "extension_op",
     "slicer_op",

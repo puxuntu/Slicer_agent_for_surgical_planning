@@ -1064,6 +1064,46 @@ class AnalyzerScanMixin:
         return widgets
 
     @staticmethod
+    def _extract_ui_parameter_name_bindings(
+        ui_widgets: Dict[str, Dict],
+        wrapper_fields: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Dict]:
+        """Map widget objectName -> the parameter field its ``SlicerParameterName``
+        property binds it to.
+
+        A ``parameterNodeWrapper`` extension wires most of its controls purely in
+        Qt Designer, via ``<property name="SlicerParameterName">``; ``connectGui()``
+        then mirrors control <-> field in both directions. Such a control has NO
+        ``.connect()`` call, so it is invisible to ``_extract_widget_connections``
+        -- and any codegen that resolves widgets only through scanned connections
+        silently produces nothing for it. That is a whole class of control (here:
+        every "Manually adjust ..." checkbox but one), not an edge case.
+
+        ``is_wrapper_field`` records whether the bound name is an annotated field of
+        the detected wrapper class, which is what makes a direct
+        ``parameterNode.<field> = value`` write legitimate.
+        """
+        fields = wrapper_fields or {}
+        bindings: Dict[str, Dict] = {}
+        for name, info in (ui_widgets or {}).items():
+            param = _text_or_empty(
+                ((info or {}).get("properties") or {}).get("SlicerParameterName", "")
+            )
+            if not name or not param:
+                continue
+            bindings[name] = {
+                "widget_name": name,
+                "widget_class": (info or {}).get("class", ""),
+                "parameter_name": param,
+                "is_wrapper_field": param in fields,
+                "field_type": fields.get(param, ""),
+                "ui_text": _text_or_empty(
+                    ((info or {}).get("properties") or {}).get("text", "")
+                ),
+            }
+        return bindings
+
+    @staticmethod
     def _parse_ui_property_value(prop) -> Optional[Any]:
         """Return a simple Python value for common Qt Designer property tags."""
         for tag in ("string", "cstring", "enum", "set"):
@@ -1128,11 +1168,19 @@ class AnalyzerScanMixin:
         seen = set()
         # Build handler→logic_method map from all methods in the class
         handler_logic_map = {}
+        # …and handler→required-argument-count. The SIGNAL NAME does not determine
+        # whether a handler takes the control's state: a checkbox may legitimately
+        # be wired `clicked(bool)` rather than `toggled(bool)`, and its handler
+        # still takes `checked`. Emitting a 0-arg call to such a handler raises
+        # TypeError at runtime, so the arity is recorded here (where the class AST
+        # is in hand) and is the authority for how the generated code calls it.
+        handler_required_args = {}
         for item in class_node.body:
             if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 logic_calls = self._find_logic_calls_in_method(item)
                 if logic_calls:
                     handler_logic_map[item.name] = logic_calls
+                handler_required_args[item.name] = self._required_arg_count(item)
 
         _SUPPORTED_SIGNALS = {
             "clicked", "toggled", "stateChanged", "valueChanged",
@@ -1196,6 +1244,7 @@ class AnalyzerScanMixin:
                         "signal": signal_name,
                         "handler_method": handler_name,
                         "logic_methods": logic_methods,
+                        "handler_required_args": handler_required_args.get(handler_name),
                     })
 
         # Pattern 3: INDIRECT button-helper. Many extensions wire buttons through a
@@ -1242,6 +1291,7 @@ class AnalyzerScanMixin:
                         "signal": signal_name,
                         "handler_method": handler_name,
                         "logic_methods": handler_logic_map.get(handler_name, []),
+                        "handler_required_args": handler_required_args.get(handler_name),
                     })
 
         # Flag handlers that share `self.<attr>` WIDGET STATE with another handler
@@ -1388,6 +1438,25 @@ class AnalyzerScanMixin:
             base = ExtensionCLIAnalyzer._get_attribute_chain(node.value)
             return f"{base}.{node.attr}" if base else node.attr
         return ""
+
+    @staticmethod
+    def _required_arg_count(method_node) -> int:
+        """Positional arguments a bound method REQUIRES, excluding ``self``.
+
+        Defaults make an argument optional, so they are subtracted; ``*args``
+        means any count is acceptable, reported as 0. This is what decides how
+        generated code must CALL a handler -- existence alone is not enough, and
+        a 0-arg call to a 1-arg handler raises TypeError at runtime.
+        """
+        args = getattr(method_node, "args", None)
+        if args is None:
+            return 0
+        positional = list(getattr(args, "posonlyargs", []) or []) + list(args.args or [])
+        if positional and positional[0].arg in ("self", "cls"):
+            positional = positional[1:]
+        if args.vararg is not None:
+            return 0
+        return max(0, len(positional) - len(args.defaults or []))
 
     def _find_logic_calls_in_method(self, method_node) -> List[str]:
         """Find self.logic.XXX() calls in a method body."""

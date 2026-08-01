@@ -302,7 +302,7 @@ class AnalyzerContractAuditMixin:
             unresolved_total = []
             referenced = []
             for gen in generators or []:
-                for key_field in ("template_file", "pre_template_file", "post_template_file"):
+                for key_field in TEMPLATE_FILE_FIELDS:
                     tpl_key = gen.get(key_field)
                     if not tpl_key:
                         continue
@@ -346,7 +346,7 @@ class AnalyzerContractAuditMixin:
             for gen in generators:
                 tpl_keys = {
                     gen.get(field)
-                    for field in ("template_file", "pre_template_file", "post_template_file")
+                    for field in TEMPLATE_FILE_FIELDS
                     if gen.get(field)
                 }
                 step_id = gen.get("step_id") or ""

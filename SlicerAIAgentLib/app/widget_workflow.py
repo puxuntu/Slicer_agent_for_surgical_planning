@@ -189,6 +189,21 @@ class WidgetWorkflowMixin:
         elif should_map_runtime_result and not state.get("active"):
             state = self._workflowUiStateFromStepResult(state)
 
+        # Step numbers are NEVER taken from the caller. A hand-built panel dict that
+        # copies current_index / completed_steps / total_steps from the previous
+        # render shows the PREVIOUS step's numbers beside the NEW step's text -- the
+        # cause of a step-17 panel captioned "Step 16 of 27". While a session is live
+        # the runtime is the sole authority, so no call site can reintroduce it.
+        # Exception: while scrubbing the replay, the runtime itself supplies the
+        # checkpoint's PREFIX counters (completed_prefix, not the live completed set),
+        # which is the whole point of a preview -- leave those alone.
+        _session = self._workflowRuntime.session if self._workflowRuntime else None
+        if _session and state.get("active") and _session.preview_index is None:
+            state = dict(state)
+            state.update(self._workflowRuntime.panel_counters(
+                state.get("current_step") or _session.current_step
+            ))
+
         self._currentWorkflowUiState = dict(state or {"active": False})
         if not getattr(self, "_workflowUserFrame", None):
             return

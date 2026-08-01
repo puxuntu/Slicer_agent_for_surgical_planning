@@ -2,141 +2,165 @@
   "version": 1,
   "steps": {
     "cb_step_1": {
-      "title": "Select source CT volume",
-      "simple": "Choose the CT volume you will use for segmentation.",
-      "detailed": "The source CT volume provides the anatomical data for segmenting the skull and planning zygomatic implant placement. Accurate segmentation depends on selecting the correct volume. In the Segment Editor module, pick your volume from the Source Volume dropdown.",
+      "title": "Choose the scan for planning",
+      "simple": "Select the CT volume you will use to create the skull segmentation.",
+      "detailed": "This step chooses the image data that will serve as the basis for segmenting the skull. Bone appears bright on CT, so the selected scan determines how accurately the thresholding and all later 3D planning steps can identify the anatomy. Pick the volume with the clearest bony detail, usually a high-resolution CT.",
       "edited": false
     },
     "cb_step_2": {
-      "title": "Create cranial segmentation",
-      "simple": "Create a new segmentation called 'Cranial_Segmentation'.",
-      "detailed": "The segmentation will store the bony anatomy needed for implant planning. By creating a dedicated segmentation, you can isolate the skull from other tissues. In the Segment Editor, click the 'Create new segmentation' button and name it 'Cranial_Segmentation'.",
+      "title": "Create a cranial segmentation",
+      "simple": "Create a new segmentation named Cranial_Segmentation.",
+      "detailed": "Segmentation stores a separate 3D representation of the skull while preserving the original image. Naming it clearly helps you keep track of the bone model used for symmetry analysis and implant planning.",
       "edited": false
     },
     "cb_step_3": {
-      "title": "Add cranial segment",
-      "simple": "Add a segment and rename it 'Cranial_Segment'.",
-      "detailed": "This segment will represent the whole skull region used to compute symmetry and cuts. Adding and naming it helps organize the planning process. Click 'Add' in the Segment Editor, then rename the new segment to 'Cranial_Segment'.",
+      "title": "Add and name the skull segment",
+      "simple": "Click Add and rename the new segment to Cranial_Segment.",
+      "detailed": "This creates a dedicated segment inside the segmentation where the thresholded bone will be stored. It ensures the bone model is kept separate from other structures and can be selected in later steps.",
       "edited": false
     },
     "cb_step_4": {
-      "title": "Open threshold effect",
-      "simple": "Click the Threshold button to begin bone segmentation.",
-      "detailed": "Thresholding separates bone from soft tissue based on Hounsfield units. This is a key step to isolate the skull for accurate planning. In the Segment Editor, click the 'Threshold' effect to open its controls.",
+      "title": "Open the threshold tool",
+      "simple": "Click the Threshold button to open the thresholding tool.",
+      "detailed": "Thresholding selects structures by their image intensity, which corresponds to tissue density. For CT bone, it highlights bright voxels and provides the starting point for isolating the skull before surgical planning.",
       "edited": false
     },
     "cb_step_5": {
-      "title": "Set threshold range",
-      "simple": "Adjust the threshold range bar to select bone density values.",
-      "detailed": "Proper thresholding ensures only the skull bone is captured, avoiding soft tissue. Adjust the range to include bone (typically >300 HU) while excluding other tissues. Drag the range handles to set the desired lower and upper limits.",
+      "title": "Set the bone threshold range",
+      "simple": "Drag the threshold range so the highlighted region covers the skull bone but not soft tissue or air.",
+      "detailed": "The threshold range determines which tissue densities are included in the segmentation. Bone has high density, so choose a lower bound above soft tissue and an upper bound that still captures cortical bone. A range that is too narrow may lose thin bone, while one that is too wide can include unwanted structures.",
       "edited": false
     },
     "cb_step_6": {
-      "title": "Apply threshold",
-      "simple": "Click Apply to create the bone segmentation.",
-      "detailed": "Confirming the threshold extracts the bone voxels into the cranial segment. This produces the initial skull mask for later steps. Click the 'Apply' button to run the threshold effect.",
+      "title": "Apply the threshold",
+      "simple": "Click Apply to generate the initial skull segmentation.",
+      "detailed": "Apply creates the actual bone segment from the threshold range. This 3D bone model is the starting point that will be cropped, separated, and analyzed in the following steps. Check that the main skull shape is present before moving on.",
       "edited": false
     },
     "cb_step_7": {
-      "title": "Choose skull segmentation",
-      "simple": "Select the skull segmentation you just created.",
-      "detailed": "The extension needs to know which segmentation contains the skull for further processing. Choose the 'Cranial_Segmentation' from the list in the Skull segmentation section.",
+      "title": "Select the skull segment",
+      "simple": "Choose Cranial_Segment as the skull segmentation used for planning.",
+      "detailed": "The planner needs to know which segmented anatomy represents the skull. Selecting the correct segment ensures that symmetry, cutting, and implant computations are performed on the bone model rather than on incidental structures.",
       "edited": false
     },
     "cb_step_8": {
-      "title": "Select entry points",
-      "simple": "Select the point list that will store the implant entry points.",
-      "detailed": "Entry points define where the zygomatic implants will enter the bone. You may need to create a fiducial list beforehand or select an existing one. Pick the appropriate point list from the Entry points section.",
+      "title": "Choose the entry points list",
+      "simple": "In the Entry points section, select the point list that will hold the planned implant entry points.",
+      "detailed": "Entry points mark where the zygomatic implants will enter the bone. They are collected in a point list that will be used together with the implant paths to define the planned trajectories. Use a list dedicated to this plan so the points stay organized.",
       "edited": false
     },
     "cb_step_9": {
-      "title": "Compute symmetry plane",
-      "simple": "Click 'Compute symmetry plane' to automatically detect the skull's midsagittal plane.",
-      "detailed": "The symmetry plane serves as a reference for symmetrical implant placement and for separating the maxilla and mandible. Click button '1. Compute symmetry plane' to run the computation.",
+      "title": "Compute the symmetry plane",
+      "simple": "Click the 'Compute symmetry plane' button.",
+      "detailed": "This calculates the facial symmetry plane from the skull segment. The plane is the reference for cropping and for separating the upper and lower jaw, so a reliable plane keeps the following cuts symmetric and anatomically aligned.",
       "edited": false
     },
     "cb_step_10": {
-      "title": "Set crop radius",
-      "simple": "Adjust the range bar to set the radius for cropping the skull (in mm).",
-      "detailed": "Cropping around the zygomatic region focuses the following steps on the relevant area, reducing computation and improving accuracy. Set the radius large enough to include the zygomatic bones but small enough to exclude irrelevant anatomy.",
+      "title": "Check the symmetry plane",
+      "simple": "Decide if the computed symmetry plane needs manual adjustment.",
+      "detailed": "If the scan is symmetric and the plane looks aligned with the facial midline, leave the checkbox unticked and continue. If the plane is tilted or offset, tick the checkbox so you can correct it in the next step. The symmetry plane is used as the geometric reference for later cuts.",
       "edited": false
     },
     "cb_step_11": {
-      "title": "Cut skull with cylinder",
-      "simple": "Click 'Cut skull (cylinder)' to crop the skull based on the set radius.",
-      "detailed": "This cylindrical cut isolates the zygomatic region from the rest of the skull, creating a focused model for subsequent separation and implant planning. Click button '2. Cut skull (cylinder)'.",
+      "title": "Adjust the symmetry plane",
+      "simple": "Position the plane along the facial midline in the view, then click Done.",
+      "detailed": "Align the plane so it passes through midline structures and clearly symmetric landmarks. An accurate plane gives a stable reference for the cylindrical cut and jaw separation. Place only one plane, then confirm with Done.",
       "edited": false
     },
     "cb_step_12": {
-      "title": "Separate maxilla and mandible",
-      "simple": "Click 'Separate maxilla/mandible' to split the skull into upper and lower jaw.",
-      "detailed": "Separating the maxilla from the mandible is essential for planning zygomatic implants, which are placed in the maxilla. The algorithm uses the symmetry plane to define the separation. Click button '3. Separate maxilla/mandible'.",
+      "title": "Apply the symmetry plane adjustment",
+      "simple": "Click 'Apply adjustment' to confirm the corrected plane.",
+      "detailed": "This confirms the manual symmetry plane and stores it for use by the subsequent cutting and separation steps. After applying, the planner uses the adjusted orientation rather than the automatically computed one.",
       "edited": false
     },
     "cb_step_13": {
-      "title": "Adjust separation plane? (optional)",
-      "simple": "If the separation needs refinement, tick 'Manually adjust the segmentation plane'.",
-      "detailed": "The automatic separation may not be perfect; manual adjustment allows you to correct the cutting plane for better anatomical alignment. Choose 'Yes, adjust' if you want to fine-tune the plane, otherwise skip.",
+      "title": "Set the crop radius",
+      "simple": "Adjust the crop radius to define how much skull bone is kept around the surgical area.",
+      "detailed": "The crop radius sets the size of the cylindrical region that will be retained around the maxillary and zygomatic area. Too small may exclude important anatomy, while too large may retain the mandible or the opposite side. Choose a radius that comfortably includes the zygomatic region and the planned implant paths.",
       "edited": false
     },
     "cb_step_14": {
-      "title": "Adjust separation plane manually",
-      "simple": "Adjust the separation plane in the 3D view to correct the cut between maxilla and mandible.",
-      "detailed": "Ensuring the plane follows the natural gap between the upper and lower jaw is critical for accurate implant planning. Use the plane handles in the 3D view to reposition and orient it as needed, then click Done.",
+      "title": "Cut the skull to the planning region",
+      "simple": "Click 'Cut skull (cylinder)' to trim the skull model to the selected region.",
+      "detailed": "This applies a cylindrical cut around the planning area, keeping the relevant maxillary and zygomatic bone and removing most of the distant skull. It makes the remaining calculations faster and may also separate the maxilla from the mandible if the cut passes between them.",
       "edited": false
     },
     "cb_step_15": {
-      "title": "Apply separation",
-      "simple": "Click 'Apply separation' to finalize the adjusted plane.",
-      "detailed": "This commits the manual adjustments and regenerates the separated models. Click button 'Apply separation'.",
+      "title": "Check whether the mandible remains attached",
+      "simple": "Decide whether the lower jaw is still attached to the upper jaw after the cut.",
+      "detailed": "In zygomatic implant planning the maxilla should be separate from the mandible so the implant trajectories are planned without interference. If the cut did not fully separate them, tick the checkbox and proceed to the automatic separation step. If they are already separate, continue.",
       "edited": false
     },
     "cb_step_16": {
-      "title": "Identify zygomatic bones",
-      "simple": "Click 'Identify zygomatic bones' to automatically locate the zygomatic bone regions.",
-      "detailed": "The algorithm identifies the left and right zygomatic bones, which are the target sites for the implants. This step generates reference planes and models for the zygomatic region. Click button '4. Identify zygomatic bones'.",
+      "title": "Separate the upper and lower jaw",
+      "simple": "Click 'Separate maxilla / mandible' to divide the remaining bone.",
+      "detailed": "This automatically splits the remaining skull into maxilla and mandible, isolating the upper jaw and zygomatic area for implant planning. If the separation boundary is imperfect, the next step lets you adjust the separating plane manually.",
       "edited": false
     },
     "cb_step_17": {
-      "title": "Adjust boundary planes? (optional)",
-      "simple": "If needed, tick 'Manually adjust the boundary planes' to refine the zygomatic region boundaries.",
-      "detailed": "The automatically identified zygomatic boundaries may need fine-tuning to match the patient's anatomy. Choosing Yes allows you to adjust these planes before generating implant paths.",
+      "title": "Check the separation plane",
+      "simple": "Decide if the automatic separation between maxilla and mandible needs manual correction.",
+      "detailed": "Fused or irregular bone can leave the maxilla and mandible not fully separated, or the cut can remove important bone. If the boundary looks wrong, tick the checkbox to adjust the segmentation plane. A clean separation is needed before identifying the zygomatic bones.",
       "edited": false
     },
     "cb_step_18": {
-      "title": "Adjust boundary planes manually",
-      "simple": "Adjust the boundary planes in the 3D view to better delineate the zygomatic bone margins.",
-      "detailed": "Precise boundary definition ensures implant paths are optimally planned within the zygomatic bone. Manipulate the planes in the 3D viewer, then click Done.",
+      "title": "Refine the separation plane",
+      "simple": "Position the separation plane along the desired maxilla\u2013mandible boundary, then click Done.",
+      "detailed": "Move and rotate the plane so it follows the junction where you want the maxilla and mandible to be divided. This corrects any areas that the automatic separation missed. Confirm the plane with Done so the separation can be applied.",
       "edited": false
     },
     "cb_step_19": {
-      "title": "Apply boundaries",
-      "simple": "Click 'Apply boundaries' to save the adjusted plane positions.",
-      "detailed": "This finalizes the boundary adjustments and prepares the model for implant path generation. Click button 'Apply boundaries'.",
+      "title": "Apply the separation",
+      "simple": "Click 'Apply separation' to finalize the division.",
+      "detailed": "This uses the adjusted plane to complete the maxilla\u2013mandible split. The resulting isolated maxillary and zygomatic bone is then used for zygomatic identification and implant path planning.",
       "edited": false
     },
     "cb_step_20": {
-      "title": "Generate implant paths",
-      "simple": "Click 'Generate implant paths' to automatically create suggested implant trajectories.",
-      "detailed": "The algorithm computes safe and effective paths for zygomatic implants based on the identified anatomy. This generates line nodes representing the implant axes, a table of measurements, and 3D models. Click button '5. Generate Implant paths'.",
+      "title": "Identify the zygomatic bones",
+      "simple": "Click 'Identify zygomatic bones' to locate the cheekbone regions.",
+      "detailed": "The planner uses the isolated maxilla to identify the zygomatic bone, which is the main anchor for zygomatic implants. Correct identification defines the bone volume available for implant support. If the region is not satisfactory, the next boundary-plane step lets you correct it.",
       "edited": false
     },
     "cb_step_21": {
-      "title": "Adjust implant paths? (optional)",
-      "simple": "If you want to refine the implant trajectories, tick 'Manually adjust the paths'.",
-      "detailed": "The automatic paths may require adjustments for surgical feasibility, such as avoiding sinus cavities or achieving better bone anchorage. Choose Yes to edit the paths manually.",
+      "title": "Check the zygomatic boundaries",
+      "simple": "Decide if the automatically identified zygomatic boundaries need manual adjustment.",
+      "detailed": "The boundary planes define the limits of the zygomatic region used for generating implant paths. If the region seems too large, too small, or misplaced, tick the checkbox to adjust it. Otherwise continue to path generation.",
       "edited": false
     },
     "cb_step_22": {
-      "title": "Adjust implant paths manually",
-      "simple": "Adjust the implant paths (lines) in the 3D view to optimize their position and orientation.",
-      "detailed": "Manually repositioning the paths ensures they follow the best trajectory through the zygomatic bone. Use the line handles in the 3D view, then click Done.",
+      "title": "Adjust a boundary plane",
+      "simple": "Position one boundary plane where the zygomatic region should end, then click Done.",
+      "detailed": "Boundary planes mark the edges of the bone region available for implant planning. Place one plane at a time according to the intended boundary, and click Done after each plane. This confines implant path generation to the correct anatomical area.",
       "edited": false
     },
     "cb_step_23": {
-      "title": "Apply paths",
-      "simple": "Click 'Apply paths' to finalize the adjusted implant trajectories.",
-      "detailed": "This saves the manual adjustments and updates the implant plan accordingly. Click button 'Apply paths'.",
+      "title": "Apply the boundary planes",
+      "simple": "Click 'Apply boundaries' to accept the adjusted boundary planes.",
+      "detailed": "This confirms the manually placed boundaries and restricts the subsequent implant path planning to the corrected zygomatic region. Check that the highlighted region corresponds to the intended bone area before generating paths.",
+      "edited": false
+    },
+    "cb_step_24": {
+      "title": "Generate implant paths",
+      "simple": "Click 'Generate Implant paths' to create proposed trajectories for the zygomatic implants.",
+      "detailed": "The planner computes possible implant trajectories from the entry points to suitable anchorage in the zygomatic bone. These paths show the planned direction, length, and bone support for each implant. Review them in the 3D view to decide whether manual refinement is needed.",
+      "edited": false
+    },
+    "cb_step_25": {
+      "title": "Check the implant paths",
+      "simple": "Decide if the generated implant paths need manual adjustment.",
+      "detailed": "If the paths have poor angulation, insufficient bone support, or an undesirable length, tick the checkbox to refine them manually. If the plan looks appropriate, no further adjustment is needed and the planning is complete.",
+      "edited": false
+    },
+    "cb_step_26": {
+      "title": "Adjust an implant path",
+      "simple": "Place one implant path in the view according to the desired trajectory, then click Done.",
+      "detailed": "A path represents the planned trajectory from the entry point to the implant position in the bone. Place one path at a time with the intended start and end, and click Done after each path. This lets you correct or replace individual paths before finalizing the plan.",
+      "edited": false
+    },
+    "cb_step_27": {
+      "title": "Apply the path adjustments",
+      "simple": "Click 'Apply paths' to save the adjusted implant trajectories.",
+      "detailed": "This finalizes the manually corrected paths as the definitive implant plan. After this step, the planned zygomatic implant trajectories are ready for review and use in surgery.",
       "edited": false
     }
   }

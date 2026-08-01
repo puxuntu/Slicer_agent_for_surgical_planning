@@ -1230,8 +1230,16 @@ class AnalyzerStage4DecompositionMixin:
         set exit_value to the source choice value that DECLINES/skips the body (e.g. the
         "No"/unticked value). Set exit_target to where the workflow goes when declined:
         the integer step number for "jump to step N", or the string "stop" to end the
-        workflow; use null to default to the step right after the body. Repeat blocks
-        may not overlap.
+        workflow; use null to default to the step right after the body.
+        Two repeat bodies must be either DISJOINT or FULLY NESTED (one body entirely
+        inside the other). A conditional section inside another conditional's body is
+        normal, expected control flow and is ACCEPTED; only a CROSSING/partial overlap
+        is rejected. So when branch A's optional region CONTAINS branch B -- A says
+        "if not, jump to step M", and B lies between A and M -- A's body_steps must
+        SPAN every step from the one after A through the step before M, INCLUDING B
+        and B's own body, and B gets its own repeat_block nested inside A's. Never
+        shrink an outer body to avoid the nesting: every conditionally-reached step
+        must lie inside the body of the branch that decides whether it runs.
         Use operation_type branch_op (NOT user_choice) for a step that asks a Yes/No
         question whose "Yes" ALSO performs an extension action (e.g. "tick the X
         checkbox") and whose answer branches (run an optional body, or jump/stop) --
@@ -1249,6 +1257,13 @@ class AnalyzerStage4DecompositionMixin:
         an earlier step produced (e.g. an output table) and confirms to continue. Emit
         it with ALL hints null, choice null, interaction_kind "none" -- it runs no code
         and selects nothing.
+        is_optional means ONLY this: once the step has been reached, the runtime may
+        offer the user a SKIP control to pass over it. It is NOT how conditional
+        reachability is recorded -- whether a step runs at all is expressed SOLELY by
+        membership of a repeat_block body, never by this flag. So do not set
+        is_optional merely because an earlier branch can skip past the step. NEVER set
+        is_optional on a branch_op or a user_choice: a step that asks the user a
+        question is always presented when it is reached, so it is never skippable.
         Every step requires medium or high confidence. Include exactly one output step
         for every input step, even when most optional semantic fields are null.
 
@@ -1631,6 +1646,20 @@ class AnalyzerStage4DecompositionMixin:
                             "parameter or leave it empty"
                         )
             if expected[number]["operation_type"] in ("user_choice", "branch_op"):
+                # is_optional means "the runtime may offer a Skip control here". A
+                # step that asks the user a question is always presented once
+                # reached, so the flag is a modelling error on a decision step --
+                # and the runtime's Done/Skip pause keys on it, which would replace
+                # the real question and its labelled choices with a bare
+                # confirmation. Conditional reachability belongs in a repeat_block
+                # body instead.
+                if item.get("is_optional"):
+                    errors.append(
+                        f"step {number} must not set is_optional on a "
+                        f"{expected[number]['operation_type']} step -- express "
+                        "conditional reachability by placing the step inside a "
+                        "repeat_block body"
+                    )
                 choice = item.get("choice")
                 # A multi-selection step carries a LIST of choice objects (one per
                 # selection); a single selection stays one object. Validate each

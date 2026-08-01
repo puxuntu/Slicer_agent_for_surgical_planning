@@ -95,6 +95,20 @@ class AnalyzerTemplateGenerationMixin:
         for tpl_name, tpl_code in templates.items():
             if tpl_name in unchanged_templates:
                 continue
+            # A source-derived template drives the extension's OWN scanned handler
+            # or writes the parameterNodeWrapper field its control is bound to. It
+            # is evidence, not a guess, so the critic must not rewrite it. Review
+            # rule 6 ("flag state-changing calls whose effect exceeds the step
+            # description") reads a checkbox step's entire purpose -- ticking the
+            # box -- as excess state change, and replaced working actions with
+            # templates that only set a local flag and print, leaving the extension
+            # never entering the mode the branch exists to enable. Same exemption
+            # the [wizard drive] marker already gets from the footprint validator.
+            if SOURCE_DRIVE_MARKER in tpl_code:
+                logger.debug(
+                    "Skipping LLM review of source-derived template %s", tpl_name,
+                )
+                continue
             # Extract stage name from template filename
             stage_name = tpl_name.replace(".py.tpl", "")
 

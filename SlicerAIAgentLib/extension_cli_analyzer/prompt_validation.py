@@ -601,7 +601,7 @@ Return ONLY the sentence, nothing else.""")
         metadata = self._workflow_metadata if isinstance(self._workflow_metadata, dict) else {}
 
         for gen in generators or []:
-            for key in ("template_file", "pre_template_file", "post_template_file"):
+            for key in TEMPLATE_FILE_FIELDS:
                 tpl_name = gen.get(key)
                 if not tpl_name:
                     continue

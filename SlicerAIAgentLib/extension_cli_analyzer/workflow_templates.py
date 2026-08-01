@@ -17,13 +17,23 @@ def _resolve_qt_control_lines(widget_expr, control_name, out_var="_ctrl", indent
     """
     q = repr(control_name)
     i = indent
-    return [
-        f"{i}{out_var} = None",
-        f"{i}_ui = getattr({widget_expr}, 'ui', None)",
-        f"{i}if _ui is not None:",
-        f"{i}    {out_var} = getattr(_ui, {q}, None)",
-        f"{i}if {out_var} is None:",
-        f"{i}    {out_var} = getattr({widget_expr}, {q}, None)",
+    lines = [f"{i}{out_var} = None"]
+    # hasattr-guarded direct access, never getattr: CodeValidator BLOCKS getattr
+    # (and setattr), so a template using it is rejected at the live-execution gate
+    # and handed to the LLM repair ladder, which rewrites the whole body and can
+    # silently replace an evidence-backed drive with something inert. hasattr is
+    # allowed, so the same lookup is expressed with it. Only emitted when the
+    # control name is a real identifier; otherwise the findChildren path below is
+    # the only lookup.
+    if control_name.isidentifier():
+        lines += [
+            f"{i}_ui = {widget_expr}.ui if hasattr({widget_expr}, 'ui') else None",
+            f"{i}if _ui is not None and hasattr(_ui, {q}):",
+            f"{i}    {out_var} = _ui.{control_name}",
+            f"{i}if {out_var} is None and hasattr({widget_expr}, {q}):",
+            f"{i}    {out_var} = {widget_expr}.{control_name}",
+        ]
+    lines += [
         f"{i}if {out_var} is None:",
         f"{i}    try:",
         f"{i}        _found = slicer.util.findChildren({widget_expr}, name={q})",
@@ -31,6 +41,7 @@ def _resolve_qt_control_lines(widget_expr, control_name, out_var="_ctrl", indent
         f"{i}    except Exception:",
         f"{i}        {out_var} = None",
     ]
+    return lines
 
 
 class AnalyzerWorkflowTemplatesMixin:
@@ -81,6 +92,29 @@ class AnalyzerWorkflowTemplatesMixin:
             if isinstance(self._workflow_metadata, dict):
                 self._workflow_metadata.setdefault("api_evidence", {})[template_file] = merged
 
+        by_step_id = {s.get("step_id"): s for s in steps if s.get("step_id")}
+
+        def _extension_owns_adjust_mode(step: Dict) -> bool:
+            """True when the extension's OWN mechanism already puts this step's
+            object into its adjustable state.
+
+            An adjust-an-existing-markup step is the body of a pre-guard branch
+            ("tick 'Manually adjust X'"). When that branch has an on-accept action,
+            ticking the control is what the extension reacts to -- unlocking a
+            markup, showing handles, enabling an Apply button -- and each extension
+            does it differently (this one unlocks path lines for endpoint dragging
+            but shows interaction handles for planes). Synthesizing a generic handle
+            setup on top of that is a guess that can contradict the real mechanism,
+            so defer to the extension whenever it has one.
+            """
+            block = step.get("repeat_block") or {}
+            source_id = (block.get("controller") or {}).get("source_step") or ""
+            source = by_step_id.get(source_id) or {}
+            # Keyed on what this run actually emitted, never on the presence of an
+            # action FILE: a no-op stub would otherwise read as "the extension
+            # handles it" and we would drop the handles with nothing replacing them.
+            return bool(source.get("branch_action_drives_extension"))
+
         for step_index, step in enumerate(steps):
             step_id = step["step_id"]
             op_type = _operation_type_for_step(step)
@@ -88,6 +122,11 @@ class AnalyzerWorkflowTemplatesMixin:
             step["op_type"] = op_type
             step.setdefault("step_type", op_type)
             step_type = _legacy_step_type_for_operation(op_type)
+            # Recorded so the decision is auditable in workflow.json, and read by
+            # _placement_mode_policy. The guarding branch precedes its body (the
+            # contract validator enforces it), so its action template already exists.
+            if step_type == "interactive":
+                step["extension_owns_adjust_mode"] = _extension_owns_adjust_mode(step)
 
             if self._parameter_update_ops_for_step(step):
                 key = f"templates/{step_id}.py.tpl"
@@ -569,6 +608,14 @@ class AnalyzerWorkflowTemplatesMixin:
                 action_tpl = self._maybe_generate_button_handler_template(
                     extension_name, step, logic_class_name, module_name,
                 )
+                # Records that THIS run emitted a real, extension-driving action --
+                # not merely that some file named *_action.py.tpl exists. Older
+                # pipeline versions wrote a no-op stub ("user-decision branch, no
+                # code action is performed"), and a downstream reader that keys on
+                # the filename alone would wrongly conclude the extension had been
+                # put into its adjust mode. Set explicitly on both paths so a key
+                # carried over from an earlier graph cannot leak in.
+                step["branch_action_drives_extension"] = bool(action_tpl)
                 if action_tpl:
                     action_key = f"templates/{step_id}_action.py.tpl"
                     templates[action_key] = action_tpl
@@ -989,6 +1036,124 @@ class AnalyzerWorkflowTemplatesMixin:
         ]
         return "\n".join(lines) + "\n"
 
+    def _maybe_generate_parameter_binding_template(
+        self,
+        extension_name: str,
+        step: Dict,
+        module_name: str,
+        widget_targets: Dict[str, Any],
+    ) -> Optional[str]:
+        """Drive a control the extension wires through ``SlicerParameterName``.
+
+        A ``parameterNodeWrapper`` extension binds most controls in Qt Designer:
+        ``<property name="SlicerParameterName">refinePaths</property>`` plus
+        ``connectGui(self.ui)``. There is no ``.connect()`` call, so such a control
+        is invisible to the connection scan and the handler-driver above emits
+        nothing for it -- which left every "Manually adjust ..." branch step with no
+        on-accept action at all, so the extension never entered its manual-adjust
+        mode and a downstream Apply button stayed disabled.
+
+        Writing the bound field IS ticking the box: ``connectGui`` mirrors the two,
+        and the extension's own parameter-node observer then performs the real work
+        (unlocking markups, showing handles, enabling the Apply button) exactly as a
+        user click would. That is strictly better than reimplementing the effect,
+        which is guesswork -- this extension, for instance, unlocks path lines for
+        endpoint dragging but shows interaction handles for planes.
+
+        Returns None when the step's control has no such binding.
+        """
+        bindings = getattr(self, "_widget_parameter_bindings", None) or {}
+        if not bindings:
+            return None
+        widget = binding = None
+        for wn in widget_targets:
+            if wn in bindings:
+                widget, binding = wn, bindings[wn]
+                break
+        if not binding:
+            return None
+        param = binding.get("parameter_name", "")
+        if not param:
+            return None
+
+        # Polarity: an explicit captured target_value wins, else infer tick/untick
+        # from the step text (same rule as the toggle-handler path).
+        _tv = widget_targets.get(widget)
+        if _tv is None:
+            _intent = _infer_final_state_intent(step.get("description", "") or "")
+            if _intent.get("state") is not None:
+                _tv = _intent["state"]
+        value = "False" if _tv is False else "True"
+
+        step_id = step.get("step_id", "")
+        mod_attr = module_name.lower()
+        lines = list(self._template_header_lines(extension_name, step, "")) + [
+            f"# {SOURCE_DRIVE_MARKER} derived from the scanned .ui binding -- do not rewrite.",
+            "import slicer",
+            *self._emit_module_enter_precondition(module_name),
+            f"# '{widget}' is bound to the extension's parameter field {param!r} by its",
+            "# .ui SlicerParameterName property; connectGui() keeps control and field in",
+            "# sync. Setting the field is what ticking the box does, so the extension's",
+            "# own parameter-node observer performs the real work and the control updates.",
+            "_widget = None",
+            "try:",
+            f"    _widget = slicer.util.getModuleWidget({module_name!r})",
+            "except Exception:",
+            "    _widget = None",
+            "if _widget is None:",
+            "    try:",
+            f"        _widget = slicer.modules.{mod_attr}.widgetRepresentation().self()",
+            "    except Exception:",
+            "        _widget = None",
+            "if _widget is None:",
+            f"    raise RuntimeError(\"Could not obtain the {module_name} module widget for '{widget}'.\")",
+        ]
+
+        if binding.get("is_wrapper_field") and binding.get("field_type") == "bool":
+            # Provable: the name is an annotated bool field of the detected
+            # parameterNodeWrapper class, so a direct property write is valid.
+            # Prefer the widget's OWN parameter node -- that is the instance its
+            # observer watches.
+            lines += [
+                # hasattr-guarded access, never getattr -- CodeValidator blocks
+                # getattr outright, and a blocked call sends the whole template to
+                # the LLM repair ladder (see _resolve_qt_control_lines).
+                "_pnode = _widget._parameterNode if hasattr(_widget, '_parameterNode') else None",
+                "if _pnode is None and hasattr(_widget, 'logic'):",
+                "    _logic = _widget.logic",
+                "    if _logic is not None and hasattr(_logic, 'getParameterNode'):",
+                "        try:",
+                "            _pnode = _logic.getParameterNode()",
+                "        except Exception:",
+                "            _pnode = None",
+                "if _pnode is None:",
+                f"    raise RuntimeError(\"Could not reach the {module_name} parameter node to set {param!r}.\")",
+                f"if not hasattr(_pnode, {param!r}):",
+                f"    raise RuntimeError(\"{module_name} parameter node has no field {param!r}; regenerate the CLI.\")",
+                f"_pnode.{param} = {value}",
+                f"print(\"[{extension_name}] Step '{step_id}': set '{widget}' "
+                f"(parameter '{param}') = {value}.\")",
+                "",
+            ]
+        elif widget.isidentifier():
+            # The binding exists but the field is not a proven wrapper bool (a
+            # classic SlicerParameterName, or an un-annotated field). Set the
+            # control itself instead and let whatever binding exists propagate --
+            # signals deliberately NOT blocked, since that propagation is the point.
+            lines += [
+                *_resolve_qt_control_lines("_widget", widget, "_ctrl"),
+                "if _ctrl is None:",
+                f"    raise RuntimeError(\"Could not resolve the control '{widget}' on the "
+                f"{module_name} widget; regenerate the CLI.\")",
+                f"_ctrl.checked = {value}",
+                f"print(\"[{extension_name}] Step '{step_id}': set '{widget}' = {value} "
+                f"(parameter '{param}').\")",
+                "",
+            ]
+        else:
+            return None
+        return "\n".join(lines) + "\n"
+
     def _maybe_generate_button_handler_template(
         self, extension_name, step, logic_class_name, module_name,
     ) -> Optional[str]:
@@ -1010,8 +1175,6 @@ class AnalyzerWorkflowTemplatesMixin:
         # the class-wide scanned widget connections to its clicked/toggled handler
         # (e.g. onLoadSkull).
         connections = getattr(self, "_widget_connections", None) or []
-        if not connections:
-            return None
         # widget_name -> target_value (target_value matters only for a toggle).
         widget_targets = {}
         for so in step.get("sub_operations", []) or []:
@@ -1021,6 +1184,12 @@ class AnalyzerWorkflowTemplatesMixin:
             widget_targets.setdefault(step["widget_name"], step.get("target_value"))
         if not widget_targets:
             return None
+        if not connections:
+            # No scanned .connect() at all -- but a parameterNodeWrapper extension
+            # wires most controls in Qt Designer instead, so try that before giving up.
+            return self._maybe_generate_parameter_binding_template(
+                extension_name, step, module_name, widget_targets,
+            )
 
         _TOGGLE = ("toggled", "stateChanged", "checkBoxToggled")
         handler = widget = None
@@ -1031,16 +1200,34 @@ class AnalyzerWorkflowTemplatesMixin:
             wn = conn.get("button_widget_name")
             if wn not in widget_targets or not conn.get("handler_method"):
                 continue
-            if "clicked" in sig:
-                handler, widget, is_toggle = conn["handler_method"], wn, False
-                shares_state = bool(conn.get("shares_widget_state"))
-                break
-            if any(s in sig for s in _TOGGLE):
-                handler, widget, is_toggle = conn["handler_method"], wn, True
-                shares_state = bool(conn.get("shares_widget_state"))
-                break
+            if not ("clicked" in sig or any(s in sig for s in _TOGGLE)):
+                continue
+            # The signal NAME does not decide whether the handler takes the
+            # control's state: a checkbox may legitimately be wired
+            # `clicked(bool)` rather than `toggled(bool)` (and extensions do this
+            # deliberately, to fire only on user clicks and not on programmatic
+            # setChecked). Keying "is it a toggle?" on the name emitted a 0-arg
+            # call to a 1-arg handler, which raised TypeError on the first real
+            # use. The handler's own ARITY, recorded from the source AST, is the
+            # authority: a handler that REQUIRES an argument is passed the checked
+            # state; one that requires none is called bare. Fall back to the signal
+            # name only when the arity could not be determined.
+            required_args = conn.get("handler_required_args")
+            if isinstance(required_args, int):
+                is_toggle = required_args >= 1
+            else:
+                is_toggle = any(s in sig for s in _TOGGLE)
+            handler, widget = conn["handler_method"], wn
+            shares_state = bool(conn.get("shares_widget_state"))
+            break
         if not handler:
-            return None
+            # The control has no scanned signal connection. In a
+            # parameterNodeWrapper extension that is the NORMAL case, not a
+            # failure: the control is bound to a wrapper field in the .ui and
+            # connectGui() drives it. Emit that write instead of nothing.
+            return self._maybe_generate_parameter_binding_template(
+                extension_name, step, module_name, widget_targets,
+            )
         # Paradigm gate (applied AFTER the connection is resolved). Drive the
         # handler when it SHARES `self.<attr>` widget state with another handler
         # (a handler-state chain, e.g. onLoadSkull sets self.resultSeg that a later
@@ -1065,6 +1252,7 @@ class AnalyzerWorkflowTemplatesMixin:
         step_id = step.get("step_id", "")
         mod_attr = module_name.lower()
         lines = list(self._template_header_lines(extension_name, step, "")) + [
+            f"# {SOURCE_DRIVE_MARKER} derived from the scanned signal connection -- do not rewrite.",
             "import slicer",
             *self._emit_module_enter_precondition(module_name),
             "# Drive the extension's own widget handler on the live module widget:",
@@ -1085,7 +1273,7 @@ class AnalyzerWorkflowTemplatesMixin:
             f"if not hasattr(_widget, {handler!r}):",
             f"    raise RuntimeError(\"{module_name} widget has no handler '{handler}' for '{widget}'; regenerate the CLI.\")",
         ]
-        if is_toggle and widget.isidentifier():
+        if is_toggle:
             _tv = widget_targets.get(widget)
             if _tv is None:
                 # No explicit target_value captured: infer tick/untick polarity from
@@ -1095,23 +1283,29 @@ class AnalyzerWorkflowTemplatesMixin:
                 if _intent.get("state") is not None:
                     _tv = _intent["state"]
             checked = "False" if _tv is False else "True"
+            if widget.isidentifier():
+                lines += [
+                    "# Resolve the bound control by name across the ways a Slicer",
+                    "# extension can expose it (.ui object, direct self.<name>",
+                    "# attribute, or objectName in the widget tree), then set its",
+                    "# checked state (signals blocked to avoid a double-fire) and",
+                    "# invoke the handler once. Setting the REAL control state is",
+                    "# what lets a later programmatic setChecked(opposite) actually",
+                    "# emit toggled and run the handler (e.g. an 'Update' button that",
+                    "# unchecks the box to hide 3D interaction handles).",
+                    *_resolve_qt_control_lines("_widget", widget, "_ctrl"),
+                    "if _ctrl is not None:",
+                    "    try:",
+                    "        _ctrl.blockSignals(True)",
+                    f"        _ctrl.checked = {checked}",
+                    "        _ctrl.blockSignals(False)",
+                    "    except Exception:",
+                    "        pass",
+                ]
+            # The handler REQUIRES the state argument (or the signal carries it), so
+            # pass it. The TypeError fallback keeps a 0-arg handler working when the
+            # arity could not be read from source.
             lines += [
-                "# Resolve the bound control by name across the ways a Slicer",
-                "# extension can expose it (.ui object, direct self.<name>",
-                "# attribute, or objectName in the widget tree), then set its",
-                "# checked state (signals blocked to avoid a double-fire) and",
-                "# invoke the handler once. Setting the REAL control state is",
-                "# what lets a later programmatic setChecked(opposite) actually",
-                "# emit toggled and run the handler (e.g. an 'Update' button that",
-                "# unchecks the box to hide 3D interaction handles).",
-                *_resolve_qt_control_lines("_widget", widget, "_ctrl"),
-                "if _ctrl is not None:",
-                "    try:",
-                "        _ctrl.blockSignals(True)",
-                f"        _ctrl.checked = {checked}",
-                "        _ctrl.blockSignals(False)",
-                "    except Exception:",
-                "        pass",
                 "try:",
                 f"    _widget.{handler}({checked})",
                 "except TypeError:",

@@ -168,7 +168,7 @@ class AnalyzerRepairLoopMixin:
     ) -> List[Dict]:
         template_context = {}
         for gen in generators or []:
-            for key in ("template_file", "pre_template_file", "post_template_file"):
+            for key in TEMPLATE_FILE_FIELDS:
                 if gen.get(key):
                     template_context[gen[key]] = gen
         contract_steps = {
@@ -528,11 +528,62 @@ class AnalyzerRepairLoopMixin:
             if regenerated:
                 wizard_repaired[key] = regenerated
                 affected.discard(key)
-        if wizard_repaired and not affected:
-            # Every affected template was wizard-grounded -- no LLM round needed.
+        # Same reasoning for SOURCE-DERIVED templates: they drive the extension's
+        # own scanned signal handler, or write the parameterNodeWrapper field its
+        # control is bound to in the .ui. An LLM rewrite discards that evidence,
+        # and the live gate cannot catch the loss because it verifies that code
+        # RUNS, not that it has the intended EFFECT -- a rewrite once replaced a
+        # working drive with `setRefineHandleVisibility(logic._lastStep, True)` on
+        # a fresh Logic instance, which executes cleanly and does nothing at all.
+        # Re-derive from the emitter instead. If re-derivation reproduces the same
+        # bytes it cannot resolve the issue, so leave that one to the LLM rather
+        # than spin the ladder on identical code.
+        source_repaired: Dict[str, str] = {}
+        logic_class_name = str(
+            (workflow_contract or {}).get("logic_class_name")
+            or (getattr(self, "_workflow_metadata", {}) or {}).get("logic_class_name")
+            or ""
+        )
+        for gen in generators or []:
+            for field in TEMPLATE_FILE_FIELDS:
+                key = gen.get(field) or ""
+                if key not in affected or SOURCE_DRIVE_MARKER not in templates.get(key, ""):
+                    continue
+                step_id = (gen.get("param_signature") or {}).get("workflow_step", "")
+                try:
+                    regenerated = self._maybe_generate_button_handler_template(
+                        extension_name,
+                        {
+                            "step_id": step_id,
+                            "description": gen.get("description", ""),
+                            "sub_operations": gen.get("sub_operations") or [],
+                            "widget_name": gen.get("widget_name", ""),
+                            "method_name": gen.get("method_name", ""),
+                        },
+                        logic_class_name,
+                        module_name,
+                    )
+                except Exception:
+                    logger.debug("Source-drive re-derivation failed for %s", key, exc_info=True)
+                    regenerated = None
+                if regenerated and regenerated != templates.get(key):
+                    source_repaired[key] = regenerated
+                    affected.discard(key)
+
+        deterministic = dict(wizard_repaired)
+        deterministic.update(source_repaired)
+        if deterministic and not affected:
+            # Every affected template was deterministically grounded -- no LLM round.
             merged = dict(templates)
-            merged.update(wizard_repaired)
-            self._last_fix_description = "Re-derived wizard drive template(s) deterministically"
+            merged.update(deterministic)
+            parts = []
+            if wizard_repaired:
+                parts.append("wizard drive")
+            if source_repaired:
+                parts.append("source drive")
+            self._last_fix_description = (
+                "Re-derived " + " + ".join(parts) + " template(s) deterministically"
+            )
             return self._sanitize_templates(merged)
 
         issue_text = json.dumps(issues, indent=2)
@@ -667,11 +718,11 @@ Return:
                 failure_label="Targeted template repair",
             )
         except RuntimeError:
-            if wizard_repaired:
-                # The LLM round failed but the wizard templates were still
-                # re-derived deterministically -- keep them.
+            if deterministic:
+                # The LLM round failed but the wizard / source-drive templates were
+                # still re-derived deterministically -- keep them.
                 merged = dict(templates)
-                merged.update(wizard_repaired)
+                merged.update(deterministic)
                 return self._sanitize_templates(merged)
             return None
         self._last_fix_description = _text_or_empty(fixed.get("fix_description"))
@@ -680,9 +731,9 @@ Return:
             key = tpl_name if tpl_name.startswith("templates/") else f"templates/{tpl_name}"
             if key in affected and isinstance(tpl_content, str):
                 repaired[key] = tpl_content
-        # The deterministically re-derived wizard templates win over anything the
-        # LLM may have emitted for those keys.
-        repaired.update(wizard_repaired)
+        # The deterministically re-derived templates (wizard drive + source drive)
+        # win over anything the LLM may have emitted for those keys.
+        repaired.update(deterministic)
         # An LLM rewrite DROPS the module-session driver blocks — the
         # deterministic, idempotent standard-op code and the shared-state binding
         # the session's later steps depend on. That is not hypothetical: the

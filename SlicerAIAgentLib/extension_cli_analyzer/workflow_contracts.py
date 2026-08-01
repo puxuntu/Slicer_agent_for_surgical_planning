@@ -609,6 +609,7 @@ class AnalyzerWorkflowContractsMixin:
         steps = workflow_graph.get("steps", []) or []
         by_step = {step.get("step_id", ""): step for step in steps}
         self._validate_repeat_block_graph(workflow_graph, by_step)
+        self._validate_decision_steps_not_optional(workflow_graph)
 
         self._promote_closed_form_parameter_choices(steps)
         module_function_names = sorted(callable_inventory.get("module_functions", {}).keys())
@@ -757,6 +758,30 @@ class AnalyzerWorkflowContractsMixin:
             if node_roles:
                 metadata["node_roles"][step_id] = node_roles
                 step["node_roles"] = node_roles
+
+    @staticmethod
+    def _validate_decision_steps_not_optional(workflow_graph: Dict) -> None:
+        """A step that ASKS the user something is never skippable.
+
+        ``is_optional`` means "the runtime may offer a Skip control on this step".
+        A ``branch_op`` / ``user_choice`` is always presented once reached, so the
+        flag is a modelling error there -- and a damaging one: the runtime keys its
+        Done/Skip pause on it, which replaces the step's real question and its
+        labelled choices with a bare confirmation, making one of the branch's two
+        outcomes unreachable. Conditional REACHABILITY belongs in a repeat_block
+        body, never in this flag.
+        """
+        for step in workflow_graph.get("steps", []) or []:
+            if not step.get("is_optional"):
+                continue
+            op_type = _operation_type_for_step(step)
+            if op_type in ("branch_op", "user_choice"):
+                raise RuntimeError(
+                    f"{step.get('step_id', '?')}: is_optional must not be set on a "
+                    f"{op_type} step -- a step that asks the user a question is "
+                    "always presented; express conditional reachability by placing "
+                    "the step inside a repeat_block body instead"
+                )
 
     @staticmethod
     def _validate_repeat_block_graph(

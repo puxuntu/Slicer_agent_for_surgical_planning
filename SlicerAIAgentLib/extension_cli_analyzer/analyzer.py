@@ -140,6 +140,10 @@ class ExtensionCLIAnalyzer(
         # slicer.parameterNodeWrapper: {"class_name", "fields": {name: type}, ...}.
         # None for classic vtkMRMLScriptedModuleNode parameter nodes.
         self._parameter_node_wrapper: Optional[Dict] = None
+        # widget objectName -> its .ui SlicerParameterName binding. Populated from
+        # the .ui inventory; the only record of a control that connectGui() drives
+        # and no .connect() call mentions.
+        self._widget_parameter_bindings: Dict[str, Dict] = {}
 
     @staticmethod
     def _default_base_dir() -> str:
@@ -700,6 +704,15 @@ class ExtensionCLIAnalyzer(
             scan_result["ui_widgets"] = self._extract_ui_widget_inventory(
                 scan_result.get("ui_files", [])
             )
+            # Controls bound to a parameterNodeWrapper field purely in Qt Designer
+            # (SlicerParameterName + connectGui) have no .connect() call, so they
+            # never appear in _widget_connections. Join them here so codegen can
+            # drive them by writing the field the control mirrors.
+            self._widget_parameter_bindings = self._extract_ui_parameter_name_bindings(
+                scan_result.get("ui_widgets") or {},
+                (scan_result.get("parameter_node_wrapper") or {}).get("fields") or {},
+            )
+            scan_result["ui_parameter_name_bindings"] = self._widget_parameter_bindings
             # Join each scanned button/checkbox connection to its human-readable
             # display label (the .ui ``text`` property), keyed by object name. A
             # cookbook step quotes that label verbatim ("Click the 'Apply

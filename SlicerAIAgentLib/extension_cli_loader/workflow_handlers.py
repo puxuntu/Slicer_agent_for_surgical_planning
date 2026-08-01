@@ -113,6 +113,17 @@ def _handle_interactive_step(ctx: _WorkflowContext) -> Dict:
 
     # Handle "proceed" — user completed interaction, run post-template and advance
     if ctx.user_action == "proceed":
+        # The post-template assumes the pre-template already created the markup
+        # node this step manipulates. A "proceed" on a step that was never opened
+        # violates that contract and used to fail deep inside the post code as
+        # "Node not found for step '<id>'" -- indistinguishable from a legitimate
+        # completion. Open it instead of corrupting it.
+        if not workflow_step_was_started(ctx.ext_name, ctx.workflow_step):
+            logger.warning(
+                "Workflow step '%s' received 'proceed' before it was started; "
+                "running its pre-interaction start instead.", ctx.workflow_step,
+            )
+            return _handle_interactive_start(ctx)
         return _handle_interactive_proceed(ctx)
 
     # "start" — return pre-interaction code for the LLM to output
@@ -493,14 +504,31 @@ def _handle_user_choice_step(ctx: _WorkflowContext) -> Dict:
         return _record_choice_and_advance(ctx, param_name, choice_value)
 
     if ctx.user_action == "proceed":
-        # Interactive scene-manipulation choice (e.g. a qMRMLSegmentsTableView where
-        # the user toggled per-segment visibility directly on the scene). There is
-        # no value to record; advance the workflow with an empty choice value, which
-        # emits no parameter/node code and proceeds to the next step.
-        return _record_choice_and_advance(ctx, param_name, "")
+        # A step that offers real alternatives must be ANSWERED, never merely
+        # "proceeded". Recording "" as the answer silently picks a side: the empty
+        # string matches no declared choice, so a pre-guard's _loop_should_exit
+        # compares "" against the guard's default_value, fails to match, and enrols
+        # the user in an optional body they were never asked about. If the question
+        # was never even put to them, put it now instead of answering it for them.
+        if choices and not workflow_step_was_started(ctx.ext_name, ctx.workflow_step):
+            logger.warning(
+                "Workflow step '%s' received 'proceed' before its question was "
+                "asked; presenting the choices instead of recording an empty answer.",
+                ctx.workflow_step,
+            )
+        else:
+            # Interactive scene-manipulation choice (e.g. a qMRMLSegmentsTableView
+            # where the user toggled per-segment visibility directly on the scene).
+            # There is no value to record; advance the workflow with an empty choice
+            # value, which emits no parameter/node code and proceeds to the next step.
+            return _record_choice_and_advance(ctx, param_name, "")
 
     # Node/option selection is always manual — no automatic node matching.
     # Initial start — return the question/choices for the panel to present.
+    # Presenting the question IS opening the step, so record it here too: this
+    # path is also reached by the recovery above, which must not re-present
+    # forever if the panel sends another completion action.
+    mark_workflow_step_started(ctx.ext_name, ctx.workflow_step)
     options_text = "\n".join(
         f"  {i+1}. {c['label']}" for i, c in enumerate(choices)
     )

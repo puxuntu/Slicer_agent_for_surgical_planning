@@ -365,6 +365,35 @@ class WorkflowRuntime:
             "repeat_states": copy.deepcopy(self.session.repeat_states),
         }
 
+    def panel_counters(self, current_step: Optional[str]) -> Dict[str, int]:
+        """The ONLY authority for the progress panel's step numbers.
+
+        ``current_step`` is the step being DISPLAYED; pass ``None`` when no step is
+        current (a finished workflow), which yields index 0. Callers must never
+        carry these numbers over from a previous render: a hand-built panel dict
+        that copied them captioned the NEW step with the PREVIOUS step's index,
+        which is how a step-17 panel came to read "Step 16 of 27".
+        """
+        if not self.session:
+            return {"current_index": 0, "completed_steps": 0, "total_steps": 0}
+        graph = get_workflow_graph(self.session.extension_name) or {}
+        steps = graph.get("steps", []) if isinstance(graph, dict) else []
+        step_ids = [step.get("step_id") for step in steps if step.get("step_id")]
+        total_steps = int(graph.get("step_count") or len(steps) or 0)
+
+        current_index = 0
+        if current_step in step_ids:
+            current_index = step_ids.index(current_step) + 1
+        completed_count = len(set(self.session.completed_steps))
+        if self.session.status == "completed" and total_steps:
+            current_index = total_steps
+            completed_count = total_steps
+        return {
+            "current_index": current_index,
+            "completed_steps": completed_count,
+            "total_steps": total_steps,
+        }
+
     def state_for_ui(self, result: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Return a compact, user-facing state for workflow progress UI."""
         if not self.session:
@@ -372,7 +401,6 @@ class WorkflowRuntime:
 
         graph = get_workflow_graph(self.session.extension_name) or {}
         steps = graph.get("steps", []) if isinstance(graph, dict) else []
-        step_ids = [step.get("step_id") for step in steps if step.get("step_id")]
         step_map = {step.get("step_id"): step for step in steps if step.get("step_id")}
         total_steps = graph.get("step_count") or len(steps)
 
@@ -396,15 +424,9 @@ class WorkflowRuntime:
                 or next_step.get("step_id")
             )
         current_meta = step_map.get(current_step, {})
-        current_index = 0
-        if current_step in step_ids:
-            current_index = step_ids.index(current_step) + 1
-        elif self.session.status == "completed" and total_steps:
-            current_index = int(total_steps)
-
-        completed_count = len(set(self.session.completed_steps))
-        if self.session.status == "completed" and total_steps:
-            completed_count = int(total_steps)
+        counters = self.panel_counters(current_step)
+        current_index = counters["current_index"]
+        completed_count = counters["completed_steps"]
 
         result_type = source.get("type", "")
         status = self._ui_status_label(self.session.status, result_type)
@@ -556,7 +578,22 @@ class WorkflowRuntime:
         # user-authored presentational text; the generation pipeline neither
         # writes nor reads them, so they survive regeneration untouched.
         button_overrides = instr.get("buttons") if isinstance(instr.get("buttons"), dict) else {}
-        if instr.get("title"):
+        # A step that offers enumerated choices IS a question, and the panel's
+        # headline must read as one -- the buttons under it are the answers.
+        # step_instructions titles are generated as topic statements ("Decide about
+        # the symmetry plane"), which leaves a bare Yes/No ambiguous: yes to what?
+        # The step already carries its own question (choice_info.question, e.g.
+        # "Do you want to manually adjust the symmetry plane?"), so prefer that.
+        # A user-EDITED title still wins -- that is authored text, not generated.
+        question_text = str(
+            source.get("question")
+            or ((current_meta.get("choice_info") or {}).get("question") if isinstance(current_meta, dict) else "")
+            or ""
+        ).strip()
+        prefer_question = bool(choices) and bool(question_text)
+        if prefer_question:
+            description = question_text
+        if instr.get("title") and not (prefer_question and not instr.get("edited")):
             description = instr["title"]
         if instr.get("simple"):
             instructions = instr["simple"]

@@ -144,3 +144,12 @@ _workflow_choices: Dict[str, Dict[str, Any]] = {}
 
 # Store repeat progress keyed by extension_name then repeat group id.
 _workflow_repeat_state: Dict[str, Dict[str, Dict[str, int]]] = {}
+
+# Steps that have been OPENED (dispatched with user_action="start") per workflow.
+# A step's completion actions ("proceed" / "done") are only meaningful for a step
+# that was started: an interactive step's post-template assumes its pre-template
+# created the markup node, and a choice step's answer assumes the question was
+# asked. Without this set those two invariants were unenforceable, and a
+# completion action on a never-opened step corrupted the step silently
+# ("Node not found for step ...", or an empty choice recorded as the answer).
+_workflow_started_steps: Dict[str, set] = {}

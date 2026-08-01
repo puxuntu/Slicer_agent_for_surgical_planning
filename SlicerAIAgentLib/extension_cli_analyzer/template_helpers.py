@@ -8,6 +8,17 @@ _FULLWIDTH_TO_ASCII = str.maketrans(
 _GETATTR_LITERAL_RE = _re.compile(
     r'\bgetattr\s*\(\s*([^,]+?)\s*,\s*([\'"])([A-Za-z_]\w*)\2\s*\)'
 )
+# Matches the THREE-argument getattr(obj, 'attr', <simple_default>) -- the form
+# the two-argument pattern above silently leaves behind. CodeValidator blocks
+# getattr outright, so anything this misses is rejected at the live-execution
+# gate and handed to the LLM repair ladder, which rewrites the entire template
+# body; that is how an evidence-backed drive was once replaced by an inert call.
+# Rewritten to a hasattr conditional, which preserves the default semantics.
+# The default must contain no parentheses or commas (None/True/a name/a literal),
+# so a complex expression is left alone rather than mangled.
+_GETATTR_DEFAULT_RE = _re.compile(
+    r'\bgetattr\s*\(\s*([^,()]+?)\s*,\s*([\'"])([A-Za-z_]\w*)\2\s*,\s*([^,()]+?)\s*\)'
+)
 # Matches setattr(obj, 'attr', <simple_value>) where the value has no
 # nested parentheses.  Complex expressions like setattr(o, 'a', f(x))
 # are left for the auto-revise LLM to handle.
@@ -470,12 +481,24 @@ class AnalyzerTemplateHelpersMixin:
         # handles so the user can resize it. Highest priority — checked before the
         # extension-starter / repeat branches.
         if step.get("creates_node") is False and step.get("requires_place_mode") is False:
+            # ...unless the EXTENSION owns entering adjust mode. When the guarding
+            # branch has an on-accept action, ticking that control is what puts the
+            # object into its adjustable state, and how it does so is the
+            # extension's business: one may unlock a markup for control-point
+            # dragging while another shows rotation/scale handles. Forcing handles
+            # on top can contradict the real mechanism -- e.g. offering a scale
+            # handle on an implant path whose length is then recomputed from its
+            # endpoints. Emit no handle setup and let the extension act.
+            owns = bool(step.get("extension_owns_adjust_mode"))
             return {
                 "should_set_active_list": True,
                 "should_enter_placement_mode": False,
                 "placement_mode": None,
-                "enable_handles": True,
-                "reason": "adjust_existing_markup_no_placement",
+                "enable_handles": not owns,
+                "reason": (
+                    "adjust_existing_markup_extension_owns_mode" if owns
+                    else "adjust_existing_markup_no_placement"
+                ),
             }
         # A step that expects exactly one control point — or places a fixed-count
         # markup (ROI/line/angle) — should use single place mode so Slicer
@@ -544,13 +567,26 @@ class AnalyzerTemplateHelpersMixin:
             (f"# Reuse the markup node created by {starter_method}() in the previous step."
              if starter_method
              else "# Reuse the markup node created by a previous step (do not create a duplicate)."),
+            "# Prefer a node THIS extension owns. Slicer extensions tag their own nodes",
+            "# with MRML attributes in their module's namespace, so an attribute named",
+            f"# \"{extension_name}.*\" identifies the step's real target; picking the most",
+            "# recent node of the class alone can land on an unrelated node of the same",
+            "# type (a scene may hold several).",
             f"nodes = slicer.mrmlScene.GetNodesByClass(\"{node_class}\")",
-            "node = None",
-            "for i in range(nodes.GetNumberOfItems() - 1, -1, -1):",
+            "_candidates = []",
+            "for i in range(nodes.GetNumberOfItems()):",
             "    candidate = nodes.GetItemAsObject(i)",
             "    if candidate is not None:",
-            "        node = candidate",
-            "        break",
+            "        _candidates.append(candidate)",
+            "_owned = []",
+            "for candidate in _candidates:",
+            "    try:",
+            "        _names = candidate.GetAttributeNames() or []",
+            "    except Exception:",
+            "        _names = []",
+            f"    if any(str(_n).startswith(\"{extension_name}.\") for _n in _names):",
+            "        _owned.append(candidate)",
+            "node = (_owned or _candidates)[-1] if (_owned or _candidates) else None",
             "if node is None:",
             f"    raise RuntimeError(\"No {node_class} found from previous placement step.\")",
             "",
@@ -1043,6 +1079,16 @@ class AnalyzerTemplateHelpersMixin:
             # literal containing a valid Python identifier.  The CodeValidator
             # blocks getattr/setattr entirely; this rewrite is safe only when
             # the attribute name is a compile-time constant.
+            # 3-arg form FIRST: the 2-arg pattern cannot match it, and rewriting
+            # it to a hasattr conditional keeps the default value's meaning.
+            code = _GETATTR_DEFAULT_RE.sub(
+                lambda m: (
+                    f"({m.group(1).strip()}.{m.group(3)} "
+                    f"if hasattr({m.group(1).strip()}, {m.group(2)}{m.group(3)}{m.group(2)}) "
+                    f"else {m.group(4).strip()})"
+                ),
+                code,
+            )
             code = _GETATTR_LITERAL_RE.sub(lambda m: f"{m.group(1).strip()}.{m.group(3)}", code)
             code = _SETATTR_LITERAL_RE.sub(
                 lambda m: f"{m.group(1).strip()}.{m.group(3)} = {m.group(4).strip()}", code,

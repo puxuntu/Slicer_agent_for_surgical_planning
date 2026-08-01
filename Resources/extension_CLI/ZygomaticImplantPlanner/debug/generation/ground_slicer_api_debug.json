@@ -16,9 +16,179 @@
     {
       "step": 2,
       "key": "cb_step_2_0",
-      "description": "Create a new segmentation node named 'Cranial_Segmentation'",
+      "description": "Create a new segmentation named Cranial_Segmentation.",
       "keywords": [
-        "slicer.mrmlScene.AddNewNodeByClass",
+        "vtkMRMLSegmentationNode",
+        "AddNewNodeByClass",
+        "Segment Editor",
+        "create segmentation"
+      ],
+      "category": "generic_slicer_api",
+      "final_state_intent": {
+        "mode": "unspecified",
+        "state": null,
+        "confidence": "none",
+        "source": ""
+      },
+      "classification": {
+        "op_type": "slicer_op",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "confidence": "high",
+        "interaction_kind": "none",
+        "node_class": "vtkMRMLSegmentationNode",
+        "slicer_op_category": "generic_slicer_api"
+      },
+      "search_policy": {
+        "preferred_root": "slicer-ui-analysis",
+        "requires_ui_first_when_ui_labeled": true,
+        "category_hints": [],
+        "category_hint_provenance": "generic_slicer_search_hint"
+      },
+      "status": "done",
+      "total_time_s": 33.28,
+      "code_chars": 370,
+      "tool_rounds": 1,
+      "api_calls": 2,
+      "error": null,
+      "progress_events": [
+        {
+          "round": 1,
+          "phase": "search",
+          "message": "[Search] Round 1: |   Grep: \"AddNewNodeByClass\\(\"vtkMRMLSegmentationNode\"\" \u2192 slicer-source |   VectorSearch: \"create a new segmentation node by name AddNewNodeByClass vtkMRMLSegmentationNode\""
+        }
+      ],
+      "prompt_build_s": 6.703,
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nCreate a new segmentation named Cranial_Segmentation.\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `ZygomaticImplantPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:ZygomaticImplantPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nAPI keyword hints: ",
+      "prompt_includes_ui_analysis": true,
+      "deterministic_ui_evidence": {
+        "matched": [
+          "CreateColorLegendButton",
+          "AddSegmentButton",
+          "PropertyWidget",
+          "LabelTextPropertyWidget",
+          "TitleTextPropertyWidget"
+        ],
+        "injected": true
+      },
+      "executor_ready": true,
+      "tool_count": 3,
+      "last_progress": {
+        "round": 1,
+        "phase": "search",
+        "message": "[Search] Round 1: |   Grep: \"AddNewNodeByClass\\(\"vtkMRMLSegmentationNode\"\" \u2192 slicer-source |   VectorSearch: \"create a new segmentation node by name AddNewNodeByClass vtkMRMLSegmentationNode\""
+      },
+      "tool_loop_s": 24.67,
+      "total_tokens": 18906,
+      "total_api_time_s": 7.312,
+      "total_tool_time_s": 16.61,
+      "tool_names_called": [
+        "Grep",
+        "VectorSearch"
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "phase": "search",
+          "api_time_s": 4.263,
+          "tool_time_s": 16.61,
+          "round_time_s": 20.873,
+          "tools": [
+            "Grep",
+            "VectorSearch"
+          ],
+          "tokens": 3891
+        },
+        {
+          "round": 2,
+          "phase": "generate",
+          "api_time_s": 3.049,
+          "tool_time_s": 0.0,
+          "round_time_s": 3.049,
+          "tools": [],
+          "tokens": 15015
+        }
+      ],
+      "tool_calls_history": [
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "AddNewNodeByClass\\(\"vtkMRMLSegmentationNode\"",
+            "path": "slicer-source"
+          },
+          "result_preview": "Grep: 26 hit(s) in 16 file(s): slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest1.py (7), slicer-source/Docs/developer_guide/script_repository/segmentations.md (3), slicer-source/Modules/Scripted/SegmentStatistics/SegmentStatistics.py (2), slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationWidgetsTest1.py (2), slicer-source/Utilities/Templates/Modules/ScriptedSegmentEditorEffect/SegmentEditorTemplateKey.py (1)"
+        },
+        {
+          "tool": "VectorSearch",
+          "args": {
+            "query": "create a new segmentation node by name AddNewNodeByClass vtkMRMLSegmentationNode",
+            "top_k": 5
+          },
+          "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 38-41) [doc_example] similarity:0.748 boosted:0.973\n```markdown\n# Create segmentation\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\n```\n\n[2] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 29-31) [doc_example] similarity:0.711 boosted:0.924\n```markdown\n### Create segmentation from a model node\n\n```python\n```\n\n[3] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 32-37) [doc_example] similarity:0.640 boosted:0.832\n```markdown\n# Create some model that will be added to a segmentation node\nsphere = vtk.vtkSphereSource()\nsphere.SetCenter(-6, 30, 28)\nsphere.SetRadius(10)\nmodelNode = slicer.modules.models.logic().AddModel(sphere.GetOutputPort())\n```\n\n[4] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 473-478) [doc_example] similarity:0.638 boosted:0.829\n```markdown\n# Create segmentation\nsegmentationNode = slicer.vtkMRMLSegmentationNode()\nslicer.mrmlScene.AddNode(segmentationNode)\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\nsegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)\n```\n\n[5] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 731-739) [doc_example] similarity:0.600 boosted:0.780\n```markdown\n# Place a markup point in each centroid\npointListNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLMarkupsFiducialNode\")\npointListNode.CreateDefaultDisplayNodes()\nfor segmentId in stats[\"SegmentIDs\"]:\n  centroid_ras = stats[segmentId,\"LabelmapSegmentStatisticsPlugin.centroid_ras\"]\n  segmentName = segmentationNode.GetSegmentation().GetSegment(segmentId).GetName()\n  pointListNode.AddControlPoint(centroid_ras, segmentName)\n```\n```\n"
+        }
+      ],
+      "evidence_audit": {
+        "ui_analysis": {
+          "used": false,
+          "query_paths": [],
+          "result_files": [],
+          "matched_lines_preview": [],
+          "connected_slots": [],
+          "api_footprints": [],
+          "implementation_candidates": []
+        },
+        "source_verification": {
+          "non_ui_result_files": [
+            "slicer-source",
+            "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest1.py",
+            "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
+            "slicer-source/Modules/Scripted/SegmentStatistics/SegmentStatistics.py",
+            "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationWidgetsTest1.py",
+            "slicer-source/Utilities/Templates/Modules/ScriptedSegmentEditorEffect/SegmentEditorTemplateKey.py",
+            "slicer-source/Base/Python/slicer/tests/test_slicer_util_save.py",
+            "slicer-source/Applications/SlicerApp/Testing/Python/SlicerBoundsTest.py",
+            "slicer-source/Modules/Scripted/SegmentEditor/SubjectHierarchyPlugins/SegmentEditorSubjectHierarchyPlugin.py",
+            "slicer-source/Modules/Scripted/SegmentEditor/SegmentEditor.py",
+            "slicer-source/Modules/Loadable/Markups/Testing/Python/NeurosurgicalPlanningTutorialMarkupsSelfTest.py",
+            "slicer-source/Extensions/Testing/ScriptedSegmentEditorEffectExtensionTemplate/ScriptedSegmentEditorEffectModuleTemplate/SegmentEditorScriptedSegmentEditorEffectModuleTemplate.py",
+            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/AbstractScriptedSegmentEditorAutoCompleteEffect.py",
+            "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentEditorLogicTest.py",
+            "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest2.py",
+            "slicer-source/Modules/Loadable/Segmentations/qSlicerSegmentationsReader.cxx",
+            "slicer-source/Docs/developer_guide/script_repository/models.md"
+          ],
+          "source_type_counts": {
+            "test_example": 6,
+            "doc_example": 7,
+            "scripted_module": 3,
+            "source": 2,
+            "python_api": 1,
+            "effect_implementation": 1,
+            "loadable_module": 1
+          }
+        },
+        "searches": {
+          "vector_queries": [
+            "create a new segmentation node by name AddNewNodeByClass vtkMRMLSegmentationNode"
+          ],
+          "grep_patterns": [
+            "AddNewNodeByClass\\(\"vtkMRMLSegmentationNode\""
+          ],
+          "read_paths": []
+        }
+      },
+      "reasoning_chars": 905,
+      "reasoning_preview": "[Round 1]\nThe user wants to create a new segmentation named Cranial_Segmentation. This is a straightforward operation using vtkMRMLSegmentationNode and AddNewNodeByClass. Let me verify the API quickly.\n\nThe typical pattern is:\n```python\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\", \"Cranial_Segmentation\")\n```\n\nLet me search to confirm the receiver type. The hint keywords: vtkMRMLSegmentationNode, AddNewNodeByClass. This is a standard API. Let me do one quick search to confirm.\n\nThe read-back: after creating, GetName() should return the name.\n\nLet me do a quick search to confirm.\n\n[Round 2]\nThe evidence confirms: `slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\", \"Cranial_Segmentation\")` creates a new segmentation node with the given name. I'll use the name argument directly. Read-back via GetName() on the returned node.\n\nLet me generate the code.",
+      "generated_code_preview": "# Create a new segmentation node named \"Cranial_Segmentation\"\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\", \"Cranial_Segmentation\")\n\n# Verify the node was created with the requested name\nif not segmentationNode or segmentationNode.GetName() != \"Cranial_Segmentation\":\n    raise RuntimeError(\"STATE_NOT_APPLIED: segmentation node name\")"
+    },
+    {
+      "step": 3,
+      "key": "cb_step_3_1",
+      "description": "Add a segment and rename it to Cranial_Segment.",
+      "keywords": [
+        "Segment Editor",
+        "AddSegment",
+        "rename segment",
         "vtkMRMLSegmentationNode"
       ],
       "category": "generic_slicer_api",
@@ -44,62 +214,52 @@
         "category_hint_provenance": "generic_slicer_search_hint"
       },
       "status": "done",
-      "total_time_s": 50.73,
-      "code_chars": 328,
-      "tool_rounds": 5,
-      "api_calls": 6,
+      "total_time_s": 44.59,
+      "code_chars": 1181,
+      "tool_rounds": 3,
+      "api_calls": 4,
       "error": null,
       "progress_events": [
         {
           "round": 1,
           "phase": "search",
-          "message": "[Search] Round 1: |   VectorSearch: \"slicer.mrmlScene.AddNewNodeByClass vtkMRMLSegmentationNode create new segmentation\""
+          "message": "[Search] Round 1: |   VectorSearch: \"add segment rename segment vtkMRMLSegmentationNode segment editor python\" |   Grep: \"AddSegment\" \u2192 slicer-source/Modules/Scripted/SegmentEditor"
         },
         {
           "round": 2,
           "phase": "search",
-          "message": "[Search] Round 2: |   VectorSearch: \"AddNewNodeByClass SetName segmentation node name parameter\""
+          "message": "[Search] Round 2: |   Grep: \"AddEmptySegment|AddSegment\\(\" \u2192 slicer-source |   Grep: \"AddEmptySegment|GetSegment\\(.*\\)\\.SetName|SetName.*segment\" \u2192 slicer-source/Docs/developer_guide/script_repository/segmentations.md"
         },
         {
           "round": 3,
-          "phase": "search",
-          "message": "[Search] Round 3: |   Grep: \"AddNewNodeByClass\" \u2192 slicer-source/Base/Python"
-        },
-        {
-          "round": 4,
-          "phase": "search",
-          "message": "[Search] Round 4: |   Grep: \"CreateDefaultDisplayNodes\" \u2192 slicer-source/Libs/MRML/Core"
-        },
-        {
-          "round": 5,
-          "phase": "read",
-          "message": "[Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md"
+          "phase": "search+read",
+          "message": "[Search+Read] Round 3: |   Grep: \"Cranial_Segment|AddEmptySegment|AddSegment\" \u2192 ext:ZygomaticImplantPlanner |   ReadFile: slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.cxx"
         }
       ],
-      "prompt_build_s": 4.563,
-      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nCreate a new segmentation node named 'Cranial_Segmentation'\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `ZygomaticImplantPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:ZygomaticImplantPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nAPI keyword h",
+      "prompt_build_s": 0.063,
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nAdd a segment and rename it to Cranial_Segment.\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `ZygomaticImplantPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:ZygomaticImplantPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nAPI keyword hints: Segmen",
       "prompt_includes_ui_analysis": true,
       "deterministic_ui_evidence": {
         "matched": [
-          "SDBSaveToMRBAction",
-          "DataBundleButton",
-          "CreateColorLegendButton",
           "PropertyWidget",
-          "LabelTextPropertyWidget"
+          "LabelTextPropertyWidget",
+          "TitleTextPropertyWidget",
+          "ColorMapWidget",
+          "VolumePropertyWidget"
         ],
         "injected": true
       },
       "executor_ready": true,
       "tool_count": 3,
       "last_progress": {
-        "round": 5,
-        "phase": "read",
-        "message": "[Read] Round 5: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md"
+        "round": 3,
+        "phase": "search+read",
+        "message": "[Search+Read] Round 3: |   Grep: \"Cranial_Segment|AddEmptySegment|AddSegment\" \u2192 ext:ZygomaticImplantPlanner |   ReadFile: slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.cxx"
       },
-      "tool_loop_s": 44.23,
-      "total_tokens": 104746,
-      "total_api_time_s": 24.914,
-      "total_tool_time_s": 16.29,
+      "tool_loop_s": 42.03,
+      "total_tokens": 46652,
+      "total_api_time_s": 25.571,
+      "total_tool_time_s": 14.521,
       "tool_names_called": [
         "VectorSearch",
         "Grep",
@@ -109,108 +269,97 @@
         {
           "round": 1,
           "phase": "search",
-          "api_time_s": 3.419,
-          "tool_time_s": 1.885,
-          "round_time_s": 5.303,
+          "api_time_s": 3.677,
+          "tool_time_s": 2.258,
+          "round_time_s": 5.936,
           "tools": [
-            "VectorSearch"
+            "VectorSearch",
+            "Grep"
           ],
-          "tokens": 3634
+          "tokens": 3789
         },
         {
           "round": 2,
           "phase": "search",
-          "api_time_s": 3.741,
-          "tool_time_s": 2.004,
-          "round_time_s": 5.746,
+          "api_time_s": 3.858,
+          "tool_time_s": 5.708,
+          "round_time_s": 9.566,
           "tools": [
-            "VectorSearch"
+            "Grep",
+            "Grep"
           ],
-          "tokens": 9811
+          "tokens": 6102
         },
         {
           "round": 3,
-          "phase": "search",
-          "api_time_s": 3.075,
-          "tool_time_s": 4.55,
-          "round_time_s": 7.627,
+          "phase": "search+read",
+          "api_time_s": 7.203,
+          "tool_time_s": 6.555,
+          "round_time_s": 13.76,
           "tools": [
-            "Grep"
+            "Grep",
+            "ReadFile"
           ],
-          "tokens": 11053
+          "tokens": 16671
         },
         {
           "round": 4,
-          "phase": "search",
-          "api_time_s": 5.574,
-          "tool_time_s": 7.061,
-          "round_time_s": 12.635,
-          "tools": [
-            "Grep"
-          ],
-          "tokens": 19763
-        },
-        {
-          "round": 5,
-          "phase": "read",
-          "api_time_s": 5.81,
-          "tool_time_s": 0.791,
-          "round_time_s": 6.6,
-          "tools": [
-            "ReadFile"
-          ],
-          "tokens": 29836
-        },
-        {
-          "round": 6,
           "phase": "generate",
-          "api_time_s": 3.296,
+          "api_time_s": 10.833,
           "tool_time_s": 0.0,
-          "round_time_s": 3.296,
+          "round_time_s": 10.833,
           "tools": [],
-          "tokens": 30649
+          "tokens": 20090
         }
       ],
       "tool_calls_history": [
         {
           "tool": "VectorSearch",
           "args": {
-            "query": "slicer.mrmlScene.AddNewNodeByClass vtkMRMLSegmentationNode create new segmentation",
-            "top_k": 5
+            "query": "add segment rename segment vtkMRMLSegmentationNode segment editor python",
+            "top_k": 8
           },
-          "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 38-41) [doc_example] similarity:0.843 boosted:1.095\n```markdown\n# Create segmentation\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\n```\n\n[2] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 473-478) [doc_example] similarity:0.763 boosted:0.992\n```markdown\n# Create segmentation\nsegmentationNode = slicer.vtkMRMLSegmentationNode()\nslicer.mrmlScene.AddNode(segmentationNode)\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\nsegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)\n```\n\n[3] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 29-31) [doc_example] similarity:0.735 boosted:0.956\n```markdown\n### Create segmentation from a model node\n\n```python\n```\n\n[4] slicer-source/Libs/MRML/Core/vtkMRMLSegmentationNode.h (lines 1-392) [mrml_definition] [Full file included \u2014 no need to ReadFile or VectorSearch this file]\n```\n/*==============================================================================\n\n  Copyright (c) Laboratory for Percutaneous Surgery (PerkLab)\n  Queen's University, Kingston, ON, Canada. All Rights Reserved.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Unless required by applicable law or agreed to in writing, software\n  distributed under the License is distributed on an \"AS IS\" BASIS,\n  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n  See the License for the specific language governing permissions and\n  limitations under the License.\n\n  This file was originally developed by Csaba Pinter, PerkLab, Queen's University\n  and was supported through the Applied Cancer Research Unit program of Cancer Care\n  Ontario with funds provided by the Ontario Ministry of Health a..."
-        },
-        {
-          "tool": "VectorSearch",
-          "args": {
-            "query": "AddNewNodeByClass SetName segmentation node name parameter",
-            "top_k": 5
-          },
-          "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 29-31) [doc_example] similarity:0.535 boosted:0.696\n```markdown\n### Create segmentation from a model node\n\n```python\n```\n\n[2] slicer-source/Docs/developer_guide/script_repository/subjecthierarchy.md (lines 55-56) [doc_example] similarity:0.520 boosted:0.676\n```markdown\n# Set item name\nshNode.SetItemName(itemID, \"NewName\")\n```\n\n[3] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 38-41) [doc_example] similarity:0.505 boosted:0.657\n```markdown\n# Create segmentation\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\n```\n\n[4] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 143-153) [doc_example] similarity:0.467 boosted:0.608\n```markdown\n#### Import labelmap node into segmentation node using custom label value mapping\n\n```python\nlabelmapVolumeNode = getNode('Volume-label')\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")  # import into new segmentation node\ncolorTableNode = ...  # created from scratch or loaded from file\n\nlabelmapVolumeNode.GetDisplayNode().SetAndObserveColorNodeID(colorTableNode.GetID())  # just in case the custom color table has not been already associated with the labelmap volume\nslicer.modules.segmentations.logic().ImportLabelmapToSegmentationNode(labelmapVolumeNode, segmentationNode)\n```\n```\n\n[5] slicer-source/Docs/developer_guide/script_repository/markups.md (lines 126-127) [doc_example] similarity:0.464 boosted:0.604\n```markdown\n# set the label\npointListNode.SetNthControlPointLabel(n, \"New label\")\n```\n"
+          "result_preview": "VectorSearch: 8 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 38-41) [doc_example] similarity:0.689 boosted:0.895\n```markdown\n# Create segmentation\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\n```\n\n[2] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 731-739) [doc_example] similarity:0.646 boosted:0.840\n```markdown\n# Place a markup point in each centroid\npointListNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLMarkupsFiducialNode\")\npointListNode.CreateDefaultDisplayNodes()\nfor segmentId in stats[\"SegmentIDs\"]:\n  centroid_ras = stats[segmentId,\"LabelmapSegmentStatisticsPlugin.centroid_ras\"]\n  segmentName = segmentationNode.GetSegmentation().GetSegment(segmentId).GetName()\n  pointListNode.AddControlPoint(centroid_ras, segmentName)\n```\n```\n\n[3] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 527-531) [doc_example] similarity:0.642 boosted:0.834\n```markdown\n# Observe markup node changes\npointListNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointModifiedEvent, printSegmentNames)\nprintSegmentNames()\n```\n```\n\n[4] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 473-478) [doc_example] similarity:0.639 boosted:0.831\n```markdown\n# Create segmentation\nsegmentationNode = slicer.vtkMRMLSegmentationNode()\nslicer.mrmlScene.AddNode(segmentationNode)\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\nsegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)\n```\n\n[5] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 578-583) [doc_example] similarity:0.634 boosted:0.825\n```markdown\n# Export segment as vtkImageData (via temporary labelmap volume node)\nsegmentIds = vtk.vtkStringArray()\nsegmentIds.InsertNextValue(segmentId)\nlabelmapVolumeNode = slicer.mrmlScene.AddNew..."
         },
         {
           "tool": "Grep",
           "args": {
-            "pattern": "AddNewNodeByClass",
-            "path": "slicer-source/Base/Python"
+            "pattern": "AddSegment",
+            "path": "slicer-source/Modules/Scripted/SegmentEditor"
           },
-          "result_preview": "Grep: 37 hit(s) in 7 file(s): slicer-source/Base/Python/slicer/tests/test_slicer_parameter_node_wrapper.py (13), slicer-source/Base/Python/slicer/util.py (8), slicer-source/Base/Python/slicer/tests/test_slicer_parameter_node_wrapper_guis.py (5), slicer-source/Base/Python/slicer/tests/test_slicer_util_save.py (4), slicer-source/Base/Python/slicer/tests/test_slicer_parameter_node_wrapper_gui_creation.py (3)"
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
         },
         {
           "tool": "Grep",
           "args": {
-            "pattern": "CreateDefaultDisplayNodes",
-            "path": "slicer-source/Libs/MRML/Core"
+            "pattern": "AddEmptySegment|AddSegment\\(",
+            "path": "slicer-source"
           },
-          "result_preview": "Grep: 47 hit(s) in 29 file(s): slicer-source/Libs/MRML/Core/vtkMRMLMarkupsFiducialNode.cxx (3), slicer-source/Libs/MRML/Core/vtkMRMLMarkupsNode.cxx (3), slicer-source/Libs/MRML/Core/vtkMRMLMarkupsPlaneNode.cxx (3), slicer-source/Libs/MRML/Core/vtkMRMLMarkupsROINode.cxx (3), slicer-source/Libs/MRML/Core/vtkMRMLDiffusionTensorVolumeNode.cxx (2)"
+          "result_preview": "Grep: 98 hit(s) in 29 file(s): slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentEditorLogicTest.py (12), slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest2.py (11), slicer-source/Libs/MRML/Widgets/Testing/qMRMLSegmentSelectorWidgetTest1.cxx (10), slicer-source/Libs/vtkSegmentationCore/Testing/vtkSegmentationTest2.cxx (7), slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.cxx (6)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "AddEmptySegment|GetSegment\\(.*\\)\\.SetName|SetName.*segment",
+            "path": "slicer-source/Docs/developer_guide/script_repository/segmentations.md"
+          },
+          "result_preview": "Grep: 1 hit(s) in 1 file(s): slicer-source/Docs/developer_guide/script_repository/segmentations.md (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "Cranial_Segment|AddEmptySegment|AddSegment",
+            "path": "ext:ZygomaticImplantPlanner"
+          },
+          "result_preview": "ERROR: Path not found: ext:ZygomaticImplantPlanner"
         },
         {
           "tool": "ReadFile",
           "args": {
-            "path": "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "query": "Create segmentation"
+            "path": "slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.cxx",
+            "query": "AddEmptySegment"
           },
-          "result_preview": "# Create segmentation from a NIFTI + color table file\ncolorNode = slicer.util.loadColorTable('c:/tmp/tmp/Segmentation-label_ColorTable.ctbl')\nslicer.util.loadSegmentation(\"c:/tmp/tmp/Segmentation.nii\", {'colorNodeID': colorNode.GetID()})\n\n\n\n... [other sections omitted] ...\n\n# Create segmentation from a STL file\nslicer.util.loadSegmentation(\"c:/tmp/Segment_1.stl\")\n```\n\n\n\n... [other sections omitted] ...\n\n### Create segmentation from a model node\n\n```python\n\n\n... [other sections omitted] ...\n\n# Create segmentation\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\n\n\n\n... [other sections omitted] ...\n\n# Create segmentation\nsegmentationNode = slicer.vtkMRMLSegmentationNode()\nslicer.mrmlScene.AddNode(segmentationNode)\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\nsegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)\n\n"
+          "result_preview": "    return false;\n  }\n\n  std::vector<std::string> containedRepresentationNames;\n  this->GetContainedRepresentationNames(containedRepresentationNames);\n  std::vector<std::string>::iterator reprIt = std::find(containedRepresentationNames.begin(), containedRepresentationNames.end(), representationName);\n\n  return (reprIt != containedRepresentationNames.end());\n}\n\n//-----------------------------------------------------------------------------\nbool vtkSegmentation::IsSourceRepresentationPolyData()\n{\n  if (!this->Segments.empty())\n  {\n    // Assume the first segment contains the same name of representations as all segments (this should be the case by design)\n    vtkSegment* firstSegment = this->Segments.begin()->second;\n    vtkDataObject* sourceRepresentation = firstSegment->GetRepresentation(this->SourceRepresentationName);\n    return vtkPolyData::SafeDownCast(sourceRepresentation) != nullptr;\n  }\n  else\n  {\n    // There are no segments, create an empty representation to find out what type it is\n    vtkSmartPointer<vtkDataObject> sourceRepresentation =\n      vtkSmartPointer<vtkDataObject>::Take(vtkSegmentationConverterFactory::GetInstance()->ConstructRepresentationObjectByRepresentation(this->SourceRepresentationName));\n    return vtkPolyData::SafeDownCast(sourceRepresentation) != nullptr;\n  }\n}\n\n//-----------------------------------------------------------------------------\nbool vtkSegmentation::IsSourceRepresentationImageData()\n{\n  if (!this->Segments.empty())\n  {\n    // Assume the first segment contains the same name of representations as all segments (this should be the case by design)\n    vtkSegment* firstSegment = this->Segments.begin()->second;\n    vtkDataObject* sourceRepresentation = firstSegment->GetRepresentation(this->SourceRepresentationName);\n    return vtkOrientedImageData::SafeDownCast(sourceRepresentation) != nullptr;\n  }\n  else\n  {\n    // There are no segments, create an empty representation to find out what type it is\n    vtkSmartPointer<vtkDataObject>..."
         }
       ],
       "evidence_audit": {
@@ -226,342 +375,63 @@
         "source_verification": {
           "non_ui_result_files": [
             "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "slicer-source/Libs/MRML/Core/vtkMRMLSegmentationNode.h",
-            "slicer-source/Docs/developer_guide/script_repository/subjecthierarchy.md",
-            "slicer-source/Docs/developer_guide/script_repository/markups.md",
-            "slicer-source/Base/Python",
-            "slicer-source/Base/Python/slicer/tests/test_slicer_parameter_node_wrapper.py",
-            "slicer-source/Base/Python/slicer/util.py",
-            "slicer-source/Base/Python/slicer/tests/test_slicer_parameter_node_wrapper_guis.py",
-            "slicer-source/Base/Python/slicer/tests/test_slicer_util_save.py",
-            "slicer-source/Base/Python/slicer/tests/test_slicer_parameter_node_wrapper_gui_creation.py",
-            "slicer-source/Base/Python/slicer/tests/test_slicer_parameter_pack.py",
-            "slicer-source/Base/Python/sitkUtils.py",
-            "slicer-source/Libs/MRML/Core",
-            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsFiducialNode.cxx",
-            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsNode.cxx",
-            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsPlaneNode.cxx",
-            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsROINode.cxx",
-            "slicer-source/Libs/MRML/Core/vtkMRMLDiffusionTensorVolumeNode.cxx",
-            "slicer-source/Libs/MRML/Core/vtkMRMLDiffusionWeightedVolumeNode.cxx",
-            "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx"
-          ],
-          "source_type_counts": {
-            "doc_example": 10,
-            "mrml_definition": 21,
-            "python_api": 6,
-            "source": 1
-          }
-        },
-        "searches": {
-          "vector_queries": [
-            "slicer.mrmlScene.AddNewNodeByClass vtkMRMLSegmentationNode create new segmentation",
-            "AddNewNodeByClass SetName segmentation node name parameter"
-          ],
-          "grep_patterns": [
-            "AddNewNodeByClass",
-            "CreateDefaultDisplayNodes"
-          ],
-          "read_paths": [
-            "slicer-source/Docs/developer_guide/script_repository/segmentations.md"
-          ]
-        }
-      },
-      "reasoning_chars": 3483,
-      "reasoning_preview": "[Round 1]\nThe user wants me to generate a Python code template for creating a new segmentation node named 'Cranial_Segmentation'. This is a straightforward MRML scene operation. Let me search the knowledge base for the API evidence to confirm the correct method signatures.\n\n[Round 2]\nI have strong evidence from the Slicer documentation that creating a segmentation node is done with:\n\n```python\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nsegmentationNode.CreateDefaultDisplayNodes()\n```\n\nHowever, the user wants the node named 'Cranial_Segmentation'. Let me check the `AddNewNodeByClass` signature to see how to set the name. Let me look for evidence about naming a node when creating it.\n\n[Round 3]\nLet me check if `AddNewNodeByClass` accepts a name parameter. I know from experience that `slicer.mrmlScene.AddNewNodeByClass(className)` returns the node, and you can then call `SetName()` on it. But `AddNewNodeByClass` may also have an optional second argument for the name. Let me search for this.\n\n[Round 4]\nFrom the evidence, I can see that:\n\n1. `slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")` creates a segmentation node.\n2. The method also accepts an optional second parameter for the node name, as seen in:\n   - `slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLLabelMapVolumeNode\", \"__temp__\")`\n   - `slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLModelNode\", \"model1\")`\n   - `slicer.mrmlScene.AddNewNodeByClass(nodeClassName, name)`\n\nSo I can create the segmentation node with name directly:\n```python\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\", \"Cranial_Segmentation\")\n```\n\nAnd then call `CreateDefaultDisplayNodes()` to set up display.\n\nLet me also check that the method `CreateDefaultDisplayNodes()` exists on vtkMRMLSegmentationNode. I see it in the header file: `void CreateDefaultDisplayNodes() override;`\n\nNow the user also mentions this belongs to the extension `ZygomaticImplantPlanner`. But the operation is simply \"Create a new segmentation node named 'Cranial_Segmentation'\" \u2014 this is a basic MRML operation, not an extension-specific artifact like a registered layout or constant. The extension association doesn't change the core API used here.\n\nLet me check the extension source for anything relevant, just to be thorough.\n\n[Round 5]\nI have all the evidence I need. The operation is straightforward:\n\n1. Use `slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\", \"Cranial_Segmentation\")` to create the segmentation node with the specified name.\n2. Optionally call `CreateDefaultDisplayNodes()` to set up display (this is recommended per the documentation).\n\nLet me also check if the extension has anything specific. The user said this belongs to `ZygomaticImplantPlanner` extension, but creating a basic segmentation node is a core Slicer operation - it doesn't involve any extension-specific artifacts like registered layouts or constants. So I can just generate the code.\n\nLet me ve",
-      "generated_code_preview": "segmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\", \"Cranial_Segmentation\")\nsegmentationNode.CreateDefaultDisplayNodes()\n\n# Verify the node was created with the expected name\nif segmentationNode.GetName() != \"Cranial_Segmentation\":\n    raise RuntimeError(\"STATE_NOT_APPLIED: Segmentation node name\")"
-    },
-    {
-      "step": 3,
-      "key": "cb_step_3_1",
-      "description": "Add a segment and rename it to 'Cranial_Segment'",
-      "keywords": [
-        "AddEmptySegment",
-        "SetName",
-        "GetSegmentationObject"
-      ],
-      "category": "generic_slicer_api",
-      "final_state_intent": {
-        "mode": "unspecified",
-        "state": null,
-        "confidence": "none",
-        "source": ""
-      },
-      "classification": {
-        "op_type": "slicer_op",
-        "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "",
-        "confidence": "high",
-        "interaction_kind": "none",
-        "node_class": null,
-        "slicer_op_category": "generic_slicer_api"
-      },
-      "search_policy": {
-        "preferred_root": "slicer-ui-analysis",
-        "requires_ui_first_when_ui_labeled": true,
-        "category_hints": [],
-        "category_hint_provenance": "generic_slicer_search_hint"
-      },
-      "status": "done",
-      "total_time_s": 62.78,
-      "code_chars": 1303,
-      "tool_rounds": 4,
-      "api_calls": 5,
-      "error": null,
-      "progress_events": [
-        {
-          "round": 1,
-          "phase": "search",
-          "message": "[Search] Round 1: |   VectorSearch: \"AddEmptySegment SetName segmentation vtkMRMLSegmentationNode Python\" |   Grep: \"AddEmptySegment\" \u2192 slicer-ui-analysis/Modules__Loadable__Segmentations__Resources__UI__qSlicerSegmentationsModule.ui.md"
-        },
-        {
-          "round": 2,
-          "phase": "search+read",
-          "message": "[Search+Read] Round 2: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md |   Grep: \"AddEmptySegment\" \u2192 slicer-source/Modules/Loadable/Segmentations"
-        },
-        {
-          "round": 3,
-          "phase": "search+read",
-          "message": "[Search+Read] Round 3: |   Grep: \"SetName\" \u2192 slicer-source/Libs/vtkSegmentationCore |   ReadFile: slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest2.py"
-        },
-        {
-          "round": 4,
-          "phase": "read",
-          "message": "[Read] Round 4: |   ReadFile: slicer-source/Libs/vtkSegmentationCore/vtkSegment.h"
-        }
-      ],
-      "prompt_build_s": 0.032,
-      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nAdd a segment and rename it to 'Cranial_Segment'\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `ZygomaticImplantPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:ZygomaticImplantPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nAPI keyword hints: AddEm",
-      "prompt_includes_ui_analysis": true,
-      "deterministic_ui_evidence": {
-        "matched": [
-          "renameAllWithCurrentNameFormatPushButton",
-          "AddAdditionalStylePathButton",
-          "pushButton_AddSegment",
-          "AddSegmentButton",
-          "AddColorTableNodeButton"
-        ],
-        "injected": true
-      },
-      "executor_ready": true,
-      "tool_count": 3,
-      "last_progress": {
-        "round": 4,
-        "phase": "read",
-        "message": "[Read] Round 4: |   ReadFile: slicer-source/Libs/vtkSegmentationCore/vtkSegment.h"
-      },
-      "tool_loop_s": 60.14,
-      "total_tokens": 116064,
-      "total_api_time_s": 43.867,
-      "total_tool_time_s": 13.347,
-      "tool_names_called": [
-        "VectorSearch",
-        "Grep",
-        "ReadFile"
-      ],
-      "rounds": [
-        {
-          "round": 1,
-          "phase": "search",
-          "api_time_s": 4.065,
-          "tool_time_s": 2.3,
-          "round_time_s": 6.366,
-          "tools": [
-            "VectorSearch",
-            "Grep"
-          ],
-          "tokens": 3706
-        },
-        {
-          "round": 2,
-          "phase": "search+read",
-          "api_time_s": 3.834,
-          "tool_time_s": 5.504,
-          "round_time_s": 9.339,
-          "tools": [
-            "ReadFile",
-            "Grep"
-          ],
-          "tokens": 12920
-        },
-        {
-          "round": 3,
-          "phase": "search+read",
-          "api_time_s": 18.661,
-          "tool_time_s": 5.078,
-          "round_time_s": 23.739,
-          "tools": [
-            "Grep",
-            "ReadFile"
-          ],
-          "tokens": 26274
-        },
-        {
-          "round": 4,
-          "phase": "read",
-          "api_time_s": 10.238,
-          "tool_time_s": 0.465,
-          "round_time_s": 10.704,
-          "tools": [
-            "ReadFile"
-          ],
-          "tokens": 35417
-        },
-        {
-          "round": 5,
-          "phase": "generate",
-          "api_time_s": 7.068,
-          "tool_time_s": 0.0,
-          "round_time_s": 7.068,
-          "tools": [],
-          "tokens": 37747
-        }
-      ],
-      "tool_calls_history": [
-        {
-          "tool": "VectorSearch",
-          "args": {
-            "query": "AddEmptySegment SetName segmentation vtkMRMLSegmentationNode Python",
-            "top_k": 10
-          },
-          "result_preview": "VectorSearch: 10 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 38-41) [doc_example] similarity:0.742 boosted:0.965\n```markdown\n# Create segmentation\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\n```\n\n[2] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 532-543) [doc_example] similarity:0.693 boosted:0.901\n```markdown\n### Set default segmentation options\n\nAllow segments to overlap each other by default:\n\n```python\ndefaultSegmentEditorNode = slicer.vtkMRMLSegmentEditorNode()\ndefaultSegmentEditorNode.SetOverwriteMode(slicer.vtkMRMLSegmentEditorNode.OverwriteNone)\nslicer.mrmlScene.AddDefaultNode(defaultSegmentEditorNode)\n```\n\nTo always make this the default, add the lines above to your [.slicerrc.py file](/user_guide/settings.md#application-startup-file).\n```\n\n[3] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 731-739) [doc_example] similarity:0.666 boosted:0.866\n```markdown\n# Place a markup point in each centroid\npointListNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLMarkupsFiducialNode\")\npointListNode.CreateDefaultDisplayNodes()\nfor segmentId in stats[\"SegmentIDs\"]:\n  centroid_ras = stats[segmentId,\"LabelmapSegmentStatisticsPlugin.centroid_ras\"]\n  segmentName = segmentationNode.GetSegmentation().GetSegment(segmentId).GetName()\n  pointListNode.AddControlPoint(centroid_ras, segmentName)\n```\n```\n\n[4] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 473-478) [doc_example] similarity:0.662 boosted:0.861\n```markdown\n# Create segmentation\nsegmentationNode = slicer.vtkMRMLSegmentationNode()\nslicer.mrmlScene.AddNode(segmentationNode)\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\nsegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)\n```\n\n[5] slicer-source/Docs/developer_gu..."
-        },
-        {
-          "tool": "Grep",
-          "args": {
-            "pattern": "AddEmptySegment",
-            "path": "slicer-ui-analysis/Modules__Loadable__Segmentations__Resources__UI__qSlicerSegmentationsModule.ui.md"
-          },
-          "result_preview": "Grep: 2 hit(s) in 1 file(s): slicer-ui-analysis/Modules__Loadable__Segmentations__Resources__UI__qSlicerSegmentationsModule.ui.md (2)"
-        },
-        {
-          "tool": "ReadFile",
-          "args": {
-            "path": "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "query": "AddEmptySegment"
-          },
-          "result_preview": "## Segmentations\n\n### Load a 3D image or model file as segmentation\n\n```python\n# Load segmentation from .seg.nrrd file (includes segment names and colors)\nslicer.util.loadSegmentation(\"c:/tmp/tmp/Segmentation.nrrd\")\n\n# Create segmentation from a NIFTI + color table file\ncolorNode = slicer.util.loadColorTable('c:/tmp/tmp/Segmentation-label_ColorTable.ctbl')\nslicer.util.loadSegmentation(\"c:/tmp/tmp/Segmentation.nii\", {'colorNodeID': colorNode.GetID()})\n\n# Create segmentation from a STL file\nslicer.util.loadSegmentation(\"c:/tmp/Segment_1.stl\")\n```\n\n### Create a segmentation from a labelmap volume and display in 3D\n\n```python\nlabelmapVolumeNode = getNode(\"label\")\nseg = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nslicer.modules.segmentations.logic().ImportLabelmapToSegmentationNode(labelmapVolumeNode, seg)\nseg.CreateClosedSurfaceRepresentation()\nslicer.mrmlScene.RemoveNode(labelmapVolumeNode)\n```\n\nThe last line is optional. It removes the original labelmap volume so that the same information is not shown twice.\n\n### Create segmentation from a model node\n\n```python\n# Create some model that will be added to a segmentation node\nsphere = vtk.vtkSphereSource()\nsphere.SetCenter(-6, 30, 28)\nsphere.SetRadius(10)\nmodelNode = slicer.modules.models.logic().AddModel(sphere.GetOutputPort())\n\n# Create segmentation\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\n\n# Import the model into the segmentation node\nslicer.modules.segmentations.logic().ImportModelToSegmentationNode(modelNode, segmentationNode)\n```\n\n### Export labelmap node from segmentation node\n\nExport labelmap matching reference geometry of the segmentation:\n\n```python\nsegmentationNode = getNode(\"Segmentation\")\nlabelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLLabelMapVolumeNode\")\nslicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(segmentationNode, labelmapVolumeNode, slice..."
-        },
-        {
-          "tool": "Grep",
-          "args": {
-            "pattern": "AddEmptySegment",
-            "path": "slicer-source/Modules/Loadable/Segmentations"
-          },
-          "result_preview": "Grep: 29 hit(s) in 7 file(s): slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentEditorLogicTest.py (12), slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest2.py (10), slicer-source/Modules/Loadable/Segmentations/Logic/vtkSlicerSegmentEditorLogic.cxx (2), slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest1.py (2), slicer-source/Modules/Loadable/Segmentations/qSlicerSegmentationsModuleWidget.cxx (1)"
-        },
-        {
-          "tool": "Grep",
-          "args": {
-            "pattern": "SetName",
-            "path": "slicer-source/Libs/vtkSegmentationCore"
-          },
-          "result_preview": "Grep: 27 hit(s) in 9 file(s): slicer-source/Libs/vtkSegmentationCore/Testing/vtkSegmentationTest2.cxx (10), slicer-source/Libs/vtkSegmentationCore/Testing/vtkSegmentationTest1.cxx (5), slicer-source/Libs/vtkSegmentationCore/vtkClosedSurfaceToFractionalLabelmapConversionRule.cxx (3), slicer-source/Libs/vtkSegmentationCore/Testing/vtkSegmentationHistoryTest1.cxx (2), slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.cxx (2)"
-        },
-        {
-          "tool": "ReadFile",
-          "args": {
-            "path": "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest2.py",
-            "query": "self.segmentation = "
-          },
-          "result_preview": "=== test method: TestSection_SetupScene (lines 89-110) ===\n    def TestSection_SetupScene(self):\n        self.paintEffect = slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName(\"Paint\")\n        self.eraseEffect = slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName(\"Erase\")\n        self.islandEffect = slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName(\"Islands\")\n        self.thresholdEffect = slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName(\"Threshold\")\n\n        self.segmentEditorNode = slicer.util.getNode(\"SegmentEditor\")\n        self.assertIsNotNone(self.segmentEditorNode)\n\n        self.segmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\n        self.assertIsNotNone(self.segmentationNode)\n        self.segmentEditorNode.SetAndObserveSegmentationNode(self.segmentationNode)\n\n        self.sourceVolumeNode = slicer.util.loadVolume(self.dataDir + \"/TinyPatient_CT.nrrd\")\n        self.assertIsNotNone(self.sourceVolumeNode)\n        self.segmentEditorNode.SetAndObserveSourceVolumeNode(self.sourceVolumeNode)\n\n        self.segmentation = self.segmentationNode.GetSegmentation()\n        self.segmentation.SetSourceRepresentationName(self.binaryLabelmapReprName)\n        self.assertIsNotNone(self.segmentation)\n\n    # ------------------------------------------------------------------------------\n"
-        },
-        {
-          "tool": "ReadFile",
-          "args": {
-            "path": "slicer-source/Libs/vtkSegmentationCore/vtkSegment.h",
-            "query": "SetName"
-          },
-          "result_preview": "/*==============================================================================\n\n  Copyright (c) Laboratory for Percutaneous Surgery (PerkLab)\n  Queen's University, Kingston, ON, Canada. All Rights Reserved.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Unless required by applicable law or agreed to in writing, software\n  distributed under the License is distributed on an \"AS IS\" BASIS,\n  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n  See the License for the specific language governing permissions and\n  limitations under the License.\n\n  This file was originally developed by Csaba Pinter, PerkLab, Queen's University\n  and was supported through the Applied Cancer Research Unit program of Cancer Care\n  Ontario with funds provided by the Ontario Ministry of Health and Long-Term Care\n\n==============================================================================*/\n\n#ifndef __vtkSegment_h\n#define __vtkSegment_h\n\n// VTK includes\n#include <vtkObject.h>\n#include <vtkSmartPointer.h>\n#include <vtkDataObject.h>\n\n// STD includes\n#include <vector>\n#include <map>\n\n// Segmentation includes\n#include \"vtkSegmentationCoreExport.h\"\n\n/// \\brief This class encapsulates a segment that is part of a segmentation\n/// \\details\n///   A \\sa vtkSegmentation can contain multiple segments (this class) each of which represent\n///   one anatomical or other structure (in labelmap terms, a \"label\"). Each segmentation can\n///   contain the structure in multiple representations.\n///   Default representation types include Binary labelmap and Closed surface, but additional\n///   custom representations can be added (see description of \\sa vtkSegmentation).\n///\nclass vtkSegmentationCore_EXPORT vtkSegment : public vtkObject\n{\n  typedef std::map<std::string, vtkSmartPointer<vtkDataObject>> RepresentationMap;\n\npublic:\n  static const double SEGMENT_COLOR_INVALID[3];\n\n  /// Get tag name that stores terminology information (standard codes for ..."
-        }
-      ],
-      "evidence_audit": {
-        "ui_analysis": {
-          "used": true,
-          "query_paths": [
-            "slicer-ui-analysis/Modules__Loadable__Segmentations__Resources__UI__qSlicerSegmentationsModule.ui.md"
-          ],
-          "result_files": [
-            "slicer-ui-analysis/Modules__Loadable__Segmentations__Resources__UI__qSlicerSegmentationsModule.ui.md"
-          ],
-          "matched_lines_preview": [
-            "- API footprints: `AddEmptySegment`, `GetNthSegment`, `GetNumberOfSegments`, `GetSegment`, `GetSegmentation`, `GetTerminology`, `SetTerminology`, `vtkMRMLSegmentationNode::SafeDownCast`",
-            "- API footprints: `AddEmptySegment`, `CreateDefaultDisplayNodes`, `GetSegmentation`, `vtkMRMLSegmentationNode::SafeDownCast`"
-          ],
-          "connected_slots": [],
-          "api_footprints": [
-            "AddEmptySegment",
-            "GetNthSegment",
-            "GetNumberOfSegments",
-            "GetSegment",
-            "GetSegmentation",
-            "GetTerminology",
-            "SetTerminology",
-            "vtkMRMLSegmentationNode::SafeDownCast",
-            "CreateDefaultDisplayNodes"
-          ],
-          "implementation_candidates": []
-        },
-        "source_verification": {
-          "non_ui_result_files": [
-            "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "slicer-source/Libs/MRML/Core/vtkMRMLSegmentationNode.h",
-            "slicer-source/Modules/Loadable/Segmentations",
+            "slicer-source/Modules/Scripted/SegmentEditor",
+            "slicer-source",
             "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentEditorLogicTest.py",
             "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest2.py",
-            "slicer-source/Modules/Loadable/Segmentations/Logic/vtkSlicerSegmentEditorLogic.cxx",
-            "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest1.py",
-            "slicer-source/Modules/Loadable/Segmentations/qSlicerSegmentationsModuleWidget.cxx",
-            "slicer-source/Modules/Loadable/Segmentations/Logic/vtkSlicerSegmentEditorLogic.h",
-            "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx",
-            "slicer-source/Libs/vtkSegmentationCore",
+            "slicer-source/Libs/MRML/Widgets/Testing/qMRMLSegmentSelectorWidgetTest1.cxx",
             "slicer-source/Libs/vtkSegmentationCore/Testing/vtkSegmentationTest2.cxx",
-            "slicer-source/Libs/vtkSegmentationCore/Testing/vtkSegmentationTest1.cxx",
-            "slicer-source/Libs/vtkSegmentationCore/vtkClosedSurfaceToFractionalLabelmapConversionRule.cxx",
-            "slicer-source/Libs/vtkSegmentationCore/Testing/vtkSegmentationHistoryTest1.cxx",
             "slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.cxx",
-            "slicer-source/Libs/vtkSegmentationCore/vtkSegmentationConversionParameters.cxx",
-            "slicer-source/Libs/vtkSegmentationCore/Testing/vtkClosedSurfaceToFractionalLabelMapConversionTest1.cxx",
-            "slicer-source/Libs/vtkSegmentationCore/vtkSegment.cxx",
-            "slicer-source/Libs/vtkSegmentationCore/vtkSegmentationConversionParameters.h"
+            "slicer-source/Libs/vtkSegmentationCore/Testing/vtkSegmentationTest1.cxx",
+            "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest1.py",
+            "slicer-source/Modules/Loadable/Segmentations/Logic/vtkSlicerSegmentationsModuleLogic.cxx",
+            "slicer-source/Modules/Loadable/Markups/Testing/Python/NeurosurgicalPlanningTutorialMarkupsSelfTest.py",
+            "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx",
+            "slicer-source/Modules/Loadable/Segmentations/qSlicerSegmentationsModuleWidget.cxx",
+            "slicer-source/Libs/MRML/Core/Testing/vtkMRMLSegmentationStorageNodeTest1.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSegmentationStorageNode.cxx",
+            "slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.h",
+            "slicer-source/Libs/vtkSegmentationCore/Testing/vtkSegmentationHistoryTest1.cxx",
+            "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationWidgetsTest1.py",
+            "slicer-source/Modules/Loadable/Segmentations/Logic/vtkSlicerSegmentEditorLogic.cxx"
           ],
           "source_type_counts": {
-            "doc_example": 10,
-            "mrml_definition": 1,
-            "ui_analysis": 1,
-            "test_example": 4,
+            "doc_example": 9,
+            "test_example": 5,
+            "ui_implementation": 2,
+            "source": 8,
             "loadable_module": 3,
-            "ui_implementation": 1,
-            "source": 10
+            "mrml_definition": 3
           }
         },
         "searches": {
           "vector_queries": [
-            "AddEmptySegment SetName segmentation vtkMRMLSegmentationNode Python"
+            "add segment rename segment vtkMRMLSegmentationNode segment editor python"
           ],
           "grep_patterns": [
-            "AddEmptySegment",
-            "SetName"
+            "AddSegment",
+            "AddEmptySegment|AddSegment\\(",
+            "AddEmptySegment|GetSegment\\(.*\\)\\.SetName|SetName.*segment",
+            "Cranial_Segment|AddEmptySegment|AddSegment"
           ],
           "read_paths": [
-            "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationsModuleTest2.py",
-            "slicer-source/Libs/vtkSegmentationCore/vtkSegment.h"
+            "slicer-source/Libs/vtkSegmentationCore/vtkSegmentation.cxx"
           ]
         }
       },
-      "reasoning_chars": 10641,
-      "reasoning_preview": "[Round 1]\nThe user wants me to generate a Python code template for adding a segment and renaming it to 'Cranial_Segment' in the ZygomaticImplantPlanner extension. They've given API keyword hints: AddEmptySegment, SetName, GetSegmentationObject.\n\nLet me search the knowledge base for the relevant APIs and verify the receiver types.\n\n[Round 2]\nThe UI analysis tells me that `AddEmptySegment` is used in the context of `vtkMRMLSegmentationNode::SafeDownCast`. Let me now look at the actual implementation to confirm the receiver type and API signature.\n\n[Round 3]\nNow I have clear evidence. The key findings:\n\n1. `AddEmptySegment` is a method on `vtkSegmentation` (the object returned by `segmentationNode->GetSegmentation()`)\n2. The C++ code shows: `segmentationNode->GetSegmentation()->AddEmptySegment(segmentId)` where segmentId is a string name\n3. In Python test code: `self.segmentation.AddEmptySegment(\"Segment_1\")` - here `self.segmentation` is the segmentation node, and they call AddEmptySegment on it directly. But wait, looking more carefully...\n\nLet me check: In `SegmentationsModuleTest2.py`, line 113: `self.segmentation.AddEmptySegment(\"Segment_1\")` - what is `self.segmentation`?\n\nLooking at line 108: `self.assertIsNotNone(self.segmentation)` - need to check what self.segmentation is set to.\n\nFrom the C++ code in `qSlicerSegmentationsModuleWidget.cxx:443`:\n`std::string addedSegmentID = currentSegmentationNode->GetSegmentation()->AddEmptySegment(...)`\n\nAnd from `vtkSlicerSegmentEditorLogic.cxx:124`:\n`std::string addedSegmentID = segmentationNode->GetSegmentation()->AddEmptySegment(segmentId);`\n\nSo `AddEmptySegment` is called on the **vtkSegmentation** object obtained via `GetSegmentation()` on the segmentation node, or possibly directly on the node if there's a convenience method.\n\nBut in the Python test, `self.segmentation.AddEmptySegment(\"Segment_1\")` - if self.segmentation is the segmentation node, then perhaps there's a Python wrapping that forwards it, or... Let me look more carefully at what self.segmentation is.\n\nActually, looking at the test pattern in `SegmentationsModuleTest2.py`, it says `self.segmentation.AddEmptySegment(\"Segment_1\")`. And the SegmentationsModuleTest1.py line 473 shows:\n`bodySegmentID = singleLabelImportSegmentationNode.GetSegmentation().AddEmptySegment(\"BodyLabelmap\")`\n\nSo the proper Python API is:\n```python\nsegmentId = segmentationNode.GetSegmentation().AddEmptySegment(\"segment_name\")\n```\n\nThen to rename, we use `SetName` on the segment. From the evidence:\n```python\nsegment = segmentationNode.GetSegmentation().GetSegment(segmentId)\nsegment.SetName(\"Cranial_Segment\")\n```\n\nOr alternatively, `AddEmptySegment` takes a name as its first argument and uses it as the segment name. Looking at the C++:\n\n```cpp\nstd::string addedSegmentID = currentSegmentationNode->GetSegmentation()->AddEmptySegment(d->SegmentsTableView->textFilter().toStdString());\n```\n\nAnd the vtkSegmentation header... I should check if AddEmptySegment takes a name",
-      "generated_code_preview": "\"\"\"\nAdd a segment and rename it to 'Cranial_Segment'\n\"\"\"\nimport slicer\n\n# Find the segmentation node by fuzzy name match\nsegmentationNode = None\nfor node in slicer.mrmlScene.GetNodesByClass(\"vtkMRMLSegmentationNode\"):\n    if \"{node_name: SegmentationNode}\" in node.GetName() or \"{node_name: SegmentationNode}\".lower() in node.GetName().lower():\n        segmentationNode = node\n        break\nif segmentationNode is None:\n    # Fall back to first segmentation node in the scene\n    segmentationNode = slicer.mrmlScene.GetFirstNodeByClass(\"vtkMRMLSegmentationNode\")\nif segmentationNode is None:\n    raise RuntimeError(\"No vtkMRMLSegmentationNode found in the scene\")\n\n# Get the vtkSegmentation object\nsegmentation = segmentationNode.GetSegmentation()\n\n# Add an empty segment (with empty string -> auto-generated default name)\nsegmentId = segmentation.AddEmptySegment(\"\")\nif not segmentId:\n    raise RuntimeError(\"Failed to add empty segment\")\n\n# Retrieve the segment\nsegment = segmentation.GetSegment(segmentId)\nif segment is None:\n    raise RuntimeError(\"Failed to retrieve newly added segment\")\n\n# Rename the segment to 'Cranial_Segment'\nsegment.SetName(\"Cranial_Segment\")\n\n# Verify the name was applied\nif segment.GetName() != \"Cranial_Segment\":\n    raise RuntimeError(\"STATE_NOT_APPLIED: segment name\")"
+      "reasoning_chars": 7047,
+      "reasoning_preview": "[Round 1]\nThe user wants to generate a Python code template for adding a segment and renaming it to \"Cranial_Segment\" in the context of the ZygomaticImplantPlanner extension.\n\nLet me search for evidence about the segment editor API - adding segments and renaming them.\n\nLet me search the knowledge base for relevant examples.\n\n[Round 2]\nLet me find how to add a segment via the segment editor or the segmentation node API. The `vtkMRMLSegmentationNode` has `GetSegmentation()` returning a `vtkSegmentations`? Actually, the segmentation is `vtkMRMLSegmentationNode.GetSegmentation()` which returns a `vtkSegmentation` object. To add a segment, use `segmentationNode.GetSegmentation().AddEmptySegment(segmentName)` or `AddSegment(vtkSegment)`.\n\nLet me search for AddEmptySegment and also check the segmentations script repository.\n\n[Round 3]\nI have clear evidence. The API is:\n- `segmentationNode.GetSegmentation()` returns `vtkSegmentation`.\n- `vtkSegmentation.AddEmptySegment(segmentId, segmentName, color)` \u2014 accepts an optional segment name as the second parameter. So I can do `segmentationNode.GetSegmentation().AddEmptySegment(\"\", \"Cranial_Segment\")` to create the segment with the name directly.\n\nAlternatively, `AddEmptySegment()` returns the segment ID; then `GetSegment(segmentId).SetName(\"Cranial_Segment\")`.\n\nSince the operation belongs to extension ZygomaticImplantPlanner, let me check if the extension source has any helper related to adding/renaming a segment. But this is an ordinary scene node operation (add segment to a segmentation node), not an extension-defined artifact like a custom layout or slicer.<Const>. The requirement says ordinary scene nodes are resolved at runtime, not from source. So I don't need to search the extension.\n\nLet me check the extension to see whether it has a helper for adding the cranial segment. Actually, the instruction says: \"If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an slicer.<Const>)\". Adding and renaming a segment is not registering an artifact in the extension source. So I don't need extension evidence.\n\nLet me look at the AddEmptySegment signature more carefully:\n`std::string vtkSegmentation::AddEmptySegment(std::string segmentId /*=\"\"*/, std::string segmentName /*=\"\"*/, double* color /*=nullptr*/)`\n\nSo calling with just a name: `AddEmptySegment(\"\", \"Cranial_Segment\")` creates the segment with that name. \n\nThe segmentation node: how to obtain it? The user is in a workflow context - probably there's an existing segmentation node in the scene. I should find a segmentation node by fuzzy name matching, e.g., find the first vtkMRMLSegmentationNode. The placeholder could be `{segmentation_node:Segmentation}`.\n\nLet me also check the ZygomaticImplantPlanner extension for any helper that adds a segment named Cranial_Segment, just to see if there's a definitive target segmentation node name. Let me grep the extension root.\n\nActually let me quickly check the extension to",
+      "generated_code_preview": "# Add a segment named \"Cranial_Segment\" to the target segmentation node.\n\ntarget_name = \"Cranial_Segment\"\n\n# Resolve the target segmentation node (fuzzy match by name keyword).\nsegmentationNode = None\nfor node in slicer.mrmlScene.GetNodesByClass(\"vtkMRMLSegmentationNode\"):\n    if \"{segmentation_node:Segmentation}\" in node.GetName():\n        segmentationNode = node\n        break\nif segmentationNode is None:\n    raise RuntimeError(\"SEGMENTATION_NODE_NOT_FOUND: \" + \"{segmentation_node:Segmentation}\")\n\n# Add an empty segment and name it in one call.\n# vtkSegmentation::AddEmptySegment(segmentId=\"\", segmentName=\"\", color=nullptr)\n# returns the new segment ID; the segment ID defaults to the segment name.\nsegmentId = segmentationNode.GetSegmentation().AddEmptySegment(\"\", target_name)\nif not segmentId:\n    raise RuntimeError(\"STATE_NOT_APPLIED: AddEmptySegment returned empty segment ID\")\n\n# Read back the segment name to confirm the state was applied.\nsegment = segmentationNode.GetSegmentation().GetSegment(segmentId)\nif not segment or segment.GetName() != target_name:\n    raise RuntimeError(\"STATE_NOT_APPLIED: segment name = \" + str(segment.GetName() if segment else None))"
     },
     {
       "step": 4,
       "key": "cb_step_4_2",
-      "description": "Activate the Threshold effect in Segment Editor",
+      "description": "Activate the Threshold effect in Segment Editor.",
       "keywords": [
-        "SetActiveEffect",
+        "Segment Editor",
         "Threshold",
-        "segment editor"
+        "effect",
+        "segmentation"
       ],
       "category": "generic_slicer_api",
       "final_state_intent": {
@@ -586,57 +456,47 @@
         "category_hint_provenance": "generic_slicer_search_hint"
       },
       "status": "done",
-      "total_time_s": 50.58,
-      "code_chars": 498,
-      "tool_rounds": 4,
-      "api_calls": 5,
+      "total_time_s": 41.78,
+      "code_chars": 573,
+      "tool_rounds": 2,
+      "api_calls": 3,
       "error": null,
       "progress_events": [
         {
           "round": 1,
           "phase": "search",
-          "message": "[Search] Round 1: |   VectorSearch: \"activate threshold effect segment editor SetActiveEffect Python\" |   Grep: \"SetActiveEffect\" \u2192 slicer-source/Modules/Loadable/Segmentations"
+          "message": "[Search] Round 1: |   VectorSearch: \"activate threshold effect in Segment Editor, set effect by name, qSlicerSegmentEditorWidget setActiveEffectByName\" |   Grep: \"setActiveEffectByName|activeEffectByName\" \u2192 slicer-source"
         },
         {
           "round": 2,
-          "phase": "read",
-          "message": "[Read] Round 2: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md"
-        },
-        {
-          "round": 3,
-          "phase": "search",
-          "message": "[Search] Round 3: |   Grep: \"segmentEditorWidget.*setActiveEffect\" \u2192 slicer-source/Docs |   Grep: \"setActiveEffectByName\" \u2192 slicer-source"
-        },
-        {
-          "round": 4,
-          "phase": "read",
-          "message": "[Read] Round 4: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+          "phase": "search+read",
+          "message": "[Search+Read] Round 2: |   ReadFile: slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx |   Grep: \"widgetRepresentation\\(\\)\\.self\\(\\)\\.editor|SegmentEditorWidget\" \u2192 slicer-source/Docs/developer_guide/script_repository"
         }
       ],
       "prompt_build_s": 0.063,
-      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nActivate the Threshold effect in Segment Editor\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `ZygomaticImplantPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:ZygomaticImplantPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nAPI keyword hints: SetAct",
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nActivate the Threshold effect in Segment Editor.\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `ZygomaticImplantPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:ZygomaticImplantPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nAPI keyword hints: Segme",
       "prompt_includes_ui_analysis": true,
       "deterministic_ui_evidence": {
         "matched": [
+          "SegmentationNodeComboBox",
+          "SliceRotateWarningButton",
           "toolButton_Edit",
           "AddSegmentButton",
-          "EffectsGroupBox",
-          "MaskModeComboBox",
-          "OptionsGroupBox"
+          "EffectsGroupBox"
         ],
         "injected": true
       },
       "executor_ready": true,
       "tool_count": 3,
       "last_progress": {
-        "round": 4,
-        "phase": "read",
-        "message": "[Read] Round 4: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+        "round": 2,
+        "phase": "search+read",
+        "message": "[Search+Read] Round 2: |   ReadFile: slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx |   Grep: \"widgetRepresentation\\(\\)\\.self\\(\\)\\.editor|SegmentEditorWidget\" \u2192 slicer-source/Docs/developer_guide/script_repository"
       },
-      "tool_loop_s": 46.62,
-      "total_tokens": 236925,
-      "total_api_time_s": 24.08,
-      "total_tool_time_s": 19.23,
+      "tool_loop_s": 38.64,
+      "total_tokens": 125898,
+      "total_api_time_s": 26.249,
+      "total_tool_time_s": 10.92,
       "tool_names_called": [
         "VectorSearch",
         "Grep",
@@ -646,64 +506,42 @@
         {
           "round": 1,
           "phase": "search",
-          "api_time_s": 3.458,
-          "tool_time_s": 4.003,
-          "round_time_s": 7.461,
+          "api_time_s": 3.155,
+          "tool_time_s": 6.168,
+          "round_time_s": 9.322,
           "tools": [
             "VectorSearch",
             "Grep"
           ],
-          "tokens": 3620
+          "tokens": 3796
         },
         {
           "round": 2,
-          "phase": "read",
-          "api_time_s": 5.765,
-          "tool_time_s": 0.744,
-          "round_time_s": 6.51,
+          "phase": "search+read",
+          "api_time_s": 14.942,
+          "tool_time_s": 4.753,
+          "round_time_s": 19.695,
           "tools": [
-            "ReadFile"
+            "ReadFile",
+            "Grep"
           ],
-          "tokens": 50809
+          "tokens": 52642
         },
         {
           "round": 3,
-          "phase": "search",
-          "api_time_s": 4.061,
-          "tool_time_s": 13.809,
-          "round_time_s": 17.87,
-          "tools": [
-            "Grep",
-            "Grep"
-          ],
-          "tokens": 55007
-        },
-        {
-          "round": 4,
-          "phase": "read",
-          "api_time_s": 5.58,
-          "tool_time_s": 0.673,
-          "round_time_s": 6.253,
-          "tools": [
-            "ReadFile"
-          ],
-          "tokens": 63063
-        },
-        {
-          "round": 5,
           "phase": "generate",
-          "api_time_s": 5.216,
+          "api_time_s": 8.152,
           "tool_time_s": 0.0,
-          "round_time_s": 5.216,
+          "round_time_s": 8.152,
           "tools": [],
-          "tokens": 64426
+          "tokens": 69460
         }
       ],
       "tool_calls_history": [
         {
           "tool": "VectorSearch",
           "args": {
-            "query": "activate threshold effect segment editor SetActiveEffect Python",
+            "query": "activate threshold effect in Segment Editor, set effect by name, qSlicerSegmentEditorWidget setActiveEffectByName",
             "top_k": 10
           },
           "result_preview": "VectorSearch: 10 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorThresholdEffect.py (lines 1-1321) [effect_implementation] [Full file included \u2014 no need to ReadFile or VectorSearch this file]\n```\nimport logging\nimport os\nimport weakref\n\nimport ctk\nimport vtk\nimport qt\n\nimport slicer\nfrom SegmentEditorEffects import *\n\nfrom slicer.i18n import tr as _\n\n\nclass SegmentEditorThresholdEffect(AbstractScriptedSegmentEditorEffect):\n    \"\"\"ThresholdEffect is an Effect implementing the global threshold\n    operation in the segment editor\n\n    This is also an example for scripted effects, and some methods have no\n    function. The methods that are not needed (i.e. the default implementation in\n    qSlicerSegmentEditorAbstractEffect is satisfactory) can simply be omitted.\n    \"\"\"\n\n    def __init__(self, scriptedEffect):\n        AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)\n        scriptedEffect.name = \"Threshold\"  # no tr (don't translate it because modules find effects by name)\n        scriptedEffect.title = _(\"Threshold\")\n\n        self.previewedSegmentationDisplayNode = None\n        self.previewedSegmentID = None\n\n        # Effect-specific members\n        import vtkITK\n\n        self.autoThresholdCalculator = vtkITK.vtkITKImageThresholdCalculator()\n\n        self.timer = qt.QTimer()\n        self.previewState = 0\n        self.previewStep = 1\n        self.previewSteps = 5\n        self.timer.connect(\"timeout()\", self.preview)\n\n        self.previewPipelines = {}\n        self.histogramPipeline = None\n        self._sliceCompositeObservers = []\n\n        # Histogram stencil setup\n        self.stencil = vtk.vtkPolyDataToImageStencil()\n\n        # Histogram reslice setup\n        self.reslice = vtk.vtkImageReslice()\n        self.reslice.AutoCropOutputOff()\n        self.reslice.SetOptimization(1)\n        self.reslice.SetOutputOrigin(0, 0, 0)\n        self.reslice.SetOutputSpacing(1, 1,..."
@@ -711,42 +549,26 @@
         {
           "tool": "Grep",
           "args": {
-            "pattern": "SetActiveEffect",
-            "path": "slicer-source/Modules/Loadable/Segmentations"
-          },
-          "result_preview": "Grep: 17 hit(s) in 3 file(s): slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx (11), slicer-source/Modules/Loadable/Segmentations/MRML/vtkMRMLSegmentEditorNode.cxx (3), slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h (3)"
-        },
-        {
-          "tool": "ReadFile",
-          "args": {
-            "path": "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "query": "segment editor widget"
-          },
-          "result_preview": "## Segmentations\n\n### Load a 3D image or model file as segmentation\n\n```python\n# Load segmentation from .seg.nrrd file (includes segment names and colors)\nslicer.util.loadSegmentation(\"c:/tmp/tmp/Segmentation.nrrd\")\n\n# Create segmentation from a NIFTI + color table file\ncolorNode = slicer.util.loadColorTable('c:/tmp/tmp/Segmentation-label_ColorTable.ctbl')\nslicer.util.loadSegmentation(\"c:/tmp/tmp/Segmentation.nii\", {'colorNodeID': colorNode.GetID()})\n\n# Create segmentation from a STL file\nslicer.util.loadSegmentation(\"c:/tmp/Segment_1.stl\")\n```\n\n### Create a segmentation from a labelmap volume and display in 3D\n\n```python\nlabelmapVolumeNode = getNode(\"label\")\nseg = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nslicer.modules.segmentations.logic().ImportLabelmapToSegmentationNode(labelmapVolumeNode, seg)\nseg.CreateClosedSurfaceRepresentation()\nslicer.mrmlScene.RemoveNode(labelmapVolumeNode)\n```\n\nThe last line is optional. It removes the original labelmap volume so that the same information is not shown twice.\n\n### Create segmentation from a model node\n\n```python\n# Create some model that will be added to a segmentation node\nsphere = vtk.vtkSphereSource()\nsphere.SetCenter(-6, 30, 28)\nsphere.SetRadius(10)\nmodelNode = slicer.modules.models.logic().AddModel(sphere.GetOutputPort())\n\n# Create segmentation\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\n\n# Import the model into the segmentation node\nslicer.modules.segmentations.logic().ImportModelToSegmentationNode(modelNode, segmentationNode)\n```\n\n### Export labelmap node from segmentation node\n\nExport labelmap matching reference geometry of the segmentation:\n\n```python\nsegmentationNode = getNode(\"Segmentation\")\nlabelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLLabelMapVolumeNode\")\nslicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(segmentationNode, labelmapVolumeNode, slice..."
-        },
-        {
-          "tool": "Grep",
-          "args": {
-            "pattern": "segmentEditorWidget.*setActiveEffect",
-            "path": "slicer-source/Docs"
-          },
-          "result_preview": "Grep: 1 hit(s) in 1 file(s): slicer-source/Docs/developer_guide/script_repository/gui.md (1)"
-        },
-        {
-          "tool": "Grep",
-          "args": {
-            "pattern": "setActiveEffectByName",
+            "pattern": "setActiveEffectByName|activeEffectByName",
             "path": "slicer-source"
           },
-          "result_preview": "Grep: 12 hit(s) in 6 file(s): slicer-source/Modules/Loadable/Markups/Testing/Python/NeurosurgicalPlanningTutorialMarkupsSelfTest.py (6), slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx (2), slicer-source/Utilities/Templates/Modules/ScriptedSegmentEditorEffect/SegmentEditorTemplateKey.py (1), slicer-source/Docs/developer_guide/script_repository/gui.md (1), slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h (1)"
+          "result_preview": "Grep: 12 hit(s) in 6 file(s): slicer-source/Modules/Loadable/Markups/Testing/Python/NeurosurgicalPlanningTutorialMarkupsSelfTest.py (6), slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx (2), slicer-source/Utilities/Templates/Modules/ScriptedSegmentEditorEffect/SegmentEditorTemplateKey.py (1), slicer-source/Extensions/Testing/ScriptedSegmentEditorEffectExtensionTemplate/ScriptedSegmentEditorEffectModuleTemplate/SegmentEditorScriptedSegmentEditorEffectModuleTemplate.py (1), slicer-source/Docs/developer_guide/script_repository/gui.md (1)"
         },
         {
           "tool": "ReadFile",
           "args": {
-            "path": "slicer-source/Docs/developer_guide/script_repository/gui.md",
-            "query": "SegmentEditorWidget"
+            "path": "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx",
+            "query": "setActiveEffect"
           },
-          "result_preview": "### Customize keyboard shortcuts\n\nKeyboard shortcuts can be specified for activating any Slicer feature by adding a couple of lines to your [.slicerrc.py file](/user_guide/settings.md#application-startup-file).\n\nFor example, this script registers <kbd>Ctrl+b</kbd>, <kbd>Ctrl+n</kbd>, <kbd>Ctrl+m</kbd>, <kbd>Ctrl+,</kbd> keyboard shortcuts to switch between red, yellow, green, and 4-up view layouts.\n\n```python\nshortcuts = [\n  (\"Ctrl+b\", lambda: slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpRedSliceView)),\n  (\"Ctrl+n\", lambda: slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpYellowSliceView)),\n  (\"Ctrl+m\", lambda: slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutOneUpGreenSliceView)),\n  (\"Ctrl+,\", lambda: slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView))\n  ]\n\nfor (shortcutKey, callback) in shortcuts:\n  shortcut = qt.QShortcut(slicer.util.mainWindow())\n  shortcut.setKey(qt.QKeySequence(shortcutKey))\n  shortcut.connect( \"activated()\", callback)\n```\n\nHere's an example for cycling through Segment Editor effects (requested [on the Slicer forum](https://discourse.slicer.org/t/is-there-a-keystroke-to-cycle-through-effects-in-segment-editor/10117/2) for the [SlicerMorph](https://slicermorph.github.io/) project).\n\n```python\ndef cycleEffect(delta=1):\n  try:\n    orderedNames = list(slicer.modules.SegmentEditorWidget.editor.effectNameOrder())\n    allNames = slicer.modules.SegmentEditorWidget.editor.availableEffectNames()\n    for name in allNames:\n      try:\n        orderedNames.index(name)\n      except ValueError:\n        orderedNames.append(name)\n    orderedNames.insert(0, None)\n    activeEffect = slicer.modules.SegmentEditorWidget.editor.activeEffect()\n    if activeEffect:\n      activeName = slicer.modules.SegmentEditorWidget.editor.activeEffect().name\n    else:\n      activeName = None\n    newIndex = (orderedNames.index(activeName) + delta) % len(orderedN..."
+          "result_preview": "//-----------------------------------------------------------------------------\nvoid qMRMLSegmentEditorWidgetPrivate::notifyEffectsOfReferenceGeometryChange(const std::string& geometry)\n{\n  if (geometry.compare(this->LastNotifiedReferenceImageGeometry) == 0)\n  {\n    // no change\n    return;\n  }\n  this->LastNotifiedReferenceImageGeometry = geometry;\n\n  for (qSlicerSegmentEditorAbstractEffect* const effect : this->RegisteredEffects)\n  {\n    effect->referenceGeometryChanged();\n  }\n}\n\n//-----------------------------------------------------------------------------\nvoid qMRMLSegmentEditorWidgetPrivate::notifyEffectsOfSourceVolumeNodeChange()\n{\n  for (qSlicerSegmentEditorAbstractEffect* const effect : this->RegisteredEffects)\n  {\n    effect->sourceVolumeNodeChanged();\n    effect->masterVolumeNodeChanged(); // for backward compatibility\n  }\n}\n\n//-----------------------------------------------------------------------------\nvoid qMRMLSegmentEditorWidgetPrivate::notifyEffectsOfLayoutChange()\n{\n  for (qSlicerSegmentEditorAbstractEffect* const effect : this->RegisteredEffects)\n  {\n    effect->layoutChanged();\n  }\n}\n\n//-----------------------------------------------------------------------------\nvoid qMRMLSegmentEditorWidgetPrivate::selectFirstSegment() const\n{\n  std::vector<std::string> segmentIDs = this->Logic->GetSegmentIDs();\n  if (!segmentIDs.empty())\n  {\n    QStringList firstSegmentID;\n    firstSegmentID << QString(segmentIDs[0].c_str());\n    this->SegmentsTableView->setSelectedSegmentIDs(firstSegmentID);\n  }\n}\n\n//-----------------------------------------------------------------------------\nbool qMRMLSegmentEditorWidgetPrivate::segmentationDisplayableInView(vtkMRMLAbstractViewNode* viewNode) const\n{\n  return this->Logic->IsSegmentationDisplayableInView(viewNode);\n}\n\n//-----------------------------------------------------------------------------\n// qMRMLSegmentEditorWidget methods\n\n//-----------------------------------------------------------------------------\nqMRMLSegmentEd..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "widgetRepresentation\\(\\)\\.self\\(\\)\\.editor|SegmentEditorWidget",
+            "path": "slicer-source/Docs/developer_guide/script_repository"
+          },
+          "result_preview": "Grep: 17 hit(s) in 2 file(s): slicer-source/Docs/developer_guide/script_repository/segmentations.md (12), slicer-source/Docs/developer_guide/script_repository/gui.md (5)"
         }
       ],
       "evidence_audit": {
@@ -764,58 +586,55 @@
             "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorThresholdEffect.py",
             "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
             "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorSmoothingEffect.py",
-            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorHollowEffect.py",
-            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorLogicalEffect.py",
+            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorMarginEffect.py",
             "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorLevelTracingEffect.py",
+            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorLogicalEffect.py",
+            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorHollowEffect.py",
+            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorFillBetweenSlicesEffect.py",
             "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/__init__.py",
-            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorDrawEffect.py",
-            "slicer-source/Modules/Loadable/Segmentations",
-            "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx",
-            "slicer-source/Modules/Loadable/Segmentations/MRML/vtkMRMLSegmentEditorNode.cxx",
-            "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h",
-            "slicer-source/Docs",
-            "slicer-source/Docs/developer_guide/script_repository/gui.md",
             "slicer-source",
             "slicer-source/Modules/Loadable/Markups/Testing/Python/NeurosurgicalPlanningTutorialMarkupsSelfTest.py",
+            "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx",
             "slicer-source/Utilities/Templates/Modules/ScriptedSegmentEditorEffect/SegmentEditorTemplateKey.py",
-            "slicer-source/Extensions/Testing/ScriptedSegmentEditorEffectExtensionTemplate/ScriptedSegmentEditorEffectModuleTemplate/SegmentEditorScriptedSegmentEditorEffectModuleTemplate.py"
+            "slicer-source/Extensions/Testing/ScriptedSegmentEditorEffectExtensionTemplate/ScriptedSegmentEditorEffectModuleTemplate/SegmentEditorScriptedSegmentEditorEffectModuleTemplate.py",
+            "slicer-source/Docs/developer_guide/script_repository/gui.md",
+            "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h",
+            "slicer-source/Docs/developer_guide/script_repository"
           ],
           "source_type_counts": {
-            "effect_implementation": 7,
-            "doc_example": 7,
-            "ui_implementation": 4,
-            "loadable_module": 1,
+            "effect_implementation": 8,
+            "doc_example": 5,
             "test_example": 1,
+            "ui_implementation": 3,
             "source": 2
           }
         },
         "searches": {
           "vector_queries": [
-            "activate threshold effect segment editor SetActiveEffect Python"
+            "activate threshold effect in Segment Editor, set effect by name, qSlicerSegmentEditorWidget setActiveEffectByName"
           ],
           "grep_patterns": [
-            "SetActiveEffect",
-            "segmentEditorWidget.*setActiveEffect",
-            "setActiveEffectByName"
+            "setActiveEffectByName|activeEffectByName",
+            "widgetRepresentation\\(\\)\\.self\\(\\)\\.editor|SegmentEditorWidget"
           ],
           "read_paths": [
-            "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "slicer-source/Docs/developer_guide/script_repository/gui.md"
+            "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx"
           ]
         }
       },
-      "reasoning_chars": 2553,
-      "reasoning_preview": "[Round 1]\nThe user wants to generate a Python code template for activating the Threshold effect in Segment Editor. Let me search for relevant API examples in the Slicer source code and knowledge base.\n\n[Round 2]\nI found good evidence. Let me check the documentation for segment editor effects and the script repository for examples of how to activate a specific effect programmatically.\n\nFrom the code evidence:\n1. `qMRMLSegmentEditorWidget` has `setActiveEffectByName(const QString& effectName)` - this is a Q_INVOKABLE slot that can be called to set the active effect by name.\n2. The threshold effect is named \"Threshold\" (from `scriptedEffect.name = \"Threshold\"` in the effect implementation).\n3. There's also `setActiveEffect(qSlicerSegmentEditorAbstractEffect* effect)` and `effectByName(const QString& name)`.\n\nLet me check the script repository for a complete example.\n\n[Round 3]\nI found the key API from the code. Let me look at the script repository for an example of using segment editor widget to set active effect. Let me also check the segmentations.md documentation for \"activate effect\" or \"segment editor\" examples.\n\n[Round 4]\nI now have all the evidence I need. The confirmed APIs are:\n\n1. `segmentEditorWidget = slicer.modules.segmenteditor.widgetRepresentation().self().editor` - gets the qMRMLSegmentEditorWidget\n2. `segmentEditorWidget.setActiveEffectByName(\"Threshold\")` - activates the Threshold effect\n3. `segmentEditorWidget.activeEffect()` - returns the active effect\n4. The effect name is \"Threshold\" (from the effect source: `scriptedEffect.name = \"Threshold\"`)\n\nFrom the test example in NeurosurgicalPlanningTutorialMarkupsSelfTest.py line 344:\n```python\nsegmentEditorWidget.setActiveEffectByName(\"Threshold\")\neffect = segmentEditorWidget.activeEffect()\n```\n\nFrom gui.md:\n```python\nslicer.modules.SegmentEditorWidget.editor.setActiveEffectByName(orderedNames[newIndex])\n```\n\nLet me now generate the code. The operation is simply to activate the Threshold effect. The user doesn't need to set parameters or apply, just activate.\n\nLet me produce the code template.\n\n[Round 5]\nNow I have all the evidence I need. From the test file and docs:\n\nThere are two ways to get the segment editor widget:\n1. `slicer.modules.segmenteditor.widgetRepresentation().self().editor`\n2. `slicer.modules.SegmentEditorWidget.editor`\n\nBoth work. Let me use the approach from the NeurosurgicalPlanningTutorialMarkupsSelfTest.py since it's a working test case that directly uses `setActiveEffectByName(\"Threshold\")`.\n\nLet me generate the final code.",
-      "generated_code_preview": "\"\"\"Activate the Threshold effect in Segment Editor.\"\"\"\n\n# Get the segment editor widget\nsegmentEditorWidget = slicer.modules.segmenteditor.widgetRepresentation().self().editor\n\n# Activate the Threshold effect by name\nsegmentEditorWidget.setActiveEffectByName(\"Threshold\")\n\n# Verify that the effect was activated\nactiveEffect = segmentEditorWidget.activeEffect()\nif activeEffect is None or activeEffect.name != \"Threshold\":\n    raise RuntimeError(\"STATE_NOT_APPLIED: Active effect is not Threshold\")"
+      "reasoning_chars": 8296,
+      "reasoning_preview": "[Round 1]\nThe user wants to activate the Threshold effect in Segment Editor. This is a Segment Editor operation. Let me search the knowledge base for relevant examples.\n\nLet me search for the script repository examples about segment editor effects, and specifically about activating effects.\n\nLet me start with VectorSearch and Grep in parallel.\n\n[Round 2]\nThe evidence is clear. The API is:\n- `segmentEditorWidget = slicer.modules.segmenteditor.widgetRepresentation().self().editor` or `slicer.modules.SegmentEditorWidget.editor`\n- `segmentEditorWidget.setActiveEffectByName(\"Threshold\")`\n- Read back: `segmentEditorWidget.activeEffect().name` should be \"Threshold\" (or `activeEffect()` returns the effect).\n\nLet me check the script repository for the exact way to obtain the segment editor widget. From the segmentations.md, the pattern is:\n```python\nsegmentEditorWidget = slicer.modules.segmenteditor.widgetRepresentation().self().editor\nsegmentEditorWidget.setEffectNameOrder([...])\n```\n\nNote that `setActiveEffectByName` requires the segment editor widget to have a segmentation node set, otherwise it may not work. But the task is just to activate the Threshold effect.\n\nLet me check the read-back. `activeEffect()` returns the effect (qSlicerSegmentEditorAbstractEffect wrapper or a scripted effect). For scripted effects, `activeEffect().name` is a property? In the gui.md example, `slicer.modules.SegmentEditorWidget.editor.activeEffect().name` is used. So read-back can be `activeEffect().name`.\n\nActually, `setActiveEffectByName` is a method on the qMRMLSegmentEditorWidget (editor). It sets the active effect. Let me verify the getter: `activeEffect()` returns `qSlicerSegmentEditorAbstractEffect*`. Its `name` is accessible via the C++ `name()` method (through the Python wrapper as `.name` property).\n\nI should also consider that setActiveEffectByName may return False if effect not found. Let me check the implementation around line 1980.\n\nLet me read qMRMLSegmentEditorWidget.cxx around setActiveEffectByName to confirm behavior, and check the script_repository gui.md usage to confirm obtaining the editor widget.\n\nActually, I have enough evidence. The pattern is well established:\n- `segmentEditorWidget = slicer.modules.segmenteditor.widgetRepresentation().self().editor` \n- Or `slicer.modules.SegmentEditorWidget.editor` \u2014 but this may raise AttributeError if module not active. Hmm. Actually `slicer.modules.SegmentEditorWidget.editor` is a property that returns the editor widget, created by the module. The gui.md example uses it with try/except AttributeError for the case when the module is not active. \n\nThe script_repository segmentations.md example uses `slicer.modules.segmenteditor.widgetRepresentation().self().editor`. This works even when the module isn't the active module, because it instantiates the widget representation.\n\nLet me verify how the widget is obtained in the script repository. Let me check segmentations.md more. Actually, I have enough evidence from",
+      "generated_code_preview": "# Activate the Threshold effect in the Segment Editor.\n# The Threshold effect (\"Threshold\" effect name) is a core Slicer effect registered in\n# SegmentEditorThresholdEffect.py (scriptedEffect.name = \"Threshold\"), not an extension-defined artifact.\n\nsegmentEditorWidget = slicer.modules.segmenteditor.widgetRepresentation().self().editor\n\nsegmentEditorWidget.setActiveEffectByName(\"Threshold\")\n\nactiveEffect = segmentEditorWidget.activeEffect()\nif activeEffect is None or activeEffect.name != \"Threshold\":\n    raise RuntimeError(\"STATE_NOT_APPLIED: Threshold effect active\")"
     },
     {
       "step": 6,
       "key": "cb_step_6_3",
-      "description": "Apply the threshold segmentation",
+      "description": "Apply the threshold effect to create the cranial segment.",
       "keywords": [
-        "apply",
-        "threshold effect",
-        "segment editor"
+        "Segment Editor",
+        "Threshold",
+        "Apply",
+        "vtkMRMLSegmentationNode"
       ],
       "category": "generic_slicer_api",
       "final_state_intent": {
@@ -830,7 +649,7 @@
         "evidence_id": "",
         "confidence": "high",
         "interaction_kind": "none",
-        "node_class": null,
+        "node_class": "vtkMRMLSegmentationNode",
         "slicer_op_category": "generic_slicer_api"
       },
       "search_policy": {
@@ -840,274 +659,224 @@
         "category_hint_provenance": "generic_slicer_search_hint"
       },
       "status": "done",
-      "total_time_s": 147.53,
-      "code_chars": 4448,
-      "tool_rounds": 9,
-      "api_calls": 10,
+      "total_time_s": 107.38,
+      "code_chars": 2963,
+      "tool_rounds": 8,
+      "api_calls": 9,
       "error": null,
       "progress_events": [
         {
           "round": 1,
           "phase": "search",
-          "message": "[Search] Round 1: |   VectorSearch: \"apply threshold segmentation segment editor effect python API\" |   Grep: \"threshold.*segment.*effect|apply.*threshold|SegmentEditorThreshold\" \u2192 slicer-source/Modules/Scripted/SegmentEditor"
+          "message": "[Search] Round 1: |   Grep: \"setActiveEffectByName\" \u2192 slicer-source/Docs/developer_guide/script_repository |   VectorSearch: \"Segment Editor threshold effect apply segmentation python\""
         },
         {
           "round": 2,
-          "phase": "search",
-          "message": "[Search] Round 2: |   VectorSearch: \"Segment editor python script use effect threshold programmatically set parameters apply\" |   Grep: \"ZygomaticImplantPlanner\" \u2192 slicer-extensions/"
+          "phase": "read",
+          "message": "[Read] Round 2: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md"
         },
         {
           "round": 3,
-          "phase": "read",
-          "message": "[Read] Round 3: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md"
+          "phase": "search",
+          "message": "[Search] Round 3: |   Grep: \"setActiveEffectByName\" \u2192 slicer-source/Modules/Loadable/Segmentations |   Grep: \"qMRMLSegmentEditorWidget\\(\\)\" \u2192 slicer-source"
         },
         {
           "round": 4,
-          "phase": "search",
-          "message": "[Search] Round 4: |   Grep: \"segmentEditorWidget|SegmentEditorWidget|setEffect|selectEffect.*Threshold\" \u2192 slicer-source/Base/Python |   VectorSearch: \"segment editor widget python script set effect threshold parameters apply\""
+          "phase": "read",
+          "message": "[Read] Round 4: |   ReadFile: slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationWidgetsTest1.py"
         },
         {
           "round": 5,
-          "phase": "search+read",
-          "message": "[Search+Read] Round 5: |   Grep: \"qMRMLSegmentEditorWidget|segmentEditorWidget.*threshold|segmentEditor.*Threshold\" \u2192 slicer-source/Modules/Loadable/Segmentations |   ReadFile: slicer-source/Docs/developer_guide/script_repository/segmentations.md"
+          "phase": "search",
+          "message": "[Search] Round 5: |   Grep: \"activeEffect\\(\\)\" \u2192 slicer-source |   Grep: \"setSourceVolumeNode|activeEffect|effectByName\" \u2192 slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h"
         },
         {
           "round": 6,
-          "phase": "read",
-          "message": "[Read] Round 6: |   ReadFile: slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationWidgetsTest1.py"
+          "phase": "search",
+          "message": "[Search] Round 6: |   Grep: \"Threshold|cranial|Cranial\" \u2192 ext:ZygomaticImplantPlanner"
         },
         {
           "round": 7,
           "phase": "search",
-          "message": "[Search] Round 7: |   Grep: \"setActiveEffectByName|activeEffect|onApply.*click|setEffect\" \u2192 slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx"
+          "message": "[Search] Round 7: |   Grep: \"ZygomaticImplantPlanner\" \u2192 slicer-extensions"
         },
         {
           "round": 8,
-          "phase": "read",
-          "message": "[Read] Round 8: |   ReadFile: slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h"
-        },
-        {
-          "round": 9,
           "phase": "search",
-          "message": "[Search] Round 9: |   Grep: \"pythonSource|pythonEffect|scriptedEffect\\.\" \u2192 slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx |   VectorSearch: \"segment editor python script set active effect threshold apply programmatically segmentEditorWidget\""
+          "message": "[Search] Round 8: |   Grep: \"arrayFromSegmentBinaryLabelmap|def arrayFromSegment\" \u2192 slicer-source/Base/Python/slicer/util.py"
         }
       ],
       "prompt_build_s": 0.063,
-      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nApply the threshold segmentation\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `ZygomaticImplantPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:ZygomaticImplantPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nAPI keyword hints: apply, threshold effe",
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nApply the threshold effect to create the cranial segment.\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `ZygomaticImplantPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:ZygomaticImplantPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nAPI keyword hin",
       "prompt_includes_ui_analysis": true,
       "deterministic_ui_evidence": {
         "matched": [
+          "CreateColorLegendButton",
           "ThresholdCheckBox",
-          "SegmentationNodeComboBox",
-          "SliceRotateWarningButton",
-          "toolButton_Edit",
-          "AddSegmentButton"
+          "PropertyWidget",
+          "LabelTextPropertyWidget",
+          "TitleTextPropertyWidget"
         ],
         "injected": true
       },
       "executor_ready": true,
       "tool_count": 3,
       "last_progress": {
-        "round": 9,
+        "round": 8,
         "phase": "search",
-        "message": "[Search] Round 9: |   Grep: \"pythonSource|pythonEffect|scriptedEffect\\.\" \u2192 slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx |   VectorSearch: \"segment editor python script set active effect threshold apply programmatically segmentEditorWidget\""
+        "message": "[Search] Round 8: |   Grep: \"arrayFromSegmentBinaryLabelmap|def arrayFromSegment\" \u2192 slicer-source/Base/Python/slicer/util.py"
       },
-      "tool_loop_s": 142.91,
-      "total_tokens": 982559,
-      "total_api_time_s": 102.023,
-      "total_tool_time_s": 31.921,
+      "tool_loop_s": 103.75,
+      "total_tokens": 334455,
+      "total_api_time_s": 66.032,
+      "total_tool_time_s": 32.168,
       "tool_names_called": [
-        "VectorSearch",
         "Grep",
+        "VectorSearch",
         "ReadFile"
       ],
       "rounds": [
         {
           "round": 1,
           "phase": "search",
-          "api_time_s": 3.567,
-          "tool_time_s": 2.172,
-          "round_time_s": 5.74,
-          "tools": [
-            "VectorSearch",
-            "Grep"
-          ],
-          "tokens": 3676
-        },
-        {
-          "round": 2,
-          "phase": "search",
-          "api_time_s": 8.279,
-          "tool_time_s": 16.32,
-          "round_time_s": 24.598,
-          "tools": [
-            "VectorSearch",
-            "Grep"
-          ],
-          "tokens": 45367
-        },
-        {
-          "round": 3,
-          "phase": "read",
-          "api_time_s": 8.353,
-          "tool_time_s": 0.744,
-          "round_time_s": 9.097,
-          "tools": [
-            "ReadFile"
-          ],
-          "tokens": 74441
-        },
-        {
-          "round": 4,
-          "phase": "search",
-          "api_time_s": 4.916,
-          "tool_time_s": 2.441,
-          "round_time_s": 7.357,
+          "api_time_s": 5.065,
+          "tool_time_s": 2.434,
+          "round_time_s": 7.499,
           "tools": [
             "Grep",
             "VectorSearch"
           ],
-          "tokens": 75546
+          "tokens": 3955
+        },
+        {
+          "round": 2,
+          "phase": "read",
+          "api_time_s": 3.248,
+          "tool_time_s": 0.683,
+          "round_time_s": 3.931,
+          "tools": [
+            "ReadFile"
+          ],
+          "tokens": 24086
+        },
+        {
+          "round": 3,
+          "phase": "search",
+          "api_time_s": 4.616,
+          "tool_time_s": 5.691,
+          "round_time_s": 10.307,
+          "tools": [
+            "Grep",
+            "Grep"
+          ],
+          "tokens": 25318
+        },
+        {
+          "round": 4,
+          "phase": "read",
+          "api_time_s": 3.642,
+          "tool_time_s": 0.671,
+          "round_time_s": 4.313,
+          "tools": [
+            "ReadFile"
+          ],
+          "tokens": 33366
         },
         {
           "round": 5,
-          "phase": "search+read",
-          "api_time_s": 8.644,
-          "tool_time_s": 4.797,
-          "round_time_s": 13.442,
+          "phase": "search",
+          "api_time_s": 6.255,
+          "tool_time_s": 4.993,
+          "round_time_s": 11.249,
           "tools": [
             "Grep",
-            "ReadFile"
+            "Grep"
           ],
-          "tokens": 108036
+          "tokens": 39857
         },
         {
           "round": 6,
-          "phase": "read",
-          "api_time_s": 4.099,
-          "tool_time_s": 0.68,
-          "round_time_s": 4.779,
+          "phase": "search",
+          "api_time_s": 6.224,
+          "tool_time_s": 0.201,
+          "round_time_s": 6.426,
           "tools": [
-            "ReadFile"
+            "Grep"
           ],
-          "tokens": 120160
+          "tokens": 50009
         },
         {
           "round": 7,
           "phase": "search",
-          "api_time_s": 9.319,
-          "tool_time_s": 1.717,
-          "round_time_s": 11.036,
+          "api_time_s": 2.937,
+          "tool_time_s": 15.687,
+          "round_time_s": 18.624,
           "tools": [
             "Grep"
           ],
-          "tokens": 126693
+          "tokens": 50140
         },
         {
           "round": 8,
-          "phase": "read",
-          "api_time_s": 4.062,
-          "tool_time_s": 0.75,
-          "round_time_s": 4.812,
+          "phase": "search",
+          "api_time_s": 16.254,
+          "tool_time_s": 1.808,
+          "round_time_s": 18.062,
           "tools": [
-            "ReadFile"
+            "Grep"
           ],
-          "tokens": 128623
+          "tokens": 51958
         },
         {
           "round": 9,
-          "phase": "search",
-          "api_time_s": 30.287,
-          "tool_time_s": 2.301,
-          "round_time_s": 32.587,
-          "tools": [
-            "Grep",
-            "VectorSearch"
-          ],
-          "tokens": 136791
-        },
-        {
-          "round": 10,
           "phase": "generate",
-          "api_time_s": 20.497,
+          "api_time_s": 17.791,
           "tool_time_s": 0.0,
-          "round_time_s": 20.497,
+          "round_time_s": 17.791,
           "tools": [],
-          "tokens": 163226
+          "tokens": 55766
         }
       ],
       "tool_calls_history": [
         {
-          "tool": "VectorSearch",
-          "args": {
-            "query": "apply threshold segmentation segment editor effect python API",
-            "top_k": 10
-          },
-          "result_preview": "VectorSearch: 10 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorThresholdEffect.py (lines 1-1321) [effect_implementation] [Full file included \u2014 no need to ReadFile or VectorSearch this file]\n```\nimport logging\nimport os\nimport weakref\n\nimport ctk\nimport vtk\nimport qt\n\nimport slicer\nfrom SegmentEditorEffects import *\n\nfrom slicer.i18n import tr as _\n\n\nclass SegmentEditorThresholdEffect(AbstractScriptedSegmentEditorEffect):\n    \"\"\"ThresholdEffect is an Effect implementing the global threshold\n    operation in the segment editor\n\n    This is also an example for scripted effects, and some methods have no\n    function. The methods that are not needed (i.e. the default implementation in\n    qSlicerSegmentEditorAbstractEffect is satisfactory) can simply be omitted.\n    \"\"\"\n\n    def __init__(self, scriptedEffect):\n        AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)\n        scriptedEffect.name = \"Threshold\"  # no tr (don't translate it because modules find effects by name)\n        scriptedEffect.title = _(\"Threshold\")\n\n        self.previewedSegmentationDisplayNode = None\n        self.previewedSegmentID = None\n\n        # Effect-specific members\n        import vtkITK\n\n        self.autoThresholdCalculator = vtkITK.vtkITKImageThresholdCalculator()\n\n        self.timer = qt.QTimer()\n        self.previewState = 0\n        self.previewStep = 1\n        self.previewSteps = 5\n        self.timer.connect(\"timeout()\", self.preview)\n\n        self.previewPipelines = {}\n        self.histogramPipeline = None\n        self._sliceCompositeObservers = []\n\n        # Histogram stencil setup\n        self.stencil = vtk.vtkPolyDataToImageStencil()\n\n        # Histogram reslice setup\n        self.reslice = vtk.vtkImageReslice()\n        self.reslice.AutoCropOutputOff()\n        self.reslice.SetOptimization(1)\n        self.reslice.SetOutputOrigin(0, 0, 0)\n        self.reslice.SetOutputSpacing(1, 1,..."
-        },
-        {
           "tool": "Grep",
           "args": {
-            "pattern": "threshold.*segment.*effect|apply.*threshold|SegmentEditorThreshold",
-            "path": "slicer-source/Modules/Scripted/SegmentEditor"
+            "pattern": "setActiveEffectByName",
+            "path": "slicer-source/Docs/developer_guide/script_repository"
           },
-          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+          "result_preview": "Grep: 1 hit(s) in 1 file(s): slicer-source/Docs/developer_guide/script_repository/gui.md (1)"
         },
         {
           "tool": "VectorSearch",
           "args": {
-            "query": "Segment editor python script use effect threshold programmatically set parameters apply",
-            "top_k": 5
+            "query": "Segment Editor threshold effect apply segmentation python",
+            "top_k": 8
           },
-          "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorThresholdEffect.py (lines 1-1321) [effect_implementation] [Full file included \u2014 no need to ReadFile or VectorSearch this file]\n```\nimport logging\nimport os\nimport weakref\n\nimport ctk\nimport vtk\nimport qt\n\nimport slicer\nfrom SegmentEditorEffects import *\n\nfrom slicer.i18n import tr as _\n\n\nclass SegmentEditorThresholdEffect(AbstractScriptedSegmentEditorEffect):\n    \"\"\"ThresholdEffect is an Effect implementing the global threshold\n    operation in the segment editor\n\n    This is also an example for scripted effects, and some methods have no\n    function. The methods that are not needed (i.e. the default implementation in\n    qSlicerSegmentEditorAbstractEffect is satisfactory) can simply be omitted.\n    \"\"\"\n\n    def __init__(self, scriptedEffect):\n        AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)\n        scriptedEffect.name = \"Threshold\"  # no tr (don't translate it because modules find effects by name)\n        scriptedEffect.title = _(\"Threshold\")\n\n        self.previewedSegmentationDisplayNode = None\n        self.previewedSegmentID = None\n\n        # Effect-specific members\n        import vtkITK\n\n        self.autoThresholdCalculator = vtkITK.vtkITKImageThresholdCalculator()\n\n        self.timer = qt.QTimer()\n        self.previewState = 0\n        self.previewStep = 1\n        self.previewSteps = 5\n        self.timer.connect(\"timeout()\", self.preview)\n\n        self.previewPipelines = {}\n        self.histogramPipeline = None\n        self._sliceCompositeObservers = []\n\n        # Histogram stencil setup\n        self.stencil = vtk.vtkPolyDataToImageStencil()\n\n        # Histogram reslice setup\n        self.reslice = vtk.vtkImageReslice()\n        self.reslice.AutoCropOutputOff()\n        self.reslice.SetOptimization(1)\n        self.reslice.SetOutputOrigin(0, 0, 0)\n        self.reslice.SetOutputSpacing(1, 1,..."
-        },
-        {
-          "tool": "Grep",
-          "args": {
-            "pattern": "ZygomaticImplantPlanner",
-            "path": "slicer-extensions/"
-          },
-          "result_preview": "ERROR: ripgrep count failed: Command '['C:\\\\Users\\\\20152\\\\Desktop\\\\slicer-skill\\\\SlicerAgent\\\\Slicer_agent\\\\SlicerAIAgentLib\\\\bin\\\\rg.exe', '-i', '--count-matches', '--no-heading', 'ZygomaticImplantPlanner', 'C:\\\\Users\\\\20152\\\\Desktop\\\\slicer-skill\\\\SlicerAgent\\\\Slicer_agent\\\\Resources\\\\Skills\\\\slicer-skill-full\\\\slicer-extensions/']' timed out after 15 seconds"
+          "result_preview": "VectorSearch: 8 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorThresholdEffect.py (lines 1-1321) [effect_implementation] [Full file included \u2014 no need to ReadFile or VectorSearch this file]\n```\nimport logging\nimport os\nimport weakref\n\nimport ctk\nimport vtk\nimport qt\n\nimport slicer\nfrom SegmentEditorEffects import *\n\nfrom slicer.i18n import tr as _\n\n\nclass SegmentEditorThresholdEffect(AbstractScriptedSegmentEditorEffect):\n    \"\"\"ThresholdEffect is an Effect implementing the global threshold\n    operation in the segment editor\n\n    This is also an example for scripted effects, and some methods have no\n    function. The methods that are not needed (i.e. the default implementation in\n    qSlicerSegmentEditorAbstractEffect is satisfactory) can simply be omitted.\n    \"\"\"\n\n    def __init__(self, scriptedEffect):\n        AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)\n        scriptedEffect.name = \"Threshold\"  # no tr (don't translate it because modules find effects by name)\n        scriptedEffect.title = _(\"Threshold\")\n\n        self.previewedSegmentationDisplayNode = None\n        self.previewedSegmentID = None\n\n        # Effect-specific members\n        import vtkITK\n\n        self.autoThresholdCalculator = vtkITK.vtkITKImageThresholdCalculator()\n\n        self.timer = qt.QTimer()\n        self.previewState = 0\n        self.previewStep = 1\n        self.previewSteps = 5\n        self.timer.connect(\"timeout()\", self.preview)\n\n        self.previewPipelines = {}\n        self.histogramPipeline = None\n        self._sliceCompositeObservers = []\n\n        # Histogram stencil setup\n        self.stencil = vtk.vtkPolyDataToImageStencil()\n\n        # Histogram reslice setup\n        self.reslice = vtk.vtkImageReslice()\n        self.reslice.AutoCropOutputOff()\n        self.reslice.SetOptimization(1)\n        self.reslice.SetOutputOrigin(0, 0, 0)\n        self.reslice.SetOutputSpacing(1, 1,..."
         },
         {
           "tool": "ReadFile",
           "args": {
             "path": "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "query": "Use Segment editor effects from script"
+            "query": "Segment editor effects from script"
           },
           "result_preview": "#### Use Segment editor effects from script (qMRMLSegmentEditorWidget)\n\nExamples:\n\n- [brain tumor segmentation using grow from seeds effect](https://gist.github.com/lassoan/2d5a5b73645f65a5eb6f8d5f97abf31b)\n- [AI-assisted brain tumor segmentation](https://gist.github.com/lassoan/ef30bc27a22a648ead7f82243f5cc7d5)\n- [skin surface extraction using thresholding and smoothing](https://gist.github.com/lassoan/1673b25d8e7913cbc245b4f09ed853f9)\n- [mask a volume with segments and compute histogram for each region](https://gist.github.com/lassoan/2f5071c562108dac8efe277c78f2620f)\n- [create fat/muscle/bone segment by thresholding and report volume of each segment](https://gist.github.com/lassoan/5ad51c89521d3cd9c5faf65767506b37)\n- [segment cranial cavity automatically in dry bone skull CT](https://gist.github.com/lassoan/4d0b94bda52d5b099432e424e03aa2b1)\n- [remove patient table from CT image](https://gist.github.com/lassoan/84d1f9a093dbb6a46c0fcc89279d8088)\n- [fill holes inside bones](https://gist.github.com/lassoan/0f45db8bae792ea19ccad36ceefbf52d)\n\nDescription of effect parameters are available [here](/developer_guide/modules/segmenteditor.md#effect-parameters).\n\n"
         },
         {
           "tool": "Grep",
           "args": {
-            "pattern": "segmentEditorWidget|SegmentEditorWidget|setEffect|selectEffect.*Threshold",
-            "path": "slicer-source/Base/Python"
+            "pattern": "setActiveEffectByName",
+            "path": "slicer-source/Modules/Loadable/Segmentations"
           },
-          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
-        },
-        {
-          "tool": "VectorSearch",
-          "args": {
-            "query": "segment editor widget python script set effect threshold parameters apply",
-            "top_k": 5
-          },
-          "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorMarginEffect.py (lines 1-251) [effect_implementation] [Full file included \u2014 no need to ReadFile or VectorSearch this file]\n```\nimport logging\nimport math\nimport os\n\nimport qt\nimport vtk\n\nimport slicer\nfrom slicer.i18n import tr as _\n\nfrom SegmentEditorEffects import *\n\n\nclass SegmentEditorMarginEffect(AbstractScriptedSegmentEditorEffect):\n    \"\"\"MaringEffect grows or shrinks the segment by a specified margin\"\"\"\n\n    def __init__(self, scriptedEffect):\n        scriptedEffect.name = \"Margin\"  # no tr (don't translate it because modules find effects by name)\n        scriptedEffect.title = _(\"Margin\")\n        AbstractScriptedSegmentEditorEffect.__init__(self, scriptedEffect)\n\n    def clone(self):\n        import qSlicerSegmentationsEditorEffectsPythonQt as effects\n\n        clonedEffect = effects.qSlicerSegmentEditorScriptedEffect(None)\n        clonedEffect.setPythonSource(__file__.replace(\"\\\\\", \"/\"))\n        return clonedEffect\n\n    def icon(self):\n        iconPath = os.path.join(os.path.dirname(__file__), \"Resources/Icons/Margin.png\")\n        if os.path.exists(iconPath):\n            return qt.QIcon(iconPath)\n        return qt.QIcon()\n\n    def helpText(self):\n        return _(\"Grow or shrink selected segment by specified margin size.\")\n\n    def setupOptionsFrame(self):\n        operationLayout = qt.QVBoxLayout()\n\n        self.shrinkOptionRadioButton = qt.QRadioButton(_(\"Shrink\"))\n        self.growOptionRadioButton = qt.QRadioButton(_(\"Grow\"))\n        operationLayout.addWidget(self.shrinkOptionRadioButton)\n        operationLayout.addWidget(self.growOptionRadioButton)\n        self.growOptionRadioButton.setChecked(True)\n\n        self.scriptedEffect.addLabeledOptionsWidget(_(\"Operation:\"), operationLayout)\n\n        self.marginSizeMMSpinBox = slicer.qMRMLSpinBox()\n        self.marginSizeMMSpinBox.setMRMLScene(slicer.mrmlScene)\n..."
+          "result_preview": "Grep: 3 hit(s) in 2 file(s): slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx (2), slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h (1)"
         },
         {
           "tool": "Grep",
           "args": {
-            "pattern": "qMRMLSegmentEditorWidget|segmentEditorWidget.*threshold|segmentEditor.*Threshold",
-            "path": "slicer-source/Modules/Loadable/Segmentations"
+            "pattern": "qMRMLSegmentEditorWidget\\(\\)",
+            "path": "slicer-source"
           },
-          "result_preview": "Grep: 335 hit(s) in 14 file(s): slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx (273), slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h (22), slicer-source/Modules/Loadable/Segmentations/Widgets/DesignerPlugins/qMRMLSegmentEditorWidgetPlugin.cxx (14), slicer-source/Modules/Loadable/Segmentations/Widgets/Resources/UI/qMRMLSegmentEditorWidget.ui (5), slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationWidgetsTest1.py (4)"
-        },
-        {
-          "tool": "ReadFile",
-          "args": {
-            "path": "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "query": "segment editor widget programmatical"
-          },
-          "result_preview": "## Segmentations\n\n### Load a 3D image or model file as segmentation\n\n```python\n# Load segmentation from .seg.nrrd file (includes segment names and colors)\nslicer.util.loadSegmentation(\"c:/tmp/tmp/Segmentation.nrrd\")\n\n# Create segmentation from a NIFTI + color table file\ncolorNode = slicer.util.loadColorTable('c:/tmp/tmp/Segmentation-label_ColorTable.ctbl')\nslicer.util.loadSegmentation(\"c:/tmp/tmp/Segmentation.nii\", {'colorNodeID': colorNode.GetID()})\n\n# Create segmentation from a STL file\nslicer.util.loadSegmentation(\"c:/tmp/Segment_1.stl\")\n```\n\n### Create a segmentation from a labelmap volume and display in 3D\n\n```python\nlabelmapVolumeNode = getNode(\"label\")\nseg = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nslicer.modules.segmentations.logic().ImportLabelmapToSegmentationNode(labelmapVolumeNode, seg)\nseg.CreateClosedSurfaceRepresentation()\nslicer.mrmlScene.RemoveNode(labelmapVolumeNode)\n```\n\nThe last line is optional. It removes the original labelmap volume so that the same information is not shown twice.\n\n### Create segmentation from a model node\n\n```python\n# Create some model that will be added to a segmentation node\nsphere = vtk.vtkSphereSource()\nsphere.SetCenter(-6, 30, 28)\nsphere.SetRadius(10)\nmodelNode = slicer.modules.models.logic().AddModel(sphere.GetOutputPort())\n\n# Create segmentation\nsegmentationNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentationNode\")\nsegmentationNode.CreateDefaultDisplayNodes() # only needed for display\n\n# Import the model into the segmentation node\nslicer.modules.segmentations.logic().ImportModelToSegmentationNode(modelNode, segmentationNode)\n```\n\n### Export labelmap node from segmentation node\n\nExport labelmap matching reference geometry of the segmentation:\n\n```python\nsegmentationNode = getNode(\"Segmentation\")\nlabelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLLabelMapVolumeNode\")\nslicer.modules.segmentations.logic().ExportAllSegmentsToLabelmapNode(segmentationNode, labelmapVolumeNode, slice..."
+          "result_preview": "Grep: 7 hit(s) in 6 file(s): slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationWidgetsTest1.py (2), slicer-source/Utilities/Templates/Modules/ScriptedSegmentEditorEffect/SegmentEditorTemplateKey.py (1), slicer-source/Modules/Scripted/SegmentEditor/SegmentEditor.py (1), slicer-source/Extensions/Testing/ScriptedSegmentEditorEffectExtensionTemplate/ScriptedSegmentEditorEffectModuleTemplate/SegmentEditorScriptedSegmentEditorEffectModuleTemplate.py (1), slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h (1)"
         },
         {
           "tool": "ReadFile",
@@ -1120,33 +889,42 @@
         {
           "tool": "Grep",
           "args": {
-            "pattern": "setActiveEffectByName|activeEffect|onApply.*click|setEffect",
-            "path": "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx"
+            "path": "slicer-source",
+            "pattern": "activeEffect\\(\\)"
           },
-          "result_preview": "Grep: 60 hit(s) in 1 file(s): slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx (60)"
-        },
-        {
-          "tool": "ReadFile",
-          "args": {
-            "path": "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h"
-          },
-          "result_preview": "/*==============================================================================\n\n  Program: 3D Slicer\n\n  Copyright (c) Laboratory for Percutaneous Surgery (PerkLab)\n  Queen's University, Kingston, ON, Canada. All Rights Reserved.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Unless required by applicable law or agreed to in writing, software\n  distributed under the License is distributed on an \"AS IS\" BASIS,\n  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n  See the License for the specific language governing permissions and\n  limitations under the License.\n\n  This file was originally developed by Csaba Pinter, PerkLab, Queen's University\n  and was supported through the Applied Cancer Research Unit program of Cancer Care\n  Ontario with funds provided by the Ontario Ministry of Health and Long-Term Care\n\n==============================================================================*/\n\n#ifndef __qMRMLSegmentEditorWidget_h\n#define __qMRMLSegmentEditorWidget_h\n\n// Segmentations includes\n#include \"qSlicerSegmentationsModuleWidgetsExport.h\"\n\n// MRMLWidgets includes\n#include \"qMRMLWidget.h\"\n\n// Qt includes\n#include <QDebug>\n#include <QVariant>\n\n// CTK includes\n#include <ctkVTKObject.h>\n\n// STD includes\n#include <cstdlib>\n\nclass vtkMRMLNode;\nclass vtkMRMLInteractionNode;\nclass vtkMRMLSegmentationNode;\nclass vtkMRMLSegmentEditorNode;\nclass vtkMRMLVolumeNode;\nclass vtkObject;\nclass QItemSelection;\nclass QAbstractButton;\nclass qMRMLSegmentEditorWidgetPrivate;\nclass qSlicerSegmentEditorAbstractEffect;\nclass qSlicerAbstractModuleWidget;\n\n/// \\brief Qt widget for editing a segment from a segmentation using Editor effects.\n///\n/// Widget for editing segmentations that can be reused in any module.\n///\n/// IMPORTANT: The embedding module is responsible for setting the MRML scene and the\n///   management of the \\sa vtkMRMLSegmentEditorNode parameter set node.\n///   The empty parameter set node should be set before t..."
+          "result_preview": "Grep: 16 hit(s) in 6 file(s): slicer-source/Modules/Loadable/Markups/Testing/Python/NeurosurgicalPlanningTutorialMarkupsSelfTest.py (6), slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h (3), slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx (3), slicer-source/Docs/developer_guide/script_repository/gui.md (2), slicer-source/Utilities/Templates/Modules/ScriptedSegmentEditorEffect/SegmentEditorTemplateKey.py (1)"
         },
         {
           "tool": "Grep",
           "args": {
-            "pattern": "pythonSource|pythonEffect|scriptedEffect\\.",
-            "path": "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx"
+            "path": "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h",
+            "pattern": "setSourceVolumeNode|activeEffect|effectByName"
           },
-          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+          "result_preview": "Grep: 21 hit(s) in 1 file(s): slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h (21)"
         },
         {
-          "tool": "VectorSearch",
+          "tool": "Grep",
           "args": {
-            "query": "segment editor python script set active effect threshold apply programmatically segmentEditorWidget",
-            "top_k": 5
+            "path": "ext:ZygomaticImplantPlanner",
+            "pattern": "Threshold|cranial|Cranial"
           },
-          "result_preview": "VectorSearch: 5 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 548-562) [doc_example] similarity:0.673 boosted:0.875\n```markdown\n#### Use Segment editor effects from script (qMRMLSegmentEditorWidget)\n\nExamples:\n\n- [brain tumor segmentation using grow from seeds effect](https://gist.github.com/lassoan/2d5a5b73645f65a5eb6f8d5f97abf31b)\n- [AI-assisted brain tumor segmentation](https://gist.github.com/lassoan/ef30bc27a22a648ead7f82243f5cc7d5)\n- [skin surface extraction using thresholding and smoothing](https://gist.github.com/lassoan/1673b25d8e7913cbc245b4f09ed853f9)\n- [mask a volume with segments and compute histogram for each region](https://gist.github.com/lassoan/2f5071c562108dac8efe277c78f2620f)\n- [create fat/muscle/bone segment by thresholding and report volume of each segment](https://gist.github.com/lassoan/5ad51c89521d3cd9c5faf65767506b37)\n- [segment cranial cavity automatically in dry bone skull CT](https://gist.github.com/lassoan/4d0b94bda52d5b099432e424e03aa2b1)\n- [remove patient table from CT image](https://gist.github.com/lassoan/84d1f9a093dbb6a46c0fcc89279d8088)\n- [fill holes inside bones](https://gist.github.com/lassoan/0f45db8bae792ea19ccad36ceefbf52d)\n\nDescription of effect parameters are available [here](/developer_guide/modules/segmenteditor.md#effect-parameters).\n```\n\n[2] slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorThresholdEffect.py (lines 1-1321) [effect_implementation] [Full file included \u2014 no need to ReadFile or VectorSearch this file]\n```\nimport logging\nimport os\nimport weakref\n\nimport ctk\nimport vtk\nimport qt\n\nimport slicer\nfrom SegmentEditorEffects import *\n\nfrom slicer.i18n import tr as _\n\n\nclass SegmentEditorThresholdEffect(AbstractScriptedSegmentEditorEffect):\n    \"\"\"ThresholdEffect is an Effect implementing the global threshold\n    operation in the segment editor\n\n    This is also an example for scripted effects, and s..."
+          "result_preview": "ERROR: Path not found: ext:ZygomaticImplantPlanner"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-extensions",
+            "pattern": "ZygomaticImplantPlanner"
+          },
+          "result_preview": "ERROR: ripgrep count failed: Command '['C:\\\\Users\\\\20152\\\\Desktop\\\\slicer-skill\\\\SlicerAgent\\\\Slicer_agent\\\\SlicerAIAgentLib\\\\bin\\\\rg.exe', '-i', '--count-matches', '--no-heading', 'ZygomaticImplantPlanner', 'C:\\\\Users\\\\20152\\\\Desktop\\\\slicer-skill\\\\SlicerAgent\\\\Slicer_agent\\\\Resources\\\\Skills\\\\slicer-skill-full\\\\slicer-extensions']' timed out after 15 seconds"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Base/Python/slicer/util.py",
+            "pattern": "arrayFromSegmentBinaryLabelmap|def arrayFromSegment"
+          },
+          "result_preview": "Grep: 5 hit(s) in 1 file(s): slicer-source/Base/Python/slicer/util.py (5)"
         }
       ],
       "evidence_audit": {
@@ -1161,60 +939,55 @@
         },
         "source_verification": {
           "non_ui_result_files": [
+            "slicer-source/Docs/developer_guide/script_repository",
+            "slicer-source/Docs/developer_guide/script_repository/gui.md",
             "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorThresholdEffect.py",
             "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
+            "slicer-source/Docs/developer_guide/script_repository/volumes.md",
             "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorFillBetweenSlicesEffect.py",
-            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorHollowEffect.py",
-            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorSmoothingEffect.py",
-            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/AbstractScriptedSegmentEditorAutoCompleteEffect.py",
-            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorMarginEffect.py",
-            "slicer-source/Modules/Scripted/SegmentEditor",
-            "slicer-source/Base/Python",
             "slicer-source/Modules/Loadable/Segmentations",
             "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.cxx",
             "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h",
-            "slicer-source/Modules/Loadable/Segmentations/Widgets/DesignerPlugins/qMRMLSegmentEditorWidgetPlugin.cxx",
-            "slicer-source/Modules/Loadable/Segmentations/Widgets/Resources/UI/qMRMLSegmentEditorWidget.ui",
+            "slicer-source",
             "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationWidgetsTest1.py",
-            "slicer-source/Modules/Loadable/Segmentations/Widgets/DesignerPlugins/qMRMLSegmentEditorWidgetPlugin.h",
-            "slicer-source/Modules/Loadable/Segmentations/Widgets/CMakeLists.txt",
-            "slicer-source/Modules/Loadable/Segmentations/Widgets/DesignerPlugins/CMakeLists.txt",
-            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/__init__.py",
-            "slicer-source/Modules/Loadable/Segmentations/Widgets/DesignerPlugins/qSlicerSegmentationsModuleWidgetsPlugin.h"
+            "slicer-source/Utilities/Templates/Modules/ScriptedSegmentEditorEffect/SegmentEditorTemplateKey.py",
+            "slicer-source/Modules/Scripted/SegmentEditor/SegmentEditor.py",
+            "slicer-source/Extensions/Testing/ScriptedSegmentEditorEffectExtensionTemplate/ScriptedSegmentEditorEffectModuleTemplate/SegmentEditorScriptedSegmentEditorEffectModuleTemplate.py",
+            "slicer-source/Modules/Loadable/Markups/Testing/Python/NeurosurgicalPlanningTutorialMarkupsSelfTest.py",
+            "slicer-source/Base/Python/slicer/util.py"
           ],
           "source_type_counts": {
-            "effect_implementation": 19,
-            "doc_example": 11,
-            "ui_implementation": 10,
+            "doc_example": 9,
+            "effect_implementation": 2,
+            "ui_implementation": 7,
             "test_example": 3,
-            "loadable_module": 1
+            "source": 4,
+            "scripted_module": 1,
+            "python_api": 1
           }
         },
         "searches": {
           "vector_queries": [
-            "apply threshold segmentation segment editor effect python API",
-            "Segment editor python script use effect threshold programmatically set parameters apply",
-            "segment editor widget python script set effect threshold parameters apply",
-            "segment editor python script set active effect threshold apply programmatically segmentEditorWidget"
+            "Segment Editor threshold effect apply segmentation python"
           ],
           "grep_patterns": [
-            "threshold.*segment.*effect|apply.*threshold|SegmentEditorThreshold",
+            "setActiveEffectByName",
+            "qMRMLSegmentEditorWidget\\(\\)",
+            "activeEffect\\(\\)",
+            "setSourceVolumeNode|activeEffect|effectByName",
+            "Threshold|cranial|Cranial",
             "ZygomaticImplantPlanner",
-            "segmentEditorWidget|SegmentEditorWidget|setEffect|selectEffect.*Threshold",
-            "qMRMLSegmentEditorWidget|segmentEditorWidget.*threshold|segmentEditor.*Threshold",
-            "setActiveEffectByName|activeEffect|onApply.*click|setEffect",
-            "pythonSource|pythonEffect|scriptedEffect\\."
+            "arrayFromSegmentBinaryLabelmap|def arrayFromSegment"
           ],
           "read_paths": [
             "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationWidgetsTest1.py",
-            "slicer-source/Modules/Loadable/Segmentations/Widgets/qMRMLSegmentEditorWidget.h"
+            "slicer-source/Modules/Loadable/Segmentations/Testing/Python/SegmentationWidgetsTest1.py"
           ]
         }
       },
-      "reasoning_chars": 19126,
-      "reasoning_preview": "[Round 1]\nThe user wants a Python code template for applying threshold segmentation in 3D Slicer, specifically for the ZygomaticImplantPlanner extension. Let me search for relevant API examples first.\n\nLet me search for how to apply threshold segmentation in the Segment Editor.\n\n[Round 2]\nI found the full source code of the Threshold effect. Now I need to generate a Python code template for applying the threshold segmentation. The operation \"apply the threshold segmentation\" means using the Segment Editor's Threshold effect to apply thresholding.\n\nLooking at the `onApply` method in `SegmentEditorThresholdEffect.py`, I can see exactly how the threshold is applied:\n\n1. Get source volume image data\n2. Get modifier labelmap\n3. Get min and max threshold values\n4. Save state for undo\n5. Perform thresholding using `vtk.vtkImageThreshold`\n6. Apply changes using `self.scriptedEffect.modifySelectedSegmentByLabelmap`\n\nFor the ZygomaticImplantPlanner extension, I need to check if there's any extension-specific behavior. Let me search for the extension source.\n\nActually, the description says \"This operation belongs to the extension ZygomaticImplantPlanner.\" But the user's request is just \"Apply the threshold segmentation\" - this seems to be about using the standard Segment Editor Threshold effect programmatically, not about any extension-specific custom layout or registered constant. So I should just generate the code for applying threshold programmatically.\n\nLet me look at the official documentation example for how to use segment editor effects from script.\n\n[Round 3]\nThe ZygomaticImplantPlanner extension search timed out, but the operation \"apply the threshold segmentation\" is a standard Segment Editor effect operation. Since the extension is referenced but the operation itself is just applying the standard threshold effect, I don't need any extension-specific artifacts.\n\nNow let me look at the `onApply` method in the `SegmentEditorThresholdEffect` more carefully. The key code path is:\n\n```python\ndef onApply(self):\n    if not self.scriptedEffect.confirmCurrentSegmentVisible():\n        return\n    try:\n        masterImageData = self.scriptedEffect.sourceVolumeImageData()\n        modifierLabelmap = self.scriptedEffect.defaultModifierLabelmap()\n        originalImageToWorldMatrix = vtk.vtkMatrix4x4()\n        modifierLabelmap.GetImageToWorldMatrix(originalImageToWorldMatrix)\n        min = self.scriptedEffect.doubleParameter(\"MinimumThreshold\")\n        max = self.scriptedEffect.doubleParameter(\"MaximumThreshold\")\n        self.scriptedEffect.saveStateForUndo()\n        \n        thresh = vtk.vtkImageThreshold()\n        thresh.SetInputData(masterImageData)\n        thresh.ThresholdBetween(min, max)\n        thresh.SetInValue(1)\n        thresh.SetOutValue(0)\n        thresh.SetOutputScalarType(modifierLabelmap.GetScalarType())\n        thresh.Update()\n        modifierLabelmap.DeepCopy(thresh.GetOutput())\n    except IndexError:\n        logging.error(\"apply: Failed to thresh",
-      "generated_code_preview": "import vtk\nimport slicer\n\n# --- Resolve input nodes ---\n# Find the segmentation node (fuzzy name match)\nsegmentationNode = None\nfor node in slicer.mrmlScene.GetNodesByClass(\"vtkMRMLSegmentationNode\"):\n    if \"Segmentation\" in node.GetName():\n        segmentationNode = node\n        break\nif not segmentationNode:\n    raise RuntimeError(\"No suitable segmentation node found\")\n\n# Find the source volume node (fuzzy name match)\nsourceVolumeNode = None\nfor node in slicer.mrmlScene.GetNodesByClass(\"vtkMRMLScalarVolumeNode\"):\n    if \"Volume\" in node.GetName():\n        sourceVolumeNode = node\n        break\nif not sourceVolumeNode:\n    raise RuntimeError(\"No suitable source volume node found\")\n\n# --- Set up segment editor ---\nsegmentEditorNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentEditorNode\")\n\nsegmentEditorWidget = slicer.qMRMLSegmentEditorWidget()\nsegmentEditorWidget.setMRMLScene(slicer.mrmlScene)\nsegmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)\nsegmentEditorWidget.setSegmentationNode(segmentationNode)\nsegmentEditorWidget.setSourceVolumeNode(sourceVolumeNode)\n\n# Activate the Threshold effect\nsegmentEditorWidget.setActiveEffectByName(\"Threshold\")\n\n# --- Set threshold parameters ---\n# Customize these threshold values as needed\nminThreshold = 100.0\nmaxThreshold = 300.0\n\nsegmentEditorNode.SetParameter(\"MinimumThreshold\", str(minThreshold))\nsegmentEditorNode.SetParameter(\"MaximumThreshold\", str(maxThreshold))\n\n# --- Trigger the Apply operation ---\n# Access the active effect's Python object and call its onApply method\neffect = segmentEditorWidget.activeEffect()\nif effect is None:\n    raise RuntimeError(\"Threshold effect could not be activated\")\n\n# The C++ wrapper qSlicerSegmentEditorScriptedEffect gives access to the\n# Python effect instance via the pythonSource attribute.  We retrieve the\n# Python effect object by looking up the loaded module's class instance.\n# The effect's Python class is instantiated by the wrapper and its methods\n# (including onApp"
+      "reasoning_chars": 20332,
+      "reasoning_preview": "[Round 1]\nLet me analyze this operation. The user wants to apply the threshold effect to create the cranial segment in the context of the ZygomaticImplantPlanner extension. This is about Segment Editor, Threshold effect, Apply.\n\nThe API keywords: Segment Editor, Threshold, Apply, vtkMRMLSegmentationNode.\n\nThis is a common Slicer scripting operation. The standard approach for threshold in segment editor:\n\n```python\nsegmentEditorWidget = slicer.qMRMLSegmentEditorWidget()\nsegmentEditorWidget.setMRMLScene(slicer.mrmlScene)\nsegmentEditorNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentEditorNode\")\nsegmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)\nsegmentEditorWidget.setSegmentationNode(segmentationNode)\nsegmentEditorWidget.setActiveEffectByName(\"Threshold\")\neffect = segmentEditorWidget.activeEffect()\neffect.setParameter(\"MinimumThreshold\", ...)\neffect.setParameter(\"MaximumThreshold\", ...)\neffect.self().onApply()\n```\n\nThis is from the script repository. Let me search for the segment editor threshold example.\n\nLet me search the knowledge base for this pattern.\n\n[Round 2]\nI have the SegmentEditorThresholdEffect source. Now I need the segment editor script example to get the standard pattern for using effects from script. Let me look at the segmentations.md doc around \"Use Segment editor effects from script\". Let me read the relevant section.\n\n[Round 3]\nThe segmentations.md doc references gist examples. Let me find the canonical pattern for using segment editor effects from script. The standard pattern (from Slicer community / gist examples) is:\n\n```python\nfrom SegmentEditorEffects import *\nsegmentationNode = ... # get or create\nsegmentEditorWidget = slicer.qMRMLSegmentEditorWidget()\nsegmentEditorWidget.setMRMLScene(slicer.mrmlScene)\nsegmentEditorNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentEditorNode\")\nsegmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)\nsegmentEditorWidget.setSegmentationNode(segmentationNode)\nsegmentEditorWidget.setSourceVolumeNode(volumeNode)\nsegmentEditorWidget.setActiveEffectByName(\"Threshold\")\neffect = segmentEditorWidget.activeEffect()\neffect.setParameter(\"MinimumThreshold\", 100)\neffect.setParameter(\"MaximumThreshold\", 3000)\neffect.self().onApply()\n```\n\nLet me verify by searching the Slicer source for tests using this pattern. Let me search for `qMRMLSegmentEditorWidget` and `setActiveEffectByName` and `onApply` in the source.\n\n[Round 4]\nLet me read the relevant test section of SegmentationWidgetsTest1.py to see the standard pattern for using the segment editor widget, including threshold effect and onApply.\n\n[Round 5]\nNow let me confirm the effect usage pattern from script. The known pattern for applying threshold via script:\n\n```python\nsegmentEditorWidget = slicer.qMRMLSegmentEditorWidget()\nsegmentEditorWidget.setMRMLScene(slicer.mrmlScene)\nsegmentEditorNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentEditorNode\")\nsegmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)",
+      "generated_code_preview": "import numpy as np\n\n# Resolve source volume (CT) by fuzzy name match\nsourceVolume = None\nfor node in slicer.mrmlScene.GetNodesByClass(\"vtkMRMLScalarVolumeNode\"):\n    if \"CT\" in node.GetName():\n        sourceVolume = node\n        break\nif sourceVolume is None:\n    raise RuntimeError(\"STATE_NOT_APPLIED: source volume not found\")\n\n# Resolve segmentation node by fuzzy name match\nsegmentationNode = None\nfor node in slicer.mrmlScene.GetNodesByClass(\"vtkMRMLSegmentationNode\"):\n    if \"Segmentation\" in node.GetName():\n        segmentationNode = node\n        break\nif segmentationNode is None:\n    raise RuntimeError(\"STATE_NOT_APPLIED: segmentation node not found\")\n\n# Ensure the target \"Cranial\" segment exists\nsegmentName = \"Cranial\"\nsegmentation = segmentationNode.GetSegmentation()\nsegmentId = segmentation.GetSegmentIdBySegmentName(segmentName)\nif not segmentId:\n    segment = slicer.vtkSegment()\n    segment.SetName(segmentName)\n    segment.SetColor(0.9, 0.9, 0.9)\n    segmentation.AddSegment(segment)\n    segmentId = segmentation.GetSegmentIdBySegmentName(segmentName)\n\n# Create/reuse a segment editor parameter node\nsegmentEditorNode = slicer.mrmlScene.GetFirstNodeByClass(\"vtkMRMLSegmentEditorNode\")\nif segmentEditorNode is None:\n    segmentEditorNode = slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLSegmentEditorNode\")\n\n# Set up a segment editor widget bound to the scene, segmentation, and source volume\nsegmentEditorWidget = slicer.qMRMLSegmentEditorWidget()\nsegmentEditorWidget.setMRMLScene(slicer.mrmlScene)\nsegmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)\nsegmentEditorWidget.setSegmentationNode(segmentationNode)\nsegmentEditorWidget.setSourceVolumeNode(sourceVolume)\n\n# Select the target segment so the threshold result is written into it\nsegmentEditorNode.SetSelectedSegmentID(segmentId)\n\n# Activate the Threshold effect and set the intensity range (CT bone/cranial values)\nminimumThreshold = {minimum_threshold: 200}\nmaximumThreshold = {maximum_threshold: 3000}\nsegmentEdi"
     }
   ]
 }

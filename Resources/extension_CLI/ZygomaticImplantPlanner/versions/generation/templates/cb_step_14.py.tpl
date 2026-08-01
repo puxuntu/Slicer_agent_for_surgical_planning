@@ -1,4 +1,5 @@
 # --- ZygomaticImplantPlanner: Click the "2. Cut skull (cylinder)" button. ---
+# [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -28,5 +29,5 @@ if _widget is None:
 if not hasattr(_widget, 'onStep2'):
     raise RuntimeError("ZygomaticImplantPlanner widget has no handler 'onStep2' for 'step2Button'; regenerate the CLI.")
 _widget.onStep2()
-print("[ZygomaticImplantPlanner] Step 'cb_step_11': clicked 'step2Button' via onStep2().")
+print("[ZygomaticImplantPlanner] Step 'cb_step_14': clicked 'step2Button' via onStep2().")
 

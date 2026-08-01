@@ -10,8 +10,8 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select the source volume for segmentation.",
-      "instruction": "Select the volume from the Source Volume section.",
+      "title": "Choose the source volume",
+      "instruction": "Select the volume to use for segmentation.",
       "done_label": "Done",
       "choice_label": "Volume",
       "input_label": "Volume",
@@ -32,42 +32,26 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "choice_input",
-        "node_class": "vtkMRMLNode",
-        "parameter_name": "",
-        "step_id": "cb_step_1"
-      }
-    ],
     "choice_descriptor": {
-      "question": "Select the source volume for segmentation.",
+      "question": "Choose the volume to use for segmentation",
       "choices": [],
       "parameter_name": "sourceVolume",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select the source volume for segmentation.",
-        "instruction": "Select the volume from the Source Volume section.",
+        "title": "Choose the source volume",
+        "instruction": "Select the volume to use for segmentation.",
         "done_label": "Done",
         "choice_label": "Volume",
         "input_label": "Volume",
         "object_label": "volume",
         "repeat": {}
-      },
-      "node_roles": [
-        {
-          "role_kind": "choice_input",
-          "node_class": "vtkMRMLNode",
-          "parameter_name": "",
-          "step_id": "cb_step_1"
-        }
-      ]
+      }
     },
     "sub_operations": [
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the source volume for skull segmentation",
+        "description": "Select the source volume to segment.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -75,7 +59,11 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "Segment Editor",
+          "source volume",
+          "select volume"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -86,18 +74,11 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "choice_input",
-            "node_class": "vtkMRMLNode",
-            "parameter_name": "",
-            "step_id": "cb_step_1"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Select the source volume for segmentation.",
+        "question": "Choose the volume to use for segmentation",
         "choices": [],
         "parameter_name": "sourceVolume",
         "default_value": null,
@@ -116,8 +97,8 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Create segmentation named 'Cranial_Segmentation'.",
-      "instruction": "",
+      "title": "Create a new segmentation",
+      "instruction": "In the Segment Editor module, create a new segmentation named Cranial_Segmentation.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -128,20 +109,22 @@
       "source": "ground_api",
       "accepted_footprints": [
         "AddNewNodeByClass",
-        "CreateDefaultDisplayNodes",
         "GetName",
         "mrmlScene",
         "vtkMRMLSegmentationNode",
+        "CreateDefaultDisplayNodes",
         "GetItemAsObject",
         "GetNodesByClass",
         "GetNumberOfItems",
         "SetAttribute"
       ],
       "api_chains": [
-        "segmentationNode.CreateDefaultDisplayNodes",
         "segmentationNode.GetName",
         "slicer.mrmlScene.AddNewNodeByClass",
+        "_ses_all.GetItemAsObject",
+        "_ses_all.GetNumberOfItems",
         "_ses_c.GetName",
+        "_ses_o.SetAttribute",
         "_ses_seg.CreateDefaultDisplayNodes",
         "_ses_seg.GetName",
         "_ses_seg.SetAttribute",
@@ -152,14 +135,16 @@
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
       ],
       "operation_descriptions": [
-        "Create a new segmentation node named 'Cranial_Segmentation'"
+        "Create a new segmentation named Cranial_Segmentation."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "slicer.mrmlScene.AddNewNodeByClass",
-        "vtkMRMLSegmentationNode"
+        "vtkMRMLSegmentationNode",
+        "AddNewNodeByClass",
+        "Segment Editor",
+        "create segmentation"
       ]
     },
     "operation_model": {
@@ -178,9 +163,9 @@
     },
     "node_roles": [
       {
-        "role_kind": "extension_output",
+        "role_kind": "extension_input",
         "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": "",
+        "parameter_name": "segmentation",
         "step_id": "cb_step_2"
       }
     ],
@@ -189,7 +174,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Create a new segmentation node named 'Cranial_Segmentation'",
+        "description": "Create a new segmentation named Cranial_Segmentation.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -198,8 +183,10 @@
         "target_value_mode": null,
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "slicer.mrmlScene.AddNewNodeByClass",
-          "vtkMRMLSegmentationNode"
+          "vtkMRMLSegmentationNode",
+          "AddNewNodeByClass",
+          "Segment Editor",
+          "create segmentation"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -215,9 +202,9 @@
         "operation_intents": [],
         "node_roles": [
           {
-            "role_kind": "extension_output",
+            "role_kind": "extension_input",
             "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": "",
+            "parameter_name": "segmentation",
             "step_id": "cb_step_2"
           }
         ],
@@ -238,8 +225,8 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Add a segment and rename to 'Cranial_Segment'.",
-      "instruction": "",
+      "title": "Add a segment",
+      "instruction": "Click Add, then rename the segment to Cranial_Segment.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -250,13 +237,10 @@
       "source": "ground_api",
       "accepted_footprints": [
         "AddEmptySegment",
-        "GetFirstNodeByClass",
         "GetName",
         "GetNodesByClass",
         "GetSegment",
         "GetSegmentation",
-        "SetName",
-        "lower",
         "mrmlScene",
         "vtkMRMLSegmentationNode",
         "GetAttribute",
@@ -266,15 +250,11 @@
         "SetAttribute"
       ],
       "api_chains": [
-        "'{node_name: SegmentationNode}'.lower",
         "node.GetName",
-        "node.GetName().lower",
         "segment.GetName",
-        "segment.SetName",
-        "segmentation.AddEmptySegment",
-        "segmentation.GetSegment",
         "segmentationNode.GetSegmentation",
-        "slicer.mrmlScene.GetFirstNodeByClass",
+        "segmentationNode.GetSegmentation().AddEmptySegment",
+        "segmentationNode.GetSegmentation().GetSegment",
         "slicer.mrmlScene.GetNodesByClass",
         "_ses_c.GetAttribute",
         "_ses_seg.GetSegmentation",
@@ -284,24 +264,19 @@
         "_ses_segs.GetItemAsObject",
         "_ses_segs.GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
-        "_segmentation.AddEmptySegment",
-        "_segmentation.GetSegmentIdBySegmentName",
-        "_segmentationNode.GetSegmentation",
-        "_segmentationNode.SetAttribute",
-        "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLSegmentationNode').GetSegmentation().AddEmptySegment",
-        "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLSegmentationNode').GetSegmentation().GetSegmentIdBySegmentName"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
       ],
       "operation_descriptions": [
-        "Add a segment and rename it to 'Cranial_Segment'"
+        "Add a segment and rename it to Cranial_Segment."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "AddEmptySegment",
-        "SetName",
-        "GetSegmentationObject"
+        "Segment Editor",
+        "AddSegment",
+        "rename segment",
+        "vtkMRMLSegmentationNode"
       ]
     },
     "operation_model": {
@@ -323,7 +298,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Add a segment and rename it to 'Cranial_Segment'",
+        "description": "Add a segment and rename it to Cranial_Segment.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -332,13 +307,14 @@
         "target_value_mode": null,
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "AddEmptySegment",
-          "SetName",
-          "GetSegmentationObject"
+          "Segment Editor",
+          "AddSegment",
+          "rename segment",
+          "vtkMRMLSegmentationNode"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLSegmentationNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -366,12 +342,12 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Open Threshold effect.",
-      "instruction": "",
+      "title": "Open Threshold effect",
+      "instruction": "In the Segment Editor module, click the Threshold button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "effect",
+      "object_label": "threshold",
       "repeat": {}
     },
     "api_evidence": {
@@ -387,6 +363,7 @@
         "widgetRepresentation",
         "AddNewNodeByClass",
         "GetAttribute",
+        "GetDisplayNode",
         "GetFirstNodeByClass",
         "GetItemAsObject",
         "GetNodesByClass",
@@ -396,7 +373,12 @@
         "GetSegment",
         "GetSegmentation",
         "IsA",
+        "SafeDownCast",
+        "SetSegmentVisibility",
         "SetSelectedSegmentID",
+        "SetVisibility",
+        "SetVisibility2DFill",
+        "SetVisibility2DOutline",
         "mrmlScene",
         "setCurrentSegmentID",
         "setMRMLScene",
@@ -406,6 +388,7 @@
         "vtkMRMLLabelMapVolumeNode",
         "vtkMRMLScalarVolumeNode",
         "vtkMRMLSegmentEditorNode",
+        "vtkMRMLSegmentationDisplayNode",
         "vtkMRMLSegmentationNode"
       ],
       "api_chains": [
@@ -418,8 +401,13 @@
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().name",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
         "_ses_c.GetAttribute",
+        "_ses_disp.SetSegmentVisibility",
+        "_ses_disp.SetVisibility",
+        "_ses_disp.SetVisibility2DFill",
+        "_ses_disp.SetVisibility2DOutline",
         "_ses_editor_node.SetSelectedSegmentID",
         "_ses_seg.GetAttribute",
+        "_ses_seg.GetDisplayNode",
         "_ses_seg.GetSegmentation",
         "_ses_segmentation.GetNthSegmentID",
         "_ses_segmentation.GetNumberOfSegments",
@@ -447,18 +435,20 @@
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
+        "slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast"
       ],
       "operation_descriptions": [
-        "Activate the Threshold effect in Segment Editor"
+        "Activate the Threshold effect in Segment Editor."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "SetActiveEffect",
+        "Segment Editor",
         "Threshold",
-        "segment editor"
+        "effect",
+        "segmentation"
       ]
     },
     "operation_model": {
@@ -480,7 +470,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Activate the Threshold effect in Segment Editor",
+        "description": "Activate the Threshold effect in Segment Editor.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -489,9 +479,10 @@
         "target_value_mode": null,
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "SetActiveEffect",
+          "Segment Editor",
           "Threshold",
-          "segment editor"
+          "effect",
+          "segmentation"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -523,8 +514,8 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Set threshold range.",
-      "instruction": "Adjust the range bar to the desired values.",
+      "title": "Set threshold range",
+      "instruction": "Adjust the threshold range to select the desired intensity values.",
       "done_label": "Done",
       "choice_label": "Range",
       "input_label": "Range",
@@ -546,13 +537,13 @@
       "interaction_kinds": []
     },
     "choice_descriptor": {
-      "question": "Set the threshold range for segmentation.",
+      "question": "Set the threshold range value for segmentation",
       "choices": [],
       "parameter_name": "thresholdRange",
       "default_value": null,
       "ui_guidance": {
-        "title": "Set threshold range.",
-        "instruction": "Adjust the range bar to the desired values.",
+        "title": "Set threshold range",
+        "instruction": "Adjust the threshold range to select the desired intensity values.",
         "done_label": "Done",
         "choice_label": "Range",
         "input_label": "Range",
@@ -564,7 +555,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Set the threshold range for bone segmentation",
+        "description": "Set the threshold range for segmentation.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -572,7 +563,13 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "Segment Editor",
+          "Threshold",
+          "min",
+          "max",
+          "range"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -589,7 +586,7 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Set the threshold range for segmentation.",
+        "question": "Set the threshold range value for segmentation",
         "choices": [],
         "parameter_name": "thresholdRange",
         "default_value": null,
@@ -608,128 +605,117 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Apply threshold.",
-      "instruction": "",
+      "title": "Apply threshold",
+      "instruction": "Click Apply to create the segmented region.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "threshold",
+      "object_label": "apply",
       "repeat": {}
     },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
         "AddNewNodeByClass",
-        "CreateBinaryLabelmapRepresentation",
-        "DeepCopy",
-        "GetBinaryLabelmapRepresentation",
-        "GetImageData",
-        "GetImageToWorldMatrix",
+        "AddSegment",
+        "GetFirstNodeByClass",
         "GetName",
         "GetNodesByClass",
-        "GetOutput",
-        "GetScalarRange",
-        "GetScalarType",
-        "GetSegment",
-        "GetSegmentBinaryLabelmapRepresentation",
+        "GetSegmentIdBySegmentName",
         "GetSegmentation",
-        "GetSelectedSegmentID",
-        "Modify",
-        "SetImageToWorldMatrix",
-        "SetInValue",
-        "SetInputData",
-        "SetOutValue",
-        "SetOutputScalarType",
-        "SetParameter",
-        "SetSegmentBinaryLabelmapRepresentation",
-        "ThresholdBetween",
-        "Update",
+        "SetColor",
+        "SetName",
+        "SetSelectedSegmentID",
         "activeEffect",
+        "arrayFromSegmentBinaryLabelmap",
+        "count_nonzero",
+        "doubleParameter",
         "mrmlScene",
         "onApply",
-        "pythonEffect",
         "qMRMLSegmentEditorWidget",
+        "self",
         "setActiveEffectByName",
         "setMRMLScene",
         "setMRMLSegmentEditorNode",
+        "setParameter",
         "setSegmentationNode",
         "setSourceVolumeNode",
-        "vtkImageThreshold",
+        "util",
         "vtkMRMLScalarVolumeNode",
         "vtkMRMLSegmentEditorNode",
         "vtkMRMLSegmentationNode",
-        "vtkMatrix4x4",
-        "vtkOrientedImageData",
-        "vtkSlicerSegmentationsModuleLogic",
+        "vtkSegment",
         "GetAttribute",
-        "GetFirstNodeByClass",
+        "GetDisplayNode",
         "GetItemAsObject",
         "GetNthSegmentID",
         "GetNumberOfItems",
         "GetNumberOfSegments",
+        "GetSegment",
         "IsA",
-        "SetSelectedSegmentID",
+        "SafeDownCast",
+        "SetSegmentVisibility",
+        "SetVisibility",
+        "SetVisibility2DFill",
+        "SetVisibility2DOutline",
         "editor",
         "modules",
         "segmenteditor",
-        "self",
+        "setActiveEffect",
         "setCurrentSegmentID",
-        "setParameter",
         "vtkMRMLLabelMapVolumeNode",
+        "vtkMRMLSegmentationDisplayNode",
         "widgetRepresentation"
       ],
       "api_chains": [
-        "effect.pythonEffect",
-        "labelmap.GetScalarRange",
-        "modifierLabelmap.DeepCopy",
-        "modifierLabelmap.GetImageToWorldMatrix",
-        "modifierLabelmap.GetScalarType",
-        "modifierLabelmap.SetImageToWorldMatrix",
+        "effect.doubleParameter",
+        "effect.self",
+        "effect.self().onApply",
+        "effect.setParameter",
         "node.GetName",
-        "pythonEffect.onApply",
-        "segmentEditorNode.GetSelectedSegmentID",
-        "segmentEditorNode.SetParameter",
+        "np.count_nonzero",
+        "segment.SetColor",
+        "segment.SetName",
+        "segmentEditorNode.SetSelectedSegmentID",
         "segmentEditorWidget.activeEffect",
         "segmentEditorWidget.setActiveEffectByName",
         "segmentEditorWidget.setMRMLScene",
         "segmentEditorWidget.setMRMLSegmentEditorNode",
         "segmentEditorWidget.setSegmentationNode",
         "segmentEditorWidget.setSourceVolumeNode",
-        "segmentationNode.GetBinaryLabelmapRepresentation",
+        "segmentation.AddSegment",
+        "segmentation.GetSegmentIdBySegmentName",
         "segmentationNode.GetSegmentation",
-        "segmentationNode.GetSegmentation().CreateBinaryLabelmapRepresentation",
-        "segmentationNode.GetSegmentation().GetSegment",
-        "segmentationNode.Modify",
         "slicer.mrmlScene",
         "slicer.mrmlScene.AddNewNodeByClass",
+        "slicer.mrmlScene.GetFirstNodeByClass",
         "slicer.mrmlScene.GetNodesByClass",
         "slicer.qMRMLSegmentEditorWidget",
         "slicer.qMRMLSegmentEditorWidget().activeEffect",
-        "slicer.qMRMLSegmentEditorWidget().activeEffect().pythonEffect",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().doubleParameter",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().self",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().self().onApply",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().setParameter",
         "slicer.qMRMLSegmentEditorWidget().setActiveEffectByName",
         "slicer.qMRMLSegmentEditorWidget().setMRMLScene",
         "slicer.qMRMLSegmentEditorWidget().setMRMLSegmentEditorNode",
         "slicer.qMRMLSegmentEditorWidget().setSegmentationNode",
         "slicer.qMRMLSegmentEditorWidget().setSourceVolumeNode",
-        "slicer.vtkOrientedImageData",
-        "slicer.vtkSlicerSegmentationsModuleLogic.GetSegmentBinaryLabelmapRepresentation",
-        "slicer.vtkSlicerSegmentationsModuleLogic.SetSegmentBinaryLabelmapRepresentation",
-        "sourceVolumeNode.GetImageData",
-        "thresh.GetOutput",
-        "thresh.SetInValue",
-        "thresh.SetInputData",
-        "thresh.SetOutValue",
-        "thresh.SetOutputScalarType",
-        "thresh.ThresholdBetween",
-        "thresh.Update",
-        "vtk.vtkImageThreshold",
-        "vtk.vtkMatrix4x4",
+        "slicer.util.arrayFromSegmentBinaryLabelmap",
+        "slicer.vtkSegment",
         "_ses_c.GetAttribute",
+        "_ses_disp.SetSegmentVisibility",
+        "_ses_disp.SetVisibility",
+        "_ses_disp.SetVisibility2DFill",
+        "_ses_disp.SetVisibility2DOutline",
         "_ses_editor_node.SetSelectedSegmentID",
         "_ses_eff.self",
         "_ses_eff.self().onApply",
         "_ses_eff.setParameter",
+        "_ses_end.activeEffect",
+        "_ses_end.setActiveEffect",
         "_ses_seg.GetAttribute",
+        "_ses_seg.GetDisplayNode",
         "_ses_seg.GetSegmentation",
         "_ses_segmentation.GetNthSegmentID",
         "_ses_segmentation.GetNumberOfSegments",
@@ -753,28 +739,30 @@
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self().onApply",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().setParameter",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffect",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLSegmentEditorNode",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSegmentationNode",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSourceVolumeNode",
-        "slicer.mrmlScene.GetFirstNodeByClass",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
+        "slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast"
       ],
       "operation_descriptions": [
-        "Apply the threshold segmentation"
+        "Apply the threshold effect to create the cranial segment."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "apply",
-        "threshold effect",
-        "segment editor"
+        "Segment Editor",
+        "Threshold",
+        "Apply",
+        "vtkMRMLSegmentationNode"
       ]
     },
     "operation_model": {
@@ -796,7 +784,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Apply the threshold segmentation",
+        "description": "Apply the threshold effect to create the cranial segment.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -805,13 +793,14 @@
         "target_value_mode": null,
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "apply",
-          "threshold effect",
-          "segment editor"
+          "Segment Editor",
+          "Threshold",
+          "Apply",
+          "vtkMRMLSegmentationNode"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLSegmentationNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -839,8 +828,8 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Choose skull segmentation node.",
-      "instruction": "Select the skull segment from the list.",
+      "title": "Choose the skull segment",
+      "instruction": "In the Skull segmentation section, choose the skull segmentation segment.",
       "done_label": "Done",
       "choice_label": "Segment",
       "input_label": "Segment",
@@ -865,18 +854,18 @@
       {
         "role_kind": "choice_input",
         "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": "",
+        "parameter_name": "segmentation",
         "step_id": "cb_step_7"
       }
     ],
     "choice_descriptor": {
-      "question": "Choose the skull segmentation node.",
+      "question": "Choose the skull segmentation segment",
       "choices": [],
-      "parameter_name": "skullSegmentation",
+      "parameter_name": "segmentation",
       "default_value": null,
       "ui_guidance": {
-        "title": "Choose skull segmentation node.",
-        "instruction": "Select the skull segment from the list.",
+        "title": "Choose the skull segment",
+        "instruction": "In the Skull segmentation section, choose the skull segmentation segment.",
         "done_label": "Done",
         "choice_label": "Segment",
         "input_label": "Segment",
@@ -887,7 +876,7 @@
         {
           "role_kind": "choice_input",
           "node_class": "vtkMRMLSegmentationNode",
-          "parameter_name": "",
+          "parameter_name": "segmentation",
           "step_id": "cb_step_7"
         }
       ]
@@ -896,7 +885,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the skull segmentation node from the extension UI",
+        "description": "Choose the skull segmentation segment for the extension.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -904,10 +893,14 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "Skull segmentation",
+          "select segment",
+          "segmentation"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLSegmentationNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -921,16 +914,16 @@
           {
             "role_kind": "choice_input",
             "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": "",
+            "parameter_name": "segmentation",
             "step_id": "cb_step_7"
           }
         ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Choose the skull segmentation node.",
+        "question": "Choose the skull segmentation segment",
         "choices": [],
-        "parameter_name": "skullSegmentation",
+        "parameter_name": "segmentation",
         "default_value": null,
         "value_kind": "node"
       }
@@ -947,8 +940,8 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Choose entry points fiducial list.",
-      "instruction": "Select the point list node.",
+      "title": "Choose entry point list",
+      "instruction": "In the Entry points section, choose the point list node to use for entry points.",
       "done_label": "Done",
       "choice_label": "Point list",
       "input_label": "Point list",
@@ -973,18 +966,18 @@
       {
         "role_kind": "choice_input",
         "node_class": "vtkMRMLMarkupsFiducialNode",
-        "parameter_name": "",
+        "parameter_name": "fiducials",
         "step_id": "cb_step_8"
       }
     ],
     "choice_descriptor": {
-      "question": "Choose the point list (fiducial) node for entry points.",
+      "question": "Choose the entry point Point List node",
       "choices": [],
-      "parameter_name": "entryPoints",
+      "parameter_name": "fiducials",
       "default_value": null,
       "ui_guidance": {
-        "title": "Choose entry points fiducial list.",
-        "instruction": "Select the point list node.",
+        "title": "Choose entry point list",
+        "instruction": "In the Entry points section, choose the point list node to use for entry points.",
         "done_label": "Done",
         "choice_label": "Point list",
         "input_label": "Point list",
@@ -995,7 +988,7 @@
         {
           "role_kind": "choice_input",
           "node_class": "vtkMRMLMarkupsFiducialNode",
-          "parameter_name": "",
+          "parameter_name": "fiducials",
           "step_id": "cb_step_8"
         }
       ]
@@ -1004,23 +997,26 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the entry point fiducial node",
+        "description": "Choose the entry point Point List node.",
         "extension_method_hint": null,
         "extension_function_hint": null,
-        "widget_name": null,
+        "widget_name": "fidTree",
         "ui_parameter_binding": null,
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "Entry points",
+          "fiducial",
+          "Point List",
+          "vtkMRMLMarkupsFiducialNode"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLMarkupsFiducialNode",
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          7
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -1029,16 +1025,16 @@
           {
             "role_kind": "choice_input",
             "node_class": "vtkMRMLMarkupsFiducialNode",
-            "parameter_name": "",
+            "parameter_name": "fiducials",
             "step_id": "cb_step_8"
           }
         ],
-        "confidence": "high",
+        "confidence": "medium",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Choose the point list (fiducial) node for entry points.",
+        "question": "Choose the entry point Point List node",
         "choices": [],
-        "parameter_name": "entryPoints",
+        "parameter_name": "fiducials",
         "default_value": null,
         "value_kind": "node"
       }
@@ -1055,8 +1051,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Compute symmetry plane.",
-      "instruction": "",
+      "title": "Compute symmetry plane",
+      "instruction": "Click the \"1. Compute symmetry plane\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1091,7 +1087,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Compute the symmetry plane from skull segmentation and entry points",
+        "description": "Run the symmetry plane computation for the skull.",
         "extension_method_hint": "computeSymmetryPlane",
         "extension_function_hint": null,
         "widget_name": "step1Button",
@@ -1099,10 +1095,15 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLMarkupsPlaneNode",
+          "computeSymmetryPlane",
+          "segmentation",
+          "fiducials"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLMarkupsPlaneNode",
         "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
@@ -1148,7 +1149,277 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Compute the symmetry plane from skull segmentation and entry points"
+        "Run the symmetry plane computation for the skull."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": [
+        "vtkMRMLMarkupsPlaneNode",
+        "computeSymmetryPlane",
+        "segmentation",
+        "fiducials"
+      ]
+    }
+  },
+  {
+    "tool_name": "ZygomaticImplantPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_10"
+    },
+    "description": "If further adjustments are required, tick the \"Manually adjust the symmetry plane\" checkbox. If not, jump to step 13.",
+    "requirements": [
+      "ZygomaticImplantPlanner extension must be installed"
+    ],
+    "operation_type": "branch_op",
+    "ui_guidance": {
+      "title": "Adjust symmetry plane?",
+      "instruction": "Choose whether to manually adjust the symmetry plane. If not needed, continue.",
+      "done_label": "Done",
+      "choice_label": "Option",
+      "input_label": "Option",
+      "object_label": "plane",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "branch_op",
+      "op_types": [
+        "branch_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "branch_action_template": "templates/cb_step_10_action.py.tpl",
+    "choice_descriptor": {
+      "question": "Are further adjustments to the symmetry plane required?",
+      "choices": [
+        {
+          "label": "Yes, adjust the symmetry plane",
+          "value": true
+        },
+        {
+          "label": "No, continue",
+          "value": false
+        }
+      ],
+      "parameter_name": "refineSymmetryPlane",
+      "default_value": false,
+      "ui_guidance": {
+        "title": "Adjust symmetry plane?",
+        "instruction": "Choose whether to manually adjust the symmetry plane. If not needed, continue.",
+        "done_label": "Done",
+        "choice_label": "Option",
+        "input_label": "Option",
+        "object_label": "plane",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "branch_op",
+        "operation_type": "branch_op",
+        "description": "Ask whether manual refinement of the symmetry plane is required; if not, skip to step 13.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "refineSymmetryCheckBox",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [
+          "vtkMRMLMarkupsPlaneNode",
+          "refine",
+          "interaction"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          9
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Are further adjustments to the symmetry plane required?",
+        "choices": [
+          {
+            "label": "Yes, adjust the symmetry plane",
+            "value": true
+          },
+          {
+            "label": "No, continue",
+            "value": false
+          }
+        ],
+        "parameter_name": "refineSymmetryPlane",
+        "default_value": false,
+        "value_kind": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ZygomaticImplantPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_11"
+    },
+    "description": "Manually adjust the symmetry plane.",
+    "requirements": [
+      "ZygomaticImplantPlanner extension must be installed"
+    ],
+    "operation_type": "user_interaction",
+    "ui_guidance": {
+      "title": "Adjust symmetry plane",
+      "instruction": "Position the symmetry plane in the view, then click Done.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "plane",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_interaction",
+      "op_types": [
+        "user_interaction"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": true,
+      "interaction_kinds": [
+        "interaction"
+      ]
+    },
+    "node_roles": [
+      {
+        "role_kind": "interaction_output",
+        "step_id": "cb_step_11",
+        "node_class": "vtkMRMLMarkupsPlaneNode",
+        "parameter_name": ""
+      }
+    ],
+    "pre_template_file": "templates/cb_step_11_pre.py.tpl",
+    "post_template_file": "templates/cb_step_11_post.py.tpl",
+    "interaction_descriptor": {
+      "interaction_type": "plane",
+      "interaction_kind": "markup_placement",
+      "node_class": "vtkMRMLMarkupsPlaneNode",
+      "placement_instructions": "Manually adjust the symmetry plane.",
+      "ui_guidance": {
+        "title": "Adjust symmetry plane",
+        "instruction": "Position the symmetry plane in the view, then click Done.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "plane",
+        "repeat": {}
+      },
+      "interaction_owner": "runtime_template",
+      "created_node_source": "previous_step",
+      "placement_policy": {
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "previous_step"
+      }
+    },
+    "repeat_block": {
+      "repeat_id": "optional_symmetry_plane_refinement",
+      "body_steps": [
+        "cb_step_11",
+        "cb_step_12"
+      ],
+      "entry_step": "cb_step_11",
+      "terminal_step": "cb_step_12",
+      "exit_step": "cb_step_13",
+      "controller": {
+        "kind": "while_choice",
+        "source_step": "cb_step_10",
+        "prompt": "Are further adjustments to the symmetry plane required?",
+        "exit_value": false,
+        "exit_target": 13
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          10,
+          12
+        ],
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "CreateDefaultDisplayNodes",
+        "GetAttributeNames",
+        "GetDisplayNode",
+        "GetID",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNumberOfItems",
+        "SetActiveListID",
+        "SetVisibility",
+        "append",
+        "logic",
+        "markups",
+        "modules",
+        "mrmlScene",
+        "startswith",
+        "vtkMRMLMarkupsPlaneNode",
+        "GetNodeByID",
+        "GetNumberOfControlPoints",
+        "SwitchToViewTransformMode",
+        "vtkMRMLInteractionNodeSingleton",
+        "R_PLANE",
+        "findRole",
+        "setSymmetryPlaneInteraction",
+        "ZygomaticImplantPlannerLogic",
+        "selectModule",
+        "selectedModule",
+        "util"
+      ],
+      "api_chains": [
+        "_candidates.append",
+        "_owned.append",
+        "candidate.GetAttributeNames",
+        "displayNode.SetVisibility",
+        "node.CreateDefaultDisplayNodes",
+        "node.GetDisplayNode",
+        "node.GetID",
+        "nodes.GetItemAsObject",
+        "nodes.GetNumberOfItems",
+        "slicer.modules.markups.logic",
+        "slicer.modules.markups.logic().SetActiveListID",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsPlaneNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsPlaneNode').GetNumberOfItems",
+        "str(_n).startswith",
+        "interactionNode.SwitchToViewTransformMode",
+        "node.GetNumberOfControlPoints",
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
+        "logic.findRole",
+        "logic.setSymmetryPlaneInteraction",
+        "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Manually adjust the symmetry plane."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -1157,7 +1428,136 @@
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_10"
+      "workflow_step": "cb_step_12"
+    },
+    "description": "Click the \"Apply adjustment\" button.",
+    "requirements": [
+      "ZygomaticImplantPlanner extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Apply plane adjustment",
+      "instruction": "Click the \"Apply adjustment\" button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "plane",
+      "repeat": {}
+    },
+    "method_name": "refineSymmetryPlaneFromHandle",
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": true,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_12.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Apply the manually adjusted symmetry plane.",
+        "extension_method_hint": "refineSymmetryPlaneFromHandle",
+        "extension_function_hint": null,
+        "widget_name": "step1ApplyButton",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [
+          "vtkMRMLMarkupsPlaneNode",
+          "refineSymmetryPlaneFromHandle",
+          "symmetry plane"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": "vtkMRMLMarkupsPlaneNode",
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          8,
+          11
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "repeat_block": {
+      "repeat_id": "optional_symmetry_plane_refinement",
+      "body_steps": [
+        "cb_step_11",
+        "cb_step_12"
+      ],
+      "entry_step": "cb_step_11",
+      "terminal_step": "cb_step_12",
+      "exit_step": "cb_step_13",
+      "controller": {
+        "kind": "while_choice",
+        "source_step": "cb_step_10",
+        "prompt": "Are further adjustments to the symmetry plane required?",
+        "exit_value": false,
+        "exit_target": 13
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          10,
+          12
+        ],
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onStep1Apply",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "util",
+        "widgetRepresentation",
+        "zygomaticimplantplanner"
+      ],
+      "api_chains": [
+        "_widget.onStep1Apply",
+        "slicer.modules.zygomaticimplantplanner.widgetRepresentation",
+        "slicer.modules.zygomaticimplantplanner.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Apply the manually adjusted symmetry plane."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": [
+        "vtkMRMLMarkupsPlaneNode",
+        "refineSymmetryPlaneFromHandle",
+        "symmetry plane"
+      ]
+    }
+  },
+  {
+    "tool_name": "ZygomaticImplantPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_13"
     },
     "description": "In the \"Crop radius (mm)\" section, adjust the range bar to set the range value for crop.",
     "requirements": [
@@ -1165,8 +1565,8 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Set crop radius (mm).",
-      "instruction": "Adjust the range bar for crop radius.",
+      "title": "Set crop radius",
+      "instruction": "Adjust the range bar to set the crop radius in mm.",
       "done_label": "Done",
       "choice_label": "Radius",
       "input_label": "Radius",
@@ -1188,13 +1588,13 @@
       "interaction_kinds": []
     },
     "choice_descriptor": {
-      "question": "Set the crop radius (mm).",
+      "question": "Set the crop radius in mm",
       "choices": [],
       "parameter_name": "cropRadius",
       "default_value": null,
       "ui_guidance": {
-        "title": "Set crop radius (mm).",
-        "instruction": "Adjust the range bar for crop radius.",
+        "title": "Set crop radius",
+        "instruction": "Adjust the range bar to set the crop radius in mm.",
         "done_label": "Done",
         "choice_label": "Radius",
         "input_label": "Radius",
@@ -1206,7 +1606,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Set the crop radius for cylindrical cutting",
+        "description": "Set the crop radius for cutting the skull cylinder.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "cropRadiusSliderWidget",
@@ -1214,15 +1614,17 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "crop radius",
+          "slider",
+          "cut cylinder"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          9
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -1231,7 +1633,7 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Set the crop radius (mm).",
+        "question": "Set the crop radius in mm",
         "choices": [],
         "parameter_name": "cropRadius",
         "default_value": null,
@@ -1247,7 +1649,7 @@
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_11"
+      "workflow_step": "cb_step_14"
     },
     "description": "Click the \"2. Cut skull (cylinder)\" button.",
     "requirements": [
@@ -1255,12 +1657,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Cut skull (cylinder).",
-      "instruction": "",
+      "title": "Cut skull cylinder",
+      "instruction": "Click the \"2. Cut skull (cylinder)\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "cylinder",
+      "object_label": "cut",
       "repeat": {}
     },
     "method_name": "computeCutting",
@@ -1283,31 +1685,37 @@
         "role_kind": "extension_output",
         "node_class": "vtkMRMLModelNode",
         "parameter_name": "",
-        "step_id": "cb_step_11"
+        "step_id": "cb_step_14"
       }
     ],
-    "template_file": "templates/cb_step_11.py.tpl",
+    "template_file": "templates/cb_step_14.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Cut the skull using a cylinder crop",
+        "description": "Cut the skull using a cylinder with the selected crop radius.",
         "extension_method_hint": "computeCutting",
         "extension_function_hint": null,
         "widget_name": "step2Button",
         "ui_parameter_binding": null,
-        "target_value": null,
+        "target_value": true,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLModelNode",
+          "computeCutting",
+          "cut cylinder",
+          "crop"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLModelNode",
         "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
           8,
-          10
+          9,
+          13
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -1318,7 +1726,7 @@
             "role_kind": "extension_output",
             "node_class": "vtkMRMLModelNode",
             "parameter_name": "",
-            "step_id": "cb_step_11"
+            "step_id": "cb_step_14"
           }
         ],
         "confidence": "high",
@@ -1348,16 +1756,130 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Cut the skull using a cylinder crop"
+        "Cut the skull using a cylinder with the selected crop radius."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "vtkMRMLModelNode",
+        "computeCutting",
+        "cut cylinder",
+        "crop"
+      ]
     }
   },
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_12"
+      "workflow_step": "cb_step_15"
+    },
+    "description": "If the mandible is still attached to the maxilla, tick the \"The mandible is still attached to the maxilla\" checkbox. If not, jump to step 20.",
+    "requirements": [
+      "ZygomaticImplantPlanner extension must be installed"
+    ],
+    "operation_type": "branch_op",
+    "ui_guidance": {
+      "title": "Mandible still attached?",
+      "instruction": "Choose whether the mandible is still attached to the maxilla. If it is separated, continue.",
+      "done_label": "Done",
+      "choice_label": "Option",
+      "input_label": "Option",
+      "object_label": "mandible",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "branch_op",
+      "op_types": [
+        "branch_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "branch_action_template": "templates/cb_step_15_action.py.tpl",
+    "choice_descriptor": {
+      "question": "Is the mandible still attached to the maxilla?",
+      "choices": [
+        {
+          "label": "Yes, the mandible is still attached",
+          "value": true
+        },
+        {
+          "label": "No, continue",
+          "value": false
+        }
+      ],
+      "parameter_name": "mandibleConnected",
+      "default_value": false,
+      "ui_guidance": {
+        "title": "Mandible still attached?",
+        "instruction": "Choose whether the mandible is still attached to the maxilla. If it is separated, continue.",
+        "done_label": "Done",
+        "choice_label": "Option",
+        "input_label": "Option",
+        "object_label": "mandible",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "branch_op",
+        "operation_type": "branch_op",
+        "description": "Ask whether the mandible is still attached; if not, skip to step 20.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "mandibleConnectedCheckBox",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [
+          "mandible",
+          "maxilla",
+          "separation",
+          "checkbox"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          14
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Is the mandible still attached to the maxilla?",
+        "choices": [
+          {
+            "label": "Yes, the mandible is still attached",
+            "value": true
+          },
+          {
+            "label": "No, continue",
+            "value": false
+          }
+        ],
+        "parameter_name": "mandibleConnected",
+        "default_value": false,
+        "value_kind": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "ZygomaticImplantPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_16"
     },
     "description": "Click the \"3. Seperate maxilla / mandible\" button.",
     "requirements": [
@@ -1365,12 +1887,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Separate maxilla / mandible.",
-      "instruction": "",
+      "title": "Separate maxilla / mandible",
+      "instruction": "Click the \"3. Separate maxilla / mandible\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "plane",
+      "object_label": "separation",
       "repeat": {}
     },
     "method_name": "computeMaxillaMandible",
@@ -1393,15 +1915,15 @@
         "role_kind": "extension_output",
         "node_class": "vtkMRMLModelNode",
         "parameter_name": "",
-        "step_id": "cb_step_12"
+        "step_id": "cb_step_16"
       }
     ],
-    "template_file": "templates/cb_step_12.py.tpl",
+    "template_file": "templates/cb_step_16.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Separate maxilla and mandible using a default separation plane",
+        "description": "Separate the maxilla and mandible.",
         "extension_method_hint": "computeMaxillaMandible",
         "extension_function_hint": null,
         "widget_name": "step3Button",
@@ -1409,14 +1931,21 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLModelNode",
+          "computeMaxillaMandible",
+          "maxilla",
+          "mandible",
+          "plane handle"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLModelNode",
         "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
-          8
+          8,
+          14
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -1427,13 +1956,7 @@
             "role_kind": "extension_output",
             "node_class": "vtkMRMLModelNode",
             "parameter_name": "",
-            "step_id": "cb_step_12"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLModelNode",
-            "parameter_name": "",
-            "step_id": "cb_step_12"
+            "step_id": "cb_step_16"
           }
         ],
         "confidence": "high",
@@ -1441,6 +1964,34 @@
         "evidence_id": ""
       }
     ],
+    "repeat_block": {
+      "repeat_id": "optional_maxilla_mandible_separation",
+      "body_steps": [
+        "cb_step_16",
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
+      ],
+      "entry_step": "cb_step_16",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
+      "controller": {
+        "kind": "while_choice",
+        "source_step": "cb_step_15",
+        "prompt": "Is the mandible still attached to the maxilla?",
+        "exit_value": false,
+        "exit_target": 20
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          15,
+          19
+        ],
+        "confidence": "high"
+      }
+    },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
@@ -1463,25 +2014,31 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Separate maxilla and mandible using a default separation plane"
+        "Separate the maxilla and mandible."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "vtkMRMLModelNode",
+        "computeMaxillaMandible",
+        "maxilla",
+        "mandible",
+        "plane handle"
+      ]
     }
   },
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_13"
+      "workflow_step": "cb_step_17"
     },
-    "description": "If further adjustments are required, tick the \"Manually adjust the segmentation plane\" checkbox. If not, jump to step 16.",
+    "description": "If further adjustments are required, tick the \"Manually adjust the segmentation plane\" checkbox. If not, jump to step 20.",
     "requirements": [
       "ZygomaticImplantPlanner extension must be installed"
     ],
     "operation_type": "branch_op",
     "ui_guidance": {
-      "title": "Manually adjust the segmentation plane?",
-      "instruction": "Choose Yes to adjust, No to skip.",
+      "title": "Adjust separation plane?",
+      "instruction": "Choose whether to manually adjust the segmentation plane. If not needed, continue.",
       "done_label": "Done",
       "choice_label": "Option",
       "input_label": "Option",
@@ -1502,23 +2059,24 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "branch_action_template": "templates/cb_step_17_action.py.tpl",
     "choice_descriptor": {
-      "question": "Manually adjust the segmentation plane?",
+      "question": "Are further adjustments to the segmentation plane required?",
       "choices": [
         {
-          "label": "Yes, adjust",
+          "label": "Yes, adjust the separation plane",
           "value": true
         },
         {
-          "label": "No, skip",
+          "label": "No, continue",
           "value": false
         }
       ],
-      "parameter_name": "manualPlaneAdjust",
+      "parameter_name": "refineSeparationPlane",
       "default_value": false,
       "ui_guidance": {
-        "title": "Manually adjust the segmentation plane?",
-        "instruction": "Choose Yes to adjust, No to skip.",
+        "title": "Adjust separation plane?",
+        "instruction": "Choose whether to manually adjust the segmentation plane. If not needed, continue.",
         "done_label": "Done",
         "choice_label": "Option",
         "input_label": "Option",
@@ -1530,7 +2088,7 @@
       {
         "op_type": "branch_op",
         "operation_type": "branch_op",
-        "description": "Ask whether to manually adjust the separation plane",
+        "description": "Ask whether manual refinement of the separation plane is required; if not, skip to step 20.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "refineMaxillaCheckBox",
@@ -1538,44 +2096,77 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLMarkupsPlaneNode",
+          "separation plane",
+          "refine",
+          "interaction"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          12
+          16
         ],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
         "node_roles": [],
-        "confidence": "high",
+        "confidence": "medium",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Manually adjust the segmentation plane?",
+        "question": "Are further adjustments to the segmentation plane required?",
         "choices": [
           {
-            "label": "Yes, adjust",
+            "label": "Yes, adjust the separation plane",
             "value": true
           },
           {
-            "label": "No, skip",
+            "label": "No, continue",
             "value": false
           }
         ],
-        "parameter_name": "manualPlaneAdjust",
+        "parameter_name": "refineSeparationPlane",
         "default_value": false,
         "value_kind": ""
       }
-    ]
+    ],
+    "repeat_block": {
+      "repeat_id": "optional_maxilla_mandible_separation",
+      "body_steps": [
+        "cb_step_16",
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
+      ],
+      "entry_step": "cb_step_16",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
+      "controller": {
+        "kind": "while_choice",
+        "source_step": "cb_step_15",
+        "prompt": "Is the mandible still attached to the maxilla?",
+        "exit_value": false,
+        "exit_target": 20
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          15,
+          19
+        ],
+        "confidence": "high"
+      }
+    }
   },
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_14"
+      "workflow_step": "cb_step_18"
     },
     "description": "Manually adjust the separation plane.",
     "requirements": [
@@ -1583,8 +2174,8 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust separation plane.",
-      "instruction": "Adjust the plane in the 3D view, then click Done.",
+      "title": "Adjust separation plane",
+      "instruction": "Position the separation plane in the view, then click Done.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1610,51 +2201,57 @@
     "node_roles": [
       {
         "role_kind": "interaction_output",
+        "step_id": "cb_step_18",
         "node_class": "vtkMRMLMarkupsPlaneNode",
-        "parameter_name": "",
-        "step_id": "cb_step_14"
+        "parameter_name": ""
       }
     ],
-    "pre_template_file": "templates/cb_step_14_pre.py.tpl",
-    "post_template_file": "templates/cb_step_14_post.py.tpl",
+    "pre_template_file": "templates/cb_step_18_pre.py.tpl",
+    "post_template_file": "templates/cb_step_18_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "plane",
-      "interaction_kind": "view_adjustment",
+      "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsPlaneNode",
-      "placement_instructions": null,
+      "placement_instructions": "Manually adjust the separation plane.",
       "ui_guidance": {
-        "title": "Adjust separation plane.",
-        "instruction": "Adjust the plane in the 3D view, then click Done.",
+        "title": "Adjust separation plane",
+        "instruction": "Position the separation plane in the view, then click Done.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "plane",
         "repeat": {}
+      },
+      "interaction_owner": "runtime_template",
+      "created_node_source": "previous_step",
+      "placement_policy": {
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "previous_step"
       }
     },
     "repeat_block": {
-      "repeat_id": "manual_plane_adjust",
+      "repeat_id": "optional_separation_plane_refinement",
       "body_steps": [
-        "cb_step_14",
-        "cb_step_15"
+        "cb_step_18",
+        "cb_step_19"
       ],
-      "entry_step": "cb_step_14",
-      "terminal_step": "cb_step_15",
-      "exit_step": "cb_step_16",
+      "entry_step": "cb_step_18",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
       "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_13",
-        "prompt": "Tick the 'Manually adjust the segmentation plane' checkbox to adjust the plane, or leave unchecked to jump to step 16.",
+        "kind": "while_choice",
+        "source_step": "cb_step_17",
+        "prompt": "Are further adjustments to the segmentation plane required?",
         "exit_value": false,
-        "exit_target": 16
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          13,
-          14,
-          15
+          17,
+          19
         ],
         "confidence": "high"
       }
@@ -1662,15 +2259,59 @@
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "GetNodeByID",
-        "SwitchToViewTransformMode",
+        "CreateDefaultDisplayNodes",
+        "GetAttributeNames",
+        "GetDisplayNode",
+        "GetID",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNumberOfItems",
+        "SetActiveListID",
+        "SetVisibility",
+        "append",
+        "logic",
+        "markups",
+        "modules",
         "mrmlScene",
-        "vtkMRMLInteractionNodeSingleton"
+        "startswith",
+        "vtkMRMLMarkupsPlaneNode",
+        "GetNodeByID",
+        "GetNumberOfControlPoints",
+        "SwitchToViewTransformMode",
+        "vtkMRMLInteractionNodeSingleton",
+        "R_MMPLANE",
+        "_freePlaneHandles",
+        "findRole",
+        "ZygomaticImplantPlannerLogic",
+        "selectModule",
+        "selectedModule",
+        "util"
       ],
       "api_chains": [
+        "_candidates.append",
+        "_owned.append",
+        "candidate.GetAttributeNames",
+        "displayNode.SetVisibility",
+        "node.CreateDefaultDisplayNodes",
+        "node.GetDisplayNode",
+        "node.GetID",
+        "nodes.GetItemAsObject",
+        "nodes.GetNumberOfItems",
+        "slicer.modules.markups.logic",
+        "slicer.modules.markups.logic().SetActiveListID",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsPlaneNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsPlaneNode').GetNumberOfItems",
+        "str(_n).startswith",
         "interactionNode.SwitchToViewTransformMode",
+        "node.GetNumberOfControlPoints",
         "slicer.mrmlScene.GetNodeByID",
-        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
+        "logic._freePlaneHandles",
+        "logic.findRole",
+        "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
         "Manually adjust the separation plane."
@@ -1682,7 +2323,7 @@
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_15"
+      "workflow_step": "cb_step_19"
     },
     "description": "Click the \"Apply separation\" button.",
     "requirements": [
@@ -1690,8 +2331,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Apply separation.",
-      "instruction": "",
+      "title": "Apply separation",
+      "instruction": "Click the \"Apply separation\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1713,12 +2354,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_15.py.tpl",
+    "template_file": "templates/cb_step_19.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Apply the manually adjusted separation plane to recompute maxilla/mandible",
+        "description": "Apply the manually adjusted separation plane.",
         "extension_method_hint": "computeMaxillaMandible",
         "extension_function_hint": null,
         "widget_name": "step3ApplyButton",
@@ -1726,18 +2367,25 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLModelNode",
+          "computeMaxillaMandible",
+          "separation plane",
+          "apply"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLModelNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          14
+          8,
+          14,
+          18
         ],
         "placement_instructions": null,
         "min_control_points": 0,
-        "is_optional": true,
+        "is_optional": false,
         "operation_intents": [],
         "node_roles": [],
         "confidence": "high",
@@ -1746,28 +2394,27 @@
       }
     ],
     "repeat_block": {
-      "repeat_id": "manual_plane_adjust",
+      "repeat_id": "optional_separation_plane_refinement",
       "body_steps": [
-        "cb_step_14",
-        "cb_step_15"
+        "cb_step_18",
+        "cb_step_19"
       ],
-      "entry_step": "cb_step_14",
-      "terminal_step": "cb_step_15",
-      "exit_step": "cb_step_16",
+      "entry_step": "cb_step_18",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
       "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_13",
-        "prompt": "Tick the 'Manually adjust the segmentation plane' checkbox to adjust the plane, or leave unchecked to jump to step 16.",
+        "kind": "while_choice",
+        "source_step": "cb_step_17",
+        "prompt": "Are further adjustments to the segmentation plane required?",
         "exit_value": false,
-        "exit_target": 16
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          13,
-          14,
-          15
+          17,
+          19
         ],
         "confidence": "high"
       }
@@ -1794,16 +2441,21 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Apply the manually adjusted separation plane to recompute maxilla/mandible"
+        "Apply the manually adjusted separation plane."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "vtkMRMLModelNode",
+        "computeMaxillaMandible",
+        "separation plane",
+        "apply"
+      ]
     }
   },
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_16"
+      "workflow_step": "cb_step_20"
     },
     "description": "Click the \"4. Identify zygomatic bones\" button.",
     "requirements": [
@@ -1811,12 +2463,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Identify zygomatic bones.",
-      "instruction": "",
+      "title": "Identify zygomatic bones",
+      "instruction": "Click the \"4. Identify zygomatic bones\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "zygomatic",
+      "object_label": "bones",
       "repeat": {}
     },
     "method_name": "computeZygoma",
@@ -1837,23 +2489,17 @@
     "node_roles": [
       {
         "role_kind": "extension_output",
-        "node_class": "vtkMRMLMarkupsPlaneNode",
-        "parameter_name": "",
-        "step_id": "cb_step_16"
-      },
-      {
-        "role_kind": "extension_output",
         "node_class": "vtkMRMLModelNode",
         "parameter_name": "",
-        "step_id": "cb_step_16"
+        "step_id": "cb_step_20"
       }
     ],
-    "template_file": "templates/cb_step_16.py.tpl",
+    "template_file": "templates/cb_step_20.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Identify zygomatic bones and create boundary planes",
+        "description": "Identify the zygomatic bones.",
         "extension_method_hint": "computeZygoma",
         "extension_function_hint": null,
         "widget_name": "step4Button",
@@ -1861,14 +2507,20 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLModelNode",
+          "computeZygoma",
+          "zygomatic bones",
+          "boundary planes"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLModelNode",
         "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
-          8
+          8,
+          14
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -1877,27 +2529,9 @@
         "node_roles": [
           {
             "role_kind": "extension_output",
-            "node_class": "vtkMRMLMarkupsPlaneNode",
-            "parameter_name": "",
-            "step_id": "cb_step_16"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLMarkupsPlaneNode",
-            "parameter_name": "",
-            "step_id": "cb_step_16"
-          },
-          {
-            "role_kind": "extension_output",
             "node_class": "vtkMRMLModelNode",
             "parameter_name": "",
-            "step_id": "cb_step_16"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLModelNode",
-            "parameter_name": "",
-            "step_id": "cb_step_16"
+            "step_id": "cb_step_20"
           }
         ],
         "confidence": "high",
@@ -1927,25 +2561,30 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Identify zygomatic bones and create boundary planes"
+        "Identify the zygomatic bones."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "vtkMRMLModelNode",
+        "computeZygoma",
+        "zygomatic bones",
+        "boundary planes"
+      ]
     }
   },
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_17"
+      "workflow_step": "cb_step_21"
     },
-    "description": "If further adjustments are required, tick the \"Manually adjust the boundary planes\" checkbox. If not, jump to step 20.",
+    "description": "If further adjustments are required, tick the \"Manually adjust the boundary planes\" checkbox. If not, jump to step 24.",
     "requirements": [
       "ZygomaticImplantPlanner extension must be installed"
     ],
     "operation_type": "branch_op",
     "ui_guidance": {
-      "title": "Manually adjust the boundary planes?",
-      "instruction": "Choose Yes to adjust, No to skip.",
+      "title": "Adjust boundary planes?",
+      "instruction": "Choose whether to manually adjust the boundary planes. If not needed, continue.",
       "done_label": "Done",
       "choice_label": "Option",
       "input_label": "Option",
@@ -1966,23 +2605,24 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "branch_action_template": "templates/cb_step_21_action.py.tpl",
     "choice_descriptor": {
-      "question": "Manually adjust the boundary planes?",
+      "question": "Are further adjustments to the boundary planes required?",
       "choices": [
         {
-          "label": "Yes, adjust",
+          "label": "Yes, adjust the boundary planes",
           "value": true
         },
         {
-          "label": "No, skip",
+          "label": "No, continue",
           "value": false
         }
       ],
-      "parameter_name": "manualBoundaryAdjust",
+      "parameter_name": "refineBoundaryPlanes",
       "default_value": false,
       "ui_guidance": {
-        "title": "Manually adjust the boundary planes?",
-        "instruction": "Choose Yes to adjust, No to skip.",
+        "title": "Adjust boundary planes?",
+        "instruction": "Choose whether to manually adjust the boundary planes. If not needed, continue.",
         "done_label": "Done",
         "choice_label": "Option",
         "input_label": "Option",
@@ -1994,7 +2634,7 @@
       {
         "op_type": "branch_op",
         "operation_type": "branch_op",
-        "description": "Ask whether to manually adjust the boundary planes",
+        "description": "Ask whether manual refinement of the boundary planes is required; if not, skip to step 24.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "refineZygomaCheckBox",
@@ -2002,14 +2642,19 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLMarkupsPlaneNode",
+          "boundary planes",
+          "refine",
+          "interaction"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          16
+          20
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -2019,18 +2664,18 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Manually adjust the boundary planes?",
+        "question": "Are further adjustments to the boundary planes required?",
         "choices": [
           {
-            "label": "Yes, adjust",
+            "label": "Yes, adjust the boundary planes",
             "value": true
           },
           {
-            "label": "No, skip",
+            "label": "No, continue",
             "value": false
           }
         ],
-        "parameter_name": "manualBoundaryAdjust",
+        "parameter_name": "refineBoundaryPlanes",
         "default_value": false,
         "value_kind": ""
       }
@@ -2039,7 +2684,7 @@
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_18"
+      "workflow_step": "cb_step_22"
     },
     "description": "Manually adjust the boundary planes.",
     "requirements": [
@@ -2047,8 +2692,8 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust boundary planes.",
-      "instruction": "Adjust the planes in the 3D view, then click Done.",
+      "title": "Adjust boundary plane",
+      "instruction": "Position one boundary plane in the view, then click Done.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -2074,51 +2719,57 @@
     "node_roles": [
       {
         "role_kind": "interaction_output",
+        "step_id": "cb_step_22",
         "node_class": "vtkMRMLMarkupsPlaneNode",
-        "parameter_name": "",
-        "step_id": "cb_step_18"
+        "parameter_name": ""
       }
     ],
-    "pre_template_file": "templates/cb_step_18_pre.py.tpl",
-    "post_template_file": "templates/cb_step_18_post.py.tpl",
+    "pre_template_file": "templates/cb_step_22_pre.py.tpl",
+    "post_template_file": "templates/cb_step_22_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "plane",
-      "interaction_kind": "view_adjustment",
+      "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsPlaneNode",
-      "placement_instructions": null,
+      "placement_instructions": "Manually adjust the boundary planes.",
       "ui_guidance": {
-        "title": "Adjust boundary planes.",
-        "instruction": "Adjust the planes in the 3D view, then click Done.",
+        "title": "Adjust boundary plane",
+        "instruction": "Position one boundary plane in the view, then click Done.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "plane",
         "repeat": {}
+      },
+      "interaction_owner": "runtime_template",
+      "created_node_source": "previous_step",
+      "placement_policy": {
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "previous_step"
       }
     },
     "repeat_block": {
-      "repeat_id": "manual_boundary_adjust",
+      "repeat_id": "optional_boundary_plane_refinement",
       "body_steps": [
-        "cb_step_18",
-        "cb_step_19"
+        "cb_step_22",
+        "cb_step_23"
       ],
-      "entry_step": "cb_step_18",
-      "terminal_step": "cb_step_19",
-      "exit_step": "cb_step_20",
+      "entry_step": "cb_step_22",
+      "terminal_step": "cb_step_23",
+      "exit_step": "cb_step_24",
       "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_17",
-        "prompt": "Tick the 'Manually adjust the boundary planes' checkbox to adjust the planes, or leave unchecked to jump to step 20.",
+        "kind": "while_choice",
+        "source_step": "cb_step_21",
+        "prompt": "Are further adjustments to the boundary planes required?",
         "exit_value": false,
-        "exit_target": 20
+        "exit_target": 24
       },
       "max_iterations": 20,
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          17,
-          18,
-          19
+          21,
+          23
         ],
         "confidence": "high"
       }
@@ -2126,15 +2777,61 @@
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "GetNodeByID",
-        "SwitchToViewTransformMode",
+        "CreateDefaultDisplayNodes",
+        "GetAttributeNames",
+        "GetDisplayNode",
+        "GetID",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNumberOfItems",
+        "SetActiveListID",
+        "SetVisibility",
+        "append",
+        "logic",
+        "markups",
+        "modules",
         "mrmlScene",
-        "vtkMRMLInteractionNodeSingleton"
+        "startswith",
+        "vtkMRMLMarkupsPlaneNode",
+        "GetNodeByID",
+        "GetNumberOfControlPoints",
+        "SwitchToViewTransformMode",
+        "vtkMRMLInteractionNodeSingleton",
+        "R_BOUND_L",
+        "R_BOUND_R",
+        "_freePlaneHandles",
+        "findAllRole",
+        "ZygomaticImplantPlannerLogic",
+        "selectModule",
+        "selectedModule",
+        "util"
       ],
       "api_chains": [
+        "_candidates.append",
+        "_owned.append",
+        "candidate.GetAttributeNames",
+        "displayNode.SetVisibility",
+        "node.CreateDefaultDisplayNodes",
+        "node.GetDisplayNode",
+        "node.GetID",
+        "nodes.GetItemAsObject",
+        "nodes.GetNumberOfItems",
+        "slicer.modules.markups.logic",
+        "slicer.modules.markups.logic().SetActiveListID",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsPlaneNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsPlaneNode').GetNumberOfItems",
+        "str(_n).startswith",
         "interactionNode.SwitchToViewTransformMode",
+        "node.GetNumberOfControlPoints",
         "slicer.mrmlScene.GetNodeByID",
-        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
+        "logic._freePlaneHandles",
+        "logic.findAllRole",
+        "plane.GetDisplayNode",
+        "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
         "Manually adjust the boundary planes."
@@ -2146,7 +2843,7 @@
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_19"
+      "workflow_step": "cb_step_23"
     },
     "description": "Click the \"Apply boundaries\" button.",
     "requirements": [
@@ -2154,12 +2851,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Apply boundaries.",
-      "instruction": "",
+      "title": "Apply boundary planes",
+      "instruction": "Click the \"Apply boundaries\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "boundary",
+      "object_label": "plane",
       "repeat": {}
     },
     "method_name": "computeZygoma",
@@ -2177,12 +2874,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_19.py.tpl",
+    "template_file": "templates/cb_step_23.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Apply the manually adjusted boundary planes to recompute zygoma",
+        "description": "Apply the manually adjusted boundary planes.",
         "extension_method_hint": "computeZygoma",
         "extension_function_hint": null,
         "widget_name": "step4ApplyButton",
@@ -2190,18 +2887,25 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLModelNode",
+          "computeZygoma",
+          "boundary planes",
+          "apply"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLModelNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          18
+          8,
+          14,
+          22
         ],
         "placement_instructions": null,
         "min_control_points": 0,
-        "is_optional": true,
+        "is_optional": false,
         "operation_intents": [],
         "node_roles": [],
         "confidence": "high",
@@ -2210,28 +2914,27 @@
       }
     ],
     "repeat_block": {
-      "repeat_id": "manual_boundary_adjust",
+      "repeat_id": "optional_boundary_plane_refinement",
       "body_steps": [
-        "cb_step_18",
-        "cb_step_19"
+        "cb_step_22",
+        "cb_step_23"
       ],
-      "entry_step": "cb_step_18",
-      "terminal_step": "cb_step_19",
-      "exit_step": "cb_step_20",
+      "entry_step": "cb_step_22",
+      "terminal_step": "cb_step_23",
+      "exit_step": "cb_step_24",
       "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_17",
-        "prompt": "Tick the 'Manually adjust the boundary planes' checkbox to adjust the planes, or leave unchecked to jump to step 20.",
+        "kind": "while_choice",
+        "source_step": "cb_step_21",
+        "prompt": "Are further adjustments to the boundary planes required?",
         "exit_value": false,
-        "exit_target": 20
+        "exit_target": 24
       },
       "max_iterations": 20,
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          17,
-          18,
-          19
+          21,
+          23
         ],
         "confidence": "high"
       }
@@ -2258,16 +2961,21 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Apply the manually adjusted boundary planes to recompute zygoma"
+        "Apply the manually adjusted boundary planes."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "vtkMRMLModelNode",
+        "computeZygoma",
+        "boundary planes",
+        "apply"
+      ]
     }
   },
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_20"
+      "workflow_step": "cb_step_24"
     },
     "description": "Click the \"5. Generate Implant paths\" button.",
     "requirements": [
@@ -2275,8 +2983,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Generate implant paths.",
-      "instruction": "",
+      "title": "Generate implant paths",
+      "instruction": "Click the \"5. Generate Implant paths\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -2303,27 +3011,15 @@
         "role_kind": "extension_output",
         "node_class": "vtkMRMLMarkupsLineNode",
         "parameter_name": "",
-        "step_id": "cb_step_20"
-      },
-      {
-        "role_kind": "extension_output",
-        "node_class": "vtkMRMLModelNode",
-        "parameter_name": "",
-        "step_id": "cb_step_20"
-      },
-      {
-        "role_kind": "extension_output",
-        "node_class": "vtkMRMLTableNode",
-        "parameter_name": "outputTable",
-        "step_id": "cb_step_20"
+        "step_id": "cb_step_24"
       }
     ],
-    "template_file": "templates/cb_step_20.py.tpl",
+    "template_file": "templates/cb_step_24.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Generate implant paths and create line nodes, implant models, and table",
+        "description": "Generate implant paths.",
         "extension_method_hint": "computePaths",
         "extension_function_hint": null,
         "widget_name": "step5Button",
@@ -2331,14 +3027,20 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLMarkupsLineNode",
+          "computePaths",
+          "implant paths",
+          "vtkMRMLTableNode"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLMarkupsLineNode",
         "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
-          8
+          8,
+          20
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -2349,19 +3051,7 @@
             "role_kind": "extension_output",
             "node_class": "vtkMRMLMarkupsLineNode",
             "parameter_name": "",
-            "step_id": "cb_step_20"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLModelNode",
-            "parameter_name": "",
-            "step_id": "cb_step_20"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLTableNode",
-            "parameter_name": "outputTable",
-            "step_id": "cb_step_20"
+            "step_id": "cb_step_24"
           }
         ],
         "confidence": "high",
@@ -2391,16 +3081,21 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Generate implant paths and create line nodes, implant models, and table"
+        "Generate implant paths."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "vtkMRMLMarkupsLineNode",
+        "computePaths",
+        "implant paths",
+        "vtkMRMLTableNode"
+      ]
     }
   },
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_21"
+      "workflow_step": "cb_step_25"
     },
     "description": "If further adjustments are required, tick the \"Manually adjust the paths\" checkbox. If not, stop here.",
     "requirements": [
@@ -2408,8 +3103,8 @@
     ],
     "operation_type": "branch_op",
     "ui_guidance": {
-      "title": "Manually adjust the paths?",
-      "instruction": "Choose Yes to adjust, No to skip.",
+      "title": "Adjust implant paths?",
+      "instruction": "Choose whether to manually adjust the implant paths. If not needed, stop here.",
       "done_label": "Done",
       "choice_label": "Option",
       "input_label": "Option",
@@ -2430,23 +3125,24 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "branch_action_template": "templates/cb_step_25_action.py.tpl",
     "choice_descriptor": {
-      "question": "Manually adjust the paths?",
+      "question": "Are further adjustments to the implant paths required?",
       "choices": [
         {
-          "label": "Yes, adjust",
+          "label": "Yes, adjust the paths",
           "value": true
         },
         {
-          "label": "No, skip",
+          "label": "No, stop here",
           "value": false
         }
       ],
-      "parameter_name": "manualPathAdjust",
+      "parameter_name": "refinePaths",
       "default_value": false,
       "ui_guidance": {
-        "title": "Manually adjust the paths?",
-        "instruction": "Choose Yes to adjust, No to skip.",
+        "title": "Adjust implant paths?",
+        "instruction": "Choose whether to manually adjust the implant paths. If not needed, stop here.",
         "done_label": "Done",
         "choice_label": "Option",
         "input_label": "Option",
@@ -2458,7 +3154,7 @@
       {
         "op_type": "branch_op",
         "operation_type": "branch_op",
-        "description": "Ask whether to manually adjust the implant paths",
+        "description": "Ask whether manual refinement of the implant paths is required; if not, stop here.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "refinePathsCheckBox",
@@ -2466,14 +3162,19 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLMarkupsLineNode",
+          "implant paths",
+          "refine",
+          "interaction"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          20
+          24
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -2483,18 +3184,18 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Manually adjust the paths?",
+        "question": "Are further adjustments to the implant paths required?",
         "choices": [
           {
-            "label": "Yes, adjust",
+            "label": "Yes, adjust the paths",
             "value": true
           },
           {
-            "label": "No, skip",
+            "label": "No, stop here",
             "value": false
           }
         ],
-        "parameter_name": "manualPathAdjust",
+        "parameter_name": "refinePaths",
         "default_value": false,
         "value_kind": ""
       }
@@ -2503,7 +3204,7 @@
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_22"
+      "workflow_step": "cb_step_26"
     },
     "description": "Manually adjust the paths.",
     "requirements": [
@@ -2511,8 +3212,8 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust implant paths.",
-      "instruction": "Adjust the paths in the 3D view, then click Done.",
+      "title": "Adjust implant path",
+      "instruction": "Place one implant path in the view, then click Done.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -2538,41 +3239,48 @@
     "node_roles": [
       {
         "role_kind": "interaction_output",
+        "step_id": "cb_step_26",
         "node_class": "vtkMRMLMarkupsLineNode",
-        "parameter_name": "",
-        "step_id": "cb_step_22"
+        "parameter_name": ""
       }
     ],
-    "pre_template_file": "templates/cb_step_22_pre.py.tpl",
-    "post_template_file": "templates/cb_step_22_post.py.tpl",
+    "pre_template_file": "templates/cb_step_26_pre.py.tpl",
+    "post_template_file": "templates/cb_step_26_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "line",
-      "interaction_kind": "view_adjustment",
+      "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsLineNode",
-      "placement_instructions": null,
+      "placement_instructions": "Manually adjust the implant paths.",
       "ui_guidance": {
-        "title": "Adjust implant paths.",
-        "instruction": "Adjust the paths in the 3D view, then click Done.",
+        "title": "Adjust implant path",
+        "instruction": "Place one implant path in the view, then click Done.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "line",
         "repeat": {}
+      },
+      "interaction_owner": "runtime_template",
+      "created_node_source": "previous_step",
+      "placement_policy": {
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "previous_step"
       }
     },
     "repeat_block": {
-      "repeat_id": "manual_path_adjust",
+      "repeat_id": "optional_implant_path_refinement",
       "body_steps": [
-        "cb_step_22",
-        "cb_step_23"
+        "cb_step_26",
+        "cb_step_27"
       ],
-      "entry_step": "cb_step_22",
-      "terminal_step": "cb_step_23",
+      "entry_step": "cb_step_26",
+      "terminal_step": "cb_step_27",
       "exit_step": "",
       "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_21",
-        "prompt": "Tick the 'Manually adjust the paths' checkbox to adjust the paths, or leave unchecked to stop here.",
+        "kind": "while_choice",
+        "source_step": "cb_step_25",
+        "prompt": "Are further adjustments to the implant paths required?",
         "exit_value": false,
         "exit_target": "stop"
       },
@@ -2580,9 +3288,8 @@
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          21,
-          22,
-          23
+          25,
+          27
         ],
         "confidence": "high"
       }
@@ -2590,15 +3297,59 @@
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "GetNodeByID",
-        "SwitchToViewTransformMode",
+        "CreateDefaultDisplayNodes",
+        "GetAttributeNames",
+        "GetDisplayNode",
+        "GetID",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNumberOfItems",
+        "SetActiveListID",
+        "SetVisibility",
+        "append",
+        "logic",
+        "markups",
+        "modules",
         "mrmlScene",
-        "vtkMRMLInteractionNodeSingleton"
+        "startswith",
+        "vtkMRMLMarkupsLineNode",
+        "GetNodeByID",
+        "GetNumberOfControlPoints",
+        "SwitchToViewTransformMode",
+        "vtkMRMLInteractionNodeSingleton",
+        "R_PATH",
+        "findAllRole",
+        "setPathInteraction",
+        "ZygomaticImplantPlannerLogic",
+        "selectModule",
+        "selectedModule",
+        "util"
       ],
       "api_chains": [
+        "_candidates.append",
+        "_owned.append",
+        "candidate.GetAttributeNames",
+        "displayNode.SetVisibility",
+        "node.CreateDefaultDisplayNodes",
+        "node.GetDisplayNode",
+        "node.GetID",
+        "nodes.GetItemAsObject",
+        "nodes.GetNumberOfItems",
+        "slicer.modules.markups.logic",
+        "slicer.modules.markups.logic().SetActiveListID",
+        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsLineNode').GetItemAsObject",
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsLineNode').GetNumberOfItems",
+        "str(_n).startswith",
         "interactionNode.SwitchToViewTransformMode",
+        "node.GetNumberOfControlPoints",
         "slicer.mrmlScene.GetNodeByID",
-        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
+        "logic.findAllRole",
+        "logic.setPathInteraction",
+        "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
         "Manually adjust the paths."
@@ -2610,7 +3361,7 @@
   {
     "tool_name": "ZygomaticImplantPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_23"
+      "workflow_step": "cb_step_27"
     },
     "description": "Click the \"Apply paths\" button.",
     "requirements": [
@@ -2618,8 +3369,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Apply paths.",
-      "instruction": "",
+      "title": "Apply path adjustments",
+      "instruction": "Click the \"Apply paths\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -2641,12 +3392,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_23.py.tpl",
+    "template_file": "templates/cb_step_27.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Apply the manually adjusted paths to update implant data and table",
+        "description": "Apply the manually adjusted implant paths.",
         "extension_method_hint": "applyManualPaths",
         "extension_function_hint": null,
         "widget_name": "step5ApplyButton",
@@ -2654,18 +3405,24 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLMarkupsLineNode",
+          "applyManualPaths",
+          "implant paths"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
+        "node_class": "vtkMRMLMarkupsLineNode",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          22
+          8,
+          24,
+          26
         ],
         "placement_instructions": null,
         "min_control_points": 0,
-        "is_optional": true,
+        "is_optional": false,
         "operation_intents": [],
         "node_roles": [],
         "confidence": "high",
@@ -2674,18 +3431,18 @@
       }
     ],
     "repeat_block": {
-      "repeat_id": "manual_path_adjust",
+      "repeat_id": "optional_implant_path_refinement",
       "body_steps": [
-        "cb_step_22",
-        "cb_step_23"
+        "cb_step_26",
+        "cb_step_27"
       ],
-      "entry_step": "cb_step_22",
-      "terminal_step": "cb_step_23",
+      "entry_step": "cb_step_26",
+      "terminal_step": "cb_step_27",
       "exit_step": "",
       "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_21",
-        "prompt": "Tick the 'Manually adjust the paths' checkbox to adjust the paths, or leave unchecked to stop here.",
+        "kind": "while_choice",
+        "source_step": "cb_step_25",
+        "prompt": "Are further adjustments to the implant paths required?",
         "exit_value": false,
         "exit_target": "stop"
       },
@@ -2693,9 +3450,8 @@
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          21,
-          22,
-          23
+          25,
+          27
         ],
         "confidence": "high"
       }
@@ -2722,10 +3478,14 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Apply the manually adjusted paths to update implant data and table"
+        "Apply the manually adjusted implant paths."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "vtkMRMLMarkupsLineNode",
+        "applyManualPaths",
+        "implant paths"
+      ]
     }
   }
 ]

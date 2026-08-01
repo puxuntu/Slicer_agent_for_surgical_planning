@@ -290,6 +290,14 @@ class AnalyzerSlicerOpManifestMixin:
                 gen["operation_model"] = step["operation_model"]
             if step.get("node_roles"):
                 gen["node_roles"] = step["node_roles"]
+            # A branch_op's on-accept action is REAL emitted code, so it must be
+            # registered here like any other template. Every probe / validation /
+            # repair loop iterates code_generators entries and keys on the
+            # *_template_file fields; a template referenced only from workflow.json
+            # is invisible to all of them, which is how an action template that
+            # crashed on its first line shipped under "all API probes passed".
+            if step.get("branch_action_template"):
+                gen["branch_action_template"] = step["branch_action_template"]
 
             if exec_type == "automated" and step.get("code_template"):
                 gen["template_file"] = step["code_template"]
