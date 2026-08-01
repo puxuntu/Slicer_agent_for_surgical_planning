@@ -1,5 +1,26 @@
 from .common import *
 
+#: Answer a node-pick ``user_choice`` step automatically when the scene holds
+#: exactly ONE legitimate candidate, instead of making the user confirm a
+#: one-item picker. Set False to always show the picker (the behaviour before
+#: this existed) -- a one-line revert, in the style of
+#: ``WorkflowRouter.ROUTER_ENABLED``. Every code path returns early when False.
+#:
+#: Deliberately narrow: it fires only where the panel would have rendered the
+#: node tree, only when the workflow does not need two nodes of that class, only
+#: on an exact class match, and only if the count is still one after the settle
+#: window. Everything else -- numeric ranges, sliders, segment pickers,
+#: enumerated choices -- is untouched.
+AUTO_SELECT_SOLE_NODE_ENABLED = True
+
+#: Settle window before an auto-commit fires. The candidate count is a single
+#: instant while the scene may still be filling (a multi-series DICOM import, an
+#: async CLI writing its output, a template yielding via processEvents), so the
+#: count is re-taken when the timer fires and the commit is abandoned if it is no
+#: longer one. It doubles as the visible trace: the one-item picker, naming the
+#: node, is on screen for this long before the step advances.
+AUTO_SELECT_SOLE_NODE_SETTLE_MS = 600
+
 
 class WidgetWorkflowMixin:
     # Inert first item for every multi-selection combo: no option is pre-selected, so
@@ -73,6 +94,20 @@ class WidgetWorkflowMixin:
             self._workflowDetailLabel.setStyleSheet("color: #444;")
             layout.addWidget(self._workflowDetailToggle)
             layout.addWidget(self._workflowDetailLabel)
+
+            # Persistent notice for a choice the runtime made FOR the user (a
+            # sole-candidate node auto-select). It must not live in the action or
+            # instruction labels: those are rewritten on every panel render, and
+            # the chat log is inside a collapsed Debug group. An automatic pick
+            # the surgeon never saw is the one failure mode this feature can
+            # have, so the notice survives until the next step opens.
+            self._workflowNoticeLabel = qt.QLabel("")
+            self._workflowNoticeLabel.setWordWrap(True)
+            self._workflowNoticeLabel.setStyleSheet(
+                "color: #7a4d00; background: #fff4d6; border: 1px solid #e0c78a; padding: 3px;"
+            )
+            self._workflowNoticeLabel.setVisible(False)
+            layout.addWidget(self._workflowNoticeLabel)
 
             self._workflowChoiceContainer = qt.QWidget()
             self._workflowChoiceLayout = qt.QHBoxLayout(self._workflowChoiceContainer)
@@ -205,6 +240,13 @@ class WidgetWorkflowMixin:
             ))
 
         self._currentWorkflowUiState = dict(state or {"active": False})
+        # An auto-select notice belongs to the step it was raised on. It must
+        # survive that step's repaints (hence its own label) but not outlive it.
+        if getattr(self, "_workflowNoticeText", ""):
+            if self._currentWorkflowUiState.get("current_step") != getattr(
+                self, "_workflowNoticeStep", None
+            ):
+                self._clearWorkflowNotice()
         if not getattr(self, "_workflowUserFrame", None):
             return
 
@@ -687,6 +729,13 @@ class WidgetWorkflowMixin:
     def _showWorkflowChoice(self, result):
         """Show a user-choice workflow step as buttons when choices are known."""
         self._updateWorkflowPanel(result)
+        # A user_choice step just OPENED. This method's sole caller,
+        # _displayWorkflowChoice, is the funnel for every path that presents one,
+        # which makes it the only "opened" event -- _updateWorkflowPanel /
+        # _renderWorkflowChoices are repaint events and run several times per
+        # opening. Runs after the panel update so _currentWorkflowUiState holds
+        # the mapped state and the picker is already on screen behind the notice.
+        self._maybeAutoSelectSoleNode()
 
     def _clearWorkflowPanel(self):
         """Hide and reset the user-facing workflow panel."""
@@ -795,44 +844,14 @@ class WidgetWorkflowMixin:
         # item tag (set by WorkflowRuntime._hide_nodes_after); skip them so the
         # candidate list matches the forward view (and so the default selection is a
         # step-era node). The tree itself excludes them via the same attribute.
-        from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime as _WFRT
-        _replay_attr = _WFRT.REPLAY_HIDDEN_SH_ATTR
-        # Only apply the created-after-this-step exclusion while REVIEWING (replay);
-        # in the live/forward flow nothing is tagged, and gating here means a stray
-        # lingering tag can never hide a node from the live picker.
-        _in_replay = bool(state.get("replay_previewing"))
-        try:
-            _shNode = slicer.mrmlScene.GetSubjectHierarchyNode() if _in_replay else None
-        except Exception:
-            _shNode = None
-
-        def _isReplayHidden(node):
-            if _shNode is None:
-                return False
-            try:
-                item = _shNode.GetItemByDataNode(node)
-                return bool(item) and _shNode.GetItemAttribute(item, _replay_attr) == "1"
-            except Exception:
-                return False
-
-        candidates = []
-        try:
-            for node in slicer.util.getNodesByClass(node_class):
-                if node is None:
-                    continue
-                try:
-                    if node.GetHideFromEditors():
-                        continue
-                except Exception:
-                    pass
-                if _in_replay and _isReplayHidden(node):
-                    continue
-                candidates.append({"id": node.GetID(), "name": node.GetName(), "node": node})
-        except Exception:
-            logger.debug("Enumerating node candidates failed", exc_info=True)
-            candidates = []
+        candidates = self._workflowNodeCandidateList(state, node_class)
         if not candidates:
             return False
+        # The tree applies the same replay exclusion the candidate list does, via
+        # the subject-hierarchy attribute filter set below.
+        from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime as _WFRT
+        _replay_attr = _WFRT.REPLAY_HIDDEN_SH_ATTR
+        _in_replay = bool(state.get("replay_previewing"))
 
         # Container stacks the tree above its Select button (the choice layout is a
         # QHBoxLayout; a tall tree reads better over the button than beside it).
@@ -931,6 +950,269 @@ class WidgetWorkflowMixin:
         self._workflowChoiceLayout.addWidget(container, 1)
         container.setVisible(True)
         return True
+
+    # ------------------------------------------------------------------
+    # Sole-candidate node auto-select
+    # ------------------------------------------------------------------
+    def _soleNodeAutoSelectCandidate(self, state):
+        """The one node this step may be answered with automatically, else None.
+
+        Deliberately STRICTER than the render dispatch. Each specialised family
+        line in ``_renderWorkflowChoices`` reads ``if state.get(flag) and
+        self._renderX(state): return`` -- so when a specialised renderer DECLINES
+        (no segmentation resolves, no sensible slider limits) control falls
+        through and CAN reach the node tree. A human clicking a node in that
+        fallback tree is a recoverable mistake; auto-committing a node NAME as the
+        answer to a threshold-range or segment-name step is not. So every family
+        flag must be OFF, never merely "the specialised renderer declined".
+
+        Two families that do reach the node tree are excluded on purpose:
+        ``segment_ref_selection`` (the answer is a (node, segment) PAIR, and one
+        segmentation does not imply one segment) and ``segment_name_selection``
+        (not a node pick, and its candidate set is itself a heuristic guess).
+        """
+        if not AUTO_SELECT_SOLE_NODE_ENABLED:
+            return None
+        state = state or {}
+        runtime = getattr(self, "_workflowRuntime", None)
+        session = getattr(runtime, "session", None) if runtime is not None else None
+        if session is None or not runtime.has_active_workflow():
+            return None
+
+        # A. Never while REVIEWING the replay timeline. The preview deliberately
+        # re-surfaces the picker with an even narrower candidate list, so "exactly
+        # one" is MORE likely there -- and a commit in preview routes to
+        # _rerunFromCheckpoint, i.e. a destructive re-run of a step the user was
+        # only looking at. Checked twice because the fallback state dict
+        # (_workflowUiStateFromStepResult) carries no replay_previewing key.
+        if state.get("replay_previewing") or session.preview_index is not None:
+            return None
+
+        # B. Never in baseline mode: the comparison's whole point is that a
+        # condition answers the step itself.
+        if getattr(self, "_baselineActive", False):
+            return None
+        try:
+            if self._baselineBusy():
+                return None
+        except Exception:
+            pass
+
+        # C. The step must be genuinely waiting for a choice right now.
+        # state_for_ui falls back to session.last_result, so a refresh with no new
+        # result re-serves the previous user_choice while the committed step is
+        # already dispatching.
+        if state.get("raw_status") != "waiting_for_choice":
+            return None
+        if state.get("result_type") != "user_choice":
+            return None
+        if not state.get("current_step"):
+            return None
+
+        # D. Must be the plain node-tree family: no enumerated choices, a free
+        # input expected, and every specialised family off.
+        if state.get("choices"):
+            return None
+        if not state.get("needs_choice_input"):
+            return None
+        for flag in ("review_selection", "native_widget", "multi_choice",
+                     "segment_selection", "segment_name_selection",
+                     "segment_ref_selection", "range_selection", "scalar_selection"):
+            if state.get(flag):
+                return None
+        # An optional step has a second legitimate answer (Skip), so one candidate
+        # is not one possible outcome.
+        if state.get("can_skip"):
+            return None
+        # The source extension's own widget class is authoritative: a recorded
+        # slider / combo / segments table must never auto-commit a node name.
+        family = self._workflowWidgetFamily(state.get("source_widget_class"))
+        if family not in ("", "node_tree"):
+            return None
+
+        node_class = state.get("node_class")
+        if not node_class:
+            return None
+
+        # E. Refuse when the workflow needs SEVERAL nodes of this class. Then a
+        # lone candidate means an input is missing, and answering both steps with
+        # it registers an object to itself -- an identity transform that renders
+        # as a flawless fit (e.g. a reference and a moving segmentation, or an
+        # orbit model and a plate model).
+        if int(state.get("node_class_demand") or 0) > 1:
+            return None
+
+        candidates = self._workflowNodeCandidateList(state, node_class)
+        if len(candidates) != 1:
+            return None
+        node = candidates[0].get("node")
+        if node is None:
+            return None
+
+        # F. Exact class only. getNodesByClass and the tree's nodeTypes filter
+        # match by IsA, so a labelmap (a ScalarVolume subclass) would qualify as a
+        # Segment Editor source volume. The picker may offer subclasses -- a human
+        # can see what they are -- but the automatic path must not guess, and this
+        # also refuses the abstract classes a language classifier produces.
+        try:
+            if node.GetClassName() != node_class:
+                return None
+        except Exception:
+            return None
+        return node
+
+    def _maybeAutoSelectSoleNode(self):
+        """Auto-answer a node-pick step that has exactly one candidate.
+
+        Called when a user_choice step OPENS (from _showWorkflowChoice, whose sole
+        caller funnels every presentation path). Commits after a settle window and
+        only if the count is still one, so a scene that is still filling cannot be
+        answered from a momentary count of one.
+        """
+        state = self._currentWorkflowUiState or {}
+        node = self._soleNodeAutoSelectCandidate(state)
+        if node is None:
+            return
+        runtime = self._workflowRuntime
+        session = runtime.session
+        step_id = state.get("current_step")
+        # Once per step OCCURRENCE. _updateWorkflowPanel is a repaint event that
+        # runs several times per opening, and the dispatcher has two paths that
+        # re-present a waiting step. len(completed_instances) is strictly
+        # monotonic forward (_clear_repeat_body truncates completed_steps but not
+        # completed_instances) and is truncated on rewind, so two presentations of
+        # one opening share a key while a later loop iteration -- which has the
+        # terminal step's completion in between -- gets a fresh one.
+        key = (session.workflow_id, step_id, len(session.completed_instances))
+        seen = getattr(self, "_autoSelectedNodeSteps", None)
+        if seen is None:
+            seen = self._autoSelectedNodeSteps = set()
+        if key in seen:
+            return
+        seen.add(key)
+
+        node_id = node.GetID()
+        node_name = str(node.GetName() or "").strip()
+        if not node_name:
+            return
+
+        def _commit():
+            # Re-check: the scene may have gained a node during the settle window,
+            # and the user may have navigated, cancelled or picked manually.
+            live = self._currentWorkflowUiState or {}
+            if live.get("current_step") != step_id:
+                return
+            if self._soleNodeAutoSelectCandidate(live) is None:
+                return
+            candidates = self._workflowNodeCandidateList(live, live.get("node_class"))
+            if len(candidates) != 1 or candidates[0].get("id") != node_id:
+                logger.info(
+                    "Auto-select abandoned for %s: candidate set changed during settle",
+                    step_id,
+                )
+                return
+            self._noteAutoSelectedNode(step_id, node_name)
+            self._commitWorkflowChoice(node_name)
+
+        # Deferred, not immediate: _commitWorkflowChoice -> _runWorkflowStepDirect
+        # re-enters _updateWorkflowPanel BEFORE the step actually runs, so a
+        # synchronous commit would recurse through consecutive single-candidate
+        # steps and let an inner render tear down containers an outer render is
+        # still building.
+        qt.QTimer.singleShot(AUTO_SELECT_SOLE_NODE_SETTLE_MS, _commit)
+
+    def _appendWorkflowNotice(self, text, step_id=None):
+        """Show a persistent notice in the workflow panel until the next step.
+
+        Deliberately its own label: the action / instruction labels are rewritten
+        on every render, so a notice placed there would vanish on the next repaint
+        -- which for an automatic choice is the difference between "the user was
+        told" and "it happened silently".
+        """
+        label = getattr(self, "_workflowNoticeLabel", None)
+        if label is None:
+            return
+        self._workflowNoticeText = str(text or "")
+        self._workflowNoticeStep = step_id
+        label.setText(self._workflowNoticeText)
+        label.setVisible(bool(self._workflowNoticeText))
+
+    def _clearWorkflowNotice(self):
+        self._workflowNoticeText = ""
+        label = getattr(self, "_workflowNoticeLabel", None)
+        if label is not None:
+            label.setText("")
+            label.setVisible(False)
+
+    def _noteAutoSelectedNode(self, step_id, node_name):
+        """Record and surface an automatic pick, so it is never silent."""
+        try:
+            self._recordRoleEvent(
+                "Workflow", "choice_auto_selected",
+                f"{step_id}: auto-selected '{node_name}' (only candidate)",
+            )
+        except Exception:
+            logger.debug("Recording auto-select role event failed", exc_info=True)
+        try:
+            self._appendWorkflowNotice(
+                f"Auto-selected '{node_name}' — the only matching node in the scene. "
+                "Step Back to choose a different one.",
+                step_id=step_id,
+            )
+        except Exception:
+            logger.debug("Surfacing auto-select notice failed", exc_info=True)
+        logger.info("Workflow %s: auto-selected sole candidate '%s'", step_id, node_name)
+
+    def _workflowNodeCandidateList(self, state, node_class):
+        """Scene nodes of ``node_class`` the node picker would offer, in scene order.
+
+        The ONE definition of "the nodes in the widget": scene nodes of the class,
+        minus HideFromEditors, minus (in replay) nodes created after the reviewed
+        step. It supplies the picker's "no node -> free text" empty gate, the
+        _bestNodeMatchIndex default guess, AND the sole-candidate auto-select --
+        sharing it is what stops "one node shown" and "one node counted" from ever
+        drifting apart.
+
+        In replay, nodes created AFTER the reviewed step carry a subject-hierarchy
+        tag (WorkflowRuntime._hide_nodes_after); skipping them keeps the candidate
+        list matching the forward view. The exclusion is applied ONLY while
+        reviewing, so a stray lingering tag can never hide a node from the live
+        picker.
+        """
+        from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime as _WFRT
+        _replay_attr = _WFRT.REPLAY_HIDDEN_SH_ATTR
+        _in_replay = bool((state or {}).get("replay_previewing"))
+        try:
+            _shNode = slicer.mrmlScene.GetSubjectHierarchyNode() if _in_replay else None
+        except Exception:
+            _shNode = None
+
+        def _isReplayHidden(node):
+            if _shNode is None:
+                return False
+            try:
+                item = _shNode.GetItemByDataNode(node)
+                return bool(item) and _shNode.GetItemAttribute(item, _replay_attr) == "1"
+            except Exception:
+                return False
+
+        candidates = []
+        try:
+            for node in slicer.util.getNodesByClass(node_class):
+                if node is None:
+                    continue
+                try:
+                    if node.GetHideFromEditors():
+                        continue
+                except Exception:
+                    pass
+                if _in_replay and _isReplayHidden(node):
+                    continue
+                candidates.append({"id": node.GetID(), "name": node.GetName(), "node": node})
+        except Exception:
+            logger.debug("Enumerating node candidates failed", exc_info=True)
+            candidates = []
+        return candidates
 
     def _nodeTreeValidCurrentNode(self):
         """Return the tree's current node iff it is a real data node of the step's

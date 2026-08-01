@@ -199,6 +199,16 @@ class WidgetReplayMixin:
             self._setSendEnabled(True)
             return None
 
+        # The sole-candidate auto-select memo is keyed on
+        # len(completed_instances), which the rewind has just truncated. Drop the
+        # keys at or beyond the new length so a step re-run from here can
+        # auto-select again -- otherwise re-running a rewound node pick would sit
+        # on its one-item picker forever.
+        seen = getattr(self, "_autoSelectedNodeSteps", None)
+        if seen:
+            reached = len(runtime.session.completed_instances)
+            self._autoSelectedNodeSteps = {k for k in seen if k[2] < reached}
+
         self._updateWorkflowPanel(runtime.state_for_ui())
         try:
             self._applyChosenVolumeBackground()

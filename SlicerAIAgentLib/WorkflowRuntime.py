@@ -630,6 +630,10 @@ class WorkflowRuntime:
             "default_value": default_value,
             "parameter_name": parameter_name,
             "node_class": node_class,
+            # How many steps of this workflow ask for the SAME class. >1 means the
+            # procedure needs that many distinct nodes, so a lone candidate is a
+            # missing input rather than an obvious answer (see node_class_demand).
+            "node_class_demand": self.node_class_demand(node_class),
             "node_keywords": node_keywords,
             "source_widget_class": source_widget_class,
             "segment_selection": bool(segment_meta),
@@ -2760,6 +2764,42 @@ class WorkflowRuntime:
         except Exception:
             return None
         return recorded.get(source_param)
+
+    def node_class_demand(self, node_class: str) -> int:
+        """How many user_choice steps in THIS workflow ask for ``node_class``.
+
+        A count above one means the procedure needs that many DISTINCT nodes of
+        the class -- e.g. a reference segmentation and a moving segmentation, or
+        an orbit model and a plate model. In that situation a scene holding a
+        single candidate does not mean "the answer is obvious", it means an input
+        has not been loaded yet, and answering both steps with the same node
+        registers an object to itself: a perfect-looking identity transform, and
+        a wrong plan the surgeon has no cue to doubt. Callers use this to refuse
+        to answer such a step automatically.
+
+        Counts only steps whose class resolves the same way the panel resolves it
+        (binding first, then the step-graph fallback), so it measures real demand
+        rather than declared metadata.
+        """
+        if not self.session or not node_class:
+            return 0
+        graph = get_workflow_graph(self.session.extension_name) or {}
+        demand = 0
+        for step in graph.get("steps", []) or []:
+            if not isinstance(step, dict):
+                continue
+            if (step.get("operation_type") or step.get("op_type")) != "user_choice":
+                continue
+            choice_info = step.get("choice_info") or {}
+            if isinstance(choice_info, list):
+                choice_info = choice_info[0] if choice_info else {}
+            param = str((choice_info or {}).get("parameter_name") or "").strip()
+            resolved = (self._node_binding_for_param(param) or {}).get("node_class", "")
+            if not resolved:
+                resolved = self._node_class_from_step_meta(step)
+            if resolved == node_class:
+                demand += 1
+        return demand
 
     @staticmethod
     def _node_class_from_step_meta(meta: Dict[str, Any]) -> str:
