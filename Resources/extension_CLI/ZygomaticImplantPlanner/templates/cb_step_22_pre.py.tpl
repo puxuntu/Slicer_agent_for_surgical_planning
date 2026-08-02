@@ -13,33 +13,31 @@ if _active_module_name != 'ZygomaticImplantPlanner':
 # precondition:end
 
 try:
-    import ZygomaticImplantPlanner
-except ImportError:
-    raise RuntimeError("The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.")
-
-try:
     logic = _zygomaticimplantplanner_logic
 except NameError:
-    logic = ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()
-    _zygomaticimplantplanner_logic = logic
+    try:
+        from ZygomaticImplantPlanner import ZygomaticImplantPlannerLogic
+        logic = ZygomaticImplantPlannerLogic()
+        _zygomaticimplantplanner_logic = logic
+    except Exception:
+        raise RuntimeError("ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.")
 
-left_planes = list(logic.findAllRole(logic.R_BOUND_L) or [])
-right_planes = list(logic.findAllRole(logic.R_BOUND_R) or [])
-boundary_planes = left_planes + right_planes
-if not boundary_planes:
-    raise RuntimeError('No boundary plane nodes found from the previous step.')
+_boundary_nodes = logic.findAllRole(logic.R_BOUND_L) or []
+_boundary_nodes += logic.findAllRole(logic.R_BOUND_R) or []
+_boundary_nodes = [n for n in _boundary_nodes if n is not None]
+if not _boundary_nodes:
+    raise RuntimeError("No boundary plane nodes found from previous step. Run the zygomatic computation step first.")
 
-# Show all handles and visibility on both boundary planes so the user can adjust them.
-for plane in boundary_planes:
-    displayNode = plane.GetDisplayNode()
+for planeNode in _boundary_nodes:
+    displayNode = planeNode.GetDisplayNode()
     if displayNode is not None:
         displayNode.SetVisibility(True)
-    logic._freePlaneHandles(plane)
+    logic._freePlaneHandles(planeNode)
 
-node = boundary_planes[0]
+node = _boundary_nodes[0]
 slicer.modules.markups.logic().SetActiveListID(node)
 _zygomaticimplantplanner_cb_step_22_id = node.GetID()
-remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_22', _zygomaticimplantplanner_cb_step_22_id, _workflow_runtime_repeat_index)
+remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_22", _zygomaticimplantplanner_cb_step_22_id, _workflow_runtime_repeat_index)
 
-print('[ZygomaticImplantPlanner] Please Manually adjust the boundary planes.')
-print('When finished, press the \'Done\' button in the workflow panel.')
+print("[ZygomaticImplantPlanner] Please manually adjust the left and right boundary planes using their interactive handles.")
+print("When finished, press the 'Done' button in the workflow panel.")

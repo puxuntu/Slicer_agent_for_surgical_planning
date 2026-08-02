@@ -13,30 +13,27 @@ if _active_module_name != 'ZygomaticImplantPlanner':
 # precondition:end
 
 try:
-    import ZygomaticImplantPlanner
-except ImportError:
-    raise RuntimeError("The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.")
-
-try:
     logic = _zygomaticimplantplanner_logic
 except NameError:
-    logic = ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()
-    _zygomaticimplantplanner_logic = logic
+    try:
+        from ZygomaticImplantPlanner import ZygomaticImplantPlannerLogic
+        logic = ZygomaticImplantPlannerLogic()
+        _zygomaticimplantplanner_logic = logic
+    except Exception:
+        raise RuntimeError("ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.")
 
 node = logic.findRole(logic.R_PLANE)
 if node is None:
-    raise RuntimeError('No symmetry plane node found from the previous step.')
+    raise RuntimeError("No symmetry plane node found from previous step. Run the symmetry plane computation step first.")
 
 displayNode = node.GetDisplayNode()
 if displayNode is not None:
     displayNode.SetVisibility(True)
 
-# Enable interactive handles on the symmetry plane using the extension's own mechanism.
 logic.setSymmetryPlaneInteraction(True)
-
 slicer.modules.markups.logic().SetActiveListID(node)
 _zygomaticimplantplanner_cb_step_11_id = node.GetID()
-remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_11', _zygomaticimplantplanner_cb_step_11_id, _workflow_runtime_repeat_index)
+remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_11", _zygomaticimplantplanner_cb_step_11_id, _workflow_runtime_repeat_index)
 
-print('[ZygomaticImplantPlanner] Please Manually adjust the symmetry plane.')
-print('When finished, press the \'Done\' button in the workflow panel.')
+print("[ZygomaticImplantPlanner] Please manually adjust the symmetry plane using its interactive handles.")
+print("When finished, press the 'Done' button in the workflow panel.")

@@ -131,37 +131,12 @@ class LogicCoreMixin:
         import time
         t_total0 = time.time()
 
-        # Deterministic core-UI evidence (sub-millisecond, no LLM): controls
-        # whose labels match the request contribute slots/API footprints.
-        # Quiet no-op when the pre-analysis artifacts are absent or nothing
-        # matches confidently.
-        ui_block = ""
-        try:
-            from SlicerAIAgentLib.UIControlIndex import format_evidence_lines, get_index
-            ui_index = get_index()
-            if ui_index is not None:
-                ui_lines = format_evidence_lines(
-                    ui_index.match(prompt, top_k=3), max_total_chars=700,
-                )
-                if ui_lines:
-                    ui_block = (
-                        "\n\n## CORE-UI EVIDENCE (deterministic, from Slicer core "
-                        "UI pre-analysis)\n"
-                        "These Slicer core controls match the request; prefer their "
-                        "evidenced slots/API method names over remembered APIs:\n"
-                        + "\n".join(ui_lines)
-                    )
-                if timing is not None:
-                    timing['ui_evidence_count'] = len(ui_lines)
-        except Exception:
-            logger.debug("Core-UI evidence lookup failed", exc_info=True)
-
         try:
             t_get0 = time.time()
             retriever = self._getVectorRetriever()
             t_get = time.time() - t_get0
             if not retriever or not retriever.is_ready():
-                return ui_block
+                return ""
 
             from concurrent.futures import ThreadPoolExecutor
 
@@ -285,12 +260,12 @@ class LogicCoreMixin:
                 timing['retrieval_wall_time'] = round(total_t, 3)
                 timing['raw_prompt_prefetch_reused'] = raw_prefetch_reused
 
-            return formatted + ui_block
+            return formatted
         except Exception as e:
             import traceback
             traceback.print_exc()
             logger.warning(f"Dense pre-retrieval failed: {e}")
-            return ui_block
+            return ""
 
     @staticmethod
     def _isWorkflowControlTurn(prompt: str, context: Optional[Dict] = None) -> bool:

@@ -223,8 +223,6 @@ class SkillToolSetupMixin:
     def _infer_source_type(self, file_path: str) -> str:
         """Infer the role of a file based on its path within the Slicer codebase."""
         path_lower = file_path.lower().replace('\\', '/')
-        if path_lower.startswith('slicer-ui-analysis/') or '/slicer_ui_preanalysis/' in path_lower:
-            return 'ui_analysis'
         if '/testing/python/' in path_lower:
             return 'test_example'
         if '/docs/developer_guide/script_repository/' in path_lower:
@@ -250,14 +248,6 @@ class SkillToolSetupMixin:
         # If already relative, normalize separators only
         if not os.path.isabs(path):
             return path.replace(os.sep, '/')
-
-        ui_docs_dir = _get_ui_analysis_docs_dir()
-        try:
-            ui_rel = os.path.relpath(path, ui_docs_dir)
-            if not ui_rel.startswith('..'):
-                return f"slicer-ui-analysis/{ui_rel.replace(os.sep, '/')}"
-        except ValueError:
-            pass
 
         try:
             rel = os.path.relpath(path, self.skill_path)
@@ -292,7 +282,6 @@ class SkillToolSetupMixin:
         """Resolve a tool path argument to an absolute filesystem path.
 
         - Absolute path: used as-is
-        - slicer-ui-analysis/...: UI-analysis docs dir
         - ext:<prefix>/...: resolved against extra_roots (the INSTALLED extension)
         - slicer-extensions/<Ext>/...: when <Ext> is an installed extension (in
           extra_roots), redirected to its INSTALLED copy so the agent reads the
@@ -318,9 +307,6 @@ class SkillToolSetupMixin:
         """The raw resolution, without the private-subtree guard."""
         if os.path.isabs(path):
             return path
-        if path == "slicer-ui-analysis" or path.startswith("slicer-ui-analysis/"):
-            sub = path[len("slicer-ui-analysis"):].lstrip("/\\")
-            return os.path.join(_get_ui_analysis_docs_dir(), sub)
         if path.startswith("ext:"):
             rest = path[4:]
             slash = rest.find('/')

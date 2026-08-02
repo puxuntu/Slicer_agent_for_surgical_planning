@@ -155,9 +155,9 @@
     "generator_template_sync_valid": true
   },
   "api_proof_coverage": {
-    "total_calls": 388,
+    "total_calls": 385,
     "state_changing_calls": 109,
-    "proven_calls": 333,
+    "proven_calls": 330,
     "invalid_calls": 0,
     "blocking_unproven_calls": 0,
     "warning_unproven_reads": 55,

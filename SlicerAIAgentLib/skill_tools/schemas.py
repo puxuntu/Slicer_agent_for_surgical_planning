@@ -14,7 +14,7 @@ def get_skill_tools() -> List[Dict]:
             "type": "function",
             "function": {
                 "name": "Grep",
-                "description": "Full-text search across files. Returns an aggregated summary (per-file hit counts + representative matches), not line-by-line results. Use after VectorSearch or when you know a specific API/pattern to confirm usage. For UI labels/actions, search slicer-ui-analysis/ when the UI pre-analysis has been built.",
+                "description": "Full-text search across files. Returns an aggregated summary (per-file hit counts + representative matches), not line-by-line results. Use after VectorSearch or when you know a specific API/pattern to confirm usage.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -24,7 +24,7 @@ def get_skill_tools() -> List[Dict]:
                         },
                         "path": {
                             "type": "string",
-                            "description": "Relative path within skill or virtual UI analysis root (e.g., 'slicer-source/Docs/developer_guide/script_repository', 'slicer-ui-analysis')"
+                            "description": "Relative path within the skill root (e.g., 'slicer-source/Docs/developer_guide/script_repository')"
                         }
                     },
                     "required": ["pattern", "path"]
@@ -41,7 +41,7 @@ def get_skill_tools() -> List[Dict]:
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "Relative path to file (e.g., 'slicer-source/Docs/developer_guide/script_repository/volumes.md', 'slicer-ui-analysis/Libs__MRML__Widgets__Resources__UI__qMRMLSliceControllerWidget.ui.md')"
+                            "description": "Relative path to file (e.g., 'slicer-source/Docs/developer_guide/script_repository/volumes.md')"
                         },
                         "query": {
                             "type": "string",

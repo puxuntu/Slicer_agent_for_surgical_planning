@@ -40,21 +40,6 @@ class AnalyzerSlicerOpManifestMixin:
             self.on_progress("ground", "Ground Slicer APIs", "No slicer_op sub-operations found")
             return {}
 
-        # Integrity guard: grounding quality depends on the core-UI
-        # pre-analysis artifacts; degrade loudly rather than silently.
-        try:
-            from ..UIControlIndex import preanalysis_status
-            status = preanalysis_status()
-            if not status.get("ok"):
-                self.on_progress(
-                    "ground", "Ground Slicer APIs",
-                    "WARNING: Slicer UI pre-analysis missing/empty "
-                    f"({status.get('reason', 'unknown')}) — UI-labeled grounding is "
-                    "degraded; run scripts/build_rag.py outside Slicer to rebuild.",
-                )
-        except Exception:
-            logger.debug("UI pre-analysis status check failed", exc_info=True)
-
         # Scoped re-entry reuse: grounding is the most expensive phase, and
         # after a scoped contract merge most sub-ops are byte-identical to
         # the previous iteration. Reuse the cached grounded code when the

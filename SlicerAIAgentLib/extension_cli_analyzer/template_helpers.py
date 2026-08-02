@@ -164,19 +164,7 @@ class AnalyzerTemplateHelpersMixin:
             if len(chains) <= self._PROVEN_CHAIN_PROMPT_LIMIT
             else f"\n(... {len(chains) - len(shown)} more evidenced chains omitted)"
         )
-        # Core-UI method-name evidence is a SEPARATE subsection: these are bare
-        # method names (not slicer.* chains) and must not loosen the chain-only
-        # rule for slicer.* receivers.
         ui_subsection = ""
-        ui_methods = self._core_ui_evidence_methods()
-        if ui_methods:
-            ui_subsection = (
-                "\n\nCORE-UI EVIDENCED SLICER METHOD NAMES (from Slicer core UI "
-                "analysis — method names only, receiver class NOT proven here; "
-                "verify the receiver from the cited implementation evidence "
-                "before use):\n"
-                + "\n".join(f"- {name}" for name in ui_methods)
-            )
         constants = getattr(self, "_extension_runtime_constants", None) or []
         if constants:
             ui_subsection += (
@@ -198,35 +186,6 @@ class AnalyzerTemplateHelpersMixin:
             "evidenced, output a single line `# MISSING_EVIDENCE: <describe the "
             "missing API>` instead of inventing a call.\n"
         )
-
-    def _core_ui_evidence_methods(self) -> List[str]:
-        """Method names evidenced by core-UI controls matching the cookbook.
-
-        Computed once per run from the cookbook step descriptions against the
-        UI pre-analysis index; empty when artifacts are absent. Cached on
-        self._ui_evidence_methods (reset together with _proven_api_chains).
-        """
-        methods = getattr(self, "_ui_evidence_methods", None)
-        if methods is not None:
-            return methods
-        methods = []
-        try:
-            from ..UIControlIndex import get_index
-            index = get_index()
-            cookbook = getattr(self, "_cookbook_def", None)
-            steps = getattr(cookbook, "steps", None) if cookbook is not None else None
-            if index is not None and steps:
-                query = " ".join(
-                    str(getattr(step, "description", "") or "") for step in steps
-                )
-                names = set()
-                for match in index.match(query, top_k=10):
-                    names.update(match.get("record", {}).get("api_footprints") or [])
-                methods = sorted(names)[:40]
-        except Exception:
-            logger.debug("Core-UI evidence method lookup failed", exc_info=True)
-        self._ui_evidence_methods = methods
-        return methods
 
     @staticmethod
     def _is_markup_node_class(node_class: str) -> bool:

@@ -34,7 +34,6 @@ All search paths are relative to the skill root. Do NOT prepend absolute paths.
 
 Search roots:
 - `slicer-source/` — Slicer source code and script repository
-- `slicer-ui-analysis/` — generated Slicer core UI label/action to implementation/API evidence
 - `slicer-extensions/` — Extension repositories
 - `slicer-dependencies/` — VTK, ITK, CTK, etc.
 
@@ -45,8 +44,8 @@ You have three search tools: VectorSearch, Grep, ReadFile.
 you may generate code directly. For view-controller, display-node, markups, or MRML-node APIs, \
 confirm the exact receiver and method with VectorSearch, Grep, or ReadFile before writing code.
 - If the operation is described as a UI control, toolbar action, menu action, checkbox, or panel setting, \
-search `slicer-ui-analysis/` for the user-facing label/action first. Use UI evidence to identify the \
-receiver/slot/control intent, then verify the executable API against implementation or MRML/API evidence.
+find the control in the Slicer source (its `.ui` file or the widget class that owns it), then verify the \
+executable API against implementation or MRML/API evidence.
 - If unsure about an API signature, do **one** VectorSearch or Grep to confirm, \
 then generate code immediately.
 - You have up to 15 tool rounds total. Prefer fewer rounds — generate code as soon \
@@ -70,13 +69,12 @@ lookup directly; do NOT treat them as missing source artifacts.
 
 ### Efficient search order
 If you need to search, prefer these sources in order:
-1. `slicer-ui-analysis/` — UI labels/actions mapped to nearby implementation/API evidence
-2. `slicer-source/Docs/developer_guide/script_repository/` — official cookbook examples
-3. `slicer-source/Base/Python/slicer/util.py` — core Python API
-4. `slicer-source/Modules/CLI/` — ready-made CLI operations
-5. `slicer-source/Modules/Scripted/<relevant-module>/` — Python modules
-6. `slicer-source/Modules/Loadable/<relevant-module>/` — C++ modules with Python wrappers
-7. `slicer-source/Libs/MRML/Core/` — MRML node definitions
+1. `slicer-source/Docs/developer_guide/script_repository/` — official cookbook examples
+2. `slicer-source/Base/Python/slicer/util.py` — core Python API
+3. `slicer-source/Modules/CLI/` — ready-made CLI operations
+4. `slicer-source/Modules/Scripted/<relevant-module>/` — Python modules
+5. `slicer-source/Modules/Loadable/<relevant-module>/` — C++ modules with Python wrappers
+6. `slicer-source/Libs/MRML/Core/` — MRML node definitions
 
 **Grep** returns an aggregated summary (per-file hit counts + representative matches), \
 not line-by-line results. Use the `files` list to find relevant files, then ReadFile for context.
@@ -165,7 +163,6 @@ _NO_EVIDENCE_TEXT = "(No relevant snippets found in knowledge base)"
 _GENERATION_FAILED_SENTINEL = "SLICER_OP_GENERATION_FAILED"
 _MAX_TOOL_ROUNDS = 15
 _PER_OP_TIMEOUT_S = 600  # Max seconds per slicer_op (tool loop can be slow)
-_UI_ANALYSIS_PREFIX = "slicer-ui-analysis/"
 
 
 def infer_final_state_intent(text: str) -> Dict[str, Any]:
@@ -272,7 +269,7 @@ def _get_allowed_tool_defs() -> List[Dict]:
 
 _CATEGORY_SEARCH_HINTS = {
     "layout_slice_view": [
-        "slicer-ui-analysis", "qMRMLSliceControllerWidget", "actionShow_in_3D",
+        "qMRMLSliceControllerWidget", "actionShow_in_3D",
         "layoutManager", "vtkMRMLLayoutNode", "sliceWidget",
         "mrmlSliceNode", "sliceController", "setSliceVisible", "SetSliceResolutionMode",
         "SliceResolutionMatch2DView", "SliceResolutionMatchVolumes",
@@ -284,13 +281,13 @@ _CATEGORY_SEARCH_HINTS = {
         "selectModule",
     ],
     "markups_display": [
-        "slicer-ui-analysis", "qSlicerMarkupsModule.ui", "qMRMLDisplayNodeViewComboBox",
+        "qSlicerMarkupsModule.ui", "qMRMLDisplayNodeViewComboBox",
         "vtkMRMLMarkupsDisplayNode", "AddViewNodeID", "SetActiveListID",
         "Markups display advanced view", "SetVisibility2D", "SetSliceProjection",
         "SliceProjection",
     ],
     "crosshair": [
-        "slicer-ui-analysis", "sliceIntersectionsVisibilityCheckBox",
+        "sliceIntersectionsVisibilityCheckBox",
         "SetIntersectingSlicesEnabled", "vtkMRMLApplicationLogic",
         "IntersectingSlicesVisibility", "IntersectingSlicesInteractive",
         "IntersectingSlicesTranslation", "IntersectingSlicesRotation",
@@ -366,37 +363,19 @@ def _dedupe_keep_order(values: List[str], limit: Optional[int] = None) -> List[s
     return out
 
 
-def _is_ui_analysis_path(path: Any) -> bool:
-    if not isinstance(path, str):
-        return False
-    normalized = path.replace("\\", "/").lower()
-    return (
-        normalized == "slicer-ui-analysis"
-        or normalized.startswith(_UI_ANALYSIS_PREFIX)
-        or "/slicer_ui_preanalysis/" in normalized
-    )
-
-
-def _collect_tool_result_files(result: Any) -> Tuple[List[str], List[str]]:
-    """Collect UI-analysis and non-UI file paths mentioned in a tool result."""
-    ui_files: List[str] = []
+def _collect_tool_result_files(result: Any) -> List[str]:
+    """Collect the file paths mentioned in a tool result."""
     other_files: List[str] = []
 
     def _add(path: Any, source_type: str = "") -> None:
         if not isinstance(path, str) or not path:
             return
-        if _is_ui_analysis_path(path) or source_type == "ui_analysis":
-            ui_files.append(path)
-        else:
-            other_files.append(path)
+        other_files.append(path)
 
     if not isinstance(result, dict):
-        return [], []
+        return []
 
-    if result.get("source_type") == "ui_analysis":
-        _add(result.get("path") or result.get("file"), "ui_analysis")
-    else:
-        _add(result.get("path") or result.get("file"), result.get("source_type", ""))
+    _add(result.get("path") or result.get("file"), result.get("source_type", ""))
 
     for item in result.get("results") or []:
         if isinstance(item, dict):
@@ -410,62 +389,15 @@ def _collect_tool_result_files(result: Any) -> Tuple[List[str], List[str]]:
         if isinstance(item, dict):
             _add(item.get("file"), item.get("source_type", ""))
 
-    formatted = result.get("formatted_context")
-    if isinstance(formatted, str):
-        for match in re.finditer(r"slicer-ui-analysis/[^\s`'\"),]+", formatted):
-            ui_files.append(match.group(0))
-
-    return _dedupe_keep_order(ui_files, 20), _dedupe_keep_order(other_files, 20)
-
-
-def _extract_ui_lines(text: str, limit: int = 20) -> List[str]:
-    """Extract audit-relevant lines from UI-analysis markdown/tool output."""
-    if not isinstance(text, str) or not text:
-        return []
-    interesting = []
-    prefixes = (
-        "## widget:",
-        "## action:",
-        "- Confidence:",
-        "- Search text:",
-        "- Text:",
-        "- Tooltip:",
-        "- Implementation candidates:",
-        "- Matched implementation lines:",
-        "- Connected slots/functions:",
-        "- API footprints:",
-        "- Key UI properties:",
-    )
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if line.startswith(prefixes):
-            interesting.append(line)
-        elif (
-            line.startswith("- `")
-            and any(marker in line for marker in (".cxx:", ".cpp:", ".h:", ".py:"))
-        ):
-            interesting.append(line)
-    return _dedupe_keep_order(interesting, limit)
-
-
-def _extract_backticked_values(lines: List[str], label: str, limit: int = 30) -> List[str]:
-    values: List[str] = []
-    for line in lines:
-        if label not in line:
-            continue
-        values.extend(re.findall(r"`([^`]+)`", line))
-    return _dedupe_keep_order(values, limit)
+    return _dedupe_keep_order(other_files, 20)
 
 
 def _summarize_tool_evidence(tool_calls_history: List[Dict]) -> Dict[str, Any]:
-    """Summarize whether/how the ground phase used generated Slicer UI pre-analysis."""
-    ui_query_paths: List[str] = []
-    ui_result_files: List[str] = []
+    """Summarize how the ground phase searched for evidence."""
     non_ui_result_files: List[str] = []
     vector_queries: List[str] = []
     grep_patterns: List[str] = []
     read_paths: List[str] = []
-    ui_lines: List[str] = []
     source_type_counts: Dict[str, int] = {}
 
     for call in tool_calls_history or []:
@@ -482,10 +414,6 @@ def _summarize_tool_evidence(tool_calls_history: List[Dict]) -> Dict[str, Any]:
         elif tool == "ReadFile":
             read_paths.append(str(args.get("path", "")))
 
-        path_arg = args.get("path")
-        if _is_ui_analysis_path(path_arg):
-            ui_query_paths.append(path_arg)
-
         for item in result.get("results") or []:
             if isinstance(item, dict):
                 st = item.get("source_type", "")
@@ -500,41 +428,12 @@ def _summarize_tool_evidence(tool_calls_history: List[Dict]) -> Dict[str, Any]:
         if result_source_type:
             source_type_counts[result_source_type] = source_type_counts.get(result_source_type, 0) + 1
 
-        ui_files, other_files = _collect_tool_result_files(result)
-        ui_result_files.extend(ui_files)
-        non_ui_result_files.extend(other_files)
+        non_ui_result_files.extend(_collect_tool_result_files(result))
 
-        formatted = result.get("formatted_context")
-        if isinstance(formatted, str) and "slicer-ui-analysis/" in formatted:
-            ui_lines.extend(_extract_ui_lines(formatted))
 
-        content = result.get("content")
-        if result.get("source_type") == "ui_analysis" and isinstance(content, str):
-            ui_lines.extend(_extract_ui_lines(content))
-
-        for item in result.get("representative_matches") or []:
-            if not isinstance(item, dict):
-                continue
-            if _is_ui_analysis_path(item.get("file")):
-                ui_lines.extend(_extract_ui_lines(item.get("context", "")))
-                content_line = item.get("content")
-                if isinstance(content_line, str):
-                    ui_lines.extend(_extract_ui_lines(content_line))
-
-    ui_lines = _dedupe_keep_order(ui_lines, 25)
-    ui_result_files = _dedupe_keep_order(ui_result_files, 20)
     non_ui_result_files = _dedupe_keep_order(non_ui_result_files, 20)
 
     return {
-        "ui_analysis": {
-            "used": bool(ui_query_paths or ui_result_files or source_type_counts.get("ui_analysis")),
-            "query_paths": _dedupe_keep_order(ui_query_paths, 10),
-            "result_files": ui_result_files,
-            "matched_lines_preview": ui_lines,
-            "connected_slots": _extract_backticked_values(ui_lines, "Connected slots/functions"),
-            "api_footprints": _extract_backticked_values(ui_lines, "API footprints"),
-            "implementation_candidates": _extract_backticked_values(ui_lines, "Implementation candidates"),
-        },
         "source_verification": {
             "non_ui_result_files": non_ui_result_files,
             "source_type_counts": source_type_counts,

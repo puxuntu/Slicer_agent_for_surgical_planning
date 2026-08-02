@@ -1,7 +1,7 @@
 [
   {
     "attempt": 1,
-    "timestamp": "2026-08-01T16:13:20.834980",
+    "timestamp": "2026-08-01T23:06:08.532691",
     "phase": "package",
     "trigger": "user_request",
     "phases_completed": [
@@ -98,7 +98,7 @@
             "expanded_receiver_expr": "slicer.modules.markups.logic()",
             "proof_kind": "live_instance",
             "attr": "SetActiveListID",
-            "lineno": 37,
+            "lineno": 34,
             "is_attribute": false,
             "method_exists": true,
             "live_receiver_type": "vtkSlicerMarkupsLogic",
@@ -113,7 +113,7 @@
             "receiver_type": "vtkMRMLDisplayNode",
             "proof_kind": "class_type",
             "attr": "SetVisibility",
-            "lineno": 32,
+            "lineno": 31,
             "is_attribute": false,
             "method_exists": true,
             "live_receiver_type": "type",
@@ -126,7 +126,7 @@
             "expanded_receiver_expr": "slicer.modules.markups",
             "proof_kind": "live_instance",
             "attr": "logic",
-            "lineno": 37,
+            "lineno": 34,
             "is_attribute": false,
             "method_exists": true,
             "live_receiver_type": "qSlicerMarkupsModule",
@@ -229,22 +229,22 @@
         "templates/cb_step_6_slicer.py.tpl: UnprovenApiCall: receiver_type_unproven for '_ses_eff.self().onApply' (line 55, effect=state_change)",
         "templates/cb_step_6_slicer.py.tpl: UnprovenApiCall: receiver_type_unproven for 'slicer.modules.segmenteditor.widgetRepresentation().self' (line 64, effect=read_only)",
         "templates/cb_step_10_action.py.tpl: UnprovenApiCall: receiver_type_unproven for '_logic.getParameterNode' (line 35, effect=read_only)",
-        "templates/cb_step_11_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetDisplayNode' (line 30, effect=read_only)",
-        "templates/cb_step_11_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetID' (line 38, effect=read_only)",
+        "templates/cb_step_11_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetDisplayNode' (line 29, effect=read_only)",
+        "templates/cb_step_11_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetID' (line 35, effect=read_only)",
         "templates/cb_step_11_post.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetNumberOfControlPoints' (line 15, effect=read_only)",
         "templates/cb_step_15_action.py.tpl: UnprovenApiCall: method_unproven for '_ctrl.blockSignals' (line 53, effect=read_only)",
         "templates/cb_step_15_action.py.tpl: UnprovenApiCall: method_unproven for '_ctrl.blockSignals' (line 55, effect=read_only)",
         "templates/cb_step_17_action.py.tpl: UnprovenApiCall: receiver_type_unproven for '_logic.getParameterNode' (line 35, effect=read_only)",
-        "templates/cb_step_18_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetDisplayNode' (line 30, effect=read_only)",
-        "templates/cb_step_18_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetID' (line 38, effect=read_only)",
+        "templates/cb_step_18_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetDisplayNode' (line 29, effect=read_only)",
+        "templates/cb_step_18_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetID' (line 35, effect=read_only)",
         "templates/cb_step_18_post.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetNumberOfControlPoints' (line 15, effect=read_only)",
         "templates/cb_step_21_action.py.tpl: UnprovenApiCall: receiver_type_unproven for '_logic.getParameterNode' (line 35, effect=read_only)",
-        "templates/cb_step_22_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'plane.GetDisplayNode' (line 34, effect=read_only)",
-        "templates/cb_step_22_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetID' (line 41, effect=read_only)",
+        "templates/cb_step_22_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'planeNode.GetDisplayNode' (line 32, effect=read_only)",
+        "templates/cb_step_22_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetID' (line 39, effect=read_only)",
         "templates/cb_step_22_post.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetNumberOfControlPoints' (line 15, effect=read_only)",
         "templates/cb_step_25_action.py.tpl: UnprovenApiCall: receiver_type_unproven for '_logic.getParameterNode' (line 35, effect=read_only)",
-        "templates/cb_step_26_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetDisplayNode' (line 31, effect=read_only)",
-        "templates/cb_step_26_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetID' (line 39, effect=read_only)",
+        "templates/cb_step_26_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'lineNode.GetDisplayNode' (line 31, effect=read_only)",
+        "templates/cb_step_26_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetID' (line 38, effect=read_only)",
         "templates/cb_step_26_post.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetNumberOfControlPoints' (line 15, effect=read_only)"
       ],
       "per_template": {
@@ -1279,16 +1279,16 @@
           "minimal_repair": null
         },
         {
-          "issue_id": "api_proof_6559b9c1a2e8e669c0ac",
+          "issue_id": "api_proof_ddf83ea3faf9027d6dfa",
           "issue_type": "UnprovenApiCall",
           "severity": "warning",
           "blocking": false,
           "template": "templates/cb_step_11_pre.py.tpl",
-          "call_id": "6559b9c1a2e8e669c0ac",
+          "call_id": "ddf83ea3faf9027d6dfa",
           "source_span": {
-            "lineno": 30,
+            "lineno": 29,
             "col_offset": 14,
-            "end_lineno": 30,
+            "end_lineno": 29,
             "end_col_offset": 35
           },
           "diagnosis": "receiver_type_unproven",
@@ -1301,16 +1301,16 @@
           "minimal_repair": null
         },
         {
-          "issue_id": "api_proof_820d43ddbf52e8793d58",
+          "issue_id": "api_proof_bde029e73c19d2043fb1",
           "issue_type": "UnprovenApiCall",
           "severity": "warning",
           "blocking": false,
           "template": "templates/cb_step_11_pre.py.tpl",
-          "call_id": "820d43ddbf52e8793d58",
+          "call_id": "bde029e73c19d2043fb1",
           "source_span": {
-            "lineno": 38,
+            "lineno": 35,
             "col_offset": 41,
-            "end_lineno": 38,
+            "end_lineno": 35,
             "end_col_offset": 53
           },
           "diagnosis": "receiver_type_unproven",
@@ -1415,16 +1415,16 @@
           "minimal_repair": null
         },
         {
-          "issue_id": "api_proof_3760a50c318573d959b8",
+          "issue_id": "api_proof_c727154f13f5522d8cd0",
           "issue_type": "UnprovenApiCall",
           "severity": "warning",
           "blocking": false,
           "template": "templates/cb_step_18_pre.py.tpl",
-          "call_id": "3760a50c318573d959b8",
+          "call_id": "c727154f13f5522d8cd0",
           "source_span": {
-            "lineno": 30,
+            "lineno": 29,
             "col_offset": 14,
-            "end_lineno": 30,
+            "end_lineno": 29,
             "end_col_offset": 35
           },
           "diagnosis": "receiver_type_unproven",
@@ -1437,16 +1437,16 @@
           "minimal_repair": null
         },
         {
-          "issue_id": "api_proof_769a60e44de2dfd42a68",
+          "issue_id": "api_proof_0bebed1c1fdb2fc13e3f",
           "issue_type": "UnprovenApiCall",
           "severity": "warning",
           "blocking": false,
           "template": "templates/cb_step_18_pre.py.tpl",
-          "call_id": "769a60e44de2dfd42a68",
+          "call_id": "0bebed1c1fdb2fc13e3f",
           "source_span": {
-            "lineno": 38,
+            "lineno": 35,
             "col_offset": 41,
-            "end_lineno": 38,
+            "end_lineno": 35,
             "end_col_offset": 53
           },
           "diagnosis": "receiver_type_unproven",
@@ -1503,20 +1503,20 @@
           "minimal_repair": null
         },
         {
-          "issue_id": "api_proof_c90bd87ab7ab9dbf607a",
+          "issue_id": "api_proof_892c7ae29dc621495d84",
           "issue_type": "UnprovenApiCall",
           "severity": "warning",
           "blocking": false,
           "template": "templates/cb_step_22_pre.py.tpl",
-          "call_id": "c90bd87ab7ab9dbf607a",
+          "call_id": "892c7ae29dc621495d84",
           "source_span": {
-            "lineno": 34,
+            "lineno": 32,
             "col_offset": 18,
-            "end_lineno": 34,
-            "end_col_offset": 40
+            "end_lineno": 32,
+            "end_col_offset": 44
           },
           "diagnosis": "receiver_type_unproven",
-          "receiver_expression": "plane",
+          "receiver_expression": "planeNode",
           "receiver_type": "",
           "method": "GetDisplayNode",
           "method_exists": null,
@@ -1525,16 +1525,16 @@
           "minimal_repair": null
         },
         {
-          "issue_id": "api_proof_895c406039a328d0c53c",
+          "issue_id": "api_proof_7e0d44ff1ad75125ab4a",
           "issue_type": "UnprovenApiCall",
           "severity": "warning",
           "blocking": false,
           "template": "templates/cb_step_22_pre.py.tpl",
-          "call_id": "895c406039a328d0c53c",
+          "call_id": "7e0d44ff1ad75125ab4a",
           "source_span": {
-            "lineno": 41,
+            "lineno": 39,
             "col_offset": 41,
-            "end_lineno": 41,
+            "end_lineno": 39,
             "end_col_offset": 53
           },
           "diagnosis": "receiver_type_unproven",
@@ -1591,20 +1591,20 @@
           "minimal_repair": null
         },
         {
-          "issue_id": "api_proof_7bd82f1d2af97def8f91",
+          "issue_id": "api_proof_f8e08c3eb4797edeee23",
           "issue_type": "UnprovenApiCall",
           "severity": "warning",
           "blocking": false,
           "template": "templates/cb_step_26_pre.py.tpl",
-          "call_id": "7bd82f1d2af97def8f91",
+          "call_id": "f8e08c3eb4797edeee23",
           "source_span": {
             "lineno": 31,
-            "col_offset": 14,
+            "col_offset": 18,
             "end_lineno": 31,
-            "end_col_offset": 35
+            "end_col_offset": 43
           },
           "diagnosis": "receiver_type_unproven",
-          "receiver_expression": "node",
+          "receiver_expression": "lineNode",
           "receiver_type": "",
           "method": "GetDisplayNode",
           "method_exists": null,
@@ -1613,16 +1613,16 @@
           "minimal_repair": null
         },
         {
-          "issue_id": "api_proof_c24998b89d7119e1e367",
+          "issue_id": "api_proof_60002fda06ce44c44dd6",
           "issue_type": "UnprovenApiCall",
           "severity": "warning",
           "blocking": false,
           "template": "templates/cb_step_26_pre.py.tpl",
-          "call_id": "c24998b89d7119e1e367",
+          "call_id": "60002fda06ce44c44dd6",
           "source_span": {
-            "lineno": 39,
+            "lineno": 38,
             "col_offset": 41,
-            "end_lineno": 39,
+            "end_lineno": 38,
             "end_col_offset": 53
           },
           "diagnosis": "receiver_type_unproven",
@@ -4397,35 +4397,16 @@
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "5806392d94a37acb20e6",
+                "call_id": "c1a7d0c2cefaaae9b10a",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 18,
-                  "col_offset": 10,
-                  "end_lineno": 18,
-                  "end_col_offset": 127
+                  "lineno": 20,
+                  "col_offset": 16,
+                  "end_lineno": 20,
+                  "end_col_offset": 46
                 },
-                "call_expression": "RuntimeError('The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.')",
+                "call_expression": "ZygomaticImplantPlannerLogic()",
                 "receiver_expression": "",
-                "method": "RuntimeError",
-                "arguments": [
-                  "'The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.'"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_11"
-              },
-              {
-                "call_id": "f09584f8e9f30c12d5d2",
-                "template": "templates/cb_step_11_pre.py.tpl",
-                "source_span": {
-                  "lineno": 23,
-                  "col_offset": 12,
-                  "end_lineno": 23,
-                  "end_col_offset": 66
-                },
-                "call_expression": "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()",
-                "receiver_expression": "ZygomaticImplantPlanner",
                 "method": "ZygomaticImplantPlannerLogic",
                 "arguments": [],
                 "keyword_arguments": {},
@@ -4433,12 +4414,31 @@
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "0be51132098f1a593e6a",
+                "call_id": "834bc1fab79a3cad2ab1",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 26,
+                  "lineno": 23,
+                  "col_offset": 14,
+                  "end_lineno": 23,
+                  "end_col_offset": 120
+                },
+                "call_expression": "RuntimeError('ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.')",
+                "receiver_expression": "",
+                "method": "RuntimeError",
+                "arguments": [
+                  "'ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.'"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_11"
+              },
+              {
+                "call_id": "96efb0228281b6836706",
+                "template": "templates/cb_step_11_pre.py.tpl",
+                "source_span": {
+                  "lineno": 25,
                   "col_offset": 7,
-                  "end_lineno": 26,
+                  "end_lineno": 25,
                   "end_col_offset": 36
                 },
                 "call_expression": "logic.findRole(logic.R_PLANE)",
@@ -4452,12 +4452,12 @@
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "8cc7851321d78b0f0f6c",
+                "call_id": "9060c77bcf83e81921f6",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 26,
+                  "lineno": 25,
                   "col_offset": 22,
-                  "end_lineno": 26,
+                  "end_lineno": 25,
                   "end_col_offset": 35
                 },
                 "call_expression": "logic.R_PLANE",
@@ -4470,31 +4470,31 @@
                 "access_kind": "attribute"
               },
               {
-                "call_id": "fd01c1f5498e5dfd9ba9",
+                "call_id": "dc1c44fe40adb11bfca3",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 28,
+                  "lineno": 27,
                   "col_offset": 10,
-                  "end_lineno": 28,
-                  "end_col_offset": 78
+                  "end_lineno": 27,
+                  "end_col_offset": 121
                 },
-                "call_expression": "RuntimeError('No symmetry plane node found from the previous step.')",
+                "call_expression": "RuntimeError('No symmetry plane node found from previous step. Run the symmetry plane computation step first.')",
                 "receiver_expression": "",
                 "method": "RuntimeError",
                 "arguments": [
-                  "'No symmetry plane node found from the previous step.'"
+                  "'No symmetry plane node found from previous step. Run the symmetry plane computation step first.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "6559b9c1a2e8e669c0ac",
+                "call_id": "ddf83ea3faf9027d6dfa",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 30,
+                  "lineno": 29,
                   "col_offset": 14,
-                  "end_lineno": 30,
+                  "end_lineno": 29,
                   "end_col_offset": 35
                 },
                 "call_expression": "node.GetDisplayNode()",
@@ -4506,12 +4506,12 @@
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "50c41afca6fb788b8833",
+                "call_id": "20e4460a229b65cd951f",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 32,
+                  "lineno": 31,
                   "col_offset": 4,
-                  "end_lineno": 32,
+                  "end_lineno": 31,
                   "end_col_offset": 35
                 },
                 "call_expression": "displayNode.SetVisibility(True)",
@@ -4525,12 +4525,12 @@
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "19a1115ec91ddffa0744",
+                "call_id": "8168aa7bb323ff0dd82f",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 35,
+                  "lineno": 33,
                   "col_offset": 0,
-                  "end_lineno": 35,
+                  "end_lineno": 33,
                   "end_col_offset": 39
                 },
                 "call_expression": "logic.setSymmetryPlaneInteraction(True)",
@@ -4544,12 +4544,29 @@
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "43c1ebd5d6afa9107e1e",
+                "call_id": "b44ad9a5dddc7d7d5bb3",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 37,
+                  "lineno": 34,
                   "col_offset": 0,
-                  "end_lineno": 37,
+                  "end_lineno": 34,
+                  "end_col_offset": 30
+                },
+                "call_expression": "slicer.modules.markups.logic()",
+                "receiver_expression": "slicer.modules.markups",
+                "method": "logic",
+                "arguments": [],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_11"
+              },
+              {
+                "call_id": "eba2b3d29eb9f136b741",
+                "template": "templates/cb_step_11_pre.py.tpl",
+                "source_span": {
+                  "lineno": 34,
+                  "col_offset": 0,
+                  "end_lineno": 34,
                   "end_col_offset": 52
                 },
                 "call_expression": "slicer.modules.markups.logic().SetActiveListID(node)",
@@ -4563,29 +4580,12 @@
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "8978377249a122916473",
+                "call_id": "bde029e73c19d2043fb1",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 37,
-                  "col_offset": 0,
-                  "end_lineno": 37,
-                  "end_col_offset": 30
-                },
-                "call_expression": "slicer.modules.markups.logic()",
-                "receiver_expression": "slicer.modules.markups",
-                "method": "logic",
-                "arguments": [],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_11"
-              },
-              {
-                "call_id": "820d43ddbf52e8793d58",
-                "template": "templates/cb_step_11_pre.py.tpl",
-                "source_span": {
-                  "lineno": 38,
+                  "lineno": 35,
                   "col_offset": 41,
-                  "end_lineno": 38,
+                  "end_lineno": 35,
                   "end_col_offset": 53
                 },
                 "call_expression": "node.GetID()",
@@ -4597,12 +4597,12 @@
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "28845396d702b335f928",
+                "call_id": "06c57e1a23df9ef005d9",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 39,
+                  "lineno": 36,
                   "col_offset": 0,
-                  "end_lineno": 39,
+                  "end_lineno": 36,
                   "end_col_offset": 162
                 },
                 "call_expression": "remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_11', _zygomaticimplantplanner_cb_step_11_id, _workflow_runtime_repeat_index)",
@@ -4620,32 +4620,32 @@
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "2ca66c107decb8f6e6af",
+                "call_id": "c390cbfe4b458770115c",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 41,
+                  "lineno": 38,
                   "col_offset": 0,
-                  "end_lineno": 41,
-                  "end_col_offset": 77
+                  "end_lineno": 38,
+                  "end_col_offset": 107
                 },
-                "call_expression": "print('[ZygomaticImplantPlanner] Please Manually adjust the symmetry plane.')",
+                "call_expression": "print('[ZygomaticImplantPlanner] Please manually adjust the symmetry plane using its interactive handles.')",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "'[ZygomaticImplantPlanner] Please Manually adjust the symmetry plane.'"
+                  "'[ZygomaticImplantPlanner] Please manually adjust the symmetry plane using its interactive handles.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
                 "enclosing_operation": "cb_step_11"
               },
               {
-                "call_id": "5200a95c02170e4e82c7",
+                "call_id": "ebf37dc427d5056cbb33",
                 "template": "templates/cb_step_11_pre.py.tpl",
                 "source_span": {
-                  "lineno": 42,
+                  "lineno": 39,
                   "col_offset": 0,
-                  "end_lineno": 42,
-                  "end_col_offset": 72
+                  "end_lineno": 39,
+                  "end_col_offset": 70
                 },
                 "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
                 "receiver_expression": "",
@@ -5508,12 +5508,12 @@
                 "enclosing_operation": "cb_step_15"
               },
               {
-                "call_id": "50e9c6e7ae6928955670",
+                "call_id": "a6bc00cc81314707c6bc",
                 "template": "templates/cb_step_15_action.py.tpl",
                 "source_span": {
-                  "lineno": 58,
+                  "lineno": 60,
                   "col_offset": 0,
-                  "end_lineno": 58,
+                  "end_lineno": 60,
                   "end_col_offset": 41
                 },
                 "call_expression": "_widget._onMandibleConnectedToggled(True)",
@@ -5527,12 +5527,12 @@
                 "enclosing_operation": "cb_step_15"
               },
               {
-                "call_id": "1d6d9e6086cd1e211eff",
+                "call_id": "05955fec79ca0b36ab57",
                 "template": "templates/cb_step_15_action.py.tpl",
                 "source_span": {
-                  "lineno": 59,
+                  "lineno": 61,
                   "col_offset": 0,
-                  "end_lineno": 59,
+                  "end_lineno": 61,
                   "end_col_offset": 125
                 },
                 "call_expression": "print(\"[ZygomaticImplantPlanner] Step 'cb_step_15': set 'mandibleConnectedCheckBox' = True via _onMandibleConnectedToggled.\")",
@@ -6105,35 +6105,16 @@
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "4b672a795d461a37c95b",
+                "call_id": "9648c388993946b78383",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 18,
-                  "col_offset": 10,
-                  "end_lineno": 18,
-                  "end_col_offset": 127
+                  "lineno": 20,
+                  "col_offset": 16,
+                  "end_lineno": 20,
+                  "end_col_offset": 46
                 },
-                "call_expression": "RuntimeError('The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.')",
+                "call_expression": "ZygomaticImplantPlannerLogic()",
                 "receiver_expression": "",
-                "method": "RuntimeError",
-                "arguments": [
-                  "'The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.'"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_18"
-              },
-              {
-                "call_id": "5c0a5f507955d9cfa4bb",
-                "template": "templates/cb_step_18_pre.py.tpl",
-                "source_span": {
-                  "lineno": 23,
-                  "col_offset": 12,
-                  "end_lineno": 23,
-                  "end_col_offset": 66
-                },
-                "call_expression": "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()",
-                "receiver_expression": "ZygomaticImplantPlanner",
                 "method": "ZygomaticImplantPlannerLogic",
                 "arguments": [],
                 "keyword_arguments": {},
@@ -6141,12 +6122,31 @@
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "8261ac5229276824505f",
+                "call_id": "572628b2967ffb45d0f1",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 26,
+                  "lineno": 23,
+                  "col_offset": 14,
+                  "end_lineno": 23,
+                  "end_col_offset": 120
+                },
+                "call_expression": "RuntimeError('ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.')",
+                "receiver_expression": "",
+                "method": "RuntimeError",
+                "arguments": [
+                  "'ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.'"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_18"
+              },
+              {
+                "call_id": "ea80835547bc0ebc046d",
+                "template": "templates/cb_step_18_pre.py.tpl",
+                "source_span": {
+                  "lineno": 25,
                   "col_offset": 7,
-                  "end_lineno": 26,
+                  "end_lineno": 25,
                   "end_col_offset": 38
                 },
                 "call_expression": "logic.findRole(logic.R_MMPLANE)",
@@ -6160,12 +6160,12 @@
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "023121e46bf326ad61f4",
+                "call_id": "fe9daad32cba9c68c827",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 26,
+                  "lineno": 25,
                   "col_offset": 22,
-                  "end_lineno": 26,
+                  "end_lineno": 25,
                   "end_col_offset": 37
                 },
                 "call_expression": "logic.R_MMPLANE",
@@ -6178,31 +6178,31 @@
                 "access_kind": "attribute"
               },
               {
-                "call_id": "b7ab7c50ae357745253d",
+                "call_id": "7851dd9c59aa467cc6ee",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 28,
+                  "lineno": 27,
                   "col_offset": 10,
-                  "end_lineno": 28,
-                  "end_col_offset": 80
+                  "end_lineno": 27,
+                  "end_col_offset": 141
                 },
-                "call_expression": "RuntimeError('No separation plane node found from the previous step.')",
+                "call_expression": "RuntimeError('No maxilla/mandible separation plane node found from previous step. Run the maxilla/mandible separation step first.')",
                 "receiver_expression": "",
                 "method": "RuntimeError",
                 "arguments": [
-                  "'No separation plane node found from the previous step.'"
+                  "'No maxilla/mandible separation plane node found from previous step. Run the maxilla/mandible separation step first.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "3760a50c318573d959b8",
+                "call_id": "c727154f13f5522d8cd0",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 30,
+                  "lineno": 29,
                   "col_offset": 14,
-                  "end_lineno": 30,
+                  "end_lineno": 29,
                   "end_col_offset": 35
                 },
                 "call_expression": "node.GetDisplayNode()",
@@ -6214,12 +6214,12 @@
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "227dc7e36f63585a6249",
+                "call_id": "e580cb5eb13b076bac34",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 32,
+                  "lineno": 31,
                   "col_offset": 4,
-                  "end_lineno": 32,
+                  "end_lineno": 31,
                   "end_col_offset": 35
                 },
                 "call_expression": "displayNode.SetVisibility(True)",
@@ -6233,12 +6233,12 @@
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "6e4aa98ea295816cd205",
+                "call_id": "d4af185454ddeae77ad5",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 35,
+                  "lineno": 33,
                   "col_offset": 0,
-                  "end_lineno": 35,
+                  "end_lineno": 33,
                   "end_col_offset": 29
                 },
                 "call_expression": "logic._freePlaneHandles(node)",
@@ -6252,12 +6252,12 @@
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "67ac2083788d7fb7a788",
+                "call_id": "40ed3fcbecd766e4b7ea",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 37,
+                  "lineno": 34,
                   "col_offset": 0,
-                  "end_lineno": 37,
+                  "end_lineno": 34,
                   "end_col_offset": 52
                 },
                 "call_expression": "slicer.modules.markups.logic().SetActiveListID(node)",
@@ -6271,12 +6271,12 @@
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "cc46e6697b47c99d4f2a",
+                "call_id": "6d28b77c7933b4cfba2c",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 37,
+                  "lineno": 34,
                   "col_offset": 0,
-                  "end_lineno": 37,
+                  "end_lineno": 34,
                   "end_col_offset": 30
                 },
                 "call_expression": "slicer.modules.markups.logic()",
@@ -6288,12 +6288,12 @@
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "769a60e44de2dfd42a68",
+                "call_id": "0bebed1c1fdb2fc13e3f",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 38,
+                  "lineno": 35,
                   "col_offset": 41,
-                  "end_lineno": 38,
+                  "end_lineno": 35,
                   "end_col_offset": 53
                 },
                 "call_expression": "node.GetID()",
@@ -6305,12 +6305,12 @@
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "fbfc0e1737e723ab0e7c",
+                "call_id": "8fa56dc333325770459a",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 39,
+                  "lineno": 36,
                   "col_offset": 0,
-                  "end_lineno": 39,
+                  "end_lineno": 36,
                   "end_col_offset": 162
                 },
                 "call_expression": "remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_18', _zygomaticimplantplanner_cb_step_18_id, _workflow_runtime_repeat_index)",
@@ -6328,32 +6328,32 @@
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "ad0a54693ae4e3333419",
+                "call_id": "b5c54bc4d9858c91ad0f",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 41,
+                  "lineno": 38,
                   "col_offset": 0,
-                  "end_lineno": 41,
-                  "end_col_offset": 79
+                  "end_lineno": 38,
+                  "end_col_offset": 126
                 },
-                "call_expression": "print('[ZygomaticImplantPlanner] Please Manually adjust the separation plane.')",
+                "call_expression": "print('[ZygomaticImplantPlanner] Please manually adjust the maxilla/mandible separation plane using its interactive handles.')",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "'[ZygomaticImplantPlanner] Please Manually adjust the separation plane.'"
+                  "'[ZygomaticImplantPlanner] Please manually adjust the maxilla/mandible separation plane using its interactive handles.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
                 "enclosing_operation": "cb_step_18"
               },
               {
-                "call_id": "178980359143f0caa41b",
+                "call_id": "0fb2b7a67bf5fa30cdc3",
                 "template": "templates/cb_step_18_pre.py.tpl",
                 "source_span": {
-                  "lineno": 42,
+                  "lineno": 39,
                   "col_offset": 0,
-                  "end_lineno": 42,
-                  "end_col_offset": 72
+                  "end_lineno": 39,
+                  "end_col_offset": 70
                 },
                 "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
                 "receiver_expression": "",
@@ -7274,35 +7274,16 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "ee79947b3d76c40bd34c",
+                "call_id": "308710b126abd9d78bdb",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 18,
-                  "col_offset": 10,
-                  "end_lineno": 18,
-                  "end_col_offset": 127
+                  "lineno": 20,
+                  "col_offset": 16,
+                  "end_lineno": 20,
+                  "end_col_offset": 46
                 },
-                "call_expression": "RuntimeError('The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.')",
+                "call_expression": "ZygomaticImplantPlannerLogic()",
                 "receiver_expression": "",
-                "method": "RuntimeError",
-                "arguments": [
-                  "'The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.'"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_22"
-              },
-              {
-                "call_id": "25e1ea4c0498c444db62",
-                "template": "templates/cb_step_22_pre.py.tpl",
-                "source_span": {
-                  "lineno": 23,
-                  "col_offset": 12,
-                  "end_lineno": 23,
-                  "end_col_offset": 66
-                },
-                "call_expression": "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()",
-                "receiver_expression": "ZygomaticImplantPlanner",
                 "method": "ZygomaticImplantPlannerLogic",
                 "arguments": [],
                 "keyword_arguments": {},
@@ -7310,32 +7291,32 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "bbbd0f4ecae6451fded8",
+                "call_id": "05b027cc23140451b990",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 26,
+                  "lineno": 23,
                   "col_offset": 14,
-                  "end_lineno": 26,
-                  "end_col_offset": 60
+                  "end_lineno": 23,
+                  "end_col_offset": 120
                 },
-                "call_expression": "list(logic.findAllRole(logic.R_BOUND_L) or [])",
+                "call_expression": "RuntimeError('ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.')",
                 "receiver_expression": "",
-                "method": "list",
+                "method": "RuntimeError",
                 "arguments": [
-                  "logic.findAllRole(logic.R_BOUND_L) or []"
+                  "'ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.'"
                 ],
                 "keyword_arguments": {},
-                "result_usage": "assigned",
+                "result_usage": "consumed",
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "9034235648590ab927df",
+                "call_id": "a898f7bff69eed5f9223",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 26,
-                  "col_offset": 19,
-                  "end_lineno": 26,
-                  "end_col_offset": 53
+                  "lineno": 25,
+                  "col_offset": 18,
+                  "end_lineno": 25,
+                  "end_col_offset": 52
                 },
                 "call_expression": "logic.findAllRole(logic.R_BOUND_L)",
                 "receiver_expression": "logic",
@@ -7348,13 +7329,13 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "3d29a73cac8414ddb242",
+                "call_id": "515aa94d6e2f8fe95b93",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 26,
-                  "col_offset": 37,
-                  "end_lineno": 26,
-                  "end_col_offset": 52
+                  "lineno": 25,
+                  "col_offset": 36,
+                  "end_lineno": 25,
+                  "end_col_offset": 51
                 },
                 "call_expression": "logic.R_BOUND_L",
                 "receiver_expression": "logic",
@@ -7366,32 +7347,13 @@
                 "access_kind": "attribute"
               },
               {
-                "call_id": "cd7ddb09cee65be328ac",
+                "call_id": "9034235648590ab927df",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 27,
-                  "col_offset": 15,
-                  "end_lineno": 27,
-                  "end_col_offset": 61
-                },
-                "call_expression": "list(logic.findAllRole(logic.R_BOUND_R) or [])",
-                "receiver_expression": "",
-                "method": "list",
-                "arguments": [
-                  "logic.findAllRole(logic.R_BOUND_R) or []"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "assigned",
-                "enclosing_operation": "cb_step_22"
-              },
-              {
-                "call_id": "045f913d7e372a283a4a",
-                "template": "templates/cb_step_22_pre.py.tpl",
-                "source_span": {
-                  "lineno": 27,
-                  "col_offset": 20,
-                  "end_lineno": 27,
-                  "end_col_offset": 54
+                  "lineno": 26,
+                  "col_offset": 19,
+                  "end_lineno": 26,
+                  "end_col_offset": 53
                 },
                 "call_expression": "logic.findAllRole(logic.R_BOUND_R)",
                 "receiver_expression": "logic",
@@ -7404,13 +7366,13 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "d2d80bc45b205d30418a",
+                "call_id": "d86d28d03bfb8ec4a01b",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 27,
-                  "col_offset": 38,
-                  "end_lineno": 27,
-                  "end_col_offset": 53
+                  "lineno": 26,
+                  "col_offset": 37,
+                  "end_lineno": 26,
+                  "end_col_offset": 52
                 },
                 "call_expression": "logic.R_BOUND_R",
                 "receiver_expression": "logic",
@@ -7422,35 +7384,35 @@
                 "access_kind": "attribute"
               },
               {
-                "call_id": "deffd8ca2282a96f68ce",
+                "call_id": "500ab2097ac67ce7ac99",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 30,
+                  "lineno": 29,
                   "col_offset": 10,
-                  "end_lineno": 30,
-                  "end_col_offset": 79
+                  "end_lineno": 29,
+                  "end_col_offset": 117
                 },
-                "call_expression": "RuntimeError('No boundary plane nodes found from the previous step.')",
+                "call_expression": "RuntimeError('No boundary plane nodes found from previous step. Run the zygomatic computation step first.')",
                 "receiver_expression": "",
                 "method": "RuntimeError",
                 "arguments": [
-                  "'No boundary plane nodes found from the previous step.'"
+                  "'No boundary plane nodes found from previous step. Run the zygomatic computation step first.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "c90bd87ab7ab9dbf607a",
+                "call_id": "892c7ae29dc621495d84",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 34,
+                  "lineno": 32,
                   "col_offset": 18,
-                  "end_lineno": 34,
-                  "end_col_offset": 40
+                  "end_lineno": 32,
+                  "end_col_offset": 44
                 },
-                "call_expression": "plane.GetDisplayNode()",
-                "receiver_expression": "plane",
+                "call_expression": "planeNode.GetDisplayNode()",
+                "receiver_expression": "planeNode",
                 "method": "GetDisplayNode",
                 "arguments": [],
                 "keyword_arguments": {},
@@ -7458,12 +7420,12 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "e6319d28ade86bc7d589",
+                "call_id": "da72976b2a3a0923f02b",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 36,
+                  "lineno": 34,
                   "col_offset": 8,
-                  "end_lineno": 36,
+                  "end_lineno": 34,
                   "end_col_offset": 39
                 },
                 "call_expression": "displayNode.SetVisibility(True)",
@@ -7477,31 +7439,31 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "f86ef29b397482f58a01",
+                "call_id": "924a9f45f251c2302908",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 37,
+                  "lineno": 35,
                   "col_offset": 4,
-                  "end_lineno": 37,
-                  "end_col_offset": 34
+                  "end_lineno": 35,
+                  "end_col_offset": 38
                 },
-                "call_expression": "logic._freePlaneHandles(plane)",
+                "call_expression": "logic._freePlaneHandles(planeNode)",
                 "receiver_expression": "logic",
                 "method": "_freePlaneHandles",
                 "arguments": [
-                  "plane"
+                  "planeNode"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "71879f8a6e9583a0e141",
+                "call_id": "3b92478d4a3a096e1a6c",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 40,
+                  "lineno": 38,
                   "col_offset": 0,
-                  "end_lineno": 40,
+                  "end_lineno": 38,
                   "end_col_offset": 30
                 },
                 "call_expression": "slicer.modules.markups.logic()",
@@ -7513,12 +7475,12 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "a9e5137c6d5a0bf88029",
+                "call_id": "827d5ba797b7fd2114a7",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 40,
+                  "lineno": 38,
                   "col_offset": 0,
-                  "end_lineno": 40,
+                  "end_lineno": 38,
                   "end_col_offset": 52
                 },
                 "call_expression": "slicer.modules.markups.logic().SetActiveListID(node)",
@@ -7532,12 +7494,12 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "895c406039a328d0c53c",
+                "call_id": "7e0d44ff1ad75125ab4a",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 41,
+                  "lineno": 39,
                   "col_offset": 41,
-                  "end_lineno": 41,
+                  "end_lineno": 39,
                   "end_col_offset": 53
                 },
                 "call_expression": "node.GetID()",
@@ -7549,12 +7511,12 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "df28b10841fb868856fc",
+                "call_id": "305d807a38945e783390",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 42,
+                  "lineno": 40,
                   "col_offset": 0,
-                  "end_lineno": 42,
+                  "end_lineno": 40,
                   "end_col_offset": 162
                 },
                 "call_expression": "remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_22', _zygomaticimplantplanner_cb_step_22_id, _workflow_runtime_repeat_index)",
@@ -7572,32 +7534,32 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "aeb4f97edda5dbd04dc8",
+                "call_id": "b76a0ac1642798ea8abf",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 44,
+                  "lineno": 42,
                   "col_offset": 0,
-                  "end_lineno": 44,
-                  "end_col_offset": 78
+                  "end_lineno": 42,
+                  "end_col_offset": 125
                 },
-                "call_expression": "print('[ZygomaticImplantPlanner] Please Manually adjust the boundary planes.')",
+                "call_expression": "print('[ZygomaticImplantPlanner] Please manually adjust the left and right boundary planes using their interactive handles.')",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "'[ZygomaticImplantPlanner] Please Manually adjust the boundary planes.'"
+                  "'[ZygomaticImplantPlanner] Please manually adjust the left and right boundary planes using their interactive handles.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "58dc40780a2902f7e372",
+                "call_id": "5ce56fba830f4165003a",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
-                  "lineno": 45,
+                  "lineno": 43,
                   "col_offset": 0,
-                  "end_lineno": 45,
-                  "end_col_offset": 72
+                  "end_lineno": 43,
+                  "end_col_offset": 70
                 },
                 "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
                 "receiver_expression": "",
@@ -8518,35 +8480,16 @@
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "d7a677f3d748d1e70e65",
+                "call_id": "c48f35b8d44d54d162c9",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
-                  "lineno": 18,
-                  "col_offset": 10,
-                  "end_lineno": 18,
-                  "end_col_offset": 127
+                  "lineno": 20,
+                  "col_offset": 16,
+                  "end_lineno": 20,
+                  "end_col_offset": 46
                 },
-                "call_expression": "RuntimeError('The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.')",
+                "call_expression": "ZygomaticImplantPlannerLogic()",
                 "receiver_expression": "",
-                "method": "RuntimeError",
-                "arguments": [
-                  "'The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.'"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "f98d8c72d39caf346cf4",
-                "template": "templates/cb_step_26_pre.py.tpl",
-                "source_span": {
-                  "lineno": 23,
-                  "col_offset": 12,
-                  "end_lineno": 23,
-                  "end_col_offset": 66
-                },
-                "call_expression": "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()",
-                "receiver_expression": "ZygomaticImplantPlanner",
                 "method": "ZygomaticImplantPlannerLogic",
                 "arguments": [],
                 "keyword_arguments": {},
@@ -8554,32 +8497,32 @@
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "34c656dfcbdf4849dd8f",
+                "call_id": "6488bc0cb58f82b3339f",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
-                  "lineno": 26,
-                  "col_offset": 8,
-                  "end_lineno": 26,
-                  "end_col_offset": 51
+                  "lineno": 23,
+                  "col_offset": 14,
+                  "end_lineno": 23,
+                  "end_col_offset": 120
                 },
-                "call_expression": "list(logic.findAllRole(logic.R_PATH) or [])",
+                "call_expression": "RuntimeError('ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.')",
                 "receiver_expression": "",
-                "method": "list",
+                "method": "RuntimeError",
                 "arguments": [
-                  "logic.findAllRole(logic.R_PATH) or []"
+                  "'ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.'"
                 ],
                 "keyword_arguments": {},
-                "result_usage": "assigned",
+                "result_usage": "consumed",
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "8f5908ddaaa94a32c3f8",
+                "call_id": "b57b930c57649d9ad92f",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
-                  "lineno": 26,
-                  "col_offset": 13,
-                  "end_lineno": 26,
-                  "end_col_offset": 44
+                  "lineno": 25,
+                  "col_offset": 14,
+                  "end_lineno": 25,
+                  "end_col_offset": 45
                 },
                 "call_expression": "logic.findAllRole(logic.R_PATH)",
                 "receiver_expression": "logic",
@@ -8592,13 +8535,13 @@
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "220991da6fd822cb9534",
+                "call_id": "6a8e1a93d396a8ca06d9",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
-                  "lineno": 26,
-                  "col_offset": 31,
-                  "end_lineno": 26,
-                  "end_col_offset": 43
+                  "lineno": 25,
+                  "col_offset": 32,
+                  "end_lineno": 25,
+                  "end_col_offset": 44
                 },
                 "call_expression": "logic.R_PATH",
                 "receiver_expression": "logic",
@@ -8610,35 +8553,35 @@
                 "access_kind": "attribute"
               },
               {
-                "call_id": "e387fa904ecbf71f49fc",
+                "call_id": "c80ec2f114e2b35065a5",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
                   "lineno": 28,
                   "col_offset": 10,
                   "end_lineno": 28,
-                  "end_col_offset": 74
+                  "end_col_offset": 112
                 },
-                "call_expression": "RuntimeError('No path line nodes found from the previous step.')",
+                "call_expression": "RuntimeError('No implant path line nodes found from previous step. Run the path planning step first.')",
                 "receiver_expression": "",
                 "method": "RuntimeError",
                 "arguments": [
-                  "'No path line nodes found from the previous step.'"
+                  "'No implant path line nodes found from previous step. Run the path planning step first.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "7bd82f1d2af97def8f91",
+                "call_id": "f8e08c3eb4797edeee23",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
                   "lineno": 31,
-                  "col_offset": 14,
+                  "col_offset": 18,
                   "end_lineno": 31,
-                  "end_col_offset": 35
+                  "end_col_offset": 43
                 },
-                "call_expression": "node.GetDisplayNode()",
-                "receiver_expression": "node",
+                "call_expression": "lineNode.GetDisplayNode()",
+                "receiver_expression": "lineNode",
                 "method": "GetDisplayNode",
                 "arguments": [],
                 "keyword_arguments": {},
@@ -8646,13 +8589,13 @@
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "f3a638b84a58a58ad287",
+                "call_id": "26848f09cfa257aea866",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
                   "lineno": 33,
-                  "col_offset": 4,
+                  "col_offset": 8,
                   "end_lineno": 33,
-                  "end_col_offset": 35
+                  "end_col_offset": 39
                 },
                 "call_expression": "displayNode.SetVisibility(True)",
                 "receiver_expression": "displayNode",
@@ -8665,12 +8608,12 @@
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "4823d240a541d1ab82b2",
+                "call_id": "4b1d49d7b9f2d9cb0809",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
-                  "lineno": 36,
+                  "lineno": 34,
                   "col_offset": 0,
-                  "end_lineno": 36,
+                  "end_lineno": 34,
                   "end_col_offset": 30
                 },
                 "call_expression": "logic.setPathInteraction(True)",
@@ -8684,12 +8627,29 @@
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "6bbe7c4b6dbd708d6de7",
+                "call_id": "27ed9be67f8adba473b3",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
-                  "lineno": 38,
+                  "lineno": 37,
                   "col_offset": 0,
-                  "end_lineno": 38,
+                  "end_lineno": 37,
+                  "end_col_offset": 30
+                },
+                "call_expression": "slicer.modules.markups.logic()",
+                "receiver_expression": "slicer.modules.markups",
+                "method": "logic",
+                "arguments": [],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_26"
+              },
+              {
+                "call_id": "83ef5b611e4d6ac2085e",
+                "template": "templates/cb_step_26_pre.py.tpl",
+                "source_span": {
+                  "lineno": 37,
+                  "col_offset": 0,
+                  "end_lineno": 37,
                   "end_col_offset": 52
                 },
                 "call_expression": "slicer.modules.markups.logic().SetActiveListID(node)",
@@ -8703,29 +8663,12 @@
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "9664d160132693ab2536",
+                "call_id": "60002fda06ce44c44dd6",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
                   "lineno": 38,
-                  "col_offset": 0,
-                  "end_lineno": 38,
-                  "end_col_offset": 30
-                },
-                "call_expression": "slicer.modules.markups.logic()",
-                "receiver_expression": "slicer.modules.markups",
-                "method": "logic",
-                "arguments": [],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "c24998b89d7119e1e367",
-                "template": "templates/cb_step_26_pre.py.tpl",
-                "source_span": {
-                  "lineno": 39,
                   "col_offset": 41,
-                  "end_lineno": 39,
+                  "end_lineno": 38,
                   "end_col_offset": 53
                 },
                 "call_expression": "node.GetID()",
@@ -8737,12 +8680,12 @@
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "821c930c82a77adae54d",
+                "call_id": "e840ca274cedf41bf5d9",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
-                  "lineno": 40,
+                  "lineno": 39,
                   "col_offset": 0,
-                  "end_lineno": 40,
+                  "end_lineno": 39,
                   "end_col_offset": 162
                 },
                 "call_expression": "remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_26', _zygomaticimplantplanner_cb_step_26_id, _workflow_runtime_repeat_index)",
@@ -8760,32 +8703,32 @@
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "305dd255c748569b5832",
+                "call_id": "05e1cbd1b32ef4fed917",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
-                  "lineno": 42,
+                  "lineno": 41,
                   "col_offset": 0,
-                  "end_lineno": 42,
-                  "end_col_offset": 76
+                  "end_lineno": 41,
+                  "end_col_offset": 116
                 },
-                "call_expression": "print('[ZygomaticImplantPlanner] Please Manually adjust the implant paths.')",
+                "call_expression": "print('[ZygomaticImplantPlanner] Please manually adjust the implant path line endpoints using interactive handles.')",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "'[ZygomaticImplantPlanner] Please Manually adjust the implant paths.'"
+                  "'[ZygomaticImplantPlanner] Please manually adjust the implant path line endpoints using interactive handles.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
                 "enclosing_operation": "cb_step_26"
               },
               {
-                "call_id": "1a37bf20e666cc6610d9",
+                "call_id": "dbdc848709e6e6d5b4c2",
                 "template": "templates/cb_step_26_pre.py.tpl",
                 "source_span": {
-                  "lineno": 43,
+                  "lineno": 42,
                   "col_offset": 0,
-                  "end_lineno": 43,
-                  "end_col_offset": 72
+                  "end_lineno": 42,
+                  "end_col_offset": 70
                 },
                 "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
                 "receiver_expression": "",
@@ -14173,19 +14116,54 @@
             "repair_history": []
           },
           {
-            "call_id": "5806392d94a37acb20e6",
+            "call_id": "c1a7d0c2cefaaae9b10a",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 18,
-              "col_offset": 10,
-              "end_lineno": 18,
-              "end_col_offset": 127
+              "lineno": 20,
+              "col_offset": 16,
+              "end_lineno": 20,
+              "end_col_offset": 46
             },
-            "call_expression": "RuntimeError('The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.')",
+            "call_expression": "ZygomaticImplantPlannerLogic()",
+            "receiver_expression": "",
+            "method": "ZygomaticImplantPlannerLogic",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "assigned",
+            "enclosing_operation": "cb_step_11",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "imported_callable",
+                "source": "template_import",
+                "method_exists": true,
+                "effect": "unknown"
+              },
+              {
+                "kind": "imported_constructor",
+                "source": "template_import",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "834bc1fab79a3cad2ab1",
+            "template": "templates/cb_step_11_pre.py.tpl",
+            "source_span": {
+              "lineno": 23,
+              "col_offset": 14,
+              "end_lineno": 23,
+              "end_col_offset": 120
+            },
+            "call_expression": "RuntimeError('ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.')",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "'The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.'"
+              "'ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -14204,41 +14182,12 @@
             "repair_history": []
           },
           {
-            "call_id": "f09584f8e9f30c12d5d2",
+            "call_id": "96efb0228281b6836706",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 23,
-              "col_offset": 12,
-              "end_lineno": 23,
-              "end_col_offset": 66
-            },
-            "call_expression": "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()",
-            "receiver_expression": "ZygomaticImplantPlanner",
-            "method": "ZygomaticImplantPlannerLogic",
-            "arguments": [],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_11",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "imported_constructor",
-                "source": "template_import",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "0be51132098f1a593e6a",
-            "template": "templates/cb_step_11_pre.py.tpl",
-            "source_span": {
-              "lineno": 26,
+              "lineno": 25,
               "col_offset": 7,
-              "end_lineno": 26,
+              "end_lineno": 25,
               "end_col_offset": 36
             },
             "call_expression": "logic.findRole(logic.R_PLANE)",
@@ -14276,12 +14225,12 @@
             "repair_history": []
           },
           {
-            "call_id": "8cc7851321d78b0f0f6c",
+            "call_id": "9060c77bcf83e81921f6",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 26,
+              "lineno": 25,
               "col_offset": 22,
-              "end_lineno": 26,
+              "end_lineno": 25,
               "end_col_offset": 35
             },
             "call_expression": "logic.R_PLANE",
@@ -14307,19 +14256,19 @@
             "repair_history": []
           },
           {
-            "call_id": "fd01c1f5498e5dfd9ba9",
+            "call_id": "dc1c44fe40adb11bfca3",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 28,
+              "lineno": 27,
               "col_offset": 10,
-              "end_lineno": 28,
-              "end_col_offset": 78
+              "end_lineno": 27,
+              "end_col_offset": 121
             },
-            "call_expression": "RuntimeError('No symmetry plane node found from the previous step.')",
+            "call_expression": "RuntimeError('No symmetry plane node found from previous step. Run the symmetry plane computation step first.')",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "'No symmetry plane node found from the previous step.'"
+              "'No symmetry plane node found from previous step. Run the symmetry plane computation step first.'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -14338,12 +14287,12 @@
             "repair_history": []
           },
           {
-            "call_id": "6559b9c1a2e8e669c0ac",
+            "call_id": "ddf83ea3faf9027d6dfa",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 30,
+              "lineno": 29,
               "col_offset": 14,
-              "end_lineno": 30,
+              "end_lineno": 29,
               "end_col_offset": 35
             },
             "call_expression": "node.GetDisplayNode()",
@@ -14360,12 +14309,12 @@
             "repair_history": []
           },
           {
-            "call_id": "50c41afca6fb788b8833",
+            "call_id": "20e4460a229b65cd951f",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 32,
+              "lineno": 31,
               "col_offset": 4,
-              "end_lineno": 32,
+              "end_lineno": 31,
               "end_col_offset": 35
             },
             "call_expression": "displayNode.SetVisibility(True)",
@@ -14410,12 +14359,12 @@
             "repair_history": []
           },
           {
-            "call_id": "19a1115ec91ddffa0744",
+            "call_id": "8168aa7bb323ff0dd82f",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 35,
+              "lineno": 33,
               "col_offset": 0,
-              "end_lineno": 35,
+              "end_lineno": 33,
               "end_col_offset": 39
             },
             "call_expression": "logic.setSymmetryPlaneInteraction(True)",
@@ -14453,12 +14402,53 @@
             "repair_history": []
           },
           {
-            "call_id": "43c1ebd5d6afa9107e1e",
+            "call_id": "b44ad9a5dddc7d7d5bb3",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 37,
+              "lineno": 34,
               "col_offset": 0,
-              "end_lineno": 37,
+              "end_lineno": 34,
+              "end_col_offset": 30
+            },
+            "call_expression": "slicer.modules.markups.logic()",
+            "receiver_expression": "slicer.modules.markups",
+            "method": "logic",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "consumed",
+            "enclosing_operation": "cb_step_11",
+            "receiver_type_candidates": [
+              {
+                "type": "slicer.modules.markups",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              }
+            ],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "type": "slicer.modules.markups",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              },
+              {
+                "kind": "live_probe",
+                "receiver_type": "qSlicerMarkupsModule",
+                "method_exists": true,
+                "effect": "read_only",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "eba2b3d29eb9f136b741",
+            "template": "templates/cb_step_11_pre.py.tpl",
+            "source_span": {
+              "lineno": 34,
+              "col_offset": 0,
+              "end_lineno": 34,
               "end_col_offset": 52
             },
             "call_expression": "slicer.modules.markups.logic().SetActiveListID(node)",
@@ -14496,53 +14486,12 @@
             "repair_history": []
           },
           {
-            "call_id": "8978377249a122916473",
+            "call_id": "bde029e73c19d2043fb1",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 37,
-              "col_offset": 0,
-              "end_lineno": 37,
-              "end_col_offset": 30
-            },
-            "call_expression": "slicer.modules.markups.logic()",
-            "receiver_expression": "slicer.modules.markups",
-            "method": "logic",
-            "arguments": [],
-            "keyword_arguments": {},
-            "result_usage": "consumed",
-            "enclosing_operation": "cb_step_11",
-            "receiver_type_candidates": [
-              {
-                "type": "slicer.modules.markups",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              }
-            ],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "type": "slicer.modules.markups",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              },
-              {
-                "kind": "live_probe",
-                "receiver_type": "qSlicerMarkupsModule",
-                "method_exists": true,
-                "effect": "read_only",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "820d43ddbf52e8793d58",
-            "template": "templates/cb_step_11_pre.py.tpl",
-            "source_span": {
-              "lineno": 38,
+              "lineno": 35,
               "col_offset": 41,
-              "end_lineno": 38,
+              "end_lineno": 35,
               "end_col_offset": 53
             },
             "call_expression": "node.GetID()",
@@ -14559,12 +14508,12 @@
             "repair_history": []
           },
           {
-            "call_id": "28845396d702b335f928",
+            "call_id": "06c57e1a23df9ef005d9",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 39,
+              "lineno": 36,
               "col_offset": 0,
-              "end_lineno": 39,
+              "end_lineno": 36,
               "end_col_offset": 162
             },
             "call_expression": "remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_11', _zygomaticimplantplanner_cb_step_11_id, _workflow_runtime_repeat_index)",
@@ -14594,19 +14543,19 @@
             "repair_history": []
           },
           {
-            "call_id": "2ca66c107decb8f6e6af",
+            "call_id": "c390cbfe4b458770115c",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 41,
+              "lineno": 38,
               "col_offset": 0,
-              "end_lineno": 41,
-              "end_col_offset": 77
+              "end_lineno": 38,
+              "end_col_offset": 107
             },
-            "call_expression": "print('[ZygomaticImplantPlanner] Please Manually adjust the symmetry plane.')",
+            "call_expression": "print('[ZygomaticImplantPlanner] Please manually adjust the symmetry plane using its interactive handles.')",
             "receiver_expression": "",
             "method": "print",
             "arguments": [
-              "'[ZygomaticImplantPlanner] Please Manually adjust the symmetry plane.'"
+              "'[ZygomaticImplantPlanner] Please manually adjust the symmetry plane using its interactive handles.'"
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -14625,13 +14574,13 @@
             "repair_history": []
           },
           {
-            "call_id": "5200a95c02170e4e82c7",
+            "call_id": "ebf37dc427d5056cbb33",
             "template": "templates/cb_step_11_pre.py.tpl",
             "source_span": {
-              "lineno": 42,
+              "lineno": 39,
               "col_offset": 0,
-              "end_lineno": 42,
-              "end_col_offset": 72
+              "end_lineno": 39,
+              "end_col_offset": 70
             },
             "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
             "receiver_expression": "",
@@ -16223,12 +16172,12 @@
             "repair_history": []
           },
           {
-            "call_id": "50e9c6e7ae6928955670",
+            "call_id": "a6bc00cc81314707c6bc",
             "template": "templates/cb_step_15_action.py.tpl",
             "source_span": {
-              "lineno": 58,
+              "lineno": 60,
               "col_offset": 0,
-              "end_lineno": 58,
+              "end_lineno": 60,
               "end_col_offset": 41
             },
             "call_expression": "_widget._onMandibleConnectedToggled(True)",
@@ -16269,12 +16218,12 @@
             "repair_history": []
           },
           {
-            "call_id": "1d6d9e6086cd1e211eff",
+            "call_id": "05955fec79ca0b36ab57",
             "template": "templates/cb_step_15_action.py.tpl",
             "source_span": {
-              "lineno": 59,
+              "lineno": 61,
               "col_offset": 0,
-              "end_lineno": 59,
+              "end_lineno": 61,
               "end_col_offset": 125
             },
             "call_expression": "print(\"[ZygomaticImplantPlanner] Step 'cb_step_15': set 'mandibleConnectedCheckBox' = True via _onMandibleConnectedToggled.\")",
@@ -17316,19 +17265,54 @@
             "repair_history": []
           },
           {
-            "call_id": "4b672a795d461a37c95b",
+            "call_id": "9648c388993946b78383",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 18,
-              "col_offset": 10,
-              "end_lineno": 18,
-              "end_col_offset": 127
+              "lineno": 20,
+              "col_offset": 16,
+              "end_lineno": 20,
+              "end_col_offset": 46
             },
-            "call_expression": "RuntimeError('The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.')",
+            "call_expression": "ZygomaticImplantPlannerLogic()",
+            "receiver_expression": "",
+            "method": "ZygomaticImplantPlannerLogic",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "assigned",
+            "enclosing_operation": "cb_step_18",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "imported_callable",
+                "source": "template_import",
+                "method_exists": true,
+                "effect": "unknown"
+              },
+              {
+                "kind": "imported_constructor",
+                "source": "template_import",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "572628b2967ffb45d0f1",
+            "template": "templates/cb_step_18_pre.py.tpl",
+            "source_span": {
+              "lineno": 23,
+              "col_offset": 14,
+              "end_lineno": 23,
+              "end_col_offset": 120
+            },
+            "call_expression": "RuntimeError('ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.')",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "'The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.'"
+              "'ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -17347,41 +17331,12 @@
             "repair_history": []
           },
           {
-            "call_id": "5c0a5f507955d9cfa4bb",
+            "call_id": "ea80835547bc0ebc046d",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 23,
-              "col_offset": 12,
-              "end_lineno": 23,
-              "end_col_offset": 66
-            },
-            "call_expression": "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()",
-            "receiver_expression": "ZygomaticImplantPlanner",
-            "method": "ZygomaticImplantPlannerLogic",
-            "arguments": [],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_18",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "imported_constructor",
-                "source": "template_import",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "8261ac5229276824505f",
-            "template": "templates/cb_step_18_pre.py.tpl",
-            "source_span": {
-              "lineno": 26,
+              "lineno": 25,
               "col_offset": 7,
-              "end_lineno": 26,
+              "end_lineno": 25,
               "end_col_offset": 38
             },
             "call_expression": "logic.findRole(logic.R_MMPLANE)",
@@ -17419,12 +17374,12 @@
             "repair_history": []
           },
           {
-            "call_id": "023121e46bf326ad61f4",
+            "call_id": "fe9daad32cba9c68c827",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 26,
+              "lineno": 25,
               "col_offset": 22,
-              "end_lineno": 26,
+              "end_lineno": 25,
               "end_col_offset": 37
             },
             "call_expression": "logic.R_MMPLANE",
@@ -17450,19 +17405,19 @@
             "repair_history": []
           },
           {
-            "call_id": "b7ab7c50ae357745253d",
+            "call_id": "7851dd9c59aa467cc6ee",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 28,
+              "lineno": 27,
               "col_offset": 10,
-              "end_lineno": 28,
-              "end_col_offset": 80
+              "end_lineno": 27,
+              "end_col_offset": 141
             },
-            "call_expression": "RuntimeError('No separation plane node found from the previous step.')",
+            "call_expression": "RuntimeError('No maxilla/mandible separation plane node found from previous step. Run the maxilla/mandible separation step first.')",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "'No separation plane node found from the previous step.'"
+              "'No maxilla/mandible separation plane node found from previous step. Run the maxilla/mandible separation step first.'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -17481,12 +17436,12 @@
             "repair_history": []
           },
           {
-            "call_id": "3760a50c318573d959b8",
+            "call_id": "c727154f13f5522d8cd0",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 30,
+              "lineno": 29,
               "col_offset": 14,
-              "end_lineno": 30,
+              "end_lineno": 29,
               "end_col_offset": 35
             },
             "call_expression": "node.GetDisplayNode()",
@@ -17503,12 +17458,12 @@
             "repair_history": []
           },
           {
-            "call_id": "227dc7e36f63585a6249",
+            "call_id": "e580cb5eb13b076bac34",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 32,
+              "lineno": 31,
               "col_offset": 4,
-              "end_lineno": 32,
+              "end_lineno": 31,
               "end_col_offset": 35
             },
             "call_expression": "displayNode.SetVisibility(True)",
@@ -17553,12 +17508,12 @@
             "repair_history": []
           },
           {
-            "call_id": "6e4aa98ea295816cd205",
+            "call_id": "d4af185454ddeae77ad5",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 35,
+              "lineno": 33,
               "col_offset": 0,
-              "end_lineno": 35,
+              "end_lineno": 33,
               "end_col_offset": 29
             },
             "call_expression": "logic._freePlaneHandles(node)",
@@ -17596,12 +17551,12 @@
             "repair_history": []
           },
           {
-            "call_id": "67ac2083788d7fb7a788",
+            "call_id": "40ed3fcbecd766e4b7ea",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 37,
+              "lineno": 34,
               "col_offset": 0,
-              "end_lineno": 37,
+              "end_lineno": 34,
               "end_col_offset": 52
             },
             "call_expression": "slicer.modules.markups.logic().SetActiveListID(node)",
@@ -17639,12 +17594,12 @@
             "repair_history": []
           },
           {
-            "call_id": "cc46e6697b47c99d4f2a",
+            "call_id": "6d28b77c7933b4cfba2c",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 37,
+              "lineno": 34,
               "col_offset": 0,
-              "end_lineno": 37,
+              "end_lineno": 34,
               "end_col_offset": 30
             },
             "call_expression": "slicer.modules.markups.logic()",
@@ -17680,12 +17635,12 @@
             "repair_history": []
           },
           {
-            "call_id": "769a60e44de2dfd42a68",
+            "call_id": "0bebed1c1fdb2fc13e3f",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 38,
+              "lineno": 35,
               "col_offset": 41,
-              "end_lineno": 38,
+              "end_lineno": 35,
               "end_col_offset": 53
             },
             "call_expression": "node.GetID()",
@@ -17702,12 +17657,12 @@
             "repair_history": []
           },
           {
-            "call_id": "fbfc0e1737e723ab0e7c",
+            "call_id": "8fa56dc333325770459a",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 39,
+              "lineno": 36,
               "col_offset": 0,
-              "end_lineno": 39,
+              "end_lineno": 36,
               "end_col_offset": 162
             },
             "call_expression": "remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_18', _zygomaticimplantplanner_cb_step_18_id, _workflow_runtime_repeat_index)",
@@ -17737,19 +17692,19 @@
             "repair_history": []
           },
           {
-            "call_id": "ad0a54693ae4e3333419",
+            "call_id": "b5c54bc4d9858c91ad0f",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 41,
+              "lineno": 38,
               "col_offset": 0,
-              "end_lineno": 41,
-              "end_col_offset": 79
+              "end_lineno": 38,
+              "end_col_offset": 126
             },
-            "call_expression": "print('[ZygomaticImplantPlanner] Please Manually adjust the separation plane.')",
+            "call_expression": "print('[ZygomaticImplantPlanner] Please manually adjust the maxilla/mandible separation plane using its interactive handles.')",
             "receiver_expression": "",
             "method": "print",
             "arguments": [
-              "'[ZygomaticImplantPlanner] Please Manually adjust the separation plane.'"
+              "'[ZygomaticImplantPlanner] Please manually adjust the maxilla/mandible separation plane using its interactive handles.'"
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -17768,13 +17723,13 @@
             "repair_history": []
           },
           {
-            "call_id": "178980359143f0caa41b",
+            "call_id": "0fb2b7a67bf5fa30cdc3",
             "template": "templates/cb_step_18_pre.py.tpl",
             "source_span": {
-              "lineno": 42,
+              "lineno": 39,
               "col_offset": 0,
-              "end_lineno": 42,
-              "end_col_offset": 72
+              "end_lineno": 39,
+              "end_col_offset": 70
             },
             "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
             "receiver_expression": "",
@@ -19448,19 +19403,54 @@
             "repair_history": []
           },
           {
-            "call_id": "ee79947b3d76c40bd34c",
+            "call_id": "308710b126abd9d78bdb",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 18,
-              "col_offset": 10,
-              "end_lineno": 18,
-              "end_col_offset": 127
+              "lineno": 20,
+              "col_offset": 16,
+              "end_lineno": 20,
+              "end_col_offset": 46
             },
-            "call_expression": "RuntimeError('The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.')",
+            "call_expression": "ZygomaticImplantPlannerLogic()",
+            "receiver_expression": "",
+            "method": "ZygomaticImplantPlannerLogic",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "assigned",
+            "enclosing_operation": "cb_step_22",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "imported_callable",
+                "source": "template_import",
+                "method_exists": true,
+                "effect": "unknown"
+              },
+              {
+                "kind": "imported_constructor",
+                "source": "template_import",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "05b027cc23140451b990",
+            "template": "templates/cb_step_22_pre.py.tpl",
+            "source_span": {
+              "lineno": 23,
+              "col_offset": 14,
+              "end_lineno": 23,
+              "end_col_offset": 120
+            },
+            "call_expression": "RuntimeError('ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.')",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "'The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.'"
+              "'ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -19479,73 +19469,13 @@
             "repair_history": []
           },
           {
-            "call_id": "25e1ea4c0498c444db62",
+            "call_id": "a898f7bff69eed5f9223",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 23,
-              "col_offset": 12,
-              "end_lineno": 23,
-              "end_col_offset": 66
-            },
-            "call_expression": "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()",
-            "receiver_expression": "ZygomaticImplantPlanner",
-            "method": "ZygomaticImplantPlannerLogic",
-            "arguments": [],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_22",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "imported_constructor",
-                "source": "template_import",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "bbbd0f4ecae6451fded8",
-            "template": "templates/cb_step_22_pre.py.tpl",
-            "source_span": {
-              "lineno": 26,
-              "col_offset": 14,
-              "end_lineno": 26,
-              "end_col_offset": 60
-            },
-            "call_expression": "list(logic.findAllRole(logic.R_BOUND_L) or [])",
-            "receiver_expression": "",
-            "method": "list",
-            "arguments": [
-              "logic.findAllRole(logic.R_BOUND_L) or []"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_22",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "9034235648590ab927df",
-            "template": "templates/cb_step_22_pre.py.tpl",
-            "source_span": {
-              "lineno": 26,
-              "col_offset": 19,
-              "end_lineno": 26,
-              "end_col_offset": 53
+              "lineno": 25,
+              "col_offset": 18,
+              "end_lineno": 25,
+              "end_col_offset": 52
             },
             "call_expression": "logic.findAllRole(logic.R_BOUND_L)",
             "receiver_expression": "logic",
@@ -19582,13 +19512,13 @@
             "repair_history": []
           },
           {
-            "call_id": "3d29a73cac8414ddb242",
+            "call_id": "515aa94d6e2f8fe95b93",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 26,
-              "col_offset": 37,
-              "end_lineno": 26,
-              "end_col_offset": 52
+              "lineno": 25,
+              "col_offset": 36,
+              "end_lineno": 25,
+              "end_col_offset": 51
             },
             "call_expression": "logic.R_BOUND_L",
             "receiver_expression": "logic",
@@ -19613,44 +19543,13 @@
             "repair_history": []
           },
           {
-            "call_id": "cd7ddb09cee65be328ac",
+            "call_id": "9034235648590ab927df",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 27,
-              "col_offset": 15,
-              "end_lineno": 27,
-              "end_col_offset": 61
-            },
-            "call_expression": "list(logic.findAllRole(logic.R_BOUND_R) or [])",
-            "receiver_expression": "",
-            "method": "list",
-            "arguments": [
-              "logic.findAllRole(logic.R_BOUND_R) or []"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_22",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "045f913d7e372a283a4a",
-            "template": "templates/cb_step_22_pre.py.tpl",
-            "source_span": {
-              "lineno": 27,
-              "col_offset": 20,
-              "end_lineno": 27,
-              "end_col_offset": 54
+              "lineno": 26,
+              "col_offset": 19,
+              "end_lineno": 26,
+              "end_col_offset": 53
             },
             "call_expression": "logic.findAllRole(logic.R_BOUND_R)",
             "receiver_expression": "logic",
@@ -19687,13 +19586,13 @@
             "repair_history": []
           },
           {
-            "call_id": "d2d80bc45b205d30418a",
+            "call_id": "d86d28d03bfb8ec4a01b",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 27,
-              "col_offset": 38,
-              "end_lineno": 27,
-              "end_col_offset": 53
+              "lineno": 26,
+              "col_offset": 37,
+              "end_lineno": 26,
+              "end_col_offset": 52
             },
             "call_expression": "logic.R_BOUND_R",
             "receiver_expression": "logic",
@@ -19718,19 +19617,19 @@
             "repair_history": []
           },
           {
-            "call_id": "deffd8ca2282a96f68ce",
+            "call_id": "500ab2097ac67ce7ac99",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 30,
+              "lineno": 29,
               "col_offset": 10,
-              "end_lineno": 30,
-              "end_col_offset": 79
+              "end_lineno": 29,
+              "end_col_offset": 117
             },
-            "call_expression": "RuntimeError('No boundary plane nodes found from the previous step.')",
+            "call_expression": "RuntimeError('No boundary plane nodes found from previous step. Run the zygomatic computation step first.')",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "'No boundary plane nodes found from the previous step.'"
+              "'No boundary plane nodes found from previous step. Run the zygomatic computation step first.'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -19749,16 +19648,16 @@
             "repair_history": []
           },
           {
-            "call_id": "c90bd87ab7ab9dbf607a",
+            "call_id": "892c7ae29dc621495d84",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 34,
+              "lineno": 32,
               "col_offset": 18,
-              "end_lineno": 34,
-              "end_col_offset": 40
+              "end_lineno": 32,
+              "end_col_offset": 44
             },
-            "call_expression": "plane.GetDisplayNode()",
-            "receiver_expression": "plane",
+            "call_expression": "planeNode.GetDisplayNode()",
+            "receiver_expression": "planeNode",
             "method": "GetDisplayNode",
             "arguments": [],
             "keyword_arguments": {},
@@ -19771,12 +19670,12 @@
             "repair_history": []
           },
           {
-            "call_id": "e6319d28ade86bc7d589",
+            "call_id": "da72976b2a3a0923f02b",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 36,
+              "lineno": 34,
               "col_offset": 8,
-              "end_lineno": 36,
+              "end_lineno": 34,
               "end_col_offset": 39
             },
             "call_expression": "displayNode.SetVisibility(True)",
@@ -19821,19 +19720,19 @@
             "repair_history": []
           },
           {
-            "call_id": "f86ef29b397482f58a01",
+            "call_id": "924a9f45f251c2302908",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 37,
+              "lineno": 35,
               "col_offset": 4,
-              "end_lineno": 37,
-              "end_col_offset": 34
+              "end_lineno": 35,
+              "end_col_offset": 38
             },
-            "call_expression": "logic._freePlaneHandles(plane)",
+            "call_expression": "logic._freePlaneHandles(planeNode)",
             "receiver_expression": "logic",
             "method": "_freePlaneHandles",
             "arguments": [
-              "plane"
+              "planeNode"
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -19864,12 +19763,12 @@
             "repair_history": []
           },
           {
-            "call_id": "71879f8a6e9583a0e141",
+            "call_id": "3b92478d4a3a096e1a6c",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 40,
+              "lineno": 38,
               "col_offset": 0,
-              "end_lineno": 40,
+              "end_lineno": 38,
               "end_col_offset": 30
             },
             "call_expression": "slicer.modules.markups.logic()",
@@ -19905,12 +19804,12 @@
             "repair_history": []
           },
           {
-            "call_id": "a9e5137c6d5a0bf88029",
+            "call_id": "827d5ba797b7fd2114a7",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 40,
+              "lineno": 38,
               "col_offset": 0,
-              "end_lineno": 40,
+              "end_lineno": 38,
               "end_col_offset": 52
             },
             "call_expression": "slicer.modules.markups.logic().SetActiveListID(node)",
@@ -19948,12 +19847,12 @@
             "repair_history": []
           },
           {
-            "call_id": "895c406039a328d0c53c",
+            "call_id": "7e0d44ff1ad75125ab4a",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 41,
+              "lineno": 39,
               "col_offset": 41,
-              "end_lineno": 41,
+              "end_lineno": 39,
               "end_col_offset": 53
             },
             "call_expression": "node.GetID()",
@@ -19970,12 +19869,12 @@
             "repair_history": []
           },
           {
-            "call_id": "df28b10841fb868856fc",
+            "call_id": "305d807a38945e783390",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 42,
+              "lineno": 40,
               "col_offset": 0,
-              "end_lineno": 42,
+              "end_lineno": 40,
               "end_col_offset": 162
             },
             "call_expression": "remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_22', _zygomaticimplantplanner_cb_step_22_id, _workflow_runtime_repeat_index)",
@@ -20005,19 +19904,19 @@
             "repair_history": []
           },
           {
-            "call_id": "aeb4f97edda5dbd04dc8",
+            "call_id": "b76a0ac1642798ea8abf",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 44,
+              "lineno": 42,
               "col_offset": 0,
-              "end_lineno": 44,
-              "end_col_offset": 78
+              "end_lineno": 42,
+              "end_col_offset": 125
             },
-            "call_expression": "print('[ZygomaticImplantPlanner] Please Manually adjust the boundary planes.')",
+            "call_expression": "print('[ZygomaticImplantPlanner] Please manually adjust the left and right boundary planes using their interactive handles.')",
             "receiver_expression": "",
             "method": "print",
             "arguments": [
-              "'[ZygomaticImplantPlanner] Please Manually adjust the boundary planes.'"
+              "'[ZygomaticImplantPlanner] Please manually adjust the left and right boundary planes using their interactive handles.'"
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -20036,13 +19935,13 @@
             "repair_history": []
           },
           {
-            "call_id": "58dc40780a2902f7e372",
+            "call_id": "5ce56fba830f4165003a",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
-              "lineno": 45,
+              "lineno": 43,
               "col_offset": 0,
-              "end_lineno": 45,
-              "end_col_offset": 72
+              "end_lineno": 43,
+              "end_col_offset": 70
             },
             "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
             "receiver_expression": "",
@@ -21716,19 +21615,54 @@
             "repair_history": []
           },
           {
-            "call_id": "d7a677f3d748d1e70e65",
+            "call_id": "c48f35b8d44d54d162c9",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
-              "lineno": 18,
-              "col_offset": 10,
-              "end_lineno": 18,
-              "end_col_offset": 127
+              "lineno": 20,
+              "col_offset": 16,
+              "end_lineno": 20,
+              "end_col_offset": 46
             },
-            "call_expression": "RuntimeError('The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.')",
+            "call_expression": "ZygomaticImplantPlannerLogic()",
+            "receiver_expression": "",
+            "method": "ZygomaticImplantPlannerLogic",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "assigned",
+            "enclosing_operation": "cb_step_26",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "imported_callable",
+                "source": "template_import",
+                "method_exists": true,
+                "effect": "unknown"
+              },
+              {
+                "kind": "imported_constructor",
+                "source": "template_import",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "6488bc0cb58f82b3339f",
+            "template": "templates/cb_step_26_pre.py.tpl",
+            "source_span": {
+              "lineno": 23,
+              "col_offset": 14,
+              "end_lineno": 23,
+              "end_col_offset": 120
+            },
+            "call_expression": "RuntimeError('ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.')",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "'The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.'"
+              "'ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -21747,73 +21681,13 @@
             "repair_history": []
           },
           {
-            "call_id": "f98d8c72d39caf346cf4",
+            "call_id": "b57b930c57649d9ad92f",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
-              "lineno": 23,
-              "col_offset": 12,
-              "end_lineno": 23,
-              "end_col_offset": 66
-            },
-            "call_expression": "ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()",
-            "receiver_expression": "ZygomaticImplantPlanner",
-            "method": "ZygomaticImplantPlannerLogic",
-            "arguments": [],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "imported_constructor",
-                "source": "template_import",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "34c656dfcbdf4849dd8f",
-            "template": "templates/cb_step_26_pre.py.tpl",
-            "source_span": {
-              "lineno": 26,
-              "col_offset": 8,
-              "end_lineno": 26,
-              "end_col_offset": 51
-            },
-            "call_expression": "list(logic.findAllRole(logic.R_PATH) or [])",
-            "receiver_expression": "",
-            "method": "list",
-            "arguments": [
-              "logic.findAllRole(logic.R_PATH) or []"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "8f5908ddaaa94a32c3f8",
-            "template": "templates/cb_step_26_pre.py.tpl",
-            "source_span": {
-              "lineno": 26,
-              "col_offset": 13,
-              "end_lineno": 26,
-              "end_col_offset": 44
+              "lineno": 25,
+              "col_offset": 14,
+              "end_lineno": 25,
+              "end_col_offset": 45
             },
             "call_expression": "logic.findAllRole(logic.R_PATH)",
             "receiver_expression": "logic",
@@ -21850,13 +21724,13 @@
             "repair_history": []
           },
           {
-            "call_id": "220991da6fd822cb9534",
+            "call_id": "6a8e1a93d396a8ca06d9",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
-              "lineno": 26,
-              "col_offset": 31,
-              "end_lineno": 26,
-              "end_col_offset": 43
+              "lineno": 25,
+              "col_offset": 32,
+              "end_lineno": 25,
+              "end_col_offset": 44
             },
             "call_expression": "logic.R_PATH",
             "receiver_expression": "logic",
@@ -21881,19 +21755,19 @@
             "repair_history": []
           },
           {
-            "call_id": "e387fa904ecbf71f49fc",
+            "call_id": "c80ec2f114e2b35065a5",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
               "lineno": 28,
               "col_offset": 10,
               "end_lineno": 28,
-              "end_col_offset": 74
+              "end_col_offset": 112
             },
-            "call_expression": "RuntimeError('No path line nodes found from the previous step.')",
+            "call_expression": "RuntimeError('No implant path line nodes found from previous step. Run the path planning step first.')",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "'No path line nodes found from the previous step.'"
+              "'No implant path line nodes found from previous step. Run the path planning step first.'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -21912,16 +21786,16 @@
             "repair_history": []
           },
           {
-            "call_id": "7bd82f1d2af97def8f91",
+            "call_id": "f8e08c3eb4797edeee23",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
               "lineno": 31,
-              "col_offset": 14,
+              "col_offset": 18,
               "end_lineno": 31,
-              "end_col_offset": 35
+              "end_col_offset": 43
             },
-            "call_expression": "node.GetDisplayNode()",
-            "receiver_expression": "node",
+            "call_expression": "lineNode.GetDisplayNode()",
+            "receiver_expression": "lineNode",
             "method": "GetDisplayNode",
             "arguments": [],
             "keyword_arguments": {},
@@ -21934,13 +21808,13 @@
             "repair_history": []
           },
           {
-            "call_id": "f3a638b84a58a58ad287",
+            "call_id": "26848f09cfa257aea866",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
               "lineno": 33,
-              "col_offset": 4,
+              "col_offset": 8,
               "end_lineno": 33,
-              "end_col_offset": 35
+              "end_col_offset": 39
             },
             "call_expression": "displayNode.SetVisibility(True)",
             "receiver_expression": "displayNode",
@@ -21984,12 +21858,12 @@
             "repair_history": []
           },
           {
-            "call_id": "4823d240a541d1ab82b2",
+            "call_id": "4b1d49d7b9f2d9cb0809",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
-              "lineno": 36,
+              "lineno": 34,
               "col_offset": 0,
-              "end_lineno": 36,
+              "end_lineno": 34,
               "end_col_offset": 30
             },
             "call_expression": "logic.setPathInteraction(True)",
@@ -22027,12 +21901,53 @@
             "repair_history": []
           },
           {
-            "call_id": "6bbe7c4b6dbd708d6de7",
+            "call_id": "27ed9be67f8adba473b3",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
-              "lineno": 38,
+              "lineno": 37,
               "col_offset": 0,
-              "end_lineno": 38,
+              "end_lineno": 37,
+              "end_col_offset": 30
+            },
+            "call_expression": "slicer.modules.markups.logic()",
+            "receiver_expression": "slicer.modules.markups",
+            "method": "logic",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "consumed",
+            "enclosing_operation": "cb_step_26",
+            "receiver_type_candidates": [
+              {
+                "type": "slicer.modules.markups",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              }
+            ],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "type": "slicer.modules.markups",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              },
+              {
+                "kind": "live_probe",
+                "receiver_type": "qSlicerMarkupsModule",
+                "method_exists": true,
+                "effect": "read_only",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "83ef5b611e4d6ac2085e",
+            "template": "templates/cb_step_26_pre.py.tpl",
+            "source_span": {
+              "lineno": 37,
+              "col_offset": 0,
+              "end_lineno": 37,
               "end_col_offset": 52
             },
             "call_expression": "slicer.modules.markups.logic().SetActiveListID(node)",
@@ -22070,53 +21985,12 @@
             "repair_history": []
           },
           {
-            "call_id": "9664d160132693ab2536",
+            "call_id": "60002fda06ce44c44dd6",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
               "lineno": 38,
-              "col_offset": 0,
-              "end_lineno": 38,
-              "end_col_offset": 30
-            },
-            "call_expression": "slicer.modules.markups.logic()",
-            "receiver_expression": "slicer.modules.markups",
-            "method": "logic",
-            "arguments": [],
-            "keyword_arguments": {},
-            "result_usage": "consumed",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [
-              {
-                "type": "slicer.modules.markups",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              }
-            ],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "type": "slicer.modules.markups",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              },
-              {
-                "kind": "live_probe",
-                "receiver_type": "qSlicerMarkupsModule",
-                "method_exists": true,
-                "effect": "read_only",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "c24998b89d7119e1e367",
-            "template": "templates/cb_step_26_pre.py.tpl",
-            "source_span": {
-              "lineno": 39,
               "col_offset": 41,
-              "end_lineno": 39,
+              "end_lineno": 38,
               "end_col_offset": 53
             },
             "call_expression": "node.GetID()",
@@ -22133,12 +22007,12 @@
             "repair_history": []
           },
           {
-            "call_id": "821c930c82a77adae54d",
+            "call_id": "e840ca274cedf41bf5d9",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
-              "lineno": 40,
+              "lineno": 39,
               "col_offset": 0,
-              "end_lineno": 40,
+              "end_lineno": 39,
               "end_col_offset": 162
             },
             "call_expression": "remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_26', _zygomaticimplantplanner_cb_step_26_id, _workflow_runtime_repeat_index)",
@@ -22168,19 +22042,19 @@
             "repair_history": []
           },
           {
-            "call_id": "305dd255c748569b5832",
+            "call_id": "05e1cbd1b32ef4fed917",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
-              "lineno": 42,
+              "lineno": 41,
               "col_offset": 0,
-              "end_lineno": 42,
-              "end_col_offset": 76
+              "end_lineno": 41,
+              "end_col_offset": 116
             },
-            "call_expression": "print('[ZygomaticImplantPlanner] Please Manually adjust the implant paths.')",
+            "call_expression": "print('[ZygomaticImplantPlanner] Please manually adjust the implant path line endpoints using interactive handles.')",
             "receiver_expression": "",
             "method": "print",
             "arguments": [
-              "'[ZygomaticImplantPlanner] Please Manually adjust the implant paths.'"
+              "'[ZygomaticImplantPlanner] Please manually adjust the implant path line endpoints using interactive handles.'"
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -22199,13 +22073,13 @@
             "repair_history": []
           },
           {
-            "call_id": "1a37bf20e666cc6610d9",
+            "call_id": "dbdc848709e6e6d5b4c2",
             "template": "templates/cb_step_26_pre.py.tpl",
             "source_span": {
-              "lineno": 43,
+              "lineno": 42,
               "col_offset": 0,
-              "end_lineno": 43,
-              "end_col_offset": 72
+              "end_lineno": 42,
+              "end_col_offset": 70
             },
             "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
             "receiver_expression": "",
@@ -23707,16 +23581,16 @@
             "minimal_repair": null
           },
           {
-            "issue_id": "api_proof_6559b9c1a2e8e669c0ac",
+            "issue_id": "api_proof_ddf83ea3faf9027d6dfa",
             "issue_type": "UnprovenApiCall",
             "severity": "warning",
             "blocking": false,
             "template": "templates/cb_step_11_pre.py.tpl",
-            "call_id": "6559b9c1a2e8e669c0ac",
+            "call_id": "ddf83ea3faf9027d6dfa",
             "source_span": {
-              "lineno": 30,
+              "lineno": 29,
               "col_offset": 14,
-              "end_lineno": 30,
+              "end_lineno": 29,
               "end_col_offset": 35
             },
             "diagnosis": "receiver_type_unproven",
@@ -23729,16 +23603,16 @@
             "minimal_repair": null
           },
           {
-            "issue_id": "api_proof_820d43ddbf52e8793d58",
+            "issue_id": "api_proof_bde029e73c19d2043fb1",
             "issue_type": "UnprovenApiCall",
             "severity": "warning",
             "blocking": false,
             "template": "templates/cb_step_11_pre.py.tpl",
-            "call_id": "820d43ddbf52e8793d58",
+            "call_id": "bde029e73c19d2043fb1",
             "source_span": {
-              "lineno": 38,
+              "lineno": 35,
               "col_offset": 41,
-              "end_lineno": 38,
+              "end_lineno": 35,
               "end_col_offset": 53
             },
             "diagnosis": "receiver_type_unproven",
@@ -23843,16 +23717,16 @@
             "minimal_repair": null
           },
           {
-            "issue_id": "api_proof_3760a50c318573d959b8",
+            "issue_id": "api_proof_c727154f13f5522d8cd0",
             "issue_type": "UnprovenApiCall",
             "severity": "warning",
             "blocking": false,
             "template": "templates/cb_step_18_pre.py.tpl",
-            "call_id": "3760a50c318573d959b8",
+            "call_id": "c727154f13f5522d8cd0",
             "source_span": {
-              "lineno": 30,
+              "lineno": 29,
               "col_offset": 14,
-              "end_lineno": 30,
+              "end_lineno": 29,
               "end_col_offset": 35
             },
             "diagnosis": "receiver_type_unproven",
@@ -23865,16 +23739,16 @@
             "minimal_repair": null
           },
           {
-            "issue_id": "api_proof_769a60e44de2dfd42a68",
+            "issue_id": "api_proof_0bebed1c1fdb2fc13e3f",
             "issue_type": "UnprovenApiCall",
             "severity": "warning",
             "blocking": false,
             "template": "templates/cb_step_18_pre.py.tpl",
-            "call_id": "769a60e44de2dfd42a68",
+            "call_id": "0bebed1c1fdb2fc13e3f",
             "source_span": {
-              "lineno": 38,
+              "lineno": 35,
               "col_offset": 41,
-              "end_lineno": 38,
+              "end_lineno": 35,
               "end_col_offset": 53
             },
             "diagnosis": "receiver_type_unproven",
@@ -23931,20 +23805,20 @@
             "minimal_repair": null
           },
           {
-            "issue_id": "api_proof_c90bd87ab7ab9dbf607a",
+            "issue_id": "api_proof_892c7ae29dc621495d84",
             "issue_type": "UnprovenApiCall",
             "severity": "warning",
             "blocking": false,
             "template": "templates/cb_step_22_pre.py.tpl",
-            "call_id": "c90bd87ab7ab9dbf607a",
+            "call_id": "892c7ae29dc621495d84",
             "source_span": {
-              "lineno": 34,
+              "lineno": 32,
               "col_offset": 18,
-              "end_lineno": 34,
-              "end_col_offset": 40
+              "end_lineno": 32,
+              "end_col_offset": 44
             },
             "diagnosis": "receiver_type_unproven",
-            "receiver_expression": "plane",
+            "receiver_expression": "planeNode",
             "receiver_type": "",
             "method": "GetDisplayNode",
             "method_exists": null,
@@ -23953,16 +23827,16 @@
             "minimal_repair": null
           },
           {
-            "issue_id": "api_proof_895c406039a328d0c53c",
+            "issue_id": "api_proof_7e0d44ff1ad75125ab4a",
             "issue_type": "UnprovenApiCall",
             "severity": "warning",
             "blocking": false,
             "template": "templates/cb_step_22_pre.py.tpl",
-            "call_id": "895c406039a328d0c53c",
+            "call_id": "7e0d44ff1ad75125ab4a",
             "source_span": {
-              "lineno": 41,
+              "lineno": 39,
               "col_offset": 41,
-              "end_lineno": 41,
+              "end_lineno": 39,
               "end_col_offset": 53
             },
             "diagnosis": "receiver_type_unproven",
@@ -24019,20 +23893,20 @@
             "minimal_repair": null
           },
           {
-            "issue_id": "api_proof_7bd82f1d2af97def8f91",
+            "issue_id": "api_proof_f8e08c3eb4797edeee23",
             "issue_type": "UnprovenApiCall",
             "severity": "warning",
             "blocking": false,
             "template": "templates/cb_step_26_pre.py.tpl",
-            "call_id": "7bd82f1d2af97def8f91",
+            "call_id": "f8e08c3eb4797edeee23",
             "source_span": {
               "lineno": 31,
-              "col_offset": 14,
+              "col_offset": 18,
               "end_lineno": 31,
-              "end_col_offset": 35
+              "end_col_offset": 43
             },
             "diagnosis": "receiver_type_unproven",
-            "receiver_expression": "node",
+            "receiver_expression": "lineNode",
             "receiver_type": "",
             "method": "GetDisplayNode",
             "method_exists": null,
@@ -24041,16 +23915,16 @@
             "minimal_repair": null
           },
           {
-            "issue_id": "api_proof_c24998b89d7119e1e367",
+            "issue_id": "api_proof_60002fda06ce44c44dd6",
             "issue_type": "UnprovenApiCall",
             "severity": "warning",
             "blocking": false,
             "template": "templates/cb_step_26_pre.py.tpl",
-            "call_id": "c24998b89d7119e1e367",
+            "call_id": "60002fda06ce44c44dd6",
             "source_span": {
-              "lineno": 39,
+              "lineno": 38,
               "col_offset": 41,
-              "end_lineno": 39,
+              "end_lineno": 38,
               "end_col_offset": 53
             },
             "diagnosis": "receiver_type_unproven",
@@ -24086,9 +23960,9 @@
           }
         ],
         "api_proof_coverage": {
-          "total_calls": 388,
+          "total_calls": 385,
           "state_changing_calls": 109,
-          "proven_calls": 333,
+          "proven_calls": 330,
           "invalid_calls": 0,
           "blocking_unproven_calls": 0,
           "warning_unproven_reads": 55,
@@ -24098,9 +23972,9 @@
         "has_warnings": true
       },
       "api_proof_coverage": {
-        "total_calls": 388,
+        "total_calls": 385,
         "state_changing_calls": 109,
-        "proven_calls": 333,
+        "proven_calls": 330,
         "invalid_calls": 0,
         "blocking_unproven_calls": 0,
         "warning_unproven_reads": 55,
@@ -24840,402 +24714,6 @@
             },
             {
               "issue_id": "validation_error_1",
-              "issue_type": "ValidationError",
-              "severity": "error",
-              "blocking": true,
-              "template": "templates/cb_step_11_pre.py.tpl",
-              "diagnosis": "validation_failure",
-              "message": "validation_failure",
-              "rendered_message": "templates/cb_step_11_pre.py.tpl: Undefined variable: 'ZygomaticImplantPlannerLogic'",
-              "evidence_sources": [],
-              "minimal_repair": null,
-              "issue_class": "template",
-              "template_key": "templates/cb_step_11_pre.py.tpl",
-              "step_id": "cb_step_11",
-              "root_cause": "validation_failure",
-              "repair_strategy": "contract_aware_template_repair",
-              "repair_route": "contract_aware_template_repair",
-              "affected_artifacts": [
-                "template"
-              ],
-              "raw": {
-                "issue_id": "validation_error_1",
-                "issue_type": "ValidationError",
-                "severity": "error",
-                "blocking": true,
-                "template": "templates/cb_step_11_pre.py.tpl",
-                "diagnosis": "validation_failure",
-                "message": "Undefined variable: 'ZygomaticImplantPlannerLogic'",
-                "rendered_message": "templates/cb_step_11_pre.py.tpl: Undefined variable: 'ZygomaticImplantPlannerLogic'",
-                "evidence_sources": [],
-                "minimal_repair": null
-              },
-              "evidence_diagnosis": {
-                "diagnosis": "validation_failure",
-                "receiver_type": "",
-                "method_exists": null,
-                "effect": "unknown",
-                "evidence_sources": [],
-                "minimal_repair": null
-              },
-              "ladder_rung": "contract_aware_template_repair"
-            },
-            {
-              "issue_id": "validation_error_2",
-              "issue_type": "ValidationError",
-              "severity": "error",
-              "blocking": true,
-              "template": "templates/cb_step_18_pre.py.tpl",
-              "diagnosis": "validation_failure",
-              "message": "validation_failure",
-              "rendered_message": "templates/cb_step_18_pre.py.tpl: Undefined variable: 'ZygomaticImplantPlannerLogic'",
-              "evidence_sources": [],
-              "minimal_repair": null,
-              "issue_class": "template",
-              "template_key": "templates/cb_step_18_pre.py.tpl",
-              "step_id": "cb_step_18",
-              "root_cause": "validation_failure",
-              "repair_strategy": "contract_aware_template_repair",
-              "repair_route": "contract_aware_template_repair",
-              "affected_artifacts": [
-                "template"
-              ],
-              "raw": {
-                "issue_id": "validation_error_2",
-                "issue_type": "ValidationError",
-                "severity": "error",
-                "blocking": true,
-                "template": "templates/cb_step_18_pre.py.tpl",
-                "diagnosis": "validation_failure",
-                "message": "Undefined variable: 'ZygomaticImplantPlannerLogic'",
-                "rendered_message": "templates/cb_step_18_pre.py.tpl: Undefined variable: 'ZygomaticImplantPlannerLogic'",
-                "evidence_sources": [],
-                "minimal_repair": null
-              },
-              "evidence_diagnosis": {
-                "diagnosis": "validation_failure",
-                "receiver_type": "",
-                "method_exists": null,
-                "effect": "unknown",
-                "evidence_sources": [],
-                "minimal_repair": null
-              },
-              "ladder_rung": "contract_aware_template_repair"
-            },
-            {
-              "issue_id": "validation_error_3",
-              "issue_type": "ValidationError",
-              "severity": "error",
-              "blocking": true,
-              "template": "templates/cb_step_22_pre.py.tpl",
-              "diagnosis": "validation_failure",
-              "message": "validation_failure",
-              "rendered_message": "templates/cb_step_22_pre.py.tpl: Undefined variable: 'ZygomaticImplantPlannerLogic'",
-              "evidence_sources": [],
-              "minimal_repair": null,
-              "issue_class": "template",
-              "template_key": "templates/cb_step_22_pre.py.tpl",
-              "step_id": "cb_step_22",
-              "root_cause": "validation_failure",
-              "repair_strategy": "contract_aware_template_repair",
-              "repair_route": "contract_aware_template_repair",
-              "affected_artifacts": [
-                "template"
-              ],
-              "raw": {
-                "issue_id": "validation_error_3",
-                "issue_type": "ValidationError",
-                "severity": "error",
-                "blocking": true,
-                "template": "templates/cb_step_22_pre.py.tpl",
-                "diagnosis": "validation_failure",
-                "message": "Undefined variable: 'ZygomaticImplantPlannerLogic'",
-                "rendered_message": "templates/cb_step_22_pre.py.tpl: Undefined variable: 'ZygomaticImplantPlannerLogic'",
-                "evidence_sources": [],
-                "minimal_repair": null
-              },
-              "evidence_diagnosis": {
-                "diagnosis": "validation_failure",
-                "receiver_type": "",
-                "method_exists": null,
-                "effect": "unknown",
-                "evidence_sources": [],
-                "minimal_repair": null
-              },
-              "ladder_rung": "contract_aware_template_repair"
-            },
-            {
-              "issue_id": "validation_error_4",
-              "issue_type": "ValidationError",
-              "severity": "error",
-              "blocking": true,
-              "template": "templates/cb_step_26_pre.py.tpl",
-              "diagnosis": "validation_failure",
-              "message": "validation_failure",
-              "rendered_message": "templates/cb_step_26_pre.py.tpl: Undefined variable: 'ZygomaticImplantPlannerLogic'",
-              "evidence_sources": [],
-              "minimal_repair": null,
-              "issue_class": "template",
-              "template_key": "templates/cb_step_26_pre.py.tpl",
-              "step_id": "cb_step_26",
-              "root_cause": "validation_failure",
-              "repair_strategy": "contract_aware_template_repair",
-              "repair_route": "contract_aware_template_repair",
-              "affected_artifacts": [
-                "template"
-              ],
-              "raw": {
-                "issue_id": "validation_error_4",
-                "issue_type": "ValidationError",
-                "severity": "error",
-                "blocking": true,
-                "template": "templates/cb_step_26_pre.py.tpl",
-                "diagnosis": "validation_failure",
-                "message": "Undefined variable: 'ZygomaticImplantPlannerLogic'",
-                "rendered_message": "templates/cb_step_26_pre.py.tpl: Undefined variable: 'ZygomaticImplantPlannerLogic'",
-                "evidence_sources": [],
-                "minimal_repair": null
-              },
-              "evidence_diagnosis": {
-                "diagnosis": "validation_failure",
-                "receiver_type": "",
-                "method_exists": null,
-                "effect": "unknown",
-                "evidence_sources": [],
-                "minimal_repair": null
-              },
-              "ladder_rung": "contract_aware_template_repair"
-            }
-          ],
-          "repair_plan": [
-            {
-              "issue_id": "api_proof_15533eb9ccd1870595f7",
-              "template_key": "templates/cb_step_15_action.py.tpl",
-              "step_id": "cb_step_15",
-              "strategy": "contract_aware_template_repair",
-              "route": "gather_receiver_method_behavior_evidence",
-              "semantic_recipe_id": ""
-            },
-            {
-              "issue_id": "validation_error_1",
-              "template_key": "templates/cb_step_11_pre.py.tpl",
-              "step_id": "cb_step_11",
-              "strategy": "contract_aware_template_repair",
-              "route": "contract_aware_template_repair",
-              "semantic_recipe_id": ""
-            },
-            {
-              "issue_id": "validation_error_2",
-              "template_key": "templates/cb_step_18_pre.py.tpl",
-              "step_id": "cb_step_18",
-              "strategy": "contract_aware_template_repair",
-              "route": "contract_aware_template_repair",
-              "semantic_recipe_id": ""
-            },
-            {
-              "issue_id": "validation_error_3",
-              "template_key": "templates/cb_step_22_pre.py.tpl",
-              "step_id": "cb_step_22",
-              "strategy": "contract_aware_template_repair",
-              "route": "contract_aware_template_repair",
-              "semantic_recipe_id": ""
-            },
-            {
-              "issue_id": "validation_error_4",
-              "template_key": "templates/cb_step_26_pre.py.tpl",
-              "step_id": "cb_step_26",
-              "strategy": "contract_aware_template_repair",
-              "route": "contract_aware_template_repair",
-              "semantic_recipe_id": ""
-            }
-          ],
-          "api_probe_result": {
-            "probed": 11,
-            "failures": [],
-            "revised": 0,
-            "syntax_skipped": [],
-            "api_probe_coverage": {
-              "resolved": [
-                {
-                  "chain": "slicer.util.selectedModule",
-                  "receiver_expr": "slicer.util",
-                  "original_receiver_expr": "slicer.util",
-                  "expanded_receiver_expr": "slicer.util",
-                  "proof_kind": "live_instance",
-                  "attr": "selectedModule",
-                  "lineno": 6,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "module",
-                  "receiver_type": "module",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "slicer.util.getModuleWidget",
-                  "receiver_expr": "slicer.util",
-                  "original_receiver_expr": "slicer.util",
-                  "expanded_receiver_expr": "slicer.util",
-                  "proof_kind": "live_instance",
-                  "attr": "getModuleWidget",
-                  "lineno": 19,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "module",
-                  "receiver_type": "module",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "slicer.util.selectModule",
-                  "receiver_expr": "slicer.util",
-                  "original_receiver_expr": "slicer.util",
-                  "expanded_receiver_expr": "slicer.util",
-                  "proof_kind": "live_instance",
-                  "attr": "selectModule",
-                  "lineno": 9,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "module",
-                  "receiver_type": "module",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "slicer.modules.zygomaticimplantplanner.widgetRepresentation().self",
-                  "receiver_expr": "slicer.modules.zygomaticimplantplanner.widgetRepresentation()",
-                  "original_receiver_expr": "slicer.modules.zygomaticimplantplanner.widgetRepresentation()",
-                  "expanded_receiver_expr": "slicer.modules.zygomaticimplantplanner.widgetRepresentation()",
-                  "proof_kind": "live_instance",
-                  "attr": "self",
-                  "lineno": 24,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "qSlicerScriptedLoadableModuleWidget",
-                  "receiver_type": "qSlicerScriptedLoadableModuleWidget",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "slicer.modules.zygomaticimplantplanner.widgetRepresentation",
-                  "receiver_expr": "slicer.modules.zygomaticimplantplanner",
-                  "original_receiver_expr": "slicer.modules.zygomaticimplantplanner",
-                  "expanded_receiver_expr": "slicer.modules.zygomaticimplantplanner",
-                  "proof_kind": "live_instance",
-                  "attr": "widgetRepresentation",
-                  "lineno": 24,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "qSlicerScriptedLoadableModule",
-                  "receiver_type": "qSlicerScriptedLoadableModule",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "slicer.modules.markups.logic().SetActiveListID",
-                  "receiver_expr": "slicer.modules.markups.logic()",
-                  "original_receiver_expr": "slicer.modules.markups.logic()",
-                  "expanded_receiver_expr": "slicer.modules.markups.logic()",
-                  "proof_kind": "live_instance",
-                  "attr": "SetActiveListID",
-                  "lineno": 22,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "vtkSlicerMarkupsLogic",
-                  "receiver_type": "vtkSlicerMarkupsLogic",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "displayNode.SetVisibility",
-                  "receiver_expr": "slicer.vtkMRMLDisplayNode",
-                  "original_receiver_expr": "displayNode",
-                  "expanded_receiver_expr": "slicer.vtkMRMLDisplayNode",
-                  "receiver_type": "vtkMRMLDisplayNode",
-                  "proof_kind": "class_type",
-                  "attr": "SetVisibility",
-                  "lineno": 17,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "type",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "slicer.modules.markups.logic",
-                  "receiver_expr": "slicer.modules.markups",
-                  "original_receiver_expr": "slicer.modules.markups",
-                  "expanded_receiver_expr": "slicer.modules.markups",
-                  "proof_kind": "live_instance",
-                  "attr": "logic",
-                  "lineno": 22,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "qSlicerMarkupsModule",
-                  "receiver_type": "qSlicerMarkupsModule",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "slicer.mrmlScene.GetNodeByID",
-                  "receiver_expr": "slicer.mrmlScene",
-                  "original_receiver_expr": "slicer.mrmlScene",
-                  "expanded_receiver_expr": "slicer.mrmlScene",
-                  "proof_kind": "live_instance",
-                  "attr": "GetNodeByID",
-                  "lineno": 12,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "vtkMRMLScene",
-                  "receiver_type": "vtkMRMLScene",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
-                  "receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-                  "original_receiver_expr": "interactionNode",
-                  "expanded_receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-                  "proof_kind": "live_instance",
-                  "attr": "SwitchToViewTransformMode",
-                  "lineno": 13,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "vtkMRMLInteractionNode",
-                  "receiver_type": "vtkMRMLInteractionNode",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "slicer.util.findChildren",
-                  "receiver_expr": "slicer.util",
-                  "original_receiver_expr": "slicer.util",
-                  "expanded_receiver_expr": "slicer.util",
-                  "proof_kind": "live_instance",
-                  "attr": "findChildren",
-                  "lineno": 47,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "module",
-                  "receiver_type": "module",
-                  "evidence_source": "live_probe_success"
-                }
-              ],
-              "unresolved": [],
-              "skipped": []
-            }
-          },
-          "strategy_results": [
-            {
-              "strategy": "targeted_or_contract_aware_template_repair",
-              "changed": true,
-              "changed_templates": [
-                "templates/cb_step_11_pre.py.tpl",
-                "templates/cb_step_15_action.py.tpl",
-                "templates/cb_step_18_pre.py.tpl",
-                "templates/cb_step_22_pre.py.tpl",
-                "templates/cb_step_26_pre.py.tpl"
-              ]
-            }
-          ]
-        },
-        {
-          "attempt": 3,
-          "valid": false,
-          "issue_count": 4,
-          "issues": [
-            {
-              "issue_id": "validation_error_1",
               "issue_type": "ModuleEnterPreconditionMissing",
               "severity": "error",
               "blocking": true,
@@ -25405,6 +24883,14 @@
           ],
           "repair_plan": [
             {
+              "issue_id": "api_proof_15533eb9ccd1870595f7",
+              "template_key": "templates/cb_step_15_action.py.tpl",
+              "step_id": "cb_step_15",
+              "strategy": "contract_aware_template_repair",
+              "route": "gather_receiver_method_behavior_evidence",
+              "semantic_recipe_id": ""
+            },
+            {
               "issue_id": "validation_error_1",
               "template_key": "templates/cb_step_11_pre.py.tpl",
               "step_id": "cb_step_11",
@@ -25521,7 +25007,7 @@
                   "expanded_receiver_expr": "slicer.modules.markups.logic()",
                   "proof_kind": "live_instance",
                   "attr": "SetActiveListID",
-                  "lineno": 27,
+                  "lineno": 24,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "vtkSlicerMarkupsLogic",
@@ -25536,7 +25022,7 @@
                   "receiver_type": "vtkMRMLDisplayNode",
                   "proof_kind": "class_type",
                   "attr": "SetVisibility",
-                  "lineno": 22,
+                  "lineno": 21,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "type",
@@ -25549,7 +25035,7 @@
                   "expanded_receiver_expr": "slicer.modules.markups",
                   "proof_kind": "live_instance",
                   "attr": "logic",
-                  "lineno": 27,
+                  "lineno": 24,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "qSlicerMarkupsModule",
@@ -25623,11 +25109,18 @@
               "template_key": "templates/cb_step_26_pre.py.tpl",
               "strategy": "deterministic_module_enter_precondition",
               "changed": true
+            },
+            {
+              "strategy": "targeted_or_contract_aware_template_repair",
+              "changed": true,
+              "changed_templates": [
+                "templates/cb_step_15_action.py.tpl"
+              ]
             }
           ]
         },
         {
-          "attempt": 4,
+          "attempt": 3,
           "valid": true,
           "issue_count": 0,
           "issues": [],
@@ -25716,7 +25209,7 @@
                   "expanded_receiver_expr": "slicer.modules.markups.logic()",
                   "proof_kind": "live_instance",
                   "attr": "SetActiveListID",
-                  "lineno": 37,
+                  "lineno": 34,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "vtkSlicerMarkupsLogic",
@@ -25731,7 +25224,7 @@
                   "receiver_type": "vtkMRMLDisplayNode",
                   "proof_kind": "class_type",
                   "attr": "SetVisibility",
-                  "lineno": 32,
+                  "lineno": 31,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "type",
@@ -25744,7 +25237,7 @@
                   "expanded_receiver_expr": "slicer.modules.markups",
                   "proof_kind": "live_instance",
                   "attr": "logic",
-                  "lineno": 37,
+                  "lineno": 34,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "qSlicerMarkupsModule",
@@ -25884,7 +25377,7 @@
               "expanded_receiver_expr": "slicer.modules.markups.logic()",
               "proof_kind": "live_instance",
               "attr": "SetActiveListID",
-              "lineno": 37,
+              "lineno": 34,
               "is_attribute": false,
               "method_exists": true,
               "live_receiver_type": "vtkSlicerMarkupsLogic",
@@ -25899,7 +25392,7 @@
               "receiver_type": "vtkMRMLDisplayNode",
               "proof_kind": "class_type",
               "attr": "SetVisibility",
-              "lineno": 32,
+              "lineno": 31,
               "is_attribute": false,
               "method_exists": true,
               "live_receiver_type": "type",
@@ -25912,7 +25405,7 @@
               "expanded_receiver_expr": "slicer.modules.markups",
               "proof_kind": "live_instance",
               "attr": "logic",
-              "lineno": 37,
+              "lineno": 34,
               "is_attribute": false,
               "method_exists": true,
               "live_receiver_type": "qSlicerMarkupsModule",

@@ -45,13 +45,6 @@ def _get_model_cache_dir() -> str:
     return d
 
 
-def _get_ui_analysis_docs_dir() -> str:
-    """Return generated Slicer UI pre-analysis docs directory."""
-    return os.path.join(
-        _get_project_root(), "Resources", "Slicer_UI_PreAnalysis", "v1", "docs"
-    )
-
-
 # ---------------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------------

@@ -55,5 +55,7 @@ if _ctrl is not None:
         _ctrl.blockSignals(False)
     except Exception:
         pass
+# The handler requires the control's checked state as its single argument.
+# Invoke it exactly once with the state this step requires.
 _widget._onMandibleConnectedToggled(True)
 print("[ZygomaticImplantPlanner] Step 'cb_step_15': set 'mandibleConnectedCheckBox' = True via _onMandibleConnectedToggled.")

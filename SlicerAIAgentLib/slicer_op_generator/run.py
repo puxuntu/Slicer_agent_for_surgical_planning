@@ -36,7 +36,6 @@ class SlicerOpGeneratorRunMixin:
                         "debug_schema_version": 2,
                         "debug_features": [
                             "slicer_op_classification",
-                            "slicer_ui_analysis_evidence_audit",
                             "source_verification_summary",
                             "generated_code_preview",
                             "final_state_intent",
@@ -90,7 +89,6 @@ class SlicerOpGeneratorRunMixin:
                     "slicer_op_category": getattr(sub_op, "slicer_op_category", None),
                 },
                 "search_policy": {
-                    "preferred_root": "slicer-ui-analysis",
                     "requires_ui_first_when_ui_labeled": True,
                     "category_hints": _CATEGORY_SEARCH_HINTS.get(category, [])[:10],
                     "category_hint_provenance": "generic_slicer_search_hint",

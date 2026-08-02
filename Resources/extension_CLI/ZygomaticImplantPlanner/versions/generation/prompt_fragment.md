@@ -12,49 +12,49 @@ and wait for them to complete the interaction before proceeding.
 
 **Workflow Steps:**
 1. `cb_step_1` [user_choice] — In the "Segment Editor" module, under the "Source Volume" selection section, choose the volume for segmentation.
-   - Ask user: Choose the volume to use for segmentation
+   - Ask user: Choose the source volume for segmentation.
 2. `cb_step_2` [slicer_op] — In the "Segment Editor" module, create a new segmentation named "Cranial_Segmentation".
 3. `cb_step_3` [slicer_op] — In the "Segment Editor" module, click the "Add" button and rename the segment to "Cranial_Segment".
 4. `cb_step_4` [slicer_op] — In the "Segment Editor" module, click the "Threshold" button.
 5. `cb_step_5` [user_choice] — In the "Segment Editor" module, adjust the threshold range bar to set the range value for segmentation.
-   - Ask user: Set the threshold range value for segmentation
+   - Ask user: Adjust the threshold range for the segmentation.
 6. `cb_step_6` [slicer_op] — In the "Segment Editor" module, click the "Apply" button.
 7. `cb_step_7` [user_choice] — In the "Skull segmentation" section, choose the segment node.
-   - Ask user: Choose the skull segmentation segment
+   - Ask user: Choose the skull segmentation node.
 8. `cb_step_8` [user_choice] — In the "Entry points" section, choose the Point List node.
-   - Ask user: Choose the entry point Point List node
+   - Ask user: Choose the entry points Point List node.
 9. `cb_step_9` [extension_op] — Click the "1. Compute symmetry plane" button.
 10. `cb_step_10` [branch_op] — If further adjustments are required, tick the "Manually adjust the symmetry plane" checkbox. If not, jump to step 13.
-   - Ask user: Are further adjustments to the symmetry plane required?
+   - Ask user: Further adjustments to the symmetry plane required?
 11. `cb_step_11` [user_interaction] — Manually adjust the symmetry plane.
    - Interaction: plane
-   - Tell user: Manually adjust the symmetry plane.
+   - Tell user: Manually adjust the symmetry plane using its interactive handles.
 12. `cb_step_12` [extension_op] — Click the "Apply adjustment" button.
 13. `cb_step_13` [user_choice] — In the "Crop radius (mm)" section, adjust the range bar to set the range value for crop.
-   - Ask user: Set the crop radius in mm
+   - Ask user: Adjust the crop radius (mm) for the skull cut.
 14. `cb_step_14` [extension_op] — Click the "2. Cut skull (cylinder)" button.
 15. `cb_step_15` [branch_op] — If the mandible is still attached to the maxilla, tick the "The mandible is still attached to the maxilla" checkbox. If not, jump to step 20.
    - Ask user: Is the mandible still attached to the maxilla?
 16. `cb_step_16` [extension_op] — Click the "3. Seperate maxilla / mandible" button.
 17. `cb_step_17` [branch_op] — If further adjustments are required, tick the "Manually adjust the segmentation plane" checkbox. If not, jump to step 20.
-   - Ask user: Are further adjustments to the segmentation plane required?
+   - Ask user: Further adjustments to the separation plane required?
 18. `cb_step_18` [user_interaction] — Manually adjust the separation plane.
    - Interaction: plane
-   - Tell user: Manually adjust the separation plane.
+   - Tell user: Manually adjust the maxilla/mandible separation plane using its interactive handles.
 19. `cb_step_19` [extension_op] — Click the "Apply separation" button.
 20. `cb_step_20` [extension_op] — Click the "4. Identify zygomatic bones" button.
 21. `cb_step_21` [branch_op] — If further adjustments are required, tick the "Manually adjust the boundary planes" checkbox. If not, jump to step 24.
-   - Ask user: Are further adjustments to the boundary planes required?
+   - Ask user: Further adjustments to the boundary planes required?
 22. `cb_step_22` [user_interaction] — Manually adjust the boundary planes.
    - Interaction: plane
-   - Tell user: Manually adjust the boundary planes.
+   - Tell user: Manually adjust the left and right boundary planes using their interactive handles.
 23. `cb_step_23` [extension_op] — Click the "Apply boundaries" button.
 24. `cb_step_24` [extension_op] — Click the "5. Generate Implant paths" button.
 25. `cb_step_25` [branch_op] — If further adjustments are required, tick the "Manually adjust the paths" checkbox. If not, stop here.
-   - Ask user: Are further adjustments to the implant paths required?
+   - Ask user: Further adjustments to the implant paths required?
 26. `cb_step_26` [user_interaction] — Manually adjust the paths.
    - Interaction: line
-   - Tell user: Manually adjust the implant paths.
+   - Tell user: Manually adjust the implant path line endpoints using interactive handles.
 27. `cb_step_27` [extension_op] — Click the "Apply paths" button.
 
 **Protocol:**

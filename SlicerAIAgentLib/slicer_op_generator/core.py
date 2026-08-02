@@ -52,17 +52,6 @@ class SlicerOpGeneratorCoreMixin:
             self._register_extension_root()
             return
         self._executor_initialized = True
-        try:
-            from ..UIControlIndex import preanalysis_status
-            status = preanalysis_status()
-            if not status.get("ok"):
-                logger.warning(
-                    "Slicer UI pre-analysis missing/empty (%s) — UI-labeled "
-                    "grounding is degraded; run scripts/build_rag.py outside "
-                    "Slicer to rebuild.", status.get("reason", "unknown"),
-                )
-        except Exception:
-            logger.debug("UI pre-analysis status check failed", exc_info=True)
         if not self._skill_path or not os.path.isdir(self._skill_path):
             logger.warning("No skill_path for SlicerOpGenerator KB search")
             return
@@ -80,31 +69,6 @@ class SlicerOpGeneratorCoreMixin:
             self._register_extension_root()
         except Exception:
             logger.exception("SlicerOpGenerator: failed to load SkillToolExecutor")
-
-    @staticmethod
-    def _deterministic_ui_evidence(sub_op) -> Tuple[List[str], List[str]]:
-        """Top-matching core-UI control evidence for this sub-op.
-
-        Returns (prompt_lines, matched_object_names); ([], []) when the
-        pre-analysis index is unavailable or nothing matches. Pure function —
-        safe under the parallel per-op generation threads.
-        """
-        try:
-            from ..UIControlIndex import format_evidence_lines, get_index
-            index = get_index()
-            if index is None:
-                return [], []
-            query = " ".join([
-                getattr(sub_op, "description", "") or "",
-                " ".join(getattr(sub_op, "slicer_api_keywords", []) or []),
-            ])
-            matches = index.match(query, top_k=5)
-            lines = format_evidence_lines(matches, max_total_chars=1200)
-            matched = [m["record"].get("object_name", "") for m in matches]
-            return lines, matched
-        except Exception:
-            logger.debug("Deterministic UI evidence lookup failed", exc_info=True)
-            return [], []
 
     @staticmethod
     def _infer_category(sub_op) -> str:
@@ -151,9 +115,7 @@ class SlicerOpGeneratorCoreMixin:
     # Prompt construction
     # ------------------------------------------------------------------
 
-    def _build_user_message(
-        self, sub_op, category: str, ui_evidence_lines: Optional[List[str]] = None,
-    ) -> str:
+    def _build_user_message(self, sub_op, category: str) -> str:
         """Build the user prompt for a single slicer_op sub-operation."""
         parts = [f"Generate a Python code template for this 3D Slicer operation:\n"]
         parts.append(sub_op.description)
@@ -231,22 +193,6 @@ class SlicerOpGeneratorCoreMixin:
         if keywords:
             parts.append(f"\nAPI keyword hints: {', '.join(keywords[:8])}")
 
-        # Deterministic core-UI evidence: matched offline against the UI
-        # pre-analysis index, so the most relevant control records appear in
-        # every run regardless of tool-call ordering.
-        if ui_evidence_lines is None:
-            ui_evidence_lines, _ = self._deterministic_ui_evidence(sub_op)
-        if ui_evidence_lines:
-            parts.append(
-                "\n\nDETERMINISTIC CORE-UI EVIDENCE (from Slicer core UI "
-                "pre-analysis; matched offline, no search needed):\n"
-                + "\n".join(ui_evidence_lines)
-                + "\nThe `api:` names are method names observed near the "
-                "control's implementation — treat them as existing core "
-                "methods, but confirm the receiver class by reading the cited "
-                "doc/implementation file before emitting a state-changing call."
-            )
-
         display_text = " ".join([
             getattr(sub_op, "description", "") or "",
             " ".join(keywords),
@@ -293,7 +239,6 @@ class SlicerOpGeneratorCoreMixin:
 
         parts.append(
             "\n\nSearch the knowledge base for relevant examples first, "
-            "using slicer-ui-analysis first for UI-labeled controls/actions, "
             "then output ONLY the ```python code block. Generate a final-state "
             "operation, not a toggle, unless the description explicitly requests toggling. "
             "Do not switch the active Slicer module for UI-location context; only use "
@@ -321,10 +266,7 @@ class SlicerOpGeneratorCoreMixin:
         _write_debug()
         t_prompt_start = _time.monotonic()
 
-        ui_evidence_lines, ui_evidence_matched = self._deterministic_ui_evidence(sub_op)
-        user_message = self._build_user_message(
-            sub_op, category, ui_evidence_lines=ui_evidence_lines,
-        )
+        user_message = self._build_user_message(sub_op, category)
         messages = [
             {"role": "system", "content": _SLICER_OP_SYSTEM_PROMPT},
             {"role": "user", "content": user_message},
@@ -332,11 +274,6 @@ class SlicerOpGeneratorCoreMixin:
 
         op_record["prompt_build_s"] = round(_time.monotonic() - t_prompt_start, 3)
         op_record["prompt_user_preview"] = user_message[:1500]
-        op_record["prompt_includes_ui_analysis"] = "slicer-ui-analysis" in user_message
-        op_record["deterministic_ui_evidence"] = {
-            "matched": ui_evidence_matched,
-            "injected": bool(ui_evidence_lines),
-        }
         logger.info("[5T] '%s' prompt built", desc_short)
 
         # Step 2: Prepare tools and executor

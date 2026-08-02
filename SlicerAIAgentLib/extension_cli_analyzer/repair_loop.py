@@ -753,28 +753,14 @@ Return:
     def _broadened_keywords(step_text: str) -> List[str]:
         """Widened retrieval terms for an escalated re-ground rung.
 
-        Generic synthesis from the failing step's text (tokenization) plus the
-        Slicer core-UI pre-analysis index: controls whose labels match the
-        step text contribute their observed API footprints. No rule tables;
-        no-op when the pre-analysis artifacts are absent.
+        Generic synthesis from the failing step's text by tokenization; no rule
+        tables. (This previously also consulted a Slicer core-UI pre-analysis
+        index, removed along with that artifact -- it contributed only to this
+        rung, which has never executed in any recorded generation.)
         """
-        added = sorted({
+        return sorted({
             token for token in _re.findall(r"[A-Za-z][A-Za-z0-9_]{3,}", step_text)
         })[:24]
-        try:
-            from ..UIControlIndex import get_index
-            index = get_index()
-            if index is not None:
-                ui_terms = []
-                for match in index.match(step_text, top_k=4):
-                    record = match.get("record", {})
-                    ui_terms.extend((record.get("api_footprints") or [])[:6])
-                    if record.get("object_name"):
-                        ui_terms.append(record["object_name"])
-                added.extend(sorted(set(ui_terms))[:12])
-        except Exception:
-            logger.debug("UI-evidence keyword broadening failed", exc_info=True)
-        return added
 
     def _reground_slicer_template(
         self,

@@ -350,7 +350,6 @@ class VectorIndex:
 _SOURCE_TYPE_WEIGHTS = {
     'doc_example': 1.3,
     'python_api': 1.2,
-    'ui_analysis': 1.15,
     'effect_implementation': 1.1,
     'scripted_module': 1.1,
     'test_example': 1.05,

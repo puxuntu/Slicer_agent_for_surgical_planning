@@ -107,20 +107,6 @@ class WidgetCorrectionMixin:
             _evidence_block = live_attribute_evidence(error_detail)
         except Exception:
             _evidence_block = ""
-        _ui_evidence = ""
-        try:
-            from ..UIControlIndex import format_evidence_lines, get_index
-            ui_index = get_index()
-            if ui_index is not None:
-                first_request_line = (_lastUserPrompt or "").splitlines()[0] if _lastUserPrompt else ""
-                ui_query = f"{error_detail[:300]} {first_request_line}"
-                ui_lines = format_evidence_lines(
-                    ui_index.match(ui_query, top_k=3), max_total_chars=600,
-                )
-                if ui_lines:
-                    _ui_evidence = "\n".join(ui_lines)
-        except Exception:
-            _ui_evidence = ""
         # Same predicate the system prompt above was built under, so the tool
         # list and the prompt's description of it can never disagree.
         _workflow_repair_active = _repair_workflow_active
@@ -211,9 +197,9 @@ class WidgetCorrectionMixin:
                     + (
                         "DETERMINISTIC EVIDENCE (verified live against this running "
                         "Slicer — trust it over memory):\n"
-                        + "\n".join(filter(None, [_evidence_block, _ui_evidence]))
+                        + _evidence_block
                         + "\n\n"
-                        if (_evidence_block or _ui_evidence) else ""
+                        if _evidence_block else ""
                     )
                     + (
                         f"This is correction attempt {attempt + 1}. A minimal edit of the "
@@ -275,7 +261,6 @@ class WidgetCorrectionMixin:
                         "tools_offered": len(_filtered_repair_tools()),
                         "evidence": {
                             "live_attribute": bool(_evidence_block),
-                            "core_ui": bool(_ui_evidence),
                         },
                     })
                 except Exception:

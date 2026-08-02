@@ -35,9 +35,6 @@ class Chunker:
 
         # ── MRML node definitions (maps to Python MRML API) ──
         "slicer-source/Libs/MRML/Core/",
-
-        # ── Generated Slicer core UI-to-implementation analysis ──
-        "slicer-ui-analysis/",
     )
 
     # Extensions we know how to chunk
@@ -103,8 +100,6 @@ class Chunker:
     def _infer_source_type(self, rel_path: str) -> str:
         """Mirror of SkillTools._infer_source_type."""
         path_lower = rel_path.lower().replace('\\', '/')
-        if path_lower.startswith('slicer-ui-analysis/'):
-            return 'ui_analysis'
         if '/testing/python/' in path_lower:
             return 'test_example'
         if '/docs/developer_guide/script_repository/' in path_lower:

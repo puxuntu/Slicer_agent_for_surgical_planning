@@ -13,31 +13,30 @@ if _active_module_name != 'ZygomaticImplantPlanner':
 # precondition:end
 
 try:
-    import ZygomaticImplantPlanner
-except ImportError:
-    raise RuntimeError("The ZygomaticImplantPlanner extension is not installed. Install it from the Slicer Extension Manager.")
-
-try:
     logic = _zygomaticimplantplanner_logic
 except NameError:
-    logic = ZygomaticImplantPlanner.ZygomaticImplantPlannerLogic()
-    _zygomaticimplantplanner_logic = logic
+    try:
+        from ZygomaticImplantPlanner import ZygomaticImplantPlannerLogic
+        logic = ZygomaticImplantPlannerLogic()
+        _zygomaticimplantplanner_logic = logic
+    except Exception:
+        raise RuntimeError("ZygomaticImplantPlanner extension is not installed. Install it from the Extension Manager.")
 
-paths = list(logic.findAllRole(logic.R_PATH) or [])
-if not paths:
-    raise RuntimeError('No path line nodes found from the previous step.')
+_path_nodes = logic.findAllRole(logic.R_PATH) or []
+_path_nodes = [n for n in _path_nodes if n is not None]
+if not _path_nodes:
+    raise RuntimeError("No implant path line nodes found from previous step. Run the path planning step first.")
 
-node = paths[0]
-displayNode = node.GetDisplayNode()
-if displayNode is not None:
-    displayNode.SetVisibility(True)
-
-# Enable dragging of the implant path lines.
+for lineNode in _path_nodes:
+    displayNode = lineNode.GetDisplayNode()
+    if displayNode is not None:
+        displayNode.SetVisibility(True)
 logic.setPathInteraction(True)
 
+node = _path_nodes[0]
 slicer.modules.markups.logic().SetActiveListID(node)
 _zygomaticimplantplanner_cb_step_26_id = node.GetID()
-remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_26', _zygomaticimplantplanner_cb_step_26_id, _workflow_runtime_repeat_index)
+remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_26", _zygomaticimplantplanner_cb_step_26_id, _workflow_runtime_repeat_index)
 
-print('[ZygomaticImplantPlanner] Please Manually adjust the implant paths.')
-print('When finished, press the \'Done\' button in the workflow panel.')
+print("[ZygomaticImplantPlanner] Please manually adjust the implant path line endpoints using interactive handles.")
+print("When finished, press the 'Done' button in the workflow panel.")

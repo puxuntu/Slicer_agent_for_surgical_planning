@@ -150,15 +150,6 @@ class IndexBuilder:
                 rel_path = os.path.relpath(abs_path, self.skill_path).replace('\\', '/')
                 if chunker.should_index_file(rel_path):
                     files.append((abs_path, rel_path))
-        ui_docs_dir = _get_ui_analysis_docs_dir()
-        if os.path.isdir(ui_docs_dir):
-            for root, _, filenames in os.walk(ui_docs_dir):
-                for filename in filenames:
-                    abs_path = os.path.join(root, filename)
-                    rel_sub = os.path.relpath(abs_path, ui_docs_dir).replace('\\', '/')
-                    rel_path = f"slicer-ui-analysis/{rel_sub}"
-                    if chunker.should_index_file(rel_path):
-                        files.append((abs_path, rel_path))
         return files
 
     def build_or_update(self) -> bool:

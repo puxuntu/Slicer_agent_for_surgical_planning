@@ -35,11 +35,5 @@ def _get_project_root() -> str:
     return os.path.dirname(_LIB_DIR)
 
 
-def _get_ui_analysis_docs_dir() -> str:
-    return os.path.join(
-        _get_project_root(), "Resources", "Slicer_UI_PreAnalysis", "v1", "docs"
-    )
-
-
 
 __all__ = [name for name in list(globals()) if not name.startswith('__')]
