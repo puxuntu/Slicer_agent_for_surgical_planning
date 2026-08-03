@@ -69,6 +69,22 @@ ROUTER_ENABLED = True
 #: producers. Both are scoped to a step of a workflow that already started.
 GUIDED_ONLY_MODE = True
 
+#: Check the scene for the procedure's required INPUT data before entering it.
+#:
+#: A guided workflow that starts without its inputs does not degrade gracefully:
+#: the pick step opens with an empty picker, falls back to a free-text box, and
+#: the name is then resolved against the scene and raises "Could not resolve the
+#: selected <class> node". This moves that late failure to a dialog before any
+#: session, run folder or manifest exists, and tells the surgeon what to load.
+#:
+#: What is required is derived from the generated package alone
+#: (``SlicerAIAgentLib.WorkflowInputs``): a class a pick step demands is an INPUT
+#: only when no earlier step creates one. Set False to enter every matched
+#: workflow regardless of scene contents -- for evaluation runs that deliberately
+#: start empty, and as the one-line revert if the derivation is ever wrong for an
+#: installed extension. Read at call time.
+PRECHECK_WORKFLOW_INPUTS = True
+
 #: How many step descriptions per extension go into the catalog, and how much of
 #: each. Seven at 90 characters keeps the whole catalog around 4.5 KB for nine
 #: extensions -- roughly a tenth of the CLI prompt fragments it replaces.

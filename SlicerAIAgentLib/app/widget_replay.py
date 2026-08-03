@@ -136,6 +136,68 @@ class WidgetReplayMixin:
             logger.debug("Baseline control refresh failed", exc_info=True)
 
     # --------------------------------------------------------------- handlers
+    def _noteReplayNavigation(self, action, before_index, after_index, resumed_at=None):
+        """Record one replay navigation and keep its time out of the live step.
+
+        Entering preview (``before_index is None`` and now it is not) SUSPENDS
+        the step that was on screen, so the review is not charged to it as
+        surgeon think-time; leaving preview resumes it. The interval between
+        those two moments becomes the run's ``replay`` bucket, which is what
+        lets the report's split still sum exactly to the total.
+
+        Fail-soft throughout: a logging failure must never break navigation.
+        """
+        try:
+            runtime = getattr(self, "_workflowRuntime", None)
+            session = getattr(runtime, "session", None) if runtime else None
+            manifest = self._runManifest()
+            if manifest is None or session is None:
+                return
+            live_step = getattr(self, "_replaySuspendedStep", None) or session.current_step
+            if before_index is None and after_index is not None:
+                manifest.replay_enter(from_step=live_step or "")
+                if live_step:
+                    manifest.suspend_step_span(live_step)
+                    self._replaySuspendedStep = live_step
+            elif before_index is not None and after_index is None:
+                # What the timeline row is FOR is saying where the run picked up
+                # again, so the caller passes it: on "Run from here" the panel
+                # still shows the previewed step, and Forward-to-live lands back
+                # on the step that was suspended, not on whatever is previewed.
+                manifest.replay_exit(
+                    resumed_at=resumed_at
+                    or getattr(self, "_replaySuspendedStep", None)
+                    or (self._currentWorkflowUiState.get("current_step", "") or ""),
+                    ended_by=action)
+                suspended = getattr(self, "_replaySuspendedStep", None)
+                # "Run from here" ABANDONS the step that was on screen: the
+                # rewind re-dispatches an earlier one, which open_step() records
+                # as a fresh visit. Resuming here too would open a second, empty
+                # row for a step the run never went back to. Forward-to-live
+                # does return to it, so that path resumes.
+                if suspended and action != "rerun":
+                    manifest.resume_step_span(suspended)
+                self._replaySuspendedStep = None
+            manifest.note_replay(
+                action, after_index,
+                step_id=self._currentWorkflowUiState.get("current_step", "") or "",
+            )
+            self._recordRoleEvent("Workflow", "replay_navigate", {
+                "action": action, "preview_index": after_index,
+            })
+        except Exception:
+            logger.debug("Replay navigation accounting failed", exc_info=True)
+
+    def _checkpointStepId(self, index):
+        """step_id of checkpoint ``index``, or "" -- for labelling only."""
+        try:
+            checkpoints = self._workflowRuntime.session.checkpoints
+            if index is not None and 0 <= int(index) < len(checkpoints):
+                return checkpoints[int(index)].step_id or ""
+        except Exception:
+            logger.debug("Could not read checkpoint %s", index, exc_info=True)
+        return ""
+
     def _onReplayBack(self):
         runtime = getattr(self, "_workflowRuntime", None)
         if runtime is None or runtime.session is None:
@@ -147,7 +209,10 @@ class WidgetReplayMixin:
             return
         # _updateWorkflowPanel renders the returned state verbatim (no
         # type/step_id/tool/next_step keys) and refreshes the controls.
-        self._updateWorkflowPanel(runtime.navigate_back())
+        before = runtime.session.preview_index
+        state = runtime.navigate_back()
+        self._noteReplayNavigation("back", before, runtime.session.preview_index)
+        self._updateWorkflowPanel(state)
 
     def _onReplayForward(self):
         runtime = getattr(self, "_workflowRuntime", None)
@@ -155,7 +220,10 @@ class WidgetReplayMixin:
             return
         if not self._resetBaselineForNavigation():
             return
-        self._updateWorkflowPanel(runtime.navigate_forward())
+        before = runtime.session.preview_index
+        state = runtime.navigate_forward()
+        self._noteReplayNavigation("forward", before, runtime.session.preview_index)
+        self._updateWorkflowPanel(state)
 
     def _onReplayAction(self):
         """Re-run the workflow from the previewed step with its recorded choice."""
@@ -192,6 +260,12 @@ class WidgetReplayMixin:
         self._recordRoleEvent("Workflow", "replay_action", {
             "index": index, "modified": modified_args is not None,
         })
+        # "Run from here" also LEAVES the preview, so it closes the replay
+        # interval and releases the suspended step. The step it re-dispatches is
+        # then reopened by open_step(action="start") as a fresh visit, which is
+        # how a re-run shows up as 2o/2x rather than a longer single visit.
+        self._noteReplayNavigation("rerun", index, None,
+                                   resumed_at=self._checkpointStepId(index))
         descriptor = runtime.rewind_to_checkpoint(index, modified_args)
         if not isinstance(descriptor, dict) or descriptor.get("error"):
             self.appendToChat("Error", (descriptor or {}).get("error", "Replay failed."))

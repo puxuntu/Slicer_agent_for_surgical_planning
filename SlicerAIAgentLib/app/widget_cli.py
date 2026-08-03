@@ -169,6 +169,11 @@ class WidgetCLIMixin:
             self._discoveredExtensions = []
 
         self._populateExtensionSelector()
+        # The Experiments panel lists the same procedures, so one Refresh serves
+        # both. Guarded: this runs once during _setupExtensionCLIGenerator, which
+        # is before _setupExperiments has built anything.
+        if getattr(self, "_experimentSelector", None) is not None:
+            self._populateExperimentSelector()
 
     @staticmethod
     def _extension_has_cookbook(name):
@@ -183,19 +188,19 @@ class WidgetCLIMixin:
             or os.path.isfile(os.path.join(cookbook_dir, f"Slicer{name}.md"))
         )
 
-    def _populateExtensionSelector(self):
-        """Populate the extension combo with installed extensions that have a
-        cookbook file.
+    def _cookbookExtensionEntries(self):
+        """Ordered ``(label, data)`` for every discovered extension with a cookbook.
 
         The three discovery sources (Extension Manager / Additional Module Paths /
         Loaded Modules) are merged and de-duplicated by extension name — the only
         filter the user sees is "has a cookbook". When the same extension is found
         in more than one source, the record with a usable Python source path wins
         (so Analyze & Generate can read the source).
-        """
-        self._extensionSelector.clear()
-        self._extensionDataMap.clear()
 
+        Shared with the Experiments panel, which lists exactly the same
+        procedures: two independently-built lists would drift the moment one of
+        these filters changed.
+        """
         best_by_name = {}
         for ext in self._discoveredExtensions:
             name = ext.get("name")
@@ -207,6 +212,7 @@ class WidgetCLIMixin:
             if prev is None or (usable and not prev[1]):
                 best_by_name[name] = (ext, usable)
 
+        entries = []
         for name in sorted(best_by_name):
             ext, _usable = best_by_name[name]
             label = name
@@ -220,12 +226,23 @@ class WidgetCLIMixin:
                     else status
                 )
                 label += f" [{display_status}]"
-            self._extensionDataMap[label] = {
+            entries.append((label, {
                 "type": "installed",
                 "name": name,
                 "path": ext.get("source_path", ext.get("install_path", "")),
                 "source_type": ext.get("source_type", ""),
-            }
+                "cli_status": status,
+            }))
+        return entries
+
+    def _populateExtensionSelector(self):
+        """Populate the extension combo with installed extensions that have a
+        cookbook file."""
+        self._extensionSelector.clear()
+        self._extensionDataMap.clear()
+
+        for label, data in self._cookbookExtensionEntries():
+            self._extensionDataMap[label] = data
             self._extensionSelector.addItem(label)
 
         # Enable the button if a valid selection exists after population

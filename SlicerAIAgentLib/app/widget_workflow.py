@@ -923,44 +923,29 @@ class WidgetWorkflowMixin:
     def _exitConfirmMessage(self):
         """What pressing Exit will do -- including what it WRITES.
 
-        Shown even when there is no progress to lose, because saving the run's
-        timing and its scene is the main thing this button does on a finished
-        workflow, and a dialog the user only sees when something is about to be
-        destroyed would never mention it on the path they take most.
+        Deliberately terse: this is a confirmation the user meets often, so it
+        states the three facts that could change their answer (unfinished
+        progress is lost, the scene is untouched, a copy of it gets written) and
+        nothing else. The long-form explanation of what lands in Statistic/
+        belongs in the docs, not in front of someone who has already decided.
+
+        Still shown when there is no progress to lose, because saving the run's
+        timing and scene is the main thing this button does on a finished
+        workflow -- a dialog seen only when something is about to be destroyed
+        would never mention it on the path taken most.
         """
         from SlicerAIAgentLib import RunLog
-        run_name = self._statisticRunName()
-        lines = ["Exit this guided workflow and close the panel?", ""]
+        lines = ["Exit this guided workflow?", ""]
         if self._guidedRunHasProgress():
             session = self._workflowRuntime.session
             done = len(getattr(session, "completed_steps", None) or [])
-            lines.append(
-                f"The run is NOT finished ({done} step(s) completed) — its "
-                "progress is discarded and cannot be resumed."
-            )
-            lines.append("")
-        lines.append("Nodes already created in the scene are left untouched.")
-        lines.append("")
+            total = int(self._currentWorkflowUiState.get("total_steps") or 0)
+            progress = f"{done} of {total} steps" if total else f"{done} step(s)"
+            lines.append(f"Not finished ({progress}) - progress cannot be resumed.")
+        lines.append("Scene nodes are left untouched.")
         lines.append(
-            f"Before resetting, this saves into "
-            f"logs/{run_name}/{RunLog.STATISTIC_DIRNAME}/:"
-        )
-        lines.append(
-            "  - timing.txt — total run time from the moment you pressed Send "
-            "to now, split into startup / steps / between steps / waiting for "
-            "Exit, plus per-step wall, execution and waiting time for every "
-            "step, and totals per operation type."
-        )
-        lines.append(
-            "  - scene/ — the complete current Slicer scene as one flat folder: "
-            f"{self.SCENE_FILE_NAME} beside one file per node (volumes, "
-            "segmentations, models, markups, tables), exactly as File > Save "
-            "Data writes them into a single directory. This can be large."
-        )
-        lines.append("")
-        lines.append(
-            "Your own unsaved data is NOT marked as saved by this, and the run's "
-            "folder under logs/ is kept either way."
+            f"Saves timing.txt and a copy of the scene (can be large) to "
+            f"logs/{self._statisticRunName()}/{RunLog.STATISTIC_DIRNAME}/."
         )
         return "\n".join(lines)
 
@@ -987,7 +972,7 @@ class WidgetWorkflowMixin:
     #: the MRML file is without looking.
     SCENE_FILE_NAME = "scene.mrml"
 
-    def _saveSceneFlat(self, directory):
+    def _saveSceneFlat(self, directory, progress=None):
         """Save the scene as ONE flat folder: ``scene.mrml`` beside every node's file.
 
         This is what File > Save Data produces with every row pointed at one
@@ -1010,6 +995,11 @@ class WidgetWorkflowMixin:
         writing clears -- is undone afterwards, so the surgeon's own File > Save
         Data still offers their chosen directory and still shows their work as
         unsaved. Returns ``(files_written, note)``.
+
+        ``progress(done, total, name)`` is called once per candidate node -- on
+        the FULL storable list, including the ones filtered out below, so the bar
+        advances monotonically instead of stalling through a run of skipped
+        nodes. Optional and never allowed to fail the save.
         """
         scene = slicer.mrmlScene
         original_url = scene.GetURL()
@@ -1035,8 +1025,15 @@ class WidgetWorkflowMixin:
             scene.SetRootDirectory(str(directory).replace("\\", "/"))
             nodes = scene.GetNodesByClass("vtkMRMLStorableNode")
             nodes.UnRegister(None)
-            for index in range(nodes.GetNumberOfItems()):
+            candidates = nodes.GetNumberOfItems()
+            for index in range(candidates):
                 node = nodes.GetItemAsObject(index)
+                if progress is not None:
+                    try:
+                        progress(index, candidates,
+                                 (node.GetName() if node is not None else "") or "")
+                    except Exception:
+                        logger.debug("Scene-save progress callback failed", exc_info=True)
                 if node is None or node.GetHideFromEditors() or not node.GetSaveWithScene():
                     skipped += 1
                     continue
@@ -1104,6 +1101,11 @@ class WidgetWorkflowMixin:
             # written to. writeToMRML re-asserts the URL and root directory that
             # were already set above.
             scene_path = os.path.join(directory, self.SCENE_FILE_NAME)
+            if progress is not None:
+                try:
+                    progress(candidates, candidates, self.SCENE_FILE_NAME)
+                except Exception:
+                    logger.debug("Scene-save progress callback failed", exc_info=True)
             if not slicer.util.saveScene(scene_path):
                 failed.append(self.SCENE_FILE_NAME)
         finally:
@@ -1150,7 +1152,81 @@ class WidgetWorkflowMixin:
         cleaned = "".join(ch for ch in str(name or "") if ch in allowed).strip()
         return cleaned[:255] or "node"
 
-    def _saveRunStatistics(self, exit_epoch):
+    # ------------------------------------------------------------------
+    # "Working..." dialog for the Exit teardown
+    #
+    # Saving the scene is the slowest thing this module does -- every storable
+    # node written to disk, then the .mrml -- and it runs SYNCHRONOUSLY on the Qt
+    # main thread, because MRML access is main-thread only and there is no
+    # asynchronous node writer to hand it to. So Slicer stops repainting for the
+    # seconds it takes, which is indistinguishable from a freeze on a large
+    # scene. A modal progress dialog is the honest fix: it says what is
+    # happening, names the file being written, and cannot be cancelled, because
+    # a half-written run folder is worse than waiting.
+    # ------------------------------------------------------------------
+    EXIT_PROGRESS_TITLE = "Closing the guided workflow"
+
+    def _beginExitProgress(self):
+        """Show the modal "working..." dialog. Returns it, or None if unavailable."""
+        try:
+            dialog = qt.QProgressDialog(slicer.util.mainWindow())
+            dialog.setWindowTitle(self.EXIT_PROGRESS_TITLE)
+            dialog.setLabelText("Closing the workflow...")
+            dialog.setMinimum(0)
+            dialog.setMaximum(0)          # indeterminate until the node count is known
+            dialog.setMinimumDuration(0)  # NOW, not after Qt's default 4 s
+            dialog.setAutoClose(False)    # closed explicitly, in a finally
+            dialog.setAutoReset(False)
+            dialog.setWindowModality(qt.Qt.ApplicationModal)
+            try:
+                # There is nothing to cancel: the teardown has already begun and
+                # stopping half-way would leave the session neither open nor
+                # closed. Removing the button is clearer than disabling it.
+                dialog.setCancelButton(None)
+            except Exception:
+                dialog.setCancelButtonText("")
+            dialog.show()
+            slicer.app.processEvents()
+            return dialog
+        except Exception:
+            logger.debug("Could not create the exit progress dialog", exc_info=True)
+            return None
+
+    def _setExitProgress(self, dialog, text, value=None, maximum=None):
+        """Update the dialog and let Qt actually paint it.
+
+        ``processEvents()`` is what makes the dialog visible at all -- the
+        teardown never returns to the event loop until it has finished. It is
+        safe *here* specifically: it runs after the session epoch has been bumped
+        and the stream queue drained, so any deferred continuation it delivers is
+        already fenced out, the dialog is application-modal so nothing new can be
+        started from the UI, and ``_guidedExitInProgress`` refuses a re-entrant
+        reset.
+        """
+        if dialog is None:
+            return
+        try:
+            if maximum is not None:
+                dialog.setMaximum(maximum)
+            if value is not None:
+                dialog.setValue(value)
+            dialog.setLabelText(text)
+            slicer.app.processEvents()
+        except Exception:
+            logger.debug("Exit progress update failed", exc_info=True)
+
+    def _endExitProgress(self, dialog):
+        """Close it automatically -- the user never dismisses this one."""
+        if dialog is None:
+            return
+        try:
+            dialog.close()
+            dialog.deleteLater()
+            slicer.app.processEvents()
+        except Exception:
+            logger.debug("Closing the exit progress dialog failed", exc_info=True)
+
+    def _saveRunStatistics(self, exit_epoch, progress=None):
         """Write ``logs/Statistic/<run>_timing.txt`` and ``<run>_scene/``.
 
         Called from the Exit button only. Fail-soft in both halves and in both
@@ -1177,7 +1253,15 @@ class WidgetWorkflowMixin:
         scene_dir, scene_note = "", ""
         try:
             scene_dir = RunLog.ensure_dir(os.path.join(stats_dir, "scene"))
-            written, note = self._saveSceneFlat(scene_dir)
+            self._setExitProgress(progress, "Saving the scene...")
+            written, note = self._saveSceneFlat(
+                scene_dir,
+                progress=(lambda done, total, name: self._setExitProgress(
+                    progress,
+                    f"Saving the scene:  {name}" if name else "Saving the scene...",
+                    value=done, maximum=total,
+                )) if progress is not None else None,
+            )
             scene_note = note
             if written:
                 scene_note += " -- " + self._describeSavedScene(scene_dir)
@@ -1185,6 +1269,7 @@ class WidgetWorkflowMixin:
             logger.warning("Saving the scene for statistics failed: %s", exc)
             scene_note = f"Scene save raised: {exc}"
 
+        self._setExitProgress(progress, "Writing timing.txt...", value=0, maximum=0)
         try:
             text = RunLog.build_run_statistics(
                 manifest.data, exit_epoch, scene_dir=scene_dir, scene_note=scene_note,
@@ -1239,6 +1324,12 @@ class WidgetWorkflowMixin:
         in flight -- tearing the session out from under either would orphan its
         record and leave a thread writing into a session that no longer exists.
         """
+        # Already tearing down. The save below pumps the event loop so the
+        # progress dialog can paint, and a scene close (or any other caller)
+        # delivered during that pump would otherwise run a second teardown
+        # through state the first one is halfway through dismantling.
+        if getattr(self, "_guidedExitInProgress", False):
+            return False
         if self._baselineBusy():
             self._setBaselineStatus(
                 "A baseline run is in progress — wait for it to finish (or press "
@@ -1304,23 +1395,37 @@ class WidgetWorkflowMixin:
         #    session still exists. clear_checkpoints() restores the live scene if
         #    the user was mid-preview and deletes the hidden sceneview nodes, and
         #    every line of it is a no-op once `session` is None.
+        #
+        #    From here to the end of 5b is the only part of the teardown the user
+        #    can WAIT on, so it is the only part that gets the progress dialog --
+        #    and the only part that pumps the event loop, hence the re-entrancy
+        #    guard around exactly this span.
+        progress = self._beginExitProgress() if reason == "user_exit" else None
+        self._guidedExitInProgress = True
         try:
-            self._clearCompletedWorkflowState(clear_replay=True)
-        except Exception:
-            logger.debug("Workflow state clear on exit failed", exc_info=True)
-
-        # 5b. Write the run's statistics + save the scene. Deliberately HERE:
-        #     after step 5 the replay sceneviews are gone (so the saved scene is
-        #     the live one, not one copy per step) and the manifest is sealed and
-        #     complete, but _currentLogDir and _currentRunManifest are still set
-        #     — step 7 below drops both. Only on the Exit button: the other
-        #     callers are a runtime cancel and a scene close, and there is no
-        #     scene left to save on the latter.
-        if reason == "user_exit":
+            self._setExitProgress(progress, "Closing the replay timeline...")
             try:
-                self._saveRunStatistics(exit_epoch)
+                self._clearCompletedWorkflowState(clear_replay=True)
             except Exception:
-                logger.warning("Run statistics save failed", exc_info=True)
+                logger.debug("Workflow state clear on exit failed", exc_info=True)
+
+            # 5b. Write the run's statistics + save the scene. Deliberately
+            #     HERE: after step 5 the replay sceneviews are gone (so the saved
+            #     scene is the live one, not one copy per step) and the manifest
+            #     is sealed and complete, but _currentLogDir and
+            #     _currentRunManifest are still set — step 7 below drops both.
+            #     Only on the Exit button: the other callers are a runtime cancel
+            #     and a scene close, and there is no scene left to save on the
+            #     latter.
+            if reason == "user_exit":
+                try:
+                    self._saveRunStatistics(exit_epoch, progress=progress)
+                except Exception:
+                    logger.warning("Run statistics save failed", exc_info=True)
+        finally:
+            # Closes itself: the user asked to exit, not to read a report.
+            self._endExitProgress(progress)
+            self._guidedExitInProgress = False
 
         # 6. Now the session itself, plus the module-global mirrors it wrote.
         #    Cleared for ALL extensions, not just this one: the mirrors are keyed
@@ -1804,6 +1909,25 @@ class WidgetWorkflowMixin:
             logger.debug("Enumerating node candidates failed", exc_info=True)
             candidates = []
         return candidates
+
+    def _sceneNodeCount(self, node_class):
+        """How many nodes of ``node_class`` the workflow's picker would offer.
+
+        Deliberately routed through ``_workflowNodeCandidateList`` rather than
+        ``slicer.util.getNodesByClass`` directly, so "what the precheck counts"
+        and "what the picker will show" cannot disagree. The difference is not
+        theoretical: a fresh Slicer scene holds three HideFromEditors slice-view
+        models, and the naive call reports them as ``vtkMRMLModelNode``s -- which
+        would let a two-model procedure start on an empty scene.
+
+        Passes an empty state because the only key the helper reads is
+        ``replay_previewing``, and no replay can exist before a workflow starts.
+        """
+        try:
+            return len(self._workflowNodeCandidateList({}, node_class))
+        except Exception:
+            logger.debug("Scene node count failed for %s", node_class, exc_info=True)
+            return 0
 
     def _nodeTreeValidCurrentNode(self):
         """Return the tree's current node iff it is a real data node of the step's

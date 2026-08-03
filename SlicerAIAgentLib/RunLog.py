@@ -334,6 +334,13 @@ class RunManifest:
         entry["dispatches"] = int(entry.get("dispatches", 0)) + 1
         if action == "start":
             entry["opens"] = int(entry.get("opens", 0)) + 1
+            # One timeline row per visit, so a re-run after a rewind is its own
+            # row rather than being folded into the first visit's total.
+            self._timeline_open(
+                "step", step_id=step_id,
+                operation_type=fields.get("operation_type") or entry.get("operation_type"),
+                description=entry.get("description"),
+            )
         return self.write()
 
     def finish_step(self, step_id: str, exec_seconds: Optional[float] = None,
@@ -363,15 +370,167 @@ class RunManifest:
                 entry["executions"] = int(entry.get("executions", 0)) + 1
             except (TypeError, ValueError):
                 logger.debug("Bad exec_seconds for step %s", step_id, exc_info=True)
-        opened = entry.get("span_opened_epoch") or entry.get("opened_epoch")
-        if opened:
-            try:
+        opened = entry.get("span_opened_epoch")
+        if not opened and not entry.get("wall_banked"):
+            # No banked visits either: fall back to the first open, as before.
+            opened = entry.get("opened_epoch")
+        try:
+            banked = float(entry.get("wall_banked") or 0.0)
+            if opened:
+                # A step suspended for replay has no open span; completing while
+                # suspended must not re-measure from its FIRST open, which would
+                # silently pull the whole review back into this step.
                 entry["wall_seconds"] = round(
-                    float(entry.get("wall_banked") or 0.0)
-                    + float(entry["completed_epoch"]) - float(opened), 3
-                )
-            except (TypeError, ValueError):
-                logger.debug("Bad opened_epoch for step %s", step_id, exc_info=True)
+                    banked + float(entry["completed_epoch"]) - float(opened), 3)
+            elif banked:
+                entry["wall_seconds"] = round(banked, 3)
+        except (TypeError, ValueError):
+            logger.debug("Bad opened_epoch for step %s", step_id, exc_info=True)
+        row = self._timeline_find_open("step", step_id)
+        if row is not None:
+            if exec_seconds is not None:
+                try:
+                    row["exec_seconds"] = round(
+                        float(row.get("exec_seconds") or 0.0) + float(exec_seconds), 6)
+                except (TypeError, ValueError):
+                    pass
+            row["status"] = entry.get("status") or "ok"
+            row["error"] = str(entry.get("error") or "")
+            self._timeline_close("step", step_id)
+        return self.write()
+
+    # ------------------------------------------------------------------
+    # Timeline: one row per ACTIVITY, in the order they happened
+    #
+    # ``steps`` aggregates a step's visits into one entry (wall = their sum,
+    # runs = 2o/2x), which answers "what did this step cost in total" but cannot
+    # answer "what happened, in order" -- a step re-run after a rewind is
+    # indistinguishable from a loop iteration, and the review between them is
+    # invisible. The timeline records each VISIT and each REPLAY span as its own
+    # row, so the whole run reads top to bottom in one table. Kept ALONGSIDE
+    # ``steps`` rather than replacing it: scripts/collect_runs.py reads that.
+    # ------------------------------------------------------------------
+    def _timeline(self) -> List[Dict[str, Any]]:
+        return self.data.setdefault("timeline", [])
+
+    def _timeline_open(self, kind: str, **fields) -> Dict[str, Any]:
+        entry = {"kind": kind, "opened_epoch": round(time.time(), 3)}
+        entry.update({k: v for k, v in fields.items() if v is not None})
+        self._timeline().append(entry)
+        return entry
+
+    def _timeline_find_open(self, kind: str, step_id: str = "") -> Optional[Dict[str, Any]]:
+        for entry in reversed(self._timeline()):
+            if entry.get("kind") != kind or entry.get("completed_epoch"):
+                continue
+            if step_id and entry.get("step_id") != step_id:
+                continue
+            return entry
+        return None
+
+    def _timeline_close(self, kind: str, step_id: str = "", **fields) -> Optional[Dict[str, Any]]:
+        entry = self._timeline_find_open(kind, step_id)
+        if entry is None:
+            return None
+        entry["completed_epoch"] = round(time.time(), 3)
+        entry.update({k: v for k, v in fields.items() if v is not None})
+        return entry
+
+    # ------------------------------------------------------------------
+    # Replay scrubbing: its own bucket, taken OUT of the step it interrupts
+    # ------------------------------------------------------------------
+    def suspend_step_span(self, step_id: str, attempt: int = 1) -> "RunManifest":
+        """Close a step's open visit WITHOUT completing it.
+
+        Pressing Back leaves the live step on screen but stops it being what the
+        surgeon is doing. Without this, the whole review lands in that step's
+        ``wall`` and -- since ``exec`` does not move -- is reported as think time
+        on a step nobody was thinking about. Banking the span here and reopening
+        it in ``resume_step_span`` moves that interval into the replay bucket,
+        which is what lets the four-way split still sum to the run.
+        """
+        entry = self.find_step(step_id, attempt)
+        if entry is None or not entry.get("span_opened_epoch"):
+            return self
+        try:
+            entry["wall_banked"] = round(
+                float(entry.get("wall_banked") or 0.0)
+                + round(time.time(), 3) - float(entry["span_opened_epoch"]), 3
+            )
+        except (TypeError, ValueError):
+            logger.debug("Bad span while suspending %s", step_id, exc_info=True)
+        entry.pop("span_opened_epoch", None)
+        # The timeline row closes with it. A suspended visit that stayed open
+        # would print as "-" and its seconds would be missing from the table
+        # even though they are inside the run -- the wall column has to sum to
+        # the total, so every interval that was banked must appear as a row.
+        self._timeline_close("step", step_id, status="stepped back")
+        return self.write()
+
+    def resume_step_span(self, step_id: str, attempt: int = 1) -> "RunManifest":
+        """Reopen the visit closed by ``suspend_step_span`` as a NEW row.
+
+        Only Forward-back-to-live gets here. "Run from here" abandons the
+        suspended step and re-dispatches an earlier one, which ``open_step``
+        records as its own visit -- resuming here as well would leave a second,
+        empty row for a step the run never returned to.
+        """
+        entry = self.find_step(step_id, attempt)
+        if entry is None or entry.get("span_opened_epoch"):
+            return self
+        entry["span_opened_epoch"] = round(time.time(), 3)
+        self._timeline_open(
+            "step", step_id=step_id,
+            operation_type=entry.get("operation_type"),
+            description=entry.get("description"),
+            resumed=True,
+        )
+        return self.write()
+
+    def replay_enter(self, from_step: str = "") -> "RunManifest":
+        """Start counting review time (the first Back of a scrubbing session)."""
+        replay = self.data.setdefault("replay", {"seconds": 0.0, "events": []})
+        if not replay.get("entered_epoch"):
+            replay["entered_epoch"] = round(time.time(), 3)
+            # Its own timeline row, opened where the scrubbing began and closed
+            # when the user leaves the preview -- so the table shows the review
+            # between the step it interrupted and the step it resumed at.
+            self._timeline_open("replay", step_id=from_step or "")
+        return self.write()
+
+    def replay_exit(self, resumed_at: str = "", ended_by: str = "") -> "RunManifest":
+        """Stop counting review time and bank it (Forward to live, or a re-run)."""
+        replay = self.data.get("replay") or {}
+        entered = replay.get("entered_epoch")
+        if not entered:
+            return self
+        try:
+            replay["seconds"] = round(
+                float(replay.get("seconds") or 0.0)
+                + round(time.time(), 3) - float(entered), 3
+            )
+        except (TypeError, ValueError):
+            logger.debug("Bad replay span", exc_info=True)
+        replay.pop("entered_epoch", None)
+        events = replay.get("events") or []
+        backs = sum(1 for e in events if e.get("action") == "back")
+        fwds = sum(1 for e in events if e.get("action") == "forward")
+        self._timeline_close("replay", navigations=len(events), backs=backs,
+                             forwards=fwds, resumed_at=resumed_at or "",
+                             ended_by=ended_by or "")
+        return self.write()
+
+    def note_replay(self, action: str, index: Optional[int] = None,
+                    step_id: str = "") -> "RunManifest":
+        """Record one navigation so the trace shows WHAT was reviewed, not only
+        that time passed."""
+        replay = self.data.setdefault("replay", {"seconds": 0.0, "events": []})
+        replay.setdefault("events", []).append({
+            "action": action,
+            "index": index,
+            "step_id": step_id,
+            "epoch": round(time.time(), 3),
+        })
         return self.write()
 
     def reopen_step(self, step_id: str, attempt: int = 1) -> "RunManifest":
@@ -392,9 +551,63 @@ class RunManifest:
         entry.pop("completed_epoch", None)
         entry.pop("wall_seconds", None)
         entry["status"] = "running"
+        for row in reversed(self._timeline()):
+            if row.get("kind") == "step" and row.get("step_id") == step_id:
+                row.pop("completed_epoch", None)
+                break
         return self.write()
 
+    def _seal_open_spans(self) -> None:
+        """Close whatever was still running when the run ended.
+
+        Exit can land mid-step, or while the user is still scrubbing the replay
+        timeline. An interval left open renders as "-" in the report, so its
+        seconds vanish from the table while still being inside the run -- the
+        wall column stops summing to the total, and (for a step) the time gets
+        counted a second time in the after-the-last-step tail, which measures
+        from the last COMPLETED step. Sealing here records what actually
+        happened: the span ended because the run did.
+        """
+        now = round(time.time(), 3)
+        replay = self.data.get("replay") or {}
+        if replay.get("entered_epoch"):
+            try:
+                replay["seconds"] = round(
+                    float(replay.get("seconds") or 0.0)
+                    + now - float(replay["entered_epoch"]), 3)
+            except (TypeError, ValueError):
+                logger.debug("Bad replay span at seal", exc_info=True)
+            replay.pop("entered_epoch", None)
+            self._timeline_close("replay", ended_by="exit")
+        for entry in self.data.get("steps") or []:
+            opened = entry.get("span_opened_epoch")
+            if not opened:
+                continue
+            # `finish_step` deliberately LEAVES span_opened_epoch in place so a
+            # re-visit can bank it, so its presence alone does not mean the step
+            # is still running. The span is live only if no completion has
+            # landed since it opened -- without this, every completed step gets
+            # its wall rewritten to (its first open -> Exit).
+            completed = entry.get("completed_epoch")
+            try:
+                if completed and float(completed) >= float(opened):
+                    continue
+            except (TypeError, ValueError):
+                continue
+            try:
+                entry["wall_seconds"] = round(
+                    float(entry.get("wall_banked") or 0.0) + now - float(opened), 3)
+            except (TypeError, ValueError):
+                logger.debug("Bad span at seal for %s", entry.get("step_id"), exc_info=True)
+                continue
+            entry.pop("span_opened_epoch", None)
+            entry["completed_epoch"] = now
+            entry["ended_at_exit"] = True
+            self._timeline_close("step", str(entry.get("step_id") or ""),
+                                 status="open at exit")
+
     def finish(self, status: str = "completed", **fields) -> "RunManifest":
+        self._seal_open_spans()
         self.data["status"] = status
         self.data["finished"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         started = self.data.get("started_epoch")
@@ -509,10 +722,17 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
             human_wait += wait
         else:
             machine_overhead += wait
+    # Time spent scrubbing the replay timeline. Its own term because
+    # suspend_step_span takes it OUT of the step that was on screen -- so it is
+    # neither step time nor a gap, and the identity below only closes if it is
+    # subtracted explicitly.
+    replay_info = manifest.get("replay") or {}
+    replay = float(replay_info.get("seconds") or 0.0)
+    replay_events = list(replay_info.get("events") or [])
     gaps = None
     gaps_note = ""
     if total is not None and startup is not None and tail is not None:
-        gaps = total - startup - step_wall - tail
+        gaps = total - startup - step_wall - tail - replay
         if gaps < 0:
             # Never clamped to zero. These four figures are printed under a
             # header saying they sum to the total, so a negative residual is the
@@ -542,13 +762,21 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
     out.append(f" Exit clicked  : {_fmt_clock(exit_epoch)}")
     out.append(f" TOTAL RUN TIME: {_fmt_duration(total)}")
     out.append("")
-    out.append(" Where that time went (these four sum to the total):")
+    parts = "five" if replay else "four"
+    out.append(f" Where that time went (these {parts} sum to the total):")
     out.append(f"   startup before step 1 opened : {_fmt_duration(startup)}"
                + (f"   [routing call {float(router.get('seconds') or 0):.2f} s]" if router else ""))
     out.append(f"   inside the steps             : {_fmt_duration(step_wall)}")
     out.append(f"   between steps (auto-advance) : {_fmt_duration(gaps)}")
     if gaps_note:
         out.append(gaps_note)
+    if replay:
+        back = sum(1 for e in replay_events if e.get("action") == "back")
+        fwd = sum(1 for e in replay_events if e.get("action") == "forward")
+        rerun = sum(1 for e in replay_events if e.get("action") == "rerun")
+        out.append(f"   reviewing the replay timeline: {_fmt_duration(replay)}"
+                   f"   ({back} back, {fwd} forward, {rerun} re-run"
+                   + ")")
     out.append(f"   after the last step, waiting for Exit : {_fmt_duration(tail)}")
     out.append("")
     out.append(" Of the time inside the steps:")
@@ -578,9 +806,16 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
                        + (f"; self-correction {_other} tokens" if _other > 0 else
                           "; the dispatched steps called no model"))
     out.append("")
+    timeline = list(manifest.get("timeline") or [])
+
     out.append(thin)
-    out.append(" PER-STEP TIMING")
+    out.append(" TIMELINE" if timeline else " PER-STEP TIMING")
     out.append(thin)
+    if timeline:
+        out.append(" Everything that happened, in the order it happened -- one row per")
+        out.append(" step VISIT plus one row per replay review, so the whole run is a")
+        out.append(" single table whose wall column sums to the TOTAL line at its foot.")
+        out.append("")
     out.append(" The three clocks are NOT interchangeable:")
     out.append("   wall  from the step appearing on screen to the workflow moving past it.")
     out.append("         For a step you answer this INCLUDES your own thinking/drawing time.")
@@ -590,34 +825,95 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
     out.append("   wait  wall - exec. On a user_choice / user_interaction / branch_op /")
     out.append("         review_op step this is the surgeon; on an automated step it is")
     out.append("         dispatch + panel render.")
-    out.append("   runs  how many times the step was opened (>1 means a loop iteration)")
-    out.append("         and how many times it executed code.")
+    if timeline:
+        out.append("   runs  'visit' -- each row is one visit. A step re-run after a")
+        out.append("         step-back gets its own row rather than being summed into")
+        out.append("         the first one, so a loop body shows each iteration.")
+        out.append("")
+        out.append(" A '<< step back' row is a review of the replay timeline: from pressing")
+        out.append(" Back to the run resuming (a re-run from a step, or Forward back to live).")
+        out.append(" That time is NOT charged to the step that was on screen -- the step's")
+        out.append(" clock is suspended while you scrub -- so the rows never overlap.")
+    else:
+        out.append("   runs  how many times the step was opened (>1 means a loop iteration)")
+        out.append("         and how many times it executed code.")
     out.append("")
     header = (f" {'#':>3} {'step_id':<14} {'type':<16} {'wall':>9} {'exec':>9} "
               f"{'wait':>9}  {'runs':>7}  status")
     out.append(header)
     out.append(" " + "-" * (len(header) - 1))
-    for step in steps:
-        wall, execs = _wall(step), _exec(step)
-        wait = None if wall is None else max(0.0, wall - (execs or 0.0))
-        runs = f"{int(step.get('opens', 0) or 0)}o/{int(step.get('executions', 0) or 0)}x"
-        status = str(step.get("status") or "?")
-        if not step.get("completed_epoch"):
-            # Two different things: a step the run never got past, and a step
-            # from a run recorded before the wall clock existed.
-            status += " (open at exit)" if status == "running" else " (no clock)"
-        out.append(
-            f" {int(step.get('index', 0)):>3} {str(step.get('step_id', ''))[:14]:<14} "
-            f"{str(step.get('operation_type') or '?')[:16]:<16} "
-            f"{_fmt_seconds(wall)} {_fmt_seconds(execs)} {_fmt_seconds(wait)}  "
-            f"{runs:>7}  {status}"
-        )
-        error = str(step.get("error") or "").strip()
-        if error:
-            out.append(f"      error: {' '.join(error.split())[:160]}")
+
+    if timeline:
+        # Chronological: one row per VISIT and one per replay span, in the order
+        # they happened. A step re-run after a rewind is a separate row from its
+        # first visit, and the review that separates them sits between the two --
+        # so "stepped back at 20, resumed at 10" reads directly off the table
+        # instead of having to be inferred from a 2o/2x in an aggregate row.
+        index = 0
+        for entry in timeline:
+            opened = entry.get("opened_epoch")
+            closed = entry.get("completed_epoch")
+            wall = (float(closed) - float(opened)) if (opened and closed) else None
+            index += 1
+            if entry.get("kind") == "replay":
+                # No exec: nothing runs while scrubbing, so the whole span is
+                # wait -- which is what keeps the wall and wait columns' totals
+                # equal to the split's replay term.
+                navs = int(entry.get("navigations") or 0)
+                resumed = str(entry.get("resumed_at") or "")
+                where = str(entry.get("step_id") or "?")
+                # How it ended is the useful half: "re-ran from" means the run
+                # was rewound and that step executed again (so the rows below
+                # repeat), "returned to" means nothing was re-executed.
+                verb = ("re-ran from" if entry.get("ended_by") == "rerun"
+                        else "returned to")
+                out.append(
+                    f" {index:>3} {'<< step back':<14} {'(replay review)':<16} "
+                    f"{_fmt_seconds(wall)} {_fmt_seconds(None)} {_fmt_seconds(wall)}  "
+                    f"{str(navs) + ' nav':>7}  "
+                    + (f"left {where}" if where != "?" else "scrubbed")
+                    + (f", {verb} {resumed}" if resumed else "")
+                    + ("" if closed else "   (still previewing at exit)")
+                )
+                continue
+            execs = entry.get("exec_seconds")
+            execs = float(execs) if execs is not None else None
+            wait = None if wall is None else max(0.0, wall - (execs or 0.0))
+            status = str(entry.get("status") or "")
+            if not closed:
+                status = (status or "running") + " (open at exit)"
+            out.append(
+                f" {index:>3} {str(entry.get('step_id', ''))[:14]:<14} "
+                f"{str(entry.get('operation_type') or '?')[:16]:<16} "
+                f"{_fmt_seconds(wall)} {_fmt_seconds(execs)} {_fmt_seconds(wait)}  "
+                f"{'visit':>7}  {status}"
+            )
+            error = " ".join(str(entry.get("error") or "").split())
+            if error:
+                out.append(f"      error: {error[:160]}")
+    else:
+        # Runs recorded before the timeline existed: the aggregate view.
+        for step in steps:
+            wall, execs = _wall(step), _exec(step)
+            wait = None if wall is None else max(0.0, wall - (execs or 0.0))
+            runs = f"{int(step.get('opens', 0) or 0)}o/{int(step.get('executions', 0) or 0)}x"
+            status = str(step.get("status") or "?")
+            if not step.get("completed_epoch"):
+                status += " (open at exit)" if status == "running" else " (no clock)"
+            out.append(
+                f" {int(step.get('index', 0)):>3} {str(step.get('step_id', ''))[:14]:<14} "
+                f"{str(step.get('operation_type') or '?')[:16]:<16} "
+                f"{_fmt_seconds(wall)} {_fmt_seconds(execs)} {_fmt_seconds(wait)}  "
+                f"{runs:>7}  {status}"
+            )
+            error = str(step.get("error") or "").strip()
+            if error:
+                out.append(f"      error: {' '.join(error.split())[:160]}")
     out.append(" " + "-" * (len(header) - 1))
-    out.append(f" {'':>3} {'TOTAL':<14} {'':<16} {_fmt_seconds(step_wall)} "
-               f"{_fmt_seconds(step_exec)} {_fmt_seconds(human_wait + machine_overhead)}")
+    out.append(f" {'':>3} {'TOTAL':<14} {'':<16} "
+               f"{_fmt_seconds(step_wall + replay)} "
+               f"{_fmt_seconds(step_exec)} "
+               f"{_fmt_seconds(human_wait + machine_overhead + replay)}")
     out.append("")
 
     by_type: Dict[str, List[float]] = {}

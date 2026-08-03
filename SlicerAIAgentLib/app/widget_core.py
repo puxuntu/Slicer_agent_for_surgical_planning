@@ -21,6 +21,9 @@ class WidgetCoreMixin:
         # Extension CLI Generator UI (insert after Settings, before Conversation History)
         self._setupExtensionCLIGenerator()
 
+        # Experiments UI -- AFTER the CLI generator, which it anchors itself to.
+        self._setupExperiments()
+
         # Interactive workflow UI
         self._setupWorkflowUI()
 

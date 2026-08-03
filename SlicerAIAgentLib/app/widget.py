@@ -2,6 +2,7 @@ from .common import *
 from .logic import SlicerAIAgentLogic
 from .widget_core import WidgetCoreMixin
 from .widget_cli import WidgetCLIMixin
+from .widget_experiments import WidgetExperimentsMixin
 from .widget_workflow import WidgetWorkflowMixin
 from .widget_replay import WidgetReplayMixin
 from .widget_baseline import WidgetBaselineMixin
@@ -13,6 +14,7 @@ from .widget_settings import WidgetSettingsMixin
 class SlicerAIAgentWidget(
     WidgetCoreMixin,
     WidgetCLIMixin,
+    WidgetExperimentsMixin,
     WidgetWorkflowMixin,
     WidgetReplayMixin,
     WidgetBaselineMixin,
@@ -97,6 +99,14 @@ class SlicerAIAgentWidget(
         self._workflowDetailToggle = None
         self._workflowDetailLabel = None
         self._workflowDetailText = ""
+        # Experiments panel (per-extension analysis of a procedure's runs).
+        # Content is built by a registered per-extension builder; empty until one
+        # is registered. See app/widget_experiments.py.
+        self._experimentsGroup = None
+        self._experimentSelector = None
+        self._experimentContent = None
+        self._experimentContentLayout = None
+        self._experimentDataMap = {}
         # Per-step instruction editor (CLI generator panel)
         self._stepInstrStepCombo = None
         self._stepInstrTitle = None

@@ -442,6 +442,10 @@ class WidgetStreamingMixin:
         self._activeWorkflowId = None
         self._taskWorkflowPanelActive = False
         if clear_replay:
+            # The suspended-step pointer belongs to the timeline being torn down:
+            # a stale one would make the NEXT run's first Back suspend a step id
+            # from the previous procedure.
+            self._replaySuspendedStep = None
             try:
                 if self._workflowRuntime:
                     self._workflowRuntime.clear_checkpoints()
@@ -660,6 +664,33 @@ class WidgetStreamingMixin:
             self._lastRouter = router
             return False
 
+        # Required-input precheck. Runs AFTER the router names the procedure (so
+        # the dialog can say which data THAT procedure needs) and BEFORE
+        # _beginWorkflowRouterTurn, which creates the run folder and manifest,
+        # and before start_for_extension, which resets the extension's workflow
+        # mirrors -- none of which a workflow that will not run should own.
+        from SlicerAIAgentLib.WorkflowRouter import PRECHECK_WORKFLOW_INPUTS
+        if PRECHECK_WORKFLOW_INPUTS:
+            missing = [row for row in self._workflowInputCheck(decision.extension)
+                       if not row["satisfied"]]
+            if missing:
+                self._lastRouterRejection = {
+                    "kind": "missing_inputs",
+                    "rejected_extension": decision.extension,
+                    "matched_extension": decision.extension,
+                    "confidence": decision.confidence,
+                    "requirements": missing,
+                }
+                self._lastRouterDecision = decision
+                self._lastRouter = router
+                logger.info(
+                    "Workflow %s not entered: missing input data (%s)",
+                    decision.extension,
+                    ", ".join(f"{r['node_class']} {r['present']}/{r['needed']}"
+                              for r in missing),
+                )
+                return False
+
         # Establish this turn's log dir BEFORE the session starts, so the
         # runtime's own workflow_started event lands in the right run folder.
         # This also resets _roleTrace, so the decision event is recorded after.
@@ -794,6 +825,10 @@ class WidgetStreamingMixin:
                 "again.",
                 True,
             )
+        if kind == "missing_inputs":
+            # A data problem, not a broken install: Information, not Critical.
+            headline, body = self._missingInputsRefusal(rejection)
+            return (headline, body, False)
         if kind == "start_failed":
             return (
                 f"The {named or 'matched'} workflow could not be started.",
@@ -828,7 +863,105 @@ class WidgetStreamingMixin:
             body += f"\n\nRouter: {reason}"
         return ("That request is not one of the supported procedures.", body, False)
 
-    def _showGuidedOnlyRefusal(self, headline, body, config_problem=False):
+    #: vtkMRML class -> what a surgeon calls it. A dialog telling someone to
+    #: "load a vtkMRMLMarkupsFiducialNode" is not actionable.
+    _NODE_INPUT_LABELS = {
+        "vtkMRMLScalarVolumeNode": ("a CT/MR volume",
+                                    "load the image series (DICOM, or Add Data)"),
+        "vtkMRMLVolumeNode": ("a volume",
+                              "load the image series (DICOM, or Add Data)"),
+        "vtkMRMLMarkupsFiducialNode": ("a point list (markups fiducials)",
+                                       "place one in the Markups module, or load a .mrk.json"),
+        "vtkMRMLMarkupsClosedCurveNode": ("a closed curve (markups)",
+                                          "draw one in the Markups module, or load a .mrk.json"),
+        "vtkMRMLMarkupsROINode": ("a bounding box (markups ROI)",
+                                  "create one in the Markups module"),
+        "vtkMRMLSegmentationNode": ("a segmentation",
+                                    "load one, or convert a labelmap in the Data module"),
+        "vtkMRMLModelNode": ("a 3D model (surface)",
+                             "load an .stl / .vtk / .obj"),
+    }
+
+    @classmethod
+    def _humanNodeLabel(cls, node_class):
+        label, _how = cls._NODE_INPUT_LABELS.get(
+            node_class, (node_class, "load it into the scene"))
+        return label
+
+    def _workflowInputCheck(self, extension_name):
+        """Join the procedure's required inputs to what the scene actually holds.
+
+        Returns ``[{node_class, needed, present, satisfied, steps}]``. Fails open:
+        any error yields an empty list, i.e. no requirement, i.e. the workflow
+        starts exactly as it does today.
+        """
+        try:
+            from SlicerAIAgentLib import WorkflowInputs
+            rows = WorkflowInputs.entry_requirements(extension_name) or []
+        except Exception:
+            logger.debug("Input requirement lookup failed for %s", extension_name,
+                         exc_info=True)
+            return []
+        out = []
+        for row in rows:
+            try:
+                present = self._sceneNodeCount(row["node_class"])
+            except Exception:
+                logger.debug("Scene count failed; treating as satisfied", exc_info=True)
+                present = row.get("needed", 0)
+            out.append({
+                "node_class": row["node_class"],
+                "needed": int(row.get("needed", 0) or 0),
+                "present": int(present or 0),
+                "satisfied": int(present or 0) >= int(row.get("needed", 0) or 0),
+                "steps": row.get("steps") or [],
+            })
+        return out
+
+    def _missingInputsRefusal(self, rejection):
+        """Headline + body for the ``missing_inputs`` refusal."""
+        from SlicerAIAgentLib.WorkflowRouter import display_name
+        named = display_name(rejection.get("matched_extension", "")) or "This procedure"
+        rows = rejection.get("requirements") or []
+        bullets = []
+        for row in rows:
+            label, how = self._NODE_INPUT_LABELS.get(
+                row["node_class"], (row["node_class"], "load it into the scene"))
+            shortfall = row["needed"] - row["present"]
+            count = f"{shortfall} more" if row["present"] else f"{row['needed']}"
+            # ASCII bullet/dash on purpose: this text also reaches the chat log
+            # and the run manifest, and the console on this platform defaults to
+            # a non-UTF-8 codepage.
+            bullets.append(f"  - {count} - {label}: {how}")
+        body = (
+            f"{named} needs data in the scene before it can start, and this is "
+            "missing:\n\n" + "\n".join(bullets)
+            + "\n\nLoad it, then press Send again - your request is still in the "
+            "box. Nothing has been changed in the scene."
+        )
+        return (f"{named} cannot start yet: required data is not loaded.", body)
+
+    def _refusalDetails(self, rejection):
+        """Detail pane for a refusal, or "" to fall back to the workflow catalog."""
+        if (rejection or {}).get("kind") != "missing_inputs":
+            return ""
+        lines = ["What this procedure needs in the scene:", ""]
+        for row in rejection.get("requirements") or []:
+            mark = "MISSING" if not row["satisfied"] else "ok"
+            lines.append(f"  [{mark}] {self._humanNodeLabel(row['node_class'])}"
+                         f"  - need {row['needed']}, in scene {row['present']}")
+            for step in (row.get("steps") or [])[:2]:
+                desc = step.get("description", "")
+                if desc:
+                    lines.append(f"           picked at {step.get('step_id','')}: {desc[:70]}")
+        lines += [
+            "",
+            "This checks only that a node of the right KIND exists. It does not",
+            "check anatomy, side, modality, or whether the node has any content.",
+        ]
+        return "\n".join(lines)
+
+    def _showGuidedOnlyRefusal(self, headline, body, config_problem=False, details=None):
         """Modal 'not supported' notice. Main thread only; never raises."""
         details = ""
         try:
@@ -877,7 +1010,10 @@ class WidgetStreamingMixin:
         except Exception:
             logger.debug("Prompt restore after refusal failed", exc_info=True)
         self._refreshInputAvailability()
-        self._showGuidedOnlyRefusal(headline, body, config_problem)
+        self._showGuidedOnlyRefusal(
+            headline, body, config_problem,
+            details=self._refusalDetails(rejection),
+        )
 
     def _recordRefusedRequest(self, prompt, rejection, headline):
         """Persist a refused turn under ``logs/<stamp>_pipeline_refused/``.

@@ -507,9 +507,19 @@ run's duration), and **wait** = wall − exec, attributed to *the surgeon* on th
 `HUMAN_IN_LOOP_TYPES` and to *runtime overhead* on the automated two. The total is anchored to the
 **Send click** (`send_clicked_epoch`), not to the manifest's own `started_epoch`, which is stamped
 only once the router has answered — several seconds the surgeon sat through would otherwise vanish;
-it decomposes into startup / inside the steps / between steps / waiting for Exit, which sum to it.
+it decomposes into startup / inside the steps / between steps / **reviewing the replay timeline** /
+waiting for Exit, which sum to it.
 
-Four invariants that are easy to get wrong, each enforced in code because getting one wrong produces
+**One table, in the order things happened.** `manifest["timeline"]` records a row per step *visit*
+and a row per replay review, and the report renders that — so a run that stepped back from step 20
+and re-ran from step 10 shows steps 1–20, a `<< step back` row, then steps 10 onward again. `steps`
+still holds the aggregate (`scripts/collect_runs.py` reads it) and the report falls back to it for
+manifests written before the timeline existed. A replay row's time is **taken out of** the step that
+was on screen (`suspend_step_span` banks its span and closes its row), or a review lands in a
+`user_choice` step's `wall` and — since `exec` does not move — prints as think time on a step nobody
+was thinking about.
+
+Five invariants that are easy to get wrong, each enforced in code because getting one wrong produces
 a plausible number rather than an error:
 
 - **A step is measured per *visit*, not first-open-to-last-completion.** Within one visit
@@ -527,8 +537,14 @@ a plausible number rather than an error:
   the real completion lands when the POST template runs after Done.
 - **The no-code path only completes a step that actually moved on** (`next_step` or
   `workflow_completed`), since it is also reached by a step entering a wait.
+- **Exit seals whatever was still open** (`_seal_open_spans`, called from `finish()`), so a run
+  abandoned mid-step or mid-preview still has every interval as a row and the table still sums.
+  A span is live only if no `completed_epoch` has landed *since* it opened — `finish_step`
+  deliberately leaves `span_opened_epoch` in place so a re-visit can bank it, so its mere presence
+  is not "still running"; treating it as such rewrote every completed step's wall to
+  first-open→Exit.
 - **`build_run_statistics()` is a pure function of the manifest**, so the same report can be
-  re-derived later from `run_manifest.json` alone; and its four-way split is never clamped — a
+  re-derived later from `run_manifest.json` alone; and its five-way split is never clamped — a
   negative residual prints as `[!] clocks inconsistent` rather than being hidden, because that
   residual is the only evidence a reader has that the two clocks disagree.
 
@@ -540,7 +556,12 @@ The scene is saved **after** the replay timeline is torn down, so the one hidden
 every intermediate state. Both halves are fail-soft and independent: a scene that cannot be saved
 still produces the report, with the failure recorded *in* it. Only the Exit button triggers this;
 the other two callers of `_resetGuidedSession` are a runtime cancel and a scene close, and on the
-latter there is no scene left to save. The confirmation dialog names both paths, and is now shown
+The save is slow and blocks the Qt main thread, so it runs behind a modal progress dialog
+(`_beginExitProgress`). That dialog calls `slicer.app.processEvents()` to paint, which is why
+`_resetGuidedSession` opens with a `_guidedExitInProgress` guard — without it a scene close delivered
+during the pump would start a second teardown through half-dismantled state.
+
+The confirmation dialog names both paths, and is now shown
 even when nothing is at risk — saving is the main thing Exit does on a *finished* run, and a dialog
 seen only when something is about to be destroyed would never mention it on the common path.
 
