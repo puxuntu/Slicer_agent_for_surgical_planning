@@ -115,12 +115,13 @@ class WidgetWorkflowMixin:
             layout.addWidget(self._workflowChoiceContainer)
 
             controls = qt.QHBoxLayout()
+            controls.setObjectName("workflowControlLayout")
             self._workflowDoneButton = qt.QPushButton("Done")
             self._workflowSkipButton = qt.QPushButton("Skip")
-            self._workflowCancelButton = qt.QPushButton("Cancel")
             controls.addWidget(self._workflowDoneButton)
             controls.addWidget(self._workflowSkipButton)
-            controls.addWidget(self._workflowCancelButton)
+            # Left-align Done/Skip. (Exit is not here -- it lives at the right
+            # end of the replay row; see _setupWorkflowExitControl.)
             controls.addStretch(1)
             layout.addLayout(controls)
             self.layout.addWidget(self._workflowUserFrame)
@@ -148,14 +149,15 @@ class WidgetWorkflowMixin:
             self._workflowDoneButton.clicked.connect(self._onWorkflowDoneClicked)
         if getattr(self, "_workflowSkipButton", None):
             self._workflowSkipButton.clicked.connect(self._onWorkflowSkipClicked)
-        if getattr(self, "_workflowCancelButton", None):
-            self._workflowCancelButton.clicked.connect(self._onWorkflowCancelClicked)
 
         # Build the replay stepper unconditionally: the workflow frame can be
         # loaded from the .ui file (widget_core.py) instead of built here, in
         # which case the programmatic block above is skipped. This wraps the
         # progress bar with the Back / Forward / Run-from-here buttons.
         self._setupReplayControls()
+        # One Exit control, at the right end of that same row. Must run AFTER
+        # _setupReplayControls, which is what creates the row it goes into.
+        self._setupWorkflowExitControl()
         # Baseline comparison section, inserted directly under the replay row.
         self._setupBaselinePanel()
 
@@ -321,10 +323,13 @@ class WidgetWorkflowMixin:
 
         self._workflowDoneButton.setVisible(bool(self._currentWorkflowUiState.get("can_done")))
         self._workflowSkipButton.setVisible(bool(self._currentWorkflowUiState.get("can_skip")))
-        self._workflowCancelButton.setVisible(bool(self._currentWorkflowUiState.get("can_cancel")))
         self._workflowDoneButton.setEnabled(bool(self._currentWorkflowUiState.get("can_done")))
         self._workflowSkipButton.setEnabled(bool(self._currentWorkflowUiState.get("can_skip")))
-        self._workflowCancelButton.setEnabled(bool(self._currentWorkflowUiState.get("can_cancel")))
+        # Exit is unconditional while the panel is up. It is the only way out of
+        # a guided run now, so it must not be keyed on the step: a completed
+        # workflow, a step with no controls, and the panel a dispatch error
+        # leaves behind (no current_step at all) each need it most.
+        self._setWorkflowExitVisible(True)
         done_label = self._currentWorkflowUiState.get("done_label") or "Done"
         if self._currentWorkflowUiState.get("review_selection") and done_label == "Done":
             # A review checkpoint's action is confirmation, not task completion.
@@ -395,7 +400,6 @@ class WidgetWorkflowMixin:
             "review_selection": result_type == "user_review",
             "review_table": result.get("review_table") or {},
             "can_skip": bool(result.get("is_optional")),
-            "can_cancel": not result.get("workflow_completed"),
         }
 
     # Qt/Slicer selection-widget class -> renderer family. Keyed purely on the
@@ -545,6 +549,11 @@ class WidgetWorkflowMixin:
             self._workflowReviewContainer.setParent(None)
             self._workflowReviewContainer = None
         self._workflowMultiChoiceCombos = {}
+        # Cleared with the combos it points at. The container below DESTROYS
+        # them (reparent to None), so a surviving ordered list would hand
+        # _onWorkflowMultiChoiceConfirmed freed C++ objects on the next
+        # multi-selection step -- a crash in PythonQt, not an exception.
+        self._workflowMultiChoiceOrdered = []
         if getattr(self, "_workflowMultiChoiceContainer", None) is not None:
             # The container owns the per-selector combos + Confirm; reparenting to
             # None destroys them together.
@@ -759,7 +768,7 @@ class WidgetWorkflowMixin:
         self._updateReplayControls({})
         self._workflowDoneButton.setVisible(False)
         self._workflowSkipButton.setVisible(False)
-        self._workflowCancelButton.setVisible(False)
+        self._setWorkflowExitVisible(False)
         self._workflowDoneButton.setText("Done")
 
     def _onWorkflowDoneClicked(self):
@@ -784,12 +793,594 @@ class WidgetWorkflowMixin:
             self.sendButton.setEnabled(False)
             self._runWorkflowStepDirect(current_step, "skip")
 
-    def _onWorkflowCancelClicked(self):
-        self._closeFloatingWorkflowControl()
-        self._clearThresholdPreview()
-        current_step = self._currentWorkflowUiState.get("current_step")
-        self.sendButton.setEnabled(False)
-        self._runWorkflowStepDirect(current_step, "cancel")
+    # ------------------------------------------------------------------
+    # Exit: close and reset the guided pipeline
+    #
+    # Replaces the per-step Cancel button. Cancel was a workflow ACTION -- it
+    # dispatched ``user_action="cancel"`` through the runtime, so it only worked
+    # where the runtime could take an action, and it was hidden exactly where a
+    # user most needs a way out (a completed run, a step with no controls, a
+    # panel left behind by a dispatch error). Exit is a LOCAL reset instead: it
+    # never asks the runtime for permission, so it works in every one of those
+    # states, and it puts the widget back to the state it had before any
+    # workflow started so the next prompt begins from a clean session.
+    #
+    # It deliberately does NOT touch the MRML scene: whatever the procedure
+    # produced is the user's data, and exiting a UI is not consent to delete it.
+    # ------------------------------------------------------------------
+    #: Ask before discarding a run that has already done work. A misclick here
+    #: costs a 30-step procedure, and the confirmation is skipped when there is
+    #: nothing to lose (no completed steps, or an already-finished workflow).
+    #: Set False for an unconditional one-click exit.
+    EXIT_CONFIRM_ENABLED = True
+
+    #: Tried in order; the first that resolves is used. Slicer's icon resources
+    #: vary between versions, and a null QIcon renders as an invisible button,
+    #: so a Qt built-in backs them up and plain text backs that up.
+    _EXIT_ICON_RESOURCES = (
+        ":/Icons/Small/SlicerCloseScene.png",
+        ":/Icons/SlicerCloseScene.png",
+        ":/Icons/Cancel.png",
+    )
+
+    def _setupWorkflowExitControl(self):
+        """Add the Exit button to the right end of the replay row. Idempotent.
+
+        Added programmatically rather than in the .ui, for the same reason the
+        replay stepper is: the frame is built either from the .ui file or from
+        the fallback above, and a widget declared in only one of them silently
+        disappears in the other.
+
+        It goes LAST in ``[◀] [progress] [▶] [▷] [⚖] [✕]``, i.e. immediately
+        right of "Run from here" whenever the baseline toggle is hidden (which
+        it is on every step the pipeline does not answer with generated code).
+        Anchoring it to the row's right edge rather than adjacent to a specific
+        button keeps it in one place instead of shifting as ⚖ appears and
+        disappears. Icon-only like its neighbours: a text label would add its
+        width to the row's minimum and can force the module panel wider (see
+        _applyWidthSafeLabels). Falls back to its own bottom row if the replay
+        row was never built.
+        """
+        if getattr(self, "_workflowExitButton", None) is not None:
+            return
+        frame = getattr(self, "_workflowUserFrame", None)
+        if frame is None:
+            return
+
+        button = qt.QToolButton()
+        icon = None
+        for resource in self._EXIT_ICON_RESOURCES:
+            icon = self._nativeIcon(resource)
+            if icon is not None:
+                break
+        if icon is None:
+            try:
+                icon = slicer.app.style().standardIcon(qt.QStyle.SP_DialogCloseButton)
+                if icon.isNull():
+                    icon = None
+            except Exception:
+                icon = None
+        if icon is not None:
+            button.setIcon(icon)
+        else:
+            button.setText("✕")
+        button.setToolTip(
+            "Exit: close this guided workflow and reset it. The scene is left "
+            "as it is; you can then type a new request and start a fresh "
+            "workflow."
+        )
+        button.setAutoRaise(True)
+        button.clicked.connect(self._onWorkflowExitClicked)
+
+        row = getattr(self, "_replayControlsRow", None)
+        row_layout = row.layout() if row is not None else None
+        if row_layout is not None:
+            row_layout.addWidget(button)
+            self._workflowExitRow = None
+        else:
+            # Replay row unavailable (its setup bails when the progress bar is
+            # not found): fall back to a right-aligned row of our own, so the
+            # only way out of a guided run is never missing.
+            fallback = qt.QWidget()
+            fallback_layout = qt.QHBoxLayout(fallback)
+            fallback_layout.setContentsMargins(0, 0, 0, 0)
+            fallback_layout.addStretch(1)
+            fallback_layout.addWidget(button)
+            frame_layout = frame.layout()
+            if frame_layout is None:
+                return
+            frame_layout.addWidget(fallback)
+            self._workflowExitRow = fallback
+            fallback.setVisible(False)
+        self._workflowExitButton = button
+        button.setVisible(False)
+
+    def _setWorkflowExitVisible(self, visible):
+        """Show/hide Exit. Not driven by _updateReplayControls, which touches
+        only the three stepper buttons and the ⚖ toggle -- Exit is available
+        whenever the panel is up, including where replay is not."""
+        visible = bool(visible)
+        button = getattr(self, "_workflowExitButton", None)
+        row = getattr(self, "_workflowExitRow", None)
+        try:
+            if button is not None:
+                button.setVisible(visible)
+            if row is not None:
+                row.setVisible(visible)
+        except Exception:
+            logger.debug("Exit control visibility failed", exc_info=True)
+
+    def _onWorkflowExitClicked(self):
+        if self.EXIT_CONFIRM_ENABLED:
+            try:
+                confirmed = slicer.util.confirmYesNoDisplay(self._exitConfirmMessage())
+            except Exception:
+                confirmed = True
+            if not confirmed:
+                return
+        self._resetGuidedSession(reason="user_exit")
+
+    def _exitConfirmMessage(self):
+        """What pressing Exit will do -- including what it WRITES.
+
+        Shown even when there is no progress to lose, because saving the run's
+        timing and its scene is the main thing this button does on a finished
+        workflow, and a dialog the user only sees when something is about to be
+        destroyed would never mention it on the path they take most.
+        """
+        from SlicerAIAgentLib import RunLog
+        run_name = self._statisticRunName()
+        lines = ["Exit this guided workflow and close the panel?", ""]
+        if self._guidedRunHasProgress():
+            session = self._workflowRuntime.session
+            done = len(getattr(session, "completed_steps", None) or [])
+            lines.append(
+                f"The run is NOT finished ({done} step(s) completed) — its "
+                "progress is discarded and cannot be resumed."
+            )
+            lines.append("")
+        lines.append("Nodes already created in the scene are left untouched.")
+        lines.append("")
+        lines.append(
+            f"Before resetting, this saves into "
+            f"logs/{run_name}/{RunLog.STATISTIC_DIRNAME}/:"
+        )
+        lines.append(
+            "  - timing.txt — total run time from the moment you pressed Send "
+            "to now, split into startup / steps / between steps / waiting for "
+            "Exit, plus per-step wall, execution and waiting time for every "
+            "step, and totals per operation type."
+        )
+        lines.append(
+            "  - scene/ — the complete current Slicer scene as one flat folder: "
+            f"{self.SCENE_FILE_NAME} beside one file per node (volumes, "
+            "segmentations, models, markups, tables), exactly as File > Save "
+            "Data writes them into a single directory. This can be large."
+        )
+        lines.append("")
+        lines.append(
+            "Your own unsaved data is NOT marked as saved by this, and the run's "
+            "folder under logs/ is kept either way."
+        )
+        return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Statistics written when a run is closed
+    # ------------------------------------------------------------------
+    def _statisticRunName(self):
+        """Name shared by this run's timing file and its scene folder."""
+        log_dir = getattr(self, "_currentLogDir", None)
+        if log_dir:
+            return os.path.basename(str(log_dir).rstrip("/\\"))
+        session = getattr(getattr(self, "_workflowRuntime", None), "session", None)
+        return getattr(session, "workflow_id", "") or "run"
+
+    def _statisticDir(self):
+        """``logs/<run>/Statistic/`` -- inside the run it describes."""
+        from SlicerAIAgentLib import RunLog
+        return RunLog.ensure_dir(os.path.join(
+            self._getCurrentLogDir(), RunLog.STATISTIC_DIRNAME
+        ))
+
+    #: File name of the flat scene save. Fixed rather than derived from the
+    #: scene's own name, so a script walking logs/*/Statistic/scene/ knows where
+    #: the MRML file is without looking.
+    SCENE_FILE_NAME = "scene.mrml"
+
+    def _saveSceneFlat(self, directory):
+        """Save the scene as ONE flat folder: ``scene.mrml`` beside every node's file.
+
+        This is what File > Save Data produces with every row pointed at one
+        directory, which is the layout asked for. ``slicer.util.saveScene(<dir>)``
+        cannot give it: a directory path routes to
+        ``qSlicerSceneWriter::writeToDirectory`` ->
+        ``SaveSceneToSlicerDataBundleDirectory``, which builds ``Data/`` and
+        ``private/`` subfolders.
+
+        Mirrors ``qSlicerSaveDataDialogPrivate`` exactly: skip nodes that are not
+        storable, are hidden from editors, or are not ``SaveWithScene``; give
+        each remaining node a default storage node and skip it if it does not
+        need one (it is stored inside the scene); name its file
+        ``<sanitised node name>.<default write extension>``; and save the nodes
+        FIRST, the scene last, so the ``.mrml`` records the paths the nodes were
+        just written to.
+
+        Every mutation it makes to the live scene -- storage-node file names, the
+        scene URL and root directory, and the storable-modified flags that
+        writing clears -- is undone afterwards, so the surgeon's own File > Save
+        Data still offers their chosen directory and still shows their work as
+        unsaved. Returns ``(files_written, note)``.
+        """
+        scene = slicer.mrmlScene
+        original_url = scene.GetURL()
+        original_root = scene.GetRootDirectory()
+        restore = {}          # storage node ID -> (node, name, [list], URI, crop)
+        used_names = set()
+        written, skipped, failed = 0, 0, []
+        try:
+            # The root directory FIRST, before a single node is written. Every
+            # path a storage node records while writing is relativised against
+            # scene->GetRootDirectory() AS IT STANDS AT THAT MOMENT, not against
+            # the .mrml written afterwards: vtkMRMLVolumeArchetypeStorageNode::
+            # UpdateFileList (called unconditionally from WriteDataInternal)
+            # stores its file-list entries relative to it, and
+            # vtkMRMLStorageNode::WriteXML writes an already-relative entry out
+            # verbatim. Leave the user's own root in place and a volume's
+            # fileListMember paths end up relative to THEIR folder while the
+            # scene resolves them from this one -- so the saved scene does not
+            # reload. Both references set it first for exactly this reason
+            # (qSlicerSaveDataDialogPrivate::save, and
+            # vtkMRMLScene::SaveSceneToSlicerDataBundleDirectory). The `finally`
+            # below puts the user's root back.
+            scene.SetRootDirectory(str(directory).replace("\\", "/"))
+            nodes = scene.GetNodesByClass("vtkMRMLStorableNode")
+            nodes.UnRegister(None)
+            for index in range(nodes.GetNumberOfItems()):
+                node = nodes.GetItemAsObject(index)
+                if node is None or node.GetHideFromEditors() or not node.GetSaveWithScene():
+                    skipped += 1
+                    continue
+                storage = node.GetStorageNode()
+                if storage is None:
+                    if not node.AddDefaultStorageNode():
+                        skipped += 1
+                        continue
+                    storage = node.GetStorageNode()
+                if storage is None:
+                    skipped += 1      # no storage node needed: lives in the scene
+                    continue
+                # The dialog drops nodes with no writer rather than listing them;
+                # without this they would be reported as save failures.
+                try:
+                    if slicer.app.coreIOManager().fileWriterFileType(node) == "NoFile":
+                        skipped += 1
+                        continue
+                except Exception:
+                    logger.debug("fileWriterFileType probe failed", exc_info=True)
+                name = self._safeFileName(node.GetName() or node.GetID() or "node")
+                extension = storage.GetDefaultWriteFileExtension() or ""
+                if extension and not extension.startswith("."):
+                    extension = "." + extension
+                candidate = f"{name}{extension}"
+                # Two nodes may share a name; the dialog would collide and warn,
+                # and a silent overwrite here would lose one of them.
+                suffix = 1
+                while candidate.lower() in used_names:
+                    suffix += 1
+                    candidate = f"{name}_{suffix}{extension}"
+                used_names.add(candidate.lower())
+                # Writing mutates more than the file name, so snapshot all of
+                # it: a volume write runs UpdateFileList, which RESETS the
+                # storage node's file-name list and repopulates it with paths
+                # into this folder (so a DICOM series' original slice list would
+                # be destroyed, and the bogus entries would later be written
+                # into the surgeon's OWN .mrml as fileListMember);
+                # qSlicerNodeWriter::write clears the URI; and the segmentation
+                # writer forces CropToMinimumExtent off because
+                # slicer.util.saveNode supplies no such property. Keyed by
+                # storage node so two storables sharing one cannot record each
+                # other's already-repointed path.
+                key = storage.GetID()
+                if key not in restore:
+                    restore[key] = (
+                        storage,
+                        storage.GetFileName(),
+                        [storage.GetNthFileName(i)
+                         for i in range(storage.GetNumberOfFileNames())],
+                        storage.GetURI(),
+                        (storage.GetCropToMinimumExtent()
+                         if hasattr(storage, "GetCropToMinimumExtent") else None),
+                    )
+                path = os.path.join(directory, candidate)
+                try:
+                    if slicer.util.saveNode(node, path):
+                        written += 1
+                    else:
+                        failed.append(candidate)
+                except Exception as exc:
+                    logger.debug("Saving node %s failed: %s", candidate, exc, exc_info=True)
+                    failed.append(candidate)
+            # The scene last, so the .mrml records the paths the nodes were just
+            # written to. writeToMRML re-asserts the URL and root directory that
+            # were already set above.
+            scene_path = os.path.join(directory, self.SCENE_FILE_NAME)
+            if not slicer.util.saveScene(scene_path):
+                failed.append(self.SCENE_FILE_NAME)
+        finally:
+            for storage, name, name_list, uri, crop in restore.values():
+                try:
+                    # Same order as the reference restore pass: reset the list,
+                    # put the primary name back, then re-add each member.
+                    storage.ResetFileNameList()
+                    storage.SetFileName(name)
+                    for extra in name_list:
+                        if extra is not None:
+                            storage.AddFileName(extra)
+                    storage.SetURI(uri)
+                    if crop is not None:
+                        storage.SetCropToMinimumExtent(crop)
+                except Exception:
+                    logger.debug("Restoring a storage node's save state failed",
+                                 exc_info=True)
+            try:
+                scene.SetURL(original_url)
+                scene.SetRootDirectory(original_root)
+                # Writing every node stamps its StoredTime, which clears
+                # GetModifiedSinceRead() scene-wide -- the surgeon's own work
+                # would then show as "Not Modified" in File > Save Data and
+                # Slicer would not warn about it on quit, while the only copy on
+                # disk sat in logs/. Slicer's MRB writer does the same restore
+                # for the same reason (qSlicerSceneWriter::writeToMRB).
+                scene.SetStorableNodesModifiedSinceRead()
+            except Exception:
+                logger.debug("Restoring scene save state failed", exc_info=True)
+
+        note = f"{written} node file(s) + {self.SCENE_FILE_NAME}"
+        if skipped:
+            note += f", {skipped} node(s) stored inside the scene"
+        if failed:
+            note += f". FAILED: {', '.join(failed[:6])}"
+        return written, note
+
+    @staticmethod
+    def _safeFileName(name):
+        """Slicer's own filename rule (qSlicerCoreIOManager::fileNameRegularExpression)."""
+        allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+                      "0123456789 -_.()$!~#'%^{}")
+        cleaned = "".join(ch for ch in str(name or "") if ch in allowed).strip()
+        return cleaned[:255] or "node"
+
+    def _saveRunStatistics(self, exit_epoch):
+        """Write ``logs/Statistic/<run>_timing.txt`` and ``<run>_scene/``.
+
+        Called from the Exit button only. Fail-soft in both halves and in both
+        directions: a scene that cannot be saved still produces the timing
+        report (with the failure recorded in it), and a timing report that
+        cannot be written never blocks the reset the user asked for.
+
+        Runs AFTER the replay timeline is torn down, so the ~one hidden
+        ``vtkMRMLSceneViewNode`` per step is already gone — otherwise the saved
+        scene would carry a full copy of every intermediate state.
+        """
+        from SlicerAIAgentLib import RunLog
+        manifest = self._runManifest()
+        if manifest is None:
+            logger.info("No run manifest to write statistics for")
+            return
+        run_name = self._statisticRunName()
+        try:
+            stats_dir = self._statisticDir()
+        except Exception:
+            logger.debug("Statistic directory unavailable", exc_info=True)
+            return
+
+        scene_dir, scene_note = "", ""
+        try:
+            scene_dir = RunLog.ensure_dir(os.path.join(stats_dir, "scene"))
+            written, note = self._saveSceneFlat(scene_dir)
+            scene_note = note
+            if written:
+                scene_note += " -- " + self._describeSavedScene(scene_dir)
+        except Exception as exc:
+            logger.warning("Saving the scene for statistics failed: %s", exc)
+            scene_note = f"Scene save raised: {exc}"
+
+        try:
+            text = RunLog.build_run_statistics(
+                manifest.data, exit_epoch, scene_dir=scene_dir, scene_note=scene_note,
+            )
+            path = RunLog.write_text(os.path.join(stats_dir, "timing.txt"), text)
+            if path:
+                logger.info("[Statistic] Run timing written to %s", path)
+                self.appendToChat(
+                    "System",
+                    f"Run statistics saved: logs/{run_name}/"
+                    f"{RunLog.STATISTIC_DIRNAME}/timing.txt (and scene/ beside it).",
+                )
+        except Exception:
+            logger.warning("Writing the run statistics failed", exc_info=True)
+
+    def _describeSavedScene(self, scene_dir):
+        """One line about what landed in the scene folder, for the report."""
+        try:
+            files = 0
+            size = 0
+            for root, _dirs, names in os.walk(scene_dir):
+                for name in names:
+                    files += 1
+                    try:
+                        size += os.path.getsize(os.path.join(root, name))
+                    except OSError:
+                        pass
+            nodes = slicer.mrmlScene.GetNumberOfNodes()
+            return (f"{files} file(s), {size / (1024 * 1024):.1f} MB, "
+                    f"from a scene of {nodes} MRML node(s).")
+        except Exception:
+            return "Saved."
+
+    def _guidedRunHasProgress(self):
+        """True when exiting would discard work (so the confirm is worth it)."""
+        runtime = getattr(self, "_workflowRuntime", None)
+        session = getattr(runtime, "session", None) if runtime else None
+        if session is None:
+            return False
+        if getattr(session, "status", "") in ("completed", "cancelled"):
+            return False
+        return bool(getattr(session, "completed_steps", None))
+
+    def _resetGuidedSession(self, reason="exit", announce=True):
+        """Close the guided workflow and put the widget back to a clean start.
+
+        The ORDER below is load-bearing and each step is commented, because the
+        cost of getting it wrong is silent: state that survives here does not
+        raise, it corrupts the NEXT workflow.
+
+        Returns False (and changes nothing) while a baseline run or a stream is
+        in flight -- tearing the session out from under either would orphan its
+        record and leave a thread writing into a session that no longer exists.
+        """
+        if self._baselineBusy():
+            self._setBaselineStatus(
+                "A baseline run is in progress — wait for it to finish (or press "
+                "Send to stop waiting for Claude Code) before exiting."
+            )
+            return False
+        if getattr(self, "_streaming", False):
+            self.appendToChat(
+                "System", "A request is still running — wait for it to finish before exiting."
+            )
+            return False
+
+        # 0. Stamp the end of the run before anything is torn down, so the
+        #    "Send to Exit" total is measured to the click and not to whenever
+        #    the teardown below happens to finish.
+        import time as _time
+        exit_epoch = _time.time()
+
+        # 1. Invalidate everything already in flight. Deferred work (a QTimer
+        #    auto-advance, a self-correction thread that is still waiting on the
+        #    API) cannot be cancelled, so it is fenced instead: each continuation
+        #    compares the epoch it captured against this one and drops out.
+        self._guidedSessionEpoch = getattr(self, "_guidedSessionEpoch", 0) + 1
+
+        # 2. Events already queued by a worker belong to the session being
+        #    closed; draining them stops them being applied to the next one.
+        try:
+            while True:
+                self._streamQueue.get_nowait()
+        except Exception:
+            pass
+
+        # 3. Baseline harness: stop the MCP endpoint, hand the run log back to
+        #    the pipeline (_teardownBaselineMcp does that), leave baseline mode.
+        try:
+            self._teardownBaselineMcp()
+            self._exitBaselineMode()
+            self._clearBaselinePrompt()
+        except Exception:
+            logger.debug("Baseline teardown on exit failed", exc_info=True)
+
+        # 4. Live Slicer state the workflow switched on. Placement mode and the
+        #    threshold preview outlive the panel, so a user who exits mid-step
+        #    would otherwise be left clicking fiducials into an empty session.
+        for step in (
+            self._closeFloatingWorkflowControl,
+            self._clearThresholdPreview,
+            self._releaseModuleSessionTools,
+        ):
+            try:
+                step()
+            except Exception:
+                logger.debug("Workflow teardown step failed on exit", exc_info=True)
+        manager = getattr(self, "_interactionManager", None)
+        if manager is not None:
+            for call in (manager.exit_placement_mode, manager.cleanup):
+                try:
+                    call()
+                except Exception:
+                    logger.debug("Interaction teardown on exit failed", exc_info=True)
+
+        # 5. Seal the run folder and drop the replay timeline -- WHILE the
+        #    session still exists. clear_checkpoints() restores the live scene if
+        #    the user was mid-preview and deletes the hidden sceneview nodes, and
+        #    every line of it is a no-op once `session` is None.
+        try:
+            self._clearCompletedWorkflowState(clear_replay=True)
+        except Exception:
+            logger.debug("Workflow state clear on exit failed", exc_info=True)
+
+        # 5b. Write the run's statistics + save the scene. Deliberately HERE:
+        #     after step 5 the replay sceneviews are gone (so the saved scene is
+        #     the live one, not one copy per step) and the manifest is sealed and
+        #     complete, but _currentLogDir and _currentRunManifest are still set
+        #     — step 7 below drops both. Only on the Exit button: the other
+        #     callers are a runtime cancel and a scene close, and there is no
+        #     scene left to save on the latter.
+        if reason == "user_exit":
+            try:
+                self._saveRunStatistics(exit_epoch)
+            except Exception:
+                logger.warning("Run statistics save failed", exc_info=True)
+
+        # 6. Now the session itself, plus the module-global mirrors it wrote.
+        #    Cleared for ALL extensions, not just this one: the mirrors are keyed
+        #    by extension name and start_for_extension only resets its own, so a
+        #    per-extension reset here would leave a run of a DIFFERENT procedure
+        #    inheriting this one's completions, choices and loop counters.
+        runtime = getattr(self, "_workflowRuntime", None)
+        if runtime is not None:
+            runtime.session = None
+            runtime.log_dir = ""
+        try:
+            from SlicerAIAgentLib.ExtensionCLILoader import reset_workflow_state
+            reset_workflow_state(None)
+        except Exception:
+            logger.debug("Generated CLI workflow state reset failed", exc_info=True)
+        orchestrator = getattr(self, "_workflowOrchestrator", None)
+        if orchestrator is not None and getattr(self, "_activeWorkflowId", None):
+            try:
+                orchestrator.cancel_workflow(self._activeWorkflowId)
+            except Exception:
+                logger.debug("Orchestrator cancel on exit failed", exc_info=True)
+
+        # 7. Per-run widget state. Anything keyed by step id or node id belongs
+        #    to the run just closed and would be read back by the next one.
+        self._activeWorkflowId = None
+        self._currentWorkflowStepInfo = None
+        self._currentWorkflowUiState = {"active": False}
+        self._waitingForUser = False
+        self._autoAdvanceWorkflowStep = None
+        self._taskWorkflowPanelActive = False
+        self._announcedWorkflowIds = set()
+        self._workflowInheritedDefaults = {}
+        self._autoSelectedNodeSteps = set()
+        self.currentCode = None
+        self.currentAgentPlan = None
+        self._lastRouterDecision = None
+        self._lastRouter = None
+        self._lastRouterRejection = None
+        self._currentLogDir = None
+        try:
+            self._clearWorkflowNotice()
+        except Exception:
+            logger.debug("Notice clear on exit failed", exc_info=True)
+
+        # 8. Repaint empty, and give the prompt box and Send back -- the gate
+        #    that switched them off keys on an active workflow, and there is
+        #    none now. _refreshInputAvailability is last and is the only thing
+        #    that touches Send here, so the button follows the (now empty) box
+        #    rather than being forced on with nothing to send.
+        self._clearWorkflowPanel()
+        self._setReadyStatus()
+        self._refreshInputAvailability()
+        if announce:
+            self.appendToChat(
+                "System",
+                "Guided workflow closed and reset. Type a new request to start "
+                "another one.",
+            )
+        logger.info("Guided workflow session reset (%s)", reason)
+        return True
 
     def _onWorkflowChoiceClicked(self, step_id, value):
         # While scrubbing the replay, the choices belong to a past step: clicking
@@ -1248,7 +1839,12 @@ class WidgetWorkflowMixin:
         step_id = (self._currentWorkflowUiState or {}).get("current_step")
         try:
             from SlicerAIAgentLib.workflow_state import latest_interaction_node_for_step
-            node = latest_interaction_node_for_step(step_id)
+            _session = self._workflowRuntime.session
+            node = latest_interaction_node_for_step(
+                step_id,
+                getattr(_session, "extension_name", ""),
+                getattr(_session, "workflow_id", ""),
+            )
             if node is not None:
                 return node
         except Exception:
@@ -1419,6 +2015,7 @@ class WidgetWorkflowMixin:
         form = qt.QFormLayout(container)
         form.setContentsMargins(0, 0, 0, 0)
         self._workflowMultiChoiceCombos = {}
+        self._workflowMultiChoiceOrdered = []
         ordered = []  # (combo, options, anchor) in item order (drive order matters)
         for item in items:
             param = str(item.get("parameter_name") or "")
@@ -2947,7 +3544,13 @@ class WidgetWorkflowMixin:
                 return  # armed — nothing to do
 
             from SlicerAIAgentLib.workflow_state import latest_interaction_node_for_step
-            node = latest_interaction_node_for_step(step_info.get("step_id", ""))
+            _session = getattr(getattr(self, "_workflowRuntime", None), "session", None)
+            node = latest_interaction_node_for_step(
+                step_info.get("step_id", ""),
+                getattr(_session, "extension_name", ""),
+                getattr(_session, "workflow_id", ""),
+                node_class,
+            )
             if node is None:
                 logger.info(
                     "[Workflow] Placement not armed for step %s and no remembered "
@@ -3025,7 +3628,6 @@ class WidgetWorkflowMixin:
                 "instructions": "This step is optional.",
                 "can_done": True,
                 "can_skip": True,
-                "can_cancel": True,
             })
             self._setSendEnabled(True)
             return

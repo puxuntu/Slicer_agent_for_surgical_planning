@@ -2,10 +2,16 @@ from .common import *
 
 
 class WidgetCorrectionMixin:
+    #: Guided session this repair belongs to, captured when it starts and
+    #: re-checked when the (asynchronous) reply lands. See _resetGuidedSession.
+    _correctionEpoch = None
+
     def _selfCorrectCode(self, error_msg, attempt, max_attempts):
         """Generate corrected code with isolated context (no conversation history bloat)."""
         if not self.currentCode:
             return
+
+        self._correctionEpoch = getattr(self, "_guidedSessionEpoch", 0)
 
         # Revision D (belt-and-suspenders): the caller in widget_execution_flow
         # is supposed to triage generated-template syntax errors before getting
@@ -312,6 +318,15 @@ class WidgetCorrectionMixin:
 
     def _handleCorrectionResult(self, response, attempt, max_attempts, error_detail, original_prompt):
         """Handle successful self-correction response on the main thread."""
+        # The repair was requested by a guided session that may no longer exist:
+        # a correction round-trip takes tens of seconds, and the user can press
+        # Exit at any point during it. Applying the repair now would execute code
+        # into a scene they have already left, for a step that is gone.
+        if not self._guidedSessionAlive(self._correctionEpoch):
+            logger.info("Dropping self-correction result: the guided session was reset")
+            self._stopThinkingTimer("Ready")
+            self._setReadyStatus()
+            return
         # Save correction timing report and token usage
         if self._timing:
             corrections = self._timing.get('corrections', [])
@@ -443,6 +458,11 @@ class WidgetCorrectionMixin:
 
     def _handleCorrectionError(self, error_msg):
         """Handle self-correction error on the main thread."""
+        if not self._guidedSessionAlive(self._correctionEpoch):
+            logger.info("Dropping self-correction error: the guided session was reset")
+            self._stopThinkingTimer("Ready")
+            self._setReadyStatus()
+            return
         self._stopThinkingTimer("Error")
         if self.logic and self.logic.llmClient:
             self.logic.llmClient.debug_suffix = ""

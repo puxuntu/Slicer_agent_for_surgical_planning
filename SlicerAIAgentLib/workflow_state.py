@@ -85,29 +85,58 @@ def prune_missing_interaction_nodes(extension_name: Optional[str] = None) -> Non
             _interaction_nodes.pop(key, None)
 
 
-def latest_interaction_node_for_step(step_id: str):
+def latest_interaction_node_for_step(
+    step_id: str,
+    extension_name: str = "",
+    workflow_id: str = "",
+    node_class: str = "",
+):
     """Most recently remembered MRML node for a step, across iterations.
+
+    Scoped to the session the caller names. ``_interaction_nodes`` is keyed by
+    (extension, workflow_id, step, repeat_index), but this lookup used to match
+    on the step id ALONE -- and every generated package numbers its steps
+    ``cb_step_N``, so ``cb_step_12`` of one procedure would return the markup
+    node another procedure's ``cb_step_12`` created. The keys outlive their run
+    (a normal completion does not touch them, and ``start_for_extension`` resets
+    only its OWN extension's keys), so the wrong node was reachable whenever a
+    second, different procedure ran in the same session.
 
     Used by the runtime placement guard: when an interactive markup step is
     waiting for the user but Slicer is no longer in place mode (a post
     template, an extension callback, or a layout rebuild dropped it), the
     guard re-arms placement on this node. Returns None when nothing is
-    remembered or the node is gone.
+    remembered, the node is gone, or it is not of ``node_class``.
+
+    An empty ``extension_name`` / ``workflow_id`` means "do not filter on it",
+    so a caller with no session in hand keeps the old, wider behaviour.
     """
     step = str(step_id or "")
     if not step:
         return None
+    ext = str(extension_name or "")
+    wid = str(workflow_id or "")
     node_id = ""
     for key, value in _interaction_nodes.items():  # insertion order = recency
-        if key[2] == step:
-            node_id = value
+        if key[2] != step:
+            continue
+        if ext and key[0] != ext:
+            continue
+        if wid and key[1] != wid:
+            continue
+        node_id = value
     if not node_id:
         return None
     try:
         import slicer
-        return slicer.mrmlScene.GetNodeByID(node_id)
+        node = slicer.mrmlScene.GetNodeByID(node_id)
     except Exception:
         return None
+    if node is None:
+        return None
+    if node_class and hasattr(node, "IsA") and not node.IsA(node_class):
+        return None
+    return node
 
 
 def resolve_interaction_node(

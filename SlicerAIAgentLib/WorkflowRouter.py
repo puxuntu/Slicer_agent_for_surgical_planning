@@ -44,7 +44,30 @@ DEFAULT_CONFIDENCE_THRESHOLD = 0.6
 #: Master switch for the fast first-turn path. Set False to send every opening
 #: turn through the full agent again (the behaviour before this router existed),
 #: e.g. to measure the routing turn's own cost against the baseline it replaced.
+#: Under ``GUIDED_ONLY_MODE`` there is no full agent turn to fall back to, so
+#: False there means every request is refused -- which the refusal dialog says
+#: in those words rather than blaming the request.
 ROUTER_ENABLED = True
+
+#: The runtime supports the guided generated-CLI pipeline and nothing else.
+#:
+#: A request the router cannot place used to fall through to the full agent turn
+#: (dense retrieval -> tool loop -> free-form code generation). That turn is the
+#: opposite of what this system claims: its whole thesis is that a validated,
+#: offline-analysed procedure is what drives the scene, so a silent fallback to
+#: improvised code is both an unmeasured escape hatch in every evaluation and an
+#: unreviewed code path in a surgical-planning context. With this True the router
+#: decision is FINAL: a match enters the workflow, anything else is refused in a
+#: dialog that says why, and no code is generated.
+#:
+#: Set False to restore the fall-through (the behaviour before this existed) --
+#: a one-line revert, in the style of ``ROUTER_ENABLED`` above. Every guard reads
+#: this flag at call time, so flipping it needs no other change.
+#:
+#: Deliberately NOT a ban on all generation: self-correction still repairs a
+#: failing guided step, and the comparison baselines still run their own
+#: producers. Both are scoped to a step of a workflow that already started.
+GUIDED_ONLY_MODE = True
 
 #: How many step descriptions per extension go into the catalog, and how much of
 #: each. Seven at 90 characters keeps the whole catalog around 4.5 KB for nine
@@ -72,6 +95,12 @@ class RouterDecision:
     tokens: int = 0
     prompt_chars: int = 0
     error: str = ""
+    #: The workflow the router named but that was NOT entered -- because the
+    #: name was unknown, or the confidence fell short. Under GUIDED_ONLY_MODE a
+    #: near miss is the difference between "nothing here does this" and "say it
+    #: the way the procedure says it", so the refusal dialog reports it instead
+    #: of discarding it with the rest of the rejected decision.
+    rejected_extension: str = ""
 
     @property
     def matched(self) -> bool:
@@ -139,6 +168,38 @@ def available_extension_names() -> List[str]:
         return []
 
 
+def display_name(extension_name: str) -> str:
+    """``BoneReconstructionPlanner`` -> ``Bone Reconstruction Planner``.
+
+    Shares the runtime's own spelling so a workflow is named identically in the
+    refusal dialog and in the panel header the user sees once it starts.
+    """
+    try:
+        from SlicerAIAgentLib.WorkflowRuntime import WorkflowRuntime
+        return WorkflowRuntime._display_name(extension_name)
+    except Exception:
+        return str(extension_name or "Workflow")
+
+
+def describe_available_workflows() -> List[str]:
+    """One human-readable line per installed workflow, for the refusal dialog.
+
+    Under ``GUIDED_ONLY_MODE`` a refusal is the end of the request, so the user
+    has to be able to see what the runtime *can* do without leaving the dialog.
+    """
+    lines = []
+    for name in available_extension_names():
+        try:
+            from SlicerAIAgentLib.ExtensionCLILoader import get_workflow_graph
+            graph = get_workflow_graph(name) or {}
+            count = graph.get("step_count") or len(graph.get("steps") or [])
+        except Exception:
+            count = 0
+        label = display_name(name)
+        lines.append(f"• {label} ({count} steps)" if count else f"• {label}")
+    return lines
+
+
 class WorkflowRouter:
     """One tool-free LLM call that picks a generated CLI workflow, or none."""
 
@@ -154,9 +215,25 @@ class WorkflowRouter:
 
     def is_available(self) -> bool:
         """True when routing is possible at all (client, key, and workflows)."""
-        if not self.llm_client or not getattr(self.llm_client, "api_key", None):
-            return False
-        return bool(available_extension_names())
+        return not self.unavailable_reason()
+
+    def unavailable_reason(self) -> str:
+        """Why routing is impossible, or "" when it is possible.
+
+        Two very different failures used to collapse into one False: an install
+        with no API key, and an install with no generated CLIs. When the router
+        was only an optimisation that did not matter -- the full turn answered
+        either way. Under ``GUIDED_ONLY_MODE`` it is the whole product, and the
+        two need opposite remedies (configure a key / generate a CLI), so the
+        cause is reported rather than inferred.
+        """
+        if not self.llm_client:
+            return "no_client"
+        if not getattr(self.llm_client, "api_key", None):
+            return "no_api_key"
+        if not available_extension_names():
+            return "no_workflows"
+        return ""
 
     def build_messages(self, prompt: str) -> List[Dict[str, str]]:
         catalog = build_extension_catalog()
@@ -178,8 +255,9 @@ class WorkflowRouter:
         run makes -- the steps after it are deterministic template dispatch --
         so without it the run's single piece of model evidence is unrecorded.
         """
-        if not self.is_available():
-            return RouterDecision(error="router unavailable")
+        unavailable = self.unavailable_reason()
+        if unavailable:
+            return RouterDecision(error=f"router unavailable: {unavailable}")
 
         started = time.time()
         messages = self.build_messages(prompt)
@@ -217,13 +295,13 @@ class WorkflowRouter:
         if name not in available_extension_names():
             return RouterDecision(
                 confidence=confidence, seconds=elapsed, tokens=tokens,
-                prompt_chars=prompt_chars,
+                prompt_chars=prompt_chars, rejected_extension=name,
                 reason=f"router named an unknown workflow '{name}'",
             )
         if confidence < self.confidence_threshold:
             return RouterDecision(
                 confidence=confidence, seconds=elapsed, tokens=tokens,
-                prompt_chars=prompt_chars,
+                prompt_chars=prompt_chars, rejected_extension=name,
                 reason=reason or "router confidence below threshold",
             )
         return RouterDecision(

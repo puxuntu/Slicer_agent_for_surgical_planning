@@ -398,13 +398,6 @@ QLabel#workflowInstructionLabel {
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="workflowCancelButton">
-          <property name="text">
-           <string>Cancel</string>
-          </property>
-         </widget>
-        </item>
-        <item>
          <spacer name="workflowControlSpacer">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>

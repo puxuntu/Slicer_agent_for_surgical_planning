@@ -40,6 +40,99 @@ Tests live in `Testing/SlicerAIAgentTest.py` and also inline at the bottom of `S
 
 ## Architecture
 
+### Guided-only runtime
+
+**Every request either enters a generated-CLI workflow or is refused.** `WorkflowRouter.GUIDED_ONLY_MODE`
+(True) makes the router's decision final: on a match the workflow starts, and on anything else
+`_refuseUnsupportedRequest` shows a modal saying why and hands the prompt back — the traditional
+search-and-generate turn below it in `onSendButtonClicked` is never reached. The point is that the
+system's claim is that a validated, offline-analysed procedure drives the scene; a silent fallback to
+improvised code was both an unmeasured escape hatch in every evaluation and an unreviewed code path in
+a surgical context. `GUIDED_ONLY_MODE = False` restores the fall-through in one line.
+
+The refusal is a **dialog**, not a chat line, because it *ends* the request: a chat line inside the
+collapsed Debug group would leave the user waiting for a scene that is never going to change. Seven
+causes reach it and only two are about the request — the rest mean the install is unconfigured
+(`no_api_key`, `no_workflows`, `no_client`, `router_disabled`) or a package is broken (`start_failed`,
+`no_first_step`), so `_handleWorkflowRouterTurnIfNeeded` records the cause in `_lastRouterRejection`
+and `_refusalMessage` gives each its own remedy. The full agent turn used to paper over all seven
+identically, which is exactly why they now have to be told apart. A near miss reports the workflow the
+router named (`RouterDecision.rejected_extension`) and its confidence, so "say it the way the procedure
+says it" is actionable; the dialog's detail pane lists every installed workflow.
+
+Consequences elsewhere: **queueing is gone** — `ROUTE_WORKFLOW_CONFLICT` used to defer a request until
+the workflow ended and then replay it as a traditional turn, which would now promise an answer that
+never comes, so it is refused immediately instead (and `_flushQueuedWorkflowPrompts`, the one path that
+could start a turn with no user click, is inert). **Refusals are logged**: `logs/<stamp>_pipeline_refused/`
+with the `00_router/` call and a manifest sealed `refused`, because the declined routing call used to be
+flushed by the very turn that no longer exists — the most common outcome would otherwise be the only
+unlogged one. A refusal raised *during* a workflow gets no folder (it would repoint the running run's
+`_currentLogDir`) and is recorded as an event of the run it interrupted. **Self-correction and the three
+baselines are untouched**: both are scoped to a step of a workflow that already started, which is not
+what this flag is about.
+
+### Exiting a guided workflow
+
+**One Exit button, at the right end of the replay row, replaces the per-step Cancel button.** The row
+reads `[◀] [progress] [▶] [▷ run from here] [⚖] [✕ exit]`, so Exit sits immediately right of "Run from
+here" whenever the baseline toggle is hidden — which it is on every step the pipeline does not answer
+with generated code. Anchored to the row's right edge rather than to a neighbour, so it does not shift
+as ⚖ appears and disappears, and icon-only like the rest of that row (a text label adds its width to
+the row's minimum and can force the module panel wider — see `_applyWidthSafeLabels`). Unlike the
+stepper buttons it is **not** driven by `_updateReplayControls`: it is available whenever the panel is
+up, including where replay is not. Cancel was a
+workflow *action* (`user_action="cancel"` through the runtime), so it only worked where the runtime
+could take an action and was hidden exactly where a user most needs a way out — a completed run, a step
+with no controls, the panel a dispatch error leaves behind. `_resetGuidedSession()` is a **local** reset
+instead: it never asks the runtime for permission, so it works in all of those states, and it is what
+the runtime's own `cancelled` result and `onSceneEndClose` now funnel through, so the ways a session can
+end cannot drift apart. Closing the scene matters especially: with no traditional turn left, a session
+still marked active would keep the prompt box and Send switched off with no escape.
+
+The teardown order is load-bearing, and each step of it is commented in
+`widget_workflow.py::_resetGuidedSession`. The three that are easy to get wrong:
+
+- `_clearCompletedWorkflowState(clear_replay=True)` runs **while `runtime.session` is still non-None** —
+  `clear_checkpoints()` is a no-op once it is None, and it is what restores the live scene if the user
+  was mid-replay-preview and deletes the hidden `vtkMRMLSceneViewNode` snapshots.
+- `reset_workflow_state(**None**)` clears the module-global mirrors for **all** extensions.
+  `start_for_extension` only resets its own, so a per-extension reset here would leave the *next*
+  procedure inheriting this one's completions, choices and loop counters.
+- **`_guidedSessionEpoch`** fences work already in flight. A self-correction round-trip is a background
+  thread and the auto-advance is a `QTimer.singleShot`; neither can be cancelled, so each captures the
+  epoch and `_guidedSessionAlive()` drops it when it no longer matches. Without it a repair can land
+  half a minute after Exit and execute code into a scene the user has left.
+
+Exit deliberately does **not** touch the MRML scene — what the procedure produced is the user's data,
+and closing a panel is not consent to delete it. It refuses (and changes nothing) while a baseline run
+or a stream is in flight, since tearing the session out from under either would orphan its record.
+
+**The extension's own lifecycle is the runtime's responsibility, because the runtime bypasses it.**
+A generated step carries a `# precondition:begin … selectModule('<Ext>') … precondition:end` block
+whose only purpose is to fire the extension's `enter()`. `_prepareGeneratedStepCode` **strips** it and
+calls `_ensureModuleEnteredInvisibly()` instead: entering for real would make the extension the active
+module, and SafeExecutor's restore would then fire its `exit()`, which hides plane handles and locks
+planes (BoneReconstructionPlanner) — breaking every later interactive step. So `enter()` is fired on
+the widget directly and the module is never made active.
+
+That has a consequence the cache originally got wrong. `enter()` is not one-off initialisation; it is
+the extension **binding itself to the current scene** — parameter node, selectors, markup observers.
+Slicer's own recovery from a scene close is `onSceneEndClose: if self.parent.isEntered:
+self.initializeParameterNode()`, and `isEntered` is False *by construction* here. So after
+File ▸ Close Scene the extension is permanently unbound, and a cache that said "entered once per
+session" made the next run drive its handlers with `self._parameterNode is None` —
+`'NoneType' object has no attribute 'inputFiducials'` at the first `extension_op` step. It is generic
+to Slicer's module template, not to one extension (3 of the 7 cookbook extensions are template-shaped).
+
+The cache is therefore **per scene, not per session**: `_invalidateInvisibleModuleEntries()` clears it
+on `onSceneEndClose`, and `_ensureModuleEnteredInvisibly` additionally re-enters when a cached module
+*looks* unbound — `_moduleWidgetNeedsReentry()` keys on the shape the module template mandates
+(`_parameterNode` absent, or pointing at a node no longer in the scene), never on an extension's
+identity, and fails open. Re-entry recovers the binding correctly rather than merely avoiding the
+crash: `initializeParameterNode()` ends in `_onInputsChanged()`, which reads the selector widgets the
+earlier `user_choice` steps already drove, so the recovered parameter node holds the nodes the user
+actually picked.
+
 ### Entry Point and Module Structure
 
 - `SlicerAIAgent.py` (~3600 lines) — Contains three Slicer-standard classes plus the bulk of runtime logic:
@@ -86,11 +179,17 @@ workflow graphs (name, step count, seven step descriptions **spread evenly acros
 the head names the inputs, the tail names the goal, which is what separates nine procedures that all
 open with the same Segment Editor boilerplate). Temperature 0, thinking off, no tools, no retrieval,
 no `conversation_history` write. On a match it calls `start_for_extension()` + `_runWorkflowStepDirect()`.
-It only ever *skips* work: unknown name, confidence < `DEFAULT_CONFIDENCE_THRESHOLD` (0.6), `null`, a
-malformed reply or an API failure all return False and the unchanged full turn answers the request.
-`ROUTER_ENABLED = False` restores the old behaviour in one line.
+Unknown name, confidence < `DEFAULT_CONFIDENCE_THRESHOLD` (0.6), `null`, a malformed reply or an API
+failure all return False. Under `GUIDED_ONLY_MODE` (see "Guided-only runtime") that False is a
+**refusal**, not a fall-through — so the router prompt says so in those words: telling the model that
+a `null` is handled by a coding agent that no longer exists is a false statement about the
+consequence of its own decision, which is exactly the kind of thing that biases it toward
+over-matching. It is told instead that a refusal is the intended outcome for an uncovered request and
+that its named near miss is shown to the user. `ROUTER_ENABLED = False` restores the pre-router
+behaviour in one line (and under guided-only means every request is refused, which the dialog says).
 
-**2. General Slicer requests → `system_prompt.md`, unchanged.** `_buildSystemPrompt()` assembles it
+**2. General Slicer requests → `system_prompt.md`, unchanged.** Reached only with
+`GUIDED_ONLY_MODE = False`; self-correction (path 3) uses the same assembly and is always live. `_buildSystemPrompt()` assembles it
 from the template + platform info + role protocol + output format + `## RELEVANT KNOWLEDGE BASE
 SNIPPETS` (dense pre-retrieval) + `## CURRENT SLICER SCENE` + the extension CLI sections +
 `## ACTIVE WORKFLOW`. Extension source is searchable via the `ext:` prefix (`ext:VoxTell/`).
@@ -305,7 +404,7 @@ The ⚖ button is **hidden outright** on a step whose operation type cannot be c
 
 Two separate notions still drive the rest: **`_baselineActive`** is the toggle intent, while **`_baselineEngaged()`** is that intent resolved against the step in view (`active and eligible`, plus always-true while a run is in flight). Engagement — not the raw toggle — drives the selector row's visibility, the prompt/Send gate (`_guidedWorkflowOwnsInput`), Send's caption, and Send's routing. The button is `setCheckable(True)` so the armed state is legible.
 
-**Input gating** (`WidgetStreamingMixin`, "Free-text input availability"). Once a generated-CLI workflow is running, every step is dispatched by the runtime and driven from the workflow panel's own controls, so `promptInput` and `sendButton` are switched off for the duration — and switched back on by baseline mode, which is exactly the mode that needs them. `_guidedWorkflowOwnsInput()` is the predicate (`has_active_workflow() and not _baselineActive`); `_setSendEnabled()` is the single funnel every *enabling* call site goes through, so no stray `setEnabled(True)` can defeat the gate (the `setEnabled(False)` sites are left direct — disabling is always safe). `_refreshInputAvailability()` re-applies it and is called from `_updateBaselineControls`, which runs on every `_updateWorkflowPanel`. Escape hatch when a workflow is stuck: the panel's Cancel button ends the session and returns the input row.
+**Input gating** (`WidgetStreamingMixin`, "Free-text input availability"). Once a generated-CLI workflow is running, every step is dispatched by the runtime and driven from the workflow panel's own controls, so `promptInput` and `sendButton` are switched off for the duration — and switched back on by baseline mode, which is exactly the mode that needs them. `_guidedWorkflowOwnsInput()` is the predicate (`has_active_workflow() and not _baselineActive`); `_setSendEnabled()` is the single funnel every *enabling* call site goes through, so no stray `setEnabled(True)` can defeat the gate (the `setEnabled(False)` sites are left direct — disabling is always safe). `_refreshInputAvailability()` re-applies it and is called from `_updateBaselineControls`, which runs on every `_updateWorkflowPanel`. Escape hatch when a workflow is stuck: the panel's **Exit** button (right end of the replay row) resets the session and returns the input row — the only escape now that there is no traditional turn, which is why it is visible unconditionally while the panel is up and why `onSceneEndClose` triggers the same reset.
 
 **Debug-view isolation** (`WidgetStreamingMixin`, "Debug-view contexts"). The Debug section's two pages are shared by the pipeline and each baseline, but their content never mixes. Two pointers do it: `_debugContext` (which buffer is *displayed* — the ⚖ toggle and the baseline selector move it) and `_debugWriteContext` (which buffer new content is *written to* — the producer currently running moves it). `_chatEntriesHtml` plus the two widgets always hold the displayed buffer; the others are parked in `_debugBuffers` and swapped by `_switchDebugContext`. Every chat append goes through `_debugWriteEntries()` and every code write through `_setGeneratedCode()`, so the two pointers may diverge: when a baseline run finishes and auto-advance hands back to the pipeline, the pipeline's output accumulates invisibly in the `pipeline` buffer and reappears complete the moment the baseline row is closed. Baseline reasoning is committed permanently (the pipeline's streaming entry hides it after `thinking_done`); the online-only tool loop commits one entry per reasoning round via the `baseline_thinking` queue event.
 
@@ -328,7 +427,9 @@ logs/20260730_143210_pipeline_BoneReconstructionPlanner/
 
 Sorting by name gives chronological order; `dir *pureLLM*` gives one condition. The condition token
 (`pipeline` / `pureLLM` / `onlineOnly` / `claudeCode`) is what separates the system under test from
-the three comparison baselines. A general, non-workflow turn is `<stamp>_pipeline_task_turnN`.
+the three comparison baselines. A general, non-workflow turn is `<stamp>_pipeline_task_turnN`; a
+request the router refused under `GUIDED_ONLY_MODE` is `<stamp>_pipeline_refused`, holding the
+`00_router/` call that declined it and a manifest sealed `refused` with the cause.
 
 **One run folder per workflow, one subfolder per step.** Chat turns that drive an already-active
 workflow ("done", a choice) keep writing into the same run folder rather than each opening a new
@@ -360,6 +461,88 @@ A baseline folder is flat (it is one step by construction) and additionally hold
 `messages_sent.txt` / `.json` (the **exact** payload the condition received, so a reviewer can
 confirm no offline-analysis artefact reached it), `step_context.json`, and the
 `baseline_<step>_<mode>_a<n>_<time>.json` record.
+
+**`logs/<run>/Statistic/` — what pressing Exit leaves behind.** A run folder stays self-contained, so
+copying or deleting one takes its statistics with it:
+
+```
+logs/20260803_101200_pipeline_ZygomaticImplantPlanner/
+  Statistic/
+    timing.txt
+    scene/
+      scene.mrml
+      Cranial_Segmentation.seg.nrrd
+      SkullModel.vtk
+      SymmetryPlane.mrk.json
+      ImplantPath_1.mrk.json …
+```
+
+**The scene folder is flat, matching File ▸ Save Data with every row pointed at one directory.**
+`slicer.util.saveScene(<dir>)` cannot produce that: a directory path routes to
+`qSlicerSceneWriter::writeToDirectory` → `SaveSceneToSlicerDataBundleDirectory`, which builds `Data/`
+and `private/` subfolders. `_saveSceneFlat()` reproduces `qSlicerSaveDataDialogPrivate` instead —
+skip non-storable / `HideFromEditors` / `!SaveWithScene` nodes, `AddDefaultStorageNode()` and skip
+anything that needs none (it lives in the scene), skip `fileWriterFileType == "NoFile"`, name each
+file `<sanitised node name>.<GetDefaultWriteFileExtension()>` (so a segmentation lands as
+`.seg.nrrd` and a markup as `.mrk.json`, exactly as the dialog shows), and write the **nodes first,
+the scene last** so the `.mrml` records the paths just written. Same-named nodes are de-duplicated
+rather than silently overwriting each other.
+
+Every mutation it makes to the live scene is undone in a `finally`: storage-node file names, the
+scene URL and root directory, and — critically — `SetStorableNodesModifiedSinceRead()`. Writing a
+storable node stamps its `StoredTime`, which clears `GetModifiedSinceRead()` scene-wide; without the
+restore the surgeon's own segmentations would show as "Not Modified" and unchecked in File ▸ Save
+Data, quitting Slicer would raise no unsaved-data warning, and the only copy on disk would be the one
+inside `logs/`. Slicer's own MRB writer does the same restore for the same reason
+(`qSlicerSceneWriter::writeToMRB`); the directory writer does not.
+
+**Two clocks, because one is not enough.** The manifest's per-step `seconds` is the time SafeExecutor
+spent running that step's code — *machine* time. It is not how long the step took: a `user_choice`
+step whose code runs in 8 ms sits on screen for as long as the surgeon takes to pick a node, and a
+`user_interaction` step is almost entirely hand time. So `RunManifest.open_step()` stamps
+`opened_epoch` when the step appears and `finish_step()` stamps `completed_epoch` when the workflow
+moves past it, giving three columns per step: **wall** (screen to screen), **exec** (accumulated
+across pre+post templates, repair retries and loop iterations — so `exec_seconds_total`, not the last
+run's duration), and **wait** = wall − exec, attributed to *the surgeon* on the four
+`HUMAN_IN_LOOP_TYPES` and to *runtime overhead* on the automated two. The total is anchored to the
+**Send click** (`send_clicked_epoch`), not to the manifest's own `started_epoch`, which is stamped
+only once the router has answered — several seconds the surgeon sat through would otherwise vanish;
+it decomposes into startup / inside the steps / between steps / waiting for Exit, which sum to it.
+
+Four invariants that are easy to get wrong, each enforced in code because getting one wrong produces
+a plausible number rather than an error:
+
+- **A step is measured per *visit*, not first-open-to-last-completion.** Within one visit
+  (`start` → `choice_made`/`proceed`) the clock must *not* restart, or a choice step's think time and
+  an interaction step's placement time — the whole point — are erased. But a step can be **re-visited**:
+  a repeat block re-arms its body and re-dispatches every member with `start` (6 of the 9 workflows
+  have multi-step loop bodies), and the replay stepper and baseline harness re-run steps the same way.
+  Spanning that would make each body step cover the *whole loop* including its siblings — per-step
+  spans overlap, their sum exceeds the run they are reported against, and a neighbouring interaction's
+  hand time prints as an automated step's overhead. So `open_step` banks the closed span and starts a
+  new one **only on `action="start"`**, and `wall_seconds` is their sum.
+- **A step entering a wait is not a step completing.** An interactive step runs its PRE template on
+  `start`, and the execution recorder stamps every execution as a completion — it runs before the
+  runtime has decided. `reopen_step()` retracts that stamp on the confirmed entering-wait branch, so
+  the real completion lands when the POST template runs after Done.
+- **The no-code path only completes a step that actually moved on** (`next_step` or
+  `workflow_completed`), since it is also reached by a step entering a wait.
+- **`build_run_statistics()` is a pure function of the manifest**, so the same report can be
+  re-derived later from `run_manifest.json` alone; and its four-way split is never clamped — a
+  negative residual prints as `[!] clocks inconsistent` rather than being hidden, because that
+  residual is the only evidence a reader has that the two clocks disagree.
+
+Writing the report also closed a gap it depended on: steps that produce no code never left `running`
+in the manifest — four steps of a completed 27-step run were recorded that way.
+
+The scene is saved **after** the replay timeline is torn down, so the one hidden
+`vtkMRMLSceneViewNode` per step is already gone — otherwise the folder would carry a full copy of
+every intermediate state. Both halves are fail-soft and independent: a scene that cannot be saved
+still produces the report, with the failure recorded *in* it. Only the Exit button triggers this;
+the other two callers of `_resetGuidedSession` are a runtime cancel and a scene close, and on the
+latter there is no scene left to save. The confirmation dialog names both paths, and is now shown
+even when nothing is at risk — saving is the main thing Exit does on a *finished* run, and a dialog
+seen only when something is about to be destroyed would never mention it on the common path.
 
 **The aggregate view is derived, not written.** `scripts/collect_runs.py` walks `logs/` and emits one
 row per (run, step) across **all four** conditions — `--step cb_step_9` prints that step under every

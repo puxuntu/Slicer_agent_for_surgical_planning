@@ -131,7 +131,6 @@ class WidgetCoreMixin:
         self._workflowInstructionLabel = self.ui.findChild(qt.QLabel, "workflowInstructionLabel")
         self._workflowDoneButton = self.ui.findChild(qt.QPushButton, "workflowDoneButton")
         self._workflowSkipButton = self.ui.findChild(qt.QPushButton, "workflowSkipButton")
-        self._workflowCancelButton = self.ui.findChild(qt.QPushButton, "workflowCancelButton")
         self._workflowChoiceContainer = self.ui.findChild(qt.QWidget, "workflowChoiceContainer")
         self._workflowChoiceLayout = (
             self._workflowChoiceContainer.layout()

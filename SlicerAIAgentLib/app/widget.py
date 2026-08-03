@@ -110,6 +110,16 @@ class SlicerAIAgentWidget(
         self._taskWorkflowPanelActive = False
         self._announcedWorkflowIds = set()
         self._currentWorkflowStepInfo = None
+        # Exit control: one button, bottom right of the workflow panel, that
+        # closes and resets the guided session (it replaced the per-step Cancel).
+        self._workflowExitButton = None
+        self._workflowExitRow = None
+        # Bumped by every guided-session reset. Deferred work started by the old
+        # session (a QTimer auto-advance, a self-correction still in the API)
+        # cannot be cancelled, so it captures this number and drops out when it
+        # no longer matches -- otherwise code lands in a scene the user has
+        # already exited from. See _resetGuidedSession.
+        self._guidedSessionEpoch = 0
         # Replay stepper UI (Back / Forward / Run-from-here around the progress bar)
         self._replayControlsRow = None
         self._replayBackButton = None
@@ -133,9 +143,12 @@ class SlicerAIAgentWidget(
         self._mcpAutoStartError = ""
         self._baselineActiveRun = None
         self._baselineRejection = ""
-        # Last fast-router decision that DECLINED, so the full turn that follows
-        # can account for its cost (see WidgetStreamingMixin's router path).
+        # Last fast-router decision that DECLINED, so the turn that follows can
+        # account for its cost (see WidgetStreamingMixin's router path).
         self._lastRouterDecision = None
+        # Why the router declined, in a form the refusal dialog can explain --
+        # "no API key" and "no procedure does this" need opposite remedies.
+        self._lastRouterRejection = None
         self._lastInjectedPreludeKeys = []
 
     def onReload(self):

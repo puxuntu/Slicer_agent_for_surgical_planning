@@ -1119,7 +1119,6 @@ class WorkflowTestsMixin:
             completed = runtime.state_for_ui({"workflow_completed": True})
             self.assertEqual(completed["status"], "Completed")
             self.assertEqual(completed["completed_steps"], 3)
-            self.assertFalse(completed["can_cancel"])
         finally:
             wf_mod.get_workflow_graph = original_get_workflow_graph
 

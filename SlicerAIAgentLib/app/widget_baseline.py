@@ -1545,7 +1545,8 @@ class WidgetBaselineMixin:
         if next_step:
             self._updateWorkflowPanel(runtime.state_for_ui(updated))
             self._autoAdvanceWorkflowStep = None
-            qt.QTimer.singleShot(150, lambda: self._autoAdvanceNextStep(next_step))
+            _epoch = getattr(self, "_guidedSessionEpoch", 0)
+            qt.QTimer.singleShot(150, lambda: self._autoAdvanceNextStep(next_step, _epoch))
             return
         if updated.get("workflow_completed"):
             self._updateWorkflowPanel(updated)

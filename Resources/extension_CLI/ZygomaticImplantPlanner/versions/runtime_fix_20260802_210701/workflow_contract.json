@@ -1,0 +1,1590 @@
+{
+  "schema_version": 2,
+  "pipeline_version": "agentic-cli-v3",
+  "extension_name": "ZygomaticImplantPlanner",
+  "extension_module_name": "ZygomaticImplantPlanner",
+  "logic_class_name": "ZygomaticImplantPlannerLogic",
+  "source_path": "C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions/ZygomaticImplantPlanner",
+  "cookbook_file": "ZygomaticImplantPlanner.md",
+  "steps": [
+    {
+      "step_id": "cb_step_1",
+      "index": 0,
+      "description": "In the \"Segment Editor\" module, under the \"Source Volume\" selection section, choose the volume for segmentation.",
+      "operation_type": "user_choice",
+      "depends_on": [],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_1_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Choose the source volume for segmentation in the Segment Editor module.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "Segment Editor",
+            "Source Volume",
+            "volume selection",
+            "vtkMRMLNode"
+          ],
+          "parameter_name": "sourceVolume",
+          "node_class": "vtkMRMLNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_2",
+      "index": 1,
+      "description": "In the \"Segment Editor\" module, create a new segmentation named \"Cranial_Segmentation\".",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_1"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_2_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Create a new segmentation named Cranial_Segmentation in the Segment Editor.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "vtkMRMLSegmentationNode",
+            "Segment Editor",
+            "new segmentation",
+            "AddNewNodeByClass"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLSegmentationNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_2_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_3",
+      "index": 2,
+      "description": "In the \"Segment Editor\" module, click the \"Add\" button and rename the segment to \"Cranial_Segment\".",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_2"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_3_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Add a new segment to the segmentation and rename it to Cranial_Segment.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "vtkMRMLSegmentationNode",
+            "Segment Editor",
+            "add segment",
+            "rename segment"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLSegmentationNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_3_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_4",
+      "index": 3,
+      "description": "In the \"Segment Editor\" module, click the \"Threshold\" button.",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_3"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_4_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Activate the Threshold effect in the Segment Editor.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "Segment Editor",
+            "Threshold",
+            "effect",
+            "SetActiveEffect"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLSegmentationNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_4_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_5",
+      "index": 4,
+      "description": "In the \"Segment Editor\" module, adjust the threshold range bar to set the range value for segmentation.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_4"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_5_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Adjust the threshold range bar to set the segmentation range.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "Segment Editor",
+            "Threshold",
+            "range",
+            "slider"
+          ],
+          "parameter_name": "thresholdRange",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_6",
+      "index": 5,
+      "description": "In the \"Segment Editor\" module, click the \"Apply\" button.",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_5"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_6_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Apply the threshold effect to the active segment.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "generic_slicer_api",
+          "slicer_api_keywords": [
+            "Segment Editor",
+            "Threshold",
+            "Apply",
+            "effect apply"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLSegmentationNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_6_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_7",
+      "index": 6,
+      "description": "In the \"Skull segmentation\" section, choose the segment node.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_6"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_7_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Select the skull segmentation node used by the extension.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "vtkMRMLSegmentationNode",
+            "skull segmentation",
+            "selection"
+          ],
+          "parameter_name": "segmentation",
+          "node_class": "vtkMRMLSegmentationNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_8",
+      "index": 7,
+      "description": "In the \"Entry points\" section, choose the Point List node.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_7"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_8_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Select the entry points Point List node containing the fiducials.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "vtkMRMLMarkupsFiducialNode",
+            "entry points",
+            "Point List",
+            "selection"
+          ],
+          "parameter_name": "fiducials",
+          "node_class": "vtkMRMLMarkupsFiducialNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_9",
+      "index": 8,
+      "description": "Click the \"1. Compute symmetry plane\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_8"
+      ],
+      "is_optional": false,
+      "method_name": "computeSymmetryPlane",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_9_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Run Step 1 to compute the symmetry plane and display the skull model.",
+          "extension_method_hint": "computeSymmetryPlane",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "computeSymmetryPlane",
+            "symmetry plane",
+            "vtkMRMLMarkupsPlaneNode"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLMarkupsPlaneNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_9.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_10",
+      "index": 9,
+      "description": "If further adjustments are required, tick the \"Manually adjust the symmetry plane\" checkbox. If not, jump to step 13.",
+      "operation_type": "branch_op",
+      "depends_on": [
+        "cb_step_9"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_10_op_1",
+          "operation_type": "branch_op",
+          "intent": "",
+          "description": "If further symmetry plane adjustments are required, enable manual adjustment; otherwise skip to step 13.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "refineSymmetryCheckBox",
+            "symmetry plane",
+            "manual adjustment"
+          ],
+          "parameter_name": "refine",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "branch_op",
+        "op_types": [
+          "branch_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_11",
+      "index": 10,
+      "description": "Manually adjust the symmetry plane.",
+      "operation_type": "user_interaction",
+      "depends_on": [
+        "cb_step_10"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_11_op_1",
+          "operation_type": "user_interaction",
+          "intent": "",
+          "description": "Manually adjust the symmetry plane using its interactive handles.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "vtkMRMLMarkupsPlaneNode",
+            "handles",
+            "Translate",
+            "Rotate"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLMarkupsPlaneNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {
+        "interaction_kind": "markup_placement",
+        "interaction_type": "plane",
+        "node_class": "vtkMRMLMarkupsPlaneNode",
+        "placement_instructions": "Manually adjust the symmetry plane using its interactive handles.",
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "previous_step"
+      },
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "markup_placement"
+        ]
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "templates/cb_step_11_pre.py.tpl",
+        "post_template_file": "templates/cb_step_11_post.py.tpl",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_12",
+      "index": 11,
+      "description": "Click the \"Apply adjustment\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_11"
+      ],
+      "is_optional": false,
+      "method_name": "refineSymmetryPlaneFromHandle",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_12_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Apply the manual symmetry plane adjustment.",
+          "extension_method_hint": "refineSymmetryPlaneFromHandle",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "refineSymmetryPlaneFromHandle",
+            "symmetry plane",
+            "apply adjustment"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLMarkupsPlaneNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_12.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_13",
+      "index": 12,
+      "description": "In the \"Crop radius (mm)\" section, adjust the range bar to set the range value for crop.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_12"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_13_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Adjust the crop radius range in mm for the skull cylinder cut.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "cropRadiusSliderWidget",
+            "crop radius",
+            "range",
+            "mm"
+          ],
+          "parameter_name": "cropRadius",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_14",
+      "index": 13,
+      "description": "Click the \"2. Cut skull (cylinder)\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_13"
+      ],
+      "is_optional": false,
+      "method_name": "computeCutting",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_14_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Run Step 2 to cut the skull with a cylinder.",
+          "extension_method_hint": "computeCutting",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "computeCutting",
+            "cropByCylinder",
+            "crop",
+            "vtkMRMLModelNode"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLModelNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_14.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_15",
+      "index": 14,
+      "description": "If the mandible is still attached to the maxilla, tick the \"The mandible is still attached to the maxilla\" checkbox. If not, jump to step 20.",
+      "operation_type": "branch_op",
+      "depends_on": [
+        "cb_step_14"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_15_op_1",
+          "operation_type": "branch_op",
+          "intent": "",
+          "description": "If the mandible is still attached to the maxilla, run separation; otherwise skip to step 20.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "mandibleConnectedCheckBox",
+            "mandible attached",
+            "maxilla",
+            "separation"
+          ],
+          "parameter_name": "mandibleConnected",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "branch_op",
+        "op_types": [
+          "branch_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_16",
+      "index": 15,
+      "description": "Click the \"3. Seperate maxilla / mandible\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_15"
+      ],
+      "is_optional": false,
+      "method_name": "computeMaxillaMandible",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_16_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Run Step 3 to separate the maxilla and mandible.",
+          "extension_method_hint": "computeMaxillaMandible",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "computeMaxillaMandible",
+            "maxilla",
+            "mandible",
+            "separation",
+            "vtkMRMLModelNode"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLModelNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_16.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_17",
+      "index": 16,
+      "description": "If further adjustments are required, tick the \"Manually adjust the segmentation plane\" checkbox. If not, jump to step 20.",
+      "operation_type": "branch_op",
+      "depends_on": [
+        "cb_step_16"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_17_op_1",
+          "operation_type": "branch_op",
+          "intent": "",
+          "description": "If further separation plane adjustments are required, enable manual adjustment; otherwise skip to step 20.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "refineMaxillaCheckBox",
+            "separation plane",
+            "manual adjustment"
+          ],
+          "parameter_name": "refine",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "branch_op",
+        "op_types": [
+          "branch_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_18",
+      "index": 17,
+      "description": "Manually adjust the separation plane.",
+      "operation_type": "user_interaction",
+      "depends_on": [
+        "cb_step_17"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_18_op_1",
+          "operation_type": "user_interaction",
+          "intent": "",
+          "description": "Manually adjust the maxilla/mandible separation plane using its interactive handles.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "vtkMRMLMarkupsPlaneNode",
+            "separation plane",
+            "handles",
+            "Translate",
+            "Rotate"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLMarkupsPlaneNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {
+        "interaction_kind": "markup_placement",
+        "interaction_type": "plane",
+        "node_class": "vtkMRMLMarkupsPlaneNode",
+        "placement_instructions": "Manually adjust the maxilla/mandible separation plane using its interactive handles.",
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "previous_step"
+      },
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "markup_placement"
+        ]
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "templates/cb_step_18_pre.py.tpl",
+        "post_template_file": "templates/cb_step_18_post.py.tpl",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_19",
+      "index": 18,
+      "description": "Click the \"Apply separation\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_18"
+      ],
+      "is_optional": false,
+      "method_name": "computeMaxillaMandible",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_19_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Apply the manual separation plane adjustment.",
+          "extension_method_hint": "computeMaxillaMandible",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "computeMaxillaMandible",
+            "apply separation",
+            "maxilla",
+            "mandible"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLModelNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_19.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_20",
+      "index": 19,
+      "description": "Click the \"4. Identify zygomatic bones\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_19"
+      ],
+      "is_optional": false,
+      "method_name": "computeZygoma",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_20_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Run Step 4 to identify the zygomatic bones and boundary planes.",
+          "extension_method_hint": "computeZygoma",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "computeZygoma",
+            "getZygomaticBones",
+            "zygomatic",
+            "boundary planes"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLModelNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_20.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_21",
+      "index": 20,
+      "description": "If further adjustments are required, tick the \"Manually adjust the boundary planes\" checkbox. If not, jump to step 24.",
+      "operation_type": "branch_op",
+      "depends_on": [
+        "cb_step_20"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_21_op_1",
+          "operation_type": "branch_op",
+          "intent": "",
+          "description": "If further boundary plane adjustments are required, enable manual adjustment; otherwise skip to step 24.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "refineZygomaCheckBox",
+            "boundary plane",
+            "manual adjustment"
+          ],
+          "parameter_name": "refine",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "branch_op",
+        "op_types": [
+          "branch_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_22",
+      "index": 21,
+      "description": "Manually adjust the boundary planes.",
+      "operation_type": "user_interaction",
+      "depends_on": [
+        "cb_step_21"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_22_op_1",
+          "operation_type": "user_interaction",
+          "intent": "",
+          "description": "Manually adjust the left and right boundary planes using their interactive handles.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "vtkMRMLMarkupsPlaneNode",
+            "boundary plane",
+            "handles",
+            "Translate",
+            "Rotate"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLMarkupsPlaneNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {
+        "interaction_kind": "markup_placement",
+        "interaction_type": "plane",
+        "node_class": "vtkMRMLMarkupsPlaneNode",
+        "placement_instructions": "Manually adjust the left and right boundary planes using their interactive handles.",
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "previous_step"
+      },
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "markup_placement"
+        ]
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "templates/cb_step_22_pre.py.tpl",
+        "post_template_file": "templates/cb_step_22_post.py.tpl",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_23",
+      "index": 22,
+      "description": "Click the \"Apply boundaries\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_22"
+      ],
+      "is_optional": false,
+      "method_name": "computeZygoma",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_23_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Apply the manual boundary plane adjustment.",
+          "extension_method_hint": "computeZygoma",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "computeZygoma",
+            "apply boundaries",
+            "zygomatic",
+            "boundary planes"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLModelNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_23.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_24",
+      "index": 23,
+      "description": "Click the \"5. Generate Implant paths\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_23"
+      ],
+      "is_optional": false,
+      "method_name": "computePaths",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_24_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Run Step 5 to generate implant paths and the plan table.",
+          "extension_method_hint": "computePaths",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "computePaths",
+            "generateOptimalPaths",
+            "implant path",
+            "vtkMRMLMarkupsLineNode"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLMarkupsLineNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_24.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_25",
+      "index": 24,
+      "description": "If further adjustments are required, tick the \"Manually adjust the paths\" checkbox. If not, stop here.",
+      "operation_type": "branch_op",
+      "depends_on": [
+        "cb_step_24"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_25_op_1",
+          "operation_type": "branch_op",
+          "intent": "",
+          "description": "If further implant path adjustments are required, enable manual adjustment; otherwise stop here.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "refinePathsCheckBox",
+            "implant path",
+            "manual adjustment"
+          ],
+          "parameter_name": "refinePaths",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "branch_op",
+        "op_types": [
+          "branch_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_26",
+      "index": 25,
+      "description": "Manually adjust the paths.",
+      "operation_type": "user_interaction",
+      "depends_on": [
+        "cb_step_25"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_26_op_1",
+          "operation_type": "user_interaction",
+          "intent": "",
+          "description": "Manually adjust the implant path line endpoints using interactive handles.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "vtkMRMLMarkupsLineNode",
+            "implant path",
+            "handles",
+            "Translate",
+            "SetLocked"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLMarkupsLineNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {
+        "interaction_kind": "markup_placement",
+        "interaction_type": "line",
+        "node_class": "vtkMRMLMarkupsLineNode",
+        "placement_instructions": "Manually adjust the implant path line endpoints using interactive handles.",
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "previous_step"
+      },
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "markup_placement"
+        ]
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "templates/cb_step_26_pre.py.tpl",
+        "post_template_file": "templates/cb_step_26_post.py.tpl",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_27",
+      "index": 26,
+      "description": "Click the \"Apply paths\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_26"
+      ],
+      "is_optional": false,
+      "method_name": "applyManualPaths",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_27_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Apply the manual path adjustments and update the plan table.",
+          "extension_method_hint": "applyManualPaths",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "applyManualPaths",
+            "updateImplantForLine",
+            "plan table",
+            "vtkMRMLTableNode"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_27.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    }
+  ],
+  "metadata_refs": {
+    "parameter_bindings": [],
+    "operation_model_steps": [
+      "cb_step_1",
+      "cb_step_10",
+      "cb_step_11",
+      "cb_step_12",
+      "cb_step_13",
+      "cb_step_14",
+      "cb_step_15",
+      "cb_step_16",
+      "cb_step_17",
+      "cb_step_18",
+      "cb_step_19",
+      "cb_step_2",
+      "cb_step_20",
+      "cb_step_21",
+      "cb_step_22",
+      "cb_step_23",
+      "cb_step_24",
+      "cb_step_25",
+      "cb_step_26",
+      "cb_step_27",
+      "cb_step_3",
+      "cb_step_4",
+      "cb_step_5",
+      "cb_step_6",
+      "cb_step_7",
+      "cb_step_8",
+      "cb_step_9"
+    ]
+  }
+}

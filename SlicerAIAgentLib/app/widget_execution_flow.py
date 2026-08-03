@@ -116,8 +116,13 @@ class WidgetExecutionFlowMixin:
         step_id = getattr(self, "_currentStepId", "")
         if manifest is not None and step_id:
             execution = execution or {}
-            manifest.add_step(
+            # finish_step, not add_step: `seconds` keeps its old meaning (this
+            # execution) for scripts/collect_runs.py, while completed_epoch /
+            # wall_seconds / exec_seconds_total give the step's real duration --
+            # which for anything a person answers is mostly not execution time.
+            manifest.finish_step(
                 step_id,
+                exec_seconds=execution.get("execution_time"),
                 folder=os.path.basename(step_dir),
                 status="ok" if execution.get("success") else "failed",
                 seconds=execution.get("execution_time"),
@@ -809,7 +814,6 @@ class WidgetExecutionFlowMixin:
                         "total_steps": self._currentWorkflowUiState.get("total_steps", 0),
                         "completed_steps": self._currentWorkflowUiState.get("completed_steps", 0),
                         "current_index": self._currentWorkflowUiState.get("current_index", 0),
-                        "can_cancel": True,
                     })
                 feedback_lines.append(f"Status: timed_out\nExecution time: {exec_time:.1f}s\nOutput: {output}")
             elif result["success"]:
@@ -944,6 +948,14 @@ class WidgetExecutionFlowMixin:
                 self._applyWorkflowDisplayProperties(updated_step)
                 self._updateWorkflowPanel(updated_step)
                 if updated_step.get("type") in ("interactive", "mixed"):
+                    # What just ran was the step's PRE template; the step is now
+                    # waiting for the user, not finished. _saveExecutionResultToFile
+                    # above stamped it complete (it runs before the runtime has
+                    # decided), so retract that -- the real completion lands when
+                    # the POST template runs after Done.
+                    manifest = self._runManifest()
+                    if manifest is not None and updated_step.get("step_id"):
+                        manifest.reopen_step(updated_step.get("step_id"))
                     self._recordRoleEvent("Workflow", "entering_wait", {
                         "step_id": updated_step.get("step_id"),
                     })
@@ -1043,7 +1055,6 @@ class WidgetExecutionFlowMixin:
                                         "description": "Workflow complete.",
                                         "can_done": False,
                                         "can_skip": False,
-                                        "can_cancel": False,
                                     })
                                     self._clearCompletedWorkflowState()
                         except Exception as e:
@@ -1118,7 +1129,6 @@ class WidgetExecutionFlowMixin:
                             "total_steps": 0,
                             "can_done": False,
                             "can_skip": False,
-                            "can_cancel": False,
                         })
                         self._taskWorkflowPanelActive = False
                     self._setReadyStatus()
@@ -1145,7 +1155,8 @@ class WidgetExecutionFlowMixin:
                     # Use a timer to schedule the next step as a new user-like turn
                     step_id = next_step["step_id"]
                     # Schedule the auto-advance on the Qt main thread
-                    qt.QTimer.singleShot(100, lambda: self._autoAdvanceNextStep(next_step))
+                    _epoch = getattr(self, "_guidedSessionEpoch", 0)
+                    qt.QTimer.singleShot(100, lambda: self._autoAdvanceNextStep(next_step, _epoch))
                 else:
                     self._setReadyStatus()
 
@@ -1195,8 +1206,76 @@ class WidgetExecutionFlowMixin:
             logger.debug("Precondition strip failed; running code as-is", exc_info=True)
             return code
 
+    def _invalidateInvisibleModuleEntries(self, reason=""):
+        """Forget which modules were invisibly entered, so the next step re-enters.
+
+        ``enter()`` is not a one-off initialisation — it is the extension binding
+        itself to the **current scene** (its parameter node, its selectors, its
+        markup observers). Closing the scene destroys everything it bound, and
+        Slicer's own recovery hook cannot repair it here: the standard module
+        template guards it with ``if self.parent.isEntered``, and under the guided
+        runtime the module is deliberately never made active, so ``isEntered`` is
+        always False. The extension is therefore left permanently unbound, and the
+        next run of the same procedure calls its handlers with a None parameter
+        node ("'NoneType' object has no attribute ..."). Dropping the cache here
+        is what lets the next step re-fire ``enter()`` and re-bind.
+        """
+        entered = getattr(self, "_invisiblyEnteredModules", None)
+        if not entered:
+            return
+        logger.info(
+            "[Workflow] Invalidating invisible module entry for %s (%s)",
+            sorted(entered), reason or "scene changed",
+        )
+        entered.clear()
+
+    def _moduleWidgetNeedsReentry(self, module_widget):
+        """True when a widget we already entered has nulled its own parameter node.
+
+        A NARROW second line of defence, not a general scene-change detector.
+        The actual repair is the ``EndCloseEvent`` invalidation in
+        ``WidgetStreamingMixin.onSceneEndClose``; this only catches the case
+        where that hook did not run (it is wrapped in try/except there). Do not
+        delete the hook on the strength of this probe.
+
+        Of its two tests, only the first can realistically fire for the
+        extensions this runtime drives:
+
+        * ``_parameterNode is None`` — fires because an extension nulls it
+          itself, e.g. ``ZygomaticImplantPlanner.onSceneStartClose`` ->
+          ``setParameterNode(None)``. Across the cookbook extensions every such
+          call sits in that same hook, so it cannot fire without a scene close.
+          It is also absent entirely on four of them (CranialImplantPlanning,
+          OrbitalFractureReconstruction, ReverseShoulderArthroplasty,
+          PedicleScrewSimulator), which keep no ``_parameterNode`` at all —
+          none of those gate their scene-close recovery on ``isEntered``, so
+          none of them need re-entry.
+        * "node no longer in the scene" — effectively never fires. A
+          ``ScriptedLoadableModuleLogic`` parameter node is a singleton
+          (``isSingletonParameterNode = True``) and Close Scene is
+          ``Clear(false)``, which preserves singletons: the node survives with
+          the same ID and merely emptied parameters, so ``GetNodeByID``
+          resolves. Kept because it costs nothing and is the correct test for a
+          non-singleton parameter node.
+
+        Fail-open — any widget that does not follow the template, or any error,
+        reports False and the existing behaviour is unchanged.
+        """
+        if module_widget is None or not hasattr(module_widget, "_parameterNode"):
+            return False
+        node = getattr(module_widget, "_parameterNode", None)
+        if node is None:
+            return True
+        try:
+            # parameterNodeWrapper wraps the MRML node; classic code holds it directly.
+            mrml = getattr(node, "parameterNode", node)
+            node_id = mrml.GetID()
+            return bool(node_id) and slicer.mrmlScene.GetNodeByID(node_id) is None
+        except Exception:
+            return False
+
     def _ensureModuleEnteredInvisibly(self, module_name):
-        """Fire a module's enter() lifecycle once per session WITHOUT switching
+        """Fire a module's enter() lifecycle once per scene WITHOUT switching
         the visible/active module.
 
         `getModuleWidget` creates/sets up the module's widget without showing it;
@@ -1205,6 +1284,9 @@ class WidgetExecutionFlowMixin:
         the active module never changes, Slicer never calls the extension's exit()
         — so it never tears down the interaction handles / lock state. Fail-open:
         if enter() cannot run out of context, the step's own logic usually copes.
+
+        Once per SCENE, not once per Slicer session: see
+        _invalidateInvisibleModuleEntries for why the distinction is load-bearing.
         """
         if not module_name:
             return
@@ -1212,7 +1294,23 @@ class WidgetExecutionFlowMixin:
         if entered is None:
             entered = self._invisiblyEnteredModules = set()
         if module_name in entered:
-            return
+            # Cached — but verify the binding actually survived. Cheap (the
+            # widget already exists, so this forces no setup). Narrow by design:
+            # see _moduleWidgetNeedsReentry for exactly what it can detect. The
+            # invalidation on EndCloseEvent is what actually repairs the common
+            # case; this only covers that hook failing.
+            try:
+                if not self._moduleWidgetNeedsReentry(
+                    slicer.util.getModuleWidget(module_name)
+                ):
+                    return
+                logger.info(
+                    "[Workflow] %s is entered but unbound from the scene; re-entering",
+                    module_name,
+                )
+            except Exception:
+                logger.debug("Module re-entry check failed for %s", module_name, exc_info=True)
+                return
         # Mark first so a partial failure never retries on every step.
         entered.add(module_name)
         try:

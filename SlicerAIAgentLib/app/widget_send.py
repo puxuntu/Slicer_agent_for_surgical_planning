@@ -7,6 +7,13 @@ class WidgetSendMixin:
         if not prompt:
             return
 
+        # The user-visible start of a run. Taken here rather than from the
+        # manifest's own `started_epoch`, which is stamped only once the router
+        # has answered -- several seconds of the run the surgeon sat through
+        # would otherwise be missing from "Send to Exit".
+        import time as _time
+        self._sendClickedEpoch = _time.time()
+
         self.promptInput.clear()
         self.appendToChat("You", prompt)
         self._lastUserPrompt = prompt  # Save for isolated self-correction context
@@ -31,6 +38,16 @@ class WidgetSendMixin:
         if self._handleWorkflowRouterTurnIfNeeded(prompt):
             return
 
+        # Guided-only: the router's decision is final. Everything below this
+        # point is the traditional search-and-generate turn -- dense retrieval,
+        # the tool loop, free-form code -- which this runtime deliberately does
+        # not offer. The router recorded WHY it declined; the refusal reports it
+        # and hands the prompt back. One flag away from the old fall-through.
+        from SlicerAIAgentLib.WorkflowRouter import GUIDED_ONLY_MODE
+        if GUIDED_ONLY_MODE:
+            self._refuseUnsupportedRequest(prompt)
+            return
+
         if not (self._workflowRuntime and self._workflowRuntime.has_active_workflow()):
             self._clearWorkflowResultMarkers()
 
@@ -46,7 +63,6 @@ class WidgetSendMixin:
             "total_steps": 0,
             "can_done": False,
             "can_skip": False,
-            "can_cancel": False,
         })
         slicer.app.processEvents()
 

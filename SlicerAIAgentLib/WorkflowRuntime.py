@@ -708,7 +708,6 @@ class WorkflowRuntime:
             # the generic Done is suppressed to avoid a second, no-write-back path.
             "can_done": self.session.status == "waiting_for_user" and not native_widget,
             "can_skip": self.session.active and is_optional,
-            "can_cancel": self.session.active,
             "timeline": self._timeline_for_ui(),
             "active_checkpoint_index": self.session.active_checkpoint_index,
             "can_replay": bool(self.session.checkpoints),
@@ -2572,7 +2571,6 @@ class WorkflowRuntime:
             "repeat_progress": cp.repeat or {},
             "can_done": False,
             "can_skip": False,
-            "can_cancel": True,
             "replay_can_back": idx > 0,
             "replay_can_forward": True,
             "replay_can_action": True,
@@ -3450,7 +3448,11 @@ class WorkflowRuntime:
     def _interaction_summary(self, step_id: str) -> str:
         try:
             from .workflow_state import latest_interaction_node_for_step
-            node = latest_interaction_node_for_step(step_id)
+            node = latest_interaction_node_for_step(
+                step_id,
+                getattr(self.session, "extension_name", ""),
+                getattr(self.session, "workflow_id", ""),
+            )
             if node is not None:
                 try:
                     return f"Placed {node.GetName()}"

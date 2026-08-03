@@ -9,6 +9,25 @@ class WidgetStreamingMixin:
     def onSceneEndClose(self, caller, event):
         if self.logic:
             self.logic.resumeProcessing()
+        # The extensions this runtime drives bound themselves to the scene that
+        # was just closed, and it never enters their modules, so Slicer's own
+        # `if self.parent.isEntered` recovery hook cannot re-bind them. Drop the
+        # entered-module cache so the next step fires enter() again.
+        try:
+            self._invalidateInvisibleModuleEntries("scene closed")
+        except Exception:
+            logger.debug("Invisible module-entry invalidation failed", exc_info=True)
+        # File > Close Scene deletes everything a running workflow was driving,
+        # so the session cannot continue. Without this it stays "active", and
+        # since an active workflow switches the prompt box and Send off -- and
+        # there is no traditional turn to escape through -- the module would be
+        # locked with no way back in.
+        runtime = getattr(self, "_workflowRuntime", None)
+        if runtime is not None and getattr(runtime, "session", None) is not None:
+            try:
+                self._resetGuidedSession(reason="scene_closed", announce=False)
+            except Exception:
+                logger.debug("Guided session reset on scene close failed", exc_info=True)
 
     # ------------------------------------------------------------------
     # Debug-view contexts
@@ -288,7 +307,6 @@ class WidgetStreamingMixin:
                 "total_steps": 0,
                 "can_done": False,
                 "can_skip": False,
-                "can_cancel": False,
             })
             self._taskWorkflowPanelActive = False
 
@@ -313,10 +331,9 @@ class WidgetStreamingMixin:
             "total_steps": 0,
             "can_done": False,
             "can_skip": False,
-            "can_cancel": False,
         })
 
-    def _autoAdvanceNextStep(self, next_step):
+    def _autoAdvanceNextStep(self, next_step, epoch=None):
         """Auto-advance to the next workflow step after an automated step completes.
 
         EVERY step is opened by dispatch, whatever its operation type and whether or
@@ -336,9 +353,25 @@ class WidgetStreamingMixin:
         when the step is genuinely waiting on the user, and additionally renders the
         step's real controls. Optionality is a property of the step the runtime
         presents, not a reason to avoid presenting it.
+
+        Always reached through a QTimer, which cannot be cancelled once armed, so
+        it re-checks that the session it was scheduled for is still the live one.
         """
+        if not self._guidedSessionAlive(epoch):
+            return
         step_id = next_step.get("step_id", "")
         self._runWorkflowStepDirect(step_id, "start")
+
+    def _guidedSessionAlive(self, epoch=None):
+        """False once the session that scheduled this work has been reset.
+
+        ``epoch is None`` means the caller predates the fence (or is not tied to
+        a session), so it passes -- the guard only ever stops work whose origin
+        is known to be stale.
+        """
+        if epoch is None:
+            return True
+        return epoch == getattr(self, "_guidedSessionEpoch", 0)
 
     def _workflowRuntimeState(self):
         """Return compact workflow state for turn routing."""
@@ -382,8 +415,16 @@ class WidgetStreamingMixin:
         # Seal the run manifest: `cancelled` when the user stopped it, otherwise
         # `completed`. Left as `running` if we never get here (a Slicer crash),
         # which is itself the honest record of what happened.
+        #
+        # FIRST SEAL WINS. The manifest object outlives its run -- nothing clears
+        # `_currentRunManifest` when one ends -- so pressing Exit after a normal
+        # completion re-enters here with clear_replay=True on the SAME manifest,
+        # and without this guard would relabel a completed procedure "cancelled"
+        # and reset its finished/seconds to the moment the panel was closed.
+        # Exiting a finished run to start the next one is the ordinary path, so
+        # this would have mislabelled most successful runs on disk.
         manifest = self._runManifest()
-        if manifest is not None:
+        if manifest is not None and manifest.data.get("status", "running") == "running":
             try:
                 manifest.set_totals(
                     tokens=getattr(self, "_currentTurnTokens", 0),
@@ -489,7 +530,16 @@ class WidgetStreamingMixin:
             state,
             getattr(self, "_currentWorkflowStepInfo", None) or {},
         )
+        from SlicerAIAgentLib.WorkflowRouter import GUIDED_ONLY_MODE
+
         if route.route_type == ROUTE_WORKFLOW_CONFLICT:
+            # Queueing exists to defer a separate task until the workflow ends.
+            # Under guided-only there is nothing to defer it TO -- the queue is
+            # drained by replaying it as a traditional turn -- so accepting it
+            # would promise an answer that never comes. Refuse it now instead.
+            if GUIDED_ONLY_MODE:
+                self._refuseUnsupportedRequest(prompt, {"kind": "workflow_active"})
+                return True
             count = 0
             if self._workflowRuntime:
                 count = self._workflowRuntime.queue_traditional_prompt(prompt)
@@ -510,13 +560,22 @@ class WidgetStreamingMixin:
             self.appendToChat(
                 "System",
                 "I could not confidently map that message to an allowed workflow "
-                f"action, so the workflow state was not changed. {route.reason}",
+                f"action, so the workflow state was not changed. {route.reason} "
+                "Use the workflow panel's own controls, or press Exit at the "
+                "bottom of the panel to close and reset the workflow.",
             )
             self._setReadyStatus()
             self._setSendEnabled(True)
             return True
 
         if route.route_type != ROUTE_WORKFLOW_CONTROL:
+            # Currently unreachable (the only other route type is TRADITIONAL,
+            # which the resolver returns only for an inactive workflow, already
+            # excluded above). Refused rather than passed through, so a route
+            # type added later cannot silently re-open the traditional pipeline.
+            if GUIDED_ONLY_MODE:
+                self._refuseUnsupportedRequest(prompt, {"kind": "workflow_active"})
+                return True
             return False
 
         self.sendButton.setEnabled(False)
@@ -542,22 +601,34 @@ class WidgetStreamingMixin:
 
         Returns True when the turn was handled here. Every other outcome --
         router disabled, no workflows loaded, no key, no match, low confidence,
-        API failure -- returns False and the caller runs the unchanged full
-        agent turn. The router can only skip work; it is never the sole path to
-        an answer.
+        API failure -- returns False.
+
+        What the caller does with that False is the difference between the two
+        modes. Historically it ran the full agent turn, so the router could only
+        ever SKIP work. Under ``GUIDED_ONLY_MODE`` there is no turn to fall back
+        to and the False becomes a refusal, so each one now also records WHY in
+        ``_lastRouterRejection`` -- seven distinct causes that a single "not
+        supported" string would make undiagnosable, several of which mean the
+        install is misconfigured rather than the request unsupported.
         """
         from SlicerAIAgentLib.WorkflowRouter import ROUTER_ENABLED, WorkflowRouter
 
+        self._lastRouterRejection = None
         if not ROUTER_ENABLED:
+            self._lastRouterRejection = {"kind": "router_disabled"}
             return False
         if not (self.logic and self.logic.llmClient):
+            self._lastRouterRejection = {"kind": "no_client"}
             return False
         # An active workflow is handled by _handleDirectWorkflowTurnIfNeeded.
         if self._workflowRuntime and self._workflowRuntime.has_active_workflow():
+            self._lastRouterRejection = {"kind": "workflow_active"}
             return False
 
         router = WorkflowRouter(self.logic.llmClient)
-        if not router.is_available():
+        unavailable = router.unavailable_reason()
+        if unavailable:
+            self._lastRouterRejection = {"kind": unavailable}
             return False
 
         self._setAgentStatus("Router", "Choosing workflow...")
@@ -565,16 +636,25 @@ class WidgetStreamingMixin:
         decision = router.resolve(prompt)
 
         if not decision.matched:
-            # Nothing is recorded to the role trace here: the full agent turn is
-            # about to clear it, and this decision belongs to that turn's story,
-            # which _timing['router_declined'] carries instead.
+            self._lastRouterRejection = {
+                "kind": "router_error" if decision.error else "not_matched",
+                "confidence": decision.confidence,
+                "reason": decision.reason or decision.error,
+                "rejected_extension": decision.rejected_extension,
+                "error": decision.error,
+            }
+            # Nothing is recorded to the role trace here: the turn that runs
+            # instead (the full agent turn, or the refusal) opens its own folder
+            # and clears the trace, and this decision belongs to that turn's
+            # story, which _timing['router_declined'] carries instead.
             logger.info(
-                "Workflow router declined (confidence=%.2f, reason=%s) — "
-                "falling through to the full agent turn",
+                "Workflow router declined (confidence=%.2f, reason=%s)",
                 decision.confidence, decision.reason or decision.error,
             )
-            # The full agent turn below creates its own folder; hand it the
-            # router so the declined call is recorded there rather than lost.
+            # Whichever turn runs instead creates the folder; hand it the router
+            # so the declined call is recorded there rather than lost. Under
+            # GUIDED_ONLY_MODE that turn is _refuseUnsupportedRequest, which is
+            # the only remaining writer of this evidence.
             self._lastRouterDecision = decision
             self._lastRouter = router
             return False
@@ -607,18 +687,25 @@ class WidgetStreamingMixin:
                 "extension": decision.extension,
                 "error": str(exc),
             })
+            self._lastRouterRejection = {
+                "kind": "start_failed",
+                "rejected_extension": decision.extension,
+                "reason": str(exc),
+            }
             return False
 
         first_step = getattr(session, "current_step", None)
         if not first_step:
             # A graph with no dependency-satisfiable first step is broken; drop
-            # the half-started session so has_active_workflow() stays honest,
-            # and let the full agent turn answer the request.
+            # the half-started session so has_active_workflow() stays honest.
             logger.warning(
-                "Workflow %s has no runnable first step; using the full agent turn",
-                decision.extension,
+                "Workflow %s has no runnable first step", decision.extension,
             )
             self._workflowRuntime.session = None
+            self._lastRouterRejection = {
+                "kind": "no_first_step",
+                "rejected_extension": decision.extension,
+            }
             return False
 
         # Claim the announcement so _registerWorkflowRuntimeResult does not add a
@@ -633,6 +720,205 @@ class WidgetStreamingMixin:
         self._runWorkflowStepDirect(first_step, "start")
         return True
 
+    # ------------------------------------------------------------------
+    # Guided-only refusal
+    #
+    # With WorkflowRouter.GUIDED_ONLY_MODE on, a request the router cannot place
+    # is refused instead of being handed to the full agent turn. The refusal is
+    # a modal dialog because it ENDS the request: a chat line alone would let an
+    # unanswered prompt scroll away inside a collapsed Debug group while the user
+    # waits for a scene that is never going to change.
+    #
+    # Seven causes reach here and only two of them are "your request is not
+    # covered" -- the rest mean the install is unconfigured or a workflow graph
+    # is broken. The full agent turn used to paper over all seven identically,
+    # which is exactly why they have to be told apart now.
+    # ------------------------------------------------------------------
+    _REFUSAL_TITLE = "Guided workflow required"
+
+    def _refusalMessage(self, rejection):
+        """``(headline, body, is_config_problem)`` for one refusal cause."""
+        rejection = rejection or {}
+        kind = rejection.get("kind") or "not_matched"
+        named = rejection.get("rejected_extension") or ""
+        reason = str(rejection.get("reason") or "")
+        if named:
+            from SlicerAIAgentLib.WorkflowRouter import display_name
+            named = display_name(named)
+
+        if kind == "router_disabled":
+            return (
+                "The guided workflow router is switched off.",
+                "WorkflowRouter.ROUTER_ENABLED is False, so no request can be "
+                "routed to a workflow, and this runtime supports nothing else. "
+                "Set it back to True to use the agent.",
+                True,
+            )
+        if kind == "no_client":
+            return (
+                "The AI provider is not configured.",
+                "Open the Settings section, choose a provider and model, and "
+                "save the settings before sending a request.",
+                True,
+            )
+        if kind == "no_api_key":
+            return (
+                "No API key is configured.",
+                "The router needs one model call to decide which procedure your "
+                "request means. Enter an API key in the Settings section and "
+                "save it, then send the request again.",
+                True,
+            )
+        if kind == "no_workflows":
+            return (
+                "No guided workflows are installed.",
+                "This runtime only runs generated extension CLI workflows, and "
+                "none were found under Resources/extension_CLI. Use the "
+                "Extension CLI generator to analyze an extension first.",
+                True,
+            )
+        if kind == "workflow_active":
+            return (
+                "A guided workflow is already running.",
+                "Finish the current procedure, or press Exit at the bottom of "
+                "the workflow panel to close and reset it, before making a new "
+                "request.",
+                False,
+            )
+        if kind == "router_error":
+            return (
+                "The routing call failed, so the request could not be placed.",
+                (reason or "The provider returned an error.")
+                + "\n\nCheck the API key, the base URL and the network, then try "
+                "again.",
+                True,
+            )
+        if kind == "start_failed":
+            return (
+                f"The {named or 'matched'} workflow could not be started.",
+                (reason or "The workflow package could not be loaded.")
+                + "\n\nRe-generate this extension's CLI, then try again.",
+                True,
+            )
+        if kind == "no_first_step":
+            return (
+                f"The {named or 'matched'} workflow has no runnable first step.",
+                "Its workflow graph has no step whose dependencies can be "
+                "satisfied, which means the generated package is broken. "
+                "Re-generate this extension's CLI.",
+                True,
+            )
+        # not_matched: the ordinary case, and the only one that is about the
+        # request rather than the install.
+        body = (
+            "This runtime only carries out the guided, step-by-step procedures "
+            "listed below — it does not write free-form Slicer code."
+        )
+        if named:
+            body += (
+                f"\n\nThe closest match was {named}, but not confidently enough "
+                f"to enter a whole procedure on it"
+            )
+            confidence = rejection.get("confidence")
+            if isinstance(confidence, (int, float)):
+                body += f" (confidence {float(confidence):.2f})"
+            body += ". If that is the procedure you meant, say so by name."
+        elif reason:
+            body += f"\n\nRouter: {reason}"
+        return ("That request is not one of the supported procedures.", body, False)
+
+    def _showGuidedOnlyRefusal(self, headline, body, config_problem=False):
+        """Modal 'not supported' notice. Main thread only; never raises."""
+        details = ""
+        try:
+            from SlicerAIAgentLib.WorkflowRouter import describe_available_workflows
+            lines = describe_available_workflows()
+            if lines:
+                details = "Supported procedures:\n" + "\n".join(lines)
+        except Exception:
+            logger.debug("Workflow catalog unavailable for refusal dialog", exc_info=True)
+        try:
+            box = qt.QMessageBox(slicer.util.mainWindow())
+            box.setWindowTitle(self._REFUSAL_TITLE)
+            box.setIcon(qt.QMessageBox.Critical if config_problem else qt.QMessageBox.Information)
+            box.setText(headline)
+            box.setInformativeText(body)
+            if details:
+                box.setDetailedText(details)
+            box.setStandardButtons(qt.QMessageBox.Ok)
+            box.exec_()
+        except Exception:
+            # A dialog that cannot open must not swallow the refusal itself.
+            logger.warning("Refusal dialog failed; message was: %s / %s", headline, body)
+
+    def _refuseUnsupportedRequest(self, prompt, rejection=None):
+        """End an unsupported request: log it, say why, hand the prompt back.
+
+        The prompt text is restored into the box rather than discarded. The
+        request was never consumed -- rephrasing it in the procedure's own words
+        is the usual way past a near miss -- so making the user retype it would
+        punish exactly the case the dialog is asking them to retry.
+        """
+        rejection = rejection or getattr(self, "_lastRouterRejection", None) or {}
+        headline, body, config_problem = self._refusalMessage(rejection)
+        self._recordRefusedRequest(prompt, rejection, headline)
+        self.appendToChat("System", f"{headline} {body}")
+        # All three belong to the turn just closed; a later turn must not adopt
+        # this one's routing call or its rejection.
+        self._lastRouterRejection = None
+        self._lastRouter = None
+        self._lastRouterDecision = None
+        self._setReadyStatus()
+        self._setSendEnabled(True)
+        try:
+            if self.promptInput is not None and not self.promptInput.toPlainText().strip():
+                self.promptInput.setPlainText(prompt)
+        except Exception:
+            logger.debug("Prompt restore after refusal failed", exc_info=True)
+        self._refreshInputAvailability()
+        self._showGuidedOnlyRefusal(headline, body, config_problem)
+
+    def _recordRefusedRequest(self, prompt, rejection, headline):
+        """Persist a refused turn under ``logs/<stamp>_pipeline_refused/``.
+
+        A refusal is now the single most common outcome of the runtime, and it
+        was the only outcome with no artifact at all: the declined router call
+        used to be flushed by the full agent turn's folder, which no longer
+        exists. Leaving it unlogged would put a growing gap between the prompts
+        a user typed and the runs ``scripts/collect_runs.py`` can see.
+
+        A refusal raised while a workflow is RUNNING gets no folder of its own:
+        opening one would repoint ``_currentLogDir`` and replace the manifest of
+        the run in progress, so the rest of that procedure would log into the
+        wrong place. It is recorded as an event of the run it interrupted.
+        """
+        runtime = getattr(self, "_workflowRuntime", None)
+        if runtime is not None and runtime.has_active_workflow():
+            self._recordRoleEvent("Router", "request_refused_during_workflow", {
+                "prompt_length": len(prompt or ""),
+                "kind": (rejection or {}).get("kind"),
+            })
+            return
+        try:
+            from SlicerAIAgentLib import RunLog
+            # The prompt is written by _createRunLogDir itself, from
+            # _lastUserPrompt -- passing it again would collide on the keyword.
+            log_dir = self._createRunLogDir(
+                getattr(self, "_currentTurn", 1),
+                condition=RunLog.CONDITION_PIPELINE,
+                extension="refused",
+                refusal={"headline": headline, **(rejection or {})},
+            )
+            self._currentLogDir = log_dir
+            router = getattr(self, "_lastRouter", None)
+            if router is not None:
+                router.write_artifacts(log_dir)
+            manifest = self._runManifest()
+            if manifest is not None:
+                manifest.finish("refused")
+        except Exception:
+            logger.debug("Refused-request logging failed", exc_info=True)
+
     def _beginWorkflowRouterTurn(self, prompt, decision):
         """Per-turn bookkeeping for a router-dispatched workflow start."""
         import time
@@ -644,6 +930,9 @@ class WidgetStreamingMixin:
             getattr(self, "_currentTurn", 1),
             condition=RunLog.CONDITION_PIPELINE,
             extension=decision.extension,
+            # Anchors "total run time" to the Send click, not to this moment --
+            # the routing call has already happened by the time we get here.
+            send_clicked_epoch=getattr(self, "_sendClickedEpoch", None),
             router={
                 "extension": decision.extension,
                 "confidence": decision.confidence,
@@ -714,10 +1003,14 @@ class WidgetStreamingMixin:
         manifest = self._runManifest()
         if manifest is not None and step_id:
             meta = self._workflowRuntime._step_meta(step_id) if self._workflowRuntime else {}
-            manifest.add_step(
+            # open_step, not add_step: it stamps opened_epoch only the FIRST
+            # time this step is dispatched, so the wall clock for a step the
+            # user answers still starts when the picker appeared rather than
+            # when they answered it.
+            manifest.open_step(
                 step_id,
-                status="running",
                 action=action,
+                status="running",
                 operation_type=(meta or {}).get("operation_type"),
                 description=" ".join(str((meta or {}).get("description") or "").split()) or None,
             )
@@ -760,7 +1053,6 @@ class WidgetStreamingMixin:
                 "total_steps": 0,
                 "can_done": False,
                 "can_skip": False,
-                "can_cancel": bool(self._workflowRuntime and self._workflowRuntime.has_active_workflow()),
             })
             self._recordRoleEvent("Workflow", "dispatch_failed", {"error": result["error"]})
             self._saveRoleTraceToFile()
@@ -776,13 +1068,13 @@ class WidgetStreamingMixin:
         result_type = result.get("type")
 
         if result_type == "cancelled":
+            # Same teardown as the Exit button, so the two ways a session can end
+            # early cannot drift apart. (Reachable only from the runtime's own
+            # "cancel" action now that the Cancel button is gone.)
             self.appendToChat("System", result.get("message", "Workflow cancelled."))
-            self._updateWorkflowPanel(result)
-            self._clearCompletedWorkflowState(clear_replay=True)
             self._recordRoleEvent("Workflow", "cancelled", {})
             self._saveRoleTraceToFile()
-            self._setReadyStatus()
-            self._setSendEnabled(True)
+            self._resetGuidedSession(reason="runtime_cancel", announce=False)
             return
 
         if result_type == "user_choice":
@@ -937,6 +1229,24 @@ class WidgetStreamingMixin:
                 {"success": True, "execution_time": 0.0, "output": ""},
             )
         next_step = result.get("next_step")
+        # A step that produces no code (a skip, a branch decision, a choice whose
+        # value only feeds later steps) completes HERE and nowhere else. Without
+        # this it never left `running` in the manifest -- four steps of a
+        # completed 27-step run were recorded that way -- and so had no wall
+        # clock at all.
+        #
+        # Gated on the workflow actually having MOVED ON. This method is also
+        # reached by a result that puts the step into a wait (an `interactive`
+        # or `user_review` step with no pre-code): the step is on screen waiting
+        # for Done, not finished, and stamping it complete here would end its
+        # clock before the user has touched it.
+        manifest = self._runManifest()
+        step_id = str(result.get("step_id") or getattr(self, "_currentStepId", "") or "")
+        if manifest is not None and step_id and (next_step or result.get("workflow_completed")):
+            # No exec_seconds: no code ran, so the step must not be credited
+            # with an execution. The report shows "-" in the exec column, which
+            # is the honest answer for a review checkpoint or a skip.
+            manifest.finish_step(step_id, status="ok")
         if result.get("workflow_completed"):
             self._updateWorkflowPanel(result)
             self.appendToChat("System", "Generated CLI workflow complete.")
@@ -948,14 +1258,27 @@ class WidgetStreamingMixin:
         if next_step:
             self._updateWorkflowPanel(result)
             self._autoAdvanceWorkflowStep = next_step
-            qt.QTimer.singleShot(100, lambda: self._autoAdvanceNextStep(next_step))
+            _epoch = getattr(self, "_guidedSessionEpoch", 0)
+            qt.QTimer.singleShot(100, lambda: self._autoAdvanceNextStep(next_step, _epoch))
         else:
             self._setReadyStatus()
             self._setSendEnabled(True)
 
     def _flushQueuedWorkflowPrompts(self):
-        """Replay queued traditional prompts after a generated CLI workflow ends."""
+        """Replay queued traditional prompts after a generated CLI workflow ends.
+
+        The one path in the whole widget that can start a turn with no user
+        click (it writes the prompt box and fires Send on a timer), so under
+        guided-only it is inert by construction: nothing is queued any more
+        (``_handleDirectWorkflowTurnIfNeeded`` refuses instead), and anything
+        left over from a session started before the flag flipped is dropped
+        rather than replayed into a pipeline that no longer exists.
+        """
         if not self._workflowRuntime:
+            return
+        from SlicerAIAgentLib.WorkflowRouter import GUIDED_ONLY_MODE
+        if GUIDED_ONLY_MODE:
+            self._workflowRuntime.pop_queued_prompts()
             return
         queued = self._workflowRuntime.pop_queued_prompts()
         if not queued:
@@ -1313,7 +1636,6 @@ class WidgetStreamingMixin:
                 "total_steps": 0,
                 "can_done": False,
                 "can_skip": False,
-                "can_cancel": False,
             })
             self._taskWorkflowPanelActive = False
         self._stopThinkingTimer("Error")

@@ -180,14 +180,25 @@ class IndexBuilder:
             else:
                 changed_files.append((abs_path, rel_path))
 
-        # Detect deleted files
+        # Detect deleted files. Their chunks are dropped implicitly -- the
+        # carry-forward loop above only walks files that still exist -- but the
+        # up-to-date shortcut below must know about them, or removing a search
+        # root leaves its chunks in the index forever, pointing at paths that no
+        # longer resolve. (This block previously ended in `pass`, so deleting the
+        # UI pre-analysis left 2506 orphaned chunks that no rebuild would clear.)
         current_rel_paths = {rp for _, rp in files}
-        for cid in list(existing_chunks.keys()):
-            if existing_chunks[cid].file_path not in current_rel_paths:
-                # File was deleted — mark its chunks for removal
-                pass
+        dropped_chunk_ids = {
+            cid for cid, chunk in existing_chunks.items()
+            if chunk.file_path not in current_rel_paths
+        }
+        if dropped_chunk_ids:
+            logger.info(
+                "Dropping %d chunk(s) from %d file(s) no longer present.",
+                len(dropped_chunk_ids),
+                len({existing_chunks[cid].file_path for cid in dropped_chunk_ids}),
+            )
 
-        if not changed_files and existing_chunks:
+        if not changed_files and not dropped_chunk_ids and existing_chunks:
             logger.info("Index is up-to-date (no file changes detected).")
             return True
 
