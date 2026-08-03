@@ -212,7 +212,8 @@ class WidgetSettingsMixin:
         if baseUrl:
             self.logic.setBaseUrl(baseUrl)
 
-        self.statusLabel.text = "Testing connection..."
+        if self.statusLabel is not None:
+            self.statusLabel.text = "Testing connection..."
         slicer.app.processEvents()
 
         try:
@@ -245,7 +246,8 @@ class WidgetSettingsMixin:
         except Exception as e:
             slicer.util.warningDisplay(f"Connection failed:\n{e}")
         finally:
-            self.statusLabel.text = "Ready"
+            if self.statusLabel is not None:
+                self.statusLabel.text = "Ready"
             self.logic.setApiKey(originalKey)
             self.logic.setModel(originalModel)
             self.logic.setProvider(originalProvider)

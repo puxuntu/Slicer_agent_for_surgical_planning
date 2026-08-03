@@ -141,9 +141,13 @@ class WidgetCoreMixin:
         self.clearChatButton = self.ui.findChild(qt.QPushButton, "clearChatButton")
         self.promptInput = self.ui.findChild(qt.QTextEdit, "promptInput")
         self.sendButton = self.ui.findChild(qt.QPushButton, "sendButton")
-        self.statusLabel = self.ui.findChild(qt.QLabel, "statusLabel")
-        self.tokenLabel = self.ui.findChild(qt.QLabel, "tokenLabel")
-        self.thinkingTimerLabel = self.ui.findChild(qt.QLabel, "thinkingTimerLabel")
+        # Bottom status bar + token/cost readout were removed from the .ui (the
+        # workflow panel already reports the run's state). Kept as None rather
+        # than deleted so the writers -- which all null-check -- stay valid and
+        # a future re-add only has to put the widgets back.
+        self.statusLabel = None
+        self.tokenLabel = None
+        self.thinkingTimerLabel = None
         # Vector index status label — hidden, only console logging is used
         self.indexStatusLabel = self.ui.findChild(qt.QLabel, "indexStatusLabel")
         if self.indexStatusLabel:
@@ -236,17 +240,12 @@ class WidgetCoreMixin:
         inputLayout.addWidget(self.sendButton)
         mainLayout.addLayout(inputLayout)
 
-        statusTimerLayout = qt.QHBoxLayout()
-        self.statusLabel = qt.QLabel("Ready")
-        self.thinkingTimerLabel = qt.QLabel("")
-        self.thinkingTimerLabel.setStyleSheet("color: #666; font-size: 11px;")
-        self.thinkingTimerLabel.setAlignment(qt.Qt.AlignRight | qt.Qt.AlignVCenter)
-        statusTimerLayout.addWidget(self.statusLabel, stretch=1)
-        statusTimerLayout.addWidget(self.thinkingTimerLabel)
-        mainLayout.addLayout(statusTimerLayout)
-
-        self.tokenLabel = qt.QLabel("Tokens: 0 | Cost: $0.000")
-        mainLayout.addWidget(self.tokenLabel)
+        # No status bar / token readout here either -- the programmatic fallback
+        # must match the .ui it stands in for, or the two layouts would disagree
+        # about what the panel contains.
+        self.statusLabel = None
+        self.thinkingTimerLabel = None
+        self.tokenLabel = None
 
         self.setupConnections()
 

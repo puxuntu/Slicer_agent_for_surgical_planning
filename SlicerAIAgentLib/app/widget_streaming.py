@@ -173,7 +173,7 @@ class WidgetStreamingMixin:
 
     def _updateThinkingTimer(self):
         """Update the thinking timer display every 100ms."""
-        if self._thinkingStartTime is not None:
+        if self._thinkingStartTime is not None and self.thinkingTimerLabel is not None:
             import time
             elapsed = time.time() - self._thinkingStartTime
             self.thinkingTimerLabel.text = f"⏱ {elapsed:.1f}s"
@@ -182,13 +182,14 @@ class WidgetStreamingMixin:
         """Start the thinking timer."""
         import time
         self._thinkingStartTime = time.time()
-        self.thinkingTimerLabel.text = "⏱ 0.0s"
+        if self.thinkingTimerLabel is not None:
+            self.thinkingTimerLabel.text = "⏱ 0.0s"
         self._thinkingTimer.start()
 
     def _stopThinkingTimer(self, final_status=None):
         """Stop the thinking timer and show final elapsed time."""
         self._thinkingTimer.stop()
-        if self._thinkingStartTime is not None:
+        if self._thinkingStartTime is not None and self.thinkingTimerLabel is not None:
             import time
             elapsed = time.time() - self._thinkingStartTime
             if final_status:
@@ -915,6 +916,18 @@ class WidgetStreamingMixin:
                 router.write_artifacts(log_dir)
             manifest = self._runManifest()
             if manifest is not None:
+                # A refusal still made the routing call, so it still cost money.
+                # Seal the same totals a matched run does -- otherwise the most
+                # common outcome under GUIDED_ONLY_MODE is the one that reports
+                # its spend as zero. Absent for the causes that refuse BEFORE any
+                # call (no api key, router disabled, no workflows), where the
+                # decision is None and zero is the truth.
+                _decision = getattr(self, "_lastRouterDecision", None)
+                if _decision is not None:
+                    manifest.set_totals(
+                        tokens=int(getattr(_decision, "tokens", 0) or 0),
+                        cost=round(float(getattr(_decision, "cost", 0.0) or 0.0), 6),
+                    )
                 manifest.finish("refused")
         except Exception:
             logger.debug("Refused-request logging failed", exc_info=True)
@@ -940,8 +953,18 @@ class WidgetStreamingMixin:
                 "seconds": decision.seconds,
                 "prompt_chars": decision.prompt_chars,
                 "tokens": decision.tokens,
+                "cost": decision.cost,
             },
         )
+        # Roll the routing call into the turn counters that seal the manifest's
+        # `totals`. Under GUIDED_ONLY_MODE the dispatched steps call no model, so
+        # this is normally a run's ONLY model spend -- and it used to be recorded
+        # in `router` but never summed, leaving every clean guided run reporting
+        # "0 tokens, $0.0000" for a call that really happened. Accumulate (+=)
+        # rather than assign: a self-correction later in the run adds to the same
+        # counters, and onSendButtonClicked has already zeroed them for this turn.
+        self._currentTurnTokens = getattr(self, "_currentTurnTokens", 0) + int(decision.tokens or 0)
+        self._currentTurnCost = getattr(self, "_currentTurnCost", 0.0) + float(decision.cost or 0.0)
         if self.logic and self.logic.llmClient:
             self.logic.llmClient.setDebugOutputDir(self._currentLogDir)
         if self._workflowRuntime:
@@ -961,6 +984,7 @@ class WidgetStreamingMixin:
                 "seconds": decision.seconds,
                 "prompt_chars": decision.prompt_chars,
                 "tokens": decision.tokens,
+                "cost": decision.cost,
             },
             "retrieval_timing": {
                 "skipped": True,

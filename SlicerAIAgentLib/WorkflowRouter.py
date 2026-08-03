@@ -93,6 +93,10 @@ class RouterDecision:
     reason: str = ""
     seconds: float = 0.0
     tokens: int = 0
+    #: USD for this routing call, priced by the LLM client's own table. Carried
+    #: on the decision because under GUIDED_ONLY_MODE this is the ONLY model call
+    #: a clean run makes, so it is the run's entire model cost.
+    cost: float = 0.0
     prompt_chars: int = 0
     error: str = ""
     #: The workflow the router named but that was NOT entered -- because the
@@ -264,7 +268,7 @@ class WorkflowRouter:
         self.last_messages, self.last_reply, self.last_error = messages, "", ""
         prompt_chars = sum(len(message.get("content", "")) for message in messages)
         try:
-            text, tokens = self._call(messages)
+            text, tokens, cost = self._call(messages)
             self.last_reply = text
             self.write_artifacts(log_dir)
             decision = self._extract_json(text)
@@ -290,23 +294,23 @@ class WorkflowRouter:
         if name.lower() in ("", "null", "none"):
             return RouterDecision(
                 confidence=confidence, reason=reason, seconds=elapsed,
-                tokens=tokens, prompt_chars=prompt_chars,
+                tokens=tokens, cost=cost, prompt_chars=prompt_chars,
             )
         if name not in available_extension_names():
             return RouterDecision(
                 confidence=confidence, seconds=elapsed, tokens=tokens,
-                prompt_chars=prompt_chars, rejected_extension=name,
+                cost=cost, prompt_chars=prompt_chars, rejected_extension=name,
                 reason=f"router named an unknown workflow '{name}'",
             )
         if confidence < self.confidence_threshold:
             return RouterDecision(
                 confidence=confidence, seconds=elapsed, tokens=tokens,
-                prompt_chars=prompt_chars, rejected_extension=name,
+                cost=cost, prompt_chars=prompt_chars, rejected_extension=name,
                 reason=reason or "router confidence below threshold",
             )
         return RouterDecision(
             extension=name, confidence=confidence, reason=reason,
-            seconds=elapsed, tokens=tokens, prompt_chars=prompt_chars,
+            seconds=elapsed, tokens=tokens, cost=cost, prompt_chars=prompt_chars,
         )
 
     def write_artifacts(self, log_dir: str) -> None:
@@ -374,9 +378,21 @@ class WorkflowRouter:
         data = client._fetchWithDiagnostics(request)
         if client._isClaude():
             data = client._normalizeClaudeResponse(data)
-        tokens = int((data.get("usage") or {}).get("total_tokens") or 0)
+        usage = data.get("usage") or {}
+        tokens = int(usage.get("total_tokens") or 0)
+        # Price it with the CLIENT's own pricing table rather than a local copy,
+        # so the routing call is costed exactly like every other call to the same
+        # model. Without this the router reported tokens but never a price, and
+        # since a clean guided run makes no other model call, the run's total
+        # cost was structurally $0.0000 -- understating precisely the number this
+        # path exists to demonstrate.
+        try:
+            cost = float(client._calculateCost(usage))
+        except Exception:
+            logger.debug("Router cost calculation failed", exc_info=True)
+            cost = 0.0
         text = client._coerceText(data["choices"][0]["message"].get("content", ""))
-        return text, tokens
+        return text, tokens, cost
 
     @staticmethod
     def _extract_json(text: str) -> Dict[str, Any]:

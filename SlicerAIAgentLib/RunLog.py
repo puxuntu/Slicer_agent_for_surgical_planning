@@ -565,6 +565,18 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
     if totals:
         out.append(f" Model cost    : {totals.get('tokens', 0)} tokens, "
                    f"${float(totals.get('cost', 0) or 0):.4f}")
+        # Attribute it. A clean guided run calls the model exactly once -- to
+        # route -- and the dispatched steps call none, so showing the split makes
+        # that claim checkable rather than asserted, and tells a reader whether
+        # any self-correction fired.
+        _router = manifest.get("router") or {}
+        _r_tokens = int(_router.get("tokens") or 0)
+        if _r_tokens:
+            _other = int(totals.get("tokens", 0) or 0) - _r_tokens
+            out.append(f"                 routing call {_r_tokens} tokens, "
+                       f"${float(_router.get('cost', 0) or 0):.4f}"
+                       + (f"; self-correction {_other} tokens" if _other > 0 else
+                          "; the dispatched steps called no model"))
     out.append("")
     out.append(thin)
     out.append(" PER-STEP TIMING")

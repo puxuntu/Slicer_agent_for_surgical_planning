@@ -4,6 +4,8 @@ from .common import *
 class WidgetReportingMixin:
     def _updateTokenLabel(self):
         """Update the token/cost label with per-turn cumulative usage."""
+        if getattr(self, 'tokenLabel', None) is None:
+            return  # readout removed from the panel; the run log carries it
         turn = getattr(self, '_currentTurn', 1)
         tokens = getattr(self, '_currentTurnTokens', 0)
         cost = getattr(self, '_currentTurnCost', 0.0)
