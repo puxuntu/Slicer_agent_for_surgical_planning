@@ -57,15 +57,21 @@ class SlicerAIAgentWidget(
         # _currentLogDir is the RUN folder; _currentStepLogDir is the per-step
         # subfolder every artifact goes into while a workflow step is running.
         self._currentLogDir = None
+        # The run FOLDER, holding runtime/ (== _currentLogDir) and Statistic/.
+        self._currentRunRoot = None
         self._currentStepLogDir = ""
         self._currentStepId = ""
         self._currentRunManifest = None
+        # Every run folder this guided session opened (the pipeline's own plus
+        # any baseline folders). "Exit without saving" deletes exactly these.
+        self._sessionLogDirs = []
         self._currentCorrectionDir = ""
         self._stepTraceStart = 0
         self._baselineAttemptCounts = {}
         # The pipeline's run folder, parked while a baseline owns _currentLogDir
         # so the pipeline's next step does not log inside the baseline's folder.
         self._pipelineLogDir = None
+        self._pipelineRunRoot = None
         self._pipelineRunManifest = None
         self._pipelineStepLogDir = ""
         self._pipelineStepId = ""

@@ -130,21 +130,102 @@ class WidgetExecutionFlowMixin:
                 error=(execution.get("error") or "")[:500] or None,
             )
 
+    def _sceneSubjectName(self):
+        """``(subject, folder)`` the scene's data was loaded from, or ``("", "")``.
+
+        The subject is the folder the data came out of: for
+        ``.../data_0309/baoyawen/*.nrrd`` that is ``baoyawen``. Read off the
+        storage nodes rather than typed by the user, so it is a fact about the
+        run — it cannot be forgotten between conditions, and the four conditions
+        driven from one data set are guaranteed to agree.
+
+        The MOST COMMON parent folder wins, not the first: a scene routinely
+        holds nodes from elsewhere (a colour table, a model from a sample-data
+        cache), and the patient's folder is the one most of the data shares.
+        Ties go to the first in scene order.
+        """
+        excluded = [os.path.join(SLICER_AI_AGENT_ROOT, "logs")]
+        # A previous run's saved scene lives under our own logs/, and Slicer's
+        # scratch and DICOM database hold files a scene legitimately points at.
+        # None of the three says anything about the patient.
+        for getter in (lambda: slicer.app.temporaryPath,
+                       lambda: slicer.dicomDatabase.databaseDirectory):
+            try:
+                path = getter()
+            except Exception:
+                continue
+            if path:
+                excluded.append(path)
+        excluded = [os.path.normcase(os.path.abspath(p)) for p in excluded if p]
+
+        counts, order = {}, []
+        try:
+            nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLStorableNode")
+            nodes.UnRegister(None)
+            for index in range(nodes.GetNumberOfItems()):
+                node = nodes.GetItemAsObject(index)
+                storage = node.GetStorageNode() if node is not None else None
+                filename = storage.GetFileName() if storage is not None else ""
+                if not filename:
+                    continue
+                folder = os.path.dirname(os.path.abspath(filename))
+                normalised = os.path.normcase(folder)
+                if any(normalised.startswith(bad) for bad in excluded):
+                    continue
+                name = os.path.basename(folder)
+                if not name:          # a drive root -- nothing to name it by
+                    continue
+                if name not in counts:
+                    order.append((name, folder))
+                counts[name] = counts.get(name, 0) + 1
+        except Exception:
+            logger.debug("Subject detection failed", exc_info=True)
+            return "", ""
+        if not order:
+            return "", ""
+        return max(order, key=lambda item: counts[item[0]])
+
     def _createRunLogDir(self, turn_number=1, condition=None, extension="",
-                         step_id="", attempt=0, **manifest_fields):
+                         step_id="", attempt=0, subject=None, new_session=False,
+                         **manifest_fields):
         """Create + open a run folder, and start its manifest.
 
         The folder name is the only thing visible in a file browser, so it
-        carries when / which condition / which procedure / which step. See
-        SlicerAIAgentLib/RunLog.py for the grammar.
+        carries procedure / subject / condition / step / when. See
+        SlicerAIAgentLib/RunLog.py for the grammar. ``subject=None`` detects it
+        from the scene; pass a string to override, or "" to leave it out.
+
+        Every folder created is recorded in ``_sessionLogDirs``, which is what
+        "Exit without saving" deletes -- the pipeline's own folder plus any
+        baseline folders opened off its steps. ``new_session=True`` starts that
+        list over, and only the router's workflow-start passes it.
         """
         from SlicerAIAgentLib import RunLog
         condition = condition or RunLog.CONDITION_PIPELINE
+        subject_source = ""
+        if subject is None:
+            try:
+                subject, subject_source = self._sceneSubjectName()
+            except Exception:
+                logger.debug("Subject detection failed", exc_info=True)
+                subject = ""
         name = RunLog.run_dir_name(
-            condition, extension=extension, step_id=step_id,
+            condition, extension=extension, subject=subject, step_id=step_id,
             attempt=attempt, turn=turn_number,
         )
-        log_dir = RunLog.ensure_dir(os.path.join(SLICER_AI_AGENT_ROOT, "logs", name))
+        # A run folder has exactly TWO children: `runtime/` (everything written
+        # while it executes -- manifest, router call, one folder per step) and
+        # `Statistic/` (the timing report and the saved scene, written at Exit).
+        # _currentLogDir is the RUNTIME dir, so every existing writer lands
+        # inside it untouched; _currentRunRoot is the folder that holds both.
+        run_root = RunLog.ensure_dir(os.path.join(SLICER_AI_AGENT_ROOT, "logs", name))
+        log_dir = RunLog.ensure_dir(os.path.join(run_root, RunLog.RUNTIME_DIRNAME))
+        self._currentRunRoot = run_root
+        if new_session or not hasattr(self, "_sessionLogDirs"):
+            self._sessionLogDirs = []
+        # The ROOT, not the runtime dir: "Exit without saving" removes the whole
+        # run, and the containment check requires a direct child of logs/.
+        self._sessionLogDirs.append(run_root)
         # A new run folder means a new run: any step context from the previous
         # one must not leak into it.
         self._currentStepLogDir = ""
@@ -154,6 +235,11 @@ class WidgetExecutionFlowMixin:
                 log_dir, condition,
                 turn=turn_number,
                 extension=extension or None,
+                # Recorded even though it is in the folder name: the name is a
+                # slug (spaces and punctuation collapsed), and the path it was
+                # derived from is what makes the attribution checkable.
+                subject=subject or None,
+                subject_source=subject_source or None,
                 target_step=step_id or None,
                 attempt=attempt or None,
                 prompt=getattr(self, "_lastUserPrompt", "") or None,

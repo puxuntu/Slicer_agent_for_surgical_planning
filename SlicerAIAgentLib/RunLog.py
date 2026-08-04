@@ -1,19 +1,22 @@
 """Run-log naming and artifact writing.
 
 Every turn writes its artifacts under ``logs/<run folder>``. The folder name is
-the only thing visible in a file browser, so it carries the four facts a reader
+the only thing visible in a file browser, so it carries the five facts a reader
 needs before opening anything:
 
-    20260730_143210_pipeline_BoneReconstructionPlanner
-    20260730_143512_pureLLM_BoneReconstructionPlanner_cb_step_08_a1
-    \_______________/\______/\______________________/\__________/\_/
-        when         which        which procedure      which step  attempt
-                    condition
+    ZygomaticImplantPlanner_baoyawen_pipeline_20260803_154954
+    ZygomaticImplantPlanner_baoyawen_pureLLM_cb_step_08_a1_20260803_155230
+    \_____________________/\_______/\______/\__________/\_/\_____________/
+         which procedure    which    which   which step  |      when
+                           subject  condition          attempt
 
 The condition token is what separates the system under test (``pipeline`` --
 offline CLI generation + online runtime) from the three comparison baselines
-(``pureLLM`` / ``onlineOnly`` / ``claudeCode``). Sorting by name gives
-chronological order; ``dir *pureLLM*`` gives one condition.
+(``pureLLM`` / ``onlineOnly`` / ``claudeCode``). The subject is the input data
+set, taken from the folder the scene's data was loaded out of, so the four
+conditions run on one patient sort together. ``dir Zygomatic*`` gives one
+procedure, ``dir *pureLLM*`` one condition; the stamp is last, so sorting on it
+(or on ``started`` in the manifest) recovers chronological order.
 
 Inside a run, a guided workflow gets **one subfolder per step**. That is not
 cosmetic: a 33-step workflow used to write every step's plan, role trace and
@@ -72,6 +75,19 @@ CONDITION_LABELS = {
 
 MANIFEST_NAME = "run_manifest.json"
 
+#: Sub-folder of a RUN folder holding what that run leaves for analysis: the
+#: human-readable timing report and a flat save of the scene it produced. Inside
+#: the run rather than beside it, so a run folder is self-contained -- copying
+#: or deleting one takes its statistics with it.
+STATISTIC_DIRNAME = "Statistic"
+
+#: The OTHER of a run folder's two subfolders: everything written while the run
+#: executes -- the manifest, the routing call, one folder per step, the role
+#: trace. A run folder therefore has exactly two children, and which one a
+#: reader wants is answerable from the name: ``Statistic/`` is the report and
+#: the scene it produced, ``runtime/`` is the evidence behind them.
+RUNTIME_DIRNAME = "runtime"
+
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
 _TRAILING_NUMBER = re.compile(r"^(.*?)(\d+)$")
 
@@ -105,6 +121,19 @@ def pad_step(step_id: Any) -> str:
     return f"{prefix}{int(number):02d}" if len(number) < 2 else text
 
 
+def _run_folder_name(log_dir: str) -> str:
+    """Name of the RUN folder, given the directory artifacts are written to.
+
+    That directory is ``<run>/runtime`` under the two-subfolder layout and
+    ``<run>`` under the old one, so the name is one level up in the first case
+    and the basename in the second.
+    """
+    cleaned = str(log_dir or "").rstrip("/\\")
+    if os.path.basename(cleaned) == RUNTIME_DIRNAME:
+        cleaned = os.path.dirname(cleaned)
+    return os.path.basename(cleaned)
+
+
 def timestamp(epoch: Optional[float] = None) -> str:
     return time.strftime("%Y%m%d_%H%M%S", time.localtime(epoch if epoch else time.time()))
 
@@ -112,25 +141,44 @@ def timestamp(epoch: Optional[float] = None) -> str:
 def run_dir_name(
     condition: str,
     extension: str = "",
+    subject: str = "",
     step_id: str = "",
     attempt: int = 0,
     turn: int = 0,
     stamp: str = "",
 ) -> str:
-    """Readable, sortable folder name for one run.
+    """Readable folder name for one run: procedure, subject, condition, when.
 
-    ``pipeline`` + extension           -> 20260730_143210_pipeline_BoneReconstructionPlanner
-    ``pipeline`` + no extension        -> 20260730_143210_pipeline_task_turn3
-    baseline + extension + step        -> 20260730_143512_pureLLM_BoneReconstructionPlanner_cb_step_08_a1
+    ``pipeline`` + extension + subject -> ZygomaticImplantPlanner_baoyawen_pipeline_20260803_154954
+    ``pipeline`` + extension           -> BoneReconstructionPlanner_pipeline_20260730_143210
+    ``pipeline`` + no extension        -> task_pipeline_turn3_20260730_143210
+    baseline + extension + step        -> BoneReconstructionPlanner_baoyawen_pureLLM_cb_step_08_a1_20260730_143512
+
+    PROCEDURE FIRST, timestamp LAST. Analysis is done per procedure and per
+    subject -- every run of one patient through one procedure, across the four
+    conditions -- and a leading timestamp scatters exactly that grouping through
+    the directory listing. The trade is that a name sort is no longer
+    chronological; the stamp is still the last field, so ``sort`` on it (or on
+    ``started`` in the manifest) recovers that. ``dir *pureLLM*`` still gives one
+    condition and ``dir Zygomatic*`` now gives one procedure.
+
+    ``subject`` is the input data set the run was driven from, normally derived
+    from the folder the scene's data was loaded out of (see
+    ``WidgetExecutionFlowMixin._sceneSubjectName``). Omitted entirely when it
+    cannot be determined -- a made-up placeholder in a folder name is worse than
+    a missing field, since it would silently merge two patients' runs.
     """
-    parts: List[str] = [stamp or timestamp(), condition_slug(condition)]
-    parts.append(slug(extension) if extension else "task")
+    parts: List[str] = [slug(extension) if extension else "task"]
+    if subject:
+        parts.append(slug(subject))
+    parts.append(condition_slug(condition))
     if step_id:
         parts.append(pad_step(step_id))
     if condition != CONDITION_PIPELINE and attempt:
         parts.append(f"a{int(attempt)}")
     if not extension and turn:
         parts.append(f"turn{int(turn)}")
+    parts.append(stamp or timestamp())
     return "_".join(part for part in parts if part)
 
 
@@ -233,7 +281,11 @@ class RunManifest:
             "schema": self.SCHEMA,
             "condition": condition,
             "condition_label": condition_label(condition),
-            "folder": os.path.basename(log_dir),
+            # The RUN folder, not the directory the manifest sits in. Since the
+            # manifest moved into `<run>/runtime/`, a plain basename here reports
+            # every run as "runtime" -- which is what the timing report prints
+            # and what scripts/collect_runs.py keys its rows on.
+            "folder": _run_folder_name(log_dir),
             "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "started_epoch": round(time.time(), 3),
             "status": "running",
@@ -319,21 +371,38 @@ class RunManifest:
         # one visit (choice_made / proceed / skip) must NOT close the span, or a
         # choice step's think time and an interaction step's placement time --
         # the whole point of this clock -- would be dropped.
-        if action == "start" and entry.get("span_opened_epoch") and entry.get("completed_epoch"):
+        if action == "start" and entry.get("span_opened_epoch"):
+            # Close the previous visit at its completion if it had one, and at
+            # NOW if it did not. A visit with no completion was ABANDONED -- a
+            # step-back re-ran the workflow from an earlier step, or a stale
+            # auto-advance opened this step and the rewind moved past it. Before
+            # this branch handled that case, the old span stayed open and the
+            # next visit's finish_step measured from it, charging this step
+            # everything in between (observed: a branch_op reporting 60.6 s for
+            # a 5.3 s visit, which pushed the run's per-step total 64 s past the
+            # run itself). A step cannot be in two visits at once.
+            closed_at = entry.get("completed_epoch") or now
             try:
                 entry["wall_banked"] = round(
                     float(entry.get("wall_banked") or 0.0)
-                    + float(entry["completed_epoch"]) - float(entry["span_opened_epoch"]), 3
+                    + float(closed_at) - float(entry["span_opened_epoch"]), 3
                 )
             except (TypeError, ValueError):
                 logger.debug("Bad span for step %s", step_id, exc_info=True)
             entry["span_opened_epoch"] = now
             entry.pop("completed_epoch", None)
+            self._timeline_close("step", step_id, status="abandoned")
         elif not entry.get("span_opened_epoch"):
             entry["span_opened_epoch"] = now
         entry["dispatches"] = int(entry.get("dispatches", 0)) + 1
         if action == "start":
             entry["opens"] = int(entry.get("opens", 0)) + 1
+            # A new visit starts clean. `add_step` MERGES fields, so an error
+            # from a previous attempt survives into a re-run that then succeeds
+            # -- and the report prints it under the successful row, which reads
+            # as a step that failed and was recorded ok.
+            if not fields.get("error"):
+                entry.pop("error", None)
             # One timeline row per visit, so a re-run after a rewind is its own
             # row rather than being folded into the first visit's total.
             self._timeline_open(
@@ -432,7 +501,14 @@ class RunManifest:
         entry = self._timeline_find_open(kind, step_id)
         if entry is None:
             return None
-        entry["completed_epoch"] = round(time.time(), 3)
+        # `boundary_epoch` closes the row THERE rather than now, and never
+        # before it opened -- a visit that existed only inside a replay preview
+        # then measures zero instead of overlapping the review row.
+        boundary = fields.pop("boundary_epoch", None)
+        closed = round(time.time(), 3)
+        if boundary is not None:
+            closed = max(float(entry.get("opened_epoch") or boundary), float(boundary))
+        entry["completed_epoch"] = closed
         entry.update({k: v for k, v in fields.items() if v is not None})
         return entry
 
@@ -511,13 +587,78 @@ class RunManifest:
             )
         except (TypeError, ValueError):
             logger.debug("Bad replay span", exc_info=True)
+        entered = float(entered)
         replay.pop("entered_epoch", None)
+        if ended_by == "rerun":
+            # Leaving the preview by re-running rewinds the workflow, so no step
+            # visit survives it. Bounded at the moment review began: anything
+            # after that is review time, already banked above.
+            self.abandon_open_spans(entered)
         events = replay.get("events") or []
         backs = sum(1 for e in events if e.get("action") == "back")
         fwds = sum(1 for e in events if e.get("action") == "forward")
         self._timeline_close("replay", navigations=len(events), backs=backs,
                              forwards=fwds, resumed_at=resumed_at or "",
                              ended_by=ended_by or "")
+        return self.write()
+
+    @staticmethod
+    def _span_is_live(entry: Dict[str, Any]) -> bool:
+        """Is this step's visit still running?
+
+        `finish_step` deliberately LEAVES `span_opened_epoch` in place so a
+        re-visit can bank it, so its presence alone is not "running". The span
+        is live only when no completion has landed since it opened. Shared by
+        every caller that ends spans in bulk -- getting it wrong there rewrites
+        completed steps' walls to span the whole run, which is a plausible
+        number rather than an error.
+        """
+        opened = entry.get("span_opened_epoch")
+        if not opened:
+            return False
+        completed = entry.get("completed_epoch")
+        try:
+            return not (completed and float(completed) >= float(opened))
+        except (TypeError, ValueError):
+            return False
+
+    def abandon_open_spans(self, boundary_epoch: Optional[float] = None) -> "RunManifest":
+        """End every step visit still in flight, banking time only up to
+        ``boundary_epoch``.
+
+        A rewind ends whatever was on screen: the run resumes from an earlier
+        step, so no later visit continues. Two things make the boundary matter
+        rather than just using "now":
+
+        - A step opened by a stale auto-advance DURING the preview (the timer
+          was queued before Back was pressed) has its whole span inside the
+          replay window. Banking to now would count that window twice -- once as
+          review, once as that step's wall -- and the report's split would stop
+          summing to the run.
+        - The interval between the Back click and the rewind is review time,
+          which ``suspend_step_span`` has already moved into the replay bucket
+          for the step that WAS on screen.
+
+        So the bank is clamped at zero: a visit that only existed inside the
+        preview contributes nothing, which is the truth about it.
+        """
+        boundary = float(boundary_epoch) if boundary_epoch else round(time.time(), 3)
+        for entry in self.data.get("steps") or []:
+            if not self._span_is_live(entry):
+                continue
+            opened = entry["span_opened_epoch"]
+            try:
+                banked = max(0.0, boundary - float(opened))
+                entry["wall_banked"] = round(
+                    float(entry.get("wall_banked") or 0.0) + banked, 3)
+            except (TypeError, ValueError):
+                logger.debug("Bad span while abandoning %s", entry.get("step_id"),
+                             exc_info=True)
+                continue
+            entry.pop("span_opened_epoch", None)
+            entry.pop("completed_epoch", None)
+            self._timeline_close("step", str(entry.get("step_id") or ""),
+                                 status="abandoned", boundary_epoch=boundary)
         return self.write()
 
     def note_replay(self, action: str, index: Optional[int] = None,
@@ -580,20 +721,9 @@ class RunManifest:
             replay.pop("entered_epoch", None)
             self._timeline_close("replay", ended_by="exit")
         for entry in self.data.get("steps") or []:
-            opened = entry.get("span_opened_epoch")
-            if not opened:
+            if not self._span_is_live(entry):
                 continue
-            # `finish_step` deliberately LEAVES span_opened_epoch in place so a
-            # re-visit can bank it, so its presence alone does not mean the step
-            # is still running. The span is live only if no completion has
-            # landed since it opened -- without this, every completed step gets
-            # its wall rewritten to (its first open -> Exit).
-            completed = entry.get("completed_epoch")
-            try:
-                if completed and float(completed) >= float(opened):
-                    continue
-            except (TypeError, ValueError):
-                continue
+            opened = entry["span_opened_epoch"]
             try:
                 entry["wall_seconds"] = round(
                     float(entry.get("wall_banked") or 0.0) + now - float(opened), 3)
@@ -628,12 +758,6 @@ class RunManifest:
 # ---------------------------------------------------------------------------
 # Statistics: the human-readable timing report written when a run is closed
 # ---------------------------------------------------------------------------
-
-#: Sub-folder of a RUN folder holding what that run leaves for analysis: the
-#: human-readable timing report and a flat save of the scene it produced. Inside
-#: the run rather than beside it, so a run folder is self-contained -- copying
-#: or deleting one takes its statistics with it.
-STATISTIC_DIRNAME = "Statistic"
 
 #: Step types where the wall clock is dominated by a person, so `wall - exec`
 #: is the surgeon's time and not the runtime's overhead. Kept as an explicit
@@ -750,6 +874,10 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
     out.append(rule)
     out.append(f" Run folder    : {manifest.get('folder', '')}")
     out.append(f" Procedure     : {manifest.get('extension') or '(none)'}")
+    subject = manifest.get("subject") or ""
+    if subject:
+        source = manifest.get("subject_source") or ""
+        out.append(f" Subject       : {subject}" + (f"   ({source})" if source else ""))
     out.append(f" Condition     : {manifest.get('condition', '')}")
     out.append(f" Final status  : {manifest.get('status', '')}")
     prompt = " ".join(str(manifest.get("prompt") or "").split())

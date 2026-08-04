@@ -63,7 +63,7 @@ says it" is actionable; the dialog's detail pane lists every installed workflow.
 Consequences elsewhere: **queueing is gone** — `ROUTE_WORKFLOW_CONFLICT` used to defer a request until
 the workflow ended and then replay it as a traditional turn, which would now promise an answer that
 never comes, so it is refused immediately instead (and `_flushQueuedWorkflowPrompts`, the one path that
-could start a turn with no user click, is inert). **Refusals are logged**: `logs/<stamp>_pipeline_refused/`
+could start a turn with no user click, is inert). **Refusals are logged**: `logs/refused_pipeline_<stamp>/`
 with the `00_router/` call and a manifest sealed `refused`, because the declined routing call used to be
 flushed by the very turn that no longer exists — the most common outcome would otherwise be the only
 unlogged one. A refusal raised *during* a workflow gets no folder (it would repoint the running run's
@@ -412,33 +412,67 @@ Records land in the run's own folder as `baseline_<step>_<mode>_a<attempt>_<HHMM
 cross-condition table is built on demand by `scripts/collect_runs.py` (see "Debug Artifacts"), not
 written a second time at runtime.
 
+### Experiments panel
+
+Per-procedure analysis of the runs kept under `Experiments/<Extension>/`, behind a selector in the
+Experiments section. `SlicerAIAgentLib/experiments/<name>.py` holds the numerics (Qt-free, so it runs
+and is checkable outside Slicer) and `<name>_panel.py` the button; a module registers itself with
+`@register_experiment_panel("<Extension>")`, and `_PANEL_MODULES` lists what to import.
+
+`zygomatic.py` scores relative BIC against the surgeon's STL paths. Three things it enforces rather
+than assumes, because all three fail *silently* rather than loudly:
+
+- Paths are paired with their manual counterpart **by entry point**, never by file name — on the
+  sample data `1_1.stl` belongs with `Implant_3`.
+- `geometry_io.resolve_frame` proves the paths and the bone are in one coordinate frame before
+  anything is scored. An LPS/RAS mix-up mirrors a path onto the other side of the head, where it
+  still intersects bone and still produces a BIC number, just a meaningless one.
+- The **physical** BIC (`bic_score`, over the drawn segment, used for both sides of the comparison)
+  is kept distinct from the **planner's own** score (`planner_bic_score`), which is taken over the
+  candidate vector *before* the tip is pulled back by `safetyMargin` and clips its projection
+  instead of excluding out-of-segment points. Reproducing the latter exactly is the evidence that
+  the bone cloud was reconstructed correctly, and it is never what the comparison divides.
+
 ### Debug Artifacts
 
 `SlicerAIAgentLib/RunLog.py` owns run-folder naming and artifact writing (Qt-free, fail-soft — a
 logging failure must never abort the run being logged). The folder name is the only thing visible in
-a file browser, so it carries the four facts a reader needs before opening anything:
+a file browser, so it carries the five facts a reader needs before opening anything:
 
 ```
-logs/20260730_143210_pipeline_BoneReconstructionPlanner/
-     20260730_143512_pureLLM_BoneReconstructionPlanner_cb_step_08_a1/
-     \______________/\______/\______________________/\___________/\_/
-          when       condition      procedure            step    attempt
+logs/ZygomaticImplantPlanner_baoyawen_pipeline_20260803_154954/
+     ZygomaticImplantPlanner_baoyawen_pureLLM_cb_step_08_a1_20260803_155230/
+     \_____________________/\_______/\______/\__________/\_/\_____________/
+          procedure          subject condition   step  attempt    when
 ```
 
-Sorting by name gives chronological order; `dir *pureLLM*` gives one condition. The condition token
-(`pipeline` / `pureLLM` / `onlineOnly` / `claudeCode`) is what separates the system under test from
-the three comparison baselines. A general, non-workflow turn is `<stamp>_pipeline_task_turnN`; a
-request the router refused under `GUIDED_ONLY_MODE` is `<stamp>_pipeline_refused`, holding the
-`00_router/` call that declined it and a manifest sealed `refused` with the cause.
+**Procedure first, timestamp last**, because analysis is per procedure and per subject — the four
+conditions run on one patient are the unit of comparison, and a leading timestamp scatters exactly
+that grouping through the listing. A name sort is therefore no longer chronological; sort on the
+trailing stamp (or on `started` in the manifest) for that. The **subject** is the input data set,
+derived from the folder the scene's data was loaded out of (`_sceneSubjectName` takes the most common
+parent folder of the storage nodes' files, ignoring our own `logs/`, Slicer's temp and the DICOM
+database), and omitted entirely when it cannot be determined — a placeholder would silently merge two
+patients' runs. A general, non-workflow turn is `task_pipeline_turnN_<stamp>`; a request the router
+refused under `GUIDED_ONLY_MODE` is `refused_pipeline_<stamp>`, holding the `00_router/` call that
+declined it and a manifest sealed `refused` with the cause.
 
 **One run folder per workflow, one subfolder per step.** Chat turns that drive an already-active
 workflow ("done", a choice) keep writing into the same run folder rather than each opening a new
 one. Step folders are zero-padded (`cb_step_08`) purely so they sort in run order — the true,
 unpadded `step_id` is always in `step.json` and in the manifest.
 
+**A run folder has exactly two children**, so which one a reader wants is answerable from the
+name: `runtime/` is everything written while the run executes, `Statistic/` is the report and the
+scene it produced. `_currentLogDir` is the *runtime* dir (so every writer is unchanged) and
+`_currentRunRoot` is the folder holding both — that is what `Statistic/` hangs off, and what
+"Exit without saving" deletes.
+
 ```
-logs/20260730_143210_pipeline_BoneReconstructionPlanner/
-  run_manifest.json        condition + label, prompt, model, router cost, per-step
+logs/ZygomaticImplantPlanner_Case01_pipeline_20260804_122026/
+ runtime/
+  run_manifest.json        condition + label, subject + its source path, prompt,
+                           model, router cost, per-step
                            status/seconds/errors, totals. Rewritten on every mutation,
                            so a session killed mid-workflow still leaves a usable record.
   role_trace.json          the whole run's events
@@ -455,6 +489,7 @@ logs/20260730_143210_pipeline_BoneReconstructionPlanner/
     correction_1/          attempt.json, first_prompt.txt, code.py, agent_plan.json,
                            response.json — nested under the step it repairs
   cb_step_02/ …
+ Statistic/                written at Exit — see below
 ```
 
 A baseline folder is flat (it is one step by construction) and additionally holds `prompt.txt`,
@@ -466,7 +501,7 @@ confirm no offline-analysis artefact reached it), `step_context.json`, and the
 copying or deleting one takes its statistics with it:
 
 ```
-logs/20260803_101200_pipeline_ZygomaticImplantPlanner/
+logs/ZygomaticImplantPlanner_Case01_pipeline_20260804_101200/
   Statistic/
     timing.txt
     scene/
@@ -556,16 +591,36 @@ The scene is saved **after** the replay timeline is torn down, so the one hidden
 every intermediate state. Both halves are fail-soft and independent: a scene that cannot be saved
 still produces the report, with the failure recorded *in* it. Only the Exit button triggers this;
 the other two callers of `_resetGuidedSession` are a runtime cancel and a scene close, and on the
+latter there is no scene left to save.
+
+**Saving is the user's choice, not a consequence of exiting.** The confirmation offers three
+outcomes — *Exit and save* / *Exit without saving* / *Cancel* — because "leave the panel" and "keep
+the record" are independent decisions, and a Yes/No dialog welds them together: saving writes a full
+scene copy, hundreds of megabytes and tens of seconds on a segmented CT, which a user abandoning a
+mis-started run has no reason to sit through. `_resetGuidedSession(save=…)` gates the write *and*
+the progress dialog; `save=None` derives it from `reason`, so the two non-Exit callers are unchanged.
+
+**"Without saving" DELETES the run folder**, because a run's artifacts are written *incrementally as
+it executes* — there is no "don't write it" to choose, only a removal. `_discardRunLogDirs()` takes
+`_sessionLogDirs` (the pipeline's folder plus any baseline folders opened off its steps; reset by
+`_createRunLogDir(new_session=True)` at the router's workflow-start, so a `refused_pipeline_*` folder
+written between two runs is never swept up). `rmtree` is the only irreversible thing in the module,
+so it is gated on a **containment check on the resolved path** — a direct child of this extension's
+own `logs/`, nothing else — rather than on the caller having passed the right thing.
+`_releaseRunLogDir()` runs first: `LLMClient._debugPath` and `RunManifest.write` both
+`os.makedirs(exist_ok=True)`, so one later write would re-create the folder just removed. The answer is read back as a **button role**, never as
+button identity or position: Qt reorders by platform convention, and PythonQt can return a fresh
+wrapper for the same `QAbstractButton`, so `clickedButton() is save` may be False for the button
+just clicked. The dialog is shown even when nothing is at risk, because saving is the main thing
+Exit does on a *finished* run.
+
 The save is slow and blocks the Qt main thread, so it runs behind a modal progress dialog
 (`_beginExitProgress`). That dialog calls `slicer.app.processEvents()` to paint, which is why
 `_resetGuidedSession` opens with a `_guidedExitInProgress` guard — without it a scene close delivered
 during the pump would start a second teardown through half-dismantled state.
 
-The confirmation dialog names both paths, and is now shown
-even when nothing is at risk — saving is the main thing Exit does on a *finished* run, and a dialog
-seen only when something is about to be destroyed would never mention it on the common path.
-
-**The aggregate view is derived, not written.** `scripts/collect_runs.py` walks `logs/` and emits one
+**The aggregate view is derived, not written.** `scripts/collect_runs.py` walks `logs/*/runtime/`
+(falling back to the run root for pre-split runs, so no run silently drops out) and emits one
 row per (run, step) across **all four** conditions — `--step cb_step_9` prints that step under every
 condition side by side; `logs/runs_index.csv` is the full table. This replaced
 `logs/baseline_runs.jsonl`, an append-only file that duplicated the per-run record byte for byte and

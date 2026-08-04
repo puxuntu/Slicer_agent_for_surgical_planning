@@ -808,10 +808,10 @@ class WidgetWorkflowMixin:
     # It deliberately does NOT touch the MRML scene: whatever the procedure
     # produced is the user's data, and exiting a UI is not consent to delete it.
     # ------------------------------------------------------------------
-    #: Ask before discarding a run that has already done work. A misclick here
-    #: costs a 30-step procedure, and the confirmation is skipped when there is
-    #: nothing to lose (no completed steps, or an already-finished workflow).
-    #: Set False for an unconditional one-click exit.
+    #: Ask before closing a run. Shown UNCONDITIONALLY -- including when there is
+    #: no progress to lose -- because the dialog is also where the user chooses
+    #: whether to save, and saving is the main thing Exit does on a *finished*
+    #: workflow. Set False for a one-click exit that always saves.
     EXIT_CONFIRM_ENABLED = True
 
     #: Tried in order; the first that resolves is used. Slicer's icon resources
@@ -910,24 +910,94 @@ class WidgetWorkflowMixin:
         except Exception:
             logger.debug("Exit control visibility failed", exc_info=True)
 
+    #: The three outcomes of the Exit confirmation.
+    #:
+    #: Three, not two, because "leave the panel" and "keep the record" are
+    #: independent decisions and a Yes/No dialog welds them together. Saving
+    #: writes a full copy of the scene, which on a segmented CT is hundreds of
+    #: megabytes and tens of seconds; a user who just wants out of a panel --
+    #: after a mis-started run, a scratch experiment, a procedure they are about
+    #: to redo -- had no way to say so, and their only alternative was to sit
+    #: through a save and delete the folder afterwards.
+    EXIT_SAVE = "save"
+    EXIT_NO_SAVE = "nosave"
+    EXIT_CANCEL = "cancel"
+
     def _onWorkflowExitClicked(self):
+        choice = self.EXIT_SAVE
         if self.EXIT_CONFIRM_ENABLED:
-            try:
-                confirmed = slicer.util.confirmYesNoDisplay(self._exitConfirmMessage())
-            except Exception:
-                confirmed = True
-            if not confirmed:
-                return
-        self._resetGuidedSession(reason="user_exit")
+            choice = self._askExitChoice()
+        if choice == self.EXIT_CANCEL:
+            return
+        self._resetGuidedSession(reason="user_exit",
+                                 save=(choice == self.EXIT_SAVE))
+
+    def _askExitChoice(self):
+        """Exit and save / Exit without saving / Cancel -> one of ``EXIT_*``.
+
+        A three-button ``QMessageBox`` rather than ``confirmYesNoDisplay``,
+        which offers exactly two.
+
+        The answer is read back as a ROLE, never as button identity or position.
+        Position is wrong because Qt reorders the buttons per platform
+        convention (the same three sit in a different order on Windows, macOS
+        and KDE), and identity is wrong because PythonQt can return a fresh
+        Python wrapper for the same underlying ``QAbstractButton`` -- so
+        ``clickedButton() is save`` may be False for the button just clicked.
+        ``buttonRole()`` resolves the C++ pointer inside Qt, so neither matters.
+
+        On failure the fallback depends on WHERE it failed. Before the dialog
+        appeared, ``EXIT_SAVE`` -- the outcome the button had before there was a
+        choice, so a Qt failure loses no data, and a button that silently does
+        nothing would be worse. After the user answered, ``EXIT_CANCEL``:
+        their answer is unknown, and changing nothing is the only option that
+        cannot act against it (they can press Exit again).
+        """
+        answered = False
+        try:
+            headline, detail = self._exitConfirmMessage()
+            box = qt.QMessageBox(slicer.util.mainWindow())
+            box.setIcon(qt.QMessageBox.Question)
+            box.setWindowTitle("Exit guided workflow")
+            box.setText(headline)
+            box.setInformativeText(detail)
+            save = box.addButton("Exit and save", qt.QMessageBox.AcceptRole)
+            box.addButton("Exit without saving", qt.QMessageBox.DestructiveRole)
+            cancel = box.addButton("Cancel", qt.QMessageBox.RejectRole)
+            # Saving is the default: it is the non-destructive answer, and
+            # Return should not be the key that discards a run's record.
+            box.setDefaultButton(save)
+            box.setEscapeButton(cancel)
+            # BEFORE exec_(), which is Slicer's own idiom (slicer.util.messageBox
+            # does the same). Without it the dialog is only hidden, never
+            # destroyed -- it stays parented to the main window until Slicer
+            # quits, and Windows 10's taskbar peek re-shows such windows when
+            # hovering the Slicer icon. Placed here rather than after the
+            # read-back so a failure below cannot skip it.
+            box.deleteLater()
+            box.exec_()
+            answered = True
+            # None when the dialog was dismissed without a button (the window's
+            # close box); buttonRole(None) is InvalidRole, which lands on Cancel.
+            role = box.buttonRole(box.clickedButton())
+        except Exception:
+            logger.debug("Exit choice dialog failed", exc_info=True)
+            return self.EXIT_CANCEL if answered else self.EXIT_SAVE
+        if role == qt.QMessageBox.DestructiveRole:
+            return self.EXIT_NO_SAVE
+        if role == qt.QMessageBox.AcceptRole:
+            return self.EXIT_SAVE
+        return self.EXIT_CANCEL
 
     def _exitConfirmMessage(self):
-        """What pressing Exit will do -- including what it WRITES.
+        """``(headline, detail)`` for the Exit dialog.
 
         Deliberately terse: this is a confirmation the user meets often, so it
         states the three facts that could change their answer (unfinished
-        progress is lost, the scene is untouched, a copy of it gets written) and
-        nothing else. The long-form explanation of what lands in Statistic/
-        belongs in the docs, not in front of someone who has already decided.
+        progress is lost, the scene is untouched whichever button is pressed,
+        and what saving actually writes) and nothing else. The long-form
+        explanation of what lands in Statistic/ belongs in the docs, not in
+        front of someone who has already decided.
 
         Still shown when there is no progress to lose, because saving the run's
         timing and scene is the main thing this button does on a finished
@@ -935,36 +1005,62 @@ class WidgetWorkflowMixin:
         would never mention it on the path taken most.
         """
         from SlicerAIAgentLib import RunLog
-        lines = ["Exit this guided workflow?", ""]
+        lines = []
         if self._guidedRunHasProgress():
             session = self._workflowRuntime.session
             done = len(getattr(session, "completed_steps", None) or [])
             total = int(self._currentWorkflowUiState.get("total_steps") or 0)
             progress = f"{done} of {total} steps" if total else f"{done} step(s)"
             lines.append(f"Not finished ({progress}) - progress cannot be resumed.")
-        lines.append("Scene nodes are left untouched.")
+        # Both buttons are spelled out, because one of them DELETES. The run
+        # folder is written incrementally while the workflow runs, so declining
+        # to save is a removal, not a non-write -- a dialog that only described
+        # what saving adds would be describing the harmless half.
+        lines.append("Your scene is left untouched either way.")
         lines.append(
-            f"Saves timing.txt and a copy of the scene (can be large) to "
-            f"logs/{self._statisticRunName()}/{RunLog.STATISTIC_DIRNAME}/."
+            f"Save: adds timing.txt and a copy of the scene (can be large) "
+            f"under logs/{self._statisticRunName()}/{RunLog.STATISTIC_DIRNAME}/."
         )
-        return "\n".join(lines)
+        lines.append(
+            f"Without saving: DELETES logs/{self._statisticRunName()}/ and this "
+            f"run's baseline folders. No record of the run is kept."
+        )
+        return "Exit this guided workflow?", "\n".join(lines)
 
     # ------------------------------------------------------------------
     # Statistics written when a run is closed
     # ------------------------------------------------------------------
+    def _runRootDir(self):
+        """``logs/<run>/`` -- the folder holding ``runtime/`` and ``Statistic/``.
+
+        Derived defensively rather than read straight off ``_currentRunRoot``:
+        that attribute is set when the folder is created, but this is also
+        reached from the fallback path in ``_getCurrentLogDir``, and from run
+        folders written before the two-subfolder layout existed (whose
+        ``_currentLogDir`` IS the root).
+        """
+        from SlicerAIAgentLib import RunLog
+        root = getattr(self, "_currentRunRoot", None)
+        if root:
+            return str(root)
+        log_dir = str(self._getCurrentLogDir() or "").rstrip("/\\")
+        if os.path.basename(log_dir) == RunLog.RUNTIME_DIRNAME:
+            return os.path.dirname(log_dir)
+        return log_dir
+
     def _statisticRunName(self):
         """Name shared by this run's timing file and its scene folder."""
-        log_dir = getattr(self, "_currentLogDir", None)
-        if log_dir:
-            return os.path.basename(str(log_dir).rstrip("/\\"))
+        root = self._runRootDir()
+        if root:
+            return os.path.basename(str(root).rstrip("/\\"))
         session = getattr(getattr(self, "_workflowRuntime", None), "session", None)
         return getattr(session, "workflow_id", "") or "run"
 
     def _statisticDir(self):
-        """``logs/<run>/Statistic/`` -- inside the run it describes."""
+        """``logs/<run>/Statistic/`` -- beside ``runtime/``, not inside it."""
         from SlicerAIAgentLib import RunLog
         return RunLog.ensure_dir(os.path.join(
-            self._getCurrentLogDir(), RunLog.STATISTIC_DIRNAME
+            self._runRootDir(), RunLog.STATISTIC_DIRNAME
         ))
 
     #: File name of the flat scene save. Fixed rather than derived from the
@@ -1226,6 +1322,77 @@ class WidgetWorkflowMixin:
         except Exception:
             logger.debug("Closing the exit progress dialog failed", exc_info=True)
 
+    def _releaseRunLogDir(self):
+        """Cut every reference to the run folder before it is deleted.
+
+        ``LLMClient._debugPath`` and ``RunManifest.write`` both call
+        ``os.makedirs(..., exist_ok=True)`` on every write, so ONE later write
+        re-creates the folder that was just removed -- leaving a half-empty
+        directory that reads as a crashed run. The references go first.
+        """
+        try:
+            if self.logic and self.logic.llmClient:
+                self.logic.llmClient.setDebugOutputDir(None)
+        except Exception:
+            logger.debug("Clearing the client debug dir failed", exc_info=True)
+        self._currentRunManifest = None
+        self._pipelineRunManifest = None
+        self._currentLogDir = None
+        self._currentRunRoot = None
+        self._pipelineLogDir = None
+        self._pipelineRunRoot = None
+        self._currentStepLogDir = ""
+        self._pipelineStepLogDir = ""
+        runtime = getattr(self, "_workflowRuntime", None)
+        if runtime is not None:
+            runtime.log_dir = ""
+
+    def _discardRunLogDirs(self):
+        """Delete this session's run folders. Returns ``(deleted, failed)`` names.
+
+        "Exit without saving" has to mean nothing from the run is left in
+        ``logs/``, and the artifacts are written *incrementally as the workflow
+        executes* -- there is no "don't write it" to choose, only a removal. So
+        this takes the whole folder: per-step code, plans, execution results,
+        role traces, the manifest and the routing call, plus any baseline
+        folders opened off this run's steps (``_sessionLogDirs``).
+
+        ``rmtree`` is the only irreversible thing in this module, so it is gated
+        on a CONTAINMENT CHECK rather than on the caller having passed the right
+        path: each entry must resolve to a direct child of this extension's own
+        ``logs/``. Anything else -- an absolute path elsewhere, a ``..``
+        traversal, a symlink pointing out of the tree, or ``logs/`` itself -- is
+        refused and logged, never deleted. The check is on the REAL path, so a
+        junction cannot smuggle a target past it.
+        """
+        import shutil
+        root = os.path.normcase(os.path.realpath(
+            os.path.join(SLICER_AI_AGENT_ROOT, "logs")))
+        deleted, failed = [], []
+        # dict.fromkeys: de-duplicate while keeping order, since a run folder can
+        # be recorded twice (parked and restored around a baseline).
+        for path in dict.fromkeys(getattr(self, "_sessionLogDirs", None) or []):
+            if not path:
+                continue
+            resolved = os.path.normcase(os.path.realpath(str(path)))
+            if resolved == root or os.path.dirname(resolved) != root:
+                logger.warning("Refusing to delete %s: not a run folder inside logs/",
+                               path)
+                failed.append(os.path.basename(str(path)) or str(path))
+                continue
+            if not os.path.isdir(resolved):
+                continue        # never created, or already gone
+            try:
+                shutil.rmtree(resolved)
+                deleted.append(os.path.basename(resolved))
+            except Exception as exc:
+                # Usually a file still open (Windows locks it) -- report it
+                # rather than leaving the user thinking the folder is gone.
+                logger.warning("Could not delete run folder %s: %s", path, exc)
+                failed.append(os.path.basename(resolved))
+        self._sessionLogDirs = []
+        return deleted, failed
+
     def _saveRunStatistics(self, exit_epoch, progress=None):
         """Write ``logs/Statistic/<run>_timing.txt`` and ``<run>_scene/``.
 
@@ -1313,8 +1480,14 @@ class WidgetWorkflowMixin:
             return False
         return bool(getattr(session, "completed_steps", None))
 
-    def _resetGuidedSession(self, reason="exit", announce=True):
+    def _resetGuidedSession(self, reason="exit", announce=True, save=None):
         """Close the guided workflow and put the widget back to a clean start.
+
+        ``save`` writes the run's statistics + a flat copy of the scene into
+        ``logs/<run>/Statistic/``. ``None`` derives it from ``reason``, which
+        keeps the three non-Exit callers (a runtime cancel, a scene close, the
+        bare default) behaving exactly as before; the Exit button passes it
+        explicitly, because that is the one path where the user chose.
 
         The ORDER below is load-bearing and each step is commented, because the
         cost of getting it wrong is silent: state that survives here does not
@@ -1341,6 +1514,9 @@ class WidgetWorkflowMixin:
                 "System", "A request is still running — wait for it to finish before exiting."
             )
             return False
+
+        if save is None:
+            save = (reason == "user_exit")
 
         # 0. Stamp the end of the run before anything is torn down, so the
         #    "Send to Exit" total is measured to the click and not to whenever
@@ -1399,9 +1575,15 @@ class WidgetWorkflowMixin:
         #    From here to the end of 5b is the only part of the teardown the user
         #    can WAIT on, so it is the only part that gets the progress dialog --
         #    and the only part that pumps the event loop, hence the re-entrancy
-        #    guard around exactly this span.
-        progress = self._beginExitProgress() if reason == "user_exit" else None
+        #    guard around exactly this span. The dialog is tied to `save`, not to
+        #    the Exit button: without the scene write the rest of this is
+        #    milliseconds, and a modal that flashes is worse than none.
+        # The guard goes up FIRST: _beginExitProgress ends in show() +
+        # processEvents(), so the very first pump is inside the teardown and
+        # would otherwise be the one moment a scene close could start a second
+        # one.
         self._guidedExitInProgress = True
+        progress = self._beginExitProgress() if save else None
         try:
             self._setExitProgress(progress, "Closing the replay timeline...")
             try:
@@ -1414,14 +1596,29 @@ class WidgetWorkflowMixin:
             #     scene is the live one, not one copy per step) and the manifest
             #     is sealed and complete, but _currentLogDir and
             #     _currentRunManifest are still set — step 7 below drops both.
-            #     Only on the Exit button: the other callers are a runtime cancel
-            #     and a scene close, and there is no scene left to save on the
-            #     latter.
-            if reason == "user_exit":
+            if save:
                 try:
                     self._saveRunStatistics(exit_epoch, progress=progress)
                 except Exception:
                     logger.warning("Run statistics save failed", exc_info=True)
+            elif reason == "user_exit":
+                # "Without saving" means nothing of this run stays in logs/, so
+                # the folder it has been writing into all along goes too.
+                # Guarded like its sibling above: a failure here must not
+                # abandon the teardown half-done.
+                try:
+                    self._releaseRunLogDir()
+                    deleted, failed = self._discardRunLogDirs()
+                    note = (f"Exited without saving. Deleted "
+                            f"{len(deleted)} run folder(s) from logs/."
+                            if deleted else
+                            "Exited without saving. Nothing was written to logs/.")
+                    if failed:
+                        note += (f" Could NOT delete: {', '.join(failed[:4])}"
+                                 f" -- see the log for why.")
+                    self.appendToChat("System", note)
+                except Exception:
+                    logger.warning("Discarding the run folder failed", exc_info=True)
         finally:
             # Closes itself: the user asked to exit, not to read a report.
             self._endExitProgress(progress)
@@ -1465,6 +1662,10 @@ class WidgetWorkflowMixin:
         self._lastRouter = None
         self._lastRouterRejection = None
         self._currentLogDir = None
+        self._currentRunRoot = None
+        # Belongs to the run just closed: a stale entry would put a previous
+        # run's folder on the next "Exit without saving" delete list.
+        self._sessionLogDirs = []
         try:
             self._clearWorkflowNotice()
         except Exception:

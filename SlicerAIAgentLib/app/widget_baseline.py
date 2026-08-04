@@ -686,6 +686,10 @@ class WidgetBaselineMixin:
         # otherwise park the BASELINE's folder as if it were the pipeline's.
         if not getattr(self, "_pipelineLogDir", None):
             self._pipelineLogDir = self._currentLogDir
+            # Parked with it: _statisticDir/_statisticRunName resolve through the
+            # run ROOT, so leaving the baseline's root in place would point the
+            # pipeline's Exit-time save at the baseline's folder.
+            self._pipelineRunRoot = getattr(self, "_currentRunRoot", None)
             self._pipelineRunManifest = getattr(self, "_currentRunManifest", None)
             self._pipelineStepLogDir = getattr(self, "_currentStepLogDir", "")
             self._pipelineStepId = getattr(self, "_currentStepId", "")
@@ -761,6 +765,7 @@ class WidgetBaselineMixin:
         if not parked:
             return
         self._currentLogDir = parked
+        self._currentRunRoot = getattr(self, "_pipelineRunRoot", None)
         self._currentRunManifest = getattr(self, "_pipelineRunManifest", None)
         self._currentStepLogDir = getattr(self, "_pipelineStepLogDir", "")
         self._currentStepId = getattr(self, "_pipelineStepId", "")
@@ -770,6 +775,7 @@ class WidgetBaselineMixin:
         self._stepTraceStart = len(self._roleTrace)
         self._pipelineRoleTrace = []
         self._pipelineLogDir = None
+        self._pipelineRunRoot = None
         self._pipelineRunManifest = None
         if self.logic and self.logic.llmClient:
             self.logic.llmClient.setDebugOutputDir(

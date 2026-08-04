@@ -30,7 +30,7 @@ import sys
 MANIFEST = "run_manifest.json"
 
 COLUMNS = [
-    "condition", "extension", "step_id", "attempt", "status",
+    "condition", "extension", "subject", "step_id", "attempt", "status",
     "operation_type", "exec_seconds", "code_chars",
     "gen_seconds", "prompt_chars", "tokens", "cost",
     "tool_rounds", "tool_calls", "started", "error", "folder",
@@ -49,11 +49,26 @@ def _read_json(path):
         return None
 
 
-def _step_execution(run_dir, step_folder):
+def _runtime_dir(run_dir):
+    """Where a run's execution artifacts live.
+
+    A run folder holds exactly two subfolders -- ``runtime/`` (manifest, router
+    call, one folder per step) and ``Statistic/`` (the report + saved scene).
+    Runs written before that split put the same files at the run root, so fall
+    back to it: this script is a DERIVATION over whatever is on disk, and it
+    should not silently drop older runs from the comparison.
+    """
+    nested = os.path.join(run_dir, "runtime")
+    if os.path.isfile(os.path.join(nested, MANIFEST)):
+        return nested
+    return run_dir
+
+
+def _step_execution(runtime_dir, step_folder):
     """Per-step execution.json, when the step has its own folder (pipeline)."""
     if not step_folder:
         return {}
-    return _read_json(os.path.join(run_dir, step_folder, "execution.json")) or {}
+    return _read_json(os.path.join(runtime_dir, step_folder, "execution.json")) or {}
 
 
 def collect(logs_dir):
@@ -61,7 +76,7 @@ def collect(logs_dir):
     if not os.path.isdir(logs_dir):
         return
     for name in sorted(os.listdir(logs_dir)):
-        run_dir = os.path.join(logs_dir, name)
+        run_dir = _runtime_dir(os.path.join(logs_dir, name))
         manifest = _read_json(os.path.join(run_dir, MANIFEST))
         if not isinstance(manifest, dict):
             continue  # not a run folder (or an interrupted one with no manifest)
@@ -71,6 +86,10 @@ def collect(logs_dir):
         base = {
             "condition": condition,
             "extension": manifest.get("extension") or "",
+            # The input data set, so rows can be grouped per patient as well as
+            # per procedure -- the four conditions on one subject are the unit
+            # of comparison.
+            "subject": manifest.get("subject") or "",
             "started": manifest.get("started") or "",
             "folder": name,
         }

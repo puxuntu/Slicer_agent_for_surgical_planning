@@ -1074,11 +1074,18 @@ class WidgetStreamingMixin:
         from SlicerAIAgentLib import RunLog
         self._lastUserPrompt = prompt
         # Names the folder after the procedure it runs, e.g.
-        # logs/20260730_143210_pipeline_BoneReconstructionPlanner/
+        # logs/ZygomaticImplantPlanner_baoyawen_pipeline_20260803_154954/
+        #
+        # new_session=True starts the list of folders "Exit without saving" may
+        # delete. It is reset HERE rather than at the end of the previous
+        # session so that a `refused_pipeline_*` folder written between the two
+        # -- a prompt the router declined, which belongs to no run -- is never
+        # swept up by this run's discard.
         self._currentLogDir = self._createRunLogDir(
             getattr(self, "_currentTurn", 1),
             condition=RunLog.CONDITION_PIPELINE,
             extension=decision.extension,
+            new_session=True,
             # Anchors "total run time" to the Send click, not to this moment --
             # the routing call has already happened by the time we get here.
             send_clicked_epoch=getattr(self, "_sendClickedEpoch", None),

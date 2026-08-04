@@ -37,9 +37,32 @@ def register_experiment_panel(extension_name):
     return _register
 
 
+#: Modules under ``SlicerAIAgentLib/experiments/`` that register a panel.
+#: Imported when the section is built rather than at module import: a broken or
+#: dependency-missing analysis then costs its own extension's panel and nothing
+#: else, instead of taking the whole widget down at Slicer startup.
+_PANEL_MODULES = ("zygomatic_panel",)
+
+_panels_loaded = False
+
+
+def _loadExperimentPanels():
+    global _panels_loaded
+    if _panels_loaded:
+        return
+    _panels_loaded = True
+    import importlib
+    for name in _PANEL_MODULES:
+        try:
+            importlib.import_module("SlicerAIAgentLib.experiments." + name)
+        except Exception:
+            logger.warning("Experiments panel %s failed to load", name, exc_info=True)
+
+
 class WidgetExperimentsMixin:
     def _setupExperiments(self):
         """Build the Experiments section, below the CLI generator and above Debug."""
+        _loadExperimentPanels()
         self._experimentsGroup = ctk.ctkCollapsibleGroupBox()
         self._experimentsGroup.title = "Experiments"
         self._experimentsGroup.collapsed = True

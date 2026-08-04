@@ -55,6 +55,16 @@ logs/
 thinking_history.txt
 test_prompt_*.txt
 
+# Run folders kept for analysis (copied out of logs/, one tree per procedure).
+# Same content as logs/ -- artifacts, saved scenes, whole volumes -- so it is
+# local evidence, not source.
+#
+# Leading slash: git's ignore matching is case-INSENSITIVE on Windows
+# (core.ignorecase=true), so an unanchored `Experiments/` also matched the
+# source package SlicerAIAgentLib/experiments/ and silently kept it out of
+# every commit. Anchored to the repo root, it means only the data tree.
+/Experiments/
+
 # Demo / runtime data folders
 demo/
 
