@@ -68,9 +68,9 @@ class SafeExecutor:
     #: been removed from.
     #:
     #: CLASS-level, not per instance: __main__ is one dict per process, so the
-    #: ledger of what we put in it has to be one too. The runtime executor and
-    #: the CLI live-validation gate (widget_workflow._runCliLiveValidation)
-    #: build separate SafeExecutors that write to the same namespace.
+    #: ledger of what we put in it has to be one too. More than one SafeExecutor
+    #: is built per session (the runtime's own, and the CLI generation
+    #: api-probe's) and they all write to the same namespace.
     #:
     #: Filled by diffing around each exec on the main thread, so it can only
     #: ever contain names OUR code bound: the user cannot type into the console

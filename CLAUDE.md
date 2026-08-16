@@ -39,6 +39,12 @@ python scripts/check_orbital_analysis.py
 # NRRD reader, the bone-density integral against the score the planner logged at
 # the time, both cone denominators, and the t1/t2/t3 phase split.
 python scripts/check_rsa_analysis.py
+
+# The ✎ Revise core: which template a step owns, whether a rewritten one may be
+# installed, and whether the original comes back. Sweeps every shipped package
+# and requires each of its 172 templates to validate against ITSELF -- a rule
+# that rejects a working template would reject the model's faithful rewrite too.
+python scripts/check_template_revision.py
 ```
 
 Dependencies are in `requirements.txt` — `httpx`, `numpy`, `jsonschema` are explicit; `faiss-cpu`, `onnxruntime`, `transformers` are auto-installed at runtime. CMake installs these into Slicer's Python environment during extension setup.
@@ -181,9 +187,9 @@ discovered. The worst of it, and what motivated the method:
 diffed around each call **on the main thread** (so it can only ever contain names our own code bound —
 the user cannot type into the console while the main thread is inside `exec`), and
 `clearIntroducedGlobals()` unbinds exactly those. It is **class-level**: `__main__` is one dict per
-process, so the ledger of what we put in it has to be one too — the runtime executor and the CLI
-live-validation gate build separate `SafeExecutor`s that write to the same namespace. A name that
-merely *predates* us, or one a step rebound, is never removed.
+process, so the ledger of what we put in it has to be one too — more than one `SafeExecutor` is
+built per session (the runtime's own, and the CLI generation api-probe's) and they all write to the
+same namespace. A name that merely *predates* us, or one a step rebound, is never removed.
 
 The rest of the method is the same shape — state whose natural lifetime is the process while the thing
 it describes has the lifetime of a run. The ones that are not obvious: **"this module is entered" is
@@ -420,6 +426,169 @@ the stdlib `wave` module, anything else needs a codec that is deliberately never
 Captured audio is **never persisted**: the artifact writers record duration and byte counts, because
 run folders are copied, shared and analysed and patient-room speech must not travel with them.
 
+### Revising a step's template at runtime (the ✎ button)
+
+**A generated step can pass every check and still be wrong, and the only detector is a person.**
+It runs, raises nothing, and reconstructs the wrong orbit, shows the curve in the wrong view, or
+leaves a node the next step cannot find. Self-correction cannot see it (it fires on a raised error),
+static validation cannot see it (the code is valid), and the api-probe cannot see it (the method
+exists). So the trigger is a **button next to the microphone**: step to the step with ◀, press ✎,
+say what should have happened, press Send. `SlicerAIAgentLib/TemplateReviser.py` is the Qt-free
+core and `app/widget_revise.py` the Qt half, splitting the same way `BaselineRunner` /
+`widget_baseline` do — and for the same reason, `scripts/check_template_revision.py`.
+
+This **replaced** the "Function-level errors" box and its `Repair Generated CLI` button. That path
+took free-form sentences in the generator panel, asked an LLM which of 27 steps each one meant
+(`_map_description_to_step`), and repaired blind; the fix could not be tried without re-running the
+whole procedure. Pointing at the step instead removes the classification entirely — and, because
+the step is *open*, lets the revision be given things a whole-package repair has no access to: the
+code that was actually dispatched (template filled with this run's real values), what it printed,
+the live scene, the answers the user already gave, and the previous revisions of the same step. The
+deleted button was also the only trigger of the **live-execution validation gate**
+(`live_validate_templates` → `repair_live_failures`), which is therefore gone too; generated
+packages are now validated statically only, and `manifest["live_validation"]` is no longer written.
+
+**The TEMPLATE is rewritten, not the filled code — which is what makes this stronger than the
+write-back it sits beside.** `_persistGeneratedTemplateRepair` persists a runtime self-correction by
+escaping every brace and saving the *filled* code, so it must refuse any template carrying a
+placeholder: freezing this run's `{side}` into the package would make every later run reconstruct
+whichever side this one happened to pick. A revision edits the template source, so it has no such
+limit. What replaces that guard is **placeholder closure**: the revised template may drop a
+placeholder and may re-default one it already has, but may not introduce a name the original lacked.
+The original demonstrably fills at dispatch, so its placeholder set *is* what the runtime can supply
+here; a new bare `{name}` raises `KeyError` inside the loader, and the symptom is a step that
+silently never executes rather than an error anyone reads.
+
+Four checks decide whether a rewrite may be installed, and three of them exist because the failure is
+otherwise invisible:
+
+- **Placeholder closure**, above — measured over `fillable_placeholder_names()`, not over a brace
+  scan. A raw scan also matches every **f-string interpolation** (`print(f"failed: {exc}")`), which
+  the loader is right to leave alone because it sits inside a real string literal; counting those as
+  placeholders would refuse any revision that adds an f-string, and f-strings are how every generated
+  template reports an error. Note the defaulted form `{name: default}` is *not* an escape hatch: it
+  is the same six characters as the dict literal `{key: 1}`, which the filler also replaces with the
+  default (`d = {key: 1}` fills to `d = 1`). Refusing both readings with one message is the only rule
+  that is not a coin flip — a name nothing can fill is a constant in disguise anyway.
+- **The filler, run for real.** `unfillable_placeholders()` calls `templates._fill_template` itself
+  with sample values and looks for `{name}` survivors, rather than re-deriving its rules: a copy would
+  have to reproduce both the mask regex *and* its containment test (the filler checks only where a
+  placeholder BEGINS, over a buffer in which every `{{` has been swapped for a longer sentinel), and a
+  copy that drifted would answer confidently about a different string than the loader processes. A
+  survivor is then split by asking **Python**: inside a real STRING token it is an interpolation,
+  outside one it is trapped — by an *unbalanced* apostrophe, typically one in a prose comment, which
+  opens a mask span running to the next quote anywhere in the file. Counting apostrophes would have
+  been a proxy that rejects `node.SetName('Result')`, i.e. most correct answers.
+- **Syntax and CodeValidator**, both on a `sample_fill()`ed copy — a template is not valid Python
+  until its placeholders are substituted.
+- **Scope.** `parse_reply` resolves the model's paths against the step's own template list and drops
+  anything else, so a model that decides to also fix step 14 cannot. A JSON reply whose `templates`
+  key is misspelled is a *correctable* error, never a fall-through to the single-block shape: that
+  shape would install the JSON document itself as the template, and nothing downstream would object —
+  a JSON object is a valid Python dict-literal expression, so it parses, imports nothing, and has no
+  placeholders to close. The step would then raise nothing, print nothing and do nothing, i.e. the one
+  feature whose job is to fix silently-wrong steps would have manufactured one.
+
+**The reply must be FENCED, and that is a correctness constraint rather than a formatting
+preference.** `llm_client._runToolLoop` ends a round only when `_extractCode` finds a fenced block.
+A prompt asking for bare JSON therefore produces a loop that can never accept a correct answer: it
+burns all `TOOL_ROUNDS`, gets a hard-coded "you did not produce code" nudge each time, then a forced
+final call demanding an `agent_plan` + `python` pair — which `parse_reply` reports as ambiguous, and
+the retry ladder repeats the whole thing. So the prompt mandates a single ` ```json ` block and says
+why, and `check_template_revision.py` asserts both.
+
+A rejection is fed back verbatim and the agent gets `MAX_ROUNDS` (3) attempts; the checks are
+deterministic, so the retry message is evidence rather than an opinion. The call is
+`chatWithToolsIsolated` with the built-in search tools and the generated-CLI schemas **stripped by
+identity** — the same shape self-correction uses, so a revision can read the extension's source
+through `ext:` before it writes a call but cannot dispatch a workflow step while deciding.
+
+**The original is kept, and the promise is checked rather than assumed.** `versions/revision_<ts>/`
+is the package BEFORE the write — the direction `runtime_fix_<ts>` uses, and deliberately not
+`repair_NNN`, which archives the *result*; putting a pre-image under that prefix would make
+`versions/` mean two opposite things. `cli_artifacts.snapshot_package_version` has no logger and
+returns `None` on failure, so `apply_revision` refuses to write at all when the snapshot did not
+land: "the original is saved" must not be a claim resting on a call whose result was never read. The
+round's request, reply, messages, per-template before/after and unified diff go to
+`debug/revision_<ts>/`, every revision is indexed in `debug/revisions.json` (under `debug/`, which
+survives a regeneration, not at the package root, which is wiped by one), and the run folder gets its
+own copy under `<step>/revision_<n>/` so a run stays self-contained.
+
+Three traps that cost a bug each:
+
+- **The header strip must not be greedy.** Each rewrite prepends `# [revised] …` naming its backup,
+  and the model is shown the template *with* that header, so it reproduces one. Stripping "the
+  header and every comment line after it" ate the `# precondition:begin … precondition:end` block on
+  the second revision of a step — the runtime's only marker for firing the extension's `enter()`,
+  whose absence breaks every later interactive step and raises nothing. The continuation lines are
+  enumerated instead.
+- **The header is validated too, because it is written after validation.** It carries the surgeon's
+  own sentence into a comment at the top of an executable template, so "the model shouldn't be on
+  the left orbit" would put an unbalanced apostrophe above the code and swallow the placeholder
+  below — the exact defect the validator refuses in the model's output, entering through the door
+  beside it. `_header_safe` strips quote characters, and `apply_revision` re-measures the assembled
+  file against the body and refuses to write that template if the header trapped anything.
+- **The loader cache is NOT invalidated.** Template *content* is opened fresh on every dispatch, so
+  the next ▷ already picks the rewrite up; and `invalidate_cache()` mid-run re-reads every manifest
+  and drops any package failing the status gate — possibly the one the surgeon is standing in.
+- **Eligibility is memoised per (package, step).** It reads two JSON files and is consulted from
+  `_guidedWorkflowOwnsInput`, which every `_setSendEnabled` calls — roughly eight reads per repaint
+  while armed. Safe to cache because a revision rewrites template content, never the generator's
+  step→file mapping; the template *text* is re-read on every run and is not cached.
+
+**Shared seams with the baseline harness, copied rather than approximated**: the mixin sits ahead of
+`WidgetSendMixin` in the MRO and overrides Send with one `if not engaged: super()` guard;
+`_guidedWorkflowOwnsInput` learns about it or the guided workflow keeps the box switched off and the
+mode looks dead; intent (`_reviseActive`) and engagement (`_reviseEngaged`) stay two things, and busy
+is always engaged so the row cannot vanish under a running revision; the debug write context moves
+for the duration and is handed back on every exit path. The two modes are **mutually exclusive in
+both directions** — each toggle disengages the other and refuses while the other is busy, and each
+one's Send-restore is guarded on the other's flag. One-directional exclusivity is not enough and
+fails silently: with both armed, the panel repaints Send purple (revise's sync runs last) while
+`onSendButtonClicked` still routes to baseline (which precedes revise in the MRO), so a button
+reading "Revise step" starts a baseline whose first act is a rewind that deletes every downstream
+node. ✎ is also disabled while a baseline runs, because that run has repointed `_currentLogDir` and
+`_currentRunManifest` at its own folder and a revision started underneath it would file its record
+against the wrong run. Exit and the three replay controls refuse while a revision is in flight, and
+the reply carries `_guidedSessionEpoch` so one that lands after Exit is dropped instead of writing a
+template for a procedure nobody is in. Exit tears the mode down **before** `_prepareCleanRuntime`,
+which clears `_reviseActive` as a raw attribute write — after that the self-healing repaint path
+finds nothing to heal and the status row is left parked above the prompt box.
+
+**The revised step is re-run automatically, and the scene is always put back first.** A step can be
+revised from three states and only one of them has a committed checkpoint, so there are three ways in:
+*scrubbed back to it* (`preview_index` set) and *completed and left behind* (its last checkpoint —
+last, because a repeat block re-visits a step) both go through `_rerunFromCheckpoint`; **standing in
+it** — an interactive step waiting for Done, or one that just ran — has no committed checkpoint,
+because those are recorded on completion. That case is what `rollback_failed_step` is for: it
+restores from the *pending* checkpoint, the scene view and node set captured when the step opened, and
+deliberately keeps it so the retry starts from the identical state. Named for the failure it was
+written for, but this is the same situation — an attempt being thrown away and tried again. Without
+it, revising the step you are standing in dead-ended in "no scene state to restore" with ▷ greyed out,
+which is the state a real run landed in.
+
+Never re-dispatch on top of the existing scene: a PRE template that creates a node would create a
+second one, after which the POST template's "last node of this class" picks the wrong one. That is
+silently wrong, which is worse than losing an in-progress manual adjustment on a step the user is
+re-running anyway. The re-run is deferred with `QTimer.singleShot(0, …)` because it is reached from
+inside `_drainStreamQueue` and executing template code pumps the Qt event loop — the 50 ms drain timer
+would otherwise fire again and handle a second event inside this one. `_rerunFromCheckpoint`'s own
+confirmation still stands: it asks before a rewind that would delete nodes the workflow did not create.
+
+**A template the agent returns verbatim is not written.** It is asked for the complete file for every
+template the step owns, so it routinely echoes back the one it did not touch; writing that would stamp
+a header on it and report an untouched file as revised (a real run produced exactly that, with an
+"identical to the original" warning attached). `apply_revision` compares bodies with both headers
+stripped, skips the unchanged ones, and says so — and when every template comes back unchanged that is
+an error naming them, not a silent success.
+
+Two things that are deliberately not icons or not hidden. ✎ is **text**, not a `:/Icons/` resource:
+`qt.QIcon` on an unregistered path returns a NULL icon rather than raising, which renders as an empty
+button — the same reason the baseline toggle is a bare "⚖". And it is **visible from panel build**,
+disabled with the reason in its tooltip, because `_updateReviseControls` runs only on a
+workflow-panel repaint: a button that starts hidden did not exist at all until a procedure started,
+which reads as a missing feature rather than an unavailable one.
+
 ### Entry Point and Module Structure
 
 - `SlicerAIAgent.py` (~3600 lines) — Contains three Slicer-standard classes plus the bulk of runtime logic:
@@ -454,7 +623,7 @@ experimental variable of this system, so it must be editable, diffable and citab
 code. `SlicerAIAgentLib/PromptLibrary.py` is the only module that reads that directory (mtime-aware
 cache, so an edit applies on the next call; `{{PLACEHOLDER}}` substitution via `render()`). The only
 prompt text left in Python is a one-line fallback per loader, for surviving a missing file.
-`Resources/Prompts/README.md` is the index. Four prompt paths, each sized to its job:
+`Resources/Prompts/README.md` is the index. Five prompt paths, each sized to its job:
 
 **1. Opening turn → `workflow_router_prompt.md` (~6 KB, one tool-free call).**
 Once a generated-CLI workflow starts, every step is dispatched by `WorkflowRuntime` — the LLM is out
@@ -496,7 +665,16 @@ searching the extension's own source is exactly what a repair needs. Two indepen
 | `suppress_cli_tool_fragments` | ❌ | ✅ | ❌ | self-correction during a workflow |
 | `suppress_extension_cli` | ❌ | ❌ | ❌ | online-only baseline |
 
-**4. Baselines → see "Baseline prompt & context" below.**
+**4. A step that RAN and misbehaved → `template_revision_prompt.md`.** The counterpart to path 3,
+and the division is what each one can be given: self-correction repairs the *filled code* of a step
+that raised, so it needs the whole trajectory; a revision rewrites the *template* of a step that did
+not raise, so it is scoped to one step and carries that step's template source, its dispatched code,
+its output, the live scene and the user's own description. It is offered the same search tools with
+the CLI schemas stripped, and the validator's blocked lists are rendered into the prompt rather than
+restated in it — a prompt describing a blocked list that has since changed teaches a rule the
+executor does not enforce. See "Revising a step's template at runtime".
+
+**5. Baselines → see "Baseline prompt & context" below.**
 
 ### Dual API Support
 
@@ -529,12 +707,13 @@ searching the extension's own source is exactly what a repair needs. Two indepen
 | `WorkflowOrchestrator.py` | Runtime state machine for guided interactive workflows: step execution, interaction completion, workflow cancellation, prompt fragment generation. |
 | `PromptLibrary.py` | The only reader of `Resources/Prompts/`. mtime-aware cache, `{{PLACEHOLDER}}` rendering, per-file fallback. |
 | `RunLog.py` | Run-folder naming (`<stamp>_<condition>_<procedure>[_<step>][_a<n>]`), fail-soft artifact writers, `RunManifest`. |
+| `TemplateReviser.py` | The ✎ Revise core, Qt-free: which template files a step owns, whether a rewritten one may be installed (placeholder closure, the filler's string mask, syntax, CodeValidator), reply parsing, and the snapshot-before-write apply/restore. |
 | `WorkflowRouter.py` | Fast first-turn router: one tool-free call over a compact workflow catalog, deciding which guided workflow a request means (or none). |
 | `voice/` | Voice control, Qt-free half: `audio` (always-on capture with energy VAD, playback), `asr_client` / `tts_client` (qwen3-asr-flash / qwen3-tts-flash over DashScope), `grammar` (the step reduced to the utterances it accepts), `commands` (transcript → one action). The Qt half is `app/widget_voice.py`. |
 
 ### Extension CLI Pipeline
 
-`ExtensionCLIAnalyzer.py` analyzes third-party Slicer extension source code via LLM and generates tool schemas + code templates under `Resources/extension_CLI/`. The Widget includes a generator UI (`_setupExtensionCLIGenerator`) for analyzing, testing, revising, and deleting CLI tools. At runtime, `ExtensionCLILoader.py` discovers and loads these as additional LLM tools. Extension source code is exposed to the LLM via the `ext:` path prefix.
+`ExtensionCLIAnalyzer.py` analyzes third-party Slicer extension source code via LLM and generates tool schemas + code templates under `Resources/extension_CLI/`. The Widget includes a generator UI (`_setupExtensionCLIGenerator`) for analyzing and generating CLI tools (in parallel, one tab per extension), deleting them, and editing per-step clinical instructions. It no longer offers a repair action: a package that fails validation is auto-revised by `_autoReviseCli` on the spot, and a step that validates but *behaves* wrongly is fixed at runtime by ✎ Revise, on the step in front of the user. At runtime, `ExtensionCLILoader.py` discovers and loads these as additional LLM tools. Extension source code is exposed to the LLM via the `ext:` path prefix.
 
 ### Where a user_choice's answer goes
 
@@ -608,9 +787,9 @@ refused. Hence `_bound_choice_placeholders(gen)` lives once, in `validation_sema
 and both gates call it.
 `validation_semantics._fill_remaining_placeholders` (now an instance method, so every
 call site benefits) fills such a placeholder from a real option rather than `""`;
-otherwise the live-execution gate would run `segmentOrbits("")`, which the extension
-rejects by design, read that as a broken template, and hand a correct one to the
-repair ladder.
+otherwise `_stage9_validate` would syntax- and security-check `segmentOrbits("")`,
+which the extension rejects by design, read that as a broken template, and hand a
+correct one to the repair ladder.
 
 At runtime the answer travels **twice, deliberately**. `_build_format_kwargs` already
 merges recorded choices into the fill kwargs, so `{side}` resolves to the answer —
@@ -1093,6 +1272,13 @@ logs/ZygomaticImplantPlanner_Case01_pipeline_20260804_122026/
     thinking.txt           reasoning for this step
     correction_1/          attempt.json, first_prompt.txt, code.py, agent_plan.json,
                            response.json — nested under the step it repairs
+    revision_1/            request.txt, messages_sent.txt, reply.txt, revision.json
+                           — one per ✎ Revise of this step. The package keeps its
+                           own copy (plus the before/after and the diff) under
+                           <ext>/debug/revision_<ts>/, because the two answer
+                           different questions: why THIS run's step 12 differs
+                           from the shipped template, versus what has ever been
+                           asked of this package.
   cb_step_02/ …
  Statistic/                written at Exit — see below
 ```

@@ -227,13 +227,15 @@ class WidgetStreamingMixin:
     # disabling is always safe.
     # ------------------------------------------------------------------
     def _guidedWorkflowOwnsInput(self):
-        """True while a guided workflow is driving and no baseline is engaged.
+        """True while a guided workflow is driving and no mode has claimed input.
 
         Keyed on ENGAGED, not on the raw toggle: on a step that cannot take a
         baseline the selector row is hidden, so the input row must go back to
-        the workflow rather than sit enabled with nothing to drive.
+        the workflow rather than sit enabled with nothing to drive. Revise (✎)
+        is the second such mode and takes the box for the same reason -- its
+        request is free text and there is nowhere else to type it.
         """
-        if self._baselineEngaged():
+        if self._baselineEngaged() or self._reviseEngaged():
             return False
         runtime = getattr(self, "_workflowRuntime", None)
         try:
@@ -283,9 +285,11 @@ class WidgetStreamingMixin:
                 self.sendButton.setEnabled(False)
             except Exception:
                 logger.debug("Send disable failed", exc_info=True)
-        elif not getattr(self, "_streaming", False) and not self._baselineBusy():
+        elif (not getattr(self, "_streaming", False)
+              and not self._baselineBusy() and not self._reviseBusy()):
             # Not guided and nothing in flight: Send follows the prompt box,
-            # except in baseline mode where some producers need no prompt.
+            # except in baseline mode where some producers need no prompt. A
+            # revision always needs one, so it is not in that exception.
             self._setSendEnabled(bool(self.promptInput.toPlainText().strip())
                                  or self._baselineEngaged())
 
@@ -1728,11 +1732,14 @@ class WidgetStreamingMixin:
             elif event_type == 'cli_revision_complete':
                 self._handleCliRevisionComplete(payload)
                 i += 1
-            elif event_type == 'cli_live_repair_complete':
-                self._handleCliLiveRepairComplete(payload)
+            elif event_type == 'revise_reply':
+                self._handleReviseReply(payload)
                 i += 1
-            elif event_type == 'cli_repair_complete':
-                self._handleCliRepairComplete(payload)
+            elif event_type == 'revise_progress':
+                self._handleReviseProgress(payload)
+                i += 1
+            elif event_type == 'revise_error':
+                self._handleReviseError(payload)
                 i += 1
             elif event_type == 'cli_error':
                 self._handleCliError(payload)

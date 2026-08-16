@@ -6,6 +6,7 @@ from .widget_experiments import WidgetExperimentsMixin
 from .widget_workflow import WidgetWorkflowMixin
 from .widget_replay import WidgetReplayMixin
 from .widget_baseline import WidgetBaselineMixin
+from .widget_revise import WidgetReviseMixin
 from .widget_streaming import WidgetStreamingMixin
 from .widget_execution import WidgetExecutionMixin
 from .widget_voice import WidgetVoiceMixin
@@ -18,7 +19,14 @@ class SlicerAIAgentWidget(
     WidgetExperimentsMixin,
     WidgetWorkflowMixin,
     WidgetReplayMixin,
+    # Both of these take over promptInput + sendButton, so both must precede
+    # WidgetSendMixin (reached through WidgetExecutionMixin) for their
+    # onSendButtonClicked / onPromptTextChanged overrides to win. Baseline
+    # first: its override runs, and super() carries an unengaged click through
+    # revise and on to the default handler. They are mutually exclusive anyway
+    # (engaging one disengages the other), so the order only fixes precedence.
     WidgetBaselineMixin,
+    WidgetReviseMixin,
     WidgetStreamingMixin,
     WidgetExecutionMixin,
     # Before WidgetSettingsMixin, so its onSaveSettings/loadSettings overrides
@@ -182,6 +190,24 @@ class SlicerAIAgentWidget(
         self._mcpAutoStartError = ""
         self._baselineActiveRun = None
         self._baselineRejection = ""
+        # Runtime template revision (see app/widget_revise.py and
+        # SlicerAIAgentLib/TemplateReviser.py). Same two-notion shape as the
+        # baseline harness: `_reviseActive` is the ✎ toggle's intent, while
+        # `_reviseActiveRun` being non-None is what "busy" means -- and busy is
+        # always engaged, so the row cannot vanish under a running revision.
+        self._reviseButton = None
+        self._reviseRow = None
+        self._reviseInfoLabel = None
+        self._reviseActive = False
+        self._reviseActiveRun = None
+        self._reviseSendText = "Send"
+        self._reviseSendStyle = ""
+        # Per-step revision counter, so two revisions of the same step do not
+        # write into one another's artifact folder.
+        self._reviseAttemptCounts = {}
+        # (cli_dir, step_id) -> (ok, reason). The eligibility answer reads two
+        # JSON files and is consulted on every repaint while the mode is armed.
+        self._reviseEligibilityMemo = {}
         # Last fast-router decision that DECLINED, so the turn that follows can
         # account for its cost (see WidgetStreamingMixin's router path).
         self._lastRouterDecision = None

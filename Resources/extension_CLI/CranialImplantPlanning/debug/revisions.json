@@ -1,0 +1,14 @@
+[
+  {
+    "label": "revision_20260816_191723",
+    "time": "2026-08-16T19:17:23",
+    "step_id": "cb_step_13",
+    "request": "in this step, do not show the displacement and rotation handler, and just show the ROI boundary adjustment tool",
+    "summary": "Hide displacement (translation) and rotation handles for the ROI markup; keep only the scale handles for boundary adjustment.",
+    "applied": [
+      "templates/cb_step_13_pre.py.tpl"
+    ],
+    "backup": "versions/revision_20260816_191723",
+    "rounds": 1
+  }
+]

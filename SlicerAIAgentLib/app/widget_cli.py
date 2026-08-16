@@ -27,15 +27,15 @@ class WidgetCLIMixin:
         extLayout.addWidget(extLabel)
 
         # A checkable LIST, not a combo: Analyze & Generate runs every TICKED
-        # extension, in parallel. The single-extension actions (Repair, Test,
-        # the step-instruction editor) act on the HIGHLIGHTED row instead, so
-        # one widget carries both meanings without a second selector to keep in
+        # extension, in parallel. The single-extension action (the
+        # step-instruction editor) acts on the HIGHLIGHTED row instead, so one
+        # widget carries both meanings without a second selector to keep in
         # sync -- tick what to build, highlight what to work on.
         self._extensionSelector = qt.QListWidget()
         self._extensionSelector.setToolTip(
             "Tick one or more extensions to generate CLIs for -- Analyze & Generate "
-            "runs them in parallel. The highlighted row is the one Repair and the "
-            "step-instruction editor act on. Only extensions that have a cookbook "
+            "runs them in parallel. The highlighted row is the one the "
+            "step-instruction editor acts on. Only extensions that have a cookbook "
             "file (Resources/extensions_cookbook/<name>.md) are listed."
         )
         self._extensionSelector.setSelectionMode(qt.QAbstractItemView.SingleSelection)
@@ -71,7 +71,7 @@ class WidgetCLIMixin:
         # their output, so a single pane would produce a log in which no run's
         # story is readable; a tab each keeps every run's phases in order.
         # `_cliProgressDisplay` still exists and still points at a real editor
-        # (the visible tab) so the single-extension flows -- Repair, Test,
+        # (the visible tab) so the single-extension flows -- auto-revision,
         # instruction regeneration -- keep writing where the user is looking.
         self._cliProgressTabs = qt.QTabWidget()
         self._cliProgressTabs.setMaximumHeight(170)
@@ -98,32 +98,14 @@ class WidgetCLIMixin:
 
         cliLayout.addWidget(self._cliResultGroup)
 
-        # Row 7: Function-error chatbox (user-described behavior errors)
-        # For steps that run with NO exception but visibly do the wrong thing —
-        # the only signal is the user's description. Consumed by Repair.
-        funcLabel = qt.QLabel("Function-level errors (optional):")
-        cliLayout.addWidget(funcLabel)
-        self._cliFunctionErrorInput = qt.QTextEdit()
-        self._cliFunctionErrorInput.setMaximumHeight(70)
-        self._cliFunctionErrorInput.setPlaceholderText(
-            "Describe any step that runs without error but behaves incorrectly, e.g.\n"
-            "'step 12: curve shows in the wrong view; should be 3D View 1 + Red only'.\n"
-            "One per line. Used when you click Repair."
-        )
-        cliLayout.addWidget(self._cliFunctionErrorInput)
+        # A step that runs without raising but behaves wrongly is no longer
+        # reported here. It is fixed where it is SEEN: the ✎ Revise button above
+        # Send, during the guided run, against the step on screen (see
+        # app/widget_revise.py). A description typed into this panel had to be
+        # mapped back to a step by an LLM guess, and the fix could not be tried
+        # until the whole procedure was run again.
 
-        # Row 8: Repair button — fixes the function-level (behavior) errors
-        # described above. Runtime API errors are handled by the runtime
-        # self-correction loop, which writes the fix straight into the template.
-        self._repairCliButton = qt.QPushButton("Repair Generated CLI")
-        self._repairCliButton.setToolTip(
-            "Fix the generated CLI from the function-level (behavior) errors "
-            "described above"
-        )
-        self._repairCliButton.setEnabled(False)
-        cliLayout.addWidget(self._repairCliButton)
-
-        # Row 9: Per-step instruction editor (clinical simple/detailed text).
+        # Row 7: Per-step instruction editor (clinical simple/detailed text).
         instrGroup = ctk.ctkCollapsibleGroupBox()
         instrGroup.title = "Step instructions"
         instrGroup.collapsed = True
@@ -175,7 +157,6 @@ class WidgetCLIMixin:
         self._extensionSelector.itemChanged.connect(
             lambda unused_item: self._refreshAnalyzeButtonCaption())
         self._analyzeGenerateButton.clicked.connect(self._onAnalyzeGenerateClicked)
-        self._repairCliButton.clicked.connect(self._onRepairCliClicked)
         self._stepInstrStepCombo.currentIndexChanged.connect(self._onStepInstrStepChanged)
         self._stepInstrSaveButton.clicked.connect(self._onSaveStepInstructions)
         self._regenInstructionsButton.clicked.connect(self._onRegenerateInstructions)
@@ -332,7 +313,6 @@ class WidgetCLIMixin:
         has_work = bool(self._checkedExtensionLabels())
         self._analyzeGenerateButton.setEnabled(has_work and not self._cliGeneratorRunning)
         self._refreshAnalyzeButtonCaption()
-        self._refreshCliActionButtons()
 
     def _onExtensionSelectionChanged(self, index):
         """Enable/disable the Analyze button from what would actually be built.
@@ -344,29 +324,6 @@ class WidgetCLIMixin:
         has_work = bool(self._checkedExtensionLabels())
         self._analyzeGenerateButton.setEnabled(has_work and not self._cliGeneratorRunning)
         self._refreshAnalyzeButtonCaption()
-        self._refreshCliActionButtons()
-
-    def _refreshCliActionButtons(self):
-        """Enable Repair for a selected extension that already has a generated CLI.
-
-        Repair only makes sense once a CLI exists on disk; the manifest.json is the
-        source of truth. Generate is always available (gated only by selection),
-        since first-time generation is its job.
-        """
-        if getattr(self, "_cliGeneratorRunning", False):
-            return
-        data = self._getSelectedExtensionData()
-        has_cli = False
-        if data and data.get("name"):
-            try:
-                from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
-                manifest_path = os.path.join(
-                    get_cli_base_dir(), data["name"], "manifest.json"
-                )
-                has_cli = os.path.isfile(manifest_path)
-            except Exception:
-                has_cli = False
-        self._repairCliButton.setEnabled(has_cli)
 
     # ── progress tabs ────────────────────────────────────────────────────
     #: Tab used by everything that is not a per-extension generation run.
@@ -470,7 +427,6 @@ class WidgetCLIMixin:
         self._cliGeneratorRunning = False
         self._analyzeGenerateButton.setEnabled(True)
         self._refreshAnalyzeButtonCaption()
-        self._refreshCliActionButtons()
         if len(batch) > 1:
             summary = "%d of %d generated" % (len(done), len(batch))
             if failed:
@@ -536,7 +492,8 @@ class WidgetCLIMixin:
                 "A CLI already exists for:\n  %s\n\n"
                 "Regenerate from scratch? The existing package is deleted first "
                 "and restored automatically if a run fails.\n"
-                "To fix runtime or behaviour issues instead, use 'Repair Generated CLI'."
+                "To fix ONE step's behaviour instead, run the procedure and use "
+                "the ✎ Revise button above Send on that step."
                 % "\n  ".join(existing),
                 qt.QMessageBox.Yes | qt.QMessageBox.No,
             )
@@ -549,7 +506,6 @@ class WidgetCLIMixin:
         self._cliQueue = list(runnable)
         self._cliGeneratorRunning = True
         self._analyzeGenerateButton.setEnabled(False)
-        self._repairCliButton.setEnabled(False)
         self._cliResultGroup.setVisible(False)
         self._resetCliProgressTabs(names)
         self._cliStatusLabel.setText(
@@ -633,98 +589,10 @@ class WidgetCLIMixin:
 
         threading.Thread(target=_run_analysis, daemon=True).start()
 
-    def _onRepairCliClicked(self):
-        """Repair the generated CLI from the user's function-error descriptions.
-
-        Runs the LLM template repair in a background thread (repair_generated_cli),
-        then — on the main thread (via cli_repair_complete) — live-validates the
-        rewritten templates to catch any API crash, auto-repairing those too.
-        Runtime API errors are handled separately by the runtime self-correction
-        loop, which writes its fix directly into the step template.
-        """
-        data = self._getSelectedExtensionData()
-        if not data or self._cliGeneratorRunning:
-            return
-
-        ext_name = data["name"]
-        source_path = data.get("path", "")
-        from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
-        cli_dir = os.path.join(get_cli_base_dir(), ext_name)
-        if not os.path.isdir(cli_dir):
-            self._cliProgressDisplay.append(
-                f"No CLI found for '{ext_name}'. Use Analyze & Generate first."
-            )
-            return
-
-        # Function-level error descriptions from the chatbox (one per line).
-        func_text = (
-            self._cliFunctionErrorInput.toPlainText()
-            if self._cliFunctionErrorInput else ""
-        )
-        function_errors = [line.strip() for line in func_text.split("\n") if line.strip()]
-        if not function_errors:
-            self._cliProgressDisplay.append(
-                "Nothing to repair: describe the mis-behaving step(s) in the "
-                "'Function-level errors' box above, then click Repair. (Runtime API "
-                "errors are fixed automatically while the CLI runs.)"
-            )
-            return
-
-        manifest = {}
-        manifest_path = os.path.join(cli_dir, "manifest.json")
-        if os.path.isfile(manifest_path):
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = json.load(f)
-            except Exception:
-                manifest = {}
-
-        self._cliGeneratorRunning = True
-        self._repairCliButton.setEnabled(False)
-        self._analyzeGenerateButton.setEnabled(False)
-        self._cliStatusLabel.setText("Repairing...")
-        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
-        self._cliProgressDisplay.append(
-            f"Repairing '{ext_name}': {len(function_errors)} "
-            "function-error description(s)..."
-        )
-
-        # Stash so _handleCliRepairComplete can launch live validation afterward.
-        self._cliRepairResult = {"cli_dir": cli_dir, "manifest": manifest}
-
-        import threading
-
-        def _run_repair():
-            try:
-                from SlicerAIAgentLib.ExtensionCLIAnalyzer import ExtensionCLIAnalyzer
-                from SlicerAIAgentLib.CodeValidator import CodeValidator
-
-                analyzer = ExtensionCLIAnalyzer(
-                    llm_client=self.logic.llmClient,
-                    output_base_dir=os.path.join(
-                        SLICER_AI_AGENT_ROOT, "Resources", "extension_CLI"
-                    ),
-                    code_validator=CodeValidator(),
-                    on_progress=lambda n, s, d: self._streamQueue.put(
-                        ('cli_progress', {'stage': n, 'name': s, 'detail': d})
-                    ),
-                    on_error=lambda e: self._streamQueue.put(('cli_error', e)),
-                )
-                result = analyzer.repair_generated_cli(
-                    ext_name, function_errors, source_path=source_path,
-                )
-                self._streamQueue.put(('cli_repair_complete', result))
-            except Exception as e:
-                self._streamQueue.put(('cli_error', str(e)))
-
-        thread = threading.Thread(target=_run_repair, daemon=True)
-        thread.start()
-
     def _autoReviseCli(self, generation_result):
         """Automatically trigger LLM revision after generation validation fails."""
         data = self._getSelectedExtensionData()
         if not data:
-            self._refreshCliActionButtons()
             return
 
         ext_name = data["name"]

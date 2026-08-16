@@ -20,6 +20,7 @@ need no escaping). An unfilled placeholder collapses to an empty string.
 | `baseline_online_only_prompt.md` | `BaselineRunner.online_only_addendum` | Baseline 2 — online agent with the generated CLI ablated |
 | `extension_cli_analyzer_prompt.md` | `ExtensionCLIAnalyzer` | Offline CLI generation pipeline |
 | `voice_command_prompt.md` | `voice.commands.build_fallback_prompts` | Voice control, second tier — only when the deterministic matcher is uncertain about an utterance |
+| `template_revision_prompt.md` | `TemplateReviser.revision_system_prompt` | The ✎ Revise button — rewriting ONE step's template from the user's description of what it should have done |
 
 Baseline 3 (Claude Code + Slicer skill over MCP) has **no prompt file here**: its context and
 prompt management live entirely on the Claude Code side, and this runtime only executes the code
@@ -40,6 +41,11 @@ A request arrives:
 4. **Generated code failed at runtime** → self-correction reuses `system_prompt.md` in full, plus
    the failed code, the error, the original tool trajectory and live API evidence. Deliberately
    *not* short: repair is the one place that needs the whole history and the search tools.
+5. **Generated code RAN and did the wrong thing** → `template_revision_prompt.md`, when the user
+   presses ✎ and says so. Nothing automatic reaches this one: a step that raises nothing produces
+   no signal, so the trigger is a person. It is scoped to the step on screen and rewrites that
+   step's `.tpl`, so unlike (4) it works on the template with its placeholders intact rather than
+   on the filled code.
 
 ## Dynamic content appended at runtime
 
@@ -56,5 +62,6 @@ A request arrives:
 
 Every load has a minimal built-in fallback, so a missing or corrupt file degrades the run instead
 of crashing it. Fallbacks live next to their loader (`BaselineRunner._PURE_LLM_FALLBACK`,
-`WorkflowRouter._FALLBACK_ROUTER_PROMPT`, `LLMClient._getFallbackSystemPrompt`) and are the only
+`WorkflowRouter._FALLBACK_ROUTER_PROMPT`, `LLMClient._getFallbackSystemPrompt`,
+`voice.commands._FALLBACK_PROMPT`, `TemplateReviser._REVISION_FALLBACK`) and are the only
 prompt text in Python — they exist to survive a missing file, not to be edited.

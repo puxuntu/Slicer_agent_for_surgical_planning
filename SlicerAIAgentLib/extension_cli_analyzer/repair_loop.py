@@ -851,10 +851,13 @@ Return:
                 "Verify And Repair Templates",
             )
 
-        # During generation the name comes from the parsed cookbook; the Repair
-        # path never parses the cookbook, so fall back to the repair-set name —
-        # otherwise the extension's own source would not be registered as a
-        # searchable `ext:` root and re-grounding couldn't find extension evidence.
+        # During generation the name comes from the parsed cookbook. The second
+        # source, `_repair_extension_name`, was set by the deleted repair
+        # entry points, which never parsed a cookbook; it is read defensively so
+        # the fallback costs nothing and stays available to any later caller
+        # that reaches this loop without a cookbook. Without a name the
+        # extension's own source is not registered as a searchable `ext:` root
+        # and re-grounding cannot find extension evidence.
         _ext_name = (
             (self._cookbook_def.extension_name
              if getattr(self, "_cookbook_def", None) else "")
@@ -1036,11 +1039,18 @@ Return:
     ) -> Tuple[Dict[str, str], Dict]:
         """Validate, live-probe, repair, and revalidate templates before packaging.
 
-        seed_errors (optional): externally-reported failures — recorded runtime API
-        errors and user function-error descriptions — injected as first-iteration
-        issues so they are repaired WITH grounded re-search/validation alongside any
-        static issue, even when static validation alone would pass. Used by the
-        Repair button to give it the same capability as generation.
+        seed_errors (optional): externally-reported failures injected as
+        first-iteration issues so they are repaired WITH grounded
+        re-search/validation alongside any static issue, even when static
+        validation alone would pass.
+
+        NOTE: no caller passes it today. Its two users were the deleted "Repair
+        Generated CLI" button (`repair_generated_cli`) and the live-execution
+        gate (`repair_live_failures`); generation calls without it, and the
+        runtime revision path (SlicerAIAgentLib/TemplateReviser.py) does not go
+        through this loop at all. Kept because it is the seam any future
+        external error source would enter by, and removing it would also mean
+        removing the first-iteration injection block below.
         """
         repair_log = []
         repair_coordinator = RepairCoordinator(

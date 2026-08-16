@@ -1,0 +1,10 @@
+```json
+{
+  "analysis": "The CropROI markups node (vtkMRMLMarkupsROINode2) and its display node (vtkMRMLMarkupsROIDisplayNode2) are visible in the live scene, and the cb_step_15 pre template only prints instructions, so the ROI boundary stays on screen during the view-adjustment step. The extension hides the ROI the same way it does after cropping: roiNode.GetDisplayNode().SetVisibility(False) (SlicerE3Implant.py onCropToRoi).",
+  "summary": "In the pre template, hide the CropROI display node so the ROI boundary is not shown during this view adjustment.",
+  "templates": {
+    "templates/cb_step_15_pre.py.tpl": "# --- CranialImplantPlanning: Manually adjust the 3D view to get the best angle for placing the cutting curve. (Setup) ---\nimport slicer\n\n# This step is a view adjustment, not a Markups placement.\n# Keep the crop ROI box hidden so it does not clutter the defect view.\nroiNode = slicer.mrmlScene.GetFirstNodeByName(\"CropROI\")\nif roiNode is not None and roiNode.GetDisplayNode() is not None:\n    roiNode.GetDisplayNode().SetVisibility(False)\n\nprint(\"[CranialImplantPlanning] Please Manually adjust the 3D view to get the best angle for placing the cutting curve.\")\nprint(\"When finished, press the 'Done' button in the workflow panel.\")\n"
+  },
+  "blocked": ""
+}
+```

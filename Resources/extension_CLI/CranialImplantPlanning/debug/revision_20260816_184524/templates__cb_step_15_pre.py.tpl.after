@@ -1,0 +1,15 @@
+# [revised] Rewritten by the runtime revision agent (revision_20260816_184524).
+# Pre-revision package backed up under versions/revision_20260816_184524/.
+# Requested: in this step, do not show the ROI boundary anymore
+# Change: In the pre template, hide the CropROI display node so the ROI boundary is not shown during this view adjustment.
+# --- CranialImplantPlanning: Manually adjust the 3D view to get the best angle for placing the cutting curve. (Setup) ---
+import slicer
+
+# This step is a view adjustment, not a Markups placement.
+# Keep the crop ROI box hidden so it does not clutter the defect view.
+roiNode = slicer.mrmlScene.GetFirstNodeByName("CropROI")
+if roiNode is not None and roiNode.GetDisplayNode() is not None:
+    roiNode.GetDisplayNode().SetVisibility(False)
+
+print("[CranialImplantPlanning] Please Manually adjust the 3D view to get the best angle for placing the cutting curve.")
+print("When finished, press the 'Done' button in the workflow panel.")

@@ -357,6 +357,13 @@ class WidgetBaselineMixin:
         if button is None:
             return
         if not self._baselineEngaged():
+            # Restore only what WE changed. The ✎ Revise mode owns the same
+            # button when it is armed, and stamping the captured "Send" over its
+            # purple caption would leave the user looking at a button that lies
+            # about what it does. Mirrors the same guard in
+            # widget_revise._syncReviseSendButton.
+            if getattr(self, "_reviseActive", False):
+                return
             button.setText(getattr(self, "_baselineSendText", "Send") or "Send")
             button.setStyleSheet(getattr(self, "_baselineSendStyle", "") or "")
             button.setToolTip("")
@@ -395,6 +402,20 @@ class WidgetBaselineMixin:
                 return
             self._exitBaselineMode()
             return
+        # Mutually exclusive with ✎ Revise, in BOTH directions. Both own the
+        # prompt box, Send's caption and the debug view, and with both armed the
+        # panel repaints Send purple (revise's sync runs last) while
+        # onSendButtonClicked still routes here (baseline precedes revise in the
+        # MRO) — a button that says "Revise step" and starts a baseline, whose
+        # first act is a rewind that deletes every downstream node.
+        if self._reviseBusy():
+            self._setBaselineStatus(
+                "A template revision is in progress — wait for it to finish "
+                "before arming a baseline."
+            )
+            return
+        if getattr(self, "_reviseActive", False):
+            self._exitReviseMode()
         self._baselineActive = True
         # Visible only where a baseline can actually run; _updateBaselineControls
         # re-decides this on every scrub.
@@ -633,6 +654,13 @@ class WidgetBaselineMixin:
             return None
         if self._baselineBusy():
             self._setBaselineStatus("A baseline run is already in progress.")
+            return None
+        if self._reviseBusy():
+            # A revision is in the API and will come back to write this step's
+            # template. Rewinding now truncates the timeline under it, so the
+            # reply would land against a step the run has already left.
+            self._setBaselineStatus(
+                "A template revision is in progress — wait for it to finish.")
             return None
 
         # Refuse steps that generate no code (a value pick or a 3D interaction)

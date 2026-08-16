@@ -751,6 +751,16 @@ class WidgetExecutionFlowMixin:
         # injected workflow prelude (re-added fresh on every dispatch) and escape
         # braces so _fill_template restores the concrete body verbatim next run.
         body = self._stripRuntimePrelude(corrected_code)
+        if body is None:
+            logger.info(
+                "Not persisting the runtime fix for %s/%s: the corrected code "
+                "still carries the injected workflow prelude and no template "
+                "boundary could be found, so saving it would bake this run's "
+                "_workflow_runtime_id into the package. The fix applies to this "
+                "run only.",
+                ext_name, step_id,
+            )
+            return
         safe_body = body.replace("{", "{{").replace("}", "}}")
         ts = time.strftime("%Y%m%d_%H%M%S")
         first_error_line = ""
@@ -833,14 +843,24 @@ class WidgetExecutionFlowMixin:
 
     @staticmethod
     def _stripRuntimePrelude(code):
-        """Drop the runtime-injected workflow prelude from corrected code, leaving
-        template-level content.
+        """Drop the runtime-injected workflow prelude, leaving template content.
 
         The prelude (metadata-apply, hidden runtime globals, input guard) is
-        re-added fresh on every dispatch, so it must not be baked into the saved
-        template. Only acts when a distinctive prelude marker is present (the
-        corrected code is usually already prelude-free); then cuts everything before
-        the template's first ``import slicer``.
+        re-added fresh on every dispatch, so it must never be baked into the
+        saved template -- it carries `_workflow_runtime_id`, which identifies ONE
+        run. Only acts when a distinctive prelude marker is present (the
+        corrected code is usually already prelude-free); then cuts everything
+        before the template's own first import.
+
+        Returns ``None`` when a prelude IS present and no anchor can be found.
+        That case used to return the code unchanged, which is how a shipped
+        CranialImplantPlanning template ended up with
+        ``_workflow_runtime_id = 'CranialImplantPlanning_1786919982267'`` at the
+        top: the corrected code had dropped the bare ``import slicer`` line the
+        anchor looked for, the strip silently became a no-op, and the whole
+        prelude was persisted. Refusing to persist is the only safe answer --
+        the fix still applies to the run in progress, and the next run
+        regenerates the prelude correctly from a clean template.
         """
         markers = (
             "# [Workflow metadata] Apply source-derived defaults",
@@ -850,10 +870,20 @@ class WidgetExecutionFlowMixin:
         if not any(m in code for m in markers):
             return code
         lines = code.splitlines()
+        # The template's own opening. Broader than an exact `import slicer`
+        # because a repair may rewrite the import line (adding vtk, a trailing
+        # comment) without that meaning the prelude is gone; every candidate is
+        # still a top-level import of a Slicer module, which no part of the
+        # prelude is.
         for i, line in enumerate(lines):
-            if line.strip() == "import slicer":
+            stripped = line.strip()
+            if (stripped == "import slicer"
+                    or stripped.startswith("import slicer ")
+                    or stripped.startswith("import slicer,")
+                    or stripped.startswith("import slicer #")
+                    or stripped.startswith("from slicer ")):
                 return "\n".join(lines[i:])
-        return code
+        return None
 
     # ------------------------------------------------------------------
     # Structural detector for a printed-but-not-raised failure in captured

@@ -1,0 +1,347 @@
+===== MESSAGE 0 | system =====
+# Revising one generated step template
+
+You revise the Python **template** for a single step of a guided surgical
+workflow in 3D Slicer, from a description written by the person watching that
+step run. The step already executed without raising — if it had crashed, the
+runtime's self-correction would have handled it. What you are being told is that
+it did the wrong thing: the wrong node, the wrong side, the wrong view, the wrong
+value, a result the next step cannot use, or nothing visible at all.
+
+You are given that step's template exactly as it stands, the code that was
+actually dispatched from it (placeholders filled with this run's real values, and
+the loader's prelude prepended), whatever that code printed or raised, the live
+scene, the answers the user has already given, and any earlier revisions of the
+same step. Use them. The evidence for what went wrong is in front of you.
+
+## Your one job
+
+Rewrite the template so the step does what was asked, and change nothing else.
+
+A revision is not a rewrite. The surrounding steps depend on this one's node
+names, node IDs and the names it binds; the surgeon is standing in a scene this
+step already touched. Prefer the smallest edit that is actually correct over a
+cleaner version of the whole file. If the request needs one line changed, change
+one line.
+
+## Verify before you write
+
+Never call an API you have not confirmed exists in this Slicer and this
+extension. You have search tools — use them before you answer, not after you are
+corrected:
+
+- `Grep` and `ReadFile` over the extension's own source, under the `ext:` prefix
+  (see the roots below). Find the module, find the handler the panel connects to,
+  read the method signature, confirm the argument order.
+- `VectorSearch` over the Slicer knowledge base for core-API questions (view
+  nodes, display nodes, segmentations, markups, transforms).
+- `GetNodeProperties` for what a node in the live scene actually is right now.
+
+If you cannot find evidence for the API the fix needs, do not guess. Return
+`blocked` (below) and say precisely what you looked for and could not confirm. A
+template that calls a method which does not exist fails at the next dispatch, in
+front of a surgeon; a refusal costs one message.
+
+Extension source trees you can Grep and ReadFile:
+- `ext:BoneReconstructionPlanner/` — source of the **BoneReconstructionPlanner** extension
+- `ext:CranialImplantPlanning/` — source of the **CranialImplantPlanning** extension
+- `ext:LongBoneFractureReduction/` — source of the **LongBoneFractureReduction** extension
+- `ext:OrbitalFractureReconstruction/` — source of the **OrbitalFractureReconstruction** extension
+- `ext:PedicleScrewPlanner/` — source of the **PedicleScrewPlanner** extension
+- `ext:PelvicFracturePlanning/` — source of the **PelvicFracturePlanning** extension
+- `ext:ReverseShoulderArthroplasty/` — source of the **ReverseShoulderArthroplasty** extension
+- `ext:ZygomaticImplantPlanner/` — source of the **ZygomaticImplantPlanner** extension
+
+## The template language
+
+The file you return is **not** executed as-is. The loader fills it, prepends a
+prelude, and hands the result to the executor. Five rules follow from that, and
+each of them fails silently when broken:
+
+1. **`{placeholder}` is filled at dispatch.** A placeholder resolves to a tool
+   argument or to an answer the user gave on an earlier step. Keep every one the
+   original template has, spelled identically. The listing above tells you what
+   each will be filled with in this run.
+
+2. **The substituted value is already a Python literal** — the loader `repr()`s
+   it. So write `logic.segmentOrbits({side})`, never
+   `logic.segmentOrbits('{side}')`; the second produces `''left''`.
+
+3. **Do not invent a placeholder — not even with a default.** Only names the
+   original template already uses can be filled here. A new bare `{name}` raises
+   `KeyError` inside the loader and the step then never executes at all — no
+   error the user sees, just a step that does nothing. And the defaulted form is
+   not an escape hatch: `{angle: 30}` and the dict literal `{key: 1}` are the
+   same six characters to the filler, which replaces the whole span with the
+   default. If you need a value the template does not have, **write the value**.
+   You may add a default to a placeholder the template already has
+   (`{side: None}`), and `{vol_lookup}` is available in every template — it
+   expands to code that resolves the workflow's input scalar volume into
+   `inputVolume`.
+
+4. **Literal braces must be doubled**, and one quote character can eat a
+   placeholder. `{{` and `}}` survive filling as `{` and `}`. Write a dict as
+   `dict(key=1)` or with a quoted key, never `{key: 1}`. And the filler masks
+   anything between two quote characters as a string literal using a plain
+   regex, not a tokenizer — so an **unbalanced apostrophe**, typically one in a
+   prose comment (`# don't do this`), opens a span that runs to the next quote
+   anywhere in the file and every placeholder inside it comes out raw. Properly
+   closed strings (`'Result'`) are fine. Do not write apostrophes in comments.
+
+5. **The prelude is not yours.** The dispatched code you were shown begins with
+   lines the loader adds on every run (workflow metadata, choice materialisation,
+   input guards, and a `# precondition:begin … # precondition:end` block). Do not
+   copy any of it into your answer. If the original template contains the
+   precondition block, keep it exactly where it is; the runtime strips it and
+   uses it to enter the extension's module invisibly.
+
+## The execution environment
+
+- Module level in `__main__`. There is no `self` and no enclosing function.
+- `slicer`, `vtk`, `qt`, `ctk` and `numpy` are available.
+- The channel from this step to the next is the `__main__` namespace: templates
+  end with `_<ext>_logic = logic` and hand node IDs forward as
+  `_<ext>_<step>_id`, read back with `try: … except NameError:`. Preserve both
+  conventions — a later step reads them by exact name.
+- A generated step drives the extension's **own widget controls and handlers**
+  where it can, because the extension reads those controls at click time. Do not
+  replace a handler call with a direct logic call unless you have confirmed the
+  handler does nothing else.
+
+## What the code validator will refuse
+
+Your template is checked with the same validator the executor runs. These are
+blocked outright, so a fix that needs one of them is not available to you:
+
+- Blocked modules: cPickle, ctypes, ftplib, http, imp, importlib._bootstrap, importlib.machinery, marshal, mmap, os, pickle, pty, resource, shelve, signal, socket, subprocess, sys, telnetlib, urllib, urllib2
+- Blocked functions: __import__, compile, delattr, dir, eval, exec, execfile, file, getattr, globals, input, locals, open, os.chmod, os.exec, os.fork, os.kill, os.popen, os.remove, os.rename, os.rmdir, os.spawn, os.system, os.unlink, raw_input, setattr, vars
+
+Allowed modules: SampleData, SimpleITK, abc, base64, binascii, collections, copy, csv, ctk, datetime, decimal, enum, fractions, functools, hashlib, io, itertools, json, math, numbers, numpy, qt, random, re, sitk, slicer, statistics, string, struct, traceback, typing, vtk, vtkSlicerMarkupsModuleLogic, vtkSlicerMarkupsModuleMRML
+
+Note `getattr`, `globals`, `locals` and `open` are all blocked — this is why the
+existing templates use `try: name / except NameError:` instead of looking names
+up dynamically. Follow the same idiom.
+
+## Reply format
+
+Return **one JSON object inside a single ` ```json ` fenced block**, and no prose
+outside it.
+
+The fence is not cosmetic. The loop you are running in ends the round when it
+sees a fenced block; an unfenced answer reads as "not finished yet" and you will
+be asked again until the round budget runs out, so a perfectly correct unfenced
+reply is thrown away. Emit exactly one fenced block, and put nothing else in one.
+
+```json
+{
+  "analysis": "what was actually wrong, in one or two sentences, and the evidence you confirmed it with",
+  "summary": "the change you made, in one line — this is written into the template's header comment",
+  "templates": {
+    "templates/cb_step_12.py.tpl": "<the COMPLETE new template file>"
+  },
+  "blocked": ""
+}
+```
+
+- The key is `templates` — plural. It maps each relative path you were given to
+  its **complete** new contents, as one JSON string (`\n` for newlines). Never a
+  fragment, never a diff, never an ellipsis — the value is written to disk
+  verbatim.
+- Include only the paths you were given. A step you were not asked about is not
+  yours to change.
+- Leave `blocked` empty on success. Set it, and omit `templates`, when the
+  request cannot be satisfied: the API does not exist, the request contradicts
+  what the procedure requires of this step, or the change belongs to a different
+  step. Say which, and say what you would need.
+
+If your answer is rejected, you will be given the exact reason. Fix that reason
+and return the complete template again. Do not narrow the fix so that it passes —
+if a rule blocks the only correct change, say so in `blocked` instead.
+
+
+===== MESSAGE 1 | user =====
+# Revision request
+in this step, do not show the displacement and rotation handler, and just show the ROI boundary adjustment tool
+
+# The step this is about
+- extension: CranialImplantPlanning
+- step_id: cb_step_13
+- operation_type: user_interaction
+- position: step 13 of 20
+
+## What the procedure says this step does
+Manually adjust the boundaries of the ROI to retain the skull portion.
+
+## What the panel tells the surgeon
+Move and resize the ROI box until it encloses the skull portion you want to keep.
+
+Adjust the ROI around the skull
+
+## Answers the user already gave in this run
+- skull_segment = 'Cranial_Segmentation'
+- source_volume = 'A0001'
+- threshold_range = [1.0, 1.0]
+
+## Steps already completed
+cb_step_1, cb_step_2, cb_step_3, cb_step_4, cb_step_5, cb_step_6, cb_step_7, cb_step_8, cb_step_9, cb_step_10, cb_step_11, cb_step_12
+
+## The template(s) to revise
+### templates/cb_step_13_pre.py.tpl — PRE template (runs when the step opens, before the user acts)
+This template has no placeholders.
+```python
+# --- CranialImplantPlanning: Manually adjust the boundaries of the ROI to retain the skull portion. (Setup) ---
+import slicer
+from SlicerAIAgentLib.workflow_state import remember_interaction_node
+
+# Reuse the markup node created by a previous step (do not create a duplicate).
+# Prefer a node THIS extension owns. Slicer extensions tag their own nodes
+# with MRML attributes in their module's namespace, so an attribute named
+# "CranialImplantPlanning.*" identifies the step's real target; picking the most
+# recent node of the class alone can land on an unrelated node of the same
+# type (a scene may hold several).
+nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsROINode")
+_candidates = []
+for i in range(nodes.GetNumberOfItems()):
+    candidate = nodes.GetItemAsObject(i)
+    if candidate is not None:
+        _candidates.append(candidate)
+if not _candidates:
+    raise RuntimeError("No vtkMRMLMarkupsROINode found from previous placement step.")
+_owned = []
+for candidate in _candidates:
+    try:
+        _names = candidate.GetAttributeNames() or []
+    except Exception:
+        _names = []
+    if any(str(_n).startswith("CranialImplantPlanning.") for _n in _names):
+        _owned.append(candidate)
+node = (_owned or _candidates)[-1]
+
+displayNode = node.GetDisplayNode()
+if displayNode is not None:
+    displayNode.SetVisibility(True)
+# Enable interaction handles for adjusting the existing markup.
+if displayNode is not None:
+    roiDisplayNode = slicer.vtkMRMLMarkupsROIDisplayNode.SafeDownCast(displayNode)
+    if roiDisplayNode is not None:
+        try:
+            roiDisplayNode.SetHandlesInteractive(True)
+            roiDisplayNode.SetTranslationHandleVisibility(True)
+            roiDisplayNode.SetScaleHandleVisibility(True)
+            roiDisplayNode.SetRotationHandleVisibility(True)
+        except Exception:
+            pass
+slicer.modules.markups.logic().SetActiveListID(node)
+_cranialimplantplanning_cb_step_13_id = node.GetID()
+remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_13", _cranialimplantplanning_cb_step_13_id, _workflow_runtime_repeat_index)
+
+print("[CranialImplantPlanning] Please Adjust the ROI boundaries on the slice views to retain the skull portion.")
+print("When finished, press the 'Done' button in the workflow panel.")
+```
+
+### templates/cb_step_13_post.py.tpl — POST template (runs after the user clicks Done)
+This template has no placeholders.
+```python
+# --- CranialImplantPlanning: Manually adjust the boundaries of the ROI to retain the skull portion. (Process) ---
+import slicer
+from SlicerAIAgentLib.workflow_state import resolve_interaction_node
+
+node = resolve_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_13", "vtkMRMLMarkupsROINode", _workflow_runtime_repeat_index)
+if node is None:
+    node = slicer.mrmlScene.GetNodeByID(_cranialimplantplanning_cb_step_13_id)
+if node is None:
+    raise RuntimeError("Node not found for step 'cb_step_13'")
+
+# Exit placement mode
+interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+interactionNode.SwitchToViewTransformMode()
+
+print("[CranialImplantPlanning] Step 'cb_step_13' processed with %d control points." % node.GetNumberOfControlPoints())
+```
+
+## The code that actually ran last time (template filled, plus the runtime prelude the loader prepends — the prelude is NOT part of the template and must not be reproduced in your answer)
+```python
+# [Workflow runtime] Hidden generated-CLI workflow context
+_workflow_runtime_extension = 'CranialImplantPlanning'
+_workflow_runtime_id = 'CranialImplantPlanning_1786922139123'
+_workflow_runtime_step = 'cb_step_13'
+_workflow_runtime_repeat_index = 0
+from SlicerAIAgentLib.workflow_state import remember_interaction_node, resolve_interaction_node
+
+# --- CranialImplantPlanning: Manually adjust the boundaries of the ROI to retain the skull portion. (Setup) ---
+import slicer
+from SlicerAIAgentLib.workflow_state import remember_interaction_node
+
+# Reuse the markup node created by a previous step (do not create a duplicate).
+# Prefer a node THIS extension owns. Slicer extensions tag their own nodes
+# with MRML attributes in their module's namespace, so an attribute named
+# "CranialImplantPlanning.*" identifies the step's real target; picking the most
+# recent node of the class alone can land on an unrelated node of the same
+# type (a scene may hold several).
+nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsROINode")
+_candidates = []
+for i in range(nodes.GetNumberOfItems()):
+    candidate = nodes.GetItemAsObject(i)
+    if candidate is not None:
+        _candidates.append(candidate)
+if not _candidates:
+    raise RuntimeError("No vtkMRMLMarkupsROINode found from previous placement step.")
+_owned = []
+for candidate in _candidates:
+    try:
+        _names = candidate.GetAttributeNames() or []
+    except Exception:
+        _names = []
+    if any(str(_n).startswith("CranialImplantPlanning.") for _n in _names):
+        _owned.append(candidate)
+node = (_owned or _candidates)[-1]
+
+displayNode = node.GetDisplayNode()
+if displayNode is not None:
+    displayNode.SetVisibility(True)
+# Enable interaction handles for adjusting the existing markup.
+if displayNode is not None:
+    roiDisplayNode = slicer.vtkMRMLMarkupsROIDisplayNode.SafeDownCast(displayNode)
+    if roiDisplayNode is not None:
+        try:
+            roiDisplayNode.SetHandlesInteractive(True)
+            roiDisplayNode.SetTranslationHandleVisibility(True)
+            roiDisplayNode.SetScaleHandleVisibility(True)
+            roiDisplayNode.SetRotationHandleVisibility(True)
+        except Exception:
+            pass
+slicer.modules.markups.logic().SetActiveListID(node)
+_cranialimplantplanning_cb_step_13_id = node.GetID()
+remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_13", _cranialimplantplanning_cb_step_13_id, _workflow_runtime_repeat_index)
+
+print("[CranialImplantPlanning] Please Adjust the ROI boundaries on the slice views to retain the skull portion.")
+print("When finished, press the 'Done' button in the workflow panel.")
+```
+
+## What that run produced
+success: True
+stdout/stderr:
+[CranialImplantPlanning] Please Adjust the ROI boundaries on the slice views to retain the skull portion.
+When finished, press the 'Done' button in the workflow panel.
+When finished, press the 'Done' button in the workflow panel.
+
+## The live scene right now
+{'scene_summary': [{'id': 'vtkMRMLLinearTransformNode1', 'name': 'Red Transform', 'class': 'vtkMRMLLinearTransformNode', 'visible': None, 'brief': 'Transform node'}, {'id': 'vtkMRMLModelNode1', 'name': 'Red Volume Slice', 'class': 'vtkMRMLModelNode', 'visible': False, 'displayNodeID': 'vtkMRMLSliceDisplayNode1', 'brief': 'PolyData: 4 points, 1 cells'}, {'id': 'vtkMRMLLinearTransformNode2', 'name': 'Green Transform', 'class': 'vtkMRMLLinearTransformNode', 'visible': None, 'brief': 'Transform node'}, {'id': 'vtkMRMLModelNode2', 'name': 'Green Volume Slice', 'class': 'vtkMRMLModelNode', 'visible': False, 'displayNodeID': 'vtkMRMLSliceDisplayNode2', 'brief': 'PolyData: 4 points, 1 cells'}, {'id': 'vtkMRMLLinearTransformNode3', 'name': 'Yellow Transform', 'class': 'vtkMRMLLinearTransformNode', 'visible': None, 'brief': 'Transform node'}, {'id': 'vtkMRMLModelNode3', 'name': 'Yellow Volume Slice', 'class': 'vtkMRMLModelNode', 'visible': False, 'displayNodeID': 'vtkMRMLSliceDisplayNode3', 'brief': 'PolyData: 4 points, 1 cells'}, {'id': 'vtkMRMLScalarVolumeNode1', 'name': 'A0001', 'class': 'vtkMRMLScalarVolumeNode', 'visible': True, 'displayNodeID': 'vtkMRMLScalarVolumeDisplayNode1', 'storageNodeID': 'vtkMRMLVolumeArchetypeStorageNode4', 'brief': 'Dimensions: 512×512×320, Spacing: 0.506×0.506×0.750'}, {'id': 'vtkMRMLSegmentationNode1', 'name': 'Cranial_Segmentation', 'class': 'vtkMRMLSegmentationNode', 'visible': False, 'displayNodeID': 'vtkMRMLSegmentationDisplayNode1', 'brief': 'Segments: 1'}, {'id': 'vtkMRMLLabelMapVolumeNode2', 'name': 'E3_Reference', 'class': 'vtkMRMLLabelMapVolumeNode', 'visible': True, 'displayNodeID': 'vtkMRMLLabelMapVolumeDisplayNode2', 'brief': 'Dimensions: 279×426×318, Spacing: 0.506×0.506×0.750'}, {'id': 'vtkMRMLSegmentationNode2', 'name': 'Cranial Implant Result', 'class': 'vtkMRMLSegmentationNode', 'visible': True, 'displayNodeID': 'vtkMRMLSegmentationDisplayNode2', 'brief': 'Segments: 1'}, {'id': 'vtkMRMLModelNode4', 'name': 'Skull (drawing target)', 'class': 'vtkMRMLModelNode', 'visible': True, 'displayNodeID': 'vtkMRMLModelDisplayNode1', 'brief': 'PolyData: 88058 points, 180631 cells'}, {'id': 'vtkMRMLMarkupsROINode1', 'name': 'CropROI', 'class': 'vtkMRMLMarkupsROINode', 'visible': True, 'displayNodeID': 'vtkMRMLMarkupsROIDisplayNode1', 'brief': 'Control points: 1'}, {'id': 'vtkMRMLMarkupsROIDisplayNode1', 'name': 'MarkupsROIDisplay', 'class': 'vtkMRMLMarkupsROIDisplayNode'}, {'id': 'vtkMRMLCrosshairNodedefault', 'name': 'Crosshair', 'class': 'vtkMRMLCrosshairNode'}, {'id': 'vtkMRMLSelectionNodeSingleton', 'name': 'Selection', 'class': 'vtkMRMLSelectionNode'}, {'id': 'vtkMRMLInteractionNodeSingleton', 'name': 'Interaction', 'class': 'vtkMRMLInteractionNode'}, {'id': 'vtkMRMLViewNode1', 'name': 'View1', 'class': 'vtkMRMLViewNode'}, {'id': 'vtkMRMLSliceNodeRed', 'name': 'Red', 'class': 'vtkMRMLSliceNode'}, {'id': 'vtkMRMLSliceNodeGreen', 'name': 'Green', 'class': 'vtkMRMLSliceNode'}, {'id': 'vtkMRMLSliceNodeYellow', 'name': 'Yellow', 'class': 'vtkMRMLSliceNode'}, {'id': 'vtkMRMLLayoutNodevtkMRMLLayoutNode', 'name': 'Layout', 'class': 'vtkMRMLLayoutNode'}, {'id': 'vtkMRMLSliceCompositeNodeRed', 'name': 'SliceComposite', 'class': 'vtkMRMLSliceCompositeNode'}, {'id': 'vtkMRMLSliceDisplayNode1', 'name': 'Red Display', 'class': 'vtkMRMLSliceDisplayNode'}, {'id': 'vtkMRMLSliceCompositeNodeGreen', 'name': 'SliceComposite_1', 'class': 'vtkMRMLSliceCompositeNode'}, {'id': 'vtkMRMLSliceDisplayNode2', 'name': 'Green Display', 'class': 'vtkMRMLSliceDisplayNode'}, {'id': 'vtkMRMLSubjectHierarchyNode1', 'name': 'SubjectHierarchy', 'class': 'vtkMRMLSubjectHierarchyNode'}, {'id': 'vtkMRMLSliceCompositeNodeYellow', 'name': 'SliceComposite_2', 'class': 'vtkMRMLSliceCompositeNode'}, {'id': 'vtkMRMLSliceDisplayNode3', 'name': 'Yellow Display', 'class': 'vtkMRMLSliceDisplayNode'}, {'id': 'vtkMRMLCameraNode1', 'name': 'Camera', 'class': 'vtkMRMLCameraNode'}, {'id': 'vtkMRMLColorTableNodeLabels', 'name': 'Labels', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeFullRainbow', 'name': 'FullRainbow', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeGrey', 'name': 'Grey', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeIron', 'name': 'Iron', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeRainbow', 'name': 'Rainbow', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeOcean', 'name': 'Ocean', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeDesert', 'name': 'Desert', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeInvertedGrey', 'name': 'InvertedGrey', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeReverseRainbow', 'name': 'ReverseRainbow', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodefMRI', 'name': 'fMRI', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodefMRIPA', 'name': 'fMRIPA', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeRandom', 'name': 'Random', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeRed', 'name': 'Red', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeGreen', 'name': 'Green', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeBlue', 'name': 'Blue', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeYellow', 'name': 'Yellow', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeCyan', 'name': 'Cyan', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeMagenta', 'name': 'Magenta', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeWarm1', 'name': 'Warm1', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeWarm2', 'name': 'Warm2', 'class': 'vtkMRMLColorTableNode'}, {'id': 'vtkMRMLColorTableNodeWarm3', 'name': 'Warm3', 'class': 'vtkMRMLColorTableNode'}], 'total_nodes': 147, 'shown_nodes': 50, 'note': 'Scene contains 147 nodes. Showing first 50. Use GetNodeProperties with a specific node ID to inspect nodes not shown.'}
+
+# Your answer
+Rewrite ONLY the template(s) listed above, in full, and return the JSON object described in your instructions. Change as little as the request allows.
+
+===== MESSAGE 2 | assistant =====
+
+
+===== MESSAGE 3 | tool =====
+{"tool": "Grep", "pattern": "SetTranslationHandleVisibility|SetRotationHandleVisibility|SetScaleHandleVisibility|SetHandlesInteractive", "path": "slicer-source", "total_hits": 19, "total_files": 10, "files": [{"file": "slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx", "hits": 4, "source_type": "ui_implementation"}, {"file": "slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx", "hits": 4, "source_type": "loadable_module"}, {"file": "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx", "hits": 3, "source_type": "mrml_definition"}, {"file": "slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx", "hits": 2, "source_type": "loadable_module"}, {"file": "slicer-source/Docs/developer_guide/script_repository/segmentations.md", "hits": 1, "source_type": "doc_example"}, {"file": "slicer-source/Docs/developer_guide/script_repository/batch.md", "hits": 1, "source_type": "doc_example"}, {"file": "slicer-source/Modules/Loadable/CropVolume/qSlicerCropVolumeModuleWidget.cxx", "hits": 1, "source_type": "loadable_module"}, {"file": "slicer-source/Modules/Loadable/VolumeRendering/Logic/vtkSlicerVolumeRenderingLogic.cxx", "hits": 1, "source_type": "loadable_module"}, {"file": "slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx", "hits": 1, "source_type": "ui_implementation"}, {"file": "slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsROIWidget.cxx", "hits": 1, "source_type": "ui_implementation"}], "representative_matches": [{"file": "slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx", "line": 262, "content": "d->DisplayNode->SetHandlesInteractive(d->overallVisibilityCheckBox->isChecked());", "context": "C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-257-  {\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-258-    return;\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-259-  }\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-260-\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-261-  MRMLNodeModifyBlocker displayNodeBlocker(d->DisplayNode);\n  d->DisplayNode->SetHandlesInteractive(d->overallVisibilityCheckBox->isChecked());\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-263-\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-264-  bool translationHandleAxes[4] = {\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-265-    d->translateXCheckBox->isChecked(), d->translateYCheckBox->isChecked(), d->translateZCheckBox->isChecked(), d->translateViewPlaneCheckBox->isChecked()\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-266-  };\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-267-  d->DisplayNode->SetTranslationHandleComponentVisibility(translationHandleAxes);\n  d->DisplayNode->SetTranslationHandleVisibility(d->translateVisibilityCheckBox->isChecked());\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-269-\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-270-  bool rotationHandleAxes[4] = { d->rotateXCheckBox->isChecked(), d->rotateYCheckBox->isChecked(), d->rotateZCheckBox->isChecked(), d->rotateViewPlaneCheckBox->isChecked() };\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-271-  d->DisplayNode->SetRotationHandleComponentVisibility(rotationHandleAxes);\n  d->DisplayNode->SetRotationHandleVisibility(d->rotateVisibilityCheckBox->isChecked());\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-273-\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-274-  bool scaleHandleAxes[4] = { d->scaleXCheckBox->isChecked(), d->scaleYCheckBox->isChecked(), d->scaleZCheckBox->isChecked(), d->scaleViewPlaneCheckBox->isChecked() };\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-275-  d->DisplayNode->SetScaleHandleComponentVisibility(scaleHandleAxes);\n  d->DisplayNode->SetScaleHandleVisibility(d->scaleVisibilityCheckBox->isChecked());\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsInteractionHandleWidget.cxx-277-"}, {"file": "slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx", "line": 595, "content": "displayNode->SetHandlesInteractive(displayItem->GetBoolProperty(\"handlesInteractive\"));", "context": "C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-590-  {\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-591-    displayNode->SetLineColorFadingHueOffset(displayItem->GetDoubleProperty(\"lineColorFadingHueOffset\"));\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-592-  }\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-593-  if (displayItem->HasMember(\"handlesInteractive\"))\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-594-  {\n    displayNode->SetHandlesInteractive(displayItem->GetBoolProperty(\"handlesInteractive\"));\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-596-  }\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-597-  if (displayItem->HasMember(\"translationHandleVisibility\"))\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-598-  {\n    displayNode->SetTranslationHandleVisibility(displayItem->GetBoolProperty(\"translationHandleVisibility\"));\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-600-  }\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-601-  if (displayItem->HasMember(\"rotationHandleVisibility\"))\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-602-  {\n    displayNode->SetRotationHandleVisibility(displayItem->GetBoolProperty(\"rotationHandleVisibility\"));\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-604-  }\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-605-  if (displayItem->HasMember(\"scaleHandleVisibility\"))\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-606-  {\n    displayNode->SetScaleHandleVisibility(displayItem->GetBoolProperty(\"scaleHandleVisibility\"));\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/MRML/vtkMRMLMarkupsJsonStorageNode.cxx-608-  }"}, {"file": "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx", "line": 956, "content": "case vtkMRMLMarkupsDisplayNode::ComponentTranslationHandle: this->SetTranslationHandleVisibility(visibility); break;", "context": "C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx-951-//---------------------------------------------------------------------------\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx-952-void vtkMRMLMarkupsDisplayNode::SetHandleVisibility(int componentType, bool visibility)\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx-953-{\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx-954-  switch (componentType)\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx-955-  {\n    case vtkMRMLMarkupsDisplayNode::ComponentTranslationHandle: this->SetTranslationHandleVisibility(visibility); break;\n    case vtkMRMLMarkupsDisplayNode::ComponentRotationHandle: this->SetRotationHandleVisibility(visibility); break;\n    case vtkMRMLMarkupsDisplayNode::ComponentScaleHandle: this->SetScaleHandleVisibility(visibility); break;\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx-959-    default: vtkErrorMacro(\"Unknown handle type\"); break;\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx-960-  }\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx-961-}\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx-962-\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.cxx-963-//---------------------------------------------------------------------------"}, {"file": "slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx", "line": 1036, "content": "displayNode->SetHandlesInteractive(!displayNode->GetHandlesInteractive());", "context": "C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1031-  if (!displayNode)\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1032-  {\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1033-    qCritical() << Q_FUNC_INFO << \": Failed to get display node\";\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1034-    return;\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1035-  }\n  displayNode->SetHandlesInteractive(!displayNode->GetHandlesInteractive());\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1037-}\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1038-\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1039-//-----------------------------------------------------------------------------\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1040-void qSlicerSubjectHierarchyMarkupsPlugin::toggleCurrentItemHandleInteractive()\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1041-{"}, {"file": "slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx", "line": 1073, "content": "displayNode->SetHandlesInteractive(!displayNode->GetHandlesInteractive());", "context": "C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1068-  {\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1069-    qCritical() << Q_FUNC_INFO << \": Invalid display node\";\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1070-    return;\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1071-  }\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1072-\n  displayNode->SetHandlesInteractive(!displayNode->GetHandlesInteractive());\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1074-}\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1075-\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1076-//-----------------------------------------------------------------------------\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1077-void qSlicerSubjectHierarchyMarkupsPlugin::toggleCurrentItemHandleTypeVisibility()\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/Markups/SubjectHierarchyPlugins/qSlicerSubjectHierarchyMarkupsPlugin.cxx-1078-{"}, {"file": "slicer-source/Docs/developer_guide/script_repository/segmentations.md", "line": 774, "content": "roi.GetDisplayNode().SetHandlesInteractive(False)  # do not let the user resize the box", "context": "C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Docs/developer_guide/script_repository/segmentations.md-769-  obb_direction_ras_z = np.array(stats[segmentId,\"LabelmapSegmentStatisticsPlugin.obb_direction_ras_z\"])\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Docs/developer_guide/script_repository/segmentations.md-770-  # Create ROI\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Docs/developer_guide/script_repository/segmentations.md-771-  segment = segmentationNode.GetSegmentation().GetSegment(segmentId)\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Docs/developer_guide/script_repository/segmentations.md-772-  roi=slicer.mrmlScene.AddNewNodeByClass(\"vtkMRMLMarkupsROINode\")\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Docs/developer_guide/script_repository/segmentations.md-773-  roi.SetName(segment.GetName() + \" OBB\")\n  roi.GetDisplayNode().SetHandlesInteractive(False)  # do not let the user resize the box\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Docs/developer_guide/script_repository/segmentations.md-775-  roi.SetSize(obb_diameter_mm)\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Docs/developer_guide/script_repository/segmentations.md-776-  # Position and orient ROI using a transform\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Docs/developer_guide/script_repository/segmentations.md-777-  obb_center_ras = obb_origin_ras+0.5*(obb_diameter_mm[0] * obb_direction_ras_x + obb_diameter_mm[1] * obb_direction_ras_y + obb_diameter_mm[2] * obb_direction_ras_z)\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Docs/developer_guide/script_repository/segmentations.md-778-  boundingBoxToRasTransform = np.row_stack((np.column_stack((obb_direction_ras_x, obb_direction_ras_y, obb_direction_ras_z, obb_center_ras)), (0, 0, 0, 1)))\nC:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Docs/developer_guide/script_repository/segmentations.md-779-  boundingBoxToRasTransformMatrix = slicer.util.vtkMatrixFromArray(boundingBoxToRasTransform)"}], "_tool_timing": "14.718s"}
+
+===== MESSAGE 4 | tool =====
+{"tool": "VectorSearch", "query": "markups ROI display node handle visibility translation rotation scale", "results": [{"chunk_id": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx#274-290", "file_path": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx", "start_line": 274, "end_line": 290, "chunk_type": "function", "source_type": "mrml_definition", "vector_score": 0.7286, "final_score": 0.7286}, {"chunk_id": "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsROIDisplayNode.cxx#28-41", "file_path": "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsROIDisplayNode.cxx", "start_line": 28, "end_line": 41, "chunk_type": "function", "source_type": "mrml_definition", "vector_score": 0.7283, "final_score": 0.7283}, {"chunk_id": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx#227-250", "file_path": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx", "start_line": 227, "end_line": 250, "chunk_type": "function", "source_type": "mrml_definition", "vector_score": 0.7132, "final_score": 0.7132}, {"chunk_id": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.cxx#714-751", "file_path": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.cxx", "start_line": 714, "end_line": 751, "chunk_type": "function", "source_type": "mrml_definition", "vector_score": 0.6896, "final_score": 0.6896}, {"chunk_id": "slicer-source/Libs/MRML/Core/vtkMRMLTransformDisplayNode.cxx#52-125", "file_path": "slicer-source/Libs/MRML/Core/vtkMRMLTransformDisplayNode.cxx", "start_line": 52, "end_line": 125, "chunk_type": "function", "source_type": "mrml_definition", "vector_score": 0.6858, "final_score": 0.6858}, {"chunk_id": "slicer-source/Libs/MRML/Core/vtkMRMLROIListNode.cxx#427-441", "file_path": "slicer-source/Libs/MRML/Core/vtkMRMLROIListNode.cxx", "start_line": 427, "end_line": 441, "chunk_type": "function", "source_type": "mrml_definition", "vector_score": 0.6852, "final_score": 0.6852}, {"chunk_id": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx#293-315", "file_path": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx", "start_line": 293, "end_line": 315, "chunk_type": "function", "source_type": "mrml_definition", "vector_score": 0.6849, "final_score": 0.6849}, {"chunk_id": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx#253-271", "file_path": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx", "start_line": 253, "end_line": 271, "chunk_type": "function", "source_type": "mrml_definition", "vector_score": 0.6725, "final_score": 0.6725}, {"chunk_id": "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsPlaneDisplayNode.cxx#28-37", "file_path": "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsPlaneDisplayNode.cxx", "start_line": 28, "end_line": 37, "chunk_type": "function", "source_type": "mrml_definition", "vector_score": 0.6553, "final_score": 0.6553}, {"chunk_id": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.cxx#998-1002", "file_path": "slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.cxx", "start_line": 998, "end_line": 1002, "chunk_type": "function", "source_type": "mrml_definition", "vector_score": 0.6491, "final_score": 0.6491}], "formatted_context": "## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx (lines 274-290) [mrml_definition] similarity:0.729 boosted:0.729\n```cpp\nvoid vtkMRMLDisplayableNode::SetDisplayVisibility(int visible)\n{\n  if (visible == 2)\n  {\n    return;\n  }\n\n  int ndnodes = this->GetNumberOfDisplayNodes();\n  for (int i = 0; i < ndnodes; i++)\n  {\n    vtkMRMLDisplayNode* displayNode = this->GetNthDisplayNode(i);\n    if (displayNode && displayNode->IsShowModeDefault())\n    {\n      displayNode->SetVisibility(visible);\n    }\n  }\n}\n\n```\n\n[2] slicer-source/Libs/MRML/Core/vtkMRMLMarkupsROIDisplayNode.cxx (lines 28-41) [mrml_definition] similarity:0.728 boosted:0.728\n```cpp\nvtkMRMLMarkupsROIDisplayNode::vtkMRMLMarkupsROIDisplayNode()\n{\n  this->TypeDisplayName = vtkMRMLTr(\"vtkMRMLMarkupsROIDisplayNode\", \"Markups ROI Display\");\n\n  this->FillOpacity = 0.2;\n  this->HandlesInteractive = true;\n  this->TranslationHandleVisibility = true;\n  this->RotationHandleVisibility = false;\n  this->ScaleHandleVisibility = true;\n  this->TranslationHandleComponentVisibility[0] = false;\n  this->TranslationHandleComponentVisibility[1] = false;\n  this->TranslationHandleComponentVisibility[2] = false;\n  this->CanDisplayScaleHandles = true;\n}\n\n```\n\n[3] slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx (lines 227-250) [mrml_definition] similarity:0.713 boosted:0.713\n```cpp\nint vtkMRMLDisplayableNode::GetDisplayVisibility()\n{\n  int ndnodes = this->GetNumberOfDisplayNodes();\n  if (ndnodes == 0 || this->GetNthDisplayNode(0) == nullptr)\n  {\n    return 0;\n  }\n  int visible = this->GetNthDisplayNode(0)->GetVisibility();\n  if (visible == 2)\n  {\n    return 2;\n  }\n\n  for (int i = 1; i < ndnodes; i++)\n  {\n    vtkMRMLDisplayNode* displayNode = this->GetNthDisplayNode(i);\n    if (displayNode && displayNode->IsShowModeDefault() //\n        && displayNode->GetVisibility() != visible)\n    {\n      return 2;\n    }\n  }\n  return visible;\n}\n\n```\n\n[4] slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.cxx (lines 714-751) [mrml_definition] similarity:0.690 boosted:0.690\n```cpp\nbool vtkMRMLDisplayNode::GetVisibility(const char* viewNodeID)\n{\n  if (!viewNodeID               //\n      || !this->GetVisibility() //\n      || !this->IsDisplayableInView(viewNodeID))\n  {\n    return false;\n  }\n\n  // If parent folder visibility is set to false then the markups is not visible\n  if (this->GetFolderDisplayOverrideAllowed())\n  {\n    vtkMRMLDisplayableNode* displayableNode = this->GetDisplayableNode();\n    // Visibility is applied regardless the fact whether there is override or not.\n    // Visibility of items defined by hierarchy is off if any of the ancestors is explicitly hidden.\n    // However, this does not apply on display nodes that do not allow overrides (FolderDisplayOverrideAllowed)\n    if (!vtkMRMLFolderDisplayNode::GetHierarchyVisibility(displayableNode))\n    {\n      return false;\n    }\n  }\n  vtkMRMLNode* viewNode = this->GetScene() ? this->GetScene()->GetNodeByID(viewNodeID) : nullptr;\n  if (vtkMRMLSliceNode::SafeDownCast(viewNode))\n  {\n    if (!this->GetVisibility2D())\n    {\n      return false;\n    }\n  }\n  if (vtkMRMLViewNode::SafeDownCast(viewNode))\n  {\n    if (!this->GetVisibility3D())\n    {\n      return false;\n    }\n  }\n  return true;\n}\n\n```\n\n[5] slicer-source/Libs/MRML/Core/vtkMRMLTransformDisplayNode.cxx (lines 52-125) [mrml_definition] similarity:0.686 boosted:0.686\n```cpp\nvtkMRMLTransformDisplayNode::vtkMRMLTransformDisplayNode()\n  : vtkMRMLDisplayNode()\n{\n  this->TypeDisplayName = vtkMRMLTr(\"vtkMRMLTransformDisplayNode\", \"Transform Display Node\");\n\n  // Don't show transform nodes by default\n  // to allow the users to adjust visualization parameters first\n  this->Visibility = 0;\n  this->Visibility2D = 0;\n  // If global visibility is turned on then 3D will show up\n  this->Visibility3D = 1;\n\n  this->ScalarVisibility = 1;\n  this->SetActiveScalarName(DISPLACEMENT_MAGNITUDE_SCALAR_NAME);\n\n  this->VisualizationMode = VIS_MODE_GLYPH;\n\n  this->GlyphSpacingMm = 10.0;\n  this->GlyphScalePercent = 100;\n  this->GlyphDisplayRangeMaxMm = 100;\n  this->GlyphDisplayRangeMinMm = 0.01;\n  this->GlyphType = GLYPH_TYPE_ARROW;\n  this->GlyphTipLengthPercent = 30;\n  this->GlyphDiameterMm = 5.0;\n  this->GlyphShaftDiameterPercent = 40;\n  this->GlyphResolution = 6;\n  this->GlyphResolution2D = 12;\n  this->GlyphTipLengthPercent2D = 30;\n\n  this->GridScalePercent = 100;\n  this->GridSpacingMm = 15.0;\n  this->GridLineDiameterMm = 1.0;\n  this->GridResolutionMm = 5.0;\n  this->GridShowNonWarped = false;\n\n  this->ContourResolutionMm = 5.0;\n  this->ContourOpacity = 0.8;\n  this->ContourLevelsMm.clear();\n  for (double level = 2.0; level < 20.0; level += 2.0)\n  {\n    this->ContourLevelsMm.push_back(level);\n  }\n\n  this->EditorVisibility = false;\n  this->EditorVisibility3D = true;\n  this->EditorSliceIntersectionVisibility = true;\n  this->EditorTranslationEnabled = true;\n  this->EditorTranslationSliceEnabled = true;\n  this->EditorRotationEnabled = true;\n  this->EditorRotationSliceEnabled = true;\n  this->EditorScalingEnabled = false;\n  this->EditorScalingSliceEnabled = false;\n\n  for (int i = 0; i < 4; ++i)\n  {\n    this->RotationHandleComponentVisibility3D[i] = true;\n    this->ScaleHandleComponentVisibility3D[i] = true;\n    this->TranslationHandleComponentVisibility3D[i] = true;\n\n    this->RotationHandleComponentVisibilitySlice[i] = false;\n    this->ScaleHandleComponentVisibilitySlice[i] = true;\n    this->TranslationHandleComponentVisibilitySlice[i] = false;\n  }\n  this->RotationHandleComponentVisibility3D[3] = false;\n  this->RotationHandleComponentVisibilitySlice[3] = true;\n  this->TranslationHandleComponentVisibilitySlice[3] = true;\n\n  vtkNew<vtkIntArray> regionModifiedEvents;\n  regionModifiedEvents->InsertNextValue(vtkCommand::ModifiedEvent);\n  regionModifiedEvents->InsertNextValue(vtkMRMLTransformableNode::TransformModifiedEvent);\n  this->AddNodeReferenceRole(RegionReferenceRole, RegionReferenceRole, regionModifiedEvents);\n\n  this->AddNodeReferenceRole(GlyphPointsReferenceRole, GlyphPointsReferenceRole, nullptr, ContentModifiedObserveEnabled /* observe content modified events */);\n}\n\n```\n\n[6] slicer-source/Libs/MRML/Core/vtkMRMLROIListNode.cxx (lines 427-441) [mrml_definition] similarity:0.685 boosted:0.685\n```cpp\nvoid vtkMRMLROIListNode::SetVisibility(int visible)\n{\n  if (this->Visibility == visible)\n  {\n    return;\n  }\n  vtkDebugMacro(<< this->GetClassName() << \" (\" << this << \"): setting Visibility to \" << visible);\n  this->Visibility = visible;\n\n  // invoke a modified event\n  this->Modified();\n\n  // invoke a display modified event\n  this->InvokeEvent(vtkMRMLROIListNode::DisplayModifiedEvent);\n}\n\n```\n\n[7] slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx (lines 293-315) [mrml_definition] similarity:0.685 boosted:0.685\n```cpp\nvoid vtkMRMLDisplayableNode::SetDisplayClassVisibility(const char* nodeClass, int visible)\n{\n  if (nodeClass == nullptr || std::string(nodeClass).empty())\n  {\n    this->SetDisplayVisibility(visible);\n    return;\n  }\n  if (visible == 2)\n  {\n    return;\n  }\n\n  int ndnodes = this->GetNumberOfDisplayNodes();\n  for (int i = 0; i < ndnodes; i++)\n  {\n    vtkMRMLDisplayNode* displayNode = this->GetNthDisplayNode(i);\n    if (displayNode && displayNode->IsShowModeDefault() //\n        && displayNode->IsA(nodeClass))\n    {\n      displayNode->SetVisibility(visible);\n    }\n  }\n}\n\n```\n\n[8] slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.cxx (lines 253-271) [mrml_definition] similarity:0.672 boosted:0.672\n```cpp\nint vtkMRMLDisplayableNode::GetDisplayClassVisibility(const char* nodeClass)\n{\n  if (nodeClass == nullptr || std::string(nodeClass).empty())\n  {\n    return this->GetDisplayVisibility();\n  }\n  int ndnodes = this->GetNumberOfDisplayNodes();\n  int visible = 0;\n  for (int i = 0; i < ndnodes; i++)\n  {\n    vtkMRMLDisplayNode* displayNode = this->GetNthDisplayNode(i);\n    if (displayNode && displayNode->IsShowModeDefault() //\n        && displayNode->IsA(nodeClass))\n    {\n      visible = displayNode->GetVisibility();\n    }\n  }\n  return visible;\n}\n\n```\n\n[9] slicer-source/Libs/MRML/Core/vtkMRMLMarkupsPlaneDisplayNode.cxx (lines 28-37) [mrml_definition] similarity:0.655 boosted:0.655\n```cpp\nvtkMRMLMarkupsPlaneDisplayNode::vtkMRMLMarkupsPlaneDisplayNode()\n{\n  this->TypeDisplayName = vtkMRMLTr(\"vtkMRMLMarkupsPlaneDisplayNode\", \"Markups Plane Display\");\n\n  this->HandlesInteractive = true;\n  this->TranslationHandleVisibility = false;\n  this->RotationHandleVisibility = false;\n  this->ScaleHandleVisibility = true;\n  this->CanDisplayScaleHandles = true;\n}\n\n```\n\n[10] slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.cxx (lines 998-1002) [mrml_definition] similarity:0.649 boosted:0.649\n```cpp\nvoid vtkMRMLDisplayNode::SliceIntersectionVisibilityOn()\n{\n  vtkWarningMacro(\"SliceIntersectionVisibilityOn method is deprecated, please use Visibility2DOn instead\");\n  this->Visibility2DOn();\n}\n\n```\n", "_tool_timing": "0.262s"}
+
+===== MESSAGE 5 | assistant =====
+The API methods are confirmed in the source: `vtkMRMLMarkupsROIDisplayNode` (via `vtkMRMLMarkupsDisplayNode`) has `SetTranslationHandleVisibility`, `SetRotationHandleVisibility`, and `SetScaleHandleVisibility` — and the ROI display node's default already hides rotation and shows only translation+scale. The step's current template explicitly turns **all** handles on (`SetTranslationHandleVisibility(True)`, `SetRotationHandleVisibility(True)`), which is exactly what the surgeon complained about. The fix is to hide the displacement (translation) and rotation handles and keep only the scale handles (the ROI boundary adjustment tool).
+
+===== MESSAGE 6 | tool =====
+{"tool": "GetNodeProperties", "results": {"vtkMRMLMarkupsROIDisplayNode1": {"id": "vtkMRMLMarkupsROIDisplayNode1", "name": "MarkupsROIDisplay", "class": "vtkMRMLMarkupsROIDisplayNode"}}, "count": 1}

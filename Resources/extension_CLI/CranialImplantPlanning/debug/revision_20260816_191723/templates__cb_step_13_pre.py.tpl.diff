@@ -1,0 +1,28 @@
+--- templates/cb_step_13_pre.py.tpl (before)
++++ templates/cb_step_13_pre.py.tpl (after)
+@@ -1,3 +1,7 @@
++# [revised] Rewritten by the runtime revision agent (revision_20260816_191723).
++# Pre-revision package backed up under versions/revision_20260816_191723/.
++# Requested: in this step, do not show the displacement and rotation handler, and just show the ROI boundary adjustment tool
++# Change: Hide displacement (translation) and rotation handles for the ROI markup; keep only the scale handles for boundary adjustment.
+ # --- CranialImplantPlanning: Manually adjust the boundaries of the ROI to retain the skull portion. (Setup) ---
+ import slicer
+ from SlicerAIAgentLib.workflow_state import remember_interaction_node
+@@ -30,14 +34,15 @@
+ if displayNode is not None:
+     displayNode.SetVisibility(True)
+ # Enable interaction handles for adjusting the existing markup.
++# Show only the ROI boundary (scale) handles; keep displacement and rotation handles hidden.
+ if displayNode is not None:
+     roiDisplayNode = slicer.vtkMRMLMarkupsROIDisplayNode.SafeDownCast(displayNode)
+     if roiDisplayNode is not None:
+         try:
+             roiDisplayNode.SetHandlesInteractive(True)
+-            roiDisplayNode.SetTranslationHandleVisibility(True)
++            roiDisplayNode.SetTranslationHandleVisibility(False)
+             roiDisplayNode.SetScaleHandleVisibility(True)
+-            roiDisplayNode.SetRotationHandleVisibility(True)
++            roiDisplayNode.SetRotationHandleVisibility(False)
+         except Exception:
+             pass
+ slicer.modules.markups.logic().SetActiveListID(node)

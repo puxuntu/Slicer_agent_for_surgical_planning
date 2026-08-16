@@ -134,6 +134,10 @@ class WidgetReplayMixin:
             self._updateBaselineControls(state)
         except Exception:
             logger.debug("Baseline control refresh failed", exc_info=True)
+        try:
+            self._updateReviseControls(state)
+        except Exception:
+            logger.debug("Revise control refresh failed", exc_info=True)
 
     # --------------------------------------------------------------- handlers
     def _noteReplayNavigation(self, action, before_index, after_index, resumed_at=None):
@@ -202,10 +206,13 @@ class WidgetReplayMixin:
         runtime = getattr(self, "_workflowRuntime", None)
         if runtime is None or runtime.session is None:
             return
-        # Every step is judged on its own: leave baseline mode and empty the
-        # prompt box BEFORE moving, so the panel re-renders for the step we land
-        # on rather than carrying the previous step's mode and text along.
+        # Every step is judged on its own: leave baseline and revise mode and
+        # empty the prompt box BEFORE moving, so the panel re-renders for the
+        # step we land on rather than carrying the previous step's mode and
+        # text along.
         if not self._resetBaselineForNavigation():
+            return
+        if not self._resetReviseForNavigation():
             return
         # _updateWorkflowPanel renders the returned state verbatim (no
         # type/step_id/tool/next_step keys) and refreshes the controls.
@@ -220,6 +227,8 @@ class WidgetReplayMixin:
             return
         if not self._resetBaselineForNavigation():
             return
+        if not self._resetReviseForNavigation():
+            return
         before = runtime.session.preview_index
         state = runtime.navigate_forward()
         self._noteReplayNavigation("forward", before, runtime.session.preview_index)
@@ -231,9 +240,12 @@ class WidgetReplayMixin:
         if runtime is None or runtime.session is None:
             return
         # Same rule as Back/Forward: this hands the step back to the pipeline,
-        # so the comparison arm is disengaged first — Send must not stay amber
-        # and baseline-routed while the pipeline is driving.
+        # so the comparison arm and the revision arm are disengaged first — Send
+        # must not stay amber (or purple) and mode-routed while the pipeline is
+        # driving.
         if not self._resetBaselineForNavigation():
+            return
+        if not self._resetReviseForNavigation():
             return
         self._rerunFromCheckpoint(runtime.session.preview_index)
 

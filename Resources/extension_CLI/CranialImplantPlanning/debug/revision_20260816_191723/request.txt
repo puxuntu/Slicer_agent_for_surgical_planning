@@ -1,0 +1,1 @@
+in this step, do not show the displacement and rotation handler, and just show the ROI boundary adjustment tool

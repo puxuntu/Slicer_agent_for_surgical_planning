@@ -119,8 +119,8 @@ def main():
           main_ns.get("preexisting_name") == "rebound by a step")
 
     # -- 4. One namespace per process => one ledger per process. --------------
-    # The runtime and the CLI live-validation gate build separate executors
-    # that write to the same __main__.
+    # More than one executor exists per session (the runtime's own, and the CLI
+    # generation api-probe's) and they all write to the same __main__.
     other = SafeExecutor()
     before = set(other._globals_dict)
     exec("_live_validation_leftover = 1\n", other._globals_dict)

@@ -8,9 +8,10 @@ from .workflow_state import _find_next_step_local
 # ``{vol_lookup}`` is a structural placeholder some generated templates emit (see
 # extension_cli_analyzer/template_generation.py) to stand in for "resolve the
 # workflow's input scalar volume into ``inputVolume``". Generation-side validation
-# expands it (live_revision._live_fill_template) and notes it "mirrors the
-# generated runtime fill" -- this is that runtime fill, which the per-step path
-# otherwise lacked. Generic snippet (no extension/param-specific names): reuse a
+# expands it too (validation_semantics._fill_remaining_placeholders) so a template
+# can be syntax- and security-checked before it ships -- this is the RUNTIME fill,
+# which the per-step path otherwise lacked. Generic snippet (no
+# extension/param-specific names): reuse a
 # volume an earlier step already resolved (a choice step sets a bare
 # ``inputVolume = _chosen_node``), else the first scalar volume in the scene.
 # Placed at column 0 (every generator emits the placeholder at top level). Must be

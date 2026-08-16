@@ -1,0 +1,10 @@
+--- templates/cb_step_13_post.py.tpl (before)
++++ templates/cb_step_13_post.py.tpl (after)
+@@ -1,3 +1,7 @@
++# [revised] Rewritten by the runtime revision agent (revision_20260816_184132).
++# Pre-revision package backed up under versions/revision_20260816_184132/.
++# Requested: just show the ROI boundary, do not need the displacement and rotation handler
++# Change: Hide the ROI translation (displacement) and rotation interaction handles; keep only the scale handles so the ROI boundary box can still be resized.
+ # --- CranialImplantPlanning: Manually adjust the boundaries of the ROI to retain the skull portion. (Process) ---
+ import slicer
+ from SlicerAIAgentLib.workflow_state import resolve_interaction_node

@@ -37,6 +37,7 @@ SYSTEM_PROMPT = "system_prompt.md"
 WORKFLOW_ROUTER_PROMPT = "workflow_router_prompt.md"
 BASELINE_PURE_LLM_PROMPT = "baseline_pure_llm_prompt.md"
 BASELINE_ONLINE_ONLY_PROMPT = "baseline_online_only_prompt.md"
+TEMPLATE_REVISION_PROMPT = "template_revision_prompt.md"
 
 _cache: Dict[str, tuple] = {}
 _lock = threading.Lock()

@@ -1,0 +1,30 @@
+{
+  "label": "revision_20260816_191723",
+  "time": "2026-08-16T19:17:23",
+  "extension": "CranialImplantPlanning",
+  "step_id": "cb_step_13",
+  "operation_type": "user_interaction",
+  "request": "in this step, do not show the displacement and rotation handler, and just show the ROI boundary adjustment tool",
+  "summary": "Hide displacement (translation) and rotation handles for the ROI markup; keep only the scale handles for boundary adjustment.",
+  "analysis": "The PRE template explicitly turned on ALL ROI interaction handles (SetTranslationHandleVisibility(True), SetRotationHandleVisibility(True), SetScaleHandleVisibility(True)), so the surgeon saw displacement and rotation handles in addition to the boundary scale handles. The request is to show only the ROI boundary adjustment tool, i.e. hide translation and rotation and keep scale. Confirmed the setters exist on vtkMRMLMarkupsDisplayNode (parent of vtkMRMLMarkupsROIDisplayNode) in slicer-source and that the live scene has vtkMRMLMarkupsROIDisplayNode1 attached to CropROI.",
+  "rounds": 1,
+  "applied": [
+    "templates/cb_step_13_pre.py.tpl"
+  ],
+  "backup": "versions/revision_20260816_191723",
+  "error": "",
+  "templates": [
+    {
+      "rel_path": "templates/cb_step_13_pre.py.tpl",
+      "role": "pre",
+      "before_chars": 2308,
+      "after_chars": 2820,
+      "placeholders_before": [],
+      "placeholders_after": [],
+      "warnings": []
+    }
+  ],
+  "unchanged": [
+    "templates/cb_step_13_post.py.tpl"
+  ]
+}

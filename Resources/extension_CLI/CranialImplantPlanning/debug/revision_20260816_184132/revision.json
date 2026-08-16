@@ -1,0 +1,39 @@
+{
+  "label": "revision_20260816_184132",
+  "time": "2026-08-16T18:41:32",
+  "extension": "CranialImplantPlanning",
+  "step_id": "cb_step_13",
+  "operation_type": "user_interaction",
+  "request": "just show the ROI boundary, do not need the displacement and rotation handler",
+  "summary": "Hide the ROI translation (displacement) and rotation interaction handles; keep only the scale handles so the ROI boundary box can still be resized.",
+  "analysis": "The ROI display node is currently created with all interaction handles enabled (SetTranslationHandleVisibility(True), SetScaleHandleVisibility(True), SetRotationHandleVisibility(True)), so the surgeon sees displacement and rotation handlers that the procedure does not need. The user asked to show only the ROI boundary without the displacement (translation) and rotation handlers. The API calls exist (confirmed in vtkMRMLMarkupsROIDisplayNode source and they ran successfully); the fix is to set translation and rotation handle visibility to False while keeping the scale handle so the ROI boundaries can still be resized.",
+  "rounds": 1,
+  "applied": [
+    "templates/cb_step_13_post.py.tpl",
+    "templates/cb_step_13_pre.py.tpl"
+  ],
+  "backup": "versions/revision_20260816_184132",
+  "error": "",
+  "templates": [
+    {
+      "rel_path": "templates/cb_step_13_post.py.tpl",
+      "role": "post",
+      "before_chars": 799,
+      "after_chars": 1203,
+      "placeholders_before": [],
+      "placeholders_after": [],
+      "warnings": [
+        "The rewritten template is identical to the original."
+      ]
+    },
+    {
+      "rel_path": "templates/cb_step_13_pre.py.tpl",
+      "role": "pre",
+      "before_chars": 2308,
+      "after_chars": 2788,
+      "placeholders_before": [],
+      "placeholders_after": [],
+      "warnings": []
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "label": "revision_20260816_184524",
+  "time": "2026-08-16T18:45:24",
+  "extension": "CranialImplantPlanning",
+  "step_id": "cb_step_15",
+  "operation_type": "user_interaction",
+  "request": "in this step, do not show the ROI boundary anymore",
+  "summary": "In the pre template, hide the CropROI display node so the ROI boundary is not shown during this view adjustment.",
+  "analysis": "The CropROI markups node (vtkMRMLMarkupsROINode2) and its display node (vtkMRMLMarkupsROIDisplayNode2) are visible in the live scene, and the cb_step_15 pre template only prints instructions, so the ROI boundary stays on screen during the view-adjustment step. The extension hides the ROI the same way it does after cropping: roiNode.GetDisplayNode().SetVisibility(False) (SlicerE3Implant.py onCropToRoi).",
+  "rounds": 1,
+  "applied": [
+    "templates/cb_step_15_pre.py.tpl"
+  ],
+  "backup": "versions/revision_20260816_184524",
+  "error": "",
+  "templates": [
+    {
+      "rel_path": "templates/cb_step_15_pre.py.tpl",
+      "role": "pre",
+      "before_chars": 390,
+      "after_chars": 976,
+      "placeholders_before": [],
+      "placeholders_after": [],
+      "warnings": []
+    }
+  ]
+}
