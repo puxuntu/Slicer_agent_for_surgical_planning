@@ -533,6 +533,17 @@ def _record_choice_and_advance(
         )
     choice_code = _build_choice_parameter_update_code(ctx, param_name, choice_value)
     if not choice_code:
+        # A pick on the extension's OWN value control (enum combobox / checkbox).
+        # Checked before every other materializer because it is the most specific:
+        # the step carries a scanned binding naming that exact control and the option
+        # the value belongs to, so there is nothing to infer. Without it the answer
+        # only ever reached the workflow mirror, and the control stayed on its
+        # factory default — the run then proceeded on the first option regardless of
+        # what the user chose.
+        choice_code = _build_widget_state_choice_materialization_code(
+            ctx, param_name, choice_value,
+        )
+    if not choice_code:
         # A numeric RANGE pick ([min, max]) applies to the live Segment Editor
         # effect, NOT a scene node. Checked before the segment-name / node
         # materializers so the list value is never resolved as a node/name.
@@ -723,6 +734,31 @@ _NONSPECIFIC_NODE_CLASSES = frozenset({
     "vtkMRMLTransformableNode", "vtkMRMLDisplayableHierarchyNode",
 })
 
+# Mirror of WorkflowRuntime.normalize_node_class. The class this module reads is
+# not merely displayed: it is BAKED INTO EMITTED CODE as `IsA(<class>)` and
+# `GetNodesByClass(<class>)`, so a decomposition that wrote it as prose
+# ("vtkMRMLVolumeNode (CT scalar volume)") produces a step that can never resolve
+# the node the user just picked -- and then hands that to self-correction, which
+# spends attempts rediscovering that the string is not a class name.
+_NODE_CLASS_RE = re.compile(r"\bvtkMRML[A-Za-z0-9]+\b")
+
+
+def _normalize_node_class(raw) -> str:
+    """The bare MRML class name in ``raw``, or "" (mirrors the runtime helper)."""
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    match = _NODE_CLASS_RE.search(text)
+    if not match:
+        return ""
+    found = match.group(0)
+    if found != text:
+        logger.warning(
+            "Generated node_class %r is not a bare class name; using %r. "
+            "Regenerate this CLI.", text, found,
+        )
+    return found
+
 
 def _tokenize_choice_text(text) -> set:
     """Mirror of WorkflowRuntime._tokenize_choice_text: lowercased word-token set
@@ -827,7 +863,7 @@ def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
             rp = role.get("parameter_name")
             if param_name and rp not in (None, "", param_name):
                 continue
-            nc = str(role.get("node_class") or "").strip()
+            nc = _normalize_node_class(role.get("node_class"))
             if nc and nc not in _NONSPECIFIC_NODE_CLASSES:
                 return nc
     for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
@@ -837,7 +873,7 @@ def _node_class_for_choice(ctx: _WorkflowContext, param_name: str) -> str:
             sp = so.get("parameter_name")
             if param_name and sp not in (None, "", param_name):
                 continue
-            nc = str(so.get("node_class") or "").strip()
+            nc = _normalize_node_class(so.get("node_class"))
             if nc and nc not in _NONSPECIFIC_NODE_CLASSES:
                 return nc
     # Last resort (mirrors WorkflowRuntime._node_class_from_step_meta): no
@@ -934,6 +970,189 @@ def _is_segment_name_choice(ctx: _WorkflowContext, param_name: str) -> bool:
                     and _content_combo_has_keyword(so.get("widget_name") or "")):
                 return True
     return False
+
+
+def _widget_state_binding_for_step(ctx: _WorkflowContext, param_name: str) -> Dict:
+    """The step's scanned value-control binding (``widget_state_binding``), or {}.
+
+    Written by the generation pipeline for a choice whose control the extension
+    reads directly (an enum combobox / checkbox rather than a parameter-node role).
+    Carries the control name, the property to write, and the option list with the
+    value the extension's own reader assigns each item.
+    """
+    for src in ((ctx.target_gen or {}), (ctx.target_step or {})):
+        for so in src.get("sub_operations") or []:
+            if not isinstance(so, dict):
+                continue
+            binding = so.get("widget_state_binding")
+            if not isinstance(binding, dict) or not binding.get("widget_name"):
+                continue
+            sp = so.get("parameter_name")
+            if param_name and sp not in (None, "", param_name):
+                continue
+            return binding
+        binding = (src.get("choice_descriptor") or {}).get("widget_state_binding")
+        if isinstance(binding, dict) and binding.get("widget_name"):
+            return binding
+    return {}
+
+
+def _resolve_control_lines(widget_expr: str, control_name: str, out_var: str) -> List[str]:
+    """Lines resolving a Qt control by name into ``out_var`` (or None).
+
+    Mirrors the generator's ``_resolve_qt_control_lines``: an extension exposes a
+    control as ``self.ui.<name>`` (loaded .ui), as a direct ``self.<name>``
+    attribute (panel built in code), or only by objectName in the widget tree, and
+    a resolver that knows one of the three silently does nothing for the others.
+    CodeValidator-safe -- ``hasattr`` only, never ``getattr``.
+    """
+    q = repr(control_name)
+    lines = [f"{out_var} = None"]
+    if control_name.isidentifier():
+        lines += [
+            f"_ui = {widget_expr}.ui if hasattr({widget_expr}, 'ui') else None",
+            f"if _ui is not None and hasattr(_ui, {q}):",
+            f"    {out_var} = _ui.{control_name}",
+            f"if {out_var} is None and hasattr({widget_expr}, {q}):",
+            f"    {out_var} = {widget_expr}.{control_name}",
+        ]
+    lines += [
+        f"if {out_var} is None:",
+        "    try:",
+        f"        _found = slicer.util.findChildren({widget_expr}, name={q})",
+        f"        {out_var} = _found[0] if _found else None",
+        "    except Exception:",
+        f"        {out_var} = None",
+    ]
+    return lines
+
+
+def _build_widget_state_choice_materialization_code(
+    ctx: _WorkflowContext, param_name: str, choice_value: Any,
+) -> str:
+    """Set the extension's OWN control to the option the user picked.
+
+    A choice whose extension keeps it in the control (not in a parameter node) has
+    to be written back to that control, because the extension reads it there --
+    ``onSegment`` calls ``self.logic.segmentOrbits(self._currentSide())``, and
+    ``_currentSide`` reads the combobox at click time. Recording the answer in the
+    workflow mirror alone left the control on its factory default, so every run
+    behaved as if the first item had been chosen no matter what the user clicked.
+
+    This is deliberately redundant with the consuming template's ``{param}``
+    binding, and both are wanted. The template binding is what makes the step
+    correct; this keeps the extension's own state in agreement with it, so the
+    panel shows what the user chose, any handler connected to the control fires,
+    and a later step that reads the control (rather than taking the argument)
+    reads the same answer. They cannot disagree: both resolve the same recorded
+    value through the same scanned option list.
+
+    Fail-soft and CodeValidator-safe. Returns "" when the step has no scanned
+    control binding, which is every choice the parameter-node path already covers.
+    """
+    binding = _widget_state_binding_for_step(ctx, param_name)
+    if not binding:
+        return ""
+    widget_name = str(binding.get("widget_name") or "").strip()
+    module_name = str((ctx.metadata or {}).get("extension_module_name") or "").strip() or ctx.ext_name
+    if not (widget_name and module_name):
+        return ""
+    options = [o for o in (binding.get("options") or []) if isinstance(o, dict)]
+    if not options:
+        return ""
+    # Which option did the user pick? Matched on the option's VALUE first (what the
+    # mirror records and what a template fills), then on its visible text, so a
+    # panel that sends back the label still lands on the right item.
+    target = None
+    for option in options:
+        if option.get("value") == choice_value:
+            target = option
+            break
+    if target is None:
+        wanted = str(choice_value).strip().lower()
+        for option in options:
+            if str(option.get("value")).strip().lower() == wanted \
+                    or str(option.get("text")).strip().lower() == wanted:
+                target = option
+                break
+    if target is None:
+        logger.warning(
+            "[ExtensionCLILoader] Step '%s': recorded choice %r matches no option of "
+            "'%s' %s -- leaving the control untouched.",
+            ctx.workflow_step, choice_value, widget_name,
+            [o.get("value") for o in options],
+        )
+        return ""
+
+    value_property = str(binding.get("value_property") or "currentText").strip()
+    index = target.get("index")
+    text = target.get("text")
+    lines = [
+        f"# --- {ctx.ext_name}: {ctx.workflow_step} value-control selection ---",
+        "import slicer",
+        "_choice_widget = None",
+        "try:",
+        f"    _choice_widget = slicer.util.getModuleWidget({module_name!r})",
+        "except Exception:",
+        "    _choice_widget = None",
+        "if _choice_widget is not None:",
+    ]
+    lines += [f"    {line}" for line in _resolve_control_lines("_choice_widget", widget_name, "_ctrl")]
+    lines += ["    if _ctrl is not None:"]
+    if value_property in ("checked", "isChecked"):
+        lines += [
+            f"        _ctrl.checked = {bool(target.get('value'))!r}",
+        ]
+    elif isinstance(index, int):
+        # The index is the authoritative address -- two items may carry the same
+        # label, and the scanned map is index-keyed -- with the text as a check that
+        # the live control is still the one that was analysed, and as the fallback
+        # address if it was repopulated in a different order.
+        #
+        # A missing item RAISES rather than warning: it means the installed
+        # extension offers a different option set from the source this package was
+        # generated against, so the recorded value may address a different option
+        # than the user saw. Silently leaving the control on item 0 is the failure
+        # this whole path exists to prevent. Not finding the module widget or the
+        # control at all only warns -- the consuming template still carries the value
+        # through its own binding, so the step is still correct and only this mirror
+        # is missing.
+        lines += [
+            "        _target_index = -1",
+            "        try:",
+            f"            if _ctrl.count > {index} and _ctrl.itemText({index}) == {text!r}:",
+            f"                _target_index = {index}",
+            "            else:",
+            f"                _target_index = _ctrl.findText({text!r})",
+            "        except Exception:",
+            "            _target_index = -1",
+            "        if _target_index < 0:",
+            f"            raise RuntimeError({_control_mismatch_message(ctx, widget_name, text)!r})",
+            "        _ctrl.setCurrentIndex(_target_index)",
+        ]
+    else:
+        lines += [f"        _ctrl.setCurrentText({text!r})"]
+    lines += [
+        "    else:",
+        f"        print(\"[{ctx.ext_name}] Control '{widget_name}' not found on the module "
+        f"widget; the step's own value binding still carries the answer.\")",
+        "else:",
+        f"    print(\"[{ctx.ext_name}] Module widget for '{module_name}' not available; "
+        f"the step's own value binding still carries the answer.\")",
+        f"print(\"[{ctx.ext_name}] Step '{ctx.workflow_step}': {widget_name} = {text} "
+        f"({param_name}={target.get('value')!r}).\")",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _control_mismatch_message(ctx: _WorkflowContext, widget_name: str, text) -> str:
+    """Error text for a control whose live items no longer contain the scanned one."""
+    return (
+        f"[{ctx.ext_name}] Step '{ctx.workflow_step}': '{widget_name}' has no item "
+        f"{text!r}. The installed extension's UI differs from the analysed source; "
+        "regenerate the CLI for this extension."
+    )
 
 
 def _build_segment_name_choice_materialization_code(ctx: _WorkflowContext, param_name: str, choice_value) -> str:
@@ -1294,7 +1513,7 @@ def _build_node_choice_materialization_code(
         for _alias_role in (_alias_roles or []):
             if not isinstance(_alias_role, dict):
                 continue
-            if str(_alias_role.get("node_class") or "").strip() != node_class:
+            if _normalize_node_class(_alias_role.get("node_class")) != node_class:
                 continue
             _alias = str(_alias_role.get("parameter_name") or "").strip()
             if not _alias or not _alias.isidentifier() or _alias in _alias_seen:
@@ -1636,7 +1855,7 @@ def _extension_input_roles(ctx: _WorkflowContext) -> List[Dict[str, Any]]:
             if role.get("role_kind") != "extension_input":
                 continue
             pname = str(role.get("parameter_name") or "").strip()
-            nclass = str(role.get("node_class") or "").strip()
+            nclass = _normalize_node_class(role.get("node_class"))
             if not pname or not nclass or pname in seen:
                 continue
             seen.add(pname)

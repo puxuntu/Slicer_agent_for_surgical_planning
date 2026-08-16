@@ -8,6 +8,7 @@ from .widget_replay import WidgetReplayMixin
 from .widget_baseline import WidgetBaselineMixin
 from .widget_streaming import WidgetStreamingMixin
 from .widget_execution import WidgetExecutionMixin
+from .widget_voice import WidgetVoiceMixin
 from .widget_settings import WidgetSettingsMixin
 
 
@@ -20,6 +21,9 @@ class SlicerAIAgentWidget(
     WidgetBaselineMixin,
     WidgetStreamingMixin,
     WidgetExecutionMixin,
+    # Before WidgetSettingsMixin, so its onSaveSettings/loadSettings overrides
+    # can super() into the originals -- one Save button covers both sections.
+    WidgetVoiceMixin,
     WidgetSettingsMixin,
     ScriptedLoadableModuleWidget,
     VTKObservationMixin,
@@ -79,6 +83,15 @@ class SlicerAIAgentWidget(
         # Router instance kept when it DECLINED, so the full turn that runs
         # instead can still record the routing call it paid for.
         self._lastRouter = None
+        # A routing call is in flight on a worker thread. It used to run inline
+        # on the Qt thread, which froze Slicer for as long as the network took
+        # -- 174 s on a throttled link, with the window marked "not responding".
+        # The flag stops a second Send (or a second spoken request) racing a
+        # second answer into a second workflow.
+        self._routerBusy = False
+        # Set only while _finishRouterTurn re-enters Send to run the traditional
+        # turn, so the router is not asked the same question twice.
+        self._routerAlreadyDeclined = False
         self._currentAgentRole = "Idle"
         self._lastExecutionResult = None
         self._lastVerificationResult = None
@@ -113,6 +126,16 @@ class SlicerAIAgentWidget(
         self._experimentContent = None
         self._experimentContentLayout = None
         self._experimentDataMap = {}
+        # Extension CLI generator: parallel generation state. `_cliBatch` maps
+        # extension -> None while running, then {"ok": bool}; the batch is over
+        # when no value is None. `_cliQueue` holds what has not started yet
+        # (CLI_MAX_PARALLEL at a time) and `_cliProgressPanes` the per-extension
+        # output tabs.
+        self._cliBatch = {}
+        self._cliQueue = []
+        self._cliStarted = set()
+        self._cliProgressTabs = None
+        self._cliProgressPanes = {}
         # Per-step instruction editor (CLI generator panel)
         self._stepInstrStepCombo = None
         self._stepInstrTitle = None
@@ -166,6 +189,76 @@ class SlicerAIAgentWidget(
         # "no API key" and "no procedure does this" need opposite remedies.
         self._lastRouterRejection = None
         self._lastInjectedPreludeKeys = []
+        # Voice control (see app/widget_voice.py and SlicerAIAgentLib/voice/).
+        # The microphone is ALWAYS ON while a session is live -- there is no
+        # wake word -- so the mute flag around speech output and the epoch
+        # carried by each utterance are what keep it safe, not an arming step.
+        self._voiceButton = None
+        self._voiceButtonColumn = None
+        self._voiceGroup = None
+        self._voiceStatusLabel = None
+        self._voiceSaveButton = None
+        # Red, selectable, first row of the Voice group: the "no audio backend"
+        # remedy, which is a line the user has to copy into Slicer's console.
+        self._voiceBackendBanner = None
+        self._voiceListener = None
+        self._voicePlayer = None
+        self._voiceAsrClient = None
+        self._voiceTtsClient = None
+        self._voiceListening = False
+        # Microphone SESSION token, distinct from _guidedSessionEpoch: it
+        # retires events (and in-flight transcriptions) from a mic session the
+        # user has closed, so the final "stopped" state of one session cannot
+        # tear down the next one started milliseconds later.
+        self._voiceSessionSeq = 0
+        # Speech is QUEUED and spoken in order, not newest-wins: an
+        # acknowledgement and the step announcement that follows it are produced
+        # microseconds apart, and newest-wins drops the acknowledgement -- the
+        # one thing that makes a mis-heard command audible. The generation
+        # counter is bumped only by an explicit interrupt.
+        self._voiceSpeechSeq = 0
+        self._voiceSpeechLock = None
+        self._voiceSpeechQueue = []
+        self._voiceSpeechWorker = None
+        # Identity of the step occurrence already read aloud. _updateWorkflowPanel
+        # is a repaint event that runs several times per opening.
+        self._voiceSpokenStepKey = None
+        # Set when "confirm before acting" is on and a command is awaiting
+        # "yes". The step it was resolved against is kept beside it: the
+        # workflow can move on while the user is deciding, and a "yes" then
+        # would commit a value the new step never offered.
+        self._voicePendingCommand = None
+        self._voicePendingStep = None
+        self._voiceRequestInFlight = False
+        self._voiceLogDir = None
+        # _drainStreamQueue re-enters itself (applying a command pumps the Qt
+        # event loop), so a second utterance must not be handled INSIDE the
+        # first -- that dispatches a step twice. It is parked here and handled
+        # at top level once the first finishes.
+        self._voiceHandlingTranscript = False
+        self._voiceDeferredTranscripts = []
+        self._voiceDeferredCommands = []
+        # Consecutive transcription failures. A wrong region or a bad key fails
+        # every utterance identically, so a streak is the signal to stop and say
+        # so rather than to keep looking alive.
+        self._voiceAsrErrorStreak = 0
+        # True between "captured" and whichever outcome the transcription has.
+        # The capture thread returns to idle immediately after handing an
+        # utterance over, so without this the panel says "nothing heard yet"
+        # while the recogniser is still working on 2.4 s of audio.
+        self._voiceTranscribing = False
+        self._voiceUtteranceSeq = 0
+        # Push-to-talk: the Space bar gates capture. _voiceKeyFilter is the
+        # application-wide event filter when PythonQt can dispatch to it, and
+        # _voicePttPoller is the key-state fallback when it cannot. Exactly one
+        # is ever live, and both are torn down with the session -- a global key
+        # hook left behind would keep stealing Space from the whole app.
+        self._voicePttActive = False
+        self._voiceKeyFilter = None
+        self._voicePttPoller = None
+        self._voicePttUser32 = None
+        self._voicePttDown = False
+        self._voicePttVirtualKey = 0x20
 
     def onReload(self):
         """Reload the module AND its ``SlicerAIAgentLib`` library.

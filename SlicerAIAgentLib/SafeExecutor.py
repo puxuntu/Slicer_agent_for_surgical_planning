@@ -52,7 +52,31 @@ class SafeExecutor:
     
     DEFAULT_TIMEOUT = 30  # seconds
     MAX_OUTPUT_LENGTH = 10000  # characters
-    
+
+    #: Names executed code has introduced into __main__, in insertion order.
+    #:
+    #: Executed code shares the Python console's namespace (see _buildGlobals),
+    #: which is what makes `getNode` and friends work -- and also means every
+    #: name a generated step binds outlives the run that bound it, for the whole
+    #: Slicer process. That is deliberate WITHIN a run: `_<ext>_logic` and
+    #: `_<ext>_<step>_id` are how step N hands its objects to step N+1. Across
+    #: runs it is a defect, and a silent one: every template reads those names
+    #: back through `try: <name> / except NameError:`, so a freshly launched
+    #: Slicer takes the except branch and a second run in the same process does
+    #: not -- reusing the previous run's logic object (with its stale node
+    #: attributes) and its node-ID strings, against a scene those nodes have
+    #: been removed from.
+    #:
+    #: CLASS-level, not per instance: __main__ is one dict per process, so the
+    #: ledger of what we put in it has to be one too. The runtime executor and
+    #: the CLI live-validation gate (widget_workflow._runCliLiveValidation)
+    #: build separate SafeExecutors that write to the same namespace.
+    #:
+    #: Filled by diffing around each exec on the main thread, so it can only
+    #: ever contain names OUR code bound: the user cannot type into the console
+    #: while the main thread is inside exec().
+    _introduced_globals = []
+
     def __init__(self, timeout: Optional[int] = None):
         """
         Initialize the safe executor.
@@ -64,7 +88,7 @@ class SafeExecutor:
         self._globals_dict = self._buildGlobals()
         self._execution_start_time = None
         self._should_cancel = False
-        
+
     def _buildGlobals(self) -> Dict[str, Any]:
         """
         Return the __main__ module's globals dictionary.
@@ -202,7 +226,10 @@ class SafeExecutor:
         # as the Slicer Python Console (getNode and other shortcuts are available).
         exec_globals = self._globals_dict
         exec_globals = self._injectHelpers(exec_globals)
-        
+        # Taken AFTER _injectHelpers so the three stateless helpers it (re-)binds
+        # on every call are not counted as this run's residue.
+        _names_before_exec = set(exec_globals)
+
         result_value = None
         error_msg = None
         traceback_str = None
@@ -302,6 +329,14 @@ class SafeExecutor:
             traceback_str = traceback.format_exc()
 
         finally:
+            # Record what this block left behind in __main__. In the finally, so
+            # a step that raised half-way through still has its partial bindings
+            # tracked -- those are exactly the ones no later step overwrites.
+            try:
+                self._trackIntroducedGlobals(_names_before_exec, exec_globals)
+            except Exception:
+                pass
+
             # Restore original VTK output window
             if original_vtk_window is not None:
                 try:
@@ -435,23 +470,64 @@ class SafeExecutor:
     def addGlobal(self, name: str, value: Any):
         """
         Add a global variable for code execution.
-        
+
         Args:
             name: Variable name
             value: Variable value
         """
+        if name not in self._globals_dict:
+            self._trackIntroducedGlobals(set(), {name: value})
         self._globals_dict[name] = value
-        
+
     def removeGlobal(self, name: str):
         """
         Remove a global variable.
-        
+
         Args:
             name: Variable name to remove
         """
         if name in self._globals_dict:
             del self._globals_dict[name]
-            
+        try:
+            self._introduced_globals.remove(name)
+        except ValueError:
+            pass
+
+    def _trackIntroducedGlobals(self, names_before, names_after) -> None:
+        """Remember names that appeared in __main__ that were not there before."""
+        for name in names_after:
+            if name in names_before:
+                continue
+            if name in self._introduced_globals:
+                continue
+            self._introduced_globals.append(name)
+
+    def clearIntroducedGlobals(self) -> list:
+        """Unbind every name executed code has introduced into __main__.
+
+        The one mechanism that returns the execution namespace to what a freshly
+        launched Slicer has, without touching anything the user (or Slicer's own
+        startup) put there: only names observed to APPEAR during one of our own
+        exec() calls are removed, and only if they are still bound to what we
+        left. Deleting in reverse insertion order so a name rebound by a later
+        step is dropped once, not resurrected.
+
+        Returns the names actually removed, for the log.
+        """
+        removed = []
+        for name in reversed(list(self._introduced_globals)):
+            try:
+                if name in self._globals_dict:
+                    del self._globals_dict[name]
+                    removed.append(name)
+            except Exception:
+                pass
+        # In place, never `= []`: the ledger is the CLASS attribute, and
+        # rebinding it here would give this instance a private copy and leave
+        # every other executor still pointing at the old, now-wrong list.
+        del self._introduced_globals[:]
+        return removed
+
     def cleanup(self):
         """Cleanup resources."""
         # Do not reset _globals_dict since it points to __main__.__dict__

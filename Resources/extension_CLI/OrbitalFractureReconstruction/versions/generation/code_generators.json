@@ -11,11 +11,11 @@
     "operation_type": "user_choice",
     "ui_guidance": {
       "title": "Select the CT volume for processing",
-      "instruction": "Enter choice.",
+      "instruction": "Choose the CT volume to use.",
       "done_label": "Done",
-      "choice_label": "Choice",
-      "input_label": "Choice",
-      "object_label": "volume",
+      "choice_label": "CT volume",
+      "input_label": "CT volume",
+      "object_label": "CT volume",
       "repeat": {}
     },
     "operation_model": {
@@ -35,7 +35,7 @@
     "node_roles": [
       {
         "role_kind": "choice_input",
-        "node_class": "vtkMRMLVolumeNode",
+        "node_class": "vtkMRMLVolumeNode (CT scalar volume)",
         "parameter_name": "inputVolume",
         "step_id": "cb_step_1"
       }
@@ -47,17 +47,17 @@
       "default_value": null,
       "ui_guidance": {
         "title": "Select the CT volume for processing",
-        "instruction": "Enter choice.",
+        "instruction": "Choose the CT volume to use.",
         "done_label": "Done",
-        "choice_label": "Choice",
-        "input_label": "Choice",
-        "object_label": "volume",
+        "choice_label": "CT volume",
+        "input_label": "CT volume",
+        "object_label": "CT volume",
         "repeat": {}
       },
       "node_roles": [
         {
           "role_kind": "choice_input",
-          "node_class": "vtkMRMLVolumeNode",
+          "node_class": "vtkMRMLVolumeNode (CT scalar volume)",
           "parameter_name": "inputVolume",
           "step_id": "cb_step_1"
         }
@@ -67,7 +67,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the input CT volume for processing",
+        "description": "Select the CT volume for processing.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "inputSelector",
@@ -78,7 +78,7 @@
         "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": "vtkMRMLVolumeNode",
+        "node_class": "vtkMRMLVolumeNode (CT scalar volume)",
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [],
@@ -89,7 +89,7 @@
         "node_roles": [
           {
             "role_kind": "choice_input",
-            "node_class": "vtkMRMLVolumeNode",
+            "node_class": "vtkMRMLVolumeNode (CT scalar volume)",
             "parameter_name": "inputVolume",
             "step_id": "cb_step_1"
           }
@@ -102,7 +102,8 @@
         "parameter_name": "inputVolume",
         "default_value": null,
         "value_kind": "node",
-        "widget_class": "qMRMLNodeComboBox"
+        "widget_class": "",
+        "widget_class_unverified": true
       }
     ]
   },
@@ -117,7 +118,7 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Create ROI 'Orbital_Region'",
+      "title": "Create the Orbital_Region ROI",
       "instruction": "In the Markups module, click ROI.",
       "done_label": "Done",
       "choice_label": "",
@@ -129,28 +130,25 @@
       "source": "ground_api",
       "accepted_footprints": [
         "AddNewNodeByClass",
-        "CreateDefaultDisplayNodes",
         "GetName",
-        "SetName",
         "mrmlScene",
         "vtkMRMLMarkupsROINode"
       ],
       "api_chains": [
-        "roiNode.CreateDefaultDisplayNodes",
         "roiNode.GetName",
-        "roiNode.SetName",
         "slicer.mrmlScene.AddNewNodeByClass"
       ],
       "operation_descriptions": [
-        "Create an empty MarkupsROI node named Orbital_Region in the Markups module"
+        "Create an empty MarkupsROI node named Orbital_Region in the Markups module."
       ],
       "slicer_op_categories": [
         "markups_display"
       ],
       "slicer_api_keywords": [
         "vtkMRMLMarkupsROINode",
-        "CreateNodeByClass",
-        "Markups"
+        "Markups module",
+        "AddNewNodeByClass",
+        "Orbital_Region"
       ]
     },
     "operation_model": {
@@ -167,20 +165,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "interaction_output",
-        "node_class": "vtkMRMLMarkupsROINode",
-        "parameter_name": null,
-        "step_id": "cb_step_2"
-      }
-    ],
     "template_file": "templates/cb_step_2_slicer.py.tpl",
     "sub_operations": [
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Create an empty MarkupsROI node named Orbital_Region in the Markups module",
+        "description": "Create an empty MarkupsROI node named Orbital_Region in the Markups module.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -190,8 +180,9 @@
         "slicer_op_category": "markups_display",
         "slicer_api_keywords": [
           "vtkMRMLMarkupsROINode",
-          "CreateNodeByClass",
-          "Markups"
+          "Markups module",
+          "AddNewNodeByClass",
+          "Orbital_Region"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -203,14 +194,7 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "interaction_output",
-            "node_class": "vtkMRMLMarkupsROINode",
-            "parameter_name": null,
-            "step_id": "cb_step_2"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -228,12 +212,12 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust ROI to cover the orbital region",
-      "instruction": "Click and adjust on the slice views to create the ROI.",
+      "title": "Place the Orbital_Region ROI",
+      "instruction": "Click in a slice view to place one ROI around the orbital region, then adjust its handles to fit.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "roi",
+      "object_label": "ROI",
       "repeat": {}
     },
     "operation_model": {
@@ -256,7 +240,7 @@
       {
         "role_kind": "interaction_output",
         "node_class": "vtkMRMLMarkupsROINode",
-        "parameter_name": null,
+        "parameter_name": "roiNode",
         "step_id": "cb_step_3"
       }
     ],
@@ -266,14 +250,14 @@
       "interaction_type": "roi",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsROINode",
-      "placement_instructions": "Click and adjust on the slice views to create the ROI for Orbital_Region",
+      "placement_instructions": "Click and adjust in the slice views to place the Orbital_Region ROI.",
       "ui_guidance": {
-        "title": "Adjust ROI to cover the orbital region",
-        "instruction": "Click and adjust on the slice views to create the ROI.",
+        "title": "Place the Orbital_Region ROI",
+        "instruction": "Click in a slice view to place one ROI around the orbital region, then adjust its handles to fit.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "roi",
+        "object_label": "ROI",
         "repeat": {}
       },
       "interaction_owner": "runtime_template",
@@ -288,6 +272,7 @@
       "source": "ground_api",
       "accepted_footprints": [
         "CreateDefaultDisplayNodes",
+        "GetAttributeNames",
         "GetDisplayNode",
         "GetID",
         "GetItemAsObject",
@@ -297,18 +282,21 @@
         "SetActiveListID",
         "SetVisibility",
         "SwitchToSinglePlaceMode",
+        "append",
         "logic",
         "markups",
         "modules",
         "mrmlScene",
+        "startswith",
         "vtkMRMLInteractionNodeSingleton",
         "vtkMRMLMarkupsROINode",
         "GetNumberOfControlPoints",
-        "SwitchToViewTransformMode",
-        "AddNewNodeByClass",
-        "GetFirstNodeByClass"
+        "SwitchToViewTransformMode"
       ],
       "api_chains": [
+        "_candidates.append",
+        "_owned.append",
+        "candidate.GetAttributeNames",
         "displayNode.SetVisibility",
         "interactionNode.SwitchToSinglePlaceMode",
         "node.CreateDefaultDisplayNodes",
@@ -323,11 +311,10 @@
         "slicer.mrmlScene.GetNodesByClass",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsROINode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsROINode').GetNumberOfItems",
+        "str(_n).startswith",
         "interactionNode.SwitchToViewTransformMode",
         "node.GetNumberOfControlPoints",
-        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
-        "slicer.mrmlScene.AddNewNodeByClass",
-        "slicer.mrmlScene.GetFirstNodeByClass"
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
       ],
       "operation_descriptions": [
         "Manually click and adjust on the Slice views to create the ROI for the \"Orbital_Region\"."
@@ -347,12 +334,12 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select the ROI for bounding box",
-      "instruction": "Enter choice.",
+      "title": "Select the MarkupsROI node",
+      "instruction": "Select the ROI you created as the bounding box.",
       "done_label": "Done",
-      "choice_label": "Choice",
-      "input_label": "Choice",
-      "object_label": "ROI",
+      "choice_label": "ROI node",
+      "input_label": "ROI node",
+      "object_label": "ROI node",
       "repeat": {}
     },
     "operation_model": {
@@ -378,17 +365,17 @@
       }
     ],
     "choice_descriptor": {
-      "question": "Select the MarkupsROI node for the bounding box",
+      "question": "Select the MarkupsROI node",
       "choices": [],
       "parameter_name": "roiNode",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select the ROI for bounding box",
-        "instruction": "Enter choice.",
+        "title": "Select the MarkupsROI node",
+        "instruction": "Select the ROI you created as the bounding box.",
         "done_label": "Done",
-        "choice_label": "Choice",
-        "input_label": "Choice",
-        "object_label": "ROI",
+        "choice_label": "ROI node",
+        "input_label": "ROI node",
+        "object_label": "ROI node",
         "repeat": {}
       },
       "node_roles": [
@@ -404,7 +391,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the MarkupsROI node for the bounding box",
+        "description": "Select the MarkupsROI node in the bounding box section.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "boundingBoxSelector",
@@ -436,12 +423,13 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Select the MarkupsROI node for the bounding box",
+        "question": "Select the MarkupsROI node",
         "choices": [],
         "parameter_name": "roiNode",
         "default_value": null,
         "value_kind": "node",
-        "widget_class": "qMRMLNodeComboBox"
+        "widget_class": "",
+        "widget_class_unverified": true
       }
     ]
   },
@@ -457,11 +445,11 @@
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Cut the volume with ROI",
-      "instruction": "",
+      "instruction": "Click the \"Cut the volume with ROI\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "Cut button",
       "repeat": {}
     },
     "method_name": "cutWithRoi",
@@ -482,7 +470,7 @@
     "node_roles": [
       {
         "role_kind": "extension_input",
-        "node_class": "vtkMRMLVolumeNode",
+        "node_class": "vtkMRMLVolumeNode (CT scalar volume)",
         "parameter_name": "inputVolume",
         "step_id": "cb_step_5"
       },
@@ -491,12 +479,6 @@
         "node_class": "vtkMRMLMarkupsROINode",
         "parameter_name": "roiNode",
         "step_id": "cb_step_5"
-      },
-      {
-        "role_kind": "extension_output",
-        "node_class": "vtkMRMLVolumeNode",
-        "parameter_name": "",
-        "step_id": "cb_step_5"
       }
     ],
     "template_file": "templates/cb_step_5.py.tpl",
@@ -504,7 +486,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Cut the input volume with the selected ROI",
+        "description": "Cut the selected CT volume with the chosen ROI.",
         "extension_method_hint": "cutWithRoi",
         "extension_function_hint": null,
         "widget_name": "cutButton",
@@ -515,10 +497,11 @@
         "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
-        "creates_node": false,
+        "node_class": "vtkMRMLVolumeNode",
+        "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
+          1,
           4
         ],
         "placement_instructions": null,
@@ -528,7 +511,7 @@
         "node_roles": [
           {
             "role_kind": "extension_input",
-            "node_class": "vtkMRMLVolumeNode",
+            "node_class": "vtkMRMLVolumeNode (CT scalar volume)",
             "parameter_name": "inputVolume",
             "step_id": "cb_step_5"
           },
@@ -536,12 +519,6 @@
             "role_kind": "extension_input",
             "node_class": "vtkMRMLMarkupsROINode",
             "parameter_name": "roiNode",
-            "step_id": "cb_step_5"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLVolumeNode",
-            "parameter_name": "",
             "step_id": "cb_step_5"
           }
         ],
@@ -553,24 +530,24 @@
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "GetFirstNodeByClass",
         "GetNodeByID",
         "cutWithRoi",
         "mrmlScene",
         "selectModule",
         "selectedModule",
         "util",
+        "GetFirstNodeByClass",
         "vtkMRMLScalarVolumeNode"
       ],
       "api_chains": [
         "logic.cutWithRoi",
-        "slicer.mrmlScene.GetFirstNodeByClass",
         "slicer.mrmlScene.GetNodeByID",
         "slicer.util.selectModule",
-        "slicer.util.selectedModule"
+        "slicer.util.selectedModule",
+        "slicer.mrmlScene.GetFirstNodeByClass"
       ],
       "operation_descriptions": [
-        "Cut the input volume with the selected ROI"
+        "Cut the selected CT volume with the chosen ROI."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -587,8 +564,8 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Create segmentation 'Bone_Segmentation'",
-      "instruction": "In the Segment Editor module, create a new segmentation.",
+      "title": "Create the Bone_Segmentation segmentation",
+      "instruction": "In the Segment Editor, create a new segmentation for OFR_CutVolume and name it Bone_Segmentation.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -600,54 +577,51 @@
       "accepted_footprints": [
         "AddNewNodeByClass",
         "CreateDefaultDisplayNodes",
-        "GetDisplayNode",
+        "GetID",
         "GetName",
-        "GetNthNodeByClass",
-        "GetNumberOfNodesByClass",
-        "SetName",
+        "GetNodeReferenceID",
+        "GetNodesByClass",
         "SetReferenceImageGeometryParameterFromVolumeNode",
-        "SetSourceRepresentationToBinaryLabelmap",
-        "lower",
         "mrmlScene",
         "vtkMRMLScalarVolumeNode",
         "vtkMRMLSegmentationNode",
         "GetItemAsObject",
-        "GetNodesByClass",
         "GetNumberOfItems",
         "SetAttribute"
       ],
       "api_chains": [
-        "name.lower",
         "node.GetName",
         "segmentationNode.CreateDefaultDisplayNodes",
-        "segmentationNode.GetDisplayNode",
         "segmentationNode.GetName",
-        "segmentationNode.SetName",
+        "segmentationNode.GetNodeReferenceID",
         "segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode",
-        "segmentationNode.SetSourceRepresentationToBinaryLabelmap",
         "slicer.mrmlScene.AddNewNodeByClass",
-        "slicer.mrmlScene.GetNthNodeByClass",
-        "slicer.mrmlScene.GetNumberOfNodesByClass",
+        "slicer.mrmlScene.GetNodesByClass",
+        "volumeNode.GetID",
+        "_ses_all.GetItemAsObject",
+        "_ses_all.GetNumberOfItems",
         "_ses_c.GetName",
+        "_ses_o.SetAttribute",
         "_ses_seg.CreateDefaultDisplayNodes",
         "_ses_seg.GetName",
         "_ses_seg.SetAttribute",
         "_ses_segs.GetItemAsObject",
         "_ses_segs.GetNumberOfItems",
-        "slicer.mrmlScene.GetNodesByClass",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
       ],
       "operation_descriptions": [
-        "Create a new segmentation named Bone_Segmentation for the cut volume in Segment Editor"
+        "Create a new segmentation named Bone_Segmentation for the OFR_CutVolume volume in Segment Editor."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
+        "vtkMRMLSegmentationNode",
         "Segment Editor",
-        "segmentation",
-        "CreateNodeByClass"
+        "AddNewNodeByClass",
+        "SetReferenceImageGeometryParameterFromVolumeNode",
+        "OFR_CutVolume"
       ]
     },
     "operation_model": {
@@ -664,26 +638,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_input",
-        "node_class": "vtkMRMLVolumeNode",
-        "parameter_name": null,
-        "step_id": "cb_step_6"
-      },
-      {
-        "role_kind": "extension_output",
-        "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
-        "step_id": "cb_step_6"
-      }
-    ],
     "template_file": "templates/cb_step_6_slicer.py.tpl",
     "sub_operations": [
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Create a new segmentation named Bone_Segmentation for the cut volume in Segment Editor",
+        "description": "Create a new segmentation named Bone_Segmentation for the OFR_CutVolume volume in Segment Editor.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -692,9 +652,11 @@
         "target_value_mode": null,
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
+          "vtkMRMLSegmentationNode",
           "Segment Editor",
-          "segmentation",
-          "CreateNodeByClass"
+          "AddNewNodeByClass",
+          "SetReferenceImageGeometryParameterFromVolumeNode",
+          "OFR_CutVolume"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -708,20 +670,7 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "extension_input",
-            "node_class": "vtkMRMLVolumeNode",
-            "parameter_name": null,
-            "step_id": "cb_step_6"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": null,
-            "step_id": "cb_step_6"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -739,8 +688,8 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Add segment and rename to 'Bone_Segment'",
-      "instruction": "In the Segment Editor, click Add and rename the segment.",
+      "title": "Add the Bone_Segment segment",
+      "instruction": "In the Segment Editor, click Add, then rename the new segment to Bone_Segment.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -752,26 +701,49 @@
       "accepted_footprints": [
         "AddEmptySegment",
         "GetName",
-        "GetNodesByClass",
         "GetSegment",
-        "GetSegmentIdBySegmentName",
         "GetSegmentation",
-        "mrmlScene",
-        "vtkMRMLSegmentationNode",
+        "GetSegmentationNode",
+        "GetSelectedSegmentID",
+        "SetName",
+        "SetSelectedSegmentID",
+        "editor",
+        "modules",
+        "mrmlSegmentEditorNode",
+        "segmenteditor",
+        "self",
+        "widgetRepresentation",
         "GetAttribute",
         "GetItemAsObject",
+        "GetNodesByClass",
         "GetNumberOfItems",
+        "GetSegmentIdBySegmentName",
         "SetAttribute",
-        "AddNewNodeByClass"
+        "mrmlScene",
+        "vtkMRMLSegmentationNode"
       ],
       "api_chains": [
-        "node.GetName",
-        "segment.GetName",
+        "newSegment.GetName",
+        "newSegment.SetName",
+        "segmentEditorNode.GetSegmentationNode",
+        "segmentEditorNode.GetSelectedSegmentID",
+        "segmentEditorNode.SetSelectedSegmentID",
+        "segmentEditorWidget.mrmlSegmentEditorNode",
         "segmentationNode.GetSegmentation",
         "segmentationNode.GetSegmentation().AddEmptySegment",
         "segmentationNode.GetSegmentation().GetSegment",
-        "segmentationNode.GetSegmentation().GetSegmentIdBySegmentName",
-        "slicer.mrmlScene.GetNodesByClass",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().GetSegmentationNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().GetSegmentationNode().GetSegmentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().GetSegmentationNode().GetSegmentation().AddEmptySegment",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().GetSegmentationNode().GetSegmentation().GetSegment",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().GetSegmentationNode().GetSegmentation().GetSegment(slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().GetSegmentationNode().GetSegmentation().AddEmptySegment('')).GetName",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().GetSegmentationNode().GetSegmentation().GetSegment(slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().GetSegmentationNode().GetSegmentation().AddEmptySegment('')).SetName",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().GetSelectedSegmentID",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().SetSelectedSegmentID",
         "_ses_c.GetAttribute",
         "_ses_seg.GetSegmentation",
         "_ses_seg.SetAttribute",
@@ -779,25 +751,22 @@
         "_ses_segmentation.GetSegmentIdBySegmentName",
         "_ses_segs.GetItemAsObject",
         "_ses_segs.GetNumberOfItems",
+        "slicer.mrmlScene.GetNodesByClass",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
-        "segNode.GetSegmentation",
-        "segNodes.GetItemAsObject",
-        "segNodes.GetNumberOfItems",
-        "segmentation.AddEmptySegment",
-        "segmentation.GetSegmentIdBySegmentName",
-        "slicer.mrmlScene.AddNewNodeByClass"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
       ],
       "operation_descriptions": [
-        "Add a segment named Bone_Segment to the segmentation"
+        "Add a segment in Segment Editor and rename it to Bone_Segment."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
         "Segment Editor",
-        "segment",
-        "AddSegment"
+        "Add",
+        "rename",
+        "Bone_Segment",
+        "segment"
       ]
     },
     "operation_model": {
@@ -814,20 +783,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_input",
-        "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
-        "step_id": "cb_step_7"
-      }
-    ],
     "template_file": "templates/cb_step_7_slicer.py.tpl",
     "sub_operations": [
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Add a segment named Bone_Segment to the segmentation",
+        "description": "Add a segment in Segment Editor and rename it to Bone_Segment.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -837,8 +798,10 @@
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
           "Segment Editor",
-          "segment",
-          "AddSegment"
+          "Add",
+          "rename",
+          "Bone_Segment",
+          "segment"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -852,14 +815,7 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "extension_input",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": null,
-            "step_id": "cb_step_7"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -877,27 +833,32 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Click Threshold",
-      "instruction": "",
+      "title": "Open the Threshold effect",
+      "instruction": "In the Segment Editor, click Threshold.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "Threshold",
       "repeat": {}
     },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
+        "AddNewNodeByClass",
+        "SegmentEditorWidget",
         "activeEffect",
         "editor",
+        "getModuleWidget",
         "modules",
+        "mrmlScene",
+        "mrmlSegmentEditorNode",
         "name",
-        "segmenteditor",
-        "self",
         "setActiveEffectByName",
-        "widgetRepresentation",
-        "AddNewNodeByClass",
+        "setMRMLSegmentEditorNode",
+        "util",
+        "vtkMRMLSegmentEditorNode",
         "GetAttribute",
+        "GetDisplayNode",
         "GetFirstNodeByClass",
         "GetItemAsObject",
         "GetNodesByClass",
@@ -907,30 +868,41 @@
         "GetSegment",
         "GetSegmentation",
         "IsA",
+        "SafeDownCast",
+        "SetSegmentVisibility",
         "SetSelectedSegmentID",
-        "mrmlScene",
+        "SetVisibility",
+        "SetVisibility2DFill",
+        "SetVisibility2DOutline",
+        "segmenteditor",
+        "self",
         "setCurrentSegmentID",
         "setMRMLScene",
-        "setMRMLSegmentEditorNode",
         "setSegmentationNode",
         "setSourceVolumeNode",
         "vtkMRMLLabelMapVolumeNode",
         "vtkMRMLScalarVolumeNode",
-        "vtkMRMLSegmentEditorNode",
-        "vtkMRMLSegmentationNode"
+        "vtkMRMLSegmentationDisplayNode",
+        "vtkMRMLSegmentationNode",
+        "widgetRepresentation"
       ],
       "api_chains": [
         "segmentEditorWidget.activeEffect",
+        "segmentEditorWidget.mrmlSegmentEditorNode",
         "segmentEditorWidget.setActiveEffectByName",
-        "slicer.modules.segmenteditor.widgetRepresentation",
-        "slicer.modules.segmenteditor.widgetRepresentation().self",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().name",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
+        "segmentEditorWidget.setMRMLSegmentEditorNode",
+        "slicer.modules.SegmentEditorWidget.editor",
+        "slicer.mrmlScene.AddNewNodeByClass",
+        "slicer.util.getModuleWidget",
+        "slicer.util.getModuleWidget('SegmentEditor').editor",
         "_ses_c.GetAttribute",
+        "_ses_disp.SetSegmentVisibility",
+        "_ses_disp.SetVisibility",
+        "_ses_disp.SetVisibility2DFill",
+        "_ses_disp.SetVisibility2DOutline",
         "_ses_editor_node.SetSelectedSegmentID",
         "_ses_seg.GetAttribute",
+        "_ses_seg.GetDisplayNode",
         "_ses_seg.GetSegmentation",
         "_ses_segmentation.GetNthSegmentID",
         "_ses_segmentation.GetNumberOfSegments",
@@ -946,28 +918,34 @@
         "_ses_widget.setMRMLSegmentEditorNode",
         "_ses_widget.setSegmentationNode",
         "_ses_widget.setSourceVolumeNode",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLSegmentEditorNode",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSegmentationNode",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSourceVolumeNode",
         "slicer.mrmlScene",
-        "slicer.mrmlScene.AddNewNodeByClass",
         "slicer.mrmlScene.GetFirstNodeByClass",
         "slicer.mrmlScene.GetNodesByClass",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
+        "slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast"
       ],
       "operation_descriptions": [
-        "Activate the Threshold tool in Segment Editor"
+        "Activate the Threshold effect in Segment Editor."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
         "Segment Editor",
+        "ThresholdEffect",
+        "setActiveEffect",
         "Threshold"
       ]
     },
@@ -985,20 +963,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_input",
-        "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
-        "step_id": "cb_step_8"
-      }
-    ],
     "template_file": "templates/cb_step_8_slicer.py.tpl",
     "sub_operations": [
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Activate the Threshold tool in Segment Editor",
+        "description": "Activate the Threshold effect in Segment Editor.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1008,6 +978,8 @@
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
           "Segment Editor",
+          "ThresholdEffect",
+          "setActiveEffect",
           "Threshold"
         ],
         "interaction_kind": "none",
@@ -1022,14 +994,7 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "extension_input",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": null,
-            "step_id": "cb_step_8"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -1047,12 +1012,12 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Adjust the threshold range for bone segmentation",
-      "instruction": "Enter choice.",
+      "title": "Set the threshold range",
+      "instruction": "Adjust the Threshold slider so the bone is highlighted.",
       "done_label": "Done",
-      "choice_label": "Choice",
-      "input_label": "Choice",
-      "object_label": "choice",
+      "choice_label": "Threshold range",
+      "input_label": "Threshold range",
+      "object_label": "threshold range",
       "repeat": {}
     },
     "operation_model": {
@@ -1069,42 +1034,26 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_input",
-        "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
-        "step_id": "cb_step_9"
-      }
-    ],
     "choice_descriptor": {
-      "question": "Adjust the threshold range for bone segmentation",
+      "question": "Set the threshold range for the bone segmentation",
       "choices": [],
       "parameter_name": "thresholdRange",
       "default_value": null,
       "ui_guidance": {
-        "title": "Adjust the threshold range for bone segmentation",
-        "instruction": "Enter choice.",
+        "title": "Set the threshold range",
+        "instruction": "Adjust the Threshold slider so the bone is highlighted.",
         "done_label": "Done",
-        "choice_label": "Choice",
-        "input_label": "Choice",
-        "object_label": "choice",
+        "choice_label": "Threshold range",
+        "input_label": "Threshold range",
+        "object_label": "threshold range",
         "repeat": {}
-      },
-      "node_roles": [
-        {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLSegmentationNode",
-          "parameter_name": null,
-          "step_id": "cb_step_9"
-        }
-      ]
+      }
     },
     "sub_operations": [
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Adjust the threshold range to set bone segmentation",
+        "description": "Set the threshold range for the bone segmentation.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1112,11 +1061,7 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "threshold",
-          "range",
-          "slider"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -1129,18 +1074,11 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "extension_input",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": null,
-            "step_id": "cb_step_9"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Adjust the threshold range for bone segmentation",
+        "question": "Set the threshold range for the bone segmentation",
         "choices": [],
         "parameter_name": "thresholdRange",
         "default_value": null,
@@ -1159,142 +1097,120 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Click Apply",
-      "instruction": "",
+      "title": "Apply the threshold",
+      "instruction": "In the Segment Editor, click Apply.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "Apply",
       "repeat": {}
     },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
+        "AddEmptySegment",
         "AddNewNodeByClass",
-        "AddSegment",
-        "DeepCopy",
-        "GenerateDefaultLabelmapForSegment",
-        "GetBinaryLabelmapRepresentation",
-        "GetFirstNodeByClass",
-        "GetImageData",
-        "GetImageToWorldMatrix",
+        "CreateDefaultDisplayNodes",
+        "GetBinaryLabelmapRepresentationName",
         "GetName",
-        "GetNextItemAsObject",
-        "GetNodesByClass",
-        "GetOutput",
-        "GetScalarRange",
-        "GetScalarType",
-        "GetSegment",
+        "GetSegmentIdBySegmentName",
         "GetSegmentation",
-        "InitTraversal",
-        "ModifySegment",
-        "NodeModify",
-        "SetAndObserveSegmentationNode",
-        "SetAndObserveSourceVolumeNode",
-        "SetColor",
-        "SetImageToWorldMatrix",
-        "SetInValue",
-        "SetInputData",
         "SetName",
-        "SetOutValue",
-        "SetOutputScalarType",
-        "SetParameter",
+        "SetReferenceImageGeometryParameterFromVolumeNode",
         "SetSelectedSegmentID",
-        "ThresholdBetween",
-        "Update",
-        "format",
-        "lower",
-        "mrmlScene",
-        "util",
-        "vtkImageThreshold",
-        "vtkMRMLScalarVolumeNode",
-        "vtkMRMLSegmentEditorNode",
-        "vtkMRMLSegmentationNode",
-        "vtkMatrix4x4",
-        "vtkOrientedImageData",
-        "vtkSegment",
-        "GetAttribute",
-        "GetItemAsObject",
-        "GetNthSegmentID",
-        "GetNumberOfItems",
-        "GetNumberOfSegments",
-        "IsA",
+        "SetSourceRepresentationName",
         "activeEffect",
-        "editor",
-        "modules",
+        "any",
+        "arrayFromSegmentBinaryLabelmap",
+        "getNodesByClass",
+        "mrmlScene",
         "onApply",
-        "segmenteditor",
+        "qMRMLSegmentEditorWidget",
         "self",
         "setActiveEffectByName",
-        "setCurrentSegmentID",
         "setMRMLScene",
         "setMRMLSegmentEditorNode",
         "setParameter",
         "setSegmentationNode",
         "setSourceVolumeNode",
+        "util",
+        "vtkMRMLScalarVolumeNode",
+        "vtkMRMLSegmentEditorNode",
+        "vtkMRMLSegmentationNode",
+        "vtkSegmentationConverter",
+        "GetAttribute",
+        "GetDisplayNode",
+        "GetFirstNodeByClass",
+        "GetItemAsObject",
+        "GetNodesByClass",
+        "GetNthSegmentID",
+        "GetNumberOfItems",
+        "GetNumberOfSegments",
+        "GetSegment",
+        "IsA",
+        "SafeDownCast",
+        "SetSegmentVisibility",
+        "SetVisibility",
+        "SetVisibility2DFill",
+        "SetVisibility2DOutline",
+        "editor",
+        "modules",
+        "segmenteditor",
+        "setActiveEffect",
+        "setCurrentSegmentID",
         "vtkMRMLLabelMapVolumeNode",
+        "vtkMRMLSegmentationDisplayNode",
         "widgetRepresentation"
       ],
       "api_chains": [
-        "\"MISSING_EVIDENCE: No {type} with name containing '{kw}' found in scene\".format",
-        "'STATE_NOT_APPLIED: Threshold produced an empty segment (no voxels in range {lo}..{hi})'.format",
-        "coll.GetNextItemAsObject",
-        "coll.InitTraversal",
-        "editorNode.SetAndObserveSegmentationNode",
-        "editorNode.SetAndObserveSourceVolumeNode",
-        "editorNode.SetParameter",
-        "editorNode.SetSelectedSegmentID",
-        "keyword.lower",
-        "labelmapForCheck.GetScalarRange",
-        "masterImageData.GetScalarRange",
-        "modifierLabelmap.DeepCopy",
-        "modifierLabelmap.GetImageToWorldMatrix",
-        "modifierLabelmap.GetScalarType",
-        "modifierLabelmap.SetImageToWorldMatrix",
+        "(segmentArray > 0).any",
         "node.GetName",
-        "node.GetName().lower",
-        "segment.SetColor",
-        "segment.SetName",
-        "segmentation.AddSegment",
-        "segmentation.GetSegment",
-        "segmentationNode.GenerateDefaultLabelmapForSegment",
-        "segmentationNode.GetBinaryLabelmapRepresentation",
+        "segmentEditorNode.SetSelectedSegmentID",
+        "segmentEditorWidget.activeEffect",
+        "segmentEditorWidget.setActiveEffectByName",
+        "segmentEditorWidget.setMRMLScene",
+        "segmentEditorWidget.setMRMLSegmentEditorNode",
+        "segmentEditorWidget.setSegmentationNode",
+        "segmentEditorWidget.setSourceVolumeNode",
+        "segmentationNode.CreateDefaultDisplayNodes",
         "segmentationNode.GetSegmentation",
-        "segmentationNode.ModifySegment",
+        "segmentationNode.GetSegmentation().AddEmptySegment",
+        "segmentationNode.GetSegmentation().GetSegmentIdBySegmentName",
+        "segmentationNode.GetSegmentation().SetSourceRepresentationName",
+        "segmentationNode.SetName",
+        "segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode",
+        "slicer.mrmlScene",
         "slicer.mrmlScene.AddNewNodeByClass",
-        "slicer.mrmlScene.GetFirstNodeByClass",
-        "slicer.mrmlScene.GetNodesByClass",
-        "slicer.util.NodeModify",
-        "slicer.vtkOrientedImageData",
-        "slicer.vtkOrientedImageData().DeepCopy",
-        "slicer.vtkOrientedImageData().GetImageToWorldMatrix",
-        "slicer.vtkOrientedImageData().GetScalarRange",
-        "slicer.vtkOrientedImageData().GetScalarType",
-        "slicer.vtkOrientedImageData().SetImageToWorldMatrix",
-        "slicer.vtkSegment",
-        "sourceVolumeNode.GetImageData",
-        "thresh.GetOutput",
-        "thresh.SetInValue",
-        "thresh.SetInputData",
-        "thresh.SetOutValue",
-        "thresh.SetOutputScalarType",
-        "thresh.ThresholdBetween",
-        "thresh.Update",
-        "vtk.vtkImageThreshold",
-        "vtk.vtkImageThreshold().GetOutput",
-        "vtk.vtkImageThreshold().SetInValue",
-        "vtk.vtkImageThreshold().SetInputData",
-        "vtk.vtkImageThreshold().SetOutValue",
-        "vtk.vtkImageThreshold().SetOutputScalarType",
-        "vtk.vtkImageThreshold().ThresholdBetween",
-        "vtk.vtkImageThreshold().Update",
-        "vtk.vtkMatrix4x4",
+        "slicer.qMRMLSegmentEditorWidget",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().self",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().self().onApply",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().setParameter",
+        "slicer.qMRMLSegmentEditorWidget().setActiveEffectByName",
+        "slicer.qMRMLSegmentEditorWidget().setMRMLScene",
+        "slicer.qMRMLSegmentEditorWidget().setMRMLSegmentEditorNode",
+        "slicer.qMRMLSegmentEditorWidget().setSegmentationNode",
+        "slicer.qMRMLSegmentEditorWidget().setSourceVolumeNode",
+        "slicer.util.arrayFromSegmentBinaryLabelmap",
+        "slicer.util.arrayFromSegmentBinaryLabelmap(None, None.GetSegmentation().GetSegmentIdBySegmentName('{segment_name:bone}')) > 0.any",
+        "slicer.util.getNodesByClass",
+        "slicer.vtkSegmentationConverter.GetBinaryLabelmapRepresentationName",
+        "thresholdEffect.self",
+        "thresholdEffect.self().onApply",
+        "thresholdEffect.setParameter",
         "_ses_c.GetAttribute",
+        "_ses_disp.SetSegmentVisibility",
+        "_ses_disp.SetVisibility",
+        "_ses_disp.SetVisibility2DFill",
+        "_ses_disp.SetVisibility2DOutline",
         "_ses_editor_node.SetSelectedSegmentID",
         "_ses_eff.self",
         "_ses_eff.self().onApply",
         "_ses_eff.setParameter",
+        "_ses_end.activeEffect",
+        "_ses_end.setActiveEffect",
         "_ses_seg.GetAttribute",
+        "_ses_seg.GetDisplayNode",
         "_ses_seg.GetSegmentation",
         "_ses_segmentation.GetNthSegmentID",
         "_ses_segmentation.GetNumberOfSegments",
@@ -1318,26 +1234,30 @@
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self().onApply",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().setParameter",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffect",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLSegmentEditorNode",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSegmentationNode",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSourceVolumeNode",
-        "slicer.mrmlScene",
+        "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.mrmlScene.GetNodesByClass",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
+        "slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast"
       ],
       "operation_descriptions": [
-        "Apply the threshold to segment the bone"
+        "Apply the threshold effect to create the bone segment."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
         "Segment Editor",
+        "ThresholdEffect",
         "Apply",
         "threshold"
       ]
@@ -1356,20 +1276,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_input",
-        "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": null,
-        "step_id": "cb_step_10"
-      }
-    ],
     "template_file": "templates/cb_step_10_slicer.py.tpl",
     "sub_operations": [
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Apply the threshold to segment the bone",
+        "description": "Apply the threshold effect to create the bone segment.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1379,6 +1291,7 @@
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
           "Segment Editor",
+          "ThresholdEffect",
           "Apply",
           "threshold"
         ],
@@ -1394,14 +1307,7 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "extension_input",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": null,
-            "step_id": "cb_step_10"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -1420,11 +1326,11 @@
     "operation_type": "user_choice",
     "ui_guidance": {
       "title": "Select the bone segmentation node",
-      "instruction": "Enter choice.",
+      "instruction": "Select the segmentation you created.",
       "done_label": "Done",
-      "choice_label": "Choice",
-      "input_label": "Choice",
-      "object_label": "segmentation",
+      "choice_label": "Segmentation node",
+      "input_label": "Segmentation node",
+      "object_label": "Segmentation node",
       "repeat": {}
     },
     "operation_model": {
@@ -1450,17 +1356,17 @@
       }
     ],
     "choice_descriptor": {
-      "question": "Select the bone segmentation node for full bone reconstruction",
+      "question": "Select the bone segmentation node",
       "choices": [],
       "parameter_name": "segmentationNode",
       "default_value": null,
       "ui_guidance": {
         "title": "Select the bone segmentation node",
-        "instruction": "Enter choice.",
+        "instruction": "Select the segmentation you created.",
         "done_label": "Done",
-        "choice_label": "Choice",
-        "input_label": "Choice",
-        "object_label": "segmentation",
+        "choice_label": "Segmentation node",
+        "input_label": "Segmentation node",
+        "object_label": "Segmentation node",
         "repeat": {}
       },
       "node_roles": [
@@ -1476,7 +1382,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the bone segmentation node for full bone reconstruction",
+        "description": "Select the bone segmentation node in the Bone segmentation section.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "fullBoneSelector",
@@ -1508,12 +1414,13 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Select the bone segmentation node for full bone reconstruction",
+        "question": "Select the bone segmentation node",
         "choices": [],
         "parameter_name": "segmentationNode",
         "default_value": null,
         "value_kind": "node",
-        "widget_class": "qMRMLNodeComboBox"
+        "widget_class": "",
+        "widget_class_unverified": true
       }
     ]
   },
@@ -1529,11 +1436,11 @@
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Reconstruct full bone",
-      "instruction": "",
+      "instruction": "Click the \"Reconstruct full bone\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "model",
+      "object_label": "Reconstruct full bone",
       "repeat": {}
     },
     "method_name": "reconstructFullBone",
@@ -1557,12 +1464,6 @@
         "node_class": "vtkMRMLSegmentationNode",
         "parameter_name": "segmentationNode",
         "step_id": "cb_step_12"
-      },
-      {
-        "role_kind": "extension_output",
-        "node_class": "vtkMRMLModelNode",
-        "parameter_name": "",
-        "step_id": "cb_step_12"
       }
     ],
     "template_file": "templates/cb_step_12.py.tpl",
@@ -1570,19 +1471,19 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Reconstruct the full bone model from the segmentation",
+        "description": "Reconstruct the full bone model from the selected bone segmentation.",
         "extension_method_hint": "reconstructFullBone",
         "extension_function_hint": null,
         "widget_name": "fullBoneButton",
         "ui_parameter_binding": null,
-        "target_value": null,
+        "target_value": true,
         "target_value_mode": null,
         "slicer_op_category": null,
         "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
-        "creates_node": false,
+        "node_class": "vtkMRMLModelNode",
+        "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
           11
@@ -1597,12 +1498,6 @@
             "node_class": "vtkMRMLSegmentationNode",
             "parameter_name": "segmentationNode",
             "step_id": "cb_step_12"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLModelNode",
-            "parameter_name": "",
-            "step_id": "cb_step_12"
           }
         ],
         "confidence": "high",
@@ -1613,11 +1508,11 @@
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "GetFirstNodeByClass",
         "GetID",
-        "GetNodeByID",
-        "fullBoneNode",
-        "mrmlScene",
+        "GetNodeReference",
+        "SetNodeReferenceID",
+        "getNodesByClass",
+        "getParameterNode",
         "reconstructFullBone",
         "selectModule",
         "selectedModule",
@@ -1625,15 +1520,17 @@
         "vtkMRMLSegmentationNode"
       ],
       "api_chains": [
-        "logic.fullBoneNode.GetID",
+        "logic.getParameterNode",
         "logic.reconstructFullBone",
-        "slicer.mrmlScene.GetFirstNodeByClass",
-        "slicer.mrmlScene.GetNodeByID",
+        "parameterNode.GetNodeReference",
+        "parameterNode.SetNodeReferenceID",
+        "segmentationNode.GetID",
+        "slicer.util.getNodesByClass",
         "slicer.util.selectModule",
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Reconstruct the full bone model from the segmentation"
+        "Reconstruct the full bone model from the selected bone segmentation."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -1650,8 +1547,8 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select the fractured side",
-      "instruction": "Choose one option.",
+      "title": "Choose the fractured side",
+      "instruction": "Pick the colored box over the fractured orbit: Red for right, Blue for left.",
       "done_label": "Done",
       "choice_label": "Side",
       "input_label": "Side",
@@ -1672,35 +1569,75 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "node_roles": [
+      {
+        "role_kind": "choice_input",
+        "step_id": "cb_step_13",
+        "node_class": "",
+        "parameter_name": "side"
+      }
+    ],
     "choice_descriptor": {
-      "question": "Select the fractured side (left/right)",
+      "question": "Fractured side (pick the colored box over the fractured orbit)",
       "choices": [
         {
-          "label": "Left",
-          "value": "left"
+          "label": "Red box",
+          "value": "right"
         },
         {
-          "label": "Right",
-          "value": "right"
+          "label": "Blue box",
+          "value": "left"
         }
       ],
       "parameter_name": "side",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select the fractured side",
-        "instruction": "Choose one option.",
+        "title": "Choose the fractured side",
+        "instruction": "Pick the colored box over the fractured orbit: Red for right, Blue for left.",
         "done_label": "Done",
         "choice_label": "Side",
         "input_label": "Side",
         "object_label": "side",
         "repeat": {}
-      }
+      },
+      "binding": {
+        "parameter_name": "side",
+        "choice_parameter_name": "side",
+        "binding_kind": "widget_state",
+        "widget_name": "sideComboBox",
+        "widget_class": "QComboBox",
+        "value_property": "currentIndex",
+        "reader_method": "_currentSide",
+        "options": [
+          {
+            "index": 0,
+            "text": "Red box",
+            "value": "right"
+          },
+          {
+            "index": 1,
+            "text": "Blue box",
+            "value": "left"
+          }
+        ],
+        "node_class": "",
+        "consumer_method": "segmentOrbits",
+        "consumer_parameter": "side"
+      },
+      "node_roles": [
+        {
+          "role_kind": "choice_input",
+          "step_id": "cb_step_13",
+          "node_class": "",
+          "parameter_name": "side"
+        }
+      ]
     },
     "sub_operations": [
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the fractured side (left/right) based on colored box visual",
+        "description": "Select the fractured side for orbit segmentation.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "sideComboBox",
@@ -1725,21 +1662,47 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Select the fractured side (left/right)",
+        "question": "Fractured side (pick the colored box over the fractured orbit)",
         "choices": [
           {
-            "label": "Left",
-            "value": "left"
+            "label": "Red box",
+            "value": "right"
           },
           {
-            "label": "Right",
-            "value": "right"
+            "label": "Blue box",
+            "value": "left"
           }
         ],
         "parameter_name": "side",
         "default_value": null,
         "value_kind": "",
-        "widget_class": "QComboBox"
+        "widget_class": "QComboBox",
+        "widget_state_binding": {
+          "widget_name": "sideComboBox",
+          "widget_class": "QComboBox",
+          "value_property": "currentIndex",
+          "reader_method": "_currentSide",
+          "options": [
+            {
+              "index": 0,
+              "text": "Red box",
+              "value": "right"
+            },
+            {
+              "index": 1,
+              "text": "Blue box",
+              "value": "left"
+            }
+          ],
+          "consumers": [
+            {
+              "method": "segmentOrbits",
+              "arg_index": 0,
+              "handler": "onSegment"
+            }
+          ],
+          "label": "Fractured side (pick the colored box over the fractured orbit):"
+        }
       }
     ]
   },
@@ -1755,11 +1718,11 @@
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Segment orbit",
-      "instruction": "",
+      "instruction": "Click the \"Segment orbit\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "segmentation",
+      "object_label": "Segment orbit",
       "repeat": {}
     },
     "method_name": "segmentOrbits",
@@ -1777,20 +1740,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_output",
-        "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": "",
-        "step_id": "cb_step_14"
-      }
-    ],
     "template_file": "templates/cb_step_14.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Segment the orbits on the cut volume",
+        "description": "Segment the healthy and fractured orbit halves.",
         "extension_method_hint": "segmentOrbits",
         "extension_function_hint": null,
         "widget_name": "segmentButton",
@@ -1801,8 +1756,8 @@
         "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": null,
-        "creates_node": false,
+        "node_class": "vtkMRMLSegmentationNode",
+        "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
           13
@@ -1811,26 +1766,7 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": "",
-            "step_id": "cb_step_14"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": "",
-            "step_id": "cb_step_14"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": "",
-            "step_id": "cb_step_14"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -1842,8 +1778,7 @@
         "segmentOrbits",
         "selectModule",
         "selectedModule",
-        "util",
-        "_side"
+        "util"
       ],
       "api_chains": [
         "logic.segmentOrbits",
@@ -1851,7 +1786,7 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Segment the orbits on the cut volume"
+        "Segment the healthy and fractured orbit halves."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -1869,11 +1804,11 @@
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Reconstruct fractured",
-      "instruction": "",
+      "instruction": "Click the \"Reconstruct fractured\" button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "segmentation",
+      "object_label": "Reconstruct fractured",
       "repeat": {}
     },
     "method_name": "reconstructFractured",
@@ -1891,20 +1826,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_output",
-        "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": "",
-        "step_id": "cb_step_15"
-      }
-    ],
     "template_file": "templates/cb_step_15.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Reconstruct the fractured orbit",
+        "description": "Reconstruct the fractured orbit using the symmetry plane.",
         "extension_method_hint": "reconstructFractured",
         "extension_function_hint": null,
         "widget_name": "reconstructFracturedButton",
@@ -1916,7 +1843,7 @@
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
-        "creates_node": false,
+        "creates_node": true,
         "requires_place_mode": false,
         "setup_dependencies": [
           14
@@ -1925,14 +1852,7 @@
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": "",
-            "step_id": "cb_step_15"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -1952,7 +1872,7 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Reconstruct the fractured orbit"
+        "Reconstruct the fractured orbit using the symmetry plane."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []

@@ -1167,6 +1167,62 @@ class AnalyzerParameterMetadataMixin:
             "value": self._parameter_default_to_string(right.value),
         }, False
 
+    @staticmethod
+    def _widget_state_choice_binding(
+        step: Dict, parameter_name: str, logic_analysis: Dict,
+    ) -> Dict:
+        """Binding for a choice the extension keeps in the CONTROL, not a parameter node.
+
+        The parameter-node scan (``_extract_parameter_roles_from_source``) finds a
+        binding only for a setting the extension writes through
+        ``SetParameter``/``SetNodeReferenceID``. An extension whose handler reads the
+        control at click time — ``self.logic.segmentOrbits(self._currentSide())`` —
+        has no such role, so the step's answer had nowhere to go: the contract bound
+        nothing, the consuming template had no value to fill, and the choice was
+        recorded and then dropped.
+
+        Stage 4 records the control, its index->value map and the call that consumes
+        it (``widget_state_binding``); this names the METHOD PARAMETER that call
+        fills, by position against the AST-derived signature. The result is the same
+        shape the parameter-node branch produces, so every consumer of
+        ``choice_bindings`` keeps working unchanged, plus ``consumer_method`` /
+        ``consumer_parameter`` for template generation to bind against.
+        """
+        binding = {}
+        for so in step.get("sub_operations", []) or []:
+            if isinstance(so, dict) and so.get("widget_state_binding"):
+                binding = so["widget_state_binding"]
+                break
+        if not binding:
+            return {}
+        methods = {m.get("name"): m for m in (logic_analysis.get("methods") or [])}
+        consumer_method = consumer_parameter = ""
+        for consumer in binding.get("consumers") or []:
+            method = methods.get(consumer.get("method"))
+            if not method:
+                continue
+            params = method.get("parameters") or []
+            index = consumer.get("arg_index")
+            if isinstance(index, int) and 0 <= index < len(params):
+                consumer_method = consumer.get("method", "")
+                consumer_parameter = params[index].get("name", "")
+                break
+        out = {
+            "parameter_name": parameter_name,
+            "choice_parameter_name": parameter_name,
+            "binding_kind": "widget_state",
+            "widget_name": binding.get("widget_name", ""),
+            "widget_class": binding.get("widget_class", ""),
+            "value_property": binding.get("value_property", ""),
+            "reader_method": binding.get("reader_method", ""),
+            "options": binding.get("options") or [],
+            "node_class": "",
+        }
+        if consumer_method:
+            out["consumer_method"] = consumer_method
+            out["consumer_parameter"] = consumer_parameter
+        return out
+
     def _build_workflow_metadata(
         self, scan_result: Dict, logic_analysis: Dict, workflow_graph: Dict,
     ) -> Dict:
@@ -1217,7 +1273,7 @@ class AnalyzerParameterMetadataMixin:
             # repair rounds -- which re-enter without the scan on self -- can
             # re-derive a deterministic wizard template instead of an LLM rewrite.
             "wizard": scan_result.get("wizard") or {},
-            "metadata_version": 10,
+            "metadata_version": 11,
             "parameter_bindings": bindings,
             "parameter_defaults": parameter_defaults,
             "ui_parameter_bindings": ui_parameter_bindings,
@@ -1279,8 +1335,16 @@ class AnalyzerParameterMetadataMixin:
                 metadata["choice_bindings"][step_id] = {
                     "parameter_name": pname,
                     "choice_parameter_name": pname,
+                    "binding_kind": "parameter_node",
                     **bindings[pname],
                 }
+            elif pname:
+                # No parameter-node role — but an extension may keep the setting in
+                # the CONTROL and read it at click time instead. That is a binding
+                # too, and until it was recognized the choice reached nothing.
+                widget_binding = self._widget_state_choice_binding(step, pname, logic_analysis)
+                if widget_binding:
+                    metadata["choice_bindings"][step_id] = widget_binding
 
             node_roles = self._infer_step_node_roles(step, metadata)
             if node_roles:
@@ -1298,6 +1362,26 @@ class AnalyzerParameterMetadataMixin:
                         **bindings[parameter_name],
                     }
                     step["parameter_role"] = parameter_name
+
+        # method_name -> the parameters an EARLIER choice step supplies. This is the
+        # channel a consuming template binds against: without it the generator has a
+        # required argument and no evidenced source for it, and its only remaining
+        # move is to read the value off the logic object — where, for a method that
+        # ASSIGNS that attribute from the argument, it is always still unset.
+        metadata["bound_choice_parameters"] = {}
+        for step_id, binding in metadata["choice_bindings"].items():
+            method = binding.get("consumer_method")
+            parameter = binding.get("consumer_parameter")
+            if not (method and parameter):
+                continue
+            metadata["bound_choice_parameters"].setdefault(method, []).append({
+                "parameter": parameter,
+                "choice_step": step_id,
+                "choice_parameter": binding.get("parameter_name", ""),
+                "options": binding.get("options") or [],
+            })
+        # Whether the .ui inventory describes the GUI the widget actually builds.
+        metadata["ui_live"] = bool(scan_result.get("ui_live", True))
 
         # Attach extension-agnostic repeat blocks identified by Stage 4.
         for block in workflow_graph.get("repeat_blocks", []) or []:

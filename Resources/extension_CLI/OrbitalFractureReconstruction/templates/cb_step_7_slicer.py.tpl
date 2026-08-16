@@ -1,19 +1,32 @@
 # --- [Segment Editor session] add or reuse the target segment ---
+# Deterministic + IDEMPOTENT: reuse a segment already named 'Bone_Segment' (so a
+# re-run / correction never creates a duplicate orphan), else
+# AddEmptySegment(id, name) with the correct arg order (a one-arg
+# AddEmptySegment auto-names the segment 'Segment_1'). Marks it the session
+# TARGET segment so the effect Apply writes into it.
 import slicer
-
-# Get or create a segmentation node
-segNode = None
-segNodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
-if segNodes.GetNumberOfItems() > 0:
-    segNode = segNodes.GetItemAsObject(segNodes.GetNumberOfItems() - 1)
-if segNode is None:
-    # Create a new segmentation node if none exists
-    segNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
-
-segmentation = segNode.GetSegmentation()
-segmentId = segmentation.GetSegmentIdBySegmentName("Bone_Segment")
-if not segmentId:
-    segmentId = segmentation.AddEmptySegment("Bone_Segment")
-if not segmentId:
+_ses_seg = None
+_ses_segs = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
+for _ses_i in range(_ses_segs.GetNumberOfItems()):
+    _ses_c = _ses_segs.GetItemAsObject(_ses_i)
+    if _ses_c is not None and _ses_c.GetAttribute("SlicerAIAgent.SegmentEditorSession") == "1":
+        _ses_seg = _ses_c
+        break
+if _ses_seg is None:
+    for _ses_i in range(_ses_segs.GetNumberOfItems() - 1, -1, -1):
+        _ses_c = _ses_segs.GetItemAsObject(_ses_i)
+        if _ses_c is not None:
+            _ses_seg = _ses_c
+            break
+if _ses_seg is None:
+    raise RuntimeError("STATE_NOT_APPLIED: no segmentation found for add-segment")
+_ses_segmentation = _ses_seg.GetSegmentation()
+_ses_sid = _ses_segmentation.GetSegmentIdBySegmentName("Bone_Segment")
+if not _ses_sid:
+    _ses_sid = _ses_segmentation.AddEmptySegment("Bone_Segment", "Bone_Segment")
+if not _ses_sid:
     raise RuntimeError("STATE_NOT_APPLIED: AddEmptySegment returned empty id")
+_ses_seg.SetAttribute("SlicerAIAgent.SegmentEditorTargetSegmentID", _ses_sid)
+segmentId = _ses_sid
 print("[SegmentEditor] Segment 'Bone_Segment' ready.")
+# --- [end Segment Editor session] ---

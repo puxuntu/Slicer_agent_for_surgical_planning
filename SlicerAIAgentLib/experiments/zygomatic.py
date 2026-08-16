@@ -20,13 +20,23 @@ overall bone engagement.
 
 **Timing** — the run's own `Statistic/timing.txt`, parsed back into columns.
 
+The manual plan is read from ``Experiments/<Extension>/Dataset/<subject>/``,
+where ``<subject>`` is the folder the run's data was loaded from (the run
+manifest records it). Every ``*.stl`` in that folder is taken to be one implant
+rod; **their names carry no meaning to this analysis** and may be anything --
+anything else in the folder (the volume, ``F.mrk.json``) is ignored.
+
 Two decisions worth knowing, because getting either wrong yields plausible
 numbers rather than an error:
 
 - **Paths are paired by ENTRY POINT, never by file name.** The manual STLs are
-  numbered independently of the plan (on the sample data `1_1.stl` is the
-  counterpart of `Implant_3`), so pairing by index would compare each path with
-  someone else's.
+  numbered independently of the plan -- on the current data set `1.stl` is the
+  counterpart of `Implant_3` and `4.stl` of `Implant_1`, in both cases -- so
+  pairing by index would compare each path with someone else's. Both plans put
+  their implants on the same entry points by construction, and they do: the
+  observed gap is under 0.001 mm on 7 of 8 paths and 0.28 mm on the eighth.
+  A candidate further away than ``MAX_ENTRY_MATCH_MM`` is therefore not the
+  same implant, and is reported unpaired rather than scored.
 - **The agentic BIC is RECOMPUTED here, not read from the plan table.** The
   comparison is only meaningful if both sides are measured by the same
   instrument on the same bone cloud, and the stored number is not that
@@ -43,7 +53,14 @@ numbers rather than an error:
   ``bic_ours_as_planned`` reproduces the planner's own score and
   ``reconstruction_ok`` records whether it equals the stored value: that is the
   evidence that the bone cloud, the coordinate frame and the path geometry were
-  all reconstructed correctly. On the sample data it matches 8 of 8 paths.
+  all reconstructed correctly. On the current data set it matches 8 of 8 paths.
+
+Note ``bic_ours`` and ``bic_manual`` are counts over each path's OWN drawn
+length, and the two lengths differ (the planner picks the implant length): on
+case 002 our ``Implant_1`` is 4.4 mm shorter than the rod it is compared with.
+That is a real property of the plan, not an artefact, but it is why
+``length_ours_mm`` / ``length_manual_mm`` sit beside the scores in the sheet --
+a relative BIC should be read together with them.
 """
 
 from __future__ import annotations
@@ -87,6 +104,15 @@ SAFETY_MARGIN_MM = 3.0
 #: considered irreconcilable (see geometry_io.resolve_frame). Entries lie ON the
 #: bone; the observed spread on real cases is under 1.5 mm.
 FRAME_TOLERANCE_MM = 5.0
+
+#: How far a manual rod's end may sit from the agentic entry and still be the
+#: same implant. The two plans share their entry points by construction, so the
+#: real gap is a rounding error (under 0.3 mm on every path of the current data
+#: set); this only has to be small enough that an STL which is NOT an implant --
+#: anything else that lands in a case folder, now that the rods are named by
+#: bare number and nothing distinguishes them -- is left unpaired instead of
+#: being silently scored as somebody's implant.
+MAX_ENTRY_MATCH_MM = 5.0
 
 
 # ---------------------------------------------------------------------------
@@ -230,37 +256,61 @@ def agentic_paths(scene_dir: str) -> List[Dict[str, Any]]:
     return paths
 
 
-def manual_paths(dataset_dir: str) -> List[Dict[str, Any]]:
+def manual_paths(dataset_dir: str, notes: Optional[List[str]] = None
+                 ) -> List[Dict[str, Any]]:
     """The surgeon's paths, from the STL rods: both axis endpoints per file.
+
+    Every ``*.stl`` in the case folder is a candidate, whatever it is called --
+    the file name is carried through to the sheet for traceability and is used
+    for nothing else. ``name`` keeps the extension so a folder of bare numbers
+    (``1.stl``) still reads as a file rather than as an index.
 
     Which end is the entry is NOT decided here -- it follows from the pairing,
     since the entry is the end that coincides with the agentic entry.
+
+    One unreadable or non-rod file must not cost the case its other three paths,
+    so each is read independently and a failure is appended to ``notes``.
     """
     paths: List[Dict[str, Any]] = []
     if not os.path.isdir(dataset_dir):
         return paths
     for name in sorted(f for f in os.listdir(dataset_dir) if f.lower().endswith(".stl")):
-        points = gio.read_stl_points(os.path.join(dataset_dir, name))
-        if points.shape[0] < 2:
+        try:
+            points = gio.read_stl_points(os.path.join(dataset_dir, name))
+            if points.shape[0] < 2:
+                raise ValueError("fewer than two vertices")
+            low, high = gio.rod_axis_endpoints(points)
+        except Exception as exc:
+            logger.warning("Unusable STL %s in %s", name, dataset_dir, exc_info=True)
+            if notes is not None:
+                notes.append("%s could not be read as an implant rod (%s)"
+                             % (name, exc))
             continue
-        low, high = gio.rod_axis_endpoints(points)
-        paths.append({"name": os.path.splitext(name)[0], "ends": (low, high)})
+        paths.append({"name": name, "ends": (low, high)})
     return paths
 
 
-def pair_by_entry(agentic: List[Dict[str, Any]], manual: List[Dict[str, Any]]
+def pair_by_entry(agentic: List[Dict[str, Any]], manual: List[Dict[str, Any]],
+                  max_entry_mm: float = MAX_ENTRY_MATCH_MM
                   ) -> List[Tuple[Dict[str, Any], Optional[Dict[str, Any]], float]]:
     """Pair each agentic path with the manual one sharing its entry point.
 
     The two plans place implants at the SAME entry points by construction, so
     the entry is the identity of a path and the file numbering is not: on the
-    sample data ``1_1.stl`` belongs with ``Implant_3``. Cost is the distance
+    current data set ``1.stl`` belongs with ``Implant_3``. Cost is the distance
     from the agentic entry to the nearer end of the manual rod, and the
     assignment is solved globally (Hungarian when SciPy is present, greedy
     otherwise) so one ambiguous pair cannot cascade.
 
+    A match further than ``max_entry_mm`` is REJECTED rather than scored. The
+    assignment is total -- it hands every agentic path a partner whether or not
+    a real one exists -- so without the ceiling, a case folder holding three
+    rods and one unrelated STL would compare an implant against the unrelated
+    one and report a number for it.
+
     Returns ``(agentic, manual_or_None, distance_mm)`` and sets ``entry``/``tip``
-    on the matched manual path, oriented to agree with its partner.
+    on the matched manual path, oriented to agree with its partner. The distance
+    is returned even when the match is rejected, so the sheet shows why.
     """
     if not agentic or not manual:
         return [(a, None, float("nan")) for a in agentic]
@@ -290,6 +340,9 @@ def pair_by_entry(agentic: List[Dict[str, Any]], manual: List[Dict[str, Any]]
         if j is None:
             paired.append((a, None, float("nan")))
             continue
+        if float(cost[i, j]) > float(max_entry_mm):
+            paired.append((a, None, float(cost[i, j])))
+            continue
         m = dict(manual[j])
         end = which_end[i, j]
         m["entry"] = m["ends"][end]
@@ -299,202 +352,30 @@ def pair_by_entry(agentic: List[Dict[str, Any]], manual: List[Dict[str, Any]]
 
 
 # ---------------------------------------------------------------------------
-# timing.txt
+# timing.txt + case discovery
+#
+# Both live in run_timing.py: neither is procedure-specific -- what a run folder
+# looks like and what its timing report says are properties of RunLog, and
+# OrbitalFractureReconstruction needs exactly the same columns. Re-exported here
+# so this module's callers (and its own build_report below) are unchanged.
 # ---------------------------------------------------------------------------
 
-#: (column, regex) over the report's summary block. Kept as an explicit list so
-#: a reader can see exactly which lines are lifted, and a report that changes
-#: wording leaves a blank cell rather than a wrong number.
-_TIMING_FIELDS: List[Tuple[str, str]] = [
-    # Numbers are matched with an optional leading minus: the between-steps
-    # residual goes NEGATIVE exactly when the per-step clocks disagree with the
-    # run clock, which is the one value a reader must not see as a blank cell.
-    ("procedure", r"^\s*Procedure\s*:\s*(.+?)\s*$"),
-    ("subject", r"^\s*Subject\s*:\s*(\S+)"),
-    ("condition", r"^\s*Condition\s*:\s*(.+?)\s*$"),
-    ("status", r"^\s*Final status\s*:\s*(.+?)\s*$"),
-    ("model", r"^\s*Model\s*:\s*(.+?)\s*$"),
-    ("send_clicked", r"^\s*Send clicked\s*:\s*(.+?)\s*$"),
-    ("exit_clicked", r"^\s*Exit clicked\s*:\s*(.+?)\s*$"),
-    ("total_s", r"^\s*TOTAL RUN TIME\s*:\s*(-?[\d.]+) s"),
-    ("startup_s", r"^\s*startup before step 1 opened\s*:\s*(-?[\d.]+) s"),
-    ("routing_call_s", r"routing call (-?[\d.]+) s"),
-    ("inside_steps_s", r"^\s*inside the steps\s*:\s*(-?[\d.]+) s"),
-    ("between_steps_s", r"^\s*between steps \(auto-advance\)\s*:\s*(-?[\d.]+) s"),
-    ("replay_review_s", r"^\s*reviewing the replay timeline\s*:\s*(-?[\d.]+) s"),
-    ("tail_wait_exit_s", r"^\s*after the last step, waiting for Exit\s*:\s*(-?[\d.]+) s"),
-    ("executing_code_s", r"^\s*executing generated code\s*:\s*(-?[\d.]+) s"),
-    ("waiting_for_user_s", r"^\s*waiting for the user\s*:\s*(-?[\d.]+) s"),
-    ("runtime_overhead_s", r"^\s*runtime overhead\s*:\s*(-?[\d.]+) s"),
-    ("steps_recorded", r"Steps recorded:\s*(\d+)"),
-    ("steps_ok", r"\bok:\s*(\d+)"),
-    ("steps_failed", r"failed:\s*(\d+)"),
-    ("tokens", r"Model cost\s*:\s*(\d+) tokens"),
-    ("cost_usd", r"Model cost\s*:.*\$([\d.]+)"),
-]
-
-_NUMERIC_TIMING = {name for name, _ in _TIMING_FIELDS
-                   if name.endswith("_s") or name in
-                   ("steps_recorded", "steps_ok", "steps_failed", "tokens", "cost_usd")}
-
-
-def parse_timing(path: str) -> Dict[str, Any]:
-    """Pull the summary block of a timing report back into columns.
-
-    Parsed from the rendered report rather than from ``run_manifest.json``
-    because the report is what the run leaves in ``Statistic/`` and what a
-    reader compares against; a case whose manifest is gone still has one.
-    """
-    result: Dict[str, Any] = {}
-    if not path or not os.path.isfile(path):
-        return result
-    text = io.open(path, encoding="utf-8", errors="replace").read()
-    for name, pattern in _TIMING_FIELDS:
-        match = re.search(pattern, text, re.MULTILINE)
-        if not match:
-            continue
-        value = match.group(1).strip()
-        if name in _NUMERIC_TIMING:
-            try:
-                value = float(value)
-            except ValueError:
-                continue
-        result[name] = value
-    # Sums to the total, so a reader can see the split is complete.
-    parts = [result.get(k) for k in ("startup_s", "inside_steps_s", "between_steps_s",
-                                     "replay_review_s", "tail_wait_exit_s")]
-    known = [p for p in parts if isinstance(p, float)]
-    if known and isinstance(result.get("total_s"), float):
-        result["split_residual_s"] = round(result["total_s"] - sum(known), 3)
-    return result
-
-
-#: Column slices of the TIMELINE table rendered by ``RunLog.build_run_statistics``.
-#: Fixed-width rather than split-on-whitespace because two fields contain single
-#: spaces of their own -- the ``<< step back`` label and the ``(replay review)``
-#: type -- which any whitespace split would tear in half.
-_TIMELINE_SLICES = {
-    "order": (0, 4), "step_id": (5, 19), "type": (20, 36),
-    "wall_s": (37, 46), "exec_s": (47, 56), "wait_s": (57, 66),
-    "runs": (68, 75), "status": (77, None),
-}
-
-_DURATION = re.compile(r"^(?:(\d+)m)?([\d.]+)s$")
-
-
-def _duration_seconds(text: str) -> Optional[float]:
-    """``47.05s`` / ``1m02.6s`` / ``-`` -> seconds or None."""
-    text = (text or "").strip()
-    match = _DURATION.match(text)
-    if not match:
-        return None
-    minutes, seconds = match.group(1), match.group(2)
-    try:
-        return round((int(minutes) * 60 if minutes else 0) + float(seconds), 3)
-    except ValueError:
-        return None
-
-
-def parse_timing_steps(path: str) -> List[Dict[str, Any]]:
-    """One row per line of the report's TIMELINE table.
-
-    Read from the rendered report rather than the manifest for the same reason
-    the summary is: it is what ``Statistic/`` guarantees, and it is the table the
-    reader is comparing against. Rows come through in the order they happened,
-    so a step re-run after a step-back appears twice with the ``<< step back``
-    review between them -- which is the whole point of listing them per step
-    rather than only in aggregate.
-    """
-    rows: List[Dict[str, Any]] = []
-    if not path or not os.path.isfile(path):
-        return rows
-    lines = io.open(path, encoding="utf-8", errors="replace").read().splitlines()
-    started = False
-    for line in lines:
-        if line.lstrip().startswith("# step_id"):
-            started = True
-            continue
-        if not started:
-            continue
-        stripped = line.strip()
-        if not stripped or stripped.startswith("---"):
-            # The rule under the header, then the rule that closes the table.
-            if rows:
-                break
-            continue
-        if stripped.startswith("error:"):
-            # Continuation of the row above, not a row of its own.
-            if rows:
-                rows[-1]["error"] = stripped[len("error:"):].strip()
-            continue
-        if stripped.startswith("TOTAL"):
-            break
-        cells = {name: line[start:stop].strip()
-                 for name, (start, stop) in _TIMELINE_SLICES.items()}
-        try:
-            order = int(cells["order"])
-        except (TypeError, ValueError):
-            continue                      # not a table row
-        step_id = cells["step_id"]
-        replay = step_id.startswith("<<")
-        rows.append({
-            "order": order,
-            "kind": "replay review" if replay else "step visit",
-            "step_id": "" if replay else step_id,
-            "type": cells["type"].strip("()"),
-            "wall_s": _duration_seconds(cells["wall_s"]),
-            "exec_s": _duration_seconds(cells["exec_s"]),
-            "wait_s": _duration_seconds(cells["wait_s"]),
-            "runs": cells["runs"],
-            "status": cells["status"],
-            "error": "",
-        })
-    return rows
-
-
-# ---------------------------------------------------------------------------
-# Case discovery
-# ---------------------------------------------------------------------------
-
-def _subject_from_run(run_dir: str) -> str:
-    """The data set a run was driven from: the manifest's record, else the name."""
-    import json                                             # noqa: PLC0415
-    for candidate in (os.path.join(run_dir, "runtime", "run_manifest.json"),
-                      os.path.join(run_dir, "run_manifest.json")):
-        if os.path.isfile(candidate):
-            try:
-                subject = json.load(io.open(candidate, encoding="utf-8")).get("subject")
-                if subject:
-                    return str(subject)
-            except Exception:
-                logger.debug("Unreadable manifest %s", candidate, exc_info=True)
-    # <procedure>_<subject>_<condition>_<stamp>
-    parts = os.path.basename(run_dir).split("_")
-    return parts[1] if len(parts) >= 4 else ""
+from .run_timing import (                                     # noqa: E402
+    STEP_TIMING_COLUMNS,
+    TIMING_COLUMNS,
+    collect_timing,
+    parse_timing,
+    parse_timing_steps,
+    subject_from_run as _subject_from_run,
+    timing_sheet,
+)
 
 
 def discover_cases(experiment_root: str) -> List[Dict[str, str]]:
     """One entry per run folder under ``Overall_Performance``, oldest name first."""
-    runs_dir = os.path.join(experiment_root, RUNS_SUBDIR)
-    dataset_dir = os.path.join(experiment_root, DATASET_SUBDIR)
-    cases: List[Dict[str, str]] = []
-    if not os.path.isdir(runs_dir):
-        return cases
-    for name in sorted(os.listdir(runs_dir)):
-        run_dir = os.path.join(runs_dir, name)
-        scene_dir = os.path.join(run_dir, "Statistic", "scene")
-        if not os.path.isdir(scene_dir):
-            continue
-        subject = _subject_from_run(run_dir)
-        cases.append({
-            "run": name,
-            "subject": subject,
-            "run_dir": run_dir,
-            "scene_dir": scene_dir,
-            "timing": os.path.join(run_dir, "Statistic", "timing.txt"),
-            "dataset_dir": os.path.join(dataset_dir, subject) if subject else "",
-        })
-    return cases
+    from .run_timing import discover_cases as _discover        # noqa: PLC0415
+    return _discover(experiment_root, RUNS_SUBDIR, DATASET_SUBDIR)
+
 
 
 # ---------------------------------------------------------------------------
@@ -518,7 +399,8 @@ def analyse_case(case: Dict[str, str], sample_rate: int = SAMPLE_RATE,
     entries = np.asarray([p["entry"] for p in agentic])
     _unused, frame = gio.resolve_frame(entries, bone, FRAME_TOLERANCE_MM)
 
-    manual = manual_paths(case.get("dataset_dir", ""))
+    notes: List[str] = []
+    manual = manual_paths(case.get("dataset_dir", ""), notes)
     manual_frame = "n/a"
     if manual:
         ends = np.asarray([e for m in manual for e in m["ends"]])
@@ -557,6 +439,12 @@ def analyse_case(case: Dict[str, str], sample_rate: int = SAMPLE_RATE,
         "frame_paths": frame,
         "frame_manual": manual_frame,
         "n_manual": len(manual),
+        "notes": notes,
+        # Told apart in the log: an unpaired path means either that the case
+        # folder is missing/empty or that the nearest rod was too far away to be
+        # the same implant, and the two ask for different things of the reader.
+        "rejected": [(r["path"], r["entry_match_mm"]) for r in rows
+                     if r["bic_manual"] is None and r["entry_match_mm"] is not None],
     }
 
 
@@ -606,19 +494,7 @@ SIDE_COLUMNS = [
     "sum_bic_ours", "sum_bic_manual",
 ]
 
-STEP_TIMING_COLUMNS = [
-    "case", "order", "kind", "step_id", "type",
-    "wall_s", "exec_s", "wait_s", "runs", "status", "error", "run",
-]
-
-TIMING_COLUMNS = [
-    "case", "run", "procedure", "condition", "status", "model",
-    "send_clicked", "exit_clicked", "total_s",
-    "startup_s", "routing_call_s", "inside_steps_s", "between_steps_s",
-    "replay_review_s", "tail_wait_exit_s", "split_residual_s",
-    "executing_code_s", "waiting_for_user_s", "runtime_overhead_s",
-    "steps_recorded", "steps_ok", "steps_failed", "tokens", "cost_usd",
-]
+# TIMING_COLUMNS / STEP_TIMING_COLUMNS are imported from run_timing above.
 
 
 def _mean(values: List[float]) -> Optional[float]:
@@ -635,8 +511,6 @@ def build_report(experiment_root: str, sample_rate: int = SAMPLE_RATE
     """
     cases = discover_cases(experiment_root)
     bic_rows: List[Dict[str, Any]] = []
-    timing_rows: List[Dict[str, Any]] = []
-    step_rows: List[Dict[str, Any]] = []
     log: List[str] = []
     if not cases:
         log.append("No cases found under %s." % os.path.join(experiment_root, RUNS_SUBDIR))
@@ -654,34 +528,39 @@ def build_report(experiment_root: str, sample_rate: int = SAMPLE_RATE
             agreed = sum(1 for r in checked if r["reconstruction_ok"])
             paired = sum(1 for r in result["rows"] if r["bic_manual"] is not None)
             log.append(
-                "%s: %d path(s), %d paired with a manual STL, bone cloud %d pts, "
-                "planner score reproduced %d/%d"
-                % (label, len(result["rows"]), paired, result["bone_points"],
-                   agreed, len(checked)))
+                "%s: %d path(s), %d paired with a manual STL (%d rod(s) read from "
+                "%s), bone cloud %d pts, planner score reproduced %d/%d"
+                % (label, len(result["rows"]), paired, result["n_manual"],
+                   os.path.basename(case.get("dataset_dir") or "") or "(none)",
+                   result["bone_points"], agreed, len(checked)))
+            for note in result["notes"]:
+                log.append("   [!] %s: %s" % (label, note))
             if checked and agreed < len(checked):
                 log.append("   [!] %s: the recomputed planner score does not match the "
                            "stored one -- the bone cloud may not be the one the plan "
                            "was made against; treat this case's BIC with care."
                            % label)
-            if paired < len(result["rows"]):
+            # Two different problems, so two different messages: no rod to pair
+            # with at all, versus a rod that was there but is not the same
+            # implant. The second is the one that would otherwise be scored.
+            if not result["n_manual"]:
+                log.append("   [!] %s: no .stl found in %s -- every path is unpaired. "
+                           "The folder must be named after the run's subject."
+                           % (label, case.get("dataset_dir") or "(no dataset folder)"))
+            elif result["rejected"]:
+                log.append("   [!] %s: %s left unpaired -- the nearest manual rod end "
+                           "is over %.1f mm from the entry point, so it is not the "
+                           "same implant."
+                           % (label,
+                              ", ".join("%s (%.2f mm)" % (name, distance)
+                                        for name, distance in result["rejected"]),
+                              MAX_ENTRY_MATCH_MM))
+            elif paired < len(result["rows"]):
                 log.append("   [!] %s: %d path(s) had no manual counterpart in %s"
                            % (label, len(result["rows"]) - paired,
                               case.get("dataset_dir") or "(no dataset folder)"))
 
-        timing = parse_timing(case["timing"])
-        if timing:
-            timing["case"], timing["run"] = label, case["run"]
-            timing_rows.append(timing)
-        else:
-            log.append("%s: no timing.txt in Statistic/" % label)
-        steps = parse_timing_steps(case["timing"])
-        for step in steps:
-            step["case"], step["run"] = label, case["run"]
-        step_rows.extend(steps)
-        if timing and not steps:
-            log.append("   [!] %s: the timing report has a summary but no "
-                       "per-step timeline (written before the timeline existed?)"
-                       % label)
+    timing_rows, step_rows = collect_timing(cases, log)
 
     totals = side_totals(bic_rows)
 
@@ -713,7 +592,12 @@ def build_report(experiment_root: str, sample_rate: int = SAMPLE_RATE
     sheets = [
         ("BIC", [
             ("Per-path relative BIC  (relative = ours / manual, on the SAME entry "
-             "point; > 1 means more bone-implant contact than the surgeon's path)",
+             "point; > 1 means more bone-implant contact than the surgeon's path. "
+             "manual_file names the STL the path was paired with and "
+             "entry_match_mm how far its end sat from the entry -- both are "
+             "traceability, not inputs. Read relative_bic together with the two "
+             "length columns: each score counts contact over its own path's "
+             "length, and the planner chooses that length.)",
              BIC_COLUMNS, bic_rows),
             ("Per-side totals  (each side's two manual paths sum to the baseline, "
              "so a sum above it means the Quad Approach partitioning did not cost "
@@ -723,17 +607,7 @@ def build_report(experiment_root: str, sample_rate: int = SAMPLE_RATE
              ["case", "paths", "mean_relative_bic", "min_relative_bic",
               "max_relative_bic", "paths_above_1"], per_case),
         ]),
-        ("Timing", [
-            ("Per-run summary, parsed from Statistic/timing.txt. The five *_s "
-             "columns after total_s sum to it; split_residual_s is what is left "
-             "over and should be ~0.",
-             TIMING_COLUMNS, timing_rows),
-            ("Per-step detail, in the order things happened. A step re-run after "
-             "a step-back appears twice, with the '<< step back' review between "
-             "them. wall = screen to screen (includes the surgeon's own time), "
-             "exec = inside SafeExecutor, wait = wall - exec.",
-             STEP_TIMING_COLUMNS, step_rows),
-        ]),
+        timing_sheet(timing_rows, step_rows),
     ]
     return {"sheets": sheets, "log": log, "bic_rows": bic_rows,
             "side_totals": totals, "per_case": per_case, "timing_rows": timing_rows,

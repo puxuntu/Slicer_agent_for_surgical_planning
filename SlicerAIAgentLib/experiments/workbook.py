@@ -23,6 +23,11 @@ logger = logging.getLogger(__name__)
 Block = Tuple[str, Sequence[str], Sequence[Dict[str, Any]]]
 Sheet = Tuple[str, Sequence[Block]]
 
+#: Column width, in characters, at which a cell is treated as prose: wrapped
+#: rather than allowed to set the column's width. Definition blocks are mostly
+#: sentences, and one of them would otherwise stretch a column across the screen.
+PROSE_WIDTH = 70
+
 
 def _ensure_openpyxl():
     try:
@@ -78,9 +83,20 @@ def write_workbook(path: str, sheets: Sequence[Sheet]) -> Tuple[str, List[str]]:
             for row in rows:
                 for column_index, name in enumerate(columns, start=1):
                     value = _cell(row.get(name))
-                    sheet.cell(row=row_index, column=column_index, value=value)
-                    widths[column_index] = max(widths.get(column_index, 0),
-                                               len(str(value)))
+                    cell = sheet.cell(row=row_index, column=column_index, value=value)
+                    text = str(value)
+                    # Prose (a definition, a failure reason) is wrapped and
+                    # top-aligned, so it is readable in the cell instead of
+                    # running under the next column or being clipped. Numbers
+                    # and short labels are left alone -- wrapping those would
+                    # only make the rows taller.
+                    if len(text) > PROSE_WIDTH:
+                        cell.alignment = Alignment(wrap_text=True, vertical="top")
+                        widths[column_index] = max(widths.get(column_index, 0),
+                                                   PROSE_WIDTH)
+                    else:
+                        widths[column_index] = max(widths.get(column_index, 0),
+                                                   len(text))
                 row_index += 1
             row_index += 1                                    # blank separator
         for column_index, width in widths.items():

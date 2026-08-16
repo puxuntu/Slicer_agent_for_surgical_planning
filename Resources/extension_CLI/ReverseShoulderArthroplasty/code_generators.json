@@ -10,12 +10,12 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select CT Volume",
-      "instruction": "Choose the CT volume for processing.",
+      "title": "Select the CT volume",
+      "instruction": "Choose the CT volume to use for processing.",
       "done_label": "Done",
-      "choice_label": "Volume",
-      "input_label": "Volume",
-      "object_label": "volume",
+      "choice_label": "Choice",
+      "input_label": "Choice",
+      "object_label": "CT volume",
       "repeat": {}
     },
     "operation_model": {
@@ -35,15 +35,15 @@
     "choice_descriptor": {
       "question": "Select the CT volume for processing.",
       "choices": [],
-      "parameter_name": "input_volume",
+      "parameter_name": "ct_volume",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select CT Volume",
-        "instruction": "Choose the CT volume for processing.",
+        "title": "Select the CT volume",
+        "instruction": "Choose the CT volume to use for processing.",
         "done_label": "Done",
-        "choice_label": "Volume",
-        "input_label": "Volume",
-        "object_label": "volume",
+        "choice_label": "Choice",
+        "input_label": "Choice",
+        "object_label": "CT volume",
         "repeat": {}
       }
     },
@@ -51,7 +51,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the CT volume for bone density optimization",
+        "description": "Select the CT volume to use for bone density optimization.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -59,7 +59,12 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLScalarVolumeNode",
+          "CT volume",
+          "select volume",
+          "MRML scene"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -76,7 +81,7 @@
         "evidence_id": "",
         "question": "Select the CT volume for processing.",
         "choices": [],
-        "parameter_name": "input_volume",
+        "parameter_name": "ct_volume",
         "default_value": null,
         "value_kind": "node"
       }
@@ -93,8 +98,8 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Create Bone Segmentation",
-      "instruction": "Switch to Segment Editor module and create a new segmentation named 'Bone_Segmentation'.",
+      "title": "Create the bone segmentation",
+      "instruction": "In Segment Editor, create a new segmentation named 'Bone_Segmentation'.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -106,21 +111,39 @@
       "accepted_footprints": [
         "AddNewNodeByClass",
         "CreateDefaultDisplayNodes",
+        "GetID",
         "GetName",
         "SetName",
+        "editor",
+        "modules",
         "mrmlScene",
+        "segmentEditor",
+        "segmentationNodeID",
+        "self",
+        "setSegmentationNode",
         "vtkMRMLSegmentationNode",
+        "widgetRepresentation",
         "GetItemAsObject",
         "GetNodesByClass",
         "GetNumberOfItems",
         "SetAttribute"
       ],
       "api_chains": [
+        "segmentEditorWidget.editor.segmentationNodeID",
+        "segmentEditorWidget.editor.setSegmentationNode",
         "segmentationNode.CreateDefaultDisplayNodes",
+        "segmentationNode.GetID",
         "segmentationNode.GetName",
         "segmentationNode.SetName",
+        "slicer.modules.segmentEditor.widgetRepresentation",
+        "slicer.modules.segmentEditor.widgetRepresentation().self",
+        "slicer.modules.segmentEditor.widgetRepresentation().self().editor.segmentationNodeID",
+        "slicer.modules.segmentEditor.widgetRepresentation().self().editor.setSegmentationNode",
         "slicer.mrmlScene.AddNewNodeByClass",
+        "_ses_all.GetItemAsObject",
+        "_ses_all.GetNumberOfItems",
         "_ses_c.GetName",
+        "_ses_o.SetAttribute",
         "_ses_seg.CreateDefaultDisplayNodes",
         "_ses_seg.GetName",
         "_ses_seg.SetAttribute",
@@ -131,15 +154,16 @@
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
       ],
       "operation_descriptions": [
-        "Create a new segmentation named 'Bone_Segmentation'"
+        "Create a new segmentation named Bone_Segmentation in Segment Editor."
       ],
       "slicer_op_categories": [
-        "module_switching"
+        "generic_slicer_api"
       ],
       "slicer_api_keywords": [
         "Segment Editor",
+        "vtkMRMLSegmentationNode",
         "segmentation",
-        "create"
+        "AddNewNodeByClass"
       ]
     },
     "operation_model": {
@@ -147,14 +171,12 @@
       "op_types": [
         "slicer_op"
       ],
-      "operation_intents": [
-        "module_switch"
-      ],
+      "operation_intents": [],
       "invokes_extension_method": false,
       "invokes_extension_function": false,
       "invokes_slicer_api": true,
       "implementation_uses_slicer_api": true,
-      "allow_module_switch": true,
+      "allow_module_switch": false,
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
@@ -163,18 +185,19 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Create a new segmentation named 'Bone_Segmentation'",
+        "description": "Create a new segmentation named Bone_Segmentation in Segment Editor.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
         "ui_parameter_binding": null,
         "target_value": null,
         "target_value_mode": null,
-        "slicer_op_category": "module_switching",
+        "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
           "Segment Editor",
+          "vtkMRMLSegmentationNode",
           "segmentation",
-          "create"
+          "AddNewNodeByClass"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -187,14 +210,11 @@
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
-        "operation_intents": [
-          "module_switch"
-        ],
+        "operation_intents": [],
         "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "",
-        "operation_intent": "module_switch"
+        "evidence_id": ""
       }
     ]
   },
@@ -209,8 +229,8 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Add Segment",
-      "instruction": "Click 'Add' to create a new segment and rename it to 'Bone_Segment'.",
+      "title": "Add the Bone_Segment segment",
+      "instruction": "Click Add and rename the segment to 'Bone_Segment'.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -220,37 +240,42 @@
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "AddEmptySegment",
         "AddNewNodeByClass",
+        "AddSegment",
         "CreateDefaultDisplayNodes",
         "GetFirstNodeByClass",
-        "GetFirstNodeByName",
         "GetName",
         "GetSegment",
+        "GetSegmentIdBySegment",
         "GetSegmentation",
+        "SetName",
         "mrmlScene",
         "vtkMRMLSegmentationNode",
+        "vtkSegment",
+        "AddEmptySegment",
         "GetAttribute",
         "GetItemAsObject",
         "GetNodesByClass",
         "GetNumberOfItems",
         "GetSegmentIdBySegmentName",
-        "SetAttribute",
-        "GetNthNodeByClass",
-        "GetNumberOfNodesByClass"
+        "SetAttribute"
       ],
       "api_chains": [
-        "segment.GetName",
-        "segmentation.AddEmptySegment",
-        "segmentation.GetSegment",
+        "addedSegment.GetName",
+        "segment.SetName",
         "segmentationNode.CreateDefaultDisplayNodes",
         "segmentationNode.GetSegmentation",
+        "segmentationNode.GetSegmentation().AddSegment",
+        "segmentationNode.GetSegmentation().GetSegment",
+        "segmentationNode.GetSegmentation().GetSegmentIdBySegment",
         "slicer.mrmlScene.AddNewNodeByClass",
         "slicer.mrmlScene.GetFirstNodeByClass",
-        "slicer.mrmlScene.GetFirstNodeByName",
-        "slicer.mrmlScene.GetFirstNodeByName('{segmentation_node_name:}').GetSegmentation().AddEmptySegment",
-        "slicer.mrmlScene.GetFirstNodeByName('{segmentation_node_name:}').GetSegmentation().GetSegment",
-        "slicer.mrmlScene.GetFirstNodeByName('{segmentation_node_name:}').GetSegmentation().GetSegment(slicer.mrmlScene.GetFirstNodeByName('{segmentation_node_name:}').GetSegmentation().AddEmptySegment('Bone_Segment')).GetName",
+        "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLSegmentationNode').GetSegmentation().AddSegment",
+        "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLSegmentationNode').GetSegmentation().GetSegment",
+        "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLSegmentationNode').GetSegmentation().GetSegment(slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLSegmentationNode').GetSegmentation().GetSegmentIdBySegment(slicer.vtkSegment())).GetName",
+        "slicer.mrmlScene.GetFirstNodeByClass('vtkMRMLSegmentationNode').GetSegmentation().GetSegmentIdBySegment",
+        "slicer.vtkSegment",
+        "slicer.vtkSegment().SetName",
         "_ses_c.GetAttribute",
         "_ses_seg.GetSegmentation",
         "_ses_seg.SetAttribute",
@@ -260,21 +285,20 @@
         "_ses_segs.GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
-        "_s_candidate.GetName",
-        "slicer.mrmlScene.GetNthNodeByClass",
-        "slicer.mrmlScene.GetNumberOfNodesByClass"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
       ],
       "operation_descriptions": [
-        "Add a segment and rename to 'Bone_Segment'"
+        "Add a segment and rename it to Bone_Segment."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
         "Segment Editor",
-        "Add",
-        "rename segment"
+        "segment",
+        "AddSegment",
+        "SetName",
+        "Bone_Segment"
       ]
     },
     "operation_model": {
@@ -296,7 +320,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Add a segment and rename to 'Bone_Segment'",
+        "description": "Add a segment and rename it to Bone_Segment.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -306,8 +330,10 @@
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
           "Segment Editor",
-          "Add",
-          "rename segment"
+          "segment",
+          "AddSegment",
+          "SetName",
+          "Bone_Segment"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -339,27 +365,26 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Open Threshold",
-      "instruction": "Click the 'Threshold' button in Segment Editor.",
+      "title": "Open the Threshold effect",
+      "instruction": "Click Threshold in Segment Editor.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "threshold",
       "repeat": {}
     },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
+        "SegmentEditorWidget",
         "activeEffect",
         "editor",
         "modules",
         "name",
-        "segmenteditor",
-        "self",
         "setActiveEffectByName",
-        "widgetRepresentation",
         "AddNewNodeByClass",
         "GetAttribute",
+        "GetDisplayNode",
         "GetFirstNodeByClass",
         "GetItemAsObject",
         "GetNodesByClass",
@@ -369,8 +394,15 @@
         "GetSegment",
         "GetSegmentation",
         "IsA",
+        "SafeDownCast",
+        "SetSegmentVisibility",
         "SetSelectedSegmentID",
+        "SetVisibility",
+        "SetVisibility2DFill",
+        "SetVisibility2DOutline",
         "mrmlScene",
+        "segmenteditor",
+        "self",
         "setCurrentSegmentID",
         "setMRMLScene",
         "setMRMLSegmentEditorNode",
@@ -379,17 +411,25 @@
         "vtkMRMLLabelMapVolumeNode",
         "vtkMRMLScalarVolumeNode",
         "vtkMRMLSegmentEditorNode",
-        "vtkMRMLSegmentationNode"
+        "vtkMRMLSegmentationDisplayNode",
+        "vtkMRMLSegmentationNode",
+        "widgetRepresentation"
       ],
       "api_chains": [
         "segmentEditorWidget.activeEffect",
         "segmentEditorWidget.setActiveEffectByName",
-        "slicer.modules.segmenteditor.widgetRepresentation",
-        "slicer.modules.segmenteditor.widgetRepresentation().self",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
+        "slicer.modules.SegmentEditorWidget.editor",
+        "slicer.modules.SegmentEditorWidget.editor.activeEffect",
+        "slicer.modules.SegmentEditorWidget.editor.activeEffect().name",
+        "slicer.modules.SegmentEditorWidget.editor.setActiveEffectByName",
         "_ses_c.GetAttribute",
+        "_ses_disp.SetSegmentVisibility",
+        "_ses_disp.SetVisibility",
+        "_ses_disp.SetVisibility2DFill",
+        "_ses_disp.SetVisibility2DOutline",
         "_ses_editor_node.SetSelectedSegmentID",
         "_ses_seg.GetAttribute",
+        "_ses_seg.GetDisplayNode",
         "_ses_seg.GetSegmentation",
         "_ses_segmentation.GetNthSegmentID",
         "_ses_segmentation.GetNumberOfSegments",
@@ -405,6 +445,9 @@
         "_ses_widget.setMRMLSegmentEditorNode",
         "_ses_widget.setSegmentationNode",
         "_ses_widget.setSourceVolumeNode",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
@@ -418,18 +461,20 @@
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
+        "slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast"
       ],
       "operation_descriptions": [
-        "Open Threshold effect in Segment Editor"
+        "Activate the Threshold effect in Segment Editor."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
         "Segment Editor",
-        "Threshold",
-        "effect"
+        "ThresholdEffect",
+        "threshold",
+        "activate effect"
       ]
     },
     "operation_model": {
@@ -451,7 +496,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Open Threshold effect in Segment Editor",
+        "description": "Activate the Threshold effect in Segment Editor.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -461,17 +506,16 @@
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
           "Segment Editor",
-          "Threshold",
-          "effect"
+          "ThresholdEffect",
+          "threshold",
+          "activate effect"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          3
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -494,12 +538,12 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Set Threshold Range",
-      "instruction": "Adjust the threshold slider to define the bone segmentation range.",
+      "title": "Set the threshold range",
+      "instruction": "Adjust the threshold slider to cover the bone density range.",
       "done_label": "Done",
       "choice_label": "Range",
       "input_label": "Range",
-      "object_label": "range",
+      "object_label": "threshold",
       "repeat": {}
     },
     "operation_model": {
@@ -517,17 +561,17 @@
       "interaction_kinds": []
     },
     "choice_descriptor": {
-      "question": "Set the threshold range for segmentation.",
+      "question": "Set the threshold range for bone segmentation.",
       "choices": [],
       "parameter_name": "threshold_range",
       "default_value": null,
       "ui_guidance": {
-        "title": "Set Threshold Range",
-        "instruction": "Adjust the threshold slider to define the bone segmentation range.",
+        "title": "Set the threshold range",
+        "instruction": "Adjust the threshold slider to cover the bone density range.",
         "done_label": "Done",
         "choice_label": "Range",
         "input_label": "Range",
-        "object_label": "range",
+        "object_label": "threshold",
         "repeat": {}
       }
     },
@@ -535,7 +579,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Set threshold range for bone segmentation",
+        "description": "Set the threshold range for bone segmentation.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -543,15 +587,18 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "ThresholdEffect",
+          "threshold range",
+          "SetThresholdRange",
+          "min max"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          4
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -560,7 +607,7 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Set the threshold range for segmentation.",
+        "question": "Set the threshold range for bone segmentation.",
         "choices": [],
         "parameter_name": "threshold_range",
         "default_value": null,
@@ -579,123 +626,138 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Apply Threshold",
-      "instruction": "Click the 'Apply' button to run thresholding.",
+      "title": "Apply the threshold",
+      "instruction": "Click Apply to create the bone segmentation.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "segmentation",
       "repeat": {}
     },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "AddNewNodeByClass",
+        "AddEmptySegment",
         "GetBinaryLabelmapRepresentation",
+        "GetDisplayNode",
         "GetName",
-        "GetNextItemAsObject",
-        "GetNodes",
-        "GetNodesByClass",
+        "GetNumberOfValues",
+        "GetPointData",
+        "GetScalars",
         "GetSegment",
+        "GetSegmentIDs",
         "GetSegmentation",
-        "GetVoxelCount",
-        "IgnoreZeroOn",
-        "InitTraversal",
-        "SetAndObserveSegmentationNode",
-        "SetAndObserveSourceVolumeNode",
-        "SetComponentExtent",
-        "SetComponentOrigin",
-        "SetComponentSpacing",
-        "SetInputData",
-        "SetSelectedSegmentID",
-        "Update",
+        "GetValue",
+        "SetName",
+        "SetSegmentVisibility",
+        "arrayFromOrientedImageData",
+        "count_nonzero",
         "doubleParameter",
-        "editor",
         "effectByName",
-        "getNode",
+        "getNodesByClass",
         "lower",
-        "modules",
         "mrmlScene",
         "onApply",
-        "scriptedEffect",
-        "segmenteditor",
-        "self",
+        "qMRMLSegmentEditorWidget",
+        "setActiveEffect",
+        "setCurrentSegmentID",
+        "setMRMLScene",
         "setParameter",
+        "setSegmentationNode",
+        "setSourceVolumeNode",
         "util",
-        "vtkImageAccumulate",
-        "vtkMRMLSegmentEditorNode",
+        "values",
+        "vtkMRMLScalarVolumeNode",
         "vtkMRMLSegmentationNode",
-        "vtkMRMLVolumeNode",
         "vtkOrientedImageData",
-        "widgetRepresentation",
+        "vtkStringArray",
+        "AddNewNodeByClass",
         "GetAttribute",
         "GetFirstNodeByClass",
         "GetItemAsObject",
+        "GetNodesByClass",
         "GetNthSegmentID",
         "GetNumberOfItems",
         "GetNumberOfSegments",
         "IsA",
+        "SafeDownCast",
+        "SetSelectedSegmentID",
+        "SetVisibility",
+        "SetVisibility2DFill",
+        "SetVisibility2DOutline",
         "activeEffect",
+        "editor",
+        "modules",
+        "segmenteditor",
+        "self",
         "setActiveEffectByName",
-        "setCurrentSegmentID",
-        "setMRMLScene",
         "setMRMLSegmentEditorNode",
-        "setSegmentationNode",
-        "setSourceVolumeNode",
         "vtkMRMLLabelMapVolumeNode",
-        "vtkMRMLScalarVolumeNode"
+        "vtkMRMLSegmentEditorNode",
+        "vtkMRMLSegmentationDisplayNode",
+        "widgetRepresentation"
       ],
       "api_chains": [
-        "editorWidget.effectByName",
-        "imageStat.GetVoxelCount",
-        "imageStat.IgnoreZeroOn",
-        "imageStat.SetComponentExtent",
-        "imageStat.SetComponentOrigin",
-        "imageStat.SetComponentSpacing",
-        "imageStat.SetInputData",
-        "imageStat.Update",
+        "boneLabelmap.GetPointData",
+        "boneLabelmap.GetPointData().GetScalars",
+        "bone_segment_name.lower",
+        "displayNode.SetSegmentVisibility",
         "keyword.lower",
-        "nodeIter.GetNextItemAsObject",
-        "nodeIter.InitTraversal",
-        "obj.GetName",
-        "obj.GetName().lower",
-        "segmentEditorNode.SetAndObserveSegmentationNode",
-        "segmentEditorNode.SetAndObserveSourceVolumeNode",
-        "segmentEditorNode.SetSelectedSegmentID",
+        "node.GetName",
+        "node.GetName().lower",
+        "np.count_nonzero",
+        "segment.GetName",
+        "segment.GetName().lower",
+        "segmentEditorWidget.effectByName",
+        "segmentEditorWidget.setActiveEffect",
+        "segmentEditorWidget.setCurrentSegmentID",
+        "segmentEditorWidget.setMRMLScene",
+        "segmentEditorWidget.setSegmentationNode",
+        "segmentEditorWidget.setSourceVolumeNode",
+        "segmentIDs.GetNumberOfValues",
+        "segmentIDs.GetValue",
+        "segmentation.AddEmptySegment",
         "segmentation.GetSegment",
+        "segmentation.GetSegment(boneSegmentID).GetName",
+        "segmentation.GetSegment(boneSegmentID).SetName",
+        "segmentation.GetSegmentIDs",
         "segmentationNode.GetBinaryLabelmapRepresentation",
+        "segmentationNode.GetDisplayNode",
         "segmentationNode.GetSegmentation",
-        "slicer.modules.segmenteditor.widgetRepresentation",
-        "slicer.modules.segmenteditor.widgetRepresentation().self",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Threshold').self",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Threshold').self().onApply",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Threshold').self().scriptedEffect.doubleParameter",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Threshold').setParameter",
-        "slicer.mrmlScene.AddNewNodeByClass",
-        "slicer.mrmlScene.GetNodes",
-        "slicer.mrmlScene.GetNodesByClass",
-        "slicer.util.getNode",
+        "slicer.mrmlScene",
+        "slicer.qMRMLSegmentEditorWidget",
+        "slicer.qMRMLSegmentEditorWidget().effectByName",
+        "slicer.qMRMLSegmentEditorWidget().effectByName('Threshold').doubleParameter",
+        "slicer.qMRMLSegmentEditorWidget().effectByName('Threshold').onApply",
+        "slicer.qMRMLSegmentEditorWidget().effectByName('Threshold').setParameter",
+        "slicer.qMRMLSegmentEditorWidget().setActiveEffect",
+        "slicer.qMRMLSegmentEditorWidget().setCurrentSegmentID",
+        "slicer.qMRMLSegmentEditorWidget().setMRMLScene",
+        "slicer.qMRMLSegmentEditorWidget().setSegmentationNode",
+        "slicer.qMRMLSegmentEditorWidget().setSourceVolumeNode",
+        "slicer.util.arrayFromOrientedImageData",
+        "slicer.util.getNodesByClass",
+        "slicer.util.getNodesByClass(class_name).values",
         "slicer.vtkOrientedImageData",
-        "thresholdEffect.self",
-        "thresholdEffect.self().onApply",
-        "thresholdEffect.self().scriptedEffect.doubleParameter",
+        "slicer.vtkOrientedImageData().GetPointData",
+        "slicer.vtkOrientedImageData().GetPointData().GetScalars",
+        "thresholdEffect.doubleParameter",
+        "thresholdEffect.onApply",
         "thresholdEffect.setParameter",
-        "vtk.vtkImageAccumulate",
-        "vtk.vtkImageAccumulate().GetVoxelCount",
-        "vtk.vtkImageAccumulate().IgnoreZeroOn",
-        "vtk.vtkImageAccumulate().SetComponentExtent",
-        "vtk.vtkImageAccumulate().SetComponentOrigin",
-        "vtk.vtkImageAccumulate().SetComponentSpacing",
-        "vtk.vtkImageAccumulate().SetInputData",
-        "vtk.vtkImageAccumulate().Update",
+        "vtk.vtkStringArray",
+        "vtk.vtkStringArray().GetNumberOfValues",
+        "vtk.vtkStringArray().GetValue",
         "_ses_c.GetAttribute",
+        "_ses_disp.SetSegmentVisibility",
+        "_ses_disp.SetVisibility",
+        "_ses_disp.SetVisibility2DFill",
+        "_ses_disp.SetVisibility2DOutline",
         "_ses_editor_node.SetSelectedSegmentID",
         "_ses_eff.self",
         "_ses_eff.self().onApply",
         "_ses_eff.setParameter",
         "_ses_seg.GetAttribute",
+        "_ses_seg.GetDisplayNode",
         "_ses_seg.GetSegmentation",
         "_ses_segmentation.GetNthSegmentID",
         "_ses_segmentation.GetNumberOfSegments",
@@ -712,6 +774,9 @@
         "_ses_widget.setMRMLSegmentEditorNode",
         "_ses_widget.setSegmentationNode",
         "_ses_widget.setSourceVolumeNode",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self().onApply",
@@ -722,23 +787,26 @@
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLSegmentEditorNode",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSegmentationNode",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSourceVolumeNode",
-        "slicer.mrmlScene",
+        "slicer.mrmlScene.AddNewNodeByClass",
         "slicer.mrmlScene.GetFirstNodeByClass",
+        "slicer.mrmlScene.GetNodesByClass",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
+        "slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast"
       ],
       "operation_descriptions": [
-        "Apply threshold effect"
+        "Apply the threshold effect to generate the bone segment."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "Segment Editor",
+        "SegmentEditorEffect",
         "Apply",
-        "Threshold"
+        "threshold",
+        "binary labelmap"
       ]
     },
     "operation_model": {
@@ -760,7 +828,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Apply threshold effect",
+        "description": "Apply the threshold effect to generate the bone segment.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -769,9 +837,10 @@
         "target_value_mode": null,
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "Segment Editor",
+          "SegmentEditorEffect",
           "Apply",
-          "Threshold"
+          "threshold",
+          "binary labelmap"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -803,27 +872,28 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Open Islands",
-      "instruction": "Click the 'Islands' button.",
+      "title": "Open the Islands effect",
+      "instruction": "Click Islands in Segment Editor.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "islands",
       "repeat": {}
     },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "activeEffect",
+        "GetActiveEffectName",
         "editor",
         "modules",
-        "name",
+        "mrmlSegmentEditorNode",
         "segmenteditor",
         "self",
         "setActiveEffectByName",
         "widgetRepresentation",
         "AddNewNodeByClass",
         "GetAttribute",
+        "GetDisplayNode",
         "GetFirstNodeByClass",
         "GetItemAsObject",
         "GetNodesByClass",
@@ -833,7 +903,12 @@
         "GetSegment",
         "GetSegmentation",
         "IsA",
+        "SafeDownCast",
+        "SetSegmentVisibility",
         "SetSelectedSegmentID",
+        "SetVisibility",
+        "SetVisibility2DFill",
+        "SetVisibility2DOutline",
         "mrmlScene",
         "setCurrentSegmentID",
         "setMRMLScene",
@@ -843,20 +918,27 @@
         "vtkMRMLLabelMapVolumeNode",
         "vtkMRMLScalarVolumeNode",
         "vtkMRMLSegmentEditorNode",
+        "vtkMRMLSegmentationDisplayNode",
         "vtkMRMLSegmentationNode"
       ],
       "api_chains": [
-        "segmentEditorWidget.activeEffect",
+        "parameterSetNode.GetActiveEffectName",
+        "segmentEditorWidget.mrmlSegmentEditorNode",
         "segmentEditorWidget.setActiveEffectByName",
         "slicer.modules.segmenteditor.widgetRepresentation",
         "slicer.modules.segmenteditor.widgetRepresentation().self",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().name",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.mrmlSegmentEditorNode().GetActiveEffectName",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
         "_ses_c.GetAttribute",
+        "_ses_disp.SetSegmentVisibility",
+        "_ses_disp.SetVisibility",
+        "_ses_disp.SetVisibility2DFill",
+        "_ses_disp.SetVisibility2DOutline",
         "_ses_editor_node.SetSelectedSegmentID",
         "_ses_seg.GetAttribute",
+        "_ses_seg.GetDisplayNode",
         "_ses_seg.GetSegmentation",
         "_ses_segmentation.GetNthSegmentID",
         "_ses_segmentation.GetNumberOfSegments",
@@ -884,18 +966,20 @@
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
+        "slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast"
       ],
       "operation_descriptions": [
-        "Open Islands effect in Segment Editor"
+        "Activate the Islands effect in Segment Editor."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
         "Segment Editor",
-        "Islands",
-        "effect"
+        "IslandsEffect",
+        "islands",
+        "activate effect"
       ]
     },
     "operation_model": {
@@ -917,7 +1001,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Open Islands effect in Segment Editor",
+        "description": "Activate the Islands effect in Segment Editor.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -927,17 +1011,16 @@
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
           "Segment Editor",
-          "Islands",
-          "effect"
+          "IslandsEffect",
+          "islands",
+          "activate effect"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          6
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -960,26 +1043,28 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Keep Largest Island",
-      "instruction": "Select the 'Keep largest island' option.",
+      "title": "Keep the largest island",
+      "instruction": "Select 'Keep largest island'.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "island",
       "repeat": {}
     },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "SegmentEditorWidget",
-        "activeEffect",
         "editor",
+        "effectByName",
         "modules",
         "parameter",
-        "setActiveEffectByName",
+        "segmenteditor",
+        "self",
         "setParameter",
+        "widgetRepresentation",
         "AddNewNodeByClass",
         "GetAttribute",
+        "GetDisplayNode",
         "GetFirstNodeByClass",
         "GetItemAsObject",
         "GetNodesByClass",
@@ -989,34 +1074,61 @@
         "GetSegment",
         "GetSegmentation",
         "IsA",
+        "SafeDownCast",
+        "SetSegmentVisibility",
         "SetSelectedSegmentID",
+        "SetVisibility",
+        "SetVisibility2DFill",
+        "SetVisibility2DOutline",
+        "activeEffect",
+        "click",
+        "findChildren",
+        "findText",
+        "lower",
         "mrmlScene",
-        "segmenteditor",
-        "self",
+        "replace",
+        "setActiveEffectByName",
+        "setCurrentIndex",
         "setCurrentSegmentID",
         "setMRMLScene",
         "setMRMLSegmentEditorNode",
         "setSegmentationNode",
         "setSourceVolumeNode",
+        "strip",
+        "text",
+        "util",
         "vtkMRMLLabelMapVolumeNode",
         "vtkMRMLScalarVolumeNode",
         "vtkMRMLSegmentEditorNode",
-        "vtkMRMLSegmentationNode",
-        "widgetRepresentation"
+        "vtkMRMLSegmentationDisplayNode",
+        "vtkMRMLSegmentationNode"
       ],
       "api_chains": [
-        "effect.parameter",
-        "effect.setParameter",
-        "segmentEditorWidget.activeEffect",
-        "segmentEditorWidget.setActiveEffectByName",
-        "slicer.modules.SegmentEditorWidget.editor",
-        "slicer.modules.SegmentEditorWidget.editor.activeEffect",
-        "slicer.modules.SegmentEditorWidget.editor.activeEffect().parameter",
-        "slicer.modules.SegmentEditorWidget.editor.activeEffect().setParameter",
-        "slicer.modules.SegmentEditorWidget.editor.setActiveEffectByName",
+        "islandsEffect.parameter",
+        "islandsEffect.setParameter",
+        "segmentEditorWidget.effectByName",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').parameter",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').setParameter",
+        "_opt_cb.findText",
+        "_opt_cb.setCurrentIndex",
+        "_opt_label.strip",
+        "_opt_label.strip().lower",
+        "_opt_t.replace",
+        "_opt_t.replace('&', '').strip",
+        "_opt_t.replace('&', '').strip().lower",
+        "_opt_w.click",
         "_ses_c.GetAttribute",
+        "_ses_disp.SetSegmentVisibility",
+        "_ses_disp.SetVisibility",
+        "_ses_disp.SetVisibility2DFill",
+        "_ses_disp.SetVisibility2DOutline",
         "_ses_editor_node.SetSelectedSegmentID",
         "_ses_seg.GetAttribute",
+        "_ses_seg.GetDisplayNode",
         "_ses_seg.GetSegmentation",
         "_ses_segmentation.GetNthSegmentID",
         "_ses_segmentation.GetNumberOfSegments",
@@ -1026,15 +1138,14 @@
         "_ses_vc.IsA",
         "_ses_vols.GetItemAsObject",
         "_ses_vols.GetNumberOfItems",
+        "_ses_widget.activeEffect",
         "_ses_widget.setActiveEffectByName",
         "_ses_widget.setCurrentSegmentID",
         "_ses_widget.setMRMLScene",
         "_ses_widget.setMRMLSegmentEditorNode",
         "_ses_widget.setSegmentationNode",
         "_ses_widget.setSourceVolumeNode",
-        "slicer.modules.segmenteditor.widgetRepresentation",
-        "slicer.modules.segmenteditor.widgetRepresentation().self",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
@@ -1048,18 +1159,21 @@
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
+        "slicer.util.findChildren",
+        "slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast"
       ],
       "operation_descriptions": [
-        "Select 'Keep largest island' option"
+        "Choose the Keep largest island operation."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "Segment Editor",
-        "Islands",
-        "Keep largest island"
+        "IslandsEffect",
+        "KeepLargestIsland",
+        "operation",
+        "set mode"
       ]
     },
     "operation_model": {
@@ -1081,7 +1195,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Select 'Keep largest island' option",
+        "description": "Choose the Keep largest island operation.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1090,18 +1204,17 @@
         "target_value_mode": null,
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "Segment Editor",
-          "Islands",
-          "Keep largest island"
+          "IslandsEffect",
+          "KeepLargestIsland",
+          "operation",
+          "set mode"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          7
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -1124,50 +1237,39 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Apply Islands",
-      "instruction": "Click the 'Apply' button to keep the largest island.",
+      "title": "Apply island cleanup",
+      "instruction": "Click Apply to keep only the largest island.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "segmentation",
       "repeat": {}
     },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
-        "AddNewNode",
-        "GetFirstNodeByName",
-        "GetNthSegment",
-        "GetSegmentIdBySegment",
+        "GetName",
+        "GetSegmentIdBySegmentName",
         "GetSegmentation",
-        "QApplication",
-        "Qt",
-        "SetAndObserveSegmentationNode",
-        "SetName",
+        "GetSelectedSegmentID",
         "SetSelectedSegmentID",
-        "WaitCursor",
-        "confirmCurrentSegmentVisible",
-        "editor",
-        "effectByName",
-        "getNode",
-        "info",
-        "modules",
+        "activeEffect",
+        "getNodesByClass",
         "mrmlScene",
         "onApply",
         "parameter",
-        "restoreOverrideCursor",
-        "saveStateForUndo",
-        "scriptedEffect",
-        "segmenteditor",
+        "parameterSetNode",
+        "qMRMLSegmentEditorWidget",
         "self",
         "setActiveEffectByName",
-        "setOverrideCursor",
+        "setMRMLScene",
         "setParameter",
+        "setSegmentationNode",
         "util",
-        "vtkMRMLSegmentEditorNode",
-        "widgetRepresentation",
+        "vtkMRMLSegmentationNode",
         "AddNewNodeByClass",
         "GetAttribute",
+        "GetDisplayNode",
         "GetFirstNodeByClass",
         "GetItemAsObject",
         "GetNodesByClass",
@@ -1176,62 +1278,65 @@
         "GetNumberOfSegments",
         "GetSegment",
         "IsA",
-        "activeEffect",
+        "SafeDownCast",
+        "SetSegmentVisibility",
+        "SetVisibility",
+        "SetVisibility2DFill",
+        "SetVisibility2DOutline",
+        "editor",
+        "modules",
+        "segmenteditor",
+        "setActiveEffect",
         "setCurrentSegmentID",
-        "setMRMLScene",
         "setMRMLSegmentEditorNode",
-        "setSegmentationNode",
         "setSourceVolumeNode",
         "vtkMRMLLabelMapVolumeNode",
         "vtkMRMLScalarVolumeNode",
-        "vtkMRMLSegmentationNode"
+        "vtkMRMLSegmentEditorNode",
+        "vtkMRMLSegmentationDisplayNode",
+        "widgetRepresentation"
       ],
       "api_chains": [
-        "editor.effectByName",
-        "editor.setActiveEffectByName",
-        "editorParameterNode.SetAndObserveSegmentationNode",
-        "editorParameterNode.SetName",
-        "editorParameterNode.SetSelectedSegmentID",
-        "editorWidget.self",
-        "islandEffect.self",
-        "islandEffect.self().onApply",
-        "islandEffect.self().scriptedEffect.confirmCurrentSegmentVisible",
-        "islandEffect.self().scriptedEffect.parameter",
-        "islandEffect.self().scriptedEffect.saveStateForUndo",
-        "islandEffect.setParameter",
-        "logging.info",
-        "qt.QApplication.restoreOverrideCursor",
-        "qt.QApplication.setOverrideCursor",
-        "qt.Qt.WaitCursor",
-        "segmentation.GetNthSegment",
-        "segmentation.GetSegmentIdBySegment",
+        "effect.parameter",
+        "effect.parameterSetNode",
+        "effect.parameterSetNode().GetSelectedSegmentID",
+        "effect.parameterSetNode().SetSelectedSegmentID",
+        "effect.self",
+        "effect.self().onApply",
+        "effect.setParameter",
+        "node.GetName",
+        "segmentEditorWidget.activeEffect",
+        "segmentEditorWidget.setActiveEffectByName",
+        "segmentEditorWidget.setMRMLScene",
+        "segmentEditorWidget.setSegmentationNode",
         "segmentationNode.GetSegmentation",
-        "slicer.modules.segmenteditor.widgetRepresentation",
-        "slicer.modules.segmenteditor.widgetRepresentation().self",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').self",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').self().onApply",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').self().scriptedEffect.confirmCurrentSegmentVisible",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').self().scriptedEffect.parameter",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').self().scriptedEffect.saveStateForUndo",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.effectByName('Islands').setParameter",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
-        "slicer.mrmlScene.AddNewNode",
-        "slicer.mrmlScene.GetFirstNodeByName",
-        "slicer.mrmlScene.GetFirstNodeByName('SegmentEditor').SetAndObserveSegmentationNode",
-        "slicer.mrmlScene.GetFirstNodeByName('SegmentEditor').SetName",
-        "slicer.mrmlScene.GetFirstNodeByName('SegmentEditor').SetSelectedSegmentID",
-        "slicer.util.getNode",
-        "slicer.util.getNode('{segmentation_node_name}').GetSegmentation",
-        "slicer.util.getNode('{segmentation_node_name}').GetSegmentation().GetNthSegment",
-        "slicer.util.getNode('{segmentation_node_name}').GetSegmentation().GetSegmentIdBySegment",
+        "segmentationNode.GetSegmentation().GetSegmentIdBySegmentName",
+        "slicer.mrmlScene",
+        "slicer.qMRMLSegmentEditorWidget",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().parameter",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().parameterSetNode",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().parameterSetNode().GetSelectedSegmentID",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().parameterSetNode().SetSelectedSegmentID",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().self",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().self().onApply",
+        "slicer.qMRMLSegmentEditorWidget().activeEffect().setParameter",
+        "slicer.qMRMLSegmentEditorWidget().setActiveEffectByName",
+        "slicer.qMRMLSegmentEditorWidget().setMRMLScene",
+        "slicer.qMRMLSegmentEditorWidget().setSegmentationNode",
+        "slicer.util.getNodesByClass",
         "_ses_c.GetAttribute",
+        "_ses_disp.SetSegmentVisibility",
+        "_ses_disp.SetVisibility",
+        "_ses_disp.SetVisibility2DFill",
+        "_ses_disp.SetVisibility2DOutline",
         "_ses_editor_node.SetSelectedSegmentID",
         "_ses_eff.self",
         "_ses_eff.self().onApply",
-        "_ses_eff.setParameter",
+        "_ses_end.activeEffect",
+        "_ses_end.setActiveEffect",
         "_ses_seg.GetAttribute",
+        "_ses_seg.GetDisplayNode",
         "_ses_seg.GetSegmentation",
         "_ses_segmentation.GetNthSegmentID",
         "_ses_segmentation.GetNumberOfSegments",
@@ -1248,34 +1353,39 @@
         "_ses_widget.setMRMLSegmentEditorNode",
         "_ses_widget.setSegmentationNode",
         "_ses_widget.setSourceVolumeNode",
+        "slicer.modules.segmenteditor.widgetRepresentation",
+        "slicer.modules.segmenteditor.widgetRepresentation().self",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().self().onApply",
-        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.activeEffect().setParameter",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffect",
+        "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setActiveEffectByName",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setCurrentSegmentID",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLScene",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setMRMLSegmentEditorNode",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSegmentationNode",
         "slicer.modules.segmenteditor.widgetRepresentation().self().editor.setSourceVolumeNode",
-        "slicer.mrmlScene",
         "slicer.mrmlScene.AddNewNodeByClass",
         "slicer.mrmlScene.GetFirstNodeByClass",
         "slicer.mrmlScene.GetNodesByClass",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode').GetNumberOfItems",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetItemAsObject",
-        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems"
+        "slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode').GetNumberOfItems",
+        "slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast"
       ],
       "operation_descriptions": [
-        "Apply islands effect"
+        "Apply the Islands effect to keep the largest island."
       ],
       "slicer_op_categories": [
         "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "Segment Editor",
+        "SegmentEditorEffect",
         "Apply",
-        "Islands"
+        "islands",
+        "keep largest island"
       ]
     },
     "operation_model": {
@@ -1297,7 +1407,7 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Apply islands effect",
+        "description": "Apply the Islands effect to keep the largest island.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1306,9 +1416,10 @@
         "target_value_mode": null,
         "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "Segment Editor",
+          "SegmentEditorEffect",
           "Apply",
-          "Islands"
+          "islands",
+          "keep largest island"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
@@ -1340,11 +1451,11 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select Bone Segment",
-      "instruction": "Select the bone segment node from the scene.",
+      "title": "Select the bone segment",
+      "instruction": "Choose the 'Bone_Segment' segment node.",
       "done_label": "Done",
-      "choice_label": "Segment",
-      "input_label": "Segment",
+      "choice_label": "Choice",
+      "input_label": "Choice",
       "object_label": "segment",
       "repeat": {}
     },
@@ -1363,16 +1474,16 @@
       "interaction_kinds": []
     },
     "choice_descriptor": {
-      "question": "Select the bone segment node.",
+      "question": "Select the segment node.",
       "choices": [],
-      "parameter_name": "bone_segment_node",
+      "parameter_name": "segment_node",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select Bone Segment",
-        "instruction": "Select the bone segment node from the scene.",
+        "title": "Select the bone segment",
+        "instruction": "Choose the 'Bone_Segment' segment node.",
         "done_label": "Done",
-        "choice_label": "Segment",
-        "input_label": "Segment",
+        "choice_label": "Choice",
+        "input_label": "Choice",
         "object_label": "segment",
         "repeat": {}
       }
@@ -1381,7 +1492,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the bone segment node for 3D reconstruction",
+        "description": "Select the bone segment node for further processing.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1389,7 +1500,12 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "segment",
+          "select",
+          "segmentation node",
+          "segment node"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -1406,9 +1522,9 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Select the bone segment node.",
+        "question": "Select the segment node.",
         "choices": [],
-        "parameter_name": "bone_segment_node",
+        "parameter_name": "segment_node",
         "default_value": null,
         "value_kind": "node"
       }
@@ -1425,12 +1541,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "3D Reconstruction",
-      "instruction": "Click the '3D Reconstruction' button.",
+      "title": "Run 3D Reconstruction",
+      "instruction": "Click 3D Reconstruction to build the bone model.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "model",
       "repeat": {}
     },
     "operation_model": {
@@ -1452,7 +1568,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Perform 3D reconstruction from bone segmentation",
+        "description": "Run 3D reconstruction of the bone segmentation.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "reconstruct3DButton",
@@ -1460,7 +1576,12 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "reconstruct3DButton",
+          "3D reconstruction",
+          "segmentation",
+          "model"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -1501,10 +1622,15 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Perform 3D reconstruction from bone segmentation"
+        "Run 3D reconstruction of the bone segmentation."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "reconstruct3DButton",
+        "3D reconstruction",
+        "segmentation",
+        "model"
+      ]
     }
   },
   {
@@ -1518,8 +1644,8 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust View for Fiducial Placement",
-      "instruction": "Rotate and zoom the 3D view to get a clear angle of the glenoid cavity surface.",
+      "title": "Adjust the 3D view",
+      "instruction": "Rotate and zoom the 3D view to a clear angle of the glenoid cavity surface.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1531,9 +1657,7 @@
       "op_types": [
         "user_interaction"
       ],
-      "operation_intents": [
-        "view_display_scope"
-      ],
+      "operation_intents": [],
       "invokes_extension_method": false,
       "invokes_extension_function": false,
       "invokes_slicer_api": true,
@@ -1552,8 +1676,8 @@
       "node_class": "",
       "placement_instructions": null,
       "ui_guidance": {
-        "title": "Adjust View for Fiducial Placement",
-        "instruction": "Rotate and zoom the 3D view to get a clear angle of the glenoid cavity surface.",
+        "title": "Adjust the 3D view",
+        "instruction": "Rotate and zoom the 3D view to a clear angle of the glenoid cavity surface.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1592,8 +1716,8 @@
     ],
     "operation_type": "slicer_op",
     "ui_guidance": {
-      "title": "Create Prosthesis Center Point",
-      "instruction": "Switch to Markups module, click 'Point List', and create a fiducial node named 'Prosthesis_center_point'.",
+      "title": "Create the Prosthesis_center_point",
+      "instruction": "In Markups, click Point List and name the node 'Prosthesis_center_point'.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1604,29 +1728,27 @@
       "source": "ground_api",
       "accepted_footprints": [
         "AddNewNodeByClass",
-        "CreateDefaultDisplayNodes",
         "GetName",
-        "format",
+        "GetNumberOfControlPoints",
         "mrmlScene",
         "vtkMRMLMarkupsFiducialNode"
       ],
       "api_chains": [
-        "\"STATE_NOT_APPLIED: node name - expected 'Prosthesis_center_point', got '{}'\".format",
-        "prosthesis_point_node.CreateDefaultDisplayNodes",
-        "prosthesis_point_node.GetName",
+        "fiducialNode.GetName",
+        "fiducialNode.GetNumberOfControlPoints",
         "slicer.mrmlScene.AddNewNodeByClass"
       ],
       "operation_descriptions": [
-        "Create empty MarkupsFiducial node named 'Prosthesis_center_point'"
+        "Create an empty MarkupsFiducial node named Prosthesis_center_point in Markups."
       ],
       "slicer_op_categories": [
-        "module_switching"
+        "generic_slicer_api"
       ],
       "slicer_api_keywords": [
-        "Markups",
-        "Point List",
         "vtkMRMLMarkupsFiducialNode",
-        "create"
+        "PointList",
+        "Markups module",
+        "create fiducial"
       ]
     },
     "operation_model": {
@@ -1634,14 +1756,12 @@
       "op_types": [
         "slicer_op"
       ],
-      "operation_intents": [
-        "module_switch"
-      ],
+      "operation_intents": [],
       "invokes_extension_method": false,
       "invokes_extension_function": false,
       "invokes_slicer_api": true,
       "implementation_uses_slicer_api": true,
-      "allow_module_switch": true,
+      "allow_module_switch": false,
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
@@ -1650,39 +1770,34 @@
       {
         "op_type": "slicer_op",
         "operation_type": "slicer_op",
-        "description": "Create empty MarkupsFiducial node named 'Prosthesis_center_point'",
+        "description": "Create an empty MarkupsFiducial node named Prosthesis_center_point in Markups.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
         "ui_parameter_binding": null,
         "target_value": null,
         "target_value_mode": null,
-        "slicer_op_category": "module_switching",
+        "slicer_op_category": "generic_slicer_api",
         "slicer_api_keywords": [
-          "Markups",
-          "Point List",
           "vtkMRMLMarkupsFiducialNode",
-          "create"
+          "PointList",
+          "Markups module",
+          "create fiducial"
         ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": "vtkMRMLMarkupsFiducialNode",
         "creates_node": true,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          12
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
-        "operation_intents": [
-          "module_switch"
-        ],
+        "operation_intents": [],
         "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "",
-        "operation_intent": "module_switch"
+        "evidence_id": ""
       }
     ]
   },
@@ -1697,8 +1812,8 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Place Prosthesis Center Point",
-      "instruction": "Click on the glenoid cavity surface to place the center point.",
+      "title": "Place the prosthesis center point",
+      "instruction": "Click on the glenoid cavity surface to place the prosthesis center point, then click Done.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1724,9 +1839,9 @@
     "node_roles": [
       {
         "role_kind": "interaction_output",
-        "step_id": "cb_step_14",
         "node_class": "vtkMRMLMarkupsFiducialNode",
-        "parameter_name": ""
+        "parameter_name": "",
+        "step_id": "cb_step_14"
       }
     ],
     "pre_template_file": "templates/cb_step_14_pre.py.tpl",
@@ -1735,10 +1850,10 @@
       "interaction_type": "fiducial",
       "interaction_kind": "markup_placement",
       "node_class": "vtkMRMLMarkupsFiducialNode",
-      "placement_instructions": "Click on the glenoid cavity surface in the 3D view to place the point.",
+      "placement_instructions": "Place the Prosthesis_center_point fiducial on the glenoid cavity surface.",
       "ui_guidance": {
-        "title": "Place Prosthesis Center Point",
-        "instruction": "Click on the glenoid cavity surface to place the center point.",
+        "title": "Place the prosthesis center point",
+        "instruction": "Click on the glenoid cavity surface to place the prosthesis center point, then click Done.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1757,6 +1872,7 @@
       "source": "ground_api",
       "accepted_footprints": [
         "CreateDefaultDisplayNodes",
+        "GetAttributeNames",
         "GetDisplayNode",
         "GetID",
         "GetItemAsObject",
@@ -1766,16 +1882,21 @@
         "SetActiveListID",
         "SetVisibility",
         "SwitchToSinglePlaceMode",
+        "append",
         "logic",
         "markups",
         "modules",
         "mrmlScene",
+        "startswith",
         "vtkMRMLInteractionNodeSingleton",
         "vtkMRMLMarkupsFiducialNode",
         "GetNumberOfControlPoints",
         "SwitchToViewTransformMode"
       ],
       "api_chains": [
+        "_candidates.append",
+        "_owned.append",
+        "candidate.GetAttributeNames",
         "displayNode.SetVisibility",
         "interactionNode.SwitchToSinglePlaceMode",
         "node.CreateDefaultDisplayNodes",
@@ -1790,6 +1911,7 @@
         "slicer.mrmlScene.GetNodesByClass",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetItemAsObject",
         "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetNumberOfItems",
+        "str(_n).startswith",
         "interactionNode.SwitchToViewTransformMode",
         "node.GetNumberOfControlPoints",
         "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
@@ -1812,12 +1934,12 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select Planning Point",
-      "instruction": "Select the MarkupsFiducial node you just created.",
+      "title": "Select the prosthesis center point",
+      "instruction": "Choose the 'Prosthesis_center_point' fiducial node.",
       "done_label": "Done",
-      "choice_label": "Point",
-      "input_label": "Point",
-      "object_label": "point",
+      "choice_label": "Choice",
+      "input_label": "Choice",
+      "object_label": "fiducial",
       "repeat": {}
     },
     "operation_model": {
@@ -1834,26 +1956,42 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "node_roles": [
+      {
+        "role_kind": "choice_input",
+        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "parameter_name": "",
+        "step_id": "cb_step_15"
+      }
+    ],
     "choice_descriptor": {
       "question": "Select the MarkupsFiducial node.",
       "choices": [],
-      "parameter_name": "planning_point_node",
+      "parameter_name": "prosthesis_center_point",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select Planning Point",
-        "instruction": "Select the MarkupsFiducial node you just created.",
+        "title": "Select the prosthesis center point",
+        "instruction": "Choose the 'Prosthesis_center_point' fiducial node.",
         "done_label": "Done",
-        "choice_label": "Point",
-        "input_label": "Point",
-        "object_label": "point",
+        "choice_label": "Choice",
+        "input_label": "Choice",
+        "object_label": "fiducial",
         "repeat": {}
-      }
+      },
+      "node_roles": [
+        {
+          "role_kind": "choice_input",
+          "node_class": "vtkMRMLMarkupsFiducialNode",
+          "parameter_name": "",
+          "step_id": "cb_step_15"
+        }
+      ]
     },
     "sub_operations": [
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the placed fiducial node for planning",
+        "description": "Select the Prosthesis_center_point fiducial node for prosthesis planning.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1861,26 +1999,35 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "vtkMRMLMarkupsFiducialNode",
+          "select node",
+          "markups node"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          14
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [],
+        "node_roles": [
+          {
+            "role_kind": "choice_input",
+            "node_class": "vtkMRMLMarkupsFiducialNode",
+            "parameter_name": "",
+            "step_id": "cb_step_15"
+          }
+        ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
         "question": "Select the MarkupsFiducial node.",
         "choices": [],
-        "parameter_name": "planning_point_node",
+        "parameter_name": "prosthesis_center_point",
         "default_value": null,
         "value_kind": "node"
       }
@@ -1897,12 +2044,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Prosthesis Implantation",
-      "instruction": "Click the 'Prosthesis implantation' button.",
+      "title": "Run Prosthesis implantation",
+      "instruction": "Click Prosthesis implantation to place the prosthesis.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "prosthesis",
       "repeat": {}
     },
     "operation_model": {
@@ -1919,33 +2066,54 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "node_roles": [
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLMarkupsFiducialNode",
+        "parameter_name": "",
+        "step_id": "cb_step_16"
+      }
+    ],
     "template_file": "templates/cb_step_16.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Implant prosthesis at selected point",
+        "description": "Run prosthesis implantation and position the baseplate.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "positionBaseplateButton",
         "ui_parameter_binding": null,
-        "target_value": true,
+        "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "positionBaseplateButton",
+          "prosthesis placement",
+          "baseplate",
+          "implantation"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
+          10,
           15
         ],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [],
+        "node_roles": [
+          {
+            "role_kind": "extension_input",
+            "node_class": "vtkMRMLMarkupsFiducialNode",
+            "parameter_name": "",
+            "step_id": "cb_step_16"
+          }
+        ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": ""
@@ -1973,10 +2141,15 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Implant prosthesis at selected point"
+        "Run prosthesis implantation and position the baseplate."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "positionBaseplateButton",
+        "prosthesis placement",
+        "baseplate",
+        "implantation"
+      ]
     }
   },
   {
@@ -1990,12 +2163,12 @@
     ],
     "operation_type": "branch_op",
     "ui_guidance": {
-      "title": "Adjust Prosthesis?",
-      "instruction": "If needed, check the 'Adjust Prosthesis (3D transform handles)' box, otherwise click Done to continue.",
+      "title": "Adjust the prosthesis?",
+      "instruction": "Choose Yes to adjust the prosthesis with 3D transform handles, or No to continue.",
       "done_label": "Done",
-      "choice_label": "Adjust",
-      "input_label": "Adjust",
-      "object_label": "interaction",
+      "choice_label": "Choice",
+      "input_label": "Choice",
+      "object_label": "prosthesis",
       "repeat": {}
     },
     "operation_model": {
@@ -2012,11 +2185,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "branch_action_template": "templates/cb_step_17_action.py.tpl",
     "choice_descriptor": {
-      "question": "Do you need to adjust the prosthesis?",
+      "question": "Do you want to further adjust the prosthesis?",
       "choices": [
         {
-          "label": "Yes (check box)",
+          "label": "Yes",
           "value": true
         },
         {
@@ -2027,12 +2201,12 @@
       "parameter_name": "adjust_prosthesis",
       "default_value": false,
       "ui_guidance": {
-        "title": "Adjust Prosthesis?",
-        "instruction": "If needed, check the 'Adjust Prosthesis (3D transform handles)' box, otherwise click Done to continue.",
+        "title": "Adjust the prosthesis?",
+        "instruction": "Choose Yes to adjust the prosthesis with 3D transform handles, or No to continue.",
         "done_label": "Done",
-        "choice_label": "Adjust",
-        "input_label": "Adjust",
-        "object_label": "interaction",
+        "choice_label": "Choice",
+        "input_label": "Choice",
+        "object_label": "prosthesis",
         "repeat": {}
       }
     },
@@ -2040,7 +2214,7 @@
       {
         "op_type": "branch_op",
         "operation_type": "branch_op",
-        "description": "Ask whether to adjust prosthesis using 3D transform handles",
+        "description": "Ask whether further prosthesis adjustment is needed; if yes, tick the Adjust Prosthesis checkbox.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "adjustBaseplateCheckBox",
@@ -2048,15 +2222,18 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "adjustBaseplateCheckBox",
+          "prosthesis adjustment",
+          "transform handles",
+          "checkbox"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          16
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -2065,10 +2242,10 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Do you need to adjust the prosthesis?",
+        "question": "Do you want to further adjust the prosthesis?",
         "choices": [
           {
-            "label": "Yes (check box)",
+            "label": "Yes",
             "value": true
           },
           {
@@ -2093,12 +2270,12 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust View for Prosthesis",
-      "instruction": "Rotate and zoom the 3D view to inspect the prosthesis placement.",
+      "title": "Adjust the prosthesis position",
+      "instruction": "Drag the 3D transform handles to position the prosthesis as needed.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "view",
+      "object_label": "prosthesis",
       "repeat": {}
     },
     "operation_model": {
@@ -2125,17 +2302,17 @@
       "node_class": "",
       "placement_instructions": null,
       "ui_guidance": {
-        "title": "Adjust View for Prosthesis",
-        "instruction": "Rotate and zoom the 3D view to inspect the prosthesis placement.",
+        "title": "Adjust the prosthesis position",
+        "instruction": "Drag the 3D transform handles to position the prosthesis as needed.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "view",
+        "object_label": "prosthesis",
         "repeat": {}
       }
     },
     "repeat_block": {
-      "repeat_id": "adjust_prosthesis",
+      "repeat_id": "prosthesis_adjustment_optional",
       "body_steps": [
         "cb_step_18",
         "cb_step_19"
@@ -2144,9 +2321,9 @@
       "terminal_step": "cb_step_19",
       "exit_step": "cb_step_20",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_17",
-        "prompt": "Further adjustments required? Check the 'Adjust Prosthesis (3D transform handles)' box.",
+        "prompt": "If further adjustments are required, check the 'Adjust Prosthesis (3D transform handles)' box. If not, proceed to Step 20.",
         "exit_value": false,
         "exit_target": 20
       },
@@ -2192,12 +2369,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Update Prosthesis",
-      "instruction": "Click the 'Update Prosthesis' button.",
+      "title": "Update the prosthesis",
+      "instruction": "Click Update Prosthesis to apply the adjustment.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "prosthesis",
       "repeat": {}
     },
     "operation_model": {
@@ -2219,7 +2396,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Apply prosthesis adjustments",
+        "description": "Apply and update the adjusted prosthesis position.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "fixBaseplateButton",
@@ -2227,7 +2404,11 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "fixBaseplateButton",
+          "update prosthesis",
+          "apply transform"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -2247,7 +2428,7 @@
       }
     ],
     "repeat_block": {
-      "repeat_id": "adjust_prosthesis",
+      "repeat_id": "prosthesis_adjustment_optional",
       "body_steps": [
         "cb_step_18",
         "cb_step_19"
@@ -2256,9 +2437,9 @@
       "terminal_step": "cb_step_19",
       "exit_step": "cb_step_20",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_17",
-        "prompt": "Further adjustments required? Check the 'Adjust Prosthesis (3D transform handles)' box.",
+        "prompt": "If further adjustments are required, check the 'Adjust Prosthesis (3D transform handles)' box. If not, proceed to Step 20.",
         "exit_value": false,
         "exit_target": 20
       },
@@ -2295,10 +2476,14 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Apply prosthesis adjustments"
+        "Apply and update the adjusted prosthesis position."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "fixBaseplateButton",
+        "update prosthesis",
+        "apply transform"
+      ]
     }
   },
   {
@@ -2312,12 +2497,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Generate Plan",
-      "instruction": "Click the 'Plan' button to generate the screw plan.",
+      "title": "Generate the plan",
+      "instruction": "Click Plan to compute the screw planning.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "plan",
       "repeat": {}
     },
     "operation_model": {
@@ -2339,7 +2524,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Generate surgical plan",
+        "description": "Run the implant plan generation.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "planButton",
@@ -2347,15 +2532,18 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "planButton",
+          "plan",
+          "implant planning",
+          "generate plan"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          19
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -2388,10 +2576,15 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Generate surgical plan"
+        "Run the implant plan generation."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "planButton",
+        "plan",
+        "implant planning",
+        "generate plan"
+      ]
     }
   },
   {
@@ -2405,12 +2598,12 @@
     ],
     "operation_type": "branch_op",
     "ui_guidance": {
-      "title": "Adjust Screw?",
-      "instruction": "If needed, check the 'Adjust screw' box, otherwise click Done to finish.",
+      "title": "Adjust the screw?",
+      "instruction": "Choose Yes to adjust the screw paths, or No to finish.",
       "done_label": "Done",
-      "choice_label": "Adjust",
-      "input_label": "Adjust",
-      "object_label": "interaction",
+      "choice_label": "Choice",
+      "input_label": "Choice",
+      "object_label": "screw",
       "repeat": {}
     },
     "operation_model": {
@@ -2427,11 +2620,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "branch_action_template": "templates/cb_step_21_action.py.tpl",
     "choice_descriptor": {
-      "question": "Do you need to adjust the screw?",
+      "question": "Do you want to further adjust the screw?",
       "choices": [
         {
-          "label": "Yes (check box)",
+          "label": "Yes",
           "value": true
         },
         {
@@ -2442,12 +2636,12 @@
       "parameter_name": "adjust_screw",
       "default_value": false,
       "ui_guidance": {
-        "title": "Adjust Screw?",
-        "instruction": "If needed, check the 'Adjust screw' box, otherwise click Done to finish.",
+        "title": "Adjust the screw?",
+        "instruction": "Choose Yes to adjust the screw paths, or No to finish.",
         "done_label": "Done",
-        "choice_label": "Adjust",
-        "input_label": "Adjust",
-        "object_label": "interaction",
+        "choice_label": "Choice",
+        "input_label": "Choice",
+        "object_label": "screw",
         "repeat": {}
       }
     },
@@ -2455,7 +2649,7 @@
       {
         "op_type": "branch_op",
         "operation_type": "branch_op",
-        "description": "Ask whether to adjust screw",
+        "description": "Ask whether further screw adjustment is needed; if yes, tick the Adjust screw checkbox; if no, stop.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "adjustScrewCheckBox",
@@ -2463,15 +2657,17 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "adjustScrewCheckBox",
+          "screw adjustment",
+          "checkbox"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          20
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -2480,10 +2676,10 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "Do you need to adjust the screw?",
+        "question": "Do you want to further adjust the screw?",
         "choices": [
           {
-            "label": "Yes (check box)",
+            "label": "Yes",
             "value": true
           },
           {
@@ -2508,12 +2704,12 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust View for Screw Paths",
-      "instruction": "Rotate and zoom the 3D view to clearly see the planning paths.",
+      "title": "Adjust the screw path endpoints",
+      "instruction": "Drag the endpoints of the planning paths to adjust the screw trajectory.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "view",
+      "object_label": "screw",
       "repeat": {}
     },
     "operation_model": {
@@ -2532,33 +2728,25 @@
         "interaction"
       ]
     },
-    "node_roles": [
-      {
-        "role_kind": "interaction_output",
-        "step_id": "cb_step_22",
-        "node_class": "vtkMRMLMarkupsLineNode",
-        "parameter_name": ""
-      }
-    ],
     "pre_template_file": "templates/cb_step_22_pre.py.tpl",
     "post_template_file": "templates/cb_step_22_post.py.tpl",
     "interaction_descriptor": {
-      "interaction_type": "line",
+      "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
-      "node_class": "vtkMRMLMarkupsLineNode",
+      "node_class": "",
       "placement_instructions": null,
       "ui_guidance": {
-        "title": "Adjust View for Screw Paths",
-        "instruction": "Rotate and zoom the 3D view to clearly see the planning paths.",
+        "title": "Adjust the screw path endpoints",
+        "instruction": "Drag the endpoints of the planning paths to adjust the screw trajectory.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "view",
+        "object_label": "screw",
         "repeat": {}
       }
     },
     "repeat_block": {
-      "repeat_id": "adjust_screw",
+      "repeat_id": "screw_adjustment_optional",
       "body_steps": [
         "cb_step_22",
         "cb_step_23"
@@ -2567,9 +2755,9 @@
       "terminal_step": "cb_step_23",
       "exit_step": "",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_21",
-        "prompt": "Further screw adjustments required? Check the 'Adjust screw' box.",
+        "prompt": "If further adjustments are required, check the 'Adjust screw' box. If not, stop here.",
         "exit_value": false,
         "exit_target": "stop"
       },
@@ -2615,12 +2803,12 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Update Screw",
-      "instruction": "Click the 'Update screw' button.",
+      "title": "Update the screw",
+      "instruction": "Click Update screw to apply the adjustment.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "interaction",
+      "object_label": "screw",
       "repeat": {}
     },
     "operation_model": {
@@ -2642,7 +2830,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Apply screw adjustments",
+        "description": "Apply and update the adjusted screw plan.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "fixScrewButton",
@@ -2650,7 +2838,11 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [],
+        "slicer_api_keywords": [
+          "fixScrewButton",
+          "update screw",
+          "apply screw plan"
+        ],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
@@ -2670,7 +2862,7 @@
       }
     ],
     "repeat_block": {
-      "repeat_id": "adjust_screw",
+      "repeat_id": "screw_adjustment_optional",
       "body_steps": [
         "cb_step_22",
         "cb_step_23"
@@ -2679,9 +2871,9 @@
       "terminal_step": "cb_step_23",
       "exit_step": "",
       "controller": {
-        "kind": "until_choice",
+        "kind": "while_choice",
         "source_step": "cb_step_21",
-        "prompt": "Further screw adjustments required? Check the 'Adjust screw' box.",
+        "prompt": "If further adjustments are required, check the 'Adjust screw' box. If not, stop here.",
         "exit_value": false,
         "exit_target": "stop"
       },
@@ -2718,10 +2910,14 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "Apply screw adjustments"
+        "Apply and update the adjusted screw plan."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": []
+      "slicer_api_keywords": [
+        "fixScrewButton",
+        "update screw",
+        "apply screw plan"
+      ]
     }
   }
 ]

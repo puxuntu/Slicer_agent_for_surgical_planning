@@ -21,12 +21,17 @@
           "operation_id": "cb_step_1_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the CT volume for bone density optimization",
+          "description": "Select the CT volume to use for bone density optimization.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
-          "parameter_name": "input_volume",
+          "slicer_api_keywords": [
+            "vtkMRMLScalarVolumeNode",
+            "CT volume",
+            "select volume",
+            "MRML scene"
+          ],
+          "parameter_name": "ct_volume",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -71,15 +76,16 @@
         {
           "operation_id": "cb_step_2_op_1",
           "operation_type": "slicer_op",
-          "intent": "module_switch",
-          "description": "Create a new segmentation named 'Bone_Segmentation'",
+          "intent": "",
+          "description": "Create a new segmentation named Bone_Segmentation in Segment Editor.",
           "extension_method_hint": "",
           "extension_function_hint": "",
-          "slicer_op_category": "module_switching",
+          "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "Segment Editor",
+            "vtkMRMLSegmentationNode",
             "segmentation",
-            "create"
+            "AddNewNodeByClass"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -94,14 +100,12 @@
         "op_types": [
           "slicer_op"
         ],
-        "operation_intents": [
-          "module_switch"
-        ],
+        "operation_intents": [],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
         "invokes_slicer_api": true,
         "implementation_uses_slicer_api": true,
-        "allow_module_switch": true,
+        "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
@@ -129,14 +133,16 @@
           "operation_id": "cb_step_3_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Add a segment and rename to 'Bone_Segment'",
+          "description": "Add a segment and rename it to Bone_Segment.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "Segment Editor",
-            "Add",
-            "rename segment"
+            "segment",
+            "AddSegment",
+            "SetName",
+            "Bone_Segment"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -184,14 +190,15 @@
           "operation_id": "cb_step_4_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Open Threshold effect in Segment Editor",
+          "description": "Activate the Threshold effect in Segment Editor.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "Segment Editor",
-            "Threshold",
-            "effect"
+            "ThresholdEffect",
+            "threshold",
+            "activate effect"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -239,11 +246,16 @@
           "operation_id": "cb_step_5_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Set threshold range for bone segmentation",
+          "description": "Set the threshold range for bone segmentation.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
+          "slicer_api_keywords": [
+            "ThresholdEffect",
+            "threshold range",
+            "SetThresholdRange",
+            "min max"
+          ],
           "parameter_name": "threshold_range",
           "node_class": "",
           "confidence": "high",
@@ -290,14 +302,15 @@
           "operation_id": "cb_step_6_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Apply threshold effect",
+          "description": "Apply the threshold effect to generate the bone segment.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "Segment Editor",
+            "SegmentEditorEffect",
             "Apply",
-            "Threshold"
+            "threshold",
+            "binary labelmap"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -345,14 +358,15 @@
           "operation_id": "cb_step_7_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Open Islands effect in Segment Editor",
+          "description": "Activate the Islands effect in Segment Editor.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "Segment Editor",
-            "Islands",
-            "effect"
+            "IslandsEffect",
+            "islands",
+            "activate effect"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -400,14 +414,15 @@
           "operation_id": "cb_step_8_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Select 'Keep largest island' option",
+          "description": "Choose the Keep largest island operation.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "Segment Editor",
-            "Islands",
-            "Keep largest island"
+            "IslandsEffect",
+            "KeepLargestIsland",
+            "operation",
+            "set mode"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -455,14 +470,15 @@
           "operation_id": "cb_step_9_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Apply islands effect",
+          "description": "Apply the Islands effect to keep the largest island.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "Segment Editor",
+            "SegmentEditorEffect",
             "Apply",
-            "Islands"
+            "islands",
+            "keep largest island"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -510,12 +526,17 @@
           "operation_id": "cb_step_10_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the bone segment node for 3D reconstruction",
+          "description": "Select the bone segment node for further processing.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
-          "parameter_name": "bone_segment_node",
+          "slicer_api_keywords": [
+            "segment",
+            "select",
+            "segmentation node",
+            "segment node"
+          ],
+          "parameter_name": "segment_node",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -561,11 +582,16 @@
           "operation_id": "cb_step_11_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Perform 3D reconstruction from bone segmentation",
+          "description": "Run 3D reconstruction of the bone segmentation.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
+          "slicer_api_keywords": [
+            "reconstruct3DButton",
+            "3D reconstruction",
+            "segmentation",
+            "model"
+          ],
           "parameter_name": "",
           "node_class": "",
           "confidence": "high",
@@ -611,17 +637,17 @@
         {
           "operation_id": "cb_step_12_op_1",
           "operation_type": "user_interaction",
-          "intent": "view_display_scope",
-          "description": "Adjust 3D view for optimal fiducial placement angle",
+          "intent": "",
+          "description": "Adjust the 3D camera view for a good viewing angle for fiducial placement.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "vtkMRMLViewNode",
+            "camera",
             "rotate",
             "zoom",
-            "pan",
-            "camera"
+            "3D view"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -644,9 +670,7 @@
         "op_types": [
           "user_interaction"
         ],
-        "operation_intents": [
-          "view_display_scope"
-        ],
+        "operation_intents": [],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
         "invokes_slicer_api": false,
@@ -680,16 +704,16 @@
         {
           "operation_id": "cb_step_13_op_1",
           "operation_type": "slicer_op",
-          "intent": "module_switch",
-          "description": "Create empty MarkupsFiducial node named 'Prosthesis_center_point'",
+          "intent": "",
+          "description": "Create an empty MarkupsFiducial node named Prosthesis_center_point in Markups.",
           "extension_method_hint": "",
           "extension_function_hint": "",
-          "slicer_op_category": "module_switching",
+          "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "Markups",
-            "Point List",
             "vtkMRMLMarkupsFiducialNode",
-            "create"
+            "PointList",
+            "Markups module",
+            "create fiducial"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLMarkupsFiducialNode",
@@ -704,14 +728,12 @@
         "op_types": [
           "slicer_op"
         ],
-        "operation_intents": [
-          "module_switch"
-        ],
+        "operation_intents": [],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
         "invokes_slicer_api": true,
         "implementation_uses_slicer_api": true,
-        "allow_module_switch": true,
+        "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
@@ -739,7 +761,7 @@
           "operation_id": "cb_step_14_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Place fiducial point on glenoid cavity surface",
+          "description": "Place the Prosthesis_center_point fiducial on the glenoid cavity surface.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -747,8 +769,8 @@
             "vtkMRMLMarkupsFiducialNode",
             "place",
             "SetActiveListID",
-            "point list",
-            "markup placement"
+            "point",
+            "glenoid"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLMarkupsFiducialNode",
@@ -761,7 +783,7 @@
         "interaction_kind": "markup_placement",
         "interaction_type": "fiducial",
         "node_class": "vtkMRMLMarkupsFiducialNode",
-        "placement_instructions": "Click on the glenoid cavity surface in the 3D view to place the point.",
+        "placement_instructions": "Place the Prosthesis_center_point fiducial on the glenoid cavity surface.",
         "interaction_owner": "runtime_template",
         "placement_starter_method": "",
         "created_node_source": "previous_step"
@@ -806,13 +828,17 @@
           "operation_id": "cb_step_15_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the placed fiducial node for planning",
+          "description": "Select the Prosthesis_center_point fiducial node for prosthesis planning.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
-          "parameter_name": "planning_point_node",
-          "node_class": "vtkMRMLMarkupsFiducialNode",
+          "slicer_api_keywords": [
+            "vtkMRMLMarkupsFiducialNode",
+            "select node",
+            "markups node"
+          ],
+          "parameter_name": "prosthesis_center_point",
+          "node_class": "",
           "confidence": "high",
           "required": true
         }
@@ -857,11 +883,16 @@
           "operation_id": "cb_step_16_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Implant prosthesis at selected point",
+          "description": "Run prosthesis implantation and position the baseplate.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
+          "slicer_api_keywords": [
+            "positionBaseplateButton",
+            "prosthesis placement",
+            "baseplate",
+            "implantation"
+          ],
           "parameter_name": "",
           "node_class": "",
           "confidence": "high",
@@ -908,11 +939,16 @@
           "operation_id": "cb_step_17_op_1",
           "operation_type": "branch_op",
           "intent": "",
-          "description": "Ask whether to adjust prosthesis using 3D transform handles",
+          "description": "Ask whether further prosthesis adjustment is needed; if yes, tick the Adjust Prosthesis checkbox.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
+          "slicer_api_keywords": [
+            "adjustBaseplateCheckBox",
+            "prosthesis adjustment",
+            "transform handles",
+            "checkbox"
+          ],
           "parameter_name": "adjust_prosthesis",
           "node_class": "",
           "confidence": "high",
@@ -959,13 +995,13 @@
           "operation_id": "cb_step_18_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Manually adjust 3D transform handles to refine prosthesis position",
+          "description": "Manually adjust the prosthesis using 3D transform handles.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "3D transform",
-            "handle",
+            "vtkMRMLTransformNode",
+            "transform handles",
             "Translate",
             "Rotate"
           ],
@@ -1025,11 +1061,15 @@
           "operation_id": "cb_step_19_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Apply prosthesis adjustments",
+          "description": "Apply and update the adjusted prosthesis position.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
+          "slicer_api_keywords": [
+            "fixBaseplateButton",
+            "update prosthesis",
+            "apply transform"
+          ],
           "parameter_name": "",
           "node_class": "",
           "confidence": "high",
@@ -1076,11 +1116,16 @@
           "operation_id": "cb_step_20_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Generate surgical plan",
+          "description": "Run the implant plan generation.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
+          "slicer_api_keywords": [
+            "planButton",
+            "plan",
+            "implant planning",
+            "generate plan"
+          ],
           "parameter_name": "",
           "node_class": "",
           "confidence": "high",
@@ -1127,11 +1172,15 @@
           "operation_id": "cb_step_21_op_1",
           "operation_type": "branch_op",
           "intent": "",
-          "description": "Ask whether to adjust screw",
+          "description": "Ask whether further screw adjustment is needed; if yes, tick the Adjust screw checkbox; if no, stop.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
+          "slicer_api_keywords": [
+            "adjustScrewCheckBox",
+            "screw adjustment",
+            "checkbox"
+          ],
           "parameter_name": "adjust_screw",
           "node_class": "",
           "confidence": "high",
@@ -1178,26 +1227,28 @@
           "operation_id": "cb_step_22_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Manually adjust endpoints of planning paths (screw lines)",
+          "description": "Manually adjust the endpoints of the planning paths.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "vtkMRMLMarkupsLineNode",
-            "control point",
-            "Translate"
+            "planning path",
+            "endpoints",
+            "adjust",
+            "control points"
           ],
           "parameter_name": "",
-          "node_class": "vtkMRMLMarkupsLineNode",
-          "confidence": "medium",
+          "node_class": "",
+          "confidence": "high",
           "required": true
         }
       ],
       "parameter_roles": {},
       "interaction": {
         "interaction_kind": "view_adjustment",
-        "interaction_type": "line",
-        "node_class": "vtkMRMLMarkupsLineNode",
+        "interaction_type": "generic",
+        "node_class": "",
         "placement_instructions": "",
         "interaction_owner": "",
         "placement_starter_method": "",
@@ -1243,11 +1294,15 @@
           "operation_id": "cb_step_23_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Apply screw adjustments",
+          "description": "Apply and update the adjusted screw plan.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
+          "slicer_api_keywords": [
+            "fixScrewButton",
+            "update screw",
+            "apply screw plan"
+          ],
           "parameter_name": "",
           "node_class": "",
           "confidence": "high",

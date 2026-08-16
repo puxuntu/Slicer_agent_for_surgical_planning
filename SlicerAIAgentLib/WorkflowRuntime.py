@@ -278,6 +278,42 @@ _NONSPECIFIC_NODE_CLASSES = frozenset({
     "vtkMRMLTransformableNode", "vtkMRMLDisplayableHierarchyNode",
 })
 
+#: A MRML class name is a fixed lexical shape, which is what makes recovering one
+#: from a decorated string deterministic rather than a guess.
+_NODE_CLASS_RE = re.compile(r"\bvtkMRML[A-Za-z0-9]+\b")
+
+
+def normalize_node_class(raw: Any) -> str:
+    """The MRML class name inside a generated ``node_class``, or "".
+
+    A node class is a LOOKUP KEY -- it goes straight to ``getNodesByClass`` and to
+    ``qMRMLSubjectHierarchyTreeView.nodeTypes`` -- but it arrives from an LLM
+    decomposition, which sometimes writes it as prose: ``"vtkMRMLVolumeNode (CT
+    scalar volume)"`` is a real class plus a helpful gloss. As a key that string
+    matches nothing, and the failure is confusing rather than obvious: the picker
+    offers an empty list, and the entry precheck reports the scene as missing a
+    volume the surgeon has already loaded.
+
+    Every consumer of a generated node class goes through here, so a decorated
+    value degrades to the class it names instead of to a dead key. Returns "" when
+    there is no class token at all, which is the fail-open answer everywhere it is
+    used: no class means no filter and no requirement.
+    """
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    match = _NODE_CLASS_RE.search(text)
+    if not match:
+        return ""
+    found = match.group(0)
+    if found != text:
+        logger.warning(
+            "Generated node_class %r is not a bare class name; using %r. "
+            "Regenerate this CLI -- the shipped artifact carries prose where a "
+            "lookup key belongs.", text, found,
+        )
+    return found
+
 
 def _tokenize_choice_text(text: str) -> set:
     """Lowercased word-token set of ``text`` with camelCase split and every
@@ -490,7 +526,9 @@ class WorkflowRuntime:
         # its keywords) so the panel can offer a dropdown of matching scene
         # nodes instead of a free-text box.
         binding = source.get("binding") or self._node_binding_for_param(parameter_name)
-        node_class = source.get("node_class") or binding.get("node_class", "")
+        node_class = normalize_node_class(
+            source.get("node_class") or binding.get("node_class", "")
+        )
         if not node_class and result_type == "user_choice":
             # No binding was inferred (e.g. a subject-hierarchy selector or a
             # parameterNodeWrapper-bound field): fall back to the node class the
@@ -2449,7 +2487,7 @@ class WorkflowRuntime:
             choices = []
         needs_input = bool(cp.editable) and not choices
         binding = self._node_binding_for_param(cp.parameter_name)
-        node_class = binding.get("node_class", "")
+        node_class = normalize_node_class(binding.get("node_class", ""))
         if not node_class:
             # Mirror the live path EXACTLY: resolve the step graph's node class for
             # any node-selection step (``_node_class_from_step_meta`` returns "" for
@@ -2831,7 +2869,7 @@ class WorkflowRuntime:
         roles = meta.get("node_roles") or []
         for role in roles:
             if isinstance(role, dict) and role.get("role_kind") == "choice_input":
-                nc = str(role.get("node_class") or "").strip()
+                nc = normalize_node_class(role.get("node_class"))
                 if nc and nc not in _NONSPECIFIC_NODE_CLASSES:
                     return nc
         # A node pick: explicit ``value_kind == "node"``, OR the recorded source
@@ -2853,12 +2891,12 @@ class WorkflowRuntime:
                     or wc == "qMRMLSegmentsTableView"):
                 continue
             if vk == "node" or wc in node_selector_widgets:
-                nc = str(so.get("node_class") or "").strip()
+                nc = normalize_node_class(so.get("node_class"))
                 if nc and nc not in _NONSPECIFIC_NODE_CLASSES:
                     return nc
         for role in roles:
             if isinstance(role, dict):
-                nc = str(role.get("node_class") or "").strip()
+                nc = normalize_node_class(role.get("node_class"))
                 if nc and nc not in _NONSPECIFIC_NODE_CLASSES:
                     return nc
         # Last resort: no structural node class was captured (common for

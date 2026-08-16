@@ -32,7 +32,7 @@ for _ses_j in range(_ses_vols.GetNumberOfItems() - 1, -1, -1):
         break
 if _ses_vol is not None:
     _ses_widget.setSourceVolumeNode(_ses_vol)
-if _ses_seg is not None:
+if _ses_seg is not None and _ses_editor_node is not None:
     _ses_segmentation = _ses_seg.GetSegmentation()
     _ses_target = _ses_seg.GetAttribute("SlicerAIAgent.SegmentEditorTargetSegmentID")
     if not _ses_target or _ses_segmentation.GetSegment(_ses_target) is None:
@@ -40,6 +40,12 @@ if _ses_seg is not None:
     if _ses_target:
         _ses_editor_node.SetSelectedSegmentID(_ses_target)
         _ses_widget.setCurrentSegmentID(_ses_target)
+        _ses_disp = slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast(_ses_seg.GetDisplayNode())
+        if _ses_disp is not None:
+            _ses_disp.SetVisibility(True)
+            _ses_disp.SetVisibility2DFill(True)
+            _ses_disp.SetVisibility2DOutline(True)
+            _ses_disp.SetSegmentVisibility(_ses_target, True)
 _ses_widget.setActiveEffectByName("Threshold")
 _ses_eff = _ses_widget.activeEffect()
 if _ses_eff is not None:

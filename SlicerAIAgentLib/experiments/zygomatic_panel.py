@@ -26,7 +26,12 @@ def build_panel(widget, layout, extension):
     intro = qt.QLabel(
         "Summarises every run under <code>{runs}</code> against the manually "
         "planned paths in <code>{data}</code>, and writes both tables to one "
-        "workbook beside the runs."
+        "workbook beside the runs.<br>"
+        "A case is <code>{data}/&lt;subject&gt;/</code> -- the folder the run's "
+        "data was loaded from -- holding one <code>.stl</code> per manually "
+        "planned implant. <b>Their names do not matter</b>: each rod is paired "
+        "with the planned path sharing its entry point, so renaming or "
+        "renumbering them changes no number in the report."
         .format(runs=os.path.join(zygomatic.EXPERIMENT_DIR, zygomatic.RUNS_SUBDIR),
                 data=os.path.join(zygomatic.EXPERIMENT_DIR, zygomatic.DATASET_SUBDIR))
     )

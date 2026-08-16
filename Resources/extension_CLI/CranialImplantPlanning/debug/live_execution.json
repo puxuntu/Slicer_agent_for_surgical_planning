@@ -1,9 +1,9 @@
 {
-  "pass": 1,
+  "pass": 2,
   "summary": {
-    "live_valid": 6,
-    "failed_bug": 0,
-    "skipped": 12
+    "live_valid": 8,
+    "failed_bug": 1,
+    "skipped": 11
   },
   "steps": [
     {
@@ -17,22 +17,14 @@
     {
       "template_key": "cb_step_10",
       "step_id": "cb_step_10",
-      "operation_type": "user_interaction",
-      "status": "skipped_interaction",
+      "operation_type": "user_choice",
+      "status": "skipped_no_template",
       "error": null,
       "execution_time": 0
     },
     {
-      "template_key": "cb_step_12",
-      "step_id": "cb_step_12",
-      "operation_type": "user_interaction",
-      "status": "skipped_interaction",
-      "error": null,
-      "execution_time": 0
-    },
-    {
-      "template_key": "cb_step_14",
-      "step_id": "cb_step_14",
+      "template_key": "cb_step_13",
+      "step_id": "cb_step_13",
       "operation_type": "user_interaction",
       "status": "skipped_interaction",
       "error": null,
@@ -41,6 +33,22 @@
     {
       "template_key": "cb_step_15",
       "step_id": "cb_step_15",
+      "operation_type": "user_interaction",
+      "status": "skipped_interaction",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_17",
+      "step_id": "cb_step_17",
+      "operation_type": "user_interaction",
+      "status": "skipped_interaction",
+      "error": null,
+      "execution_time": 0
+    },
+    {
+      "template_key": "cb_step_18",
+      "step_id": "cb_step_18",
       "operation_type": "user_choice",
       "status": "skipped_no_template",
       "error": null,
@@ -55,48 +63,48 @@
       "execution_time": 0
     },
     {
-      "template_key": "cb_step_7",
-      "step_id": "cb_step_7",
-      "operation_type": "user_choice",
-      "status": "skipped_no_template",
-      "error": null,
-      "execution_time": 0
-    },
-    {
       "template_key": "templates/cb_step_11.py.tpl",
       "step_id": "cb_step_11",
+      "operation_type": "extension_op",
+      "status": "failed_bug",
+      "error": "Select a segmentation (or its skull segment) in the list first.",
+      "execution_time": 8.534121
+    },
+    {
+      "template_key": "templates/cb_step_12.py.tpl",
+      "step_id": "cb_step_12",
       "operation_type": "extension_op",
       "status": "skipped_precondition",
       "error": "extension_op inputs (user-loaded data) not present in scene",
       "execution_time": 0
     },
     {
-      "template_key": "templates/cb_step_13_slicer.py.tpl",
-      "step_id": "cb_step_13",
+      "template_key": "templates/cb_step_14.py.tpl",
+      "step_id": "cb_step_14",
+      "operation_type": "extension_op",
+      "status": "skipped_precondition",
+      "error": "required input nodes absent: vtkMRMLMarkupsROINode, vtkMRMLVolumeNode",
+      "execution_time": 0
+    },
+    {
+      "template_key": "templates/cb_step_16_slicer.py.tpl",
+      "step_id": "cb_step_16",
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.026034
+      "execution_time": 0.025
     },
     {
-      "template_key": "templates/cb_step_16.py.tpl",
-      "step_id": "cb_step_16",
+      "template_key": "templates/cb_step_19.py.tpl",
+      "step_id": "cb_step_19",
       "operation_type": "extension_op",
       "status": "skipped_precondition",
       "error": "required input nodes absent: vtkMRMLVolumeNode",
       "execution_time": 0
     },
     {
-      "template_key": "templates/cb_step_17_slicer.py.tpl",
-      "step_id": "cb_step_17",
-      "operation_type": "slicer_op",
-      "status": "live_valid",
-      "error": null,
-      "execution_time": 0.004992
-    },
-    {
-      "template_key": "templates/cb_step_18.py.tpl",
-      "step_id": "cb_step_18",
+      "template_key": "templates/cb_step_20.py.tpl",
+      "step_id": "cb_step_20",
       "operation_type": "extension_op",
       "status": "skipped_precondition",
       "error": "extension_op inputs (user-loaded data) not present in scene",
@@ -108,7 +116,7 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.01162
+      "execution_time": 0.02732
     },
     {
       "template_key": "templates/cb_step_3_slicer.py.tpl",
@@ -116,7 +124,7 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.005564
+      "execution_time": 0.01
     },
     {
       "template_key": "templates/cb_step_4_slicer.py.tpl",
@@ -124,7 +132,7 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.521684
+      "execution_time": 0.042001
     },
     {
       "template_key": "templates/cb_step_6_slicer.py.tpl",
@@ -132,23 +140,31 @@
       "operation_type": "slicer_op",
       "status": "live_valid",
       "error": null,
-      "execution_time": 0.012003
+      "execution_time": 0.013001
     },
     {
-      "template_key": "templates/cb_step_8.py.tpl",
+      "template_key": "templates/cb_step_7_slicer.py.tpl",
+      "step_id": "cb_step_7",
+      "operation_type": "slicer_op",
+      "status": "live_valid",
+      "error": null,
+      "execution_time": 0.026998
+    },
+    {
+      "template_key": "templates/cb_step_8_slicer.py.tpl",
       "step_id": "cb_step_8",
-      "operation_type": "extension_op",
-      "status": "skipped_precondition",
-      "error": "extension_op inputs (user-loaded data) not present in scene",
-      "execution_time": 0
+      "operation_type": "slicer_op",
+      "status": "live_valid",
+      "error": null,
+      "execution_time": 0.023515
     },
     {
-      "template_key": "templates/cb_step_9.py.tpl",
+      "template_key": "templates/cb_step_9_slicer.py.tpl",
       "step_id": "cb_step_9",
-      "operation_type": "extension_op",
-      "status": "skipped_precondition",
-      "error": "extension_op inputs (user-loaded data) not present in scene",
-      "execution_time": 0
+      "operation_type": "slicer_op",
+      "status": "live_valid",
+      "error": null,
+      "execution_time": 0.044002
     }
   ]
 }

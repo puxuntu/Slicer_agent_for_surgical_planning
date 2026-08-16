@@ -1,6 +1,10 @@
 from .common import *
 
 
+# "this AST node is not a literal", distinct from a literal whose value is None.
+_NO_LITERAL = object()
+
+
 class AnalyzerScanMixin:
     def _stage1_scan(self, source_path: str) -> Dict:
         """Scan extension source tree, parse AST, find Logic class."""
@@ -207,6 +211,30 @@ class AnalyzerScanMixin:
         wizard = self._scan_wizard_workflow(widget_class, py_files)
         wizard_pages = self._scan_wizard_pages(wizard)
 
+        # The widget's own VALUE controls (enum combo, checkbox) with their real item
+        # list and the index->value map the extension's reader applies, plus whether
+        # the .ui file (if any) is the GUI the widget actually builds. Together these
+        # decide whether a "choose X" step's options come from the source or from a
+        # file the module never loads. {} / True for extensions built the usual way.
+        value_controls = self._scan_value_controls(py_files, widget_class)
+        # With no .ui file there is nothing to demote, so "live" is vacuously true.
+        # Stated explicitly because the alternative reading -- False for an extension
+        # that simply has no .ui -- would put a wizard module (whose controls live on
+        # page classes, not on the module widget) into the demotion path and discard
+        # the Qt classes its own page scan recovered.
+        ui_live = (not ui_files) or self._scan_ui_is_live(widget_class)
+        widget_attr_universe = (
+            self._scan_widget_attr_universe(widget_class) if not ui_live else set()
+        )
+        if ui_files and not ui_live:
+            logger.warning(
+                "[%s] .ui file(s) present but %s never loads one -- treating the .ui "
+                "inventory as advisory and preferring the %d scanned source control(s).",
+                os.path.basename(source_path),
+                (widget_class or {}).get("class_name", "the module widget"),
+                len(value_controls),
+            )
+
         # Find the entry point module (the main module file). A wizard module has
         # no logic class; its widget file IS the module entry point (and its
         # basename is the slicer.util.getModuleWidget key later stages drive).
@@ -239,6 +267,9 @@ class AnalyzerScanMixin:
             "sibling_packages": sibling_packages,
             "wizard": wizard,
             "wizard_pages": wizard_pages,
+            "value_controls": value_controls,
+            "ui_live": ui_live,
+            "widget_attr_universe": sorted(widget_attr_universe),
         }
 
     @staticmethod
@@ -908,6 +939,366 @@ class AnalyzerScanMixin:
                 info["granularity"] = "segment"
                 out.setdefault(widget, info)
         return out
+
+    # Qt/CTK classes whose selection is a VALUE the extension reads back (an enum
+    # pick or a boolean), as opposed to a scene-node selector (qMRML*) or a numeric
+    # slider (handled by their own branches in stage 4). These are the controls a
+    # cookbook "choose X" step reproduces, so their own item list is the choice domain.
+    _VALUE_CONTROL_CLASSES = frozenset({
+        "QComboBox", "ctkComboBox", "QCheckBox", "QRadioButton",
+    })
+    # Widget properties that read a value control's current selection back out.
+    _VALUE_CONTROL_PROPERTIES = frozenset({
+        "currentIndex", "currentText", "checked", "isChecked",
+    })
+    # Calls that wrap a display string for translation. The item text a user sees is
+    # the argument, not the call -- an extension that localises its labels
+    # (``addItem(_("Red box"))``) would otherwise scan as having no items at all.
+    _TR_WRAPPERS = frozenset({"_", "tr", "translate", "gettext"})
+
+    @staticmethod
+    def _ast_literal(node):
+        """A str/int/float/bool literal's value, or ``_NO_LITERAL``.
+
+        Literal AST classes differ across the Python versions Slicer has shipped
+        (``Str``/``Num``/``NameConstant`` before 3.8, ``Constant`` after), which is
+        why the existing ``_ast_const_str``/``_ast_const_int`` carry the same
+        fallback. A sentinel rather than ``None`` is returned for "not a literal",
+        so a genuine ``None``/``False``/``0`` operand stays distinguishable.
+        """
+        if node is None:
+            return _NO_LITERAL
+        if isinstance(node, ast.Constant):
+            return node.value
+        for kind, attr in ((getattr(ast, "Str", None), "s"),
+                           (getattr(ast, "Num", None), "n"),
+                           (getattr(ast, "NameConstant", None), "value")):
+            if kind is not None and isinstance(node, kind):
+                return getattr(node, attr, _NO_LITERAL)
+        return _NO_LITERAL
+
+    @classmethod
+    def _tr_const_str(cls, node):
+        """String literal, unwrapping one translation call: ``_("x")`` -> ``x``."""
+        direct = cls._ast_const_str(node)
+        if direct is not None:
+            return direct
+        if isinstance(node, ast.Call) and node.args:
+            fname = node.func.attr if isinstance(node.func, ast.Attribute) else (
+                node.func.id if isinstance(node.func, ast.Name) else "")
+            if fname in cls._TR_WRAPPERS:
+                # translate("context", "text") puts the text last.
+                return cls._ast_const_str(node.args[-1])
+        return None
+
+    @classmethod
+    def _scan_value_controls(cls, py_files: List[str], widget_info: Dict) -> Dict[str, Dict]:
+        """Map ``widget_name -> {widget_class, items, label, reader, consumers}`` for
+        the widget class's own VALUE controls (enum combo boxes, checkboxes).
+
+        This is the missing counterpart to the parameter-node binding scan. An
+        extension keeps a GUI setting in exactly one of two places, and only one of
+        them was ever read: either it writes the control into a parameter node
+        (``SetParameter("role", ...)``, covered by ``_extract_parameter_roles_from_source``),
+        or the handler reads the control **directly at click time** -- e.g.
+        ``self.logic.run(self._currentSide())`` where ``_currentSide`` returns
+        ``"right" if self.sideComboBox.currentIndex == 0 else "left"``. For the second
+        shape there is no parameter role, so the whole choice->argument channel was
+        empty and the step's answer reached nothing.
+
+        Three facts are recovered, each of which fails independently toward "unknown"
+        rather than toward a guess:
+
+        - **items**: the control's own option list, in index order, from ``addItem`` /
+          ``addItems`` (translation wrappers unwrapped). This is the choice domain the
+          user actually sees; an LLM paraphrase of the cookbook is not.
+        - **reader**: the method that turns the control's state into the value the
+          logic consumes, as an index/text -> value map. Restricted to the two
+          decidable shapes (a ternary return and an if/else return over a comparison
+          against a literal) -- anything else yields no map, and the item text is then
+          the value, which is what a combobox read via ``currentText`` means anyway.
+        - **consumers**: ``(method, arg_index)`` call sites that pass the reader's
+          result into a logic method, so a later stage can name the parameter it fills.
+
+        The index->value map is the part that cannot be inferred any other way and is
+        also the part that silently inverts: item 0 of this control means side
+        ``"right"``, so a choice list authored as ``[Left, Right]`` selects the
+        opposite orbit while still running, segmenting and reporting success.
+
+        Generic: keyed on Qt classes and the source's own dataflow. Returns {} for an
+        extension with no value controls (every parameter-node extension), so no
+        existing behaviour changes.
+        """
+        out: Dict[str, Dict] = {}
+        class_name = (widget_info or {}).get("class_name") or ""
+        fpath = (widget_info or {}).get("file") or ""
+        if not (class_name and fpath and os.path.isfile(fpath)):
+            return out
+        try:
+            with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                tree = ast.parse(f.read())
+        except Exception:
+            return out
+        cls_node = next((n for n in ast.walk(tree)
+                         if isinstance(n, ast.ClassDef) and n.name == class_name), None)
+        if cls_node is None:
+            return out
+
+        methods = {f.name: f for f in cls_node.body
+                   if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+        def _self_attr(node) -> str:
+            """``self.<attr>`` -> attr (also through ``self.ui.<attr>``); "" otherwise."""
+            return cls._widget_of_expr(node)
+
+        # ---- controls + their item lists + their paired label --------------------
+        controls: Dict[str, Dict] = {}
+        labels: Dict[str, str] = {}
+        layout_seq: Dict[str, List[str]] = {}
+        for fn in methods.values():
+            for st in ast.walk(fn):
+                if not (isinstance(st, ast.Assign) and isinstance(st.value, ast.Call)):
+                    continue
+                short = cls._ast_name(st.value.func).split(".")[-1]
+                target = ""
+                for t in st.targets:
+                    target = _self_attr(t)
+                    if target:
+                        break
+                if not target:
+                    continue
+                if short in cls._VALUE_CONTROL_CLASSES:
+                    controls.setdefault(target, {
+                        "widget_name": target, "widget_class": short,
+                        "items": [], "label": "", "source": "programmatic",
+                    })
+                elif short == "QLabel" and st.value.args:
+                    text = cls._tr_const_str(st.value.args[0])
+                    if text is not None:
+                        labels[target] = text
+        if not controls:
+            return out
+
+        for fn in methods.values():
+            for st in ast.walk(fn):
+                if not (isinstance(st, ast.Call) and isinstance(st.func, ast.Attribute)):
+                    continue
+                recv = _self_attr(st.func.value)
+                if st.func.attr == "addItem" and recv in controls and st.args:
+                    # addItem(text) or addItem(icon, text) -- the text is the last
+                    # string-valued argument, so an icon/data argument never wins.
+                    for arg in reversed(st.args):
+                        text = cls._tr_const_str(arg)
+                        if text is not None:
+                            controls[recv]["items"].append(text)
+                            break
+                elif st.func.attr == "addItems" and recv in controls and st.args:
+                    arg = st.args[0]
+                    if isinstance(arg, (ast.List, ast.Tuple)):
+                        controls[recv]["items"].extend(
+                            v for v in (cls._tr_const_str(e) for e in arg.elts) if v is not None
+                        )
+                elif st.func.attr == "addWidget" and st.args:
+                    lay = cls._ast_name(st.func.value)
+                    wname = _self_attr(st.args[0])
+                    if lay and wname:
+                        layout_seq.setdefault(lay, []).append(wname)
+                elif st.func.attr == "addRow" and len(st.args) >= 2:
+                    first, second = _self_attr(st.args[0]), _self_attr(st.args[1])
+                    if first in labels and second in controls and not controls[second]["label"]:
+                        controls[second]["label"] = labels[first]
+
+        # A label added to the same layout immediately before the control is that
+        # control's caption -- the same pairing rule the wizard page scan uses.
+        for seq in layout_seq.values():
+            for i in range(len(seq) - 1):
+                if seq[i] in labels and seq[i + 1] in controls \
+                        and not controls[seq[i + 1]]["label"]:
+                    controls[seq[i + 1]]["label"] = labels[seq[i]]
+
+        # ---- readers: control state -> the value the logic consumes --------------
+        def _compare_rule(test):
+            """``self.<w>.<prop> == <literal>`` -> (widget, property, literal)."""
+            if not (isinstance(test, ast.Compare) and len(test.ops) == 1
+                    and isinstance(test.ops[0], (ast.Eq, ast.Is))
+                    and isinstance(test.left, ast.Attribute)):
+                return None
+            widget = _self_attr(test.left.value)
+            prop = test.left.attr
+            if widget not in controls or prop not in cls._VALUE_CONTROL_PROPERTIES:
+                return None
+            literal = cls._ast_literal(test.comparators[0])
+            if literal is _NO_LITERAL:
+                return None
+            return widget, prop, literal
+
+        for name, fn in methods.items():
+            returns = [n for n in ast.walk(fn) if isinstance(n, ast.Return) and n.value is not None]
+            if not returns:
+                continue
+            rule = None
+            # Shape 1: return <a> if <cmp> else <b>
+            if len(returns) == 1 and isinstance(returns[0].value, ast.IfExp):
+                exp = returns[0].value
+                cmp_rule = _compare_rule(exp.test)
+                hit, miss = cls._ast_literal(exp.body), cls._ast_literal(exp.orelse)
+                if cmp_rule and hit is not _NO_LITERAL and miss is not _NO_LITERAL:
+                    widget, prop, operand = cmp_rule
+                    rule = (widget, prop, [(operand, hit)], miss)
+            # Shape 2: if <cmp>: return <a> \n else/fallthrough: return <b>
+            if rule is None and len(returns) == 2:
+                branch = next((n for n in ast.walk(fn) if isinstance(n, ast.If)), None)
+                cmp_rule = _compare_rule(branch.test) if branch is not None else None
+                if cmp_rule:
+                    inner = [n for n in ast.walk(branch) if isinstance(n, ast.Return) and n.value is not None]
+                    others = [r for r in returns if r not in inner]
+                    if len(inner) == 1 and len(others) == 1:
+                        hit = cls._ast_literal(inner[0].value)
+                        miss = cls._ast_literal(others[0].value)
+                        if hit is not _NO_LITERAL and miss is not _NO_LITERAL:
+                            widget, prop, operand = cmp_rule
+                            rule = (widget, prop, [(operand, hit)], miss)
+            # Shape 3: return self.<w>.<prop> -- the control's own state IS the value.
+            if rule is None and len(returns) == 1 and isinstance(returns[0].value, ast.Attribute):
+                widget = _self_attr(returns[0].value.value)
+                prop = returns[0].value.attr
+                if widget in controls and prop in cls._VALUE_CONTROL_PROPERTIES:
+                    rule = (widget, prop, [], None)
+            if rule is None:
+                continue
+            widget, prop, cases, default = rule
+            controls[widget].setdefault("reader", {
+                "method": name,
+                "property": prop,
+                "cases": [{"operand": op, "value": val} for op, val in cases],
+                "default": default,
+            })
+
+        # ---- consumers: who receives the reader's result -------------------------
+        for name, fn in methods.items():
+            for call in ast.walk(fn):
+                if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)):
+                    continue
+                for index, arg in enumerate(call.args):
+                    if not (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute)
+                            and isinstance(arg.func.value, ast.Name) and arg.func.value.id == "self"):
+                        continue
+                    reader_name = arg.func.attr
+                    for control in controls.values():
+                        if (control.get("reader") or {}).get("method") != reader_name:
+                            continue
+                        control.setdefault("consumers", []).append({
+                            "method": call.func.attr,
+                            "arg_index": index,
+                            "handler": name,
+                        })
+
+        for name, control in controls.items():
+            control["options"] = cls._value_control_options(control)
+            out[name] = control
+        return out
+
+    @staticmethod
+    def _value_control_options(control: Dict) -> List[Dict]:
+        """Resolve a scanned value control to ``[{index, text, value}]``.
+
+        The value is what the extension's own reader yields for that index -- the
+        only place the mapping exists. With no reader (or an unrecognised one) the
+        item text is the value, which is what reading ``currentText`` means.
+        """
+        items = list(control.get("items") or [])
+        reader = control.get("reader") or {}
+        prop = reader.get("property") or ""
+        cases = reader.get("cases") or []
+        options: List[Dict] = []
+        if control.get("widget_class") in ("QCheckBox", "QRadioButton") and not items:
+            # A binary control has no item list; its domain is its checked state.
+            return [{"index": 1, "text": "Yes", "value": True},
+                    {"index": 0, "text": "No", "value": False}]
+        for index, text in enumerate(items):
+            value = text
+            if cases:
+                probe = index if prop == "currentIndex" else text
+                matched = next((c for c in cases if c.get("operand") == probe), None)
+                value = matched["value"] if matched else reader.get("default")
+                if value is None:
+                    value = text
+            options.append({"index": index, "text": text, "value": value})
+        return options
+
+    @classmethod
+    def _scan_widget_attr_universe(cls, widget_info: Dict) -> set:
+        """Every ``self.<attr>`` the module widget class assigns.
+
+        A name universe, not a widget inventory: it is used only to answer "does
+        this name exist in the widget at all?", so over-inclusion (a non-widget
+        attribute) is harmless while a miss is what matters. Consulted only when the
+        ``.ui`` is not live, to stop a name that exists solely in an unloaded file
+        from being reported as one of the extension's controls.
+        """
+        names: set = set()
+        fpath = (widget_info or {}).get("file") or ""
+        class_name = (widget_info or {}).get("class_name") or ""
+        if not (fpath and class_name and os.path.isfile(fpath)):
+            return names
+        try:
+            with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                tree = ast.parse(f.read())
+        except Exception:
+            return names
+        cls_node = next((n for n in ast.walk(tree)
+                         if isinstance(n, ast.ClassDef) and n.name == class_name), None)
+        if cls_node is None:
+            return names
+        for node in ast.walk(cls_node):
+            targets = []
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            for target in targets:
+                name = cls._widget_of_expr(target)
+                if name:
+                    names.add(name)
+        return names
+
+    @classmethod
+    def _scan_ui_is_live(cls, widget_info: Dict) -> bool:
+        """Whether the module widget actually BUILDS its GUI from a ``.ui`` file.
+
+        A ``.ui`` file lying in ``Resources/UI/`` is evidence only if the widget
+        loads it. Slicer's module template ships one, and a module that later moved
+        to building its panel in code keeps the file around: it then describes a GUI
+        that does not exist, while still parsing cleanly and still carrying widget
+        names that match the real ones. Every fact taken from it -- Qt class, item
+        list, item ORDER -- is then unverified, and the item order is the dangerous
+        one, because a reversed enum still runs and still reports success.
+
+        Keyed on the two documented ways a scripted module attaches a ``.ui``
+        (``slicer.util.loadUI`` / ``childWidgetVariables`` into ``self.ui``), so it
+        is True for every extension built the standard way and False only for one
+        that genuinely draws its own panel.
+        """
+        fpath = (widget_info or {}).get("file") or ""
+        class_name = (widget_info or {}).get("class_name") or ""
+        if not (fpath and class_name and os.path.isfile(fpath)):
+            # No widget class to check -- keep the .ui evidence rather than
+            # discarding it on an unrelated scan failure.
+            return True
+        try:
+            with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                tree = ast.parse(f.read())
+        except Exception:
+            return True
+        cls_node = next((n for n in ast.walk(tree)
+                         if isinstance(n, ast.ClassDef) and n.name == class_name), None)
+        if cls_node is None:
+            return True
+        for call in ast.walk(cls_node):
+            if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) \
+                    and call.func.attr in ("loadUI", "childWidgetVariables"):
+                return True
+        return False
 
     @staticmethod
     def _annotation_node_class(annotation) -> str:

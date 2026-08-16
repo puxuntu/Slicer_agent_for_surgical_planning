@@ -1,4 +1,5 @@
 # --- ReverseShoulderArthroplasty: Click the "3D Reconstruction" button. ---
+# [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.

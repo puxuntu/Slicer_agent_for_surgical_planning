@@ -1,4 +1,5 @@
-# --- CranialImplantPlanning: Click the "Crop to ROI" button. ---
+# --- CranialImplantPlanning: Click the "Load Skull Mask" button. ---
+# [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -24,9 +25,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the SlicerE3Implant module widget for 'cropButton'.")
-if not hasattr(_widget, 'onCropToRoi'):
-    raise RuntimeError("SlicerE3Implant widget has no handler 'onCropToRoi' for 'cropButton'; regenerate the CLI.")
-_widget.onCropToRoi()
-print("[CranialImplantPlanning] Step 'cb_step_11': clicked 'cropButton' via onCropToRoi().")
+    raise RuntimeError("Could not obtain the SlicerE3Implant module widget for 'loadButton'.")
+if not hasattr(_widget, 'onLoadSkull'):
+    raise RuntimeError("SlicerE3Implant widget has no handler 'onLoadSkull' for 'loadButton'; regenerate the CLI.")
+_widget.onLoadSkull()
+print("[CranialImplantPlanning] Step 'cb_step_11': clicked 'loadButton' via onLoadSkull().")
 

@@ -16,21 +16,21 @@ and wait for them to complete the interaction before proceeding.
 2. `cb_step_2` [slicer_op] — In the "Markups" module, click "ROI" to create an empty MarkupsROI node named "Orbital_Region".
 3. `cb_step_3` [user_interaction] — Manually click and adjust on the Slice views to create the ROI for the "Orbital_Region".
    - Interaction: roi
-   - Tell user: Click and adjust on the slice views to create the ROI for Orbital_Region
+   - Tell user: Click and adjust in the slice views to place the Orbital_Region ROI.
 4. `cb_step_4` [user_choice] — In the "Bounding box (ROI)" section, select the MarkupsROI node.
-   - Ask user: Select the MarkupsROI node for the bounding box
+   - Ask user: Select the MarkupsROI node
 5. `cb_step_5` [extension_op] — Click the "Cut the volume with ROI" button.
 6. `cb_step_6` [slicer_op] — In the "Segment Editor" module, create a new segmentation named "Bone_Segmentation" for the "OFR_CutVolume" volume node.
 7. `cb_step_7` [slicer_op] — In the "Segment Editor" module, click the "Add" button and rename the segment to "Bone_Segment".
 8. `cb_step_8` [slicer_op] — In the "Segment Editor" module, click the "Threshold" button.
 9. `cb_step_9` [user_choice] — In the "Segment Editor" module, adjust the threshold slider to set the segmentation range.
-   - Ask user: Adjust the threshold range for bone segmentation
+   - Ask user: Set the threshold range for the bone segmentation
 10. `cb_step_10` [slicer_op] — In the "Segment Editor" module, click the "Apply" button.
 11. `cb_step_11` [user_choice] — In the "Bone segmentation" section, select the segment node.
-   - Ask user: Select the bone segmentation node for full bone reconstruction
+   - Ask user: Select the bone segmentation node
 12. `cb_step_12` [extension_op] — Click the "Reconstruct full bone" button.
 13. `cb_step_13` [user_choice] — In the "Fractured side (pick the colored box over the fractured orbit)" section, select the segment node.
-   - Ask user: Select the fractured side (left/right)
+   - Ask user: Fractured side (pick the colored box over the fractured orbit)
 14. `cb_step_14` [extension_op] — Click the "Segment orbit" button.
 15. `cb_step_15` [extension_op] — Click the "Reconstruct fractured" button.
 
@@ -40,8 +40,9 @@ and wait for them to complete the interaction before proceeding.
 3. For **user_interaction** steps: output the returned `pre_code` verbatim in a ```python block. Relay instructions to the user. Wait for them to click 'Done'.
 4. For **user_choice** steps: ask the returned question. After the user answers, call the same step with `user_action='choice_made'` and `choice_value`.
 5. For **branch_op** steps: a yes/no decision that also acts and branches. Ask the returned question, then call the same step with `user_action='choice_made'` and `choice_value` ('Yes'/'No'). 'Yes' performs the step's action (e.g. ticks a checkbox) and runs the optional body once; 'No' jumps to the indicated step or stops.
-6. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.
-7. Continue until all steps are done.
+6. For **review_op** steps: the panel shows the generated results for the user to review. Relay the instructions and wait for them to click Confirm — no code, no question.
+7. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.
+8. Continue until all steps are done.
 
 **CRITICAL RULES:**
 - Execute ONE step per turn. Do NOT call multiple steps in a single turn.

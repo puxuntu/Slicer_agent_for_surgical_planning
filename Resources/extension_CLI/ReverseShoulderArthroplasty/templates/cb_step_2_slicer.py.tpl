@@ -13,6 +13,11 @@ for _ses_i in range(_ses_segs.GetNumberOfItems()):
 if _ses_seg is None:
     _ses_seg = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode", "Bone_Segmentation")
 _ses_seg.CreateDefaultDisplayNodes()
+_ses_all = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
+for _ses_k in range(_ses_all.GetNumberOfItems()):
+    _ses_o = _ses_all.GetItemAsObject(_ses_k)
+    if _ses_o is not None:
+        _ses_o.SetAttribute("SlicerAIAgent.SegmentEditorSession", "0")
 _ses_seg.SetAttribute("SlicerAIAgent.SegmentEditorSession", "1")
 segmentationNode = _ses_seg
 if _ses_seg.GetName() != "Bone_Segmentation":

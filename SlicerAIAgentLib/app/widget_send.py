@@ -7,16 +7,31 @@ class WidgetSendMixin:
         if not prompt:
             return
 
-        # The user-visible start of a run. Taken here rather than from the
-        # manifest's own `started_epoch`, which is stamped only once the router
-        # has answered -- several seconds of the run the surgeon sat through
-        # would otherwise be missing from "Send to Exit".
-        import time as _time
-        self._sendClickedEpoch = _time.time()
+        # A routing call is already out. This has to be checked BEFORE anything
+        # below mutates state, because all of it is user-visible bookkeeping:
+        # clearing the box CONSUMES the request, and _lastUserPrompt /
+        # _sendClickedEpoch are what the run manifest records. Routing became
+        # asynchronous, so the window in which a second Send is possible is the
+        # whole network wait -- and on a slow link that is minutes.
+        resumed = getattr(self, "_routerAlreadyDeclined", False)
+        if getattr(self, "_routerBusy", False) and not resumed:
+            self._noteRouterStillBusy()
+            return
 
+        if not resumed:
+            # The user-visible start of a run. Taken here rather than from the
+            # manifest's own `started_epoch`, which is stamped only once the
+            # router has answered -- several seconds of the run the surgeon sat
+            # through would otherwise be missing from "Send to Exit".
+            import time as _time
+            self._sendClickedEpoch = _time.time()
+            self.appendToChat("You", prompt)
+            self._lastUserPrompt = prompt  # Saved for isolated self-correction
+
+        # On the resumed path the prompt was put BACK in the box by
+        # _finishRouterTurn so this method could read it; the click's own
+        # bookkeeping already happened and must not happen twice.
         self.promptInput.clear()
-        self.appendToChat("You", prompt)
-        self._lastUserPrompt = prompt  # Save for isolated self-correction context
 
         # Record the current turn number for consistent debug file naming
         if self.logic and hasattr(self.logic, 'llmClient') and self.logic.llmClient:

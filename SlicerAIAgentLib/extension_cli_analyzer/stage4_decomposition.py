@@ -3,6 +3,26 @@ import re
 from .common import *
 
 
+#: A MRML class name has a fixed lexical shape, so recovering one from a decorated
+#: string is deterministic. Mirrors ``WorkflowRuntime._NODE_CLASS_RE`` -- the two
+#: sides must agree on what counts as a class name, and the runtime cannot import
+#: the analyzer.
+_NODE_CLASS_RE = re.compile(r"\bvtkMRML[A-Za-z0-9]+\b")
+
+
+def _normalized_node_class(raw) -> str:
+    """The bare MRML class name in ``raw``, or "".
+
+    A node class is a lookup key (``getNodesByClass``, ``nodeTypes``), never prose.
+    LLM-authored fields carry it decorated often enough that the pipeline has to
+    normalize rather than trust: ``"vtkMRMLVolumeNode (CT scalar volume)"`` is a
+    real class plus a gloss, and shipped verbatim it matches no node in any scene.
+    """
+    text = _text_or_empty(raw)
+    match = _NODE_CLASS_RE.search(text) if text else None
+    return match.group(0) if match else ""
+
+
 class AnalyzerStage4DecompositionMixin:
     def _collect_step_evidence(
         self, step_description: str, method_names: List[str], extension_name: str = ""
@@ -983,10 +1003,18 @@ class AnalyzerStage4DecompositionMixin:
                 continue
             for parameter in method.get("parameters", []) or []:
                 if isinstance(parameter, dict):
-                    parameter_type = _text_or_empty(
+                    # The allow-list is what stops Stage 4 inventing node classes,
+                    # so it must hold class NAMES only. A parameter "type" is
+                    # LLM-authored prose (the logic-annotation prompt asks for
+                    # "types/descriptions"), and a startswith test admits
+                    # "vtkMRMLVolumeNode (CT scalar volume)" verbatim -- after
+                    # which the very check meant to catch an invented class waves
+                    # the decorated one through, and it ships as a lookup key that
+                    # matches nothing.
+                    parameter_type = _normalized_node_class(
                         parameter.get("type") or parameter.get("node_class")
                     )
-                    if parameter_type.startswith("vtkMRML"):
+                    if parameter_type:
                         node_classes.add(parameter_type)
             methods.append({
                 "name": method["name"],
@@ -1033,6 +1061,17 @@ class AnalyzerStage4DecompositionMixin:
         # inside a segmentation), read from the source's own selection-resolution code.
         # Only "segment" verdicts appear; an absent widget means a node pick.
         self._selection_granularity = (scan_result or {}).get("selection_granularity", {}) or {}
+        # widget_name -> the module widget's own VALUE control (enum combo / checkbox)
+        # with its real item list, the index->value map its reader applies, and the
+        # logic call that consumes that value. {} for a parameter-node extension.
+        self._value_controls = (scan_result or {}).get("value_controls", {}) or {}
+        # When the .ui is not the GUI the widget builds, a widget name that appears
+        # only there names no real control. Empty when the .ui IS live, which
+        # disables the check for every extension built the standard way.
+        self._unloaded_ui = not (scan_result or {}).get("ui_live", True)
+        self._widget_attr_universe = set(
+            (scan_result or {}).get("widget_attr_universe", []) or []
+        )
         # ctkWorkflow wizard facts: workflow attr + step objects + per-page widget
         # inventory (combos with labels/items, buttons with text, tables, place
         # widgets). {present: False} / {} for every classic extension.
@@ -1503,6 +1542,22 @@ class AnalyzerStage4DecompositionMixin:
                         f"step {number} cleared literal choices for node-pick value_kind"
                     )
 
+            # A node class is a lookup key, not prose. The LLM sometimes writes it
+            # decorated ("vtkMRMLVolumeNode (CT scalar volume)"), which ships as a
+            # key that matches nothing: the picker offers an empty list and the
+            # entry precheck reports data missing that is loaded. Repaired here
+            # rather than rejected in validation, because the intent is
+            # unambiguous and a re-ask would spend an attempt restating it.
+            raw_class = item.get("node_class")
+            if raw_class is not None:
+                clean_class = _normalized_node_class(raw_class)
+                if clean_class != _text_or_empty(raw_class):
+                    item["node_class"] = clean_class or None
+                    notes.append(
+                        f"step {number} normalized node_class {raw_class!r} -> "
+                        f"{clean_class or None!r}"
+                    )
+
             roles = item.get("node_roles")
             if not isinstance(roles, list):
                 continue
@@ -1512,6 +1567,15 @@ class AnalyzerStage4DecompositionMixin:
                     normalized_roles.append(role)
                     continue
                 normalized_role = dict(role)
+                raw_role_class = normalized_role.get("node_class")
+                if raw_role_class is not None:
+                    clean_role_class = _normalized_node_class(raw_role_class)
+                    if clean_role_class != _text_or_empty(raw_role_class):
+                        normalized_role["node_class"] = clean_role_class
+                        notes.append(
+                            f"step {number} normalized node-role node_class "
+                            f"{raw_role_class!r} -> {clean_role_class!r}"
+                        )
                 parameter_name = _text_or_empty(normalized_role.get("parameter_name"))
                 if parameter_name and parameter_name not in allowed_parameters:
                     normalized_role["parameter_name"] = ""
@@ -1916,6 +1980,12 @@ class AnalyzerStage4DecompositionMixin:
                     getattr(self, "_ui_widget_properties", {}),
                     getattr(self, "_selection_granularity", {}),
                 )
+                # An enum control's option list is the control's own, never the
+                # cookbook's paraphrase — see _reconcile_value_control_choices.
+                self._reconcile_value_control_choices(
+                    _so, getattr(self, "_value_controls", {}),
+                )
+                self._drop_unloaded_ui_widget_class(_so)
             # Reconcile "click in a view to create/draw/place a Markups node"
             # (incl. ROI box drawing) into a real markup_placement contract even
             # when the LLM labeled it view_adjustment with a null node_class.
@@ -2435,6 +2505,119 @@ class AnalyzerStage4DecompositionMixin:
         "qMRMLSubjectHierarchyTreeView", "qMRMLSubjectHierarchyComboBox",
         "QComboBox", "ctkComboBox", "qMRMLSegmentsTableView",
     )
+
+    def _drop_unloaded_ui_widget_class(self, sub_op: Dict[str, Any]) -> None:
+        """Discard a Qt class read off a ``.ui`` file the module never loads.
+
+        ``widget_class`` steers real decisions — which selection widget the runtime
+        renders, whether a pick can be segment-level, whether a control is a range
+        or a scalar slider. Taken from an unloaded ``.ui`` it is not evidence about
+        the running GUI at all: this extension's file describes a
+        ``qMRMLNodeComboBox`` named ``fullBoneSelector`` where the widget actually
+        builds a ``qMRMLSubjectHierarchyTreeView`` named ``boneTree``. Dropping it
+        returns the step to inference from ``node_class``, which is what an
+        extension with no ``.ui`` gets anyway.
+
+        Only fires when the ``.ui`` is not live AND the name is absent from the
+        widget class's own attributes, so a control the source really has keeps its
+        class. No-op for every extension whose ``.ui`` is loaded.
+        """
+        if not isinstance(sub_op, dict) or not getattr(self, "_unloaded_ui", False):
+            return
+        widget_name = sub_op.get("widget_name") or ""
+        universe = getattr(self, "_widget_attr_universe", set())
+        if not (widget_name and universe) or widget_name in universe:
+            return
+        if not sub_op.get("widget_class"):
+            return
+        logger.warning(
+            "[stage4] widget '%s' (class '%s') exists only in a .ui file the module "
+            "widget never loads -- discarding the class as evidence.",
+            widget_name, sub_op.get("widget_class"),
+        )
+        sub_op["widget_class"] = ""
+        sub_op["widget_class_unverified"] = True
+
+    @staticmethod
+    def _reconcile_value_control_choices(
+        sub_op: Dict[str, Any], value_controls: Dict[str, Dict],
+    ) -> None:
+        """Make an enum choice step offer the control's OWN options, with the values
+        the extension's own reader assigns them.
+
+        A ``user_choice`` step over an enum control has two facts that only the source
+        knows: WHICH options exist, and WHAT each one means to the code. The decomposer
+        gets both from prose, and prose is the wrong source for both:
+
+        - The visible options may be nothing like the concept the step names. The
+          orbital-fracture panel asks for the fractured *side* but offers "Red box" /
+          "Blue box" — deliberately, because the two coloured boxes are drawn over the
+          orbits and picking a colour is unambiguous where "left" is not (patient-left
+          or screen-left?). A generated panel offering Left/Right is a different
+          question from the one the extension asks, put to a surgeon who is looking at
+          two coloured boxes.
+        - The index->value mapping can be inverted without any symptom. That panel's
+          item 0 is the RED box, which is the patient's **right** orbit, so the
+          authored ``[Left=left, Right=right]`` list selects the healthy orbit. The run
+          completes, segments, reconstructs and reports success — on the wrong side.
+
+        So when the scanned control has a real item list, it replaces the authored
+        choices outright, and ``widget_state_binding`` records the control, the
+        property to write, and the logic call that consumes the value, for the
+        downstream binding and for the runtime's widget drive.
+
+        Gated on ITEMS: a checkbox or a Yes/No ``branch_op`` has no item list and is
+        left exactly as it is, so this only ever fires where the extension itself
+        enumerates the options.
+        """
+        if not isinstance(sub_op, dict):
+            return
+        if sub_op.get("op_type") not in ("user_choice", "branch_op"):
+            return
+        widget_name = sub_op.get("widget_name") or ""
+        control = (value_controls or {}).get(widget_name) or {}
+        options = control.get("options") or []
+        if not (options and control.get("items")):
+            return
+        reconciled = [{"label": o["text"], "value": o["value"]} for o in options]
+        reader = control.get("reader") or {}
+        sub_op["widget_state_binding"] = {
+            "widget_name": widget_name,
+            "widget_class": control.get("widget_class", ""),
+            "value_property": reader.get("property") or "currentText",
+            "reader_method": reader.get("method", ""),
+            "options": options,
+            "consumers": control.get("consumers") or [],
+            "label": control.get("label", ""),
+        }
+        if control.get("widget_class"):
+            sub_op["widget_class"] = control["widget_class"]
+        authored = sub_op.get("choices") or []
+        if authored == reconciled:
+            return
+        logger.warning(
+            "[stage4] '%s': replacing authored choices %s with the %s options the "
+            "source actually offers: %s",
+            widget_name,
+            [(c.get("label"), c.get("value")) for c in authored if isinstance(c, dict)],
+            control.get("widget_class", "control"),
+            [(c["label"], c["value"]) for c in reconciled],
+        )
+        sub_op["choices"] = reconciled
+        sub_op["default_value"] = None
+        # A combobox with no authored choices is otherwise read as a dynamically
+        # populated content selector (segment names). A scanned static item list is
+        # the stronger evidence and settles it the other way.
+        if sub_op.get("value_kind") == "segment_name_selection":
+            sub_op["value_kind"] = ""
+            sub_op["operation_intents"] = []
+            sub_op.pop("operation_intent", None)
+        # The authored question described the authored options ("Select the fractured
+        # side" for Left/Right). With the real options in place it no longer names what
+        # the user is picking, so the control's own caption — the words beside it in
+        # the extension's panel — becomes the question.
+        if control.get("label"):
+            sub_op["question"] = control["label"].rstrip(":").strip()
 
     @staticmethod
     def _record_source_widget(sub_op: Dict[str, Any], widget_classes: Dict[str, str],

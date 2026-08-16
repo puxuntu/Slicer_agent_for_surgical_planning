@@ -711,14 +711,39 @@ class AnalyzerValidationContractsMixin:
         effect_contract = self._validate_parameter_effect_application(code)
         result["errors"].extend(effect_contract.get("errors", []))
         result["warnings"].extend(effect_contract.get("warnings", []))
+        # A parameter this step's method takes from an EARLIER user_choice is bound
+        # by the runtime, not by the generator: `_build_format_kwargs` merges the
+        # recorded answers into the fill kwargs, so `{side}` resolves before
+        # execution. Such a placeholder is therefore the correct output, and the
+        # blanket "unresolved placeholder" rule (which otherwise permits only
+        # {vol_lookup}) must not reject it — that rule is why the generator had no
+        # way to express the binding and grounded the argument on the logic object
+        # instead.
+        bound_choice_placeholders = self._bound_choice_placeholders(gen)
+        present_placeholders = {p["name"] for p in self._find_template_placeholders(raw_code)}
         unresolved_placeholders = [
             p["name"] for p in self._find_template_placeholders(raw_code)
             if p["name"] != "vol_lookup" and not p["has_default"]
+            and p["name"] not in bound_choice_placeholders
         ]
         if unresolved_placeholders:
             result["errors"].append(
                 "Required template contains unresolved placeholders: "
                 + ", ".join(unresolved_placeholders)
+            )
+        # ...and the converse. A template that calls the method WITHOUT its bound
+        # parameter has sourced that argument somewhere else — in practice off the
+        # logic object, where the attribute of that name is the method's own output
+        # and is unset until the method has already run. The step then either raises
+        # or, worse, proceeds on a stale value, so this is blocking rather than
+        # advisory.
+        missing_bound = sorted(bound_choice_placeholders - present_placeholders)
+        if missing_bound:
+            result["errors"].append(
+                "Template does not bind the user's earlier choice for: "
+                + ", ".join(f"'{name}' (write it as {{{name}}})" for name in missing_bound)
+                + ". Pass the placeholder as the argument; do not read the value from "
+                "the logic object, the parameter node or the scene."
             )
         interaction_kind = _text_or_empty(
             (gen.get("interaction_descriptor") or {}).get("interaction_kind")

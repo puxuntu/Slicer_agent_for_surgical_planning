@@ -619,6 +619,16 @@ class WidgetStreamingMixin:
         from SlicerAIAgentLib.WorkflowRouter import ROUTER_ENABLED, WorkflowRouter
 
         self._lastRouterRejection = None
+        if getattr(self, "_routerAlreadyDeclined", False):
+            # Re-entered by _finishRouterTurn to run the traditional turn; the
+            # router has already answered and must not be asked twice.
+            return False
+        if getattr(self, "_routerBusy", False):
+            # A routing call is already in flight. Without this, a second Send
+            # (or a second spoken request) starts a second one, and two answers
+            # race to start two workflows.
+            self._setAgentStatus("Router", "Still choosing workflow...")
+            return True
         if not ROUTER_ENABLED:
             self._lastRouterRejection = {"kind": "router_disabled"}
             return False
@@ -636,10 +646,157 @@ class WidgetStreamingMixin:
             self._lastRouterRejection = {"kind": unavailable}
             return False
 
+        # The routing call is network I/O and it goes on a WORKER THREAD. It ran
+        # inline here until a session on a throttled link took 174 seconds, for
+        # which Slicer was wholly unresponsive -- the OS marked the window "not
+        # responding" -- with no way to see what it was waiting for or to give
+        # up. Everything above this point is cheap and stays synchronous;
+        # everything below it moves into _applyRouterDecision, which the queue
+        # handler runs on the Qt thread once the answer lands.
+        #
+        # Returning True means "this turn is being handled", not "a workflow
+        # started". The outcome, including a refusal, is delivered later.
         self._setAgentStatus("Router", "Choosing workflow...")
-        slicer.app.processEvents()
-        decision = router.resolve(prompt)
+        # _setAgentStatus writes to self.statusLabel, which this UI hard-sets to
+        # None (the bottom status bar was removed). It is therefore NOT a
+        # surface: while the call was synchronous nobody noticed, because the
+        # whole application was frozen and the freeze was its own signal. Now
+        # that Slicer stays responsive, the wait needs somewhere real to show,
+        # or a minutes-long routing call looks exactly like a dead button.
+        self._showRouterProgressPanel(prompt)
+        self._routerBusy = True
+        self._setSendEnabled(False)
+        epoch = getattr(self, "_guidedSessionEpoch", 0)
 
+        def _resolveRoute():
+            payload = {"prompt": prompt, "router": router, "epoch": epoch,
+                       "decision": None, "error": ""}
+            try:
+                payload["decision"] = router.resolve(prompt)
+            except Exception as exc:
+                payload["error"] = str(exc)
+            try:
+                self._streamQueue.put(("router_decision", payload))
+            except Exception:
+                logger.debug("Router decision queue failed", exc_info=True)
+
+        threading.Thread(target=_resolveRoute, daemon=True).start()
+        return True
+
+    def _showRouterProgressPanel(self, prompt):
+        """Park the workflow panel on "choosing" for the length of the call."""
+        try:
+            self._taskWorkflowPanelActive = True
+            self._updateWorkflowPanel({
+                "active": True,
+                "mode": "task",
+                "workflow_title": "Choosing the procedure",
+                "status": "Asking the router",
+                "description": str(prompt or ""),
+                "instructions": "Deciding which guided procedure this request "
+                                "means. This is one model call; on a slow link "
+                                "it can take a while. Slicer stays usable.",
+                "total_steps": 0,
+                "can_done": False,
+                "can_skip": False,
+            })
+        except Exception:
+            logger.debug("Router progress panel failed", exc_info=True)
+
+    def _hideRouterProgressPanel(self):
+        try:
+            if getattr(self, "_taskWorkflowPanelActive", False):
+                self._taskWorkflowPanelActive = False
+                self._clearWorkflowPanel()
+        except Exception:
+            logger.debug("Router progress panel teardown failed", exc_info=True)
+
+    def _noteRouterStillBusy(self):
+        """A second Send arrived while the first is still being routed."""
+        logger.info("Send ignored: a routing call is already in flight")
+        self._showRouterProgressPanel(getattr(self, "_lastUserPrompt", ""))
+        try:
+            self._updateWorkflowPanel({
+                "active": True,
+                "mode": "task",
+                "workflow_title": "Choosing the procedure",
+                "status": "Still asking the router",
+                "description": getattr(self, "_lastUserPrompt", ""),
+                "instructions": "Your request is still being routed — the "
+                                "previous one has not been answered yet. Your "
+                                "new text has been left in the box.",
+                "total_steps": 0,
+                "can_done": False,
+                "can_skip": False,
+            })
+        except Exception:
+            logger.debug("Router busy notice failed", exc_info=True)
+
+    def _handleRouterDecision(self, payload):
+        """The routing answer came back. Main thread."""
+        payload = payload or {}
+        self._routerBusy = False
+        self._setReadyStatus()
+        prompt = payload.get("prompt") or ""
+        router = payload.get("router")
+        decision = payload.get("decision")
+
+        # The scene this was routed against may be gone: closing it runs
+        # _resetGuidedSession, which bumps the epoch. The input precheck below
+        # was answered against that scene, so starting the workflow now would
+        # enter a procedure whose data no longer exists.
+        if not self._guidedSessionAlive(payload.get("epoch")):
+            logger.info("Dropping the routing decision: the session was reset")
+            self._hideRouterProgressPanel()
+            self._setSendEnabled(bool(self.promptInput.toPlainText().strip()))
+            return
+
+        if decision is None:
+            # A transport failure, not a decision. Treated as "not matched" so
+            # the one refusal path explains it, rather than inventing a second.
+            self._lastRouterRejection = {
+                "kind": "router_error",
+                "confidence": 0.0,
+                "reason": payload.get("error") or "the routing call failed",
+                "error": payload.get("error") or "",
+            }
+            self._lastRouter = router
+            self._finishRouterTurn(prompt, handled=False)
+            return
+
+        handled = self._applyRouterDecision(prompt, router, decision)
+        self._finishRouterTurn(prompt, handled=handled)
+
+    def _finishRouterTurn(self, prompt, handled):
+        """What happens when routing did not start a workflow.
+
+        Previously this was simply ``onSendButtonClicked`` continuing past a
+        False return. Now that the decision arrives asynchronously, the two
+        outcomes have to be re-entered explicitly.
+        """
+        # The "choosing" panel has done its job either way: on a match the
+        # workflow's own panel replaces it, on anything else it must go.
+        if handled:
+            self._taskWorkflowPanelActive = False
+            return
+        self._hideRouterProgressPanel()
+        from SlicerAIAgentLib.WorkflowRouter import GUIDED_ONLY_MODE
+        if GUIDED_ONLY_MODE:
+            self._refuseUnsupportedRequest(prompt)
+            self._setSendEnabled(bool(self.promptInput.toPlainText().strip()))
+            return
+        # GUIDED_ONLY_MODE off: run the traditional turn the router declined,
+        # by re-entering Send with the router suppressed (it has already
+        # answered, and asking it again would be a second slow call).
+        self._routerAlreadyDeclined = True
+        try:
+            self.promptInput.setPlainText(prompt)
+            self.onSendButtonClicked()
+        finally:
+            self._routerAlreadyDeclined = False
+
+    def _applyRouterDecision(self, prompt, router, decision):
+        """Everything that used to follow the blocking resolve() call."""
         if not decision.matched:
             self._lastRouterRejection = {
                 "kind": "router_error" if decision.error else "not_matched",
@@ -690,6 +847,17 @@ class WidgetStreamingMixin:
                               for r in missing),
                 )
                 return False
+
+        # Put the process back to a freshly-launched state before anything of
+        # this run exists. HERE, and not at the end of the previous run, because
+        # this is the only point every run passes through: the last one may have
+        # ended in a cancel, a scene close, a Reload of this module, or not
+        # ended at all. It is also before _beginWorkflowRouterTurn, which
+        # creates the run folder and manifest that _prepareCleanRuntime clears.
+        try:
+            self._prepareCleanRuntime(decision.extension, reason="workflow_start")
+        except Exception:
+            logger.debug("Clean-runtime preparation failed", exc_info=True)
 
         # Establish this turn's log dir BEFORE the session starts, so the
         # runtime's own workflow_started event lands in the right run folder.
@@ -1550,7 +1718,9 @@ class WidgetStreamingMixin:
                 )
                 i += 1
             elif event_type == 'cli_progress':
-                self._handleCliProgress(payload['stage'], payload['name'], payload['detail'])
+                self._handleCliProgress(payload['stage'], payload['name'],
+                                        payload['detail'],
+                                        payload.get('extension', ''))
                 i += 1
             elif event_type == 'cli_complete':
                 self._handleCliComplete(payload)
@@ -1594,6 +1764,24 @@ class WidgetStreamingMixin:
                 i += 1
             elif event_type == 'baseline_thinking':
                 self._handleBaselineThinkingRound(payload)
+                i += 1
+            elif event_type == 'voice_state':
+                self._handleVoiceState(payload)
+                i += 1
+            elif event_type == 'voice_transcript':
+                self._handleVoiceTranscript(payload)
+                i += 1
+            elif event_type == 'voice_command':
+                self._handleVoiceCommand(payload)
+                i += 1
+            elif event_type == 'router_decision':
+                self._handleRouterDecision(payload)
+                i += 1
+            elif event_type == 'voice_speech_done':
+                self._handleVoiceSpeechDone(payload)
+                i += 1
+            elif event_type == 'voice_error':
+                self._handleVoiceError(payload)
                 i += 1
             else:
                 i += 1

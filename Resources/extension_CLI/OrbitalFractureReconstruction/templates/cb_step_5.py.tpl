@@ -1,6 +1,3 @@
-# [runtime-fixed] Auto-revised by runtime self-correction at 20260721_095209.
-# Pre-revision templates backed up under versions/runtime_fix_20260721_095209/.
-# Fixed runtime error: could not find nodes in the scene by name or id 'OrbitalFracture082'
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -9,29 +6,32 @@ if _active_module_name != 'OrbitalFractureReconstruction':
     try:
         slicer.util.selectModule('OrbitalFractureReconstruction')
     except Exception as _module_enter_error:
-        print(f"Warning: could not activate module 'OrbitalFractureReconstruction': {{_module_enter_error}}")
+        print(f"Warning: could not activate module 'OrbitalFractureReconstruction': {_module_enter_error}")
 # precondition:end
+
+try:
+    from OrbitalFractureReconstruction import OrbitalFractureReconstructionLogic
+except ImportError:
+    raise RuntimeError("OrbitalFractureReconstruction extension is not installed. Install it from the Extension Manager.")
 
 try:
     logic = _orbitalfracturereconstruction_logic
 except NameError:
-    from OrbitalFractureReconstruction import OrbitalFractureReconstructionLogic
     logic = OrbitalFractureReconstructionLogic()
     _orbitalfracturereconstruction_logic = logic
 
-# Resolve the input volume and ROI node from the scene using their actual scene names
-import slicer
-inputVolume = slicer.util.getNode('OrbitalFracture098')
-roiNode = slicer.util.getNode('Orbital_Region')
+{vol_lookup}
+try:
+    roiNode = slicer.mrmlScene.GetNodeByID(_orbitalfracturereconstruction_cb_step_3_id)
+except NameError:
+    raise RuntimeError("ROI node was not created by the previous placement step.")
+resample = {resample: False}
 
-# Validate nodes are not None
 if inputVolume is None:
-    raise RuntimeError("Could not find 'OrbitalFracture098' volume node in the scene")
+    raise RuntimeError("Required input CT volume not found for cutWithRoi.")
 if roiNode is None:
-    raise RuntimeError("Could not find 'Orbital_Region' ROI node in the scene")
+    raise RuntimeError("Required ROI node not found for cutWithRoi.")
 
-print(f"[OrbitalFractureReconstruction] Step 5: Cut with ROI using volume='{{inputVolume.GetName()}}' and ROI='{{roiNode.GetName()}}'")
+logic.cutWithRoi(inputVolume, roiNode, resample)
 
-# Call cutWithRoi with the required positional arguments
-logic.cutWithRoi(inputVolume, roiNode)
-print("[OrbitalFractureReconstruction] Step 5: Cut with ROI completed.")
+print("[OrbitalFractureReconstruction] Cut with ROI completed.")

@@ -130,6 +130,24 @@ class WidgetExecutionFlowMixin:
                 error=(execution.get("error") or "")[:500] or None,
             )
 
+    @staticmethod
+    def _isUserDataNode(node):
+        """Is this node the user's data, or Slicer's own bookkeeping?
+
+        The test File > Save Data applies, so what counts as a subject's data
+        here is what the surgeon would be offered to save. Fails OPEN: a node
+        whose flags cannot be read is counted, since the cost of missing one is
+        a weaker vote and the cost of a false exclusion is a lost subject.
+        """
+        try:
+            if node.GetHideFromEditors():
+                return False
+            if not node.GetSaveWithScene():
+                return False
+        except Exception:
+            return True
+        return True
+
     def _sceneSubjectName(self):
         """``(subject, folder)`` the scene's data was loaded from, or ``("", "")``.
 
@@ -140,16 +158,39 @@ class WidgetExecutionFlowMixin:
         driven from one data set are guaranteed to agree.
 
         The MOST COMMON parent folder wins, not the first: a scene routinely
-        holds nodes from elsewhere (a colour table, a model from a sample-data
-        cache), and the patient's folder is the one most of the data shares.
-        Ties go to the first in scene order.
+        holds nodes from elsewhere, and the patient's folder is the one most of
+        the data shares. Ties go to the first in scene order.
+
+        A count alone is not enough, though, because Slicer's own furniture can
+        outnumber the patient. Opening any module that needs the colour logic
+        makes ``vtkMRMLColorLogic::AddDefaultColorNodes`` load ~20 colour tables
+        out of ``<slicerHome>/share/.../ColorFiles``, each a storable node with a
+        storage node and a file name -- against which a case folder holding one
+        volume and one markup loses 20 to 2. That produced a run folder named
+        ``..._ColorFiles_...``. Whether it happens depends on which modules the
+        session has touched, so it is intermittent, and its symptom is a
+        plausible name rather than an error. Two filters, either of which alone
+        would have been enough, because a silently mislabelled run is also a run
+        the experiment analysis cannot pair with its data set:
+
+        - **Only the user's data counts.** ``HideFromEditors`` / not
+          ``SaveWithScene`` is the same predicate ``_saveSceneFlat`` uses to
+          decide what File > Save Data would offer -- and every colour node sets
+          ``HideFromEditors`` in its constructor. Anything Slicer keeps for its
+          own bookkeeping is not the patient.
+        - **Application-owned directories are excluded**, alongside the three
+          already here. Nothing shipped with the application, or installed with
+          an extension, can be a subject.
         """
         excluded = [os.path.join(SLICER_AI_AGENT_ROOT, "logs")]
-        # A previous run's saved scene lives under our own logs/, and Slicer's
-        # scratch and DICOM database hold files a scene legitimately points at.
-        # None of the three says anything about the patient.
+        # A previous run's saved scene lives under our own logs/; Slicer's
+        # scratch and DICOM database hold files a scene legitimately points at;
+        # and slicerHome / the extensions directory are the application's own
+        # files. None of them says anything about the patient.
         for getter in (lambda: slicer.app.temporaryPath,
-                       lambda: slicer.dicomDatabase.databaseDirectory):
+                       lambda: slicer.dicomDatabase.databaseDirectory,
+                       lambda: slicer.app.slicerHome,
+                       lambda: slicer.app.extensionsInstallPath):
             try:
                 path = getter()
             except Exception:
@@ -164,13 +205,18 @@ class WidgetExecutionFlowMixin:
             nodes.UnRegister(None)
             for index in range(nodes.GetNumberOfItems()):
                 node = nodes.GetItemAsObject(index)
-                storage = node.GetStorageNode() if node is not None else None
+                if node is None or not self._isUserDataNode(node):
+                    continue
+                storage = node.GetStorageNode()
                 filename = storage.GetFileName() if storage is not None else ""
                 if not filename:
                     continue
                 folder = os.path.dirname(os.path.abspath(filename))
                 normalised = os.path.normcase(folder)
-                if any(normalised.startswith(bad) for bad in excluded):
+                # Compared as a path, not as a string: a bare startswith would
+                # also exclude a sibling whose name merely begins with one.
+                if any(normalised == bad or normalised.startswith(bad + os.sep)
+                       for bad in excluded):
                     continue
                 name = os.path.basename(folder)
                 if not name:          # a drive root -- nothing to name it by
@@ -624,6 +670,25 @@ class WidgetExecutionFlowMixin:
 
         self._autoExecuteCodeConfirmed(attempt, max_attempts)
 
+    @staticmethod
+    def _templatePlaceholderNames(tpl_path):
+        """Single-brace placeholder names in a template file (``{{x}}`` excluded).
+
+        Deliberately conservative and self-contained: over-reporting only makes the
+        write-back skip a template it could have persisted, while under-reporting
+        would persist run-specific values into the package.
+        """
+        import re as _re
+
+        try:
+            with open(tpl_path, "r", encoding="utf-8") as f:
+                text = f.read()
+        except Exception:
+            return {"__unreadable__"}
+        return set(_re.findall(
+            r"(?<!\{)\{([A-Za-z_][A-Za-z0-9_]*)(?::[^{}]*)?\}(?!\})", text,
+        ))
+
     def _persistGeneratedTemplateRepair(self, step_info, corrected_code, error_detail):
         """Write a runtime self-correction fix back into the step's code template.
 
@@ -660,6 +725,26 @@ class WidgetExecutionFlowMixin:
             return
         tpl_path = os.path.join(cli_dir, tpl_rel)
         if not os.path.isfile(tpl_path):
+            return
+
+        # A template with placeholders cannot be recovered from executed code.
+        # `corrected_code` is the FILLED code, so the run's own values are already
+        # substituted into it, and the write-back escapes every brace — persisting
+        # it would freeze this run's values into the package. For `{side}` (a
+        # parameter bound to the user's choice) that means every later run
+        # reconstructing whichever side this one happened to pick, no matter what
+        # the surgeon selects: a silently wrong result rather than a visible
+        # failure. `{vol_lookup}` is exempt because it is structural — it expands
+        # to the same scene lookup on every run, so the expansion is not
+        # run-specific.
+        skipped = self._templatePlaceholderNames(tpl_path) - {"vol_lookup"}
+        if skipped:
+            logger.info(
+                "Not persisting the runtime fix for %s/%s: its template binds %s "
+                "at dispatch time, and the corrected code has those values already "
+                "substituted. The fix applies to this run only.",
+                ext_name, step_id, ", ".join("{%s}" % name for name in sorted(skipped)),
+            )
             return
 
         # Recover template-level content from the runtime-executed code: drop any

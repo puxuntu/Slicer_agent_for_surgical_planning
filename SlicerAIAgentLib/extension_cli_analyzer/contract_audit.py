@@ -314,10 +314,12 @@ class AnalyzerContractAuditMixin:
                             "but missing from the package"
                         )
                         continue
+                    bound = self._bound_choice_placeholders(gen)
                     unresolved = [
                         p["name"]
                         for p in self._find_template_placeholders(templates[tpl_key])
                         if p["name"] != "vol_lookup" and not p["has_default"]
+                        and p["name"] not in bound
                     ]
                     if unresolved:
                         unresolved_total.extend(unresolved)

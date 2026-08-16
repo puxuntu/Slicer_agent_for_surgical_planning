@@ -68,6 +68,30 @@ def _handle_skip(
     return result
 
 
+def _unfilled_placeholder_error(ctx: _WorkflowContext, missing: KeyError) -> str:
+    """Explain an unfilled placeholder, naming the choice step that supplies it.
+
+    A placeholder bound to an earlier user_choice is filled from the recorded
+    answer, so "not filled" means that step has not been answered in this session
+    — a different problem from a template referencing a value nobody produces, and
+    one the bare key name does not distinguish. Failing loudly here is correct
+    either way: the alternative is running the step on a default the user never
+    chose.
+    """
+    name = missing.args[0] if missing.args else str(missing)
+    for step in ctx.workflow_graph.get("steps", []) or []:
+        if step.get("step_id") == ctx.workflow_step:
+            break
+        if (step.get("choice_info") or {}).get("parameter_name") == name:
+            return (
+                f"Template placeholder '{name}' not filled: it carries the answer to "
+                f"step '{step.get('step_id')}' ({step.get('description', '')[:80]}), "
+                "which has not been answered in this session. Step back to it and "
+                "make the selection, then run this step again."
+            )
+    return f"Template placeholder not filled: '{name}'"
+
+
 def _handle_automated_step(ctx: _WorkflowContext) -> Dict:
     """Handle an automated workflow step — fill and return the code template."""
     if not ctx.target_gen:
@@ -86,7 +110,7 @@ def _handle_automated_step(ctx: _WorkflowContext) -> Dict:
     try:
         code = _fill_template(template_str, format_kwargs)
     except KeyError as e:
-        return {"error": f"Template placeholder not filled: {e}"}
+        return {"error": _unfilled_placeholder_error(ctx, e)}
     code = _prepend_choice_prelude(ctx, code)
 
     return {

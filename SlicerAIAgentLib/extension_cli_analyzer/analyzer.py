@@ -28,6 +28,7 @@ from .api_proof import AnalyzerApiProofMixin
 from ..cli_artifacts import (
     GENERATION_ROUND,
     backup_active_package,
+    clear_active_package,
     debug_round_dir,
     discard_active_backup,
     next_repair_round_label,
@@ -626,6 +627,19 @@ class ExtensionCLIAnalyzer(
         # the known-good CLI instead of leaving a half-written or empty package.
         # No-op when there is no existing package. Discarded on success.
         backed_up = bool(backup_active_package(ext_dir))
+        if backed_up:
+            # Clean slate: the previous package is removed before this run
+            # writes anything, so what ships is exactly what this generation
+            # produced. Overwriting in place leaves behind any file the old
+            # package had and the new run does not -- a template for a step
+            # that no longer exists, a stale contract -- and the result is a
+            # mixture of two generations that still loads. Safe because the
+            # backup above is a COMPLETE copy and the `finally` below restores
+            # it on any failure.
+            cleared = clear_active_package(ext_dir)
+            logger.info("Cleared %d entr(ies) of the previous '%s' CLI before "
+                        "regenerating (restored automatically if this run fails).",
+                        cleared, extension_name)
 
         # Cross-run closed loop: a prior revision that hit an upstream
         # contract/dataflow root cause persisted its diagnosis; seed the

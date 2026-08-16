@@ -439,6 +439,13 @@ class AnalyzerCookbookMappingMixin:
                         item["default_from_step"] = default_from_step
                     if so.get("live_items"):
                         item["live_items"] = True
+                    if so.get("widget_state_binding"):
+                        # The extension's own value control for this choice: which
+                        # control to write, which property, and what each option
+                        # means to the code. The runtime drives the control with it;
+                        # the metadata phase turns it into the method-parameter
+                        # binding a consuming template fills.
+                        item["widget_state_binding"] = so["widget_state_binding"]
                     if so.get("wizard_combo"):
                         # The source combo this item drives (page class + attr) --
                         # lets the runtime enumerate a dynamic combo's LIVE items

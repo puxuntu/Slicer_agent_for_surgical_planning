@@ -19,6 +19,7 @@ need no escaping). An unfilled placeholder collapses to an empty string.
 | `baseline_pure_llm_prompt.md` | `BaselineRunner.pure_llm_system_prompt` | Baseline 1 — pure LLM, no tools |
 | `baseline_online_only_prompt.md` | `BaselineRunner.online_only_addendum` | Baseline 2 — online agent with the generated CLI ablated |
 | `extension_cli_analyzer_prompt.md` | `ExtensionCLIAnalyzer` | Offline CLI generation pipeline |
+| `voice_command_prompt.md` | `voice.commands.build_fallback_prompts` | Voice control, second tier — only when the deterministic matcher is uncertain about an utterance |
 
 Baseline 3 (Claude Code + Slicer skill over MCP) has **no prompt file here**: its context and
 prompt management live entirely on the Claude Code side, and this runtime only executes the code

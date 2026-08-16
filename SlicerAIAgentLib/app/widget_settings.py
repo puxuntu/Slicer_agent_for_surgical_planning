@@ -24,6 +24,11 @@ class WidgetSettingsMixin:
 
         if sender == "You":
             color = "#0066cc"
+        elif sender == "Voice":
+            # Distinct from "You": a spoken line is the user's words as the
+            # recogniser heard them, which is exactly what a reader needs to be
+            # able to tell apart from what they typed when a command misfires.
+            color = "#7b3fa0"
         elif sender == "Assistant":
             color = "#009900"
         elif sender == "System":

@@ -27,6 +27,14 @@ class WidgetCoreMixin:
         # Interactive workflow UI
         self._setupWorkflowUI()
 
+        # Voice control -- BEFORE _relaxContentWidth, so its combos and line
+        # edits are swept by it. A field added afterwards keeps a real width
+        # hint, and a collapsed group still propagates its children's width.
+        self._setupVoiceControls()
+        # Re-read now that the voice widgets exist: loadSettings ran before they
+        # were built, so the stored voice configuration has not been applied yet.
+        self._loadVoiceSettings()
+
         # Keep the module from forcing the panel wider when first opened.
         self._relaxContentWidth()
 
@@ -293,6 +301,9 @@ class WidgetCoreMixin:
     def cleanup(self):
         self.disconnect()
         self._teardownBaselineMcp()
+        # A daemon capture thread survives a module reload and would keep
+        # posting events into a widget that no longer exists.
+        self._teardownVoice()
         if self._streamPollTimer:
             self._streamPollTimer.stop()
         if hasattr(self, '_indexStatusTimer') and self._indexStatusTimer:

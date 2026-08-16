@@ -254,6 +254,9 @@ class WidgetWorkflowMixin:
 
         if not self._currentWorkflowUiState.get("active"):
             self._workflowUserFrame.setVisible(False)
+            # The voice layer has to see this too: the panel going inactive is
+            # how a run ENDS, and it is the only chance to say so aloud.
+            self._voiceOnWorkflowPanelUpdated()
             return
 
         self._workflowUserFrame.setVisible(True)
@@ -336,6 +339,11 @@ class WidgetWorkflowMixin:
             done_label = "Confirm"
         self._workflowDoneButton.setText(str(done_label) if self._currentWorkflowUiState.get("can_done") else "Done")
         self._updateInteractionCountGate()
+        # Last, and only when the microphone is open: the voice layer reads the
+        # state this method just finished writing, and speaks a step's guidance
+        # once per step OCCURRENCE (this method is a repaint event that runs
+        # several times per opening -- see _voiceAnnounceKey).
+        self._voiceOnWorkflowPanelUpdated()
 
     def _workflowUiStateFromStepResult(self, result):
         """Fallback panel state for workflow results not tracked by WorkflowRuntime."""
@@ -805,13 +813,21 @@ class WidgetWorkflowMixin:
     # states, and it puts the widget back to the state it had before any
     # workflow started so the next prompt begins from a clean session.
     #
-    # It deliberately does NOT touch the MRML scene: whatever the procedure
-    # produced is the user's data, and exiting a UI is not consent to delete it.
+    # It DOES close the MRML scene -- see EXIT_CLOSES_SCENE below. It used not
+    # to, on the principle that exiting a UI is not consent to delete data, and
+    # that principle has not changed: what changed is that the deletion is now
+    # asked for explicitly in the dialog, and that leaving the scene up was
+    # itself unsafe. A run left its nodes behind for the next procedure to find
+    # by name, and closing the scene is also the only thing that reliably
+    # re-binds the driven extension (onSceneEndClose -> re-enter()), so
+    # "remember to close the scene" was a manual step whose omission silently
+    # changed the next run.
     # ------------------------------------------------------------------
     #: Ask before closing a run. Shown UNCONDITIONALLY -- including when there is
     #: no progress to lose -- because the dialog is also where the user chooses
     #: whether to save, and saving is the main thing Exit does on a *finished*
-    #: workflow. Set False for a one-click exit that always saves.
+    #: workflow. Set False for a one-click exit that always saves AND closes the
+    #: scene without asking.
     EXIT_CONFIRM_ENABLED = True
 
     #: Tried in order; the first that resolves is used. Slicer's icon resources
@@ -865,9 +881,8 @@ class WidgetWorkflowMixin:
         else:
             button.setText("✕")
         button.setToolTip(
-            "Exit: close this guided workflow and reset it. The scene is left "
-            "as it is; you can then type a new request and start a fresh "
-            "workflow."
+            "Exit: close this guided workflow, optionally save its record, and "
+            "close the scene, so the next request starts from a clean slate."
         )
         button.setAutoRaise(True)
         button.clicked.connect(self._onWorkflowExitClicked)
@@ -922,6 +937,27 @@ class WidgetWorkflowMixin:
     EXIT_SAVE = "save"
     EXIT_NO_SAVE = "nosave"
     EXIT_CANCEL = "cancel"
+    #: The dialog could not be shown, so the exit proceeds on an ASSUMED answer.
+    #: Same as EXIT_SAVE for the workflow, but the scene is left open: an
+    #: assumption is enough to close a panel and not enough to discard a scene.
+    EXIT_SAVE_UNCONFIRMED = "save_unconfirmed"
+
+    #: Whether pressing Exit also CLOSES the scene (both answers, not just save).
+    #:
+    #: It does, because "exit the workflow" and "close the scene" were never
+    #: independent in practice: the next run of any procedure starts by loading
+    #: its own data, so a scene left holding the previous run's segmentations,
+    #: models and markups is never what the user wants -- and, worse, is not
+    #: inert. A leftover node with the name the next run's template looks up is
+    #: silently adopted by it, and every extension this runtime drives keeps
+    #: Python references to the nodes it made, which only a scene close (plus the
+    #: re-``enter()`` it forces, see WidgetStreamingMixin.onSceneEndClose)
+    #: reliably breaks. Closing it here is also what makes the manual step the
+    #: user had to remember unnecessary, and a forgotten manual step is exactly
+    #: how one run's leftovers reach the next.
+    #:
+    #: Set False to restore the previous behaviour (Exit leaves the scene alone).
+    EXIT_CLOSES_SCENE = True
 
     def _onWorkflowExitClicked(self):
         choice = self.EXIT_SAVE
@@ -929,8 +965,14 @@ class WidgetWorkflowMixin:
             choice = self._askExitChoice()
         if choice == self.EXIT_CANCEL:
             return
-        self._resetGuidedSession(reason="user_exit",
-                                 save=(choice == self.EXIT_SAVE))
+        self._resetGuidedSession(
+            reason="user_exit",
+            save=(choice != self.EXIT_NO_SAVE),
+            # Every answer the user actually gave closes the scene; an assumed
+            # one does not. EXIT_CONFIRM_ENABLED=False is a deliberate
+            # developer opt-out of being asked, so it counts as an answer.
+            close_scene=(choice != self.EXIT_SAVE_UNCONFIRMED),
+        )
 
     def _askExitChoice(self):
         """Exit and save / Exit without saving / Cancel -> one of ``EXIT_*``.
@@ -947,11 +989,12 @@ class WidgetWorkflowMixin:
         ``buttonRole()`` resolves the C++ pointer inside Qt, so neither matters.
 
         On failure the fallback depends on WHERE it failed. Before the dialog
-        appeared, ``EXIT_SAVE`` -- the outcome the button had before there was a
-        choice, so a Qt failure loses no data, and a button that silently does
-        nothing would be worse. After the user answered, ``EXIT_CANCEL``:
-        their answer is unknown, and changing nothing is the only option that
-        cannot act against it (they can press Exit again).
+        appeared, ``EXIT_SAVE_UNCONFIRMED`` -- a full, saving exit, because a
+        button that silently does nothing would be worse, but with the scene
+        left open, because closing it is the half of Exit that destroys
+        something and no answer was actually given. After the user answered,
+        ``EXIT_CANCEL``: their answer is unknown, and changing nothing is the
+        only option that cannot act against it (they can press Exit again).
         """
         answered = False
         try:
@@ -982,7 +1025,7 @@ class WidgetWorkflowMixin:
             role = box.buttonRole(box.clickedButton())
         except Exception:
             logger.debug("Exit choice dialog failed", exc_info=True)
-            return self.EXIT_CANCEL if answered else self.EXIT_SAVE
+            return self.EXIT_CANCEL if answered else self.EXIT_SAVE_UNCONFIRMED
         if role == qt.QMessageBox.DestructiveRole:
             return self.EXIT_NO_SAVE
         if role == qt.QMessageBox.AcceptRole:
@@ -1012,11 +1055,20 @@ class WidgetWorkflowMixin:
             total = int(self._currentWorkflowUiState.get("total_steps") or 0)
             progress = f"{done} of {total} steps" if total else f"{done} step(s)"
             lines.append(f"Not finished ({progress}) - progress cannot be resumed.")
-        # Both buttons are spelled out, because one of them DELETES. The run
-        # folder is written incrementally while the workflow runs, so declining
-        # to save is a removal, not a non-write -- a dialog that only described
-        # what saving adds would be describing the harmless half.
-        lines.append("Your scene is left untouched either way.")
+        # Both buttons are spelled out, because BOTH destroy something: one
+        # deletes the run folder, and both now close the scene. The run folder is
+        # written incrementally while the workflow runs, so declining to save is
+        # a removal, not a non-write -- a dialog that only described what saving
+        # adds would be describing the harmless half. And the scene line has to
+        # come first and say "closed", because that is the sentence that decides
+        # whether the user presses Exit at all.
+        if self.EXIT_CLOSES_SCENE:
+            lines.append(
+                "The scene is CLOSED either way, so the next workflow starts "
+                "clean. Anything in it that you have not saved yourself is lost."
+            )
+        else:
+            lines.append("Your scene is left untouched either way.")
         lines.append(
             f"Save: adds timing.txt and a copy of the scene (can be large) "
             f"under logs/{self._statisticRunName()}/{RunLog.STATISTIC_DIRNAME}/."
@@ -1404,20 +1456,29 @@ class WidgetWorkflowMixin:
         Runs AFTER the replay timeline is torn down, so the ~one hidden
         ``vtkMRMLSceneViewNode`` per step is already gone — otherwise the saved
         scene would carry a full copy of every intermediate state.
+
+        Returns True only when a scene copy demonstrably landed on disk. The
+        caller closes the scene on the strength of that, so it is deliberately a
+        POSITIVE check (the .mrml exists and at least one node was written)
+        rather than the absence of an exception: nothing in the save path
+        raises — a node that cannot be written appends its name to a human
+        readable note, and ``saveScene`` returning False does the same — so
+        "no exception" would report success for a save that wrote nothing.
         """
         from SlicerAIAgentLib import RunLog
         manifest = self._runManifest()
         if manifest is None:
             logger.info("No run manifest to write statistics for")
-            return
+            return False
         run_name = self._statisticRunName()
         try:
             stats_dir = self._statisticDir()
         except Exception:
             logger.debug("Statistic directory unavailable", exc_info=True)
-            return
+            return False
 
         scene_dir, scene_note = "", ""
+        written = 0
         try:
             scene_dir = RunLog.ensure_dir(os.path.join(stats_dir, "scene"))
             self._setExitProgress(progress, "Saving the scene...")
@@ -1452,6 +1513,18 @@ class WidgetWorkflowMixin:
         except Exception:
             logger.warning("Writing the run statistics failed", exc_info=True)
 
+        try:
+            scene_saved = bool(written) and os.path.isfile(
+                os.path.join(scene_dir, self.SCENE_FILE_NAME)
+            )
+        except Exception:
+            scene_saved = False
+        if not scene_saved:
+            logger.warning(
+                "[Statistic] No scene copy landed in %s (%s)", scene_dir, scene_note,
+            )
+        return scene_saved
+
     def _describeSavedScene(self, scene_dir):
         """One line about what landed in the scene folder, for the report."""
         try:
@@ -1480,7 +1553,8 @@ class WidgetWorkflowMixin:
             return False
         return bool(getattr(session, "completed_steps", None))
 
-    def _resetGuidedSession(self, reason="exit", announce=True, save=None):
+    def _resetGuidedSession(self, reason="exit", announce=True, save=None,
+                            close_scene=None):
         """Close the guided workflow and put the widget back to a clean start.
 
         ``save`` writes the run's statistics + a flat copy of the scene into
@@ -1488,6 +1562,14 @@ class WidgetWorkflowMixin:
         keeps the three non-Exit callers (a runtime cancel, a scene close, the
         bare default) behaving exactly as before; the Exit button passes it
         explicitly, because that is the one path where the user chose.
+
+        ``close_scene`` likewise defaults to "only a user Exit". It is a
+        separate parameter rather than a second reading of ``reason`` because
+        there is one case where the user pressed Exit and the scene must still
+        NOT be closed: the confirmation dialog failed to appear, so
+        ``_askExitChoice`` fell back to a full exit the user never actually
+        agreed to. Closing an unsaved scene on the strength of an assumed
+        answer is the one mistake here that cannot be undone.
 
         The ORDER below is load-bearing and each step is commented, because the
         cost of getting it wrong is silent: state that survives here does not
@@ -1517,6 +1599,9 @@ class WidgetWorkflowMixin:
 
         if save is None:
             save = (reason == "user_exit")
+        if close_scene is None:
+            close_scene = (reason == "user_exit")
+        close_scene = bool(close_scene) and self.EXIT_CLOSES_SCENE
 
         # 0. Stamp the end of the run before anything is torn down, so the
         #    "Send to Exit" total is measured to the click and not to whenever
@@ -1537,6 +1622,16 @@ class WidgetWorkflowMixin:
                 self._streamQueue.get_nowait()
         except Exception:
             pass
+
+        # 2b. Anything whose "I am finished" event was in that queue must have
+        #     its flag cleared HERE, or it stays set for the rest of the
+        #     session. A routing call in flight is the case that matters: its
+        #     router_decision event has just been discarded, so _routerBusy
+        #     would never be cleared and every later request would be answered
+        #     with "still choosing workflow" -- a permanently deaf Send button.
+        #     The worker itself is fenced by the epoch bumped in step 1.
+        self._routerBusy = False
+        self._voiceTranscribing = False
 
         # 3. Baseline harness: stop the MCP endpoint, hand the run log back to
         #    the pipeline (_teardownBaselineMcp does that), leave baseline mode.
@@ -1597,10 +1692,27 @@ class WidgetWorkflowMixin:
             #     is sealed and complete, but _currentLogDir and
             #     _currentRunManifest are still set — step 7 below drops both.
             if save:
+                saved_ok = False
                 try:
-                    self._saveRunStatistics(exit_epoch, progress=progress)
+                    saved_ok = self._saveRunStatistics(exit_epoch, progress=progress)
                 except Exception:
                     logger.warning("Run statistics save failed", exc_info=True)
+                # The user asked for the record AND (implicitly) for the scene
+                # to be closed. If the record did not materialise, honouring
+                # only the second half destroys the scene and keeps nothing --
+                # the worst of the four outcomes, and the one they would never
+                # have chosen. So the close is abandoned and the reason is said
+                # out loud; the panel is closed either way, so they are not
+                # stuck, and File > Close Scene is one menu away.
+                if close_scene and not saved_ok:
+                    close_scene = False
+                    self.appendToChat(
+                        "System",
+                        "The scene could NOT be saved to logs/, so it has been "
+                        "left open rather than closed — save it yourself "
+                        "(File > Save Data) before closing it. See the "
+                        "application log for what failed.",
+                    )
             elif reason == "user_exit":
                 # "Without saving" means nothing of this run stays in logs/, so
                 # the folder it has been writing into all along goes too.
@@ -1624,26 +1736,36 @@ class WidgetWorkflowMixin:
             self._endExitProgress(progress)
             self._guidedExitInProgress = False
 
-        # 6. Now the session itself, plus the module-global mirrors it wrote.
-        #    Cleared for ALL extensions, not just this one: the mirrors are keyed
-        #    by extension name and start_for_extension only resets its own, so a
-        #    per-extension reset here would leave a run of a DIFFERENT procedure
-        #    inheriting this one's completions, choices and loop counters.
+        # 6. Now the session itself, plus everything else whose lifetime is this
+        #    run. _prepareCleanRuntime does the second half (it is shared with
+        #    workflow START, so the two can never drift apart) and is what
+        #    clears the module-global mirrors -- for ALL extensions, not just
+        #    this one: they are keyed by extension name, so a per-extension
+        #    reset would leave a run of a DIFFERENT procedure inheriting this
+        #    one's completions, choices and loop counters.
+        #
+        #    After 5b, so the statistics save still had its manifest and log
+        #    dir; the module rebuild is not asked for here (no extension name),
+        #    since the run that needs a fresh widget is the next one.
         runtime = getattr(self, "_workflowRuntime", None)
         if runtime is not None:
             runtime.session = None
             runtime.log_dir = ""
-        try:
-            from SlicerAIAgentLib.ExtensionCLILoader import reset_workflow_state
-            reset_workflow_state(None)
-        except Exception:
-            logger.debug("Generated CLI workflow state reset failed", exc_info=True)
         orchestrator = getattr(self, "_workflowOrchestrator", None)
         if orchestrator is not None and getattr(self, "_activeWorkflowId", None):
             try:
                 orchestrator.cancel_workflow(self._activeWorkflowId)
             except Exception:
                 logger.debug("Orchestrator cancel on exit failed", exc_info=True)
+        # AFTER cancel_workflow, not before: that call reads the very state
+        # _prepareCleanRuntime empties (its own workflow entry, and the
+        # interaction manager's created-node list, which it uses to DELETE those
+        # nodes). Clearing first would turn it into a silent no-op and change
+        # what Exit does to the scene.
+        try:
+            self._prepareCleanRuntime(reason=reason)
+        except Exception:
+            logger.debug("Clean-runtime reset on exit failed", exc_info=True)
 
         # 7. Per-run widget state. Anything keyed by step id or node id belongs
         #    to the run just closed and would be read back by the next one.
@@ -1679,14 +1801,343 @@ class WidgetWorkflowMixin:
         self._clearWorkflowPanel()
         self._setReadyStatus()
         self._refreshInputAvailability()
+
+        # 9. Close the scene -- LAST, and only for the Exit button.
+        #
+        #    Last, because everything above needs the scene: the statistics save
+        #    writes it, clear_checkpoints restores from its sceneview snapshots,
+        #    and the interaction/threshold teardown removes observers from nodes
+        #    that must still exist. And by here `runtime.session` is already None
+        #    (step 6), so the EndCloseEvent this fires reaches
+        #    onSceneEndClose and does the ONE thing we want from it -- dropping
+        #    the entered-module cache so the next run re-binds the extension --
+        #    without re-entering this method.
+        #
+        #    `close_scene` was resolved at the top and may have been withdrawn
+        #    above (a save that did not land). The other two callers are a
+        #    runtime cancel and a scene close that has already happened, and
+        #    closing the scene under either would destroy the user's data
+        #    without them asking, so neither reaches here.
+        if close_scene:
+            close_scene = self._closeSceneOnExit()
+
         if announce:
             self.appendToChat(
                 "System",
-                "Guided workflow closed and reset. Type a new request to start "
-                "another one.",
+                "Guided workflow closed and reset"
+                + (" (scene closed). " if close_scene else ". ")
+                + "Load your data and type a new request to start another one.",
             )
         logger.info("Guided workflow session reset (%s)", reason)
         return True
+
+    # ------------------------------------------------------------------
+    # Cross-run state: making run N+1 start where run 1 started
+    #
+    # A guided run is supposed to be reproducible, and the only thing that
+    # actually guaranteed that was restarting Slicer. Everything below is state
+    # whose natural lifetime is the PROCESS while the thing it describes has the
+    # lifetime of a RUN (or of a scene), so run 2 in one session began from a
+    # place run 1 never saw. The failures are silent by construction -- nothing
+    # raises, the workflow just behaves differently -- so the list is enumerated
+    # explicitly rather than discovered.
+    #
+    # The worst of them, and the one that motivated this: every generated
+    # template reaches its extension through
+    #
+    #     try:    logic = _<ext>_logic
+    #     except NameError: logic = <Ext>Logic()
+    #
+    # which is the intended hand-off from step N to step N+1 -- and, because
+    # __main__ outlives the run, also an unintended hand-off from run 1 to run 2.
+    # The reused object carries the previous run's node attributes, so a guard
+    # like `if self.fullBoneNode is not None:` reads "that stage is already
+    # done" while the scene says otherwise, and steps reveal, skip or recompute
+    # against a patient's data that is no longer there.
+    # ------------------------------------------------------------------
+
+    #: Whether starting a workflow rebuilds the driven extension's module widget.
+    #:
+    #: ``slicer.util.reloadScriptedModule`` is Slicer's own "as if just
+    #: launched" for a scripted module: it re-imports the source, calls the old
+    #: widget's ``cleanup()`` and builds a new one through ``setup()``. It is
+    #: the only generic way to clear what the runtime cannot enumerate -- the
+    #: extension's own widget/logic attributes and the state of its Qt controls
+    #: (a combobox left on run 1's answer is read by the extension's handlers at
+    #: click time, which is exactly why the runtime drives those controls at
+    #: all).
+    #:
+    #: Set False if a reload ever proves worse than the staleness it removes;
+    #: the rest of _prepareCleanRuntime still applies.
+    RESET_EXTENSION_MODULE_ON_START = True
+
+    def _prepareCleanRuntime(self, extension_name="", reason="start"):
+        """Return the process to the state a freshly launched Slicer is in.
+
+        Idempotent and fail-soft item by item: this runs on the way IN to a
+        workflow (where a previous run may have ended in any way at all,
+        including not ending) and on the way OUT of one. Neither caller may be
+        aborted by a single stale attribute refusing to clear, so every step is
+        guarded on its own.
+
+        ``extension_name`` is the procedure about to run, and is used only for
+        the module rebuild -- everything else is cleared for ALL extensions,
+        deliberately: these are keyed by extension name, and clearing only the
+        one named here would leave the NEXT procedure inheriting a different
+        one's completions, choices and loop counters.
+        """
+        cleared = []
+
+        # 1. The __main__ residue. First, because it is the one that changes
+        #    what the templates DO rather than what the panel shows.
+        try:
+            executor = getattr(getattr(self, "logic", None), "executor", None)
+            if executor is not None and hasattr(executor, "clearIntroducedGlobals"):
+                names = executor.clearIntroducedGlobals()
+                if names:
+                    cleared.append(f"{len(names)} __main__ name(s)")
+                    logger.info(
+                        "[CleanRuntime] Unbound %d name(s) left in __main__ by "
+                        "generated code: %s",
+                        len(names),
+                        ", ".join(sorted(names)[:12])
+                        + (" ..." if len(names) > 12 else ""),
+                    )
+        except Exception:
+            logger.debug("Clearing generated __main__ names failed", exc_info=True)
+        # The per-step prelude cleanup is lazy -- it drops the PREVIOUS step's
+        # keys when the next one is dispatched -- so a run that ended mid-step
+        # leaves its keys bound. They have just been unbound above; this stops
+        # the next dispatch trying to remove them a second time.
+        self._lastInjectedPreludeKeys = []
+
+        # 2. Our own module-global mirrors, for every extension.
+        try:
+            from SlicerAIAgentLib.ExtensionCLILoader import reset_workflow_state
+            reset_workflow_state(None)
+            cleared.append("workflow mirrors")
+        except Exception:
+            logger.debug("Generated CLI workflow state reset failed", exc_info=True)
+
+        # 3. "This module is entered" -- held in two independent places, and
+        #    both are wrong after a run ends. enter() is the extension binding
+        #    itself to the current scene, so the next run must fire it again;
+        #    and the runtime's copy additionally gates the wizard-page probe,
+        #    which on a fresh launch answers False and here would answer True.
+        try:
+            entered = getattr(self, "_invisiblyEnteredModules", None)
+            if entered:
+                entered.clear()
+                cleared.append("entered modules")
+        except Exception:
+            logger.debug("Clearing the entered-module cache failed", exc_info=True)
+        try:
+            runtime = getattr(self, "_workflowRuntime", None)
+            runtime_entered = getattr(runtime, "_entered_modules", None)
+            if runtime_entered:
+                runtime_entered.clear()
+        except Exception:
+            logger.debug("Clearing the runtime entered-module set failed", exc_info=True)
+
+        # 4. Interaction + orchestrator bookkeeping. Both are normally emptied
+        #    through cancel_workflow, which _resetGuidedSession only reaches
+        #    when _activeWorkflowId is still set -- so a run that completed
+        #    (which clears it) never got there.
+        try:
+            manager = getattr(self, "_interactionManager", None)
+            created = getattr(manager, "_all_created_node_ids", None)
+            if created:
+                # The IDs only, never the nodes: cleanup_all_created_nodes()
+                # DELETES them, and what the procedure produced is the user's.
+                del created[:]
+        except Exception:
+            logger.debug("Clearing created-node ids failed", exc_info=True)
+        try:
+            orchestrator = getattr(self, "_workflowOrchestrator", None)
+            active = getattr(orchestrator, "_active_workflows", None)
+            if active:
+                active.clear()
+        except Exception:
+            logger.debug("Clearing orchestrator workflows failed", exc_info=True)
+
+        # 5. Per-run widget bookkeeping that outlives its run. Each of these
+        #    reads back into a decision: _lastSliceFitLayout SKIPS the slice fit
+        #    when run 2 opens on the layout run 1 ended on (its "__unset__"
+        #    sentinel is what makes a fresh launch always fit); the preview
+        #    ranges pre-seed the threshold throttle with run 1's last range;
+        #    _lastCorrectionError is quoted into the next repair prompt.
+        self._lastSliceFitLayout = "__unset__"
+        for attr, value in (
+            ("_pendingPreviewRange", None),
+            ("_lastPreviewRange", None),
+            ("_lastExecutionResult", None),
+            ("_lastVerificationResult", None),
+            ("_lastSceneAfter", None),
+            ("_lastOutputHasErrors", False),
+            ("_lastCorrectionError", None),
+            ("_baselineAttemptCounts", {}),
+            # Log bookkeeping: the manifest object is documented as outliving
+            # its run (a first-seal-wins guard covers the re-entry), and the
+            # parked _pipeline* copies belong to whichever run a baseline
+            # interrupted.
+            ("_currentRunManifest", None),
+            ("_currentStepLogDir", None),
+            ("_currentStepId", None),
+            ("_currentCorrectionDir", None),
+            ("_stepTraceStart", None),
+            ("_pipelineLogDir", None),
+            ("_pipelineRunRoot", None),
+            ("_pipelineRunManifest", None),
+            ("_pipelineStepLogDir", None),
+            ("_pipelineStepId", None),
+            ("_pipelineRoleTrace", None),
+        ):
+            try:
+                if hasattr(self, attr):
+                    setattr(self, attr, dict(value) if isinstance(value, dict) else value)
+            except Exception:
+                logger.debug("Resetting %s failed", attr, exc_info=True)
+
+        # 6. Voice: a command awaiting "yes", or an utterance parked by the
+        #    re-entrancy guard, belongs to the run it was spoken in. The epoch
+        #    fence retires work already dispatched; these are the queues it
+        #    cannot reach. _teardownVoice is deliberately NOT called -- the
+        #    microphone staying armed across runs is the point of arming it.
+        for attr, value in (
+            ("_voicePendingCommand", None),
+            ("_voicePendingStep", None),
+            ("_voiceDeferredTranscripts", []),
+            ("_voiceDeferredCommands", []),
+            ("_voiceAsrErrorStreak", 0),
+            ("_voiceSpokenStepKey", None),
+        ):
+            try:
+                if hasattr(self, attr):
+                    setattr(self, attr, list(value) if isinstance(value, list) else value)
+            except Exception:
+                logger.debug("Resetting %s failed", attr, exc_info=True)
+
+        # 7. Live Slicer state a previous run may have left switched on. The
+        #    teardown does this too; repeating it here is what covers a run that
+        #    never reached a teardown.
+        for step in (
+            getattr(self, "_clearThresholdPreview", None),
+            getattr(self, "_releaseModuleSessionTools", None),
+        ):
+            if step is None:
+                continue
+            try:
+                step()
+            except Exception:
+                logger.debug("Clean-runtime teardown step failed", exc_info=True)
+
+        # 8. The extension's own widget. Last, because it is the only step that
+        #    can take visible time, and the only one that rebuilds rather than
+        #    clears.
+        if extension_name and self.RESET_EXTENSION_MODULE_ON_START:
+            if self._resetExtensionModuleState(extension_name):
+                cleared.append(f"{extension_name} module")
+
+        logger.info(
+            "[CleanRuntime] Prepared a clean runtime (%s)%s",
+            reason,
+            (": " + ", ".join(cleared)) if cleared else "",
+        )
+
+    def _resetExtensionModuleState(self, extension_name):
+        """Rebuild a scripted module's widget, so it starts factory-fresh.
+
+        The runtime cannot enumerate what a third-party extension keeps on
+        itself, and two kinds of it survive everything else here. Python
+        attributes on the widget and its logic: an extension's own scene-close
+        hook resets ``self.logic``, but the generated templates hold a SECOND,
+        independent logic instance, so an extension whose reset looks correct in
+        review still leaks under this runtime. And the state of its Qt controls:
+        the runtime drives those controls precisely because the extension's
+        handlers read them at click time, so a combobox left on run 1's answer
+        is an answer run 2 never gave.
+
+        ``reloadScriptedModule`` is Slicer's own answer to this (it is what the
+        Reload button runs) and is generic -- no extension is named here.
+
+        Never fatal. A module that will not reload leaves the previous widget in
+        place, which is exactly today's behaviour, so the cost of failing is
+        losing an improvement rather than breaking a run. The entered-module
+        caches are cleared first regardless, because a rebuilt widget has
+        certainly not been entered -- and if the reload fails half-way,
+        re-entering is still the safer belief.
+        """
+        # The name here is the CLI package's, which for every shipped package is
+        # also the scripted module's -- but that is a convention, not a
+        # guarantee (an extension may ship several modules under one name). Ask
+        # Slicer's own registry rather than assume: a name that is not a module
+        # must be skipped, not handed to reloadScriptedModule, whose failure
+        # mode on a C++ or CLI module is an unrelated-looking path error.
+        try:
+            if not hasattr(slicer.modules, str(extension_name).lower()):
+                logger.debug(
+                    "%s is not a registered module; skipping the widget rebuild",
+                    extension_name,
+                )
+                return False
+        except Exception:
+            return False
+        try:
+            entered = getattr(self, "_invisiblyEnteredModules", None)
+            if entered:
+                entered.discard(extension_name)
+        except Exception:
+            pass
+        try:
+            slicer.util.reloadScriptedModule(extension_name)
+            logger.info(
+                "[CleanRuntime] Rebuilt the %s module widget (fresh logic, "
+                "factory-default controls)", extension_name,
+            )
+            return True
+        except Exception as exc:
+            # Debug, not warning: an extension that is not a scripted module, or
+            # is not installed, reaches here on every run and is not a fault.
+            logger.debug(
+                "Could not rebuild the %s module widget (%s); continuing with "
+                "the existing one", extension_name, exc, exc_info=True,
+            )
+            return False
+
+    def _closeSceneOnExit(self):
+        """Close the MRML scene exactly the way File > Close Scene does.
+
+        ``Clear(0)`` plus ``SetURL("")`` is the whole of
+        ``qSlicerMainWindow::on_FileCloseSceneAction_triggered`` minus its
+        ``confirmCloseScene()`` prompt -- which is deliberately not reproduced:
+        the Exit dialog the user has just answered already says the scene is
+        closed and that unsaved work is lost, and a second modal asking the same
+        question is how a confirmation stops being read. ``SetURL("")`` matters
+        for the same reason Slicer does it: without it the next File > Save
+        would silently target the previous case's scene file.
+
+        Fail-soft. A scene that will not close must not turn Exit into a button
+        that appears to do nothing -- the workflow is already torn down by the
+        time this runs, so reporting and continuing is strictly better than
+        raising.
+        """
+        try:
+            slicer.mrmlScene.Clear(0)
+            try:
+                slicer.mrmlScene.SetURL("")
+            except Exception:
+                logger.debug("Clearing the scene URL failed", exc_info=True)
+            logger.info("[Workflow] Scene closed on exit")
+            return True
+        except Exception as exc:
+            logger.warning("Closing the scene on exit failed: %s", exc, exc_info=True)
+            self.appendToChat(
+                "System",
+                f"The guided workflow is closed, but the scene could not be "
+                f"closed automatically ({exc}). Use File > Close Scene before "
+                f"starting the next run.",
+            )
+            return False
 
     def _onWorkflowChoiceClicked(self, step_id, value):
         # While scrubbing the replay, the choices belong to a past step: clicking
@@ -1946,17 +2397,76 @@ class WidgetWorkflowMixin:
         if node is None:
             return None
 
-        # F. Exact class only. getNodesByClass and the tree's nodeTypes filter
-        # match by IsA, so a labelmap (a ScalarVolume subclass) would qualify as a
-        # Segment Editor source volume. The picker may offer subclasses -- a human
-        # can see what they are -- but the automatic path must not guess, and this
-        # also refuses the abstract classes a language classifier produces.
+        # F. Exact class, WHEN a node could actually have that class. getNodesByClass
+        # and the tree's nodeTypes filter match by IsA, so a labelmap (a ScalarVolume
+        # subclass) would qualify as a Segment Editor source volume; the picker may
+        # offer subclasses -- a human can see what they are -- but the automatic path
+        # must not choose between siblings.
+        #
+        # That reasoning only applies to a class a node can HAVE. Against an abstract
+        # base (``vtkMRMLVolumeNode``, which a decomposition writes when it means "a
+        # volume") the comparison is unsatisfiable rather than selective: no node's
+        # GetClassName() is ever an abstract name, so the gate never passed and the
+        # step waited for a click it did not need. It also disagreed with the manual
+        # path, which accepts the same node through ``IsA`` in
+        # _nodeTreeValidCurrentNode -- so the two answers to "is this node valid for
+        # this step?" differed by which one gave it. The sibling protection is intact:
+        # there the demanded class is concrete, so the exact check still runs.
         try:
-            if node.GetClassName() != node_class:
+            if node.GetClassName() != node_class and self._nodeClassIsInstantiable(node_class):
                 return None
         except Exception:
             return None
         return node
+
+    def _nodeClassIsInstantiable(self, node_class):
+        """Whether any node can have ``node_class`` as its own class name.
+
+        Asked of the scene's own registry (``IsNodeClassRegistered``), so no list
+        of abstract MRML base classes has to be maintained here and none can go
+        stale: a class is registered by handing the scene an INSTANCE of it, so an
+        abstract class is never in that list. ``vtkMRMLVolumeNode`` declares
+        ``CreateNodeInstance() override = 0``, which is why nothing can register
+        it and why no node's ``GetClassName()`` is ever that string.
+
+        Read-only on purpose. The obvious alternative -- creating a probe node with
+        ``CreateNodeByClass`` and testing for None -- also answers the question,
+        but ``vtkMRMLScene::CreateNodeByClass`` dereferences its result without a
+        null check when a default node is registered for the class
+        (``node->Reset(defaultNode)``), so probing an abstract class can segfault
+        Slicer. Not a risk worth taking to save a click.
+
+        Answers True on any uncertainty, keeping the strict comparison -- and so
+        today's behaviour -- for every class this cannot decide. Cached per class:
+        it runs whenever a node-pick step opens, and the answer is a property of
+        the class, not of the scene.
+        """
+        cache = getattr(self, "_nodeClassInstantiableCache", None)
+        if cache is None:
+            cache = self._nodeClassInstantiableCache = {}
+        if node_class in cache:
+            return cache[node_class]
+        instantiable = True
+        try:
+            scene = slicer.mrmlScene
+            if hasattr(scene, "IsNodeClassRegistered"):
+                instantiable = bool(scene.IsNodeClassRegistered(node_class))
+            else:
+                # Same registry, enumerated. Kept so a Slicer without the
+                # convenience method degrades to the right answer rather than
+                # silently back to the strict comparison.
+                instantiable = False
+                for index in range(scene.GetNumberOfRegisteredNodeClasses()):
+                    registered = scene.GetNthRegisteredNodeClass(index)
+                    if registered is not None and registered.GetClassName() == node_class:
+                        instantiable = True
+                        break
+        except Exception:
+            logger.debug("Node-class registry probe failed for %s", node_class,
+                         exc_info=True)
+            instantiable = True
+        cache[node_class] = instantiable
+        return instantiable
 
     def _maybeAutoSelectSoleNode(self):
         """Auto-answer a node-pick step that has exactly one candidate.
@@ -4086,9 +4596,13 @@ class WidgetWorkflowMixin:
         except Exception as e:
             logger.warning(f"[Workflow] Failed to apply display properties: {e}")
 
-    def _handleCliProgress(self, stage_num, stage_name, detail):
-        """Handle CLI generator progress updates on the main thread."""
-        self._cliProgressDisplay.append(f"  Phase {stage_num}: {stage_name} — {detail}")
+    def _handleCliProgress(self, stage_num, stage_name, detail, extension=""):
+        """Handle CLI generator progress updates on the main thread.
+
+        Routed to the extension's OWN tab: parallel runs emit interleaved
+        phases, and a shared pane would leave none of them readable.
+        """
+        self._cliLog(extension, f"  Phase {stage_num}: {stage_name} — {detail}")
 
     def _handleCliProbeRequest(self, payload):
         """Execute a CLI live-API probe on the Qt/Slicer main thread."""
@@ -4104,8 +4618,13 @@ class WidgetWorkflowMixin:
 
     def _handleCliComplete(self, result):
         """Handle CLI generator completion on the main thread."""
-        self._cliGeneratorRunning = False
-        self._analyzeGenerateButton.setEnabled(True)
+        extension = (result or {}).get("extension_name", "")
+        if extension and extension in (getattr(self, "_cliBatch", None) or {}):
+            self._cliBatchFinish(extension, bool((result or {}).get("success")),
+                                 str((result or {}).get("error", ""))[:200])
+        else:
+            self._cliGeneratorRunning = False
+            self._analyzeGenerateButton.setEnabled(True)
 
         if result.get("success"):
             # Generation is pure background analysis — it must NOT touch the live
@@ -4389,9 +4908,9 @@ class WidgetWorkflowMixin:
         ext_name = manifest.get("extension_name", "")
         self._onRefreshExtensionsClicked()
         if ext_name:
-            for i in range(self._extensionSelector.count):
-                if ext_name in self._extensionSelector.itemText(i):
-                    self._extensionSelector.setCurrentIndex(i)
+            for i in range(self._extensionItemCount()):
+                if ext_name in self._extensionItemText(i):
+                    self._setCurrentExtensionIndex(i)
                     break
 
     def _handleCliRevisionComplete(self, result):
@@ -4441,13 +4960,27 @@ class WidgetWorkflowMixin:
             self._analyzeGenerateButton.setEnabled(True)
             self._refreshCliActionButtons()
 
-    def _handleCliError(self, error_msg):
-        """Handle CLI generator error on the main thread."""
+    def _handleCliError(self, payload):
+        """Handle CLI generator error on the main thread.
+
+        Accepts the old bare string as well as the routed dict, because the
+        repair and revision paths still emit the former.
+        """
+        if isinstance(payload, dict):
+            extension = payload.get("extension", "")
+            error_msg = payload.get("error", "")
+        else:
+            extension, error_msg = "", payload
+        self._cliLog(extension, f"ERROR: {error_msg}")
+        if extension and extension in (getattr(self, "_cliBatch", None) or {}):
+            # One extension failing must not end the others: only its own slot
+            # is closed, and the batch wraps up when the last one lands.
+            self._cliBatchFinish(extension, False, str(error_msg)[:200])
+            return
         self._cliGeneratorRunning = False
         self._analyzeGenerateButton.setEnabled(True)
         self._cliStatusLabel.setText("Error")
         self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
-        self._cliProgressDisplay.append(f"ERROR: {error_msg}")
         self._refreshCliActionButtons()
 
     def enter(self):

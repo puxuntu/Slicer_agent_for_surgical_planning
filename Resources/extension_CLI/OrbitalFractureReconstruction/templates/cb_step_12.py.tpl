@@ -1,6 +1,3 @@
-# [runtime-fixed] Auto-revised by runtime self-correction at 20260713_175909.
-# Pre-revision templates backed up under versions/runtime_fix_20260713_175909/.
-# Fixed runtime error: OrbitalFractureReconstructionLogic.reconstructFullBone() missing 1 required positional argument: 'segmentationNode'
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -9,32 +6,34 @@ if _active_module_name != 'OrbitalFractureReconstruction':
     try:
         slicer.util.selectModule('OrbitalFractureReconstruction')
     except Exception as _module_enter_error:
-        print(f"Warning: could not activate module 'OrbitalFractureReconstruction': {{_module_enter_error}}")
+        print(f"Warning: could not activate module 'OrbitalFractureReconstruction': {_module_enter_error}")
 # precondition:end
 
 try:
-    import_orbital_frac_recon = True
     from OrbitalFractureReconstruction import OrbitalFractureReconstructionLogic
 except ImportError:
-    raise ImportError("OrbitalFractureReconstruction extension is not installed. Please install it.")
+    raise RuntimeError("OrbitalFractureReconstruction extension is not available; please install it before running this step.")
 
-# Reuse existing logic instance or create new one
 try:
     logic = _orbitalfracturereconstruction_logic
 except NameError:
     logic = OrbitalFractureReconstructionLogic()
-    _orbitalfracturereconstruction_logic = logic
 
-# Look up the bone segmentation node that was selected in step cb_step_11
-boneSegNode = slicer.util.getNode("Bone_Segmentation")
-if boneSegNode is None:
-    raise RuntimeError("Could not find Bone_Segmentation node in the scene")
+parameterNode = logic.getParameterNode()
+segmentationNode = None
+if parameterNode is not None:
+    segmentationNode = parameterNode.GetNodeReference("segmentationNode")
 
-# Call reconstructFullBone with the required segmentationNode argument
-logic.reconstructFullBone(boneSegNode)
+if segmentationNode is None:
+    segmentationNodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+    if len(segmentationNodes) > 0:
+        segmentationNode = segmentationNodes[0]
+        if parameterNode is not None:
+            parameterNode.SetNodeReferenceID("segmentationNode", segmentationNode.GetID())
 
-# Cache the output full bone node ID for later steps
-if logic.fullBoneNode is not None:
-    _orbitalfracturereconstruction_fullBoneNode_id = logic.fullBoneNode.GetID()
+if segmentationNode is None:
+    raise RuntimeError("No bone segmentation node found for full bone reconstruction.")
 
-print("[OrbitalFractureReconstruction] Full bone reconstructed successfully.")
+logic.reconstructFullBone(segmentationNode)
+_orbitalfracturereconstruction_logic = logic
+print("Full bone reconstructed.")

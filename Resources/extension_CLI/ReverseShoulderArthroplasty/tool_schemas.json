@@ -48,8 +48,11 @@
             "description": "Action: 'start' to begin a step, 'proceed' after user completes interaction, 'skip' for optional steps, 'cancel' to abort workflow, 'choice_made' for user_choice steps"
           },
           "choice_value": {
-            "type": "string",
-            "description": "Value selected by the user for user_choice steps. Required when user_action is 'choice_made'."
+            "type": [
+              "string",
+              "object"
+            ],
+            "description": "Value selected by the user for user_choice steps. Required when user_action is 'choice_made'. A multi-selection step takes a JSON object mapping each parameter_name to its value."
           }
         },
         "required": [

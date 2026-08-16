@@ -10,32 +10,30 @@ if _active_module_name != 'OrbitalFractureReconstruction':
 # precondition:end
 
 try:
-    import_orbital_frac_recon = True
     from OrbitalFractureReconstruction import OrbitalFractureReconstructionLogic
 except ImportError:
-    raise ImportError("OrbitalFractureReconstruction extension is not installed. Please install it.")
+    raise RuntimeError("OrbitalFractureReconstruction extension is not available; please install it before running this step.")
 
-# Reuse existing logic instance or create new one
 try:
     logic = _orbitalfracturereconstruction_logic
 except NameError:
     logic = OrbitalFractureReconstructionLogic()
-    _orbitalfracturereconstruction_logic = logic
 
-# Get the segmentation node
-try:
-    segmentationNode = slicer.mrmlScene.GetNodeByID(_orbitalfracturereconstruction_segmentationNode_id)
-except NameError:
-    # Fall back to scene search
-    segmentationNode = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentationNode")
-    if segmentationNode is None:
-        raise RuntimeError("No segmentation node found in the scene.")
+parameterNode = logic.getParameterNode()
+segmentationNode = None
+if parameterNode is not None:
+    segmentationNode = parameterNode.GetNodeReference("segmentationNode")
 
-# Call the method
+if segmentationNode is None:
+    segmentationNodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+    if len(segmentationNodes) > 0:
+        segmentationNode = segmentationNodes[0]
+        if parameterNode is not None:
+            parameterNode.SetNodeReferenceID("segmentationNode", segmentationNode.GetID())
+
+if segmentationNode is None:
+    raise RuntimeError("No bone segmentation node found for full bone reconstruction.")
+
 logic.reconstructFullBone(segmentationNode)
-
-# Cache the output full bone node ID for later steps
-if logic.fullBoneNode is not None:
-    _orbitalfracturereconstruction_fullBoneNode_id = logic.fullBoneNode.GetID()
-
-print("[OrbitalFractureReconstruction] Full bone reconstructed.")
+_orbitalfracturereconstruction_logic = logic
+print("Full bone reconstructed.")

@@ -14,3 +14,10 @@ jsonschema>=4.0.0
 # faiss-cpu>=1.7.0
 # onnxruntime>=1.16.0
 # transformers>=4.30.0
+
+# Voice control: microphone capture and playback (auto-installed at runtime the
+# first time listening is started). Left commented deliberately -- it is the
+# only binary wheel in the project that a user who never turns voice control on
+# has no reason to carry, and SlicerAIAgentLib/voice/audio.py degrades to a
+# named reason rather than an ImportError when it is absent.
+# sounddevice>=0.4.6

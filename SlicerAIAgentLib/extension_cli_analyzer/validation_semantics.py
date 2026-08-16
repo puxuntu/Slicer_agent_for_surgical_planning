@@ -1372,9 +1372,60 @@ class AnalyzerValidationSemanticsMixin:
 
         return result
 
-    @staticmethod
-    def _fill_remaining_placeholders(code: str) -> str:
+    def _bound_choice_placeholders(self, gen: Dict) -> set:
+        """Placeholder names a generator's step legitimately takes from a user_choice.
+
+        A parameter bound to an earlier choice is instantiated by the RUNTIME --
+        ``_build_format_kwargs`` merges the recorded answers into the fill kwargs --
+        so it is resolvable even though it has no inline default. Every gate that
+        enforces placeholder closure has to know that, or a correct template is
+        rejected: the rule lives here once because it is applied in two independent
+        places (per-template contract validation and the final package audit), and
+        the second one silently failed the package after the first had passed it.
+        """
+        names = set()
+        metadata = getattr(self, "_workflow_metadata", None)
+        if not isinstance(metadata, dict) or not isinstance(gen, dict):
+            return names
+        method = _text_or_empty(gen.get("method_name"))
+        if not method:
+            return names
+        for entry in (metadata.get("bound_choice_parameters", {}) or {}).get(method, []) or []:
+            name = _text_or_empty(entry.get("choice_parameter"))
+            if name:
+                names.add(name)
+        return names
+
+    def _bound_choice_sample_values(self) -> Dict[str, str]:
+        """``choice_parameter -> repr of one real option``, for trial fills.
+
+        A placeholder bound to a user_choice has a KNOWN domain — the option list
+        scanned off the extension's own control — so a trial run can use a real
+        member of it. The generic sampler cannot: it would substitute ``""`` for
+        ``{side}``, and the live-execution gate would then run
+        ``segmentOrbits("")``, which the extension rejects by design. That failure
+        is indistinguishable from a broken template, so the gate would hand a
+        correct template to the repair ladder and get back one that no longer binds
+        the choice — the exact rewrite this whole path exists to prevent.
+        """
+        samples: Dict[str, str] = {}
+        metadata = getattr(self, "_workflow_metadata", None)
+        if not isinstance(metadata, dict):
+            return samples
+        for entries in (metadata.get("bound_choice_parameters", {}) or {}).values():
+            for entry in entries or []:
+                name = _text_or_empty(entry.get("choice_parameter"))
+                if not name or name in samples:
+                    continue
+                for option in entry.get("options") or []:
+                    if option.get("value") is not None:
+                        samples[name] = repr(option["value"])
+                        break
+        return samples
+
+    def _fill_remaining_placeholders(self, code: str) -> str:
         """Fill remaining template placeholders outside Python strings."""
+        bound_samples = self._bound_choice_sample_values()
         string_ranges = []
         for match in _re.finditer(
             r'(?:[fFrRbBuU]{0,2})("""|\'\'\'|"|\')(.*?)\1',
@@ -1390,6 +1441,11 @@ class AnalyzerValidationSemanticsMixin:
             return None
 
         def _sample_value(name: str) -> str:
+            # A bound choice has a real option list — use a member of it rather than
+            # a type-shaped guess, so a trial run exercises a value the extension
+            # accepts.
+            if name in bound_samples:
+                return bound_samples[name]
             lower = name.lower()
             if "name" in lower:
                 return '"SampleNode"'

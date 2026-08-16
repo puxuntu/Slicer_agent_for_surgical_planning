@@ -26,13 +26,22 @@ class WidgetCLIMixin:
         extLabel = qt.QLabel("Extension:")
         extLayout.addWidget(extLabel)
 
-        self._extensionSelector = qt.QComboBox()
+        # A checkable LIST, not a combo: Analyze & Generate runs every TICKED
+        # extension, in parallel. The single-extension actions (Repair, Test,
+        # the step-instruction editor) act on the HIGHLIGHTED row instead, so
+        # one widget carries both meanings without a second selector to keep in
+        # sync -- tick what to build, highlight what to work on.
+        self._extensionSelector = qt.QListWidget()
         self._extensionSelector.setToolTip(
-            "Select an extension to generate a CLI for. Only extensions that have a "
-            "cookbook file (Resources/extensions_cookbook/<name>.md) are listed."
+            "Tick one or more extensions to generate CLIs for -- Analyze & Generate "
+            "runs them in parallel. The highlighted row is the one Repair and the "
+            "step-instruction editor act on. Only extensions that have a cookbook "
+            "file (Resources/extensions_cookbook/<name>.md) are listed."
         )
-        # No hard minimum width — the combo fills the row via its layout stretch;
-        # a fixed width here would push the module panel wider when expanded.
+        self._extensionSelector.setSelectionMode(qt.QAbstractItemView.SingleSelection)
+        # Tall enough to show a few without scrolling, short enough that the
+        # collapsed group does not dominate the module panel.
+        self._extensionSelector.setMaximumHeight(120)
         self._extensionSelector.setMinimumWidth(0)
         extLayout.addWidget(self._extensionSelector, 1)
 
@@ -48,20 +57,30 @@ class WidgetCLIMixin:
         self._discoveredExtensions = []
 
         # Row 3: Analyze & Generate button
-        self._analyzeGenerateButton = qt.QPushButton("Analyze & Generate CLI")
+        # "&&", not "&": Qt reads a single ampersand in a button label as a
+        # mnemonic marker -- it swallows the character and underlines the next
+        # one, rendering this as "Analyze _Generate CLI".
+        self._analyzeGenerateButton = qt.QPushButton(self.ANALYZE_BUTTON_TEXT)
         self._analyzeGenerateButton.setToolTip(
             "Analyze the selected extension and generate operation CLI tools"
         )
         self._analyzeGenerateButton.setEnabled(False)
         cliLayout.addWidget(self._analyzeGenerateButton)
 
-        # Row 4: Progress display
-        self._cliProgressDisplay = qt.QTextEdit()
-        self._cliProgressDisplay.setReadOnly(True)
-        self._cliProgressDisplay.setMaximumHeight(150)
-        self._cliProgressDisplay.setFont(qt.QFont("Monospace", 9))
-        self._cliProgressDisplay.setPlaceholderText("Progress will appear here...")
-        cliLayout.addWidget(self._cliProgressDisplay)
+        # Row 4: Progress -- ONE TAB PER EXTENSION. Parallel runs interleave
+        # their output, so a single pane would produce a log in which no run's
+        # story is readable; a tab each keeps every run's phases in order.
+        # `_cliProgressDisplay` still exists and still points at a real editor
+        # (the visible tab) so the single-extension flows -- Repair, Test,
+        # instruction regeneration -- keep writing where the user is looking.
+        self._cliProgressTabs = qt.QTabWidget()
+        self._cliProgressTabs.setMaximumHeight(170)
+        self._cliProgressTabs.setDocumentMode(True)
+        cliLayout.addWidget(self._cliProgressTabs)
+        self._cliProgressPanes = {}
+        self._cliProgressDisplay = self._cliProgressPane(self.CLI_DEFAULT_TAB)
+        self._cliProgressTabs.currentChanged.connect(
+            lambda unused_index: self._syncCliProgressDisplay())
 
         # Row 5: Status indicator
         self._cliStatusLabel = qt.QLabel("Ready")
@@ -149,8 +168,12 @@ class WidgetCLIMixin:
 
         # Connect signals
         self._refreshExtensionsButton.clicked.connect(self._onRefreshExtensionsClicked)
-        self._extensionSelector.currentIndexChanged.connect(self._onExtensionSelectionChanged)
-        self._extensionSelector.currentIndexChanged.connect(self._populateStepInstructionCombo)
+        self._extensionSelector.currentRowChanged.connect(self._onExtensionSelectionChanged)
+        self._extensionSelector.currentRowChanged.connect(self._populateStepInstructionCombo)
+        # Ticking a box changes what Analyze & Generate would build, so the
+        # button's caption has to follow it.
+        self._extensionSelector.itemChanged.connect(
+            lambda unused_item: self._refreshAnalyzeButtonCaption())
         self._analyzeGenerateButton.clicked.connect(self._onAnalyzeGenerateClicked)
         self._repairCliButton.clicked.connect(self._onRepairCliClicked)
         self._stepInstrStepCombo.currentIndexChanged.connect(self._onStepInstrStepChanged)
@@ -235,25 +258,92 @@ class WidgetCLIMixin:
             }))
         return entries
 
-    def _populateExtensionSelector(self):
-        """Populate the extension combo with installed extensions that have a
-        cookbook file."""
-        self._extensionSelector.clear()
-        self._extensionDataMap.clear()
+    # ── selector accessors ───────────────────────────────────────────────
+    # The widget is a QListWidget, whose API differs from the QComboBox this
+    # replaced (currentRow vs currentIndex, item(i).text() vs itemText(i)).
+    # Every reader goes through these, so the widget type is stated once.
 
-        for label, data in self._cookbookExtensionEntries():
-            self._extensionDataMap[label] = data
-            self._extensionSelector.addItem(label)
+    def _extensionItemCount(self):
+        try:
+            return int(self._extensionSelector.count)
+        except TypeError:                       # PythonQt exposes it as a method
+            return int(self._extensionSelector.count())
+
+    def _extensionItemText(self, index):
+        item = self._extensionSelector.item(index)
+        return item.text() if item is not None else ""
+
+    def _currentExtensionLabel(self):
+        item = self._extensionSelector.currentItem()
+        return item.text() if item is not None else ""
+
+    def _setCurrentExtensionIndex(self, index):
+        self._extensionSelector.setCurrentRow(int(index))
+
+    def _checkedExtensionLabels(self):
+        """Ticked rows, in list order.
+
+        Falls back to the highlighted row when nothing is ticked: clicking
+        Analyze & Generate with a row selected and no boxes ticked should build
+        that one, not refuse. Ticking is how you ask for MORE than one, never a
+        precondition for asking for one.
+        """
+        labels = []
+        for index in range(self._extensionItemCount()):
+            item = self._extensionSelector.item(index)
+            if item is not None and item.checkState() == qt.Qt.Checked:
+                labels.append(item.text())
+        if not labels:
+            current = self._currentExtensionLabel()
+            if current:
+                labels.append(current)
+        return labels
+
+    def _populateExtensionSelector(self):
+        """Populate the extension list with installed extensions that have a
+        cookbook file, preserving what was ticked and highlighted."""
+        ticked = set(self._checkedExtensionLabels()) if self._extensionItemCount() else set()
+        current = self._currentExtensionLabel()
+        # Repopulating fires currentRowChanged per removal; each one would
+        # rebuild the step-instruction editor against a half-filled list.
+        self._extensionSelector.blockSignals(True)
+        try:
+            self._extensionSelector.clear()
+            self._extensionDataMap.clear()
+            for label, data in self._cookbookExtensionEntries():
+                self._extensionDataMap[label] = data
+                item = qt.QListWidgetItem(label)
+                item.setFlags(item.flags() | qt.Qt.ItemIsUserCheckable)
+                item.setCheckState(qt.Qt.Checked if label in ticked else qt.Qt.Unchecked)
+                self._extensionSelector.addItem(item)
+            index = 0
+            for position in range(self._extensionItemCount()):
+                if self._extensionItemText(position) == current:
+                    index = position
+                    break
+            if self._extensionItemCount():
+                self._setCurrentExtensionIndex(index)
+        finally:
+            self._extensionSelector.blockSignals(False)
+        self._onExtensionSelectionChanged(self._extensionSelector.currentRow)
+        self._populateStepInstructionCombo()
 
         # Enable the button if a valid selection exists after population
-        has_selection = self._extensionSelector.currentIndex >= 0
-        self._analyzeGenerateButton.setEnabled(has_selection and not self._cliGeneratorRunning)
+        has_work = bool(self._checkedExtensionLabels())
+        self._analyzeGenerateButton.setEnabled(has_work and not self._cliGeneratorRunning)
+        self._refreshAnalyzeButtonCaption()
         self._refreshCliActionButtons()
 
     def _onExtensionSelectionChanged(self, index):
-        """Enable/disable the Analyze button based on selection."""
-        has_selection = index >= 0
-        self._analyzeGenerateButton.setEnabled(has_selection and not self._cliGeneratorRunning)
+        """Enable/disable the Analyze button from what would actually be built.
+
+        Keyed on `_checkedExtensionLabels()`, not on the highlighted row: with
+        nothing highlighted but boxes ticked there IS work to do, and the button
+        has to offer it.
+        """
+        has_work = bool(self._checkedExtensionLabels())
+        self._analyzeGenerateButton.setEnabled(has_work and not self._cliGeneratorRunning)
+        self._refreshAnalyzeButtonCaption()
         self._refreshCliActionButtons()
 
     def _refreshCliActionButtons(self):
@@ -278,65 +368,207 @@ class WidgetCLIMixin:
                 has_cli = False
         self._repairCliButton.setEnabled(has_cli)
 
+    # ── progress tabs ────────────────────────────────────────────────────
+    #: Tab used by everything that is not a per-extension generation run.
+    CLI_DEFAULT_TAB = "Log"
+
+    #: The ampersand is DOUBLED because Qt treats a single one in a button label
+    #: as a mnemonic marker: "Analyze & Generate" renders as "Analyze _Generate".
+    #: Defined once so the constructor and the count suffix cannot drift.
+    ANALYZE_BUTTON_TEXT = "Analyze && Generate CLI"
+
+    #: How many extensions may generate at once. Each is one background thread
+    #: doing HTTP + file IO, so the cap is about the API and the machine, not
+    #: about correctness -- the queue below runs the rest as slots free up.
+    CLI_MAX_PARALLEL = 4
+
+    def _cliProgressPane(self, name):
+        """The read-only editor for ``name``, creating its tab on first use."""
+        pane = self._cliProgressPanes.get(name)
+        if pane is not None:
+            return pane
+        pane = qt.QTextEdit()
+        pane.setReadOnly(True)
+        pane.setFont(qt.QFont("Monospace", 9))
+        pane.setPlaceholderText("Progress will appear here...")
+        self._cliProgressPanes[name] = pane
+        self._cliProgressTabs.addTab(pane, name)
+        return pane
+
+    def _syncCliProgressDisplay(self):
+        """Point `_cliProgressDisplay` at the visible tab.
+
+        The single-extension flows append to it directly; without this they
+        would write into whichever pane happened to be created first, which
+        after a batch is somebody else's tab.
+        """
+        pane = self._cliProgressTabs.currentWidget()
+        if pane is not None:
+            self._cliProgressDisplay = pane
+
+    def _cliLog(self, name, message):
+        """Append to ONE extension's tab, whatever is on screen."""
+        try:
+            self._cliProgressPane(name or self.CLI_DEFAULT_TAB).append(message)
+        except Exception:
+            logger.debug("CLI progress append failed", exc_info=True)
+
+    def _showCliTab(self, name):
+        pane = self._cliProgressPanes.get(name)
+        if pane is not None:
+            self._cliProgressTabs.setCurrentWidget(pane)
+
+    def _resetCliProgressTabs(self, names):
+        """One empty tab per extension about to run, plus the default log."""
+        for name in list(self._cliProgressPanes):
+            if name == self.CLI_DEFAULT_TAB:
+                continue
+            pane = self._cliProgressPanes.pop(name)
+            index = self._cliProgressTabs.indexOf(pane)
+            if index >= 0:
+                self._cliProgressTabs.removeTab(index)
+            pane.deleteLater()
+        for name in names:
+            self._cliProgressPane(name).clear()
+        if names:
+            self._showCliTab(names[0])
+        self._syncCliProgressDisplay()
+
+    def _refreshAnalyzeButtonCaption(self):
+        """Say how many will be built, so a stray tick is visible before it runs."""
+        button = getattr(self, "_analyzeGenerateButton", None)
+        if button is None:
+            return
+        try:
+            count = len(self._checkedExtensionLabels())
+        except Exception:
+            return
+        button.setText(self.ANALYZE_BUTTON_TEXT
+                       if count <= 1 else
+                       "%s  (%d extensions)" % (self.ANALYZE_BUTTON_TEXT, count))
+
+    # ── batch state ──────────────────────────────────────────────────────
+    def _cliBatchActive(self):
+        return bool(getattr(self, "_cliBatch", None))
+
+    def _cliBatchFinish(self, name, ok, note=""):
+        """Record one extension's outcome and, when the last one lands, wrap up.
+
+        Called from BOTH the completion and the error path, so the batch cannot
+        be left permanently 'running' by a failure -- which would keep the
+        button disabled with no way back short of a Slicer restart.
+        """
+        batch = getattr(self, "_cliBatch", None) or {}
+        if name in batch:
+            batch[name] = {"ok": bool(ok), "note": note}
+        self._cliLaunchQueuedGenerations()
+        if any(state is None for state in batch.values()):
+            return
+        done = [n for n, st in batch.items() if st and st.get("ok")]
+        failed = [n for n, st in batch.items() if st and not st.get("ok")]
+        self._cliBatch = {}
+        self._cliGeneratorRunning = False
+        self._analyzeGenerateButton.setEnabled(True)
+        self._refreshAnalyzeButtonCaption()
+        self._refreshCliActionButtons()
+        if len(batch) > 1:
+            summary = "%d of %d generated" % (len(done), len(batch))
+            if failed:
+                summary += " -- failed: " + ", ".join(sorted(failed))
+            self._cliStatusLabel.setText(summary)
+            self._cliStatusLabel.setStyleSheet(
+                "font-weight: bold; color: %s;" % ("red" if failed else "green"))
+            self._cliLog(self.CLI_DEFAULT_TAB, summary)
+
+    def _cliLaunchQueuedGenerations(self):
+        """Start queued extensions as running slots free up."""
+        queued = getattr(self, "_cliQueue", None) or []
+        running = len([n for n, st in (getattr(self, "_cliBatch", None) or {}).items()
+                       if st is None and n in getattr(self, "_cliStarted", set())])
+        while queued and running < self.CLI_MAX_PARALLEL:
+            name, source_path = queued.pop(0)
+            self._startCliGeneration(name, source_path)
+            running += 1
+
     def _onAnalyzeGenerateClicked(self):
-        """Start the analysis pipeline in a background thread."""
-        data = self._getSelectedExtensionData()
-        if not data:
+        """Generate a CLI for every ticked extension, in parallel."""
+        if self._cliBatchActive():
             return
 
-        ext_name = data["name"]
-        source_path = data["path"]
+        labels = self._checkedExtensionLabels()
+        runnable, skipped = [], []
+        for label in labels:
+            data = self._extensionDataMap.get(label) or {}
+            name = data.get("name") or ""
+            source_path = data.get("path") or ""
+            if not name:
+                continue
+            if not source_path or not os.path.isdir(source_path):
+                skipped.append("%s: source path not found (%s)" % (name, source_path))
+                continue
+            if not self._extension_has_cookbook(name):
+                skipped.append(
+                    "%s: no cookbook -- create Resources/extensions_cookbook/%s.md"
+                    % (name, name))
+                continue
+            runnable.append((name, source_path))
 
-        if not source_path or not os.path.isdir(source_path):
-            self._cliProgressDisplay.append(f"Error: Source path not found: {source_path}")
+        for note in skipped:
+            self._cliLog(self.CLI_DEFAULT_TAB, "Skipped -- " + note)
+        if not runnable:
+            self._cliStatusLabel.setText("Nothing to generate")
+            self._cliStatusLabel.setStyleSheet("font-weight: bold; color: red;")
+            if not skipped:
+                self._cliLog(self.CLI_DEFAULT_TAB,
+                             "Tick at least one extension, or select a row.")
             return
 
-        # Cookbook is required for CLI generation
-        module_dir = SLICER_AI_AGENT_ROOT
-        cookbook_dir = os.path.join(module_dir, "Resources", "extensions_cookbook")
-        has_cookbook = (
-            os.path.isfile(os.path.join(cookbook_dir, f"{ext_name}.md"))
-            or os.path.isfile(os.path.join(cookbook_dir, f"Slicer{ext_name}.md"))
-        )
-        if not has_cookbook:
-            self._cliProgressDisplay.append(
-                f"Error: No cookbook found for '{ext_name}'. "
-                f"Create one at Resources/extensions_cookbook/{ext_name}.md first."
-            )
-            return
-
-        if self._cliGeneratorRunning:
-            return
-
-        # Generate is for first-time creation. If a CLI already exists, a click
-        # would re-run the full (expensive) pipeline and overwrite it — confirm,
-        # and point the user at Repair for fixing issues.
+        # ONE confirmation for the whole batch, naming exactly which extensions
+        # would be rebuilt. Asking per extension turns a 5-extension run into 5
+        # dialogs, which is how a user stops reading them.
         from SlicerAIAgentLib.ExtensionCLILoader import get_cli_base_dir
-        existing_manifest = os.path.join(get_cli_base_dir(), ext_name, "manifest.json")
-        if os.path.isfile(existing_manifest):
+        existing = [name for name, unused in runnable
+                    if os.path.isfile(os.path.join(get_cli_base_dir(), name,
+                                                   "manifest.json"))]
+        if existing:
             reply = qt.QMessageBox.question(
                 None, "Regenerate CLI",
-                f"A CLI for '{ext_name}' already exists.\n\n"
-                "Regenerate from scratch (overwrites it, runs the full pipeline)?\n"
-                "To fix runtime or behavior issues instead, use 'Repair Generated CLI'.",
+                "A CLI already exists for:\n  %s\n\n"
+                "Regenerate from scratch? The existing package is deleted first "
+                "and restored automatically if a run fails.\n"
+                "To fix runtime or behaviour issues instead, use 'Repair Generated CLI'."
+                % "\n  ".join(existing),
                 qt.QMessageBox.Yes | qt.QMessageBox.No,
             )
             if reply != qt.QMessageBox.Yes:
                 return
 
+        names = [name for name, unused in runnable]
+        self._cliBatch = {name: None for name in names}
+        self._cliStarted = set()
+        self._cliQueue = list(runnable)
         self._cliGeneratorRunning = True
         self._analyzeGenerateButton.setEnabled(False)
         self._repairCliButton.setEnabled(False)
-        self._cliStatusLabel.setText("Analyzing...")
-        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
-        self._cliProgressDisplay.clear()
         self._cliResultGroup.setVisible(False)
+        self._resetCliProgressTabs(names)
+        self._cliStatusLabel.setText(
+            "Analyzing..." if len(names) == 1
+            else "Analyzing %d extensions..." % len(names))
+        self._cliStatusLabel.setStyleSheet("font-weight: bold; color: orange;")
+        if len(names) > 1:
+            self._cliLog(self.CLI_DEFAULT_TAB,
+                         "Generating %d CLI(s), up to %d at a time: %s"
+                         % (len(names), self.CLI_MAX_PARALLEL, ", ".join(names)))
+        self._cliLaunchQueuedGenerations()
 
-        self._cliProgressDisplay.append(f"Starting analysis of '{ext_name}'...")
-        self._cliProgressDisplay.append(f"Source: {source_path}")
-
-        # Run in background thread
+    def _startCliGeneration(self, ext_name, source_path):
+        """Run ONE extension's generation on its own background thread."""
         import threading
+
+        self._cliStarted.add(ext_name)
+        self._cliLog(ext_name, "Starting analysis of '%s'..." % ext_name)
+        self._cliLog(ext_name, "Source: %s" % source_path)
 
         def _run_analysis():
             try:
@@ -350,10 +582,17 @@ class WidgetCLIMixin:
                         {
                             'probe_code': probe_code,
                             'response_queue': response_queue,
+                            'extension': ext_name,
                         },
                     ))
                     try:
-                        return response_queue.get(timeout=30)
+                        # Probes execute on the Qt main thread and therefore
+                        # SERIALIZE across parallel runs: with N generations in
+                        # flight a probe can wait behind N-1 others, so the
+                        # budget scales with the cap rather than being a fixed
+                        # 30 s that only ever held for a single run.
+                        return response_queue.get(
+                            timeout=30 * max(1, self.CLI_MAX_PARALLEL))
                     except queue.Empty:
                         return {"error": "Timeout waiting for main-thread live API probe"}
 
@@ -364,27 +603,35 @@ class WidgetCLIMixin:
                     ),
                     code_validator=CodeValidator(),
                     on_progress=lambda n, s, d: self._streamQueue.put(
-                        ('cli_progress', {'stage': n, 'name': s, 'detail': d})
+                        ('cli_progress', {'stage': n, 'name': s, 'detail': d,
+                                          'extension': ext_name})
                     ),
-                    on_error=lambda e: self._streamQueue.put(('cli_error', e)),
+                    on_error=lambda e: self._streamQueue.put(
+                        ('cli_error', {'error': e, 'extension': ext_name})),
                     live_probe_executor=_run_live_probe_on_main_thread,
                 )
 
                 # Clicking Analyze & Generate on an extension that already has
-                # a CLI is an explicit regeneration: overwrite in place.
+                # a CLI is an explicit regeneration: the previous package is
+                # deleted first (and restored if this run fails).
                 result = analyzer.analyze_and_generate(
                     extension_name=ext_name,
                     source_path=source_path,
                     force_overwrite=True,
                 )
+                if isinstance(result, dict):
+                    result.setdefault("extension_name", ext_name)
                 self._streamQueue.put(('cli_complete', result))
 
             except Exception as e:
                 import traceback
-                self._streamQueue.put(('cli_error', f"{e}\n{traceback.format_exc()}"))
+                self._streamQueue.put((
+                    'cli_error',
+                    {'error': "%s\n%s" % (e, traceback.format_exc()),
+                     'extension': ext_name},
+                ))
 
-        thread = threading.Thread(target=_run_analysis, daemon=True)
-        thread.start()
+        threading.Thread(target=_run_analysis, daemon=True).start()
 
     def _onRepairCliClicked(self):
         """Repair the generated CLI from the user's function-error descriptions.
@@ -529,7 +776,7 @@ class WidgetCLIMixin:
 
     def _getSelectedExtensionData(self):
         """Get the data dict for the currently selected extension."""
-        current_text = self._extensionSelector.currentText
+        current_text = self._currentExtensionLabel()
         if not current_text:
             return None
         return self._extensionDataMap.get(current_text)

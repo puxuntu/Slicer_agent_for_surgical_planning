@@ -62,6 +62,10 @@ _PACKAGE_FILES = (
     "workflow.json",
     "workflow_metadata.json",
     "workflow_contract.json",
+    # Hand-editable: the Step-instructions editor writes the surgeon-facing
+    # clinical text here. Snapshotted with the rest so a versions/<round>/ is a
+    # complete package rather than one missing the only file a human authored.
+    "step_instructions.json",
 )
 
 
@@ -94,7 +98,52 @@ def snapshot_package_version(ext_dir: str, round_label: str) -> Optional[str]:
 # ── active-package backup (regeneration "swap on success" safety) ────────────
 
 _ACTIVE_BACKUP_DIR = ".active_backup"
-_BACKUP_EXTRAS = ("prompt_fragment.md", "generation_log.json")
+
+#: Everything at the package root EXCEPT these is the active package. Defining
+#: it by exclusion rather than by an allow-list is what makes backup / clear /
+#: restore agree by construction: a file added to the package later is covered
+#: by all three without anyone remembering to list it. The named entries are
+#: history, not package -- they survive a regeneration on purpose.
+_PRESERVED_ENTRIES = ("versions", "debug", "runtime_errors", _ACTIVE_BACKUP_DIR)
+
+
+def _active_package_entries(ext_dir: str):
+    """Names at the package root that make up the ACTIVE package."""
+    try:
+        return sorted(name for name in os.listdir(ext_dir)
+                      if name not in _PRESERVED_ENTRIES)
+    except Exception:
+        return []
+
+
+def _remove_active_package(ext_dir: str) -> int:
+    """Delete the active package, leaving history untouched. Returns the count."""
+    removed = 0
+    for name in _active_package_entries(ext_dir):
+        target = os.path.join(ext_dir, name)
+        try:
+            if os.path.isdir(target):
+                shutil.rmtree(target, ignore_errors=True)
+            else:
+                os.remove(target)
+            removed += 1
+        except Exception:
+            pass
+    return removed
+
+
+def clear_active_package(ext_dir: str) -> int:
+    """Remove the active package so a regeneration starts from a clean slate.
+
+    Overwriting in place cannot do this: a file the OLD package had and the new
+    run does not produce -- a template for a step that no longer exists, a
+    stale workflow_contract.json -- survives and becomes part of the "new"
+    package, so what ships is a mixture of two generations.
+
+    Only ever called AFTER :func:`backup_active_package` has taken a complete
+    copy; on a failed run :func:`restore_active_package` puts all of it back.
+    """
+    return _remove_active_package(ext_dir)
 
 
 def backup_active_package(ext_dir: str) -> Optional[str]:
@@ -114,13 +163,13 @@ def backup_active_package(ext_dir: str) -> Optional[str]:
         if os.path.isdir(backup):
             shutil.rmtree(backup, ignore_errors=True)
         os.makedirs(backup, exist_ok=True)
-        for name in _PACKAGE_FILES + _BACKUP_EXTRAS:
+        for name in _active_package_entries(ext_dir):
             src = os.path.join(ext_dir, name)
-            if os.path.isfile(src):
-                shutil.copy2(src, os.path.join(backup, name))
-        templates_src = os.path.join(ext_dir, "templates")
-        if os.path.isdir(templates_src):
-            shutil.copytree(templates_src, os.path.join(backup, "templates"))
+            dst = os.path.join(backup, name)
+            if os.path.isdir(src):
+                shutil.copytree(src, dst)
+            else:
+                shutil.copy2(src, dst)
         return backup
     except Exception:
         shutil.rmtree(backup, ignore_errors=True)
@@ -138,13 +187,7 @@ def restore_active_package(ext_dir: str) -> bool:
     if not os.path.isdir(backup):
         return False
     try:
-        for name in _PACKAGE_FILES + _BACKUP_EXTRAS:
-            stale = os.path.join(ext_dir, name)
-            if os.path.isfile(stale):
-                os.remove(stale)
-        active_templates = os.path.join(ext_dir, "templates")
-        if os.path.isdir(active_templates):
-            shutil.rmtree(active_templates, ignore_errors=True)
+        _remove_active_package(ext_dir)
         for name in os.listdir(backup):
             src = os.path.join(backup, name)
             dst = os.path.join(ext_dir, name)

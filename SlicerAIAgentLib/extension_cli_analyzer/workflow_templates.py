@@ -1461,6 +1461,46 @@ class AnalyzerWorkflowTemplatesMixin:
 
         ui_context = ""
 
+        # Parameters an earlier choice step supplies. These are the ONE case where a
+        # template placeholder is not only allowed but required: the value is not in
+        # the scene, not on the logic object and not in a parameter node — it exists
+        # only as the answer the user gave, which the runtime fills into `{param}`.
+        # Told nothing, the model has a required argument with no evidenced source
+        # and reaches for the nearest same-named attribute, which for a method that
+        # ASSIGNS that attribute from this very argument is still None at call time.
+        bound_choice_block = ""
+        bound_parameters = []
+        if isinstance(self._workflow_metadata, dict):
+            bound_parameters = (
+                self._workflow_metadata.get("bound_choice_parameters", {}) or {}
+            ).get(method_name, []) or []
+        if bound_parameters:
+            rows = []
+            for entry in bound_parameters:
+                values = [
+                    repr(option.get("value"))
+                    for option in (entry.get("options") or [])
+                    if option.get("value") is not None
+                ]
+                rows.append(
+                    f"  - `{entry['parameter']}` -> write exactly `{{{entry['choice_parameter']}}}` "
+                    f"(the user's answer at step {entry['choice_step']}"
+                    + (f"; one of {', '.join(values)}" if values else "")
+                    + ")"
+                )
+            bound_choice_block = (
+                "\nParameters bound to an earlier user choice — pass each one by "
+                "writing its placeholder as the argument:\n" + "\n".join(rows)
+                + "\nThe runtime substitutes the recorded answer (as a Python repr) "
+                "before execution, so `logic." + method_name + "({"
+                + bound_parameters[0]["choice_parameter"] + "})` becomes a normal "
+                "call with a literal argument. This overrides the general "
+                "'do not use curly brace placeholders' rule, which applies only to "
+                "values you would otherwise have to invent. Do NOT read these "
+                "parameters off the logic object, the parameter node or the scene: "
+                "they live only in the user's answer.\n"
+            )
+
         parameter_context = ""
         if isinstance(self._workflow_metadata, dict):
             defaults = self._workflow_metadata.get("parameter_defaults", {}) or {}
@@ -1515,6 +1555,7 @@ class AnalyzerWorkflowTemplatesMixin:
 
             {params_desc}
             {parameter_context}
+            {bound_choice_block}
 
             Method source code:
             ```python
@@ -1544,7 +1585,8 @@ class AnalyzerWorkflowTemplatesMixin:
             IMPORTANT restrictions:
             - Do NOT use `dir()`, `eval()`, `exec()`, `globals()`, or `locals()` — these are blocked in the execution sandbox.
             - Use `try/except NameError` to check if a variable exists, NOT `if 'var' in dir()`.
-            - Do NOT use curly brace template placeholders. Write actual source-derived Python values. Do not invent or hardcode node names.
+            - Do NOT use curly brace template placeholders, EXCEPT the ones listed under "Parameters bound to an earlier user choice" above, which you MUST use. Otherwise write actual source-derived Python values, and do not invent or hardcode node names.
+            - Never source a required argument from an attribute the method itself assigns from that argument (`side = logic._side` before `logic.run(side)`): that attribute is set BY the call, so it is unset on the first run and stale on every later one.
             - Escape all braces in f-strings and .format() calls by doubling them: use doubled-braces for literal braces in output strings.
             - Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.
             - Use ONLY the parameter/reference role names listed in the supplied parameter metadata. NEVER invent a role name (for example from a helper-method name); a role that is not listed does not exist.

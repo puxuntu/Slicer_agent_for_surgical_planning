@@ -75,12 +75,19 @@ def _specific(node_class: Any) -> str:
     "some node" would block every workflow on an empty scene for no information.
     Note ``vtkMRMLVolumeNode`` is deliberately NOT in that set -- it is abstract
     but does say "a volume", which two extensions legitimately demand.
+
+    Normalized first, because an unusable class string is the one input that could
+    turn this module's fail-open promise into its opposite: a generated
+    ``"vtkMRMLVolumeNode (CT scalar volume)"`` matches no node however full the
+    scene is, so it becomes a requirement that CANNOT be satisfied and the
+    procedure is unreachable. A demand is only positive evidence if the thing
+    demanded is nameable.
     """
     try:
-        from .WorkflowRuntime import _NONSPECIFIC_NODE_CLASSES
+        from .WorkflowRuntime import _NONSPECIFIC_NODE_CLASSES, normalize_node_class
     except Exception:
         return ""
-    nc = str(node_class or "").strip()
+    nc = normalize_node_class(node_class)
     return "" if (not nc or nc in _NONSPECIFIC_NODE_CLASSES) else nc
 
 
