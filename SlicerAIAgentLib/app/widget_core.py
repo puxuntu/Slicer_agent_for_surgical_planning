@@ -35,7 +35,7 @@ class WidgetCoreMixin:
         # were built, so the stored voice configuration has not been applied yet.
         self._loadVoiceSettings()
 
-        # Revise (✎) -- AFTER voice, because the button is anchored on the
+        # Revise (✍) -- AFTER voice, because the button is anchored on the
         # column _insertVoiceButtonAboveSend builds, and before
         # _relaxContentWidth, which sweeps its status label.
         self._setupReviseControls()

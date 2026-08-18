@@ -22,7 +22,7 @@ class AnalyzerLiveRevisionMixin:
     guessed which step each meant with an LLM call, and repaired blind. Both
     were reachable only from the deleted "Repair Generated CLI" button. A step
     that runs without raising but does the wrong thing is now revised where it
-    is SEEN -- the ✎ button beside Send, on the step in front of the user, with
+    is SEEN -- the ✍ button beside Send, on the step in front of the user, with
     that step's template, that run's execution output and the live scene in the
     prompt (SlicerAIAgentLib/TemplateReviser.py, app/widget_revise.py).
     """

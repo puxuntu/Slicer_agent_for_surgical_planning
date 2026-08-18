@@ -357,7 +357,7 @@ class WidgetBaselineMixin:
         if button is None:
             return
         if not self._baselineEngaged():
-            # Restore only what WE changed. The ✎ Revise mode owns the same
+            # Restore only what WE changed. The ✍ Revise mode owns the same
             # button when it is armed, and stamping the captured "Send" over its
             # purple caption would leave the user looking at a button that lies
             # about what it does. Mirrors the same guard in
@@ -402,7 +402,7 @@ class WidgetBaselineMixin:
                 return
             self._exitBaselineMode()
             return
-        # Mutually exclusive with ✎ Revise, in BOTH directions. Both own the
+        # Mutually exclusive with ✍ Revise, in BOTH directions. Both own the
         # prompt box, Send's caption and the debug view, and with both armed the
         # panel repaints Send purple (revise's sync runs last) while
         # onSendButtonClicked still routes here (baseline precedes revise in the

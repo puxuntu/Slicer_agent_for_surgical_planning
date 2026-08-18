@@ -40,7 +40,13 @@ python scripts/check_orbital_analysis.py
 # the time, both cone denominators, and the t1/t2/t3 phase split.
 python scripts/check_rsa_analysis.py
 
-# The ✎ Revise core: which template a step owns, whether a rewritten one may be
+# CranialImplantPlanning DSC/HD95/bDSC. Runs the metrics against real cases and
+# proves the cropped metric window reproduces a full-volume computation bit for
+# bit -- a 5x speed-up that would otherwise be a silent approximation.
+python scripts/check_cranial_analysis.py            # 3 cases
+python scripts/check_cranial_analysis.py --cases 10 # more
+
+# The ✍ Revise core: which template a step owns, whether a rewritten one may be
 # installed, and whether the original comes back. Sweeps every shipped package
 # and requires each of its 172 templates to validate against ITSELF -- a rule
 # that rejects a working template would reject the model's faithful rewrite too.
@@ -426,13 +432,13 @@ the stdlib `wave` module, anything else needs a codec that is deliberately never
 Captured audio is **never persisted**: the artifact writers record duration and byte counts, because
 run folders are copied, shared and analysed and patient-room speech must not travel with them.
 
-### Revising a step's template at runtime (the ✎ button)
+### Revising a step's template at runtime (the ✍ button)
 
 **A generated step can pass every check and still be wrong, and the only detector is a person.**
 It runs, raises nothing, and reconstructs the wrong orbit, shows the curve in the wrong view, or
 leaves a node the next step cannot find. Self-correction cannot see it (it fires on a raised error),
 static validation cannot see it (the code is valid), and the api-probe cannot see it (the method
-exists). So the trigger is a **button next to the microphone**: step to the step with ◀, press ✎,
+exists). So the trigger is a **button next to the microphone**: step to the step with ◀, press ✍,
 say what should have happened, press Send. `SlicerAIAgentLib/TemplateReviser.py` is the Qt-free
 core and `app/widget_revise.py` the Qt half, splitting the same way `BaselineRunner` /
 `widget_baseline` do — and for the same reason, `scripts/check_template_revision.py`.
@@ -547,7 +553,7 @@ one's Send-restore is guarded on the other's flag. One-directional exclusivity i
 fails silently: with both armed, the panel repaints Send purple (revise's sync runs last) while
 `onSendButtonClicked` still routes to baseline (which precedes revise in the MRO), so a button
 reading "Revise step" starts a baseline whose first act is a rewind that deletes every downstream
-node. ✎ is also disabled while a baseline runs, because that run has repointed `_currentLogDir` and
+node. ✍ is also disabled while a baseline runs, because that run has repointed `_currentLogDir` and
 `_currentRunManifest` at its own folder and a revision started underneath it would file its record
 against the wrong run. Exit and the three replay controls refuse while a revision is in flight, and
 the reply carries `_guidedSessionEpoch` so one that lands after Exit is dropped instead of writing a
@@ -582,12 +588,19 @@ a header on it and report an untouched file as revised (a real run produced exac
 stripped, skips the unchanged ones, and says so — and when every template comes back unchanged that is
 an error naming them, not a silent success.
 
-Two things that are deliberately not icons or not hidden. ✎ is **text**, not a `:/Icons/` resource:
-`qt.QIcon` on an unregistered path returns a NULL icon rather than raising, which renders as an empty
-button — the same reason the baseline toggle is a bare "⚖". And it is **visible from panel build**,
-disabled with the reason in its tooltip, because `_updateReviseControls` runs only on a
-workflow-panel repaint: a button that starts hidden did not exist at all until a procedure started,
-which reads as a missing feature rather than an unavailable one.
+Three things about the button itself. ✍ is **text**, not a `:/Icons/` resource: `qt.QIcon` on an
+unregistered path returns a NULL icon rather than raising, which renders as an empty button — the
+same reason the baseline toggle is a bare "⚖". It carries U+FE0E (variation selector-15) so Windows
+font fallback does not reach Segoe UI Emoji and draw a colour cartoon hand among monochrome glyphs.
+And it is **visible from panel build**, disabled with the reason in its tooltip, because
+`_updateReviseControls` runs only on a workflow-panel repaint: a button that starts hidden did not
+exist at all until a procedure started, which reads as a missing feature rather than an unavailable
+one.
+
+Its stylesheet needs an explicit `:disabled` rule, and that is not decoration: a stylesheet `color`
+REPLACES the widget's palette for every state, so a red glyph stays vivid red while the button is
+unclickable — and this button spends most of its life disabled (no procedure running, a step with no
+template, a baseline or a revision in flight).
 
 ### Entry Point and Module Structure
 
@@ -707,13 +720,13 @@ executor does not enforce. See "Revising a step's template at runtime".
 | `WorkflowOrchestrator.py` | Runtime state machine for guided interactive workflows: step execution, interaction completion, workflow cancellation, prompt fragment generation. |
 | `PromptLibrary.py` | The only reader of `Resources/Prompts/`. mtime-aware cache, `{{PLACEHOLDER}}` rendering, per-file fallback. |
 | `RunLog.py` | Run-folder naming (`<stamp>_<condition>_<procedure>[_<step>][_a<n>]`), fail-soft artifact writers, `RunManifest`. |
-| `TemplateReviser.py` | The ✎ Revise core, Qt-free: which template files a step owns, whether a rewritten one may be installed (placeholder closure, the filler's string mask, syntax, CodeValidator), reply parsing, and the snapshot-before-write apply/restore. |
+| `TemplateReviser.py` | The ✍ Revise core, Qt-free: which template files a step owns, whether a rewritten one may be installed (placeholder closure, the filler's string mask, syntax, CodeValidator), reply parsing, and the snapshot-before-write apply/restore. |
 | `WorkflowRouter.py` | Fast first-turn router: one tool-free call over a compact workflow catalog, deciding which guided workflow a request means (or none). |
 | `voice/` | Voice control, Qt-free half: `audio` (always-on capture with energy VAD, playback), `asr_client` / `tts_client` (qwen3-asr-flash / qwen3-tts-flash over DashScope), `grammar` (the step reduced to the utterances it accepts), `commands` (transcript → one action). The Qt half is `app/widget_voice.py`. |
 
 ### Extension CLI Pipeline
 
-`ExtensionCLIAnalyzer.py` analyzes third-party Slicer extension source code via LLM and generates tool schemas + code templates under `Resources/extension_CLI/`. The Widget includes a generator UI (`_setupExtensionCLIGenerator`) for analyzing and generating CLI tools (in parallel, one tab per extension), deleting them, and editing per-step clinical instructions. It no longer offers a repair action: a package that fails validation is auto-revised by `_autoReviseCli` on the spot, and a step that validates but *behaves* wrongly is fixed at runtime by ✎ Revise, on the step in front of the user. At runtime, `ExtensionCLILoader.py` discovers and loads these as additional LLM tools. Extension source code is exposed to the LLM via the `ext:` path prefix.
+`ExtensionCLIAnalyzer.py` analyzes third-party Slicer extension source code via LLM and generates tool schemas + code templates under `Resources/extension_CLI/`. The Widget includes a generator UI (`_setupExtensionCLIGenerator`) for analyzing and generating CLI tools (in parallel, one tab per extension), deleting them, and editing per-step clinical instructions. It no longer offers a repair action: a package that fails validation is auto-revised by `_autoReviseCli` on the spot, and a step that validates but *behaves* wrongly is fixed at runtime by ✍ Revise, on the step in front of the user. At runtime, `ExtensionCLILoader.py` discovers and loads these as additional LLM tools. Extension source code is exposed to the LLM via the `ext:` path prefix.
 
 ### Where a user_choice's answer goes
 
@@ -1201,6 +1214,63 @@ included, against the real runs outside Slicer. Given that the failure above pro
 number rather than an error, that is not a convenience. The panel writes only the workbook: it builds
 nothing in the scene, so unlike the orbital one it needs no confirmation and no scene-close warning.
 
+`cranial.py` scores the three metrics of the **AutoImplant 2021 challenge** (Li et al., *Medical
+Image Analysis* 88 (2023) 102865, §3.3) — DSC, HD95 in mm, and **bDSC**, Dice restricted to the part
+of each implant lying within `t` of the *defective* skull, which is the transition where the fit is
+decided. Every measure is voxelwise and exact: the ground truth and the prediction share a byte-
+identical grid in all 100 cases, so nothing is resampled and no binary mask is ever interpolated.
+
+Four things it enforces rather than assumes, each of which yields a plausible number rather than an
+error when got wrong:
+
+- **Segments are resolved by NAME.** `Cranial Implant Result.seg.nrrd` is ONE shared labelmap holding
+  `Skull` = 1 *and* `Implant` = 2. Reading it as non-zero scores the ground truth against the whole
+  skull — 320 k voxels against 2.1 M — and reports a DSC near 0.2 that reads like a pipeline failure
+  rather than a coding error. `volume_io.read_nrrd` deliberately drops every `key:=value` line, so
+  `segment_label_values()` parses the segment table itself.
+- **The defective skull is that same file's `Skull` segment**, not `Cranial_Segmentation.seg.nrrd`.
+  The latter is the COMPLETE skull, thresholded from the CT *before* the defect was cut: 87–99 % of
+  every ground-truth implant lies inside it, so banding against it would put the whole implant in the
+  border and turn bDSC into DSC. The `Skull` segment's intersection with the ground truth is exactly
+  0 voxels in 100/100 cases, which is what makes it the right object — and the check script asserts it.
+- **Spacing is the COLUMN NORM of IJK→RAS**, not of its inverse. The inverse gives voxels-per-mm,
+  which scales every distance by ~2.6× on this data and leaves DSC (dimensionless) untouched — so
+  only HD95 shows it, and only against a reference. It put HD95 at 3–12 mm against the paper's
+  1.3–7.4; corrected it is 1.4–3.7. In-plane spacing also varies per case (0.38–0.61 mm) while slices
+  are always 0.75 mm, so no voxel volume is ever assumed.
+- **The metric window is a crop, and the crop is exact.** Both surfaces lie inside
+  `bbox(gt | pred)`, so surface distances are unchanged; and any voxel within `t` of the skull has its
+  nearest skull voxel within `t`, so a margin ≥ `t` reproduces the border predicate exactly. Uncropped
+  the batch takes 32 minutes, cropped 5 — and `check_cranial_analysis.py` proves the two agree bit for
+  bit on real cases rather than taking the argument on trust.
+
+`t` is reported **twice**, for the reason `shoulder.py` reports two cone denominators: `bdsc` uses the
+paper's `t = 10` **voxels** and is the published metric, while `bdsc_mm` uses a fixed 5 mm band —
+10 voxels is 3.8 mm in-plane on the finest case and 7.5 mm through-plane on every case, so the
+physical size of the band moves with the acquisition. Both are reported; neither is picked silently.
+
+**Quote the MEDIAN HD95, not the mean, and read the two one-directional shares beside it.** On this
+cohort the median is 2.1 mm and the mean 8.0, with a maximum of 137 mm — and the outliers are not
+noise or a stray component (every mask is a single connected component). They are one-directional: on
+A0061, *none* of the predicted surface is more than 20 mm from the truth while 67 % of the truth has
+no prediction within 20 mm. The implant is accurate wherever it exists and simply covers a fraction of
+a much larger defect. HD95 pools both directions, so it reports that as one large number and cannot
+say which way it went; `gt_covered_2mm_pct` (completeness) and `implant_on_gt_2mm_pct` (false-positive
+area) can, and they are the paper's own two feasibility criteria measured on the surface. This is why
+the table carries more than three columns, and why the summary reports median, p25 and p75 rather than
+mean alone.
+
+The error map follows `orbital.py` and **imports its machinery rather than copying it** — the meshing
+pipeline, the distance filter, the write gate and the `scene.mrml` splicer are the most dangerous code
+in the package (they edit a saved run in place) and a second copy would be a second thing to keep
+correct. Only the colour table and the model node are re-implemented, because orbital's bake in its
+own 3 mm ceiling and a cranial map on that scale is red almost everywhere (`COLOR_MAX_MM = 5.0`).
+The map colours the **predicted** implant by its distance to the ground truth — the question a reader
+brings to a cranioplasty map is "where is the implant I produced wrong", not "which part of the truth
+did it miss" — which is why the prediction is passed to `_surface_distances` first. `map_hd95_mm` is
+the same figure recomputed from those smoothed meshes and is carried in the table beside the voxel
+`hd95_mm`, so the picture and the number can be seen to agree instead of being trusted to.
+
 ### Debug Artifacts
 
 `SlicerAIAgentLib/RunLog.py` owns run-folder naming and artifact writing (Qt-free, fail-soft — a
@@ -1273,7 +1343,7 @@ logs/ZygomaticImplantPlanner_Case01_pipeline_20260804_122026/
     correction_1/          attempt.json, first_prompt.txt, code.py, agent_plan.json,
                            response.json — nested under the step it repairs
     revision_1/            request.txt, messages_sent.txt, reply.txt, revision.json
-                           — one per ✎ Revise of this step. The package keeps its
+                           — one per ✍ Revise of this step. The package keeps its
                            own copy (plus the before/after and the diff) under
                            <ext>/debug/revision_<ts>/, because the two answer
                            different questions: why THIS run's step 12 differs

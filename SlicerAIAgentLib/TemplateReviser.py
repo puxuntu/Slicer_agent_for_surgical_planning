@@ -4,7 +4,7 @@ A generated step can be *correct by every static check and still wrong*: it runs
 raises nothing, and puts the curve in the wrong view, reconstructs the wrong
 side, or leaves a node the next step cannot find. Nothing in the pipeline can
 detect that -- the only signal is a person looking at the scene. This module is
-the machinery behind the ``✎`` button beside Send: while a guided workflow is
+the machinery behind the ``✍`` button beside Send: while a guided workflow is
 open, the user steps to the offending step, describes what should have happened,
 and one step's ``.tpl`` is rewritten.
 

@@ -1,7 +1,7 @@
-"""Revise the step in front of you: the ✎ button beside the microphone.
+"""Revise the step in front of you: the ✍ button beside the microphone.
 
 The Qt half of :mod:`SlicerAIAgentLib.TemplateReviser`. While a guided workflow
-is open, ✎ hands the prompt box and Send to a revision agent instead of to the
+is open, ✍ hands the prompt box and Send to a revision agent instead of to the
 pipeline: the user describes what the step on screen should have done, and one
 step's ``.tpl`` is rewritten, checked, and written into the package with its
 predecessor kept under ``versions/revision_<ts>/``.
@@ -27,9 +27,11 @@ deliberately rather than approximating it:
 * the debug write context is moved for the duration and handed back on every
   exit path, so a revision's transcript never mixes with the pipeline's.
 
-The two modes are mutually exclusive: engaging one disengages the other. Both
-rewrite Send's caption and restore it from a value captured at setup, and two
-owners of one button is how a caption gets left behind.
+The two modes are mutually exclusive in BOTH directions: each toggle disengages
+the other and refuses while the other is busy, and each one's Send-restore is
+guarded on the other's flag. Both rewrite Send's caption and restore it from a
+value captured at setup, and two owners of one button is how a caption gets left
+behind -- or worse, how a button reading "Revise step" starts a baseline.
 """
 
 import time
@@ -45,10 +47,37 @@ class WidgetReviseMixin:
     # registered, and `qt.QIcon(":/Icons/…")` on an unregistered path returns a
     # NULL icon rather than raising -- which renders as a button with nothing in
     # it. The baseline toggle is text-only "⚖" for the same reason, and it also
-    # makes ✎ read as a different kind of control from the icon buttons around
-    # it. BMP, never an emoji: an emoji renders as a tofu box on some Windows
-    # font stacks (see the microphone's own note).
-    _REVISE_GLYPH = "✎"
+    # makes ✍ read as a different kind of control from the icon buttons around
+    # it. BMP, never a supplementary-plane emoji: those render as a tofu box on
+    # some Windows font stacks (see the microphone's own note).
+    #
+    # The trailing U+FE0E is VARIATION SELECTOR-15, which asks for the TEXT
+    # presentation of U+270D. Without it Windows font fallback reaches Segoe UI
+    # Emoji and the button shows a colour cartoon hand among a row of
+    # monochrome glyphs. VS-15 is a default-ignorable code point, so a stack
+    # that does not honour it drops the request rather than drawing a second
+    # box -- it can only help.
+    _REVISE_GLYPH = "✍︎"
+
+    #: Red glyph, so it is findable in a row of monochrome controls.
+    #:
+    #: The ``:disabled`` rule is not decoration. A stylesheet ``color`` REPLACES
+    #: the widget's palette for every state, including the disabled one, so
+    #: without it the button stays vivid red while it is unclickable -- and this
+    #: button spends most of its life disabled (no procedure running, a step with
+    #: no template, a baseline or a revision in flight). Grey there is what makes
+    #: "enabled" mean anything.
+    #:
+    #: ``:checked`` tints toward Send's purple rather than toward red, because
+    #: the mic beside it already owns a red-background armed state and Send goes
+    #: purple in the same instant this does. Larger point size because a single
+    #: BMP glyph renders smaller than the mic's ● at the same size.
+    _REVISE_BUTTON_STYLE = (
+        "QToolButton { color: #c62828; font-size: 15px; font-weight: bold; } "
+        "QToolButton:disabled { color: #b8b8b8; } "
+        "QToolButton:checked { color: #c62828; background-color: #ece4f5; "
+        "border: 1px solid #6a4c93; border-radius: 3px; }"
+    )
 
     #: Deliberately NOT baseline's amber (#e08a00). Both modes recolour the same
     #: button, and two modes that look alike are worse than two that look
@@ -73,7 +102,7 @@ class WidgetReviseMixin:
     # ------------------------------------------------------------------
 
     def _setupReviseControls(self):
-        """Build the ✎ button and its status row. Never raises.
+        """Build the ✍ button and its status row. Never raises.
 
         Called from ``setup()`` AFTER ``_setupVoiceControls`` -- the button is
         anchored on the column that method builds, so before it there is nothing
@@ -90,7 +119,7 @@ class WidgetReviseMixin:
             logger.debug("Revise status row insertion failed", exc_info=True)
 
     def _insertReviseButtonBesideVoice(self):
-        """Put ✎ next to the microphone, above Send.
+        """Put ✍ next to the microphone, above Send.
 
         The mic already took Send's slot in ``inputLayout`` and lives in a
         QVBoxLayout column holding ``[mic, sendButton]``, so this converts that
@@ -100,7 +129,7 @@ class WidgetReviseMixin:
 
         When the voice column does not exist -- its whole builder is best-effort
         and returns early if the input row cannot be found -- the button is
-        inserted straight above Send instead, so ✎ does not depend on voice
+        inserted straight above Send instead, so ✍ does not depend on voice
         control having worked.
         """
         if getattr(self, "_reviseButton", None) is not None:
@@ -115,6 +144,10 @@ class WidgetReviseMixin:
         button.setAutoRaise(True)
         button.setToolTip(self._REVISE_TIP)
         button.clicked.connect(self._onReviseToggleClicked)
+        try:
+            button.setStyleSheet(self._REVISE_BUTTON_STYLE)
+        except Exception:
+            logger.debug("Revise button style failed", exc_info=True)
         try:
             # Icon-only and Fixed, for the same reason the mic and Send are:
             # a caption's width joins the row's permanent minimum.
@@ -154,7 +187,7 @@ class WidgetReviseMixin:
                     return
 
         if not placed:
-            # No voice column (voice setup bailed out): stack ✎ above Send in
+            # No voice column (voice setup bailed out): stack ✍ above Send in
             # whatever layout Send is in.
             parent_layout = send.parent().layout() if send.parent() else None
             target = self._inputRowLayout()
@@ -279,7 +312,7 @@ class WidgetReviseMixin:
         return bool(getattr(self, "_reviseActiveRun", None))
 
     def _reviseTargetStepId(self, state=None):
-        """The step ✎ acts on: the previewed one, else the live one."""
+        """The step ✍ acts on: the previewed one, else the live one."""
         runtime = getattr(self, "_workflowRuntime", None)
         session = getattr(runtime, "session", None) if runtime else None
         if session is None:
@@ -362,7 +395,7 @@ class WidgetReviseMixin:
     # ------------------------------------------------------------------
 
     def _updateReviseControls(self, state):
-        """Drive ✎ and the status row from the step now in view.
+        """Drive ✍ and the status row from the step now in view.
 
         Called from ``_updateReplayControls``, i.e. on every panel repaint, next
         to ``_updateBaselineControls``.

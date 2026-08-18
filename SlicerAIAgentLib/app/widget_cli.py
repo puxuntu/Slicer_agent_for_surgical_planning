@@ -99,7 +99,7 @@ class WidgetCLIMixin:
         cliLayout.addWidget(self._cliResultGroup)
 
         # A step that runs without raising but behaves wrongly is no longer
-        # reported here. It is fixed where it is SEEN: the ✎ Revise button above
+        # reported here. It is fixed where it is SEEN: the ✍ Revise button above
         # Send, during the guided run, against the step on screen (see
         # app/widget_revise.py). A description typed into this panel had to be
         # mapped back to a step by an LLM guess, and the fix could not be tried
@@ -493,7 +493,7 @@ class WidgetCLIMixin:
                 "Regenerate from scratch? The existing package is deleted first "
                 "and restored automatically if a run fails.\n"
                 "To fix ONE step's behaviour instead, run the procedure and use "
-                "the ✎ Revise button above Send on that step."
+                "the ✍ Revise button above Send on that step."
                 % "\n  ".join(existing),
                 qt.QMessageBox.Yes | qt.QMessageBox.No,
             )

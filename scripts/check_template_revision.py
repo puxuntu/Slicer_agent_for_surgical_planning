@@ -6,7 +6,7 @@
 
 Runs OUTSIDE Slicer, deliberately, and that is the whole reason
 ``SlicerAIAgentLib/TemplateReviser.py`` is Qt-free and Slicer-free: the part of
-the ✎ Revise feature that decides *what may be written into a surgical
+the ✍ Revise feature that decides *what may be written into a surgical
 package* -- which file a step owns, whether a rewritten template is safe to
 install, and whether the original can be recovered -- must be checkable on every
 change rather than when someone remembers to open Slicer.

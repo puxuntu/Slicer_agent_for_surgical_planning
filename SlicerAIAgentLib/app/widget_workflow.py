@@ -4665,7 +4665,7 @@ class WidgetWorkflowMixin:
             # Generation is pure background analysis — it must NOT touch the live
             # MRML scene/viewport, so nothing here executes a generated template.
             # A step that validates statically and only misbehaves at USE time is
-            # fixed by the ✎ Revise button during the guided run, against the
+            # fixed by the ✍ Revise button during the guided run, against the
             # scene it actually misbehaved in (see app/widget_revise.py).
             self._finalizeCliValidation(result)
 
@@ -4693,7 +4693,7 @@ class WidgetWorkflowMixin:
         to CLI_MAX_PARALLEL at once) and must never touch the MRML scene, so no
         generated template is executed here. What a template does when it runs is
         answered where it runs -- by the runtime's own self-correction, and by
-        the ✎ Revise button on the step in front of the user.
+        the ✍ Revise button on the step in front of the user.
         """
         self._cliStatusLabel.setText("Validated")
         self._cliStatusLabel.setStyleSheet("font-weight: bold; color: green;")

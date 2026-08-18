@@ -231,7 +231,7 @@ class WidgetStreamingMixin:
 
         Keyed on ENGAGED, not on the raw toggle: on a step that cannot take a
         baseline the selector row is hidden, so the input row must go back to
-        the workflow rather than sit enabled with nothing to drive. Revise (✎)
+        the workflow rather than sit enabled with nothing to drive. Revise (✍)
         is the second such mode and takes the box for the same reason -- its
         request is free text and there is nowhere else to type it.
         """

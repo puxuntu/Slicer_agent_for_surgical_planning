@@ -20,7 +20,7 @@ need no escaping). An unfilled placeholder collapses to an empty string.
 | `baseline_online_only_prompt.md` | `BaselineRunner.online_only_addendum` | Baseline 2 — online agent with the generated CLI ablated |
 | `extension_cli_analyzer_prompt.md` | `ExtensionCLIAnalyzer` | Offline CLI generation pipeline |
 | `voice_command_prompt.md` | `voice.commands.build_fallback_prompts` | Voice control, second tier — only when the deterministic matcher is uncertain about an utterance |
-| `template_revision_prompt.md` | `TemplateReviser.revision_system_prompt` | The ✎ Revise button — rewriting ONE step's template from the user's description of what it should have done |
+| `template_revision_prompt.md` | `TemplateReviser.revision_system_prompt` | The ✍ Revise button — rewriting ONE step's template from the user's description of what it should have done |
 
 Baseline 3 (Claude Code + Slicer skill over MCP) has **no prompt file here**: its context and
 prompt management live entirely on the Claude Code side, and this runtime only executes the code
@@ -42,7 +42,7 @@ A request arrives:
    the failed code, the error, the original tool trajectory and live API evidence. Deliberately
    *not* short: repair is the one place that needs the whole history and the search tools.
 5. **Generated code RAN and did the wrong thing** → `template_revision_prompt.md`, when the user
-   presses ✎ and says so. Nothing automatic reaches this one: a step that raises nothing produces
+   presses ✍ and says so. Nothing automatic reaches this one: a step that raises nothing produces
    no signal, so the trigger is a person. It is scoped to the step on screen and rewrites that
    step's `.tpl`, so unlike (4) it works on the template with its placeholders intact rather than
    on the filled code.

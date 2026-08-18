@@ -192,7 +192,7 @@ class SlicerAIAgentWidget(
         self._baselineRejection = ""
         # Runtime template revision (see app/widget_revise.py and
         # SlicerAIAgentLib/TemplateReviser.py). Same two-notion shape as the
-        # baseline harness: `_reviseActive` is the ✎ toggle's intent, while
+        # baseline harness: `_reviseActive` is the ✍ toggle's intent, while
         # `_reviseActiveRun` being non-None is what "busy" means -- and busy is
         # always engaged, so the row cannot vanish under a running revision.
         self._reviseButton = None
