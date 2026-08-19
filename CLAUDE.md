@@ -51,6 +51,13 @@ python scripts/check_cranial_analysis.py --cases 10 # more
 # and requires each of its 172 templates to validate against ITSELF -- a rule
 # that rejects a working template would reject the model's faithful rewrite too.
 python scripts/check_template_revision.py
+
+# The generated-CLI emitter must agree with its OWN validator. The handler-drive
+# template and the api proof both read the scanned handler arity, so a call the
+# emitter writes and the prover then blocks is unrepairable by construction --
+# no rung can rewrite code the generator just produced. Also cross-checks every
+# shipped [source drive] template against the installed extension's source.
+python scripts/check_handler_drive.py
 ```
 
 Dependencies are in `requirements.txt` — `httpx`, `numpy`, `jsonschema` are explicit; `faiss-cpu`, `onnxruntime`, `transformers` are auto-installed at runtime. CMake installs these into Slicer's Python environment during extension setup.

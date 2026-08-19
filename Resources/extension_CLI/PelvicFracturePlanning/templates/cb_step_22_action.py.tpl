@@ -1,4 +1,5 @@
-# --- PelvicFracturePlanning: Untick the "Edit Screw trajectories" checkbox. ---
+# --- PelvicFracturePlanning: If further adjustments are required, tick the "Edit Screw trajectories" checkbox. If not, stop here. ---
+# [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -27,24 +28,33 @@ if _widget is None:
     raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'chkEditScrews'.")
 if not hasattr(_widget, 'onEditScrewsToggled'):
     raise RuntimeError("PelvicFracturePlanning widget has no handler 'onEditScrewsToggled' for 'chkEditScrews'; regenerate the CLI.")
-# Set the control's checked state (signals blocked to avoid a
-# double-fire), then invoke the handler once. The handler may read
-# the widget state (no arg) or accept the new bool — try the bool.
+# Resolve the bound control by name across the ways a Slicer
+# extension can expose it (.ui object, direct self.<name>
+# attribute, or objectName in the widget tree), then set its
+# checked state (signals blocked to avoid a double-fire) and
+# invoke the handler once. Setting the REAL control state is
+# what lets a later programmatic setChecked(opposite) actually
+# emit toggled and run the handler (e.g. an 'Update' button that
+# unchecks the box to hide 3D interaction handles).
 _ctrl = None
-try:
-    _ctrl = _widget.ui.chkEditScrews
-except Exception:
-    _ctrl = None
+_ui = _widget.ui if hasattr(_widget, 'ui') else None
+if _ui is not None and hasattr(_ui, 'chkEditScrews'):
+    _ctrl = _ui.chkEditScrews
+if _ctrl is None and hasattr(_widget, 'chkEditScrews'):
+    _ctrl = _widget.chkEditScrews
+if _ctrl is None:
+    try:
+        _found = slicer.util.findChildren(_widget, name='chkEditScrews')
+        _ctrl = _found[0] if _found else None
+    except Exception:
+        _ctrl = None
 if _ctrl is not None:
     try:
         _ctrl.blockSignals(True)
-        _ctrl.checked = False
+        _ctrl.checked = True
         _ctrl.blockSignals(False)
     except Exception:
         pass
-try:
-    _widget.onEditScrewsToggled(False)
-except TypeError:
-    _widget.onEditScrewsToggled()
-print("[PelvicFracturePlanning] Step 'cb_step_16': set 'chkEditScrews' = False via onEditScrewsToggled.")
+_widget.onEditScrewsToggled(True)
+print("[PelvicFracturePlanning] Step 'cb_step_22': set 'chkEditScrews' = True via onEditScrewsToggled.")
 

@@ -1194,6 +1194,10 @@ class AnalyzerWorkflowTemplatesMixin:
         _TOGGLE = ("toggled", "stateChanged", "checkBoxToggled")
         handler = widget = None
         is_toggle = False
+        # None means "the arity could not be read from the widget class AST".
+        # It is the ONLY condition under which a 0-arg fallback call may be
+        # emitted below -- see the emit site.
+        required_args = None
         shares_state = False
         for conn in connections:
             sig = str(conn.get("signal", ""))
@@ -1213,6 +1217,14 @@ class AnalyzerWorkflowTemplatesMixin:
             # state; one that requires none is called bare. Fall back to the signal
             # name only when the arity could not be determined.
             required_args = conn.get("handler_required_args")
+            if isinstance(required_args, int) and required_args >= 2:
+                # The drive passes at most the control's own state, so a handler
+                # requiring more than that cannot be called from here at all.
+                # Emitting a short call anyway is the same defect as the 0-arg
+                # fallback below: the api proof blocks it on arity, and no repair
+                # rung can invent the missing argument. Decline the connection and
+                # let the caller fall back to its normal generation path.
+                continue
             if isinstance(required_args, int):
                 is_toggle = required_args >= 1
             else:
@@ -1303,13 +1315,27 @@ class AnalyzerWorkflowTemplatesMixin:
                     "        pass",
                 ]
             # The handler REQUIRES the state argument (or the signal carries it), so
-            # pass it. The TypeError fallback keeps a 0-arg handler working when the
-            # arity could not be read from source.
+            # pass it. A 0-arg TypeError fallback is emitted ONLY when the arity is
+            # unknown -- and that is not a style preference, it is the condition the
+            # api proof gates its own arity check on (`handler_required_args` is
+            # built from the same scanned connections, so an unknown arity leaves it
+            # silent). Emitting the fallback when the arity IS known produced a
+            # template the validator was guaranteed to reject: the prover walks EVERY
+            # call in the file, including the one inside the `except` handler, and
+            # correctly reported a 0-arg call to a 1-arg handler as
+            # `handler_arity_mismatch` -- an issue whose only repair rung is
+            # evidence-gathering, which changes no template, so the ladder deadlocked
+            # on dead code. When the arity is known the call is DECIDED; emit it alone.
+            if isinstance(required_args, int):
+                lines += [f"_widget.{handler}({checked})"]
+            else:
+                lines += [
+                    "try:",
+                    f"    _widget.{handler}({checked})",
+                    "except TypeError:",
+                    f"    _widget.{handler}()",
+                ]
             lines += [
-                "try:",
-                f"    _widget.{handler}({checked})",
-                "except TypeError:",
-                f"    _widget.{handler}()",
                 f"print(\"[{extension_name}] Step '{step_id}': set '{widget}' = {checked} via {handler}.\")",
                 "",
             ]

@@ -1,4 +1,5 @@
-# --- PelvicFracturePlanning: Click the "Apply adjustments" button. ---
+# --- PelvicFracturePlanning: Click "Confirm seperation" button. ---
+# [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -24,9 +25,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnApplyAdjust'.")
-if not hasattr(_widget, 'onApplyAdjust'):
-    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onApplyAdjust' for 'btnApplyAdjust'; regenerate the CLI.")
-_widget.onApplyAdjust()
-print("[PelvicFracturePlanning] Step 'cb_step_11': clicked 'btnApplyAdjust' via onApplyAdjust().")
+    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnConfirmSplit'.")
+if not hasattr(_widget, 'onConfirmSplit'):
+    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onConfirmSplit' for 'btnConfirmSplit'; regenerate the CLI.")
+_widget.onConfirmSplit()
+print("[PelvicFracturePlanning] Step 'cb_step_8': clicked 'btnConfirmSplit' via onConfirmSplit().")
 

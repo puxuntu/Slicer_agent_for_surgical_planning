@@ -411,6 +411,17 @@ class AnalyzerRepairLoopMixin:
             # escalate it too.
             if diagnosis == "member_unproven" and info.get("blocking", True):
                 return "contract_aware_template_repair"
+            # A handler ARITY mismatch is fully diagnosed already -- the required
+            # and supplied counts are both known and carried in `minimal_repair`.
+            # No amount of further receiver/method probing can resolve it, so
+            # routing it to the evidence rung (which never edits a template) made
+            # the ladder report "no template changes produced" and break out of its
+            # own retry loop on attempt 1 of 5. Escalate it to the rewrite route:
+            # these calls live in `[source drive]` templates, so
+            # `_repair_templates_in_memory` re-derives them from the emitter
+            # deterministically rather than handing them to the LLM.
+            if diagnosis == "handler_arity_mismatch" and info.get("blocking", True):
+                return "contract_aware_template_repair"
             return "gather_api_evidence"
         if issue_type in {
             "CallableReferenceMisuse", "BadInstructionText",

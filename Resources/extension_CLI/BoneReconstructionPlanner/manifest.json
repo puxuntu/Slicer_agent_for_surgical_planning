@@ -5,7 +5,7 @@
   "extension_module_name": "BoneReconstructionPlanner",
   "logic_class_name": "BoneReconstructionPlannerLogic",
   "version": "1.0.0",
-  "status": "validated_with_warnings",
+  "status": "validation_failed",
   "workflow_type": "interactive",
   "workflow_graph_file": "workflow.json",
   "workflow_metadata_file": "workflow_metadata.json",
@@ -54,8 +54,14 @@
   ],
   "step_validation": {
     "cb_step_5": {
-      "valid": true,
-      "issues": []
+      "valid": false,
+      "issues": [
+        "templates/cb_step_5.py.tpl: Template contains destructive operations without an explicit allow_destructive_ops contract: ['shNode.RemoveItem']",
+        "templates/cb_step_5.py.tpl: InvalidApiCall: method_unproven for 'segDisplayNode.SetSegmentVisibility3D' (line 86, effect=state_change)",
+        "templates/cb_step_5.py.tpl: UnprovenApiCall: method_unproven for 'segmentationLogic.ExportSegmentToRepresentationNode' (line 89, effect=unknown)",
+        "method_unproven",
+        "method_unproven"
+      ]
     },
     "cb_step_6": {
       "valid": true,
@@ -158,17 +164,17 @@
       "issues": []
     }
   },
-  "partial_valid_step_count": 26,
+  "partial_valid_step_count": 25,
   "validation_state": {
-    "static_valid": true,
-    "api_probe_valid": true,
+    "static_valid": false,
+    "api_probe_valid": false,
     "contract_valid": true,
     "prelude_valid": true,
     "contract_audit_valid": true,
     "workflow_state_valid": true,
     "prelude_bytes_max": 28253,
-    "overall_valid": true,
-    "api_proof_valid": true,
+    "overall_valid": false,
+    "api_proof_valid": false,
     "api_inventory_complete": true,
     "generate_syntax_valid_at_generate": true,
     "final_syntax_valid": true,
@@ -176,12 +182,12 @@
     "generator_template_sync_valid": true
   },
   "api_proof_coverage": {
-    "total_calls": 449,
-    "state_changing_calls": 126,
-    "proven_calls": 391,
-    "invalid_calls": 0,
-    "blocking_unproven_calls": 0,
-    "warning_unproven_reads": 58,
+    "total_calls": 502,
+    "state_changing_calls": 182,
+    "proven_calls": 468,
+    "invalid_calls": 1,
+    "blocking_unproven_calls": 1,
+    "warning_unproven_reads": 32,
     "inventory_complete": true
   },
   "workflow_contract_file": "workflow_contract.json",

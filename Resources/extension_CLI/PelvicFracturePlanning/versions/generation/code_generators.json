@@ -10,10 +10,10 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select the input CT volume",
-      "instruction": "Choose the pelvic volume from the list.",
+      "title": "Choose pelvic volume",
+      "instruction": "In the Input CT Volume selector, choose the Pelvic Volume.",
       "done_label": "Done",
-      "choice_label": "Volume",
+      "choice_label": "Input CT Volume",
       "input_label": "Choice",
       "object_label": "volume",
       "repeat": {}
@@ -41,15 +41,15 @@
       }
     ],
     "choice_descriptor": {
-      "question": "Select the input CT volume",
+      "question": "Choose the Pelvic Volume in the Input CT Volume option.",
       "choices": [],
-      "parameter_name": "inputVolume",
+      "parameter_name": "input_volume",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select the input CT volume",
-        "instruction": "Choose the pelvic volume from the list.",
+        "title": "Choose pelvic volume",
+        "instruction": "In the Input CT Volume selector, choose the Pelvic Volume.",
         "done_label": "Done",
-        "choice_label": "Volume",
+        "choice_label": "Input CT Volume",
         "input_label": "Choice",
         "object_label": "volume",
         "repeat": {}
@@ -67,7 +67,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "select input CT volume",
+        "description": "Select the pelvic CT volume as the input volume.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "inputSelector",
@@ -75,14 +75,10 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "vtkMRMLScalarVolumeNode",
-          "select",
-          "qMRMLNodeComboBox"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": "vtkMRMLScalarVolumeNode",
+        "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [],
@@ -100,10 +96,10 @@
         ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "cookbook_step1",
-        "question": "Select the input CT volume",
+        "evidence_id": "",
+        "question": "Choose the Pelvic Volume in the Input CT Volume option.",
         "choices": [],
-        "parameter_name": "inputVolume",
+        "parameter_name": "input_volume",
         "default_value": null,
         "value_kind": "node",
         "widget_class": "qMRMLNodeComboBox"
@@ -122,7 +118,7 @@
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Run Step 1: Segment Pelvis",
-      "instruction": "",
+      "instruction": "Click the 'Run Step 1: Segment Pelvis' button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -163,27 +159,21 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "segment pelvis from input volume",
+        "description": "Run pelvis segmentation on the selected input volume.",
         "extension_method_hint": "segment_pelvis",
         "extension_function_hint": null,
         "widget_name": "btnSegPelvis",
         "ui_parameter_binding": null,
-        "target_value": null,
+        "target_value": true,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "segment_pelvis",
-          "vtkMRMLSegmentationNode",
-          "segmentation"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": "vtkMRMLSegmentationNode",
-        "creates_node": true,
+        "node_class": null,
+        "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          1
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -204,7 +194,7 @@
         ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "logic_segment_pelvis,widget_btnSegPelvis"
+        "evidence_id": ""
       }
     ],
     "api_evidence": {
@@ -229,14 +219,10 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "segment pelvis from input volume"
+        "Run pelvis segmentation on the selected input volume."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "segment_pelvis",
-        "vtkMRMLSegmentationNode",
-        "segmentation"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
@@ -251,7 +237,7 @@
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Run Step 2: Segment Fractures",
-      "instruction": "",
+      "instruction": "Click the 'Run Step 2: Segment Fractures' button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -292,7 +278,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "segment fractures from pelvis",
+        "description": "Run fracture segmentation using the Step 1 pelvis result.",
         "extension_method_hint": "segment_fractures",
         "extension_function_hint": null,
         "widget_name": "btnSegFracture",
@@ -300,19 +286,13 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "segment_fractures",
-          "vtkMRMLSegmentationNode",
-          "fracture"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": "vtkMRMLSegmentationNode",
-        "creates_node": true,
+        "node_class": null,
+        "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          2
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -333,7 +313,7 @@
         ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "logic_segment_fractures,widget_btnSegFracture"
+        "evidence_id": ""
       }
     ],
     "api_evidence": {
@@ -358,14 +338,10 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "segment fractures from pelvis"
+        "Run fracture segmentation using the Step 1 pelvis result."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "segment_fractures",
-        "vtkMRMLSegmentationNode",
-        "fracture"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
@@ -373,18 +349,18 @@
     "param_signature": {
       "workflow_step": "cb_step_4"
     },
-    "description": "In the \"Untick any fragments to exclude it from planning\" section, untick these segments.",
+    "description": "In the \"Untick a piece to stop treating it as separate\" section, untick these segments.",
     "requirements": [
       "PelvicFracturePlanning extension must be installed"
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Untick fragments to exclude from planning",
-      "instruction": "Untick any fragments you want to exclude.",
+      "title": "Untick segments to exclude",
+      "instruction": "In the 'Untick a piece to stop treating it as separate' section, untick the segments that should not be treated as separate pieces.",
       "done_label": "Done",
-      "choice_label": "Choice",
+      "choice_label": "Unticked segments",
       "input_label": "Choice",
-      "object_label": "fragment",
+      "object_label": "segments",
       "repeat": {}
     },
     "operation_model": {
@@ -403,42 +379,26 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "choice_input",
-        "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": "",
-        "step_id": "cb_step_4"
-      }
-    ],
     "choice_descriptor": {
-      "question": "Untick any fragments to exclude from planning",
+      "question": "Which segments should be unticked?",
       "choices": [],
-      "parameter_name": "excluded_segments",
+      "parameter_name": "unticked_segment_ids",
       "default_value": null,
       "ui_guidance": {
-        "title": "Untick fragments to exclude from planning",
-        "instruction": "Untick any fragments you want to exclude.",
+        "title": "Untick segments to exclude",
+        "instruction": "In the 'Untick a piece to stop treating it as separate' section, untick the segments that should not be treated as separate pieces.",
         "done_label": "Done",
-        "choice_label": "Choice",
+        "choice_label": "Unticked segments",
         "input_label": "Choice",
-        "object_label": "fragment",
+        "object_label": "segments",
         "repeat": {}
-      },
-      "node_roles": [
-        {
-          "role_kind": "choice_input",
-          "node_class": "vtkMRMLSegmentationNode",
-          "parameter_name": "",
-          "step_id": "cb_step_4"
-        }
-      ]
+      }
     },
     "sub_operations": [
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "select fracture segments to exclude from planning",
+        "description": "Untick fracture segments that should not be treated as separate pieces.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "fractureSegmentsTable",
@@ -446,39 +406,26 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "fractureSegmentsTable",
-          "qMRMLSegmentsTableView",
-          "exclude"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": "vtkMRMLSegmentationNode",
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          3
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [
           "segment_visibility_selection"
         ],
-        "node_roles": [
-          {
-            "role_kind": "choice_input",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": "",
-            "step_id": "cb_step_4"
-          }
-        ],
-        "confidence": "high",
+        "node_roles": [],
+        "confidence": "medium",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "cookbook_step4,widget_fractureSegmentsTable",
-        "question": "Untick any fragments to exclude from planning",
+        "evidence_id": "",
+        "question": "Which segments should be unticked?",
         "choices": [],
-        "parameter_name": "excluded_segments",
+        "parameter_name": "unticked_segment_ids",
         "default_value": null,
         "value_kind": "segment_visibility_selection",
         "widget_class": "qMRMLSegmentsTableView",
@@ -492,14 +439,501 @@
     "param_signature": {
       "workflow_step": "cb_step_5"
     },
-    "description": "Click \"Run Step 3: Generate Template\" button.",
+    "description": "If a piece should have been split but was and and require cut it manually, jump to step 6. If not, jump to step 9.",
+    "requirements": [
+      "PelvicFracturePlanning extension must be installed"
+    ],
+    "operation_type": "branch_op",
+    "ui_guidance": {
+      "title": "Manual separation needed?",
+      "instruction": "Choose whether any piece requires manual separation.",
+      "done_label": "Done",
+      "choice_label": "Yes / No",
+      "input_label": "Choice",
+      "object_label": "interaction",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "branch_op",
+      "op_types": [
+        "branch_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "choice_descriptor": {
+      "question": "Does a piece require manual separation?",
+      "choices": [
+        {
+          "label": "Yes",
+          "value": true
+        },
+        {
+          "label": "No",
+          "value": false
+        }
+      ],
+      "parameter_name": "manual_split_required",
+      "default_value": false,
+      "ui_guidance": {
+        "title": "Manual separation needed?",
+        "instruction": "Choose whether any piece requires manual separation.",
+        "done_label": "Done",
+        "choice_label": "Yes / No",
+        "input_label": "Choice",
+        "object_label": "interaction",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "branch_op",
+        "operation_type": "branch_op",
+        "description": "Decide whether a fracture piece needs manual separation; if yes run the manual split workflow, otherwise skip to Step 9.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "medium",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Does a piece require manual separation?",
+        "choices": [
+          {
+            "label": "Yes",
+            "value": true
+          },
+          {
+            "label": "No",
+            "value": false
+          }
+        ],
+        "parameter_name": "manual_split_required",
+        "default_value": false,
+        "value_kind": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "PelvicFracturePlanning",
+    "param_signature": {
+      "workflow_step": "cb_step_6"
+    },
+    "description": "Click \"Manually seperate\" button.",
     "requirements": [
       "PelvicFracturePlanning extension must be installed"
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Run Step 3: Generate Template",
-      "instruction": "",
+      "title": "Start manual separation",
+      "instruction": "Click the 'Manually separate' button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "interaction",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_6.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Start the manual separation mode.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "btnManualSplit",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "repeat_block": {
+      "repeat_id": "manual_split_optional",
+      "body_steps": [
+        "cb_step_6",
+        "cb_step_7",
+        "cb_step_8"
+      ],
+      "entry_step": "cb_step_6",
+      "terminal_step": "cb_step_8",
+      "exit_step": "cb_step_9",
+      "controller": {
+        "kind": "while_choice",
+        "source_step": "cb_step_5",
+        "prompt": "Run the manual separation steps when a piece needs to be split manually; otherwise skip to step 9.",
+        "exit_value": false,
+        "exit_target": 9
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          5,
+          8
+        ],
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onManualSplit",
+        "pelvicfractureplanning",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onManualSplit",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Start the manual separation mode."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "PelvicFracturePlanning",
+    "param_signature": {
+      "workflow_step": "cb_step_7"
+    },
+    "description": "Manually click to add a cut point and adjust the position and rotation of the cutting plane.",
+    "requirements": [
+      "PelvicFracturePlanning extension must be installed"
+    ],
+    "operation_type": "user_interaction",
+    "ui_guidance": {
+      "title": "Place cutting plane",
+      "instruction": "Place the cutting plane.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "cutting plane",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_interaction",
+      "op_types": [
+        "user_interaction"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": true,
+      "interaction_kinds": [
+        "interaction"
+      ]
+    },
+    "node_roles": [
+      {
+        "role_kind": "interaction_output",
+        "node_class": "vtkMRMLMarkupsPlaneNode",
+        "parameter_name": "",
+        "step_id": "cb_step_7"
+      }
+    ],
+    "pre_template_file": "templates/cb_step_7_pre.py.tpl",
+    "post_template_file": "templates/cb_step_7_post.py.tpl",
+    "interaction_descriptor": {
+      "interaction_type": "plane",
+      "interaction_kind": "markup_placement",
+      "node_class": "vtkMRMLMarkupsPlaneNode",
+      "placement_instructions": "Place a cutting plane by clicking a cut point and adjusting its position and rotation.",
+      "ui_guidance": {
+        "title": "Place cutting plane",
+        "instruction": "Place the cutting plane.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "cutting plane",
+        "repeat": {}
+      },
+      "interaction_owner": "runtime_template",
+      "created_node_source": "template",
+      "placement_policy": {
+        "interaction_owner": "runtime_template",
+        "placement_starter_method": "",
+        "created_node_source": "template"
+      }
+    },
+    "repeat_block": {
+      "repeat_id": "manual_split_optional",
+      "body_steps": [
+        "cb_step_6",
+        "cb_step_7",
+        "cb_step_8"
+      ],
+      "entry_step": "cb_step_6",
+      "terminal_step": "cb_step_8",
+      "exit_step": "cb_step_9",
+      "controller": {
+        "kind": "while_choice",
+        "source_step": "cb_step_5",
+        "prompt": "Run the manual separation steps when a piece needs to be split manually; otherwise skip to step 9.",
+        "exit_value": false,
+        "exit_target": 9
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          5,
+          8
+        ],
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "AddNewNodeByClass",
+        "GetDisplayNode",
+        "GetID",
+        "GetNodeByID",
+        "SetActiveListID",
+        "SetVisibility",
+        "SwitchToSinglePlaceMode",
+        "logic",
+        "markups",
+        "modules",
+        "mrmlScene",
+        "vtkMRMLInteractionNodeSingleton",
+        "vtkMRMLMarkupsPlaneNode",
+        "GetNumberOfControlPoints",
+        "SwitchToViewTransformMode"
+      ],
+      "api_chains": [
+        "displayNode.SetVisibility",
+        "interactionNode.SwitchToSinglePlaceMode",
+        "node.GetDisplayNode",
+        "node.GetID",
+        "slicer.modules.markups.logic",
+        "slicer.modules.markups.logic().SetActiveListID",
+        "slicer.mrmlScene.AddNewNodeByClass",
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToSinglePlaceMode",
+        "interactionNode.SwitchToViewTransformMode",
+        "node.GetNumberOfControlPoints",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+      ],
+      "operation_descriptions": [
+        "Manually click to add a cut point and adjust the position and rotation of the cutting plane."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "PelvicFracturePlanning",
+    "param_signature": {
+      "workflow_step": "cb_step_8"
+    },
+    "description": "Click \"Confirm seperation\" button.",
+    "requirements": [
+      "PelvicFracturePlanning extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Confirm separation",
+      "instruction": "Click the 'Confirm separation' button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "interaction",
+      "repeat": {}
+    },
+    "method_name": "split_segment_by_plane",
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": true,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "node_roles": [
+      {
+        "role_kind": "extension_input",
+        "node_class": "vtkMRMLMarkupsPlaneNode",
+        "parameter_name": "",
+        "step_id": "cb_step_8"
+      }
+    ],
+    "template_file": "templates/cb_step_8.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Confirm the manual separation cut.",
+        "extension_method_hint": "split_segment_by_plane",
+        "extension_function_hint": null,
+        "widget_name": "btnConfirmSplit",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [
+          {
+            "role_kind": "extension_input",
+            "node_class": "vtkMRMLMarkupsPlaneNode",
+            "parameter_name": "",
+            "step_id": "cb_step_8"
+          }
+        ],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "repeat_block": {
+      "repeat_id": "manual_split_optional",
+      "body_steps": [
+        "cb_step_6",
+        "cb_step_7",
+        "cb_step_8"
+      ],
+      "entry_step": "cb_step_6",
+      "terminal_step": "cb_step_8",
+      "exit_step": "cb_step_9",
+      "controller": {
+        "kind": "while_choice",
+        "source_step": "cb_step_5",
+        "prompt": "Run the manual separation steps when a piece needs to be split manually; otherwise skip to step 9.",
+        "exit_value": false,
+        "exit_target": 9
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          5,
+          8
+        ],
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onConfirmSplit",
+        "pelvicfractureplanning",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onConfirmSplit",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Confirm the manual separation cut."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "PelvicFracturePlanning",
+    "param_signature": {
+      "workflow_step": "cb_step_9"
+    },
+    "description": "Click \"Run Step 3: Generate template\" button.",
+    "requirements": [
+      "PelvicFracturePlanning extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Run Step 3: Generate template",
+      "instruction": "Click the 'Run Step 3: Generate template' button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -524,29 +958,17 @@
     "node_roles": [
       {
         "role_kind": "extension_input",
-        "node_class": "vtkMRMLScalarVolumeNode",
-        "parameter_name": "inputVolume",
-        "step_id": "cb_step_5"
-      },
-      {
-        "role_kind": "extension_input",
         "node_class": "vtkMRMLSegmentationNode",
         "parameter_name": "OutputPelvisSeg",
-        "step_id": "cb_step_5"
-      },
-      {
-        "role_kind": "extension_output",
-        "node_class": "vtkMRMLModelNode",
-        "parameter_name": "",
-        "step_id": "cb_step_5"
+        "step_id": "cb_step_9"
       }
     ],
-    "template_file": "templates/cb_step_5.py.tpl",
+    "template_file": "templates/cb_step_9.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "generate pelvic template model",
+        "description": "Generate the reduction template from the pelvis segmentation.",
         "extension_method_hint": "plan_generate_template",
         "extension_function_hint": null,
         "widget_name": "btnGenTemplate",
@@ -554,20 +976,13 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "plan_generate_template",
-          "vtkMRMLModelNode",
-          "template"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": "vtkMRMLModelNode",
-        "creates_node": true,
+        "node_class": null,
+        "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          4,
-          3
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -575,26 +990,14 @@
         "node_roles": [
           {
             "role_kind": "extension_input",
-            "node_class": "vtkMRMLScalarVolumeNode",
-            "parameter_name": "inputVolume",
-            "step_id": "cb_step_5"
-          },
-          {
-            "role_kind": "extension_input",
             "node_class": "vtkMRMLSegmentationNode",
             "parameter_name": "OutputPelvisSeg",
-            "step_id": "cb_step_5"
-          },
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLModelNode",
-            "parameter_name": "",
-            "step_id": "cb_step_5"
+            "step_id": "cb_step_9"
           }
         ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "logic_plan_generate_template,widget_btnGenTemplate"
+        "evidence_id": ""
       }
     ],
     "api_evidence": {
@@ -619,20 +1022,575 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "generate pelvic template model"
+        "Generate the reduction template from the pelvis segmentation."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "plan_generate_template",
-        "vtkMRMLModelNode",
-        "template"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
     "tool_name": "PelvicFracturePlanning",
     "param_signature": {
-      "workflow_step": "cb_step_6"
+      "workflow_step": "cb_step_10"
+    },
+    "description": "If further adjustments of the template are required, tick the \"Manually adjust a template\" checkbox. If not, jump to step 15.",
+    "requirements": [
+      "PelvicFracturePlanning extension must be installed"
+    ],
+    "operation_type": "branch_op",
+    "ui_guidance": {
+      "title": "Adjust template manually?",
+      "instruction": "Choose whether the template needs further manual adjustment.",
+      "done_label": "Done",
+      "choice_label": "Yes / No",
+      "input_label": "Choice",
+      "object_label": "interaction",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "branch_op",
+      "op_types": [
+        "branch_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "branch_action_template": "templates/cb_step_10_action.py.tpl",
+    "choice_descriptor": {
+      "question": "Are further adjustments of the template required?",
+      "choices": [
+        {
+          "label": "Yes",
+          "value": true
+        },
+        {
+          "label": "No",
+          "value": false
+        }
+      ],
+      "parameter_name": "template_adjust_required",
+      "default_value": false,
+      "ui_guidance": {
+        "title": "Adjust template manually?",
+        "instruction": "Choose whether the template needs further manual adjustment.",
+        "done_label": "Done",
+        "choice_label": "Yes / No",
+        "input_label": "Choice",
+        "object_label": "interaction",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "branch_op",
+        "operation_type": "branch_op",
+        "description": "Decide whether template adjustment is required; if not, skip to Step 15.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "chkAdjustTemplate",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Are further adjustments of the template required?",
+        "choices": [
+          {
+            "label": "Yes",
+            "value": true
+          },
+          {
+            "label": "No",
+            "value": false
+          }
+        ],
+        "parameter_name": "template_adjust_required",
+        "default_value": false,
+        "value_kind": ""
+      }
+    ]
+  },
+  {
+    "tool_name": "PelvicFracturePlanning",
+    "param_signature": {
+      "workflow_step": "cb_step_11"
+    },
+    "description": "In the \"Template\" option, Choose which template needs adjustment in the \"Template\" selection box.",
+    "requirements": [
+      "PelvicFracturePlanning extension must be installed"
+    ],
+    "operation_type": "user_choice",
+    "ui_guidance": {
+      "title": "Select template to adjust",
+      "instruction": "In the Template selection box, choose the template that needs adjustment.",
+      "done_label": "Done",
+      "choice_label": "Template",
+      "input_label": "Choice",
+      "object_label": "template",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_choice",
+      "op_types": [
+        "user_choice"
+      ],
+      "operation_intents": [
+        "segment_name_selection"
+      ],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "choice_descriptor": {
+      "question": "Which template needs adjustment?",
+      "choices": [],
+      "parameter_name": "template_selector",
+      "default_value": null,
+      "ui_guidance": {
+        "title": "Select template to adjust",
+        "instruction": "In the Template selection box, choose the template that needs adjustment.",
+        "done_label": "Done",
+        "choice_label": "Template",
+        "input_label": "Choice",
+        "object_label": "template",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "user_choice",
+        "operation_type": "user_choice",
+        "description": "Choose which template needs adjustment.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": "templateSelector",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": "vtkMRMLSegmentationNode",
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [
+          "segment_name_selection"
+        ],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Which template needs adjustment?",
+        "choices": [],
+        "parameter_name": "template_selector",
+        "default_value": null,
+        "value_kind": "segment_name_selection",
+        "widget_class": "QComboBox",
+        "operation_intent": "segment_name_selection"
+      }
+    ],
+    "repeat_block": {
+      "repeat_id": "loop_back_step_13",
+      "body_steps": [
+        "cb_step_11",
+        "cb_step_12",
+        "cb_step_13"
+      ],
+      "entry_step": "cb_step_11",
+      "terminal_step": "cb_step_13",
+      "exit_step": "cb_step_14",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_13",
+        "loop_back": true,
+        "prompt": "If more templates need adjustment, jump to step 11. If not, jump to step 14.",
+        "exit_value": false,
+        "polarity": "deterministic",
+        "exit_target": 14
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "backward_jump_loop_synthesis",
+        "confidence": "high"
+      }
+    }
+  },
+  {
+    "tool_name": "PelvicFracturePlanning",
+    "param_signature": {
+      "workflow_step": "cb_step_12"
+    },
+    "description": "Manually adjust the position and rotation of the selected template.",
+    "requirements": [
+      "PelvicFracturePlanning extension must be installed"
+    ],
+    "operation_type": "user_interaction",
+    "ui_guidance": {
+      "title": "Adjust view for template",
+      "instruction": "Rotate and zoom the 3D view to a clear angle.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "view",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_interaction",
+      "op_types": [
+        "user_interaction"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": true,
+      "interaction_kinds": [
+        "interaction"
+      ]
+    },
+    "pre_template_file": "templates/cb_step_12_pre.py.tpl",
+    "post_template_file": "templates/cb_step_12_post.py.tpl",
+    "interaction_descriptor": {
+      "interaction_type": "generic",
+      "interaction_kind": "view_adjustment",
+      "node_class": "",
+      "placement_instructions": null,
+      "ui_guidance": {
+        "title": "Adjust view for template",
+        "instruction": "Rotate and zoom the 3D view to a clear angle.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "view",
+        "repeat": {}
+      }
+    },
+    "repeat_block": {
+      "repeat_id": "loop_back_step_13",
+      "body_steps": [
+        "cb_step_11",
+        "cb_step_12",
+        "cb_step_13"
+      ],
+      "entry_step": "cb_step_11",
+      "terminal_step": "cb_step_13",
+      "exit_step": "cb_step_14",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_13",
+        "loop_back": true,
+        "prompt": "If more templates need adjustment, jump to step 11. If not, jump to step 14.",
+        "exit_value": false,
+        "polarity": "deterministic",
+        "exit_target": 14
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "backward_jump_loop_synthesis",
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetNodeByID",
+        "SwitchToViewTransformMode",
+        "mrmlScene",
+        "vtkMRMLInteractionNodeSingleton"
+      ],
+      "api_chains": [
+        "interactionNode.SwitchToViewTransformMode",
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+      ],
+      "operation_descriptions": [
+        "Manually adjust the position and rotation of the selected template."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "PelvicFracturePlanning",
+    "param_signature": {
+      "workflow_step": "cb_step_13"
+    },
+    "description": "If more templates need adjustment, jump to step 11. If not, jump to step 14.",
+    "requirements": [
+      "PelvicFracturePlanning extension must be installed"
+    ],
+    "operation_type": "branch_op",
+    "ui_guidance": {
+      "title": "More templates to adjust?",
+      "instruction": "Choose whether more templates need adjustment.",
+      "done_label": "Done",
+      "choice_label": "Yes / No",
+      "input_label": "Choice",
+      "object_label": "interaction",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "branch_op",
+      "op_types": [
+        "branch_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "choice_descriptor": {
+      "question": "Do more templates need adjustment?",
+      "choices": [
+        {
+          "label": "Yes",
+          "value": true
+        },
+        {
+          "label": "No",
+          "value": false
+        }
+      ],
+      "parameter_name": "more_template_adjustments",
+      "default_value": false,
+      "ui_guidance": {
+        "title": "More templates to adjust?",
+        "instruction": "Choose whether more templates need adjustment.",
+        "done_label": "Done",
+        "choice_label": "Yes / No",
+        "input_label": "Choice",
+        "object_label": "interaction",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "branch_op",
+        "operation_type": "branch_op",
+        "description": "Decide whether more templates need adjustment; if yes return to Step 11, otherwise continue to Step 14.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "medium",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Do more templates need adjustment?",
+        "choices": [
+          {
+            "label": "Yes",
+            "value": true
+          },
+          {
+            "label": "No",
+            "value": false
+          }
+        ],
+        "parameter_name": "more_template_adjustments",
+        "default_value": false,
+        "value_kind": ""
+      }
+    ],
+    "repeat_block": {
+      "repeat_id": "loop_back_step_13",
+      "body_steps": [
+        "cb_step_11",
+        "cb_step_12",
+        "cb_step_13"
+      ],
+      "entry_step": "cb_step_11",
+      "terminal_step": "cb_step_13",
+      "exit_step": "cb_step_14",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_13",
+        "loop_back": true,
+        "prompt": "If more templates need adjustment, jump to step 11. If not, jump to step 14.",
+        "exit_value": false,
+        "polarity": "deterministic",
+        "exit_target": 14
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "backward_jump_loop_synthesis",
+        "confidence": "high"
+      }
+    }
+  },
+  {
+    "tool_name": "PelvicFracturePlanning",
+    "param_signature": {
+      "workflow_step": "cb_step_14"
+    },
+    "description": "Click the \"Apply template adjustment\" button.",
+    "requirements": [
+      "PelvicFracturePlanning extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Apply template adjustment",
+      "instruction": "Click the 'Apply template adjustment' button.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "interaction",
+      "repeat": {}
+    },
+    "method_name": "applyTemplateTransforms",
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": true,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_14.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Apply the template adjustment.",
+        "extension_method_hint": "applyTemplateTransforms",
+        "extension_function_hint": null,
+        "widget_name": "btnApplyTemplateAdjust",
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "medium",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "repeat_block": {
+      "repeat_id": "template_adjust_optional",
+      "body_steps": [
+        "cb_step_11",
+        "cb_step_12",
+        "cb_step_13",
+        "cb_step_14"
+      ],
+      "entry_step": "cb_step_11",
+      "terminal_step": "cb_step_14",
+      "exit_step": "cb_step_15",
+      "controller": {
+        "kind": "while_choice",
+        "source_step": "cb_step_10",
+        "prompt": "Run the template adjustment steps when further adjustments are required; otherwise skip to step 15.",
+        "exit_value": false,
+        "exit_target": 15
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "llm_semantic_decomposition",
+        "evidence_step_ids": [
+          10,
+          14
+        ],
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "getModuleWidget",
+        "modules",
+        "onApplyTemplateAdjust",
+        "pelvicfractureplanning",
+        "selectModule",
+        "selectedModule",
+        "self",
+        "util",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_widget.onApplyTemplateAdjust",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation",
+        "slicer.modules.pelvicfractureplanning.widgetRepresentation().self",
+        "slicer.util.getModuleWidget",
+        "slicer.util.selectModule",
+        "slicer.util.selectedModule"
+      ],
+      "operation_descriptions": [
+        "Apply the template adjustment."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "PelvicFracturePlanning",
+    "param_signature": {
+      "workflow_step": "cb_step_15"
     },
     "description": "Click \"Run Step 4: Register _Reduce\" button.",
     "requirements": [
@@ -640,8 +1598,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Run Step 4: Register _Reduce",
-      "instruction": "",
+      "title": "Run Step 4: Register & Reduce",
+      "instruction": "Click the 'Run Step 4: Register _Reduce' button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -668,33 +1626,33 @@
         "role_kind": "extension_input",
         "node_class": "vtkMRMLScalarVolumeNode",
         "parameter_name": "inputVolume",
-        "step_id": "cb_step_6"
+        "step_id": "cb_step_15"
       },
       {
         "role_kind": "extension_input",
         "node_class": "vtkMRMLSegmentationNode",
         "parameter_name": "OutputPelvisSeg",
-        "step_id": "cb_step_6"
+        "step_id": "cb_step_15"
       },
       {
         "role_kind": "extension_input",
         "node_class": "vtkMRMLSegmentationNode",
         "parameter_name": "OutputFracSeg",
-        "step_id": "cb_step_6"
+        "step_id": "cb_step_15"
       },
       {
         "role_kind": "extension_output",
         "node_class": "vtkMRMLSegmentationNode",
         "parameter_name": "OutputReduction",
-        "step_id": "cb_step_6"
+        "step_id": "cb_step_15"
       }
     ],
-    "template_file": "templates/cb_step_6.py.tpl",
+    "template_file": "templates/cb_step_15.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "register and reduce fractures",
+        "description": "Run registration and reduction of fracture fragments.",
         "extension_method_hint": "plan_register_reduce",
         "extension_function_hint": null,
         "widget_name": "btnReduce",
@@ -702,20 +1660,13 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "plan_register_reduce",
-          "vtkMRMLSegmentationNode",
-          "reduction"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": "vtkMRMLSegmentationNode",
-        "creates_node": true,
+        "node_class": null,
+        "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          5,
-          4
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -725,30 +1676,30 @@
             "role_kind": "extension_input",
             "node_class": "vtkMRMLScalarVolumeNode",
             "parameter_name": "inputVolume",
-            "step_id": "cb_step_6"
+            "step_id": "cb_step_15"
           },
           {
             "role_kind": "extension_input",
             "node_class": "vtkMRMLSegmentationNode",
             "parameter_name": "OutputPelvisSeg",
-            "step_id": "cb_step_6"
+            "step_id": "cb_step_15"
           },
           {
             "role_kind": "extension_input",
             "node_class": "vtkMRMLSegmentationNode",
             "parameter_name": "OutputFracSeg",
-            "step_id": "cb_step_6"
+            "step_id": "cb_step_15"
           },
           {
             "role_kind": "extension_output",
             "node_class": "vtkMRMLSegmentationNode",
             "parameter_name": "OutputReduction",
-            "step_id": "cb_step_6"
+            "step_id": "cb_step_15"
           }
         ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "logic_plan_register_reduce,widget_btnReduce"
+        "evidence_id": ""
       }
     ],
     "api_evidence": {
@@ -773,31 +1724,27 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "register and reduce fractures"
+        "Run registration and reduction of fracture fragments."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "plan_register_reduce",
-        "vtkMRMLSegmentationNode",
-        "reduction"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
     "tool_name": "PelvicFracturePlanning",
     "param_signature": {
-      "workflow_step": "cb_step_7"
+      "workflow_step": "cb_step_16"
     },
-    "description": "If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 12.",
+    "description": "If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 21.",
     "requirements": [
       "PelvicFracturePlanning extension must be installed"
     ],
     "operation_type": "branch_op",
     "ui_guidance": {
-      "title": "Manually adjust a fragment?",
-      "instruction": "Choose one option.",
+      "title": "Adjust fragment manually?",
+      "instruction": "Choose whether a fragment needs further manual adjustment.",
       "done_label": "Done",
-      "choice_label": "Choice",
+      "choice_label": "Yes / No",
       "input_label": "Choice",
       "object_label": "interaction",
       "repeat": {}
@@ -816,25 +1763,26 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "branch_action_template": "templates/cb_step_16_action.py.tpl",
     "choice_descriptor": {
-      "question": "Manually adjust a fragment?",
+      "question": "Are further adjustments of a fragment required?",
       "choices": [
         {
           "label": "Yes",
           "value": true
         },
         {
-          "label": "No (go to step 12)",
+          "label": "No",
           "value": false
         }
       ],
-      "parameter_name": "manually_adjust",
+      "parameter_name": "fragment_adjust_required",
       "default_value": false,
       "ui_guidance": {
-        "title": "Manually adjust a fragment?",
-        "instruction": "Choose one option.",
+        "title": "Adjust fragment manually?",
+        "instruction": "Choose whether a fragment needs further manual adjustment.",
         "done_label": "Done",
-        "choice_label": "Choice",
+        "choice_label": "Yes / No",
         "input_label": "Choice",
         "object_label": "interaction",
         "repeat": {}
@@ -844,7 +1792,7 @@
       {
         "op_type": "branch_op",
         "operation_type": "branch_op",
-        "description": "decide whether to manually adjust a fragment",
+        "description": "Decide whether fragment adjustment is required; if not, skip to Step 21.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "chkManualAdjust",
@@ -852,18 +1800,13 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "chkManualAdjust",
-          "checkbox"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          6
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -871,28 +1814,28 @@
         "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "widget_chkManualAdjust,cookbook_step7",
-        "question": "Manually adjust a fragment?",
+        "evidence_id": "",
+        "question": "Are further adjustments of a fragment required?",
         "choices": [
           {
             "label": "Yes",
             "value": true
           },
           {
-            "label": "No (go to step 12)",
+            "label": "No",
             "value": false
           }
         ],
-        "parameter_name": "manually_adjust",
+        "parameter_name": "fragment_adjust_required",
         "default_value": false,
-        "value_kind": "bool"
+        "value_kind": ""
       }
     ]
   },
   {
     "tool_name": "PelvicFracturePlanning",
     "param_signature": {
-      "workflow_step": "cb_step_8"
+      "workflow_step": "cb_step_17"
     },
     "description": "In the \"Fragment\" option, Choose which fragment needs adjustment in the \"Fragment\" selection box.",
     "requirements": [
@@ -900,8 +1843,8 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Choose fragment to adjust",
-      "instruction": "Select a fragment from the list.",
+      "title": "Select fragment to adjust",
+      "instruction": "In the Fragment selection box, choose the fragment that needs adjustment.",
       "done_label": "Done",
       "choice_label": "Fragment",
       "input_label": "Choice",
@@ -924,42 +1867,26 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "choice_input",
-        "node_class": "vtkMRMLSegmentationNode",
-        "parameter_name": "",
-        "step_id": "cb_step_8"
-      }
-    ],
     "choice_descriptor": {
-      "question": "Choose fragment to adjust",
+      "question": "Which fragment needs adjustment?",
       "choices": [],
-      "parameter_name": "selected_fragment",
+      "parameter_name": "fragment_selector",
       "default_value": null,
       "ui_guidance": {
-        "title": "Choose fragment to adjust",
-        "instruction": "Select a fragment from the list.",
+        "title": "Select fragment to adjust",
+        "instruction": "In the Fragment selection box, choose the fragment that needs adjustment.",
         "done_label": "Done",
         "choice_label": "Fragment",
         "input_label": "Choice",
         "object_label": "fragment",
         "repeat": {}
-      },
-      "node_roles": [
-        {
-          "role_kind": "choice_input",
-          "node_class": "vtkMRMLSegmentationNode",
-          "parameter_name": "",
-          "step_id": "cb_step_8"
-        }
-      ]
+      }
     },
     "sub_operations": [
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "select fragment to adjust",
+        "description": "Choose which fragment needs adjustment.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "fragmentSelector",
@@ -967,38 +1894,26 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "fragmentSelector",
-          "choose"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": "vtkMRMLSegmentationNode",
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          7
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [
           "segment_name_selection"
         ],
-        "node_roles": [
-          {
-            "role_kind": "choice_input",
-            "node_class": "vtkMRMLSegmentationNode",
-            "parameter_name": "",
-            "step_id": "cb_step_8"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "widget_fragmentSelector,cookbook_step8",
-        "question": "Choose fragment to adjust",
+        "evidence_id": "",
+        "question": "Which fragment needs adjustment?",
         "choices": [],
-        "parameter_name": "selected_fragment",
+        "parameter_name": "fragment_selector",
         "default_value": null,
         "value_kind": "segment_name_selection",
         "widget_class": "QComboBox",
@@ -1006,22 +1921,23 @@
       }
     ],
     "repeat_block": {
-      "repeat_id": "loop_back_step_10",
+      "repeat_id": "loop_back_step_19",
       "body_steps": [
-        "cb_step_8",
-        "cb_step_9",
-        "cb_step_10"
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
       ],
-      "entry_step": "cb_step_8",
-      "terminal_step": "cb_step_10",
-      "exit_step": "cb_step_11",
+      "entry_step": "cb_step_17",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_10",
+        "source_step": "cb_step_19",
         "loop_back": true,
-        "prompt": "If further adjustments are required, jump to step 8. If not, jump to step 11.",
+        "prompt": "If further adjustments are required, jump to step 17. If not, jump to step 20.",
         "exit_value": false,
-        "exit_target": 11
+        "polarity": "deterministic",
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {
@@ -1033,7 +1949,7 @@
   {
     "tool_name": "PelvicFracturePlanning",
     "param_signature": {
-      "workflow_step": "cb_step_9"
+      "workflow_step": "cb_step_18"
     },
     "description": "Manually adjust the position and rotation of the selected fragment.",
     "requirements": [
@@ -1041,12 +1957,12 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust fragment position and rotation",
-      "instruction": "Use the transform controls to adjust the fragment.",
+      "title": "Adjust view for fragment",
+      "instruction": "Rotate and zoom the 3D view to a clear angle.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "fragment",
+      "object_label": "view",
       "repeat": {}
     },
     "operation_model": {
@@ -1065,40 +1981,41 @@
         "interaction"
       ]
     },
-    "pre_template_file": "templates/cb_step_9_pre.py.tpl",
-    "post_template_file": "templates/cb_step_9_post.py.tpl",
+    "pre_template_file": "templates/cb_step_18_pre.py.tpl",
+    "post_template_file": "templates/cb_step_18_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
       "node_class": "",
       "placement_instructions": null,
       "ui_guidance": {
-        "title": "Adjust fragment position and rotation",
-        "instruction": "Use the transform controls to adjust the fragment.",
+        "title": "Adjust view for fragment",
+        "instruction": "Rotate and zoom the 3D view to a clear angle.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "fragment",
+        "object_label": "view",
         "repeat": {}
       }
     },
     "repeat_block": {
-      "repeat_id": "loop_back_step_10",
+      "repeat_id": "loop_back_step_19",
       "body_steps": [
-        "cb_step_8",
-        "cb_step_9",
-        "cb_step_10"
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
       ],
-      "entry_step": "cb_step_8",
-      "terminal_step": "cb_step_10",
-      "exit_step": "cb_step_11",
+      "entry_step": "cb_step_17",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_10",
+        "source_step": "cb_step_19",
         "loop_back": true,
-        "prompt": "If further adjustments are required, jump to step 8. If not, jump to step 11.",
+        "prompt": "If further adjustments are required, jump to step 17. If not, jump to step 20.",
         "exit_value": false,
-        "exit_target": 11
+        "polarity": "deterministic",
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {
@@ -1129,18 +2046,18 @@
   {
     "tool_name": "PelvicFracturePlanning",
     "param_signature": {
-      "workflow_step": "cb_step_10"
+      "workflow_step": "cb_step_19"
     },
-    "description": "If further adjustments are required, jump to step 8. If not, jump to step 11.",
+    "description": "If further adjustments are required, jump to step 17. If not, jump to step 20.",
     "requirements": [
       "PelvicFracturePlanning extension must be installed"
     ],
     "operation_type": "branch_op",
     "ui_guidance": {
-      "title": "Further adjustments to this fragment?",
-      "instruction": "Choose one option.",
+      "title": "More fragments to adjust?",
+      "instruction": "Choose whether more fragments need adjustment.",
       "done_label": "Done",
-      "choice_label": "Choice",
+      "choice_label": "Yes / No",
       "input_label": "Choice",
       "object_label": "interaction",
       "repeat": {}
@@ -1160,24 +2077,24 @@
       "interaction_kinds": []
     },
     "choice_descriptor": {
-      "question": "Further adjustments to this fragment?",
+      "question": "Do more fragments need adjustment?",
       "choices": [
         {
-          "label": "Yes, adjust more",
+          "label": "Yes",
           "value": true
         },
         {
-          "label": "No, apply adjustments",
+          "label": "No",
           "value": false
         }
       ],
-      "parameter_name": "further_adjustments",
+      "parameter_name": "more_fragment_adjustments",
       "default_value": false,
       "ui_guidance": {
-        "title": "Further adjustments to this fragment?",
-        "instruction": "Choose one option.",
+        "title": "More fragments to adjust?",
+        "instruction": "Choose whether more fragments need adjustment.",
         "done_label": "Done",
-        "choice_label": "Choice",
+        "choice_label": "Yes / No",
         "input_label": "Choice",
         "object_label": "interaction",
         "repeat": {}
@@ -1187,7 +2104,7 @@
       {
         "op_type": "branch_op",
         "operation_type": "branch_op",
-        "description": "decide whether to make further adjustments to the same fragment",
+        "description": "Decide whether more fragments need adjustment; if yes return to Step 17, otherwise continue to Step 20.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1201,51 +2118,49 @@
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          9,
-          8
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
         "node_roles": [],
-        "confidence": "high",
+        "confidence": "medium",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "cookbook_step10",
-        "question": "Further adjustments to this fragment?",
+        "evidence_id": "",
+        "question": "Do more fragments need adjustment?",
         "choices": [
           {
-            "label": "Yes, adjust more",
+            "label": "Yes",
             "value": true
           },
           {
-            "label": "No, apply adjustments",
+            "label": "No",
             "value": false
           }
         ],
-        "parameter_name": "further_adjustments",
+        "parameter_name": "more_fragment_adjustments",
         "default_value": false,
-        "value_kind": "bool"
+        "value_kind": ""
       }
     ],
     "repeat_block": {
-      "repeat_id": "loop_back_step_10",
+      "repeat_id": "loop_back_step_19",
       "body_steps": [
-        "cb_step_8",
-        "cb_step_9",
-        "cb_step_10"
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
       ],
-      "entry_step": "cb_step_8",
-      "terminal_step": "cb_step_10",
-      "exit_step": "cb_step_11",
+      "entry_step": "cb_step_17",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_10",
+        "source_step": "cb_step_19",
         "loop_back": true,
-        "prompt": "If further adjustments are required, jump to step 8. If not, jump to step 11.",
+        "prompt": "If further adjustments are required, jump to step 17. If not, jump to step 20.",
         "exit_value": false,
-        "exit_target": 11
+        "polarity": "deterministic",
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {
@@ -1257,7 +2172,7 @@
   {
     "tool_name": "PelvicFracturePlanning",
     "param_signature": {
-      "workflow_step": "cb_step_11"
+      "workflow_step": "cb_step_20"
     },
     "description": "Click the \"Apply adjustments\" button.",
     "requirements": [
@@ -1266,14 +2181,14 @@
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Apply adjustments",
-      "instruction": "",
+      "instruction": "Click the 'Apply adjustments' button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
       "object_label": "interaction",
       "repeat": {}
     },
-    "extension_function_name": "Apply_transform_to_polydata",
+    "extension_function_name": "fragment_color",
     "operation_model": {
       "step_type": "extension_op",
       "op_types": [
@@ -1288,31 +2203,26 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_11.py.tpl",
+    "template_file": "templates/cb_step_20.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "apply manual adjustments to fragment",
+        "description": "Apply the fragment adjustments.",
         "extension_method_hint": null,
-        "extension_function_hint": "Apply_transform_to_polydata",
+        "extension_function_hint": "fragment_color",
         "widget_name": "btnApplyAdjust",
         "ui_parameter_binding": null,
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "btnApplyAdjust",
-          "apply"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          10
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -1320,33 +2230,33 @@
         "node_roles": [],
         "confidence": "medium",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "widget_btnApplyAdjust"
+        "evidence_id": ""
       }
     ],
     "repeat_block": {
-      "repeat_id": "manual_adjust_outer",
+      "repeat_id": "fragment_adjust_optional",
       "body_steps": [
-        "cb_step_8",
-        "cb_step_9",
-        "cb_step_10",
-        "cb_step_11"
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19",
+        "cb_step_20"
       ],
-      "entry_step": "cb_step_8",
-      "terminal_step": "cb_step_11",
-      "exit_step": "cb_step_12",
+      "entry_step": "cb_step_17",
+      "terminal_step": "cb_step_20",
+      "exit_step": "cb_step_21",
       "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_7",
-        "prompt": "Would you like to manually adjust a fragment? If not, skip to step 12.",
+        "kind": "while_choice",
+        "source_step": "cb_step_16",
+        "prompt": "Run the fragment adjustment steps when further adjustments are required; otherwise skip to step 21.",
         "exit_value": false,
-        "exit_target": 12
+        "exit_target": 21
       },
       "max_iterations": 20,
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          7,
-          11
+          16,
+          20
         ],
         "confidence": "high"
       }
@@ -1373,19 +2283,16 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "apply manual adjustments to fragment"
+        "Apply the fragment adjustments."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "btnApplyAdjust",
-        "apply"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
     "tool_name": "PelvicFracturePlanning",
     "param_signature": {
-      "workflow_step": "cb_step_12"
+      "workflow_step": "cb_step_21"
     },
     "description": "Click the \"Run Step 5: Plan Screws\" button.",
     "requirements": [
@@ -1394,7 +2301,7 @@
     "operation_type": "extension_op",
     "ui_guidance": {
       "title": "Run Step 5: Plan Screws",
-      "instruction": "",
+      "instruction": "Click the 'Run Step 5: Plan Screws' button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1421,15 +2328,15 @@
         "role_kind": "extension_output",
         "node_class": "vtkMRMLModelNode",
         "parameter_name": "OutputScrew",
-        "step_id": "cb_step_12"
+        "step_id": "cb_step_21"
       }
     ],
-    "template_file": "templates/cb_step_12.py.tpl",
+    "template_file": "templates/cb_step_21.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "plan screw trajectories",
+        "description": "Run screw planning on the reduced fragments.",
         "extension_method_hint": "plan_screws",
         "extension_function_hint": null,
         "widget_name": "btnPlanScrews",
@@ -1437,20 +2344,13 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "plan_screws",
-          "vtkMRMLModelNode",
-          "screw"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": "vtkMRMLModelNode",
-        "creates_node": true,
+        "node_class": null,
+        "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          11,
-          5
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -1460,12 +2360,12 @@
             "role_kind": "extension_output",
             "node_class": "vtkMRMLModelNode",
             "parameter_name": "OutputScrew",
-            "step_id": "cb_step_12"
+            "step_id": "cb_step_21"
           }
         ],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "logic_plan_screws,widget_btnPlanScrews"
+        "evidence_id": ""
       }
     ],
     "api_evidence": {
@@ -1490,20 +2390,16 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "plan screw trajectories"
+        "Run screw planning on the reduced fragments."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "plan_screws",
-        "vtkMRMLModelNode",
-        "screw"
-      ]
+      "slicer_api_keywords": []
     }
   },
   {
     "tool_name": "PelvicFracturePlanning",
     "param_signature": {
-      "workflow_step": "cb_step_13"
+      "workflow_step": "cb_step_22"
     },
     "description": "If further adjustments are required, tick the \"Edit Screw trajectories\" checkbox. If not, stop here.",
     "requirements": [
@@ -1512,9 +2408,9 @@
     "operation_type": "branch_op",
     "ui_guidance": {
       "title": "Edit screw trajectories?",
-      "instruction": "Choose one option.",
+      "instruction": "Choose whether screw trajectories need further adjustment.",
       "done_label": "Done",
-      "choice_label": "Choice",
+      "choice_label": "Yes / No",
       "input_label": "Choice",
       "object_label": "interaction",
       "repeat": {}
@@ -1533,25 +2429,26 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
+    "branch_action_template": "templates/cb_step_22_action.py.tpl",
     "choice_descriptor": {
-      "question": "Edit screw trajectories?",
+      "question": "Are further adjustments of screw trajectories required?",
       "choices": [
         {
           "label": "Yes",
           "value": true
         },
         {
-          "label": "No (stop)",
+          "label": "No",
           "value": false
         }
       ],
-      "parameter_name": "edit_screws",
+      "parameter_name": "screw_edit_required",
       "default_value": false,
       "ui_guidance": {
         "title": "Edit screw trajectories?",
-        "instruction": "Choose one option.",
+        "instruction": "Choose whether screw trajectories need further adjustment.",
         "done_label": "Done",
-        "choice_label": "Choice",
+        "choice_label": "Yes / No",
         "input_label": "Choice",
         "object_label": "interaction",
         "repeat": {}
@@ -1561,7 +2458,7 @@
       {
         "op_type": "branch_op",
         "operation_type": "branch_op",
-        "description": "decide whether to edit screw trajectories",
+        "description": "Decide whether screw trajectory editing is required; if not, stop here.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "chkEditScrews",
@@ -1569,18 +2466,13 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "chkEditScrews",
-          "checkbox"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
         "node_class": null,
         "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          12
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
@@ -1588,28 +2480,28 @@
         "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "widget_chkEditScrews,cookbook_step13",
-        "question": "Edit screw trajectories?",
+        "evidence_id": "",
+        "question": "Are further adjustments of screw trajectories required?",
         "choices": [
           {
             "label": "Yes",
             "value": true
           },
           {
-            "label": "No (stop)",
+            "label": "No",
             "value": false
           }
         ],
-        "parameter_name": "edit_screws",
+        "parameter_name": "screw_edit_required",
         "default_value": false,
-        "value_kind": "bool"
+        "value_kind": ""
       }
     ]
   },
   {
     "tool_name": "PelvicFracturePlanning",
     "param_signature": {
-      "workflow_step": "cb_step_14"
+      "workflow_step": "cb_step_23"
     },
     "description": "Manually adjust the position and rotation of the screw trajectories.",
     "requirements": [
@@ -1617,12 +2509,12 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust screw trajectories",
-      "instruction": "Manually adjust the position and rotation of the screw trajectories.",
+      "title": "Adjust view for screw trajectories",
+      "instruction": "Rotate and zoom the 3D view to a clear angle.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "screw",
+      "object_label": "view",
       "repeat": {}
     },
     "operation_model": {
@@ -1641,37 +2533,36 @@
         "interaction"
       ]
     },
-    "pre_template_file": "templates/cb_step_14_pre.py.tpl",
-    "post_template_file": "templates/cb_step_14_post.py.tpl",
+    "pre_template_file": "templates/cb_step_23_pre.py.tpl",
+    "post_template_file": "templates/cb_step_23_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
       "node_class": "",
       "placement_instructions": null,
       "ui_guidance": {
-        "title": "Adjust screw trajectories",
-        "instruction": "Manually adjust the position and rotation of the screw trajectories.",
+        "title": "Adjust view for screw trajectories",
+        "instruction": "Rotate and zoom the 3D view to a clear angle.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "screw",
+        "object_label": "view",
         "repeat": {}
       }
     },
     "repeat_block": {
-      "repeat_id": "screw_edit_outer",
+      "repeat_id": "screw_edit_optional",
       "body_steps": [
-        "cb_step_14",
-        "cb_step_15",
-        "cb_step_16"
+        "cb_step_23",
+        "cb_step_24"
       ],
-      "entry_step": "cb_step_14",
-      "terminal_step": "cb_step_16",
+      "entry_step": "cb_step_23",
+      "terminal_step": "cb_step_24",
       "exit_step": "",
       "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_13",
-        "prompt": "Would you like to edit screw trajectories? If not, stop here.",
+        "kind": "while_choice",
+        "source_step": "cb_step_22",
+        "prompt": "Run the screw trajectory editing steps when further adjustments are required; otherwise stop.",
         "exit_value": false,
         "exit_target": "stop"
       },
@@ -1679,8 +2570,8 @@
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          13,
-          16
+          22,
+          24
         ],
         "confidence": "high"
       }
@@ -1708,7 +2599,7 @@
   {
     "tool_name": "PelvicFracturePlanning",
     "param_signature": {
-      "workflow_step": "cb_step_15"
+      "workflow_step": "cb_step_24"
     },
     "description": "Click the \"Regenerate screws from edited lines\" button.",
     "requirements": [
@@ -1716,8 +2607,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Regenerate screws from edited lines",
-      "instruction": "",
+      "title": "Regenerate screws",
+      "instruction": "Click the 'Regenerate screws from edited lines' button.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1739,20 +2630,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_output",
-        "node_class": "vtkMRMLModelNode",
-        "parameter_name": "OutputScrew",
-        "step_id": "cb_step_15"
-      }
-    ],
-    "template_file": "templates/cb_step_15.py.tpl",
+    "template_file": "templates/cb_step_24.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "regenerate screw trajectories from edited lines",
+        "description": "Regenerate screws from the edited trajectories.",
         "extension_method_hint": "_buildScrewNodes",
         "extension_function_hint": null,
         "widget_name": "btnRegenScrews",
@@ -1760,50 +2643,36 @@
         "target_value": null,
         "target_value_mode": null,
         "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "_buildScrewNodes",
-          "vtkMRMLModelNode",
-          "regen"
-        ],
+        "slicer_api_keywords": [],
         "interaction_kind": "none",
         "interaction_type": null,
-        "node_class": "vtkMRMLModelNode",
-        "creates_node": true,
+        "node_class": null,
+        "creates_node": false,
         "requires_place_mode": false,
-        "setup_dependencies": [
-          14
-        ],
+        "setup_dependencies": [],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "extension_output",
-            "node_class": "vtkMRMLModelNode",
-            "parameter_name": "OutputScrew",
-            "step_id": "cb_step_15"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "logic__buildScrewNodes,widget_btnRegenScrews"
+        "evidence_id": ""
       }
     ],
     "repeat_block": {
-      "repeat_id": "screw_edit_outer",
+      "repeat_id": "screw_edit_optional",
       "body_steps": [
-        "cb_step_14",
-        "cb_step_15",
-        "cb_step_16"
+        "cb_step_23",
+        "cb_step_24"
       ],
-      "entry_step": "cb_step_14",
-      "terminal_step": "cb_step_16",
+      "entry_step": "cb_step_23",
+      "terminal_step": "cb_step_24",
       "exit_step": "",
       "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_13",
-        "prompt": "Would you like to edit screw trajectories? If not, stop here.",
+        "kind": "while_choice",
+        "source_step": "cb_step_22",
+        "prompt": "Run the screw trajectory editing steps when further adjustments are required; otherwise stop.",
         "exit_value": false,
         "exit_target": "stop"
       },
@@ -1811,8 +2680,8 @@
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          13,
-          16
+          22,
+          24
         ],
         "confidence": "high"
       }
@@ -1839,145 +2708,10 @@
         "slicer.util.selectedModule"
       ],
       "operation_descriptions": [
-        "regenerate screw trajectories from edited lines"
+        "Regenerate screws from the edited trajectories."
       ],
       "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "_buildScrewNodes",
-        "vtkMRMLModelNode",
-        "regen"
-      ]
-    }
-  },
-  {
-    "tool_name": "PelvicFracturePlanning",
-    "param_signature": {
-      "workflow_step": "cb_step_16"
-    },
-    "description": "Untick the \"Edit Screw trajectories\" checkbox.",
-    "requirements": [
-      "PelvicFracturePlanning extension must be installed"
-    ],
-    "operation_type": "extension_op",
-    "ui_guidance": {
-      "title": "Untick 'Edit Screw trajectories' checkbox",
-      "instruction": "",
-      "done_label": "Done",
-      "choice_label": "",
-      "input_label": "",
-      "object_label": "interaction",
-      "repeat": {}
-    },
-    "operation_model": {
-      "step_type": "extension_op",
-      "op_types": [
-        "extension_op"
-      ],
-      "operation_intents": [],
-      "invokes_extension_method": false,
-      "invokes_extension_function": false,
-      "invokes_slicer_api": true,
-      "implementation_uses_slicer_api": true,
-      "allow_module_switch": false,
-      "produces_interaction_state": false,
-      "interaction_kinds": []
-    },
-    "template_file": "templates/cb_step_16.py.tpl",
-    "sub_operations": [
-      {
-        "op_type": "extension_op",
-        "operation_type": "extension_op",
-        "description": "untick edit screw trajectories checkbox",
-        "extension_method_hint": null,
-        "extension_function_hint": null,
-        "widget_name": "chkEditScrews",
-        "ui_parameter_binding": null,
-        "target_value": false,
-        "target_value_mode": null,
-        "slicer_op_category": null,
-        "slicer_api_keywords": [
-          "chkEditScrews",
-          "uncheck"
-        ],
-        "interaction_kind": "none",
-        "interaction_type": null,
-        "node_class": null,
-        "creates_node": false,
-        "requires_place_mode": false,
-        "setup_dependencies": [
-          15
-        ],
-        "placement_instructions": null,
-        "min_control_points": 0,
-        "is_optional": false,
-        "operation_intents": [],
-        "node_roles": [],
-        "confidence": "medium",
-        "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "widget_chkEditScrews,cookbook_step16"
-      }
-    ],
-    "repeat_block": {
-      "repeat_id": "screw_edit_outer",
-      "body_steps": [
-        "cb_step_14",
-        "cb_step_15",
-        "cb_step_16"
-      ],
-      "entry_step": "cb_step_14",
-      "terminal_step": "cb_step_16",
-      "exit_step": "",
-      "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_13",
-        "prompt": "Would you like to edit screw trajectories? If not, stop here.",
-        "exit_value": false,
-        "exit_target": "stop"
-      },
-      "max_iterations": 20,
-      "inference": {
-        "source": "llm_semantic_decomposition",
-        "evidence_step_ids": [
-          13,
-          16
-        ],
-        "confidence": "high"
-      }
-    },
-    "api_evidence": {
-      "source": "ground_api",
-      "accepted_footprints": [
-        "blockSignals",
-        "checked",
-        "chkEditScrews",
-        "getModuleWidget",
-        "modules",
-        "onEditScrewsToggled",
-        "pelvicfractureplanning",
-        "selectModule",
-        "selectedModule",
-        "self",
-        "ui",
-        "util",
-        "widgetRepresentation"
-      ],
-      "api_chains": [
-        "_ctrl.blockSignals",
-        "_widget.onEditScrewsToggled",
-        "slicer.modules.pelvicfractureplanning.widgetRepresentation",
-        "slicer.modules.pelvicfractureplanning.widgetRepresentation().self",
-        "slicer.util.getModuleWidget",
-        "slicer.util.selectModule",
-        "slicer.util.selectedModule"
-      ],
-      "operation_descriptions": [
-        "untick edit screw trajectories checkbox"
-      ],
-      "slicer_op_categories": [],
-      "slicer_api_keywords": [
-        "chkEditScrews",
-        "uncheck"
-      ]
+      "slicer_api_keywords": []
     }
   }
 ]

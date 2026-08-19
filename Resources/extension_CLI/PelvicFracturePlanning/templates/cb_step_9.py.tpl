@@ -1,4 +1,5 @@
-# --- PelvicFracturePlanning: Click "Run Step 3: Generate Template" button. ---
+# --- PelvicFracturePlanning: Click "Run Step 3: Generate template" button. ---
+# [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -28,5 +29,5 @@ if _widget is None:
 if not hasattr(_widget, 'onGenTemplate'):
     raise RuntimeError("PelvicFracturePlanning widget has no handler 'onGenTemplate' for 'btnGenTemplate'; regenerate the CLI.")
 _widget.onGenTemplate()
-print("[PelvicFracturePlanning] Step 'cb_step_5': clicked 'btnGenTemplate' via onGenTemplate().")
+print("[PelvicFracturePlanning] Step 'cb_step_9': clicked 'btnGenTemplate' via onGenTemplate().")
 

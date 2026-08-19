@@ -1,4 +1,5 @@
 # --- PelvicFracturePlanning: Click "Run Step 1: Segment Pelvis" button. ---
+# [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.

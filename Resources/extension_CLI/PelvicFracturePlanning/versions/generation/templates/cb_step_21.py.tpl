@@ -1,4 +1,5 @@
 # --- PelvicFracturePlanning: Click the "Run Step 5: Plan Screws" button. ---
+# [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -28,5 +29,5 @@ if _widget is None:
 if not hasattr(_widget, 'onPlanScrews'):
     raise RuntimeError("PelvicFracturePlanning widget has no handler 'onPlanScrews' for 'btnPlanScrews'; regenerate the CLI.")
 _widget.onPlanScrews()
-print("[PelvicFracturePlanning] Step 'cb_step_12': clicked 'btnPlanScrews' via onPlanScrews().")
+print("[PelvicFracturePlanning] Step 'cb_step_21': clicked 'btnPlanScrews' via onPlanScrews().")
 

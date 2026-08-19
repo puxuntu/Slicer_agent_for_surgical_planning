@@ -3,7 +3,7 @@
     "type": "function",
     "function": {
       "name": "PelvicFracturePlanning",
-      "description": "Guided interactive workflow for PelvicFracturePlanning. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Input CT Volume\" option, choose the Pelvic Volume.; 'cb_step_2': Click \"Run Step 1: Segment Pelvis\" button.; 'cb_step_3': Click \"Run Step 2: Segment Fractures\" button.; 'cb_step_4': In the \"Untick any fragments to exclude it from planning\" section, untick these segments.; 'cb_step_5': Click \"Run Step 3: Generate Template\" button.; 'cb_step_6': Click \"Run Step 4: Register _Reduce\" button.; 'cb_step_7': If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 12.; 'cb_step_8': In the \"Fragment\" option, Choose which fragment needs adjustment in the \"Fragment\" selection box.; 'cb_step_9': Manually adjust the position and rotation of the selected fragment. (interactive: generic); 'cb_step_10': If further adjustments are required, jump to step 8. If not, jump to step 11.",
+      "description": "Guided interactive workflow for PelvicFracturePlanning. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Input CT Volume\" option, choose the Pelvic Volume.; 'cb_step_2': Click \"Run Step 1: Segment Pelvis\" button.; 'cb_step_3': Click \"Run Step 2: Segment Fractures\" button.; 'cb_step_4': In the \"Untick a piece to stop treating it as separate\" section, untick these segments.; 'cb_step_5': If a piece should have been split but was and and require cut it manually, jump to step 6. If not, jump to step 9.; 'cb_step_6': Click \"Manually seperate\" button.; 'cb_step_7': Manually click to add a cut point and adjust the position and rotation of the cutting plane. (interactive: plane); 'cb_step_8': Click \"Confirm seperation\" button.; 'cb_step_9': Click \"Run Step 3: Generate template\" button.; 'cb_step_10': If further adjustments of the template are required, tick the \"Manually adjust a template\" checkbox. If not, jump to step 15.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -25,7 +25,15 @@
               "cb_step_13",
               "cb_step_14",
               "cb_step_15",
-              "cb_step_16"
+              "cb_step_16",
+              "cb_step_17",
+              "cb_step_18",
+              "cb_step_19",
+              "cb_step_20",
+              "cb_step_21",
+              "cb_step_22",
+              "cb_step_23",
+              "cb_step_24"
             ],
             "description": "Which workflow step to execute"
           },
@@ -41,8 +49,11 @@
             "description": "Action: 'start' to begin a step, 'proceed' after user completes interaction, 'skip' for optional steps, 'cancel' to abort workflow, 'choice_made' for user_choice steps"
           },
           "choice_value": {
-            "type": "string",
-            "description": "Value selected by the user for user_choice steps. Required when user_action is 'choice_made'."
+            "type": [
+              "string",
+              "object"
+            ],
+            "description": "Value selected by the user for user_choice steps. Required when user_action is 'choice_made'. A multi-selection step takes a JSON object mapping each parameter_name to its value."
           }
         },
         "required": [

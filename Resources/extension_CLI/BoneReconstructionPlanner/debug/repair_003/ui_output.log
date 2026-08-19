@@ -1,0 +1,59 @@
+==============================================================================
+Extension CLI pipeline  |  round: repair_003
+  extension : BoneReconstructionPlanner
+  source    : (repair round — no cookbook parse)
+  started   : 2026-08-19T17:17:10
+==============================================================================
+[2026-08-19T17:17:10 +    0.4s] [verify_repair] Verify And Repair Templates — Revision started for 'BoneReconstructionPlanner' with 3 reported error(s)
+[2026-08-19T17:17:16 +    6.5s] [discover] Discover Source And Cookbook — Scanning extension files...
+[2026-08-19T17:17:40 +   30.1s] [discover] Discover Source And Cookbook — Found 3 Python files
+[2026-08-19T17:17:43 +   33.5s] [discover] Discover Source And Cookbook — Logic class: BoneReconstructionPlannerLogic in BoneReconstructionPlanner.py, Widget class: BoneReconstructionPlannerWidget, UI files: 1
+[2026-08-19T17:19:31 +  141.2s] [llm_call] llm — call 000 -> _call_000.json (out 12461 chars)
+[2026-08-19T17:19:37 +  146.9s] [verify_repair] Verify And Repair Templates — Revision attempt 1/3...
+[2026-08-19T17:19:49 +  159.4s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-08-19T17:19:54 +  163.8s] [verify_repair] Verify And Repair Templates — All 64 API probes passed
+[2026-08-19T17:20:05 +  174.7s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-08-19T17:20:15 +  184.9s] [verify_repair] Verify And Repair Templates — FAIL: ["templates/cb_step_5.py.tpl: UnprovenApiCall: method_unproven for 'logic.makeModels' (line 54, effect=state_change)", "templates/cb_step_11.py.tpl: UnprovenApiCall: method_unproven for 'logic.addMandibularCurve' (line 29, effect=state_change)", "templates/cb_step_17.py.tpl: UnprovenApiCall: method_unproven for 'logic.addCutPlane' (line 29, effect=state_change)", "templates/cb_step_19.py.tpl: UnprovenApiCall: method_unproven for 'logic.addFibulaLine' (line 29, effect=state_change)"]
+[2026-08-19T17:24:33 +  442.9s] [llm_call] llm — call 001 -> _call_001.json (out 19505 chars)
+[2026-08-19T17:24:56 +  466.2s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-08-19T17:25:44 +  514.1s] [llm_call] llm — call 002 -> _call_002.json (out 7653 chars)
+[2026-08-19T17:27:04 +  593.6s] [llm_call] llm — call 003 -> _call_003.json (out 3815 chars)
+[2026-08-19T17:27:07 +  596.8s] [verify_repair] Verify And Repair Templates — Found 5 API issues, revised 2 templates
+[2026-08-19T17:27:26 +  615.7s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-08-19T17:27:40 +  630.2s] [verify_repair] Verify And Repair Templates — FAIL: ["templates/cb_step_5.py.tpl: Template contains destructive operations without an explicit allow_destructive_ops contract: ['shNode.RemoveItem']", 'templates/cb_step_17.py.tpl: InteractionScopeExceeded: template enables interaction/handle modes (SetHandlesInteractive, SetRotationHandleVisibility, SetTranslationHandleVisibility) but the step description does not request interaction; implement only the requested state change', "templates/cb_step_5.py.tpl: UnprovenApiCall: method_unproven for 'segmentationLogic.ExportSegmentToRepresentationNode' (line 101, effect=unknown)", "templates/cb_step_17.py.tpl: InvalidApiCall: method_unproven for 'displayNode.SetGlyphSize' (line 65, effect=state_change)", "templates/cb_step_17.py.tpl: InvalidApiCall: method_unproven for 'displayNode.SetHandlesInteractive' (line 68, effect=state_change)", "templates/cb_step_17.py.tpl: InvalidApiCall: method_unproven for 'displayNode.SetRotationHandleVisibility' (line 69, effect=state_change)", "templates/cb_step_17.py.tpl: InvalidApiCall: method_unproven for 'displayNode.SetTranslationHandleVisibility' (line 70, effect=state_change)", "templates/cb_step_17.py.tpl: InvalidApiCall: method_unproven for 'displayNode.SetScaleHandleVisibility' (line 71, effect=state_change)"]
+[2026-08-19T17:27:41 +  631.0s] [package] Final Gate — status=validation_failed | api_proof=FAIL | final_syntax=OK | placeholders=OK | generator_sync=OK | steps_valid=24/26 | unproven_read_warnings=30
+[2026-08-19T17:27:58 +  648.6s] [verify_repair] Verify And Repair Templates — Revision attempt 2/3...
+[2026-08-19T17:28:12 +  661.7s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-08-19T17:29:21 +  731.0s] [llm_call] llm — call 004 -> _call_004.json (out 3862 chars)
+[2026-08-19T17:29:24 +  734.3s] [verify_repair] Verify And Repair Templates — Found 0 API issues, revised 1 templates
+[2026-08-19T17:29:35 +  745.0s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-08-19T17:29:47 +  756.7s] [verify_repair] Verify And Repair Templates — FAIL: ["templates/cb_step_5.py.tpl: Template contains destructive operations without an explicit allow_destructive_ops contract: ['shNode.RemoveItem']", 'templates/cb_step_17.py.tpl: InteractionScopeExceeded: template enables interaction/handle modes (SetHandlesInteractive, SetRotationHandleVisibility, SetTranslationHandleVisibility) but the step description does not request interaction; implement only the requested state change', "templates/cb_step_5.py.tpl: UnprovenApiCall: method_unproven for 'segmentationLogic.ExportSegmentToRepresentationNode' (line 101, effect=unknown)"]
+[2026-08-19T17:31:51 +  881.1s] [llm_call] llm — call 005 -> _call_005.json (out 6980 chars)
+[2026-08-19T17:32:17 +  906.6s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-08-19T17:32:22 +  912.1s] [verify_repair] Verify And Repair Templates — Found 3 unresolved dynamic API receiver(s)
+[2026-08-19T17:32:22 +  912.5s] [verify_repair] Verify And Repair Templates — Found 0 API issues, revised 0 templates
+[2026-08-19T17:32:40 +  929.8s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-08-19T17:32:50 +  940.0s] [verify_repair] Verify And Repair Templates — FAIL: ["templates/cb_step_5.py.tpl: UnprovenApiCall: method_unproven for 'logic.makeModels' (line 54, effect=state_change)"]
+[2026-08-19T17:32:51 +  940.8s] [package] Final Gate — status=validation_failed | api_proof=FAIL | final_syntax=OK | placeholders=OK | generator_sync=OK | steps_valid=25/26 | unproven_read_warnings=24
+[2026-08-19T17:33:08 +  957.9s] [verify_repair] Verify And Repair Templates — Revision attempt 3/3...
+[2026-08-19T17:33:20 +  970.2s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-08-19T17:33:25 +  974.7s] [verify_repair] Verify And Repair Templates — Found 3 unresolved dynamic API receiver(s)
+[2026-08-19T17:33:25 +  975.1s] [verify_repair] Verify And Repair Templates — Found 0 API issues, revised 0 templates
+[2026-08-19T17:33:36 +  986.2s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-08-19T17:33:46 +  996.3s] [verify_repair] Verify And Repair Templates — FAIL: ["templates/cb_step_5.py.tpl: UnprovenApiCall: method_unproven for 'logic.makeModels' (line 54, effect=state_change)"]
+[2026-08-19T17:36:03 + 1133.6s] [llm_call] llm — call 006 -> _call_006.json (out 8067 chars)
+[2026-08-19T17:36:26 + 1156.0s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-08-19T17:38:08 + 1257.8s] [llm_call] llm — call 007 -> _call_007.json (out 7384 chars)
+[2026-08-19T17:38:11 + 1261.3s] [verify_repair] Verify And Repair Templates — Found 1 API issues, revised 1 templates
+[2026-08-19T17:38:29 + 1279.4s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-08-19T17:38:43 + 1293.3s] [verify_repair] Verify And Repair Templates — FAIL: ["templates/cb_step_5.py.tpl: Template contains destructive operations without an explicit allow_destructive_ops contract: ['shNode.RemoveItem']", "templates/cb_step_5.py.tpl: InvalidApiCall: method_unproven for 'segDisplayNode.SetSegmentVisibility3D' (line 86, effect=state_change)", "templates/cb_step_5.py.tpl: UnprovenApiCall: method_unproven for 'segmentationLogic.ExportSegmentToRepresentationNode' (line 89, effect=unknown)"]
+[2026-08-19T17:38:44 + 1294.3s] [package] Final Gate — status=validation_failed | api_proof=FAIL | final_syntax=OK | placeholders=OK | generator_sync=OK | steps_valid=25/26 | unproven_read_warnings=32
+[2026-08-19T17:39:06 + 1316.3s] [package] Final Gate — status=validation_failed | api_proof=FAIL | unproven_read_warnings=32
+------------------------------------------------------------------------------
+SUMMARY
+  success         : False
+  phases_completed: (none)
+  llm_calls       : 8
+  events          : 45
+  error           : Revision failed after 3 attempts
+------------------------------------------------------------------------------

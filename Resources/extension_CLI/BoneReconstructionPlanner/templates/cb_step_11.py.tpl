@@ -17,26 +17,34 @@ try:
     logic = _bonereconstructionplanner_logic
 except NameError:
     logic = BoneReconstructionPlannerLogic()
-
-_workflow_before_ids = set()
-_workflow_nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsCurveNode")
-_workflow_before_count = _workflow_nodes.GetNumberOfItems()
-for _workflow_i in range(_workflow_before_count):
-    _workflow_n = _workflow_nodes.GetItemAsObject(_workflow_i)
-    if _workflow_n is not None:
-        _workflow_before_ids.add(_workflow_n.GetID())
-
-logic.addMandibularCurve()
-
-_workflow_created_node = None
-_workflow_nodes = slicer.mrmlScene.GetNodesByClass("vtkMRMLMarkupsCurveNode")
-for _workflow_i in range(_workflow_nodes.GetNumberOfItems() - 1, -1, -1):
-    _workflow_n = _workflow_nodes.GetItemAsObject(_workflow_i)
-    if _workflow_n is not None and _workflow_n.GetID() not in _workflow_before_ids:
-        _workflow_created_node = _workflow_n
-        break
-if _workflow_created_node is not None:
-    remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_11", _workflow_created_node.GetID(), _workflow_runtime_repeat_index)
 _bonereconstructionplanner_logic = logic
+
+# Create the mandibular curve markups node and activate placement mode.
+# This reproduces the effect of the extension's "Add mandibular curve" button
+# using the same Slicer APIs as the extension logic.
+curveNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLMarkupsCurveNode")
+slicer.mrmlScene.AddNode(curveNode)
+slicer.modules.markups.logic().AddNewDisplayNodeForMarkupsNode(curveNode)
+
+shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+parentFolderID = shNode.GetItemByName("BoneReconstructionPlanner")
+if not parentFolderID:
+    parentFolderID = shNode.CreateFolderItem(shNode.GetSceneItemID(), "BoneReconstructionPlanner")
+shNode.SetItemParent(shNode.GetItemByDataNode(curveNode), parentFolderID)
+
+curveNode.SetName(slicer.mrmlScene.GetUniqueNameByString("mandibularCurve"))
+
+displayNode = curveNode.GetDisplayNode()
+mandibleViewNode = slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, "vtkMRMLViewNode")
+if displayNode is not None and mandibleViewNode is not None:
+    displayNode.AddViewNodeID(mandibleViewNode.GetID())
+
+# Setup placement
+slicer.modules.markups.logic().SetActiveListID(curveNode)
+interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+if interactionNode is not None:
+    interactionNode.SwitchToSinglePlaceMode()
+
+remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_11", curveNode.GetID(), _workflow_runtime_repeat_index)
 
 print("[BoneReconstructionPlanner] Placement started for step 'cb_step_11'.")

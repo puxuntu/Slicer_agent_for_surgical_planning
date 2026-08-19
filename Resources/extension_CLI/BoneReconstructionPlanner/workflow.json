@@ -158,7 +158,7 @@
         }
       },
       "ui_guidance": {
-        "title": "Select fibula side",
+        "title": "Is the fibula from the right leg?",
         "instruction": "Choose one option.",
         "done_label": "Done",
         "choice_label": "Side",
@@ -166,7 +166,9 @@
         "object_label": "side",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_1.py.tpl"
+      "code_template": "templates/cb_step_1.py.tpl",
+      "step_type": "user_choice",
+      "op_type": "user_choice"
     },
     {
       "step_id": "cb_step_2",
@@ -306,10 +308,10 @@
         "value_types": []
       },
       "ui_guidance": {
-        "title": "Choose mandibular segmentation",
-        "instruction": "Select a segmentation.",
+        "title": "Choose the mandibular segmentation",
+        "instruction": "In the 'Select mandibular segmentation' section, choose the mandibular segmentation.",
         "done_label": "Done",
-        "choice_label": "Mandibular segmentation",
+        "choice_label": "Choice",
         "input_label": "Mandibular segmentation",
         "object_label": "segmentation",
         "repeat": {}
@@ -455,10 +457,10 @@
         "value_types": []
       },
       "ui_guidance": {
-        "title": "Choose fibula segmentation",
-        "instruction": "Select a segmentation.",
+        "title": "Choose the fibula segmentation",
+        "instruction": "In the 'Select fibula segmentation' section, choose the fibula segmentation.",
         "done_label": "Done",
-        "choice_label": "Fibula segmentation",
+        "choice_label": "Choice",
         "input_label": "Fibula segmentation",
         "object_label": "segmentation",
         "repeat": {}
@@ -620,11 +622,11 @@
         "value_types": []
       },
       "ui_guidance": {
-        "title": "Choose mandible scalar volume",
-        "instruction": "Select a volume.",
+        "title": "Choose the mandible scalar volume",
+        "instruction": "In the 'Current Scalar Volume' option, choose the Mandible Volume.",
         "done_label": "Done",
-        "choice_label": "Mandible volume",
-        "input_label": "Mandible volume",
+        "choice_label": "Choice",
+        "input_label": "Current Scalar Volume",
         "object_label": "volume",
         "repeat": {}
       },
@@ -730,22 +732,191 @@
         "operation_intents": [],
         "invokes_extension_method": true,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Create bone models",
-        "instruction": "",
+        "title": "Create bone models from segmentations",
+        "instruction": "Click 'Create bone models from segmentations'.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "interaction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_5.py.tpl"
+      "code_template": "templates/cb_step_5.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetID",
+          "GetName",
+          "GetNodeReference",
+          "GetParameter",
+          "SetNodeReferenceID",
+          "SetParameter",
+          "getNodesByClass",
+          "getParameterNode",
+          "lower",
+          "makeModels",
+          "selectModule",
+          "selectedModule",
+          "util",
+          "vtkMRMLSegmentationNode",
+          "AddNewNodeByClass",
+          "AddViewNodeID",
+          "CreateDefaultDisplayNodes",
+          "CreateFolderItem",
+          "CreateRepresentation",
+          "EndModify",
+          "ExportSegmentToRepresentationNode",
+          "FIBULA_VIEW_SINGLETON_TAG",
+          "GetColor",
+          "GetDisplayNode",
+          "GetItemByDataNode",
+          "GetItemByName",
+          "GetNthSegmentID",
+          "GetNumberOfPoints",
+          "GetPolyData",
+          "GetSceneItemID",
+          "GetSegment",
+          "GetSegmentation",
+          "GetSegmentationClosedSurfaceRepresentationName",
+          "GetSingletonNode",
+          "GetSubjectHierarchyNode",
+          "MANDIBLE_VIEW_SINGLETON_TAG",
+          "RemoveItem",
+          "SetColor",
+          "SetItemParent",
+          "SetName",
+          "SetSegmentVisibility",
+          "SetVisibility",
+          "StartModify",
+          "arrayFromModelPolyData",
+          "cli",
+          "decimation",
+          "format",
+          "logic",
+          "mean",
+          "modules",
+          "mrmlScene",
+          "runSync",
+          "segmentations",
+          "vtkMRMLModelNode",
+          "vtkMRMLViewNode",
+          "vtkSegmentationConverter",
+          "zeros",
+          "arrayFromModelPoints",
+          "GetBounds",
+          "GetViewActiveCameraNode",
+          "ResetClippingRange",
+          "SetFocalPoint",
+          "SetPosition",
+          "SetViewUp",
+          "cameras",
+          "vtkMRMLSubjectHierarchyNode",
+          "SetSegmentVisibility3D"
+        ],
+        "api_chains": [
+          "fibulaSegmentation.GetID",
+          "logic.getParameterNode",
+          "logic.makeModels",
+          "mandibularSegmentation.GetID",
+          "node.GetName",
+          "node.GetName().lower",
+          "parameterNode.GetNodeReference",
+          "parameterNode.GetParameter",
+          "parameterNode.SetNodeReferenceID",
+          "parameterNode.SetParameter",
+          "slicer.util.getNodesByClass",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule",
+          "\"Segmentation node '{}' has no segments.\".format",
+          "decimatedFibulaModelNode.GetID",
+          "decimatedMandibleModelNode.GetID",
+          "decimatedModel.CreateDefaultDisplayNodes",
+          "decimatedModel.GetDisplayNode",
+          "decimatedModelDisplayNode.AddViewNodeID",
+          "decimatedModelDisplayNode.SetColor",
+          "decimatedModelDisplayNode.SetVisibility",
+          "fibulaModelNode.GetID",
+          "fibulaModelNode.SetName",
+          "mandibleModelNode.GetID",
+          "mandibleModelNode.SetName",
+          "model.CreateDefaultDisplayNodes",
+          "model.GetDisplayNode",
+          "model.GetPolyData",
+          "modelDisplayNode.AddViewNodeID",
+          "modelDisplayNode.GetColor",
+          "modelDisplayNode.SetVisibility",
+          "modelPoly.GetNumberOfPoints",
+          "np.zeros",
+          "parameterNode.EndModify",
+          "parameterNode.StartModify",
+          "pointsArray.mean",
+          "seg.GetDisplayNode",
+          "seg.GetName",
+          "seg.GetSegmentation",
+          "seg.GetSegmentation().CreateRepresentation",
+          "seg.GetSegmentation().GetNthSegmentID",
+          "seg.GetSegmentation().GetSegment",
+          "segDisplayNode.SetSegmentVisibility",
+          "segmentationLogic.ExportSegmentToRepresentationNode",
+          "shNode.CreateFolderItem",
+          "shNode.GetItemByDataNode",
+          "shNode.GetItemByName",
+          "shNode.GetSceneItemID",
+          "shNode.RemoveItem",
+          "shNode.SetItemParent",
+          "slicer.FIBULA_VIEW_SINGLETON_TAG",
+          "slicer.MANDIBLE_VIEW_SINGLETON_TAG",
+          "slicer.cli.runSync",
+          "slicer.modules.decimation",
+          "slicer.modules.segmentations.logic",
+          "slicer.mrmlScene.AddNewNodeByClass",
+          "slicer.mrmlScene.GetSingletonNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().CreateFolderItem",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetItemByDataNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetItemByName",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetSceneItemID",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().RemoveItem",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().SetItemParent",
+          "slicer.util.arrayFromModelPolyData",
+          "slicer.vtkSegmentationConverter.GetSegmentationClosedSurfaceRepresentationName",
+          "viewNode.GetID",
+          "segDisplayNode.SetVisibility",
+          "slicer.util.arrayFromModelPoints",
+          "cameraNode.ResetClippingRange",
+          "cameraNode.SetFocalPoint",
+          "cameraNode.SetPosition",
+          "cameraNode.SetViewUp",
+          "decimatedModels[i].CreateDefaultDisplayNodes",
+          "decimatedModels[i].GetDisplayNode",
+          "models[i].CreateDefaultDisplayNodes",
+          "models[i].GetBounds",
+          "models[i].GetDisplayNode",
+          "models[i].GetDisplayNode().GetColor",
+          "slicer.modules.cameras.logic",
+          "slicer.modules.cameras.logic().GetViewActiveCameraNode",
+          "slicer.mrmlScene",
+          "slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode",
+          "slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene).CreateFolderItem",
+          "slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene).GetItemByDataNode",
+          "slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene).GetItemByName",
+          "slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene).GetSceneItemID",
+          "slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene).RemoveItem",
+          "slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene).SetItemParent",
+          "segDisplayNode.SetSegmentVisibility3D"
+        ],
+        "operation_descriptions": [
+          "Create bone models from segmentations"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_6",
@@ -812,8 +983,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Switch layout to Conventional",
-        "instruction": "",
+        "title": "Change layout to Conventional",
+        "instruction": "Select the Conventional layout from the layout selector.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -924,8 +1095,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Show red slice in 3D view",
-        "instruction": "",
+        "title": "Show red slice plane in 3D view",
+        "instruction": "For the R (red) slice view, toggle ON 'slice visibility in 3D view'.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1029,8 +1200,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Match FOV/spacing to 2D (Red)",
-        "instruction": "",
+        "title": "Match FOV and spacing in red view",
+        "instruction": "For the R (red) view, toggle on 'FOV, Spacing match 2D'.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1047,7 +1218,11 @@
           "app",
           "layoutManager",
           "mrmlSliceNode",
-          "sliceWidget"
+          "sliceWidget",
+          "GetNodeByID",
+          "mrmlScene",
+          "vtkMRMLSliceNode",
+          "vtkMRMLSliceNodeRed"
         ],
         "api_chains": [
           "sliceNode.GetSliceResolutionMode",
@@ -1055,7 +1230,11 @@
           "sliceWidget.mrmlSliceNode",
           "slicer.app.layoutManager",
           "slicer.app.layoutManager().sliceWidget",
-          "slicer.app.layoutManager().sliceWidget('Red').mrmlSliceNode"
+          "slicer.app.layoutManager().sliceWidget('Red').mrmlSliceNode",
+          "slicer.mrmlScene.GetNodeByID",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed').GetSliceResolutionMode",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed').SetSliceResolutionMode",
+          "slicer.vtkMRMLSliceNode.SliceResolutionMatch2DView"
         ],
         "operation_descriptions": [
           "Toggle on FOV and spacing match 2D for Red slice"
@@ -1140,8 +1319,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Enable slice intersection tools",
-        "instruction": "",
+        "title": "Enable slice intersection visibility and interaction",
+        "instruction": "In the toolbar, turn on 'slice intersection visibility'. In the intersection options, enable 'set interaction', 'Translate', and 'Rotate'.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1250,7 +1429,7 @@
         "operation_intents": [],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
+        "invokes_slicer_api": true,
         "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": true,
@@ -1259,8 +1438,8 @@
         ]
       },
       "ui_guidance": {
-        "title": "Adjust slice intersections",
-        "instruction": "Translate and rotate cross lines in each view.",
+        "title": "Adjust the view",
+        "instruction": "Rotate or zoom the view so the slice intersection is clearly visible.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1268,7 +1447,26 @@
         "repeat": {}
       },
       "pre_template": "templates/cb_step_10_pre.py.tpl",
-      "post_template": "templates/cb_step_10_post.py.tpl"
+      "post_template": "templates/cb_step_10_post.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetNodeByID",
+          "SwitchToViewTransformMode",
+          "mrmlScene",
+          "vtkMRMLInteractionNodeSingleton"
+        ],
+        "api_chains": [
+          "interactionNode.SwitchToViewTransformMode",
+          "slicer.mrmlScene.GetNodeByID",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+        ],
+        "operation_descriptions": [
+          "Manually adjust the slice intersection position by translate and rotate of the cross lines in each view."
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_11",
@@ -1332,7 +1530,7 @@
         "operation_intents": [],
         "invokes_extension_method": true,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
+        "invokes_slicer_api": true,
         "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
@@ -1343,14 +1541,99 @@
       "created_node_source": "extension_method",
       "ui_guidance": {
         "title": "Add mandibular curve",
-        "instruction": "",
+        "instruction": "Click 'Add mandibular curve'.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "curve",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_11.py.tpl"
+      "code_template": "templates/cb_step_11.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetID",
+          "GetItemAsObject",
+          "GetNodesByClass",
+          "GetNumberOfItems",
+          "add",
+          "addMandibularCurve",
+          "mrmlScene",
+          "selectModule",
+          "selectedModule",
+          "util",
+          "vtkMRMLMarkupsCurveNode",
+          "AddNewDisplayNodeForMarkupsNode",
+          "AddNode",
+          "AddViewNodeID",
+          "CreateFolderItem",
+          "CreateNodeByClass",
+          "GetDisplayNode",
+          "GetItemByDataNode",
+          "GetItemByName",
+          "GetNodeByID",
+          "GetSceneItemID",
+          "GetSingletonNode",
+          "GetSubjectHierarchyNode",
+          "GetUniqueNameByString",
+          "MANDIBLE_VIEW_SINGLETON_TAG",
+          "SetActiveListID",
+          "SetItemParent",
+          "SetName",
+          "SwitchToSinglePlaceMode",
+          "logic",
+          "markups",
+          "modules",
+          "vtkMRMLInteractionNodeSingleton",
+          "vtkMRMLViewNode"
+        ],
+        "api_chains": [
+          "_workflow_before_ids.add",
+          "_workflow_created_node.GetID",
+          "_workflow_n.GetID",
+          "_workflow_nodes.GetItemAsObject",
+          "_workflow_nodes.GetNumberOfItems",
+          "logic.addMandibularCurve",
+          "slicer.mrmlScene.GetNodesByClass",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsCurveNode').GetItemAsObject",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsCurveNode').GetNumberOfItems",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule",
+          "curveNode.GetDisplayNode",
+          "curveNode.GetID",
+          "curveNode.SetName",
+          "displayNode.AddViewNodeID",
+          "interactionNode.SwitchToSinglePlaceMode",
+          "mandibleViewNode.GetID",
+          "shNode.CreateFolderItem",
+          "shNode.GetItemByDataNode",
+          "shNode.GetItemByName",
+          "shNode.GetSceneItemID",
+          "shNode.SetItemParent",
+          "slicer.MANDIBLE_VIEW_SINGLETON_TAG",
+          "slicer.modules.markups.logic",
+          "slicer.modules.markups.logic().AddNewDisplayNodeForMarkupsNode",
+          "slicer.modules.markups.logic().SetActiveListID",
+          "slicer.mrmlScene.AddNode",
+          "slicer.mrmlScene.CreateNodeByClass",
+          "slicer.mrmlScene.GetNodeByID",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToSinglePlaceMode",
+          "slicer.mrmlScene.GetSingletonNode",
+          "slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, 'vtkMRMLViewNode').GetID",
+          "slicer.mrmlScene.GetSubjectHierarchyNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().CreateFolderItem",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetItemByDataNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetItemByName",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetSceneItemID",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().SetItemParent",
+          "slicer.mrmlScene.GetUniqueNameByString"
+        ],
+        "operation_descriptions": [
+          "Add mandibular curve node and activate place mode"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_12",
@@ -1410,8 +1693,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Set curve display views",
-        "instruction": "Select 3D View 1 and Red in the Markups Advanced section.",
+        "title": "Set mandibular curve display views",
+        "instruction": "In the Markups module, under 'Advanced', set the 'View' combo box to '3D View 1' and 'Red'.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1438,7 +1721,8 @@
           "mrmlScene",
           "vtkMRMLMarkupsCurveNode",
           "vtkMRMLSliceNode",
-          "vtkMRMLViewNode"
+          "vtkMRMLViewNode",
+          "lower"
         ],
         "api_chains": [
           "candidate.GetName",
@@ -1456,7 +1740,10 @@
           "slicer.mrmlScene.GetSingletonNode",
           "slicer.mrmlScene.GetSingletonNode('Red', 'vtkMRMLSliceNode').GetID",
           "slicer.mrmlScene.GetSingletonNode(slicer.MANDIBLE_VIEW_SINGLETON_TAG, 'vtkMRMLViewNode').GetID",
-          "threeDView1.GetID"
+          "threeDView1.GetID",
+          "mandibleViewNode.GetID",
+          "name.lower",
+          "node.GetName"
         ],
         "operation_descriptions": [
           "Configure mandibular curve display to show in 3D View 1 and Red slice"
@@ -1549,7 +1836,7 @@
         "operation_intents": [],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
+        "invokes_slicer_api": true,
         "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": true,
@@ -1624,7 +1911,7 @@
       "placement_binding_reason": "recent_same_node_class_placement_starter",
       "ui_guidance": {
         "title": "Draw mandibular curve",
-        "instruction": "Click points along the mandible in the Red view, then click Done.",
+        "instruction": "Click points along the mandible in the Red view to create the curve.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1632,7 +1919,52 @@
         "repeat": {}
       },
       "pre_template": "templates/cb_step_13_pre.py.tpl",
-      "post_template": "templates/cb_step_13_post.py.tpl"
+      "post_template": "templates/cb_step_13_post.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetDisplayNode",
+          "GetID",
+          "GetItemAsObject",
+          "GetNodesByClass",
+          "GetNumberOfItems",
+          "SetVisibility",
+          "mrmlScene",
+          "vtkMRMLMarkupsCurveNode",
+          "GetNodeByID",
+          "GetNumberOfControlPoints",
+          "SetNodeReferenceID",
+          "SwitchToViewTransformMode",
+          "getParameterNode",
+          "selectModule",
+          "selectedModule",
+          "util",
+          "vtkMRMLInteractionNodeSingleton"
+        ],
+        "api_chains": [
+          "displayNode.SetVisibility",
+          "node.GetDisplayNode",
+          "node.GetID",
+          "nodes.GetItemAsObject",
+          "nodes.GetNumberOfItems",
+          "slicer.mrmlScene.GetNodesByClass",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsCurveNode').GetItemAsObject",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsCurveNode').GetNumberOfItems",
+          "interactionNode.SwitchToViewTransformMode",
+          "logic.getParameterNode",
+          "node.GetNumberOfControlPoints",
+          "parameterNode.SetNodeReferenceID",
+          "slicer.mrmlScene.GetNodeByID",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Manually click and draw on the \"Red\" view to create a curve along the mandible."
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_14",
@@ -1698,8 +2030,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Switch to BoneReconstructionPlanner layout",
-        "instruction": "",
+        "title": "Change layout to BoneReconstructionPlanner",
+        "instruction": "Select the BoneReconstructionPlanner layout from the layout selector.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1716,7 +2048,8 @@
           "app",
           "layout",
           "layoutLogic",
-          "layoutManager"
+          "layoutManager",
+          "setLayout"
         ],
         "api_chains": [
           "_lm.layout",
@@ -1725,7 +2058,9 @@
           "lm.layoutLogic().GetLayoutNode().AddLayoutDescription",
           "slicer.BRPLayoutId",
           "slicer.app.layoutManager",
-          "slicer.app.layoutManager().layout"
+          "slicer.app.layoutManager().layout",
+          "lm.setLayout",
+          "slicer.app.layoutManager().setLayout"
         ],
         "operation_descriptions": [
           "Change layout to BoneReconstructionPlanner"
@@ -1806,8 +2141,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Hide red slice in 3D view",
-        "instruction": "",
+        "title": "Hide red slice plane in 3D view",
+        "instruction": "For the R (red) slice view, toggle OFF 'slice visibility in 3D view'.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1916,8 +2251,8 @@
         "interaction_step": "cb_step_18"
       },
       "ui_guidance": {
-        "title": "Enter number of cut planes",
-        "instruction": "Enter a number.",
+        "title": "Set number of cut planes",
+        "instruction": "Enter the number of cut planes you want.",
         "done_label": "Done",
         "choice_label": "Number of cutting planes",
         "input_label": "Number of cutting planes",
@@ -1992,7 +2327,7 @@
         "operation_intents": [],
         "invokes_extension_method": true,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
+        "invokes_slicer_api": true,
         "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
@@ -2035,8 +2370,8 @@
       "placement_starter_method": "addCutPlane",
       "created_node_source": "extension_method",
       "ui_guidance": {
-        "title": "Add a cut plane",
-        "instruction": "",
+        "title": "Add cut plane",
+        "instruction": "Click 'Add cut plane'.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -2048,7 +2383,136 @@
           "group_id": "cut_plane_placement"
         }
       },
-      "code_template": "templates/cb_step_17.py.tpl"
+      "code_template": "templates/cb_step_17.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetID",
+          "GetItemAsObject",
+          "GetNodesByClass",
+          "GetNumberOfItems",
+          "add",
+          "addCutPlane",
+          "mrmlScene",
+          "selectModule",
+          "selectedModule",
+          "util",
+          "vtkMRMLMarkupsPlaneNode",
+          "AddNewDisplayNodeForMarkupsNode",
+          "AddNode",
+          "AddViewNodeID",
+          "CreateFolderItem",
+          "CreateNodeByClass",
+          "GetDisplayNode",
+          "GetItemByDataNode",
+          "GetItemByName",
+          "GetLookupTable",
+          "GetNodeByID",
+          "GetParameter",
+          "GetSceneItemID",
+          "GetSingletonNode",
+          "GetSubjectHierarchyNode",
+          "GetTableValue",
+          "GetUniqueNameByString",
+          "HandlesInteractiveOn",
+          "MANDIBLE_VIEW_SINGLETON_TAG",
+          "PlaneType3Points",
+          "RotationHandleVisibilityOn",
+          "ScaleHandleVisibilityOff",
+          "SetActiveListID",
+          "SetAttribute",
+          "SetGlyphScale",
+          "SetItemParent",
+          "SetName",
+          "SetParameter",
+          "SetPlaneType",
+          "SetSelectedColor",
+          "SetSize",
+          "SwitchToSinglePlaceMode",
+          "TranslationHandleVisibilityOn",
+          "getParameterNode",
+          "logic",
+          "markups",
+          "modules",
+          "vtkMRMLColorTableNodeFileMediumChartColors.txt",
+          "vtkMRMLInteractionNodeSingleton",
+          "vtkMRMLViewNode",
+          "SetGlyphSize",
+          "SetHandlesInteractive",
+          "SetRotationHandleVisibility",
+          "SetScaleHandleVisibility",
+          "SetTranslationHandleVisibility",
+          "SafeDownCast",
+          "vtkMRMLMarkupsDisplayNode"
+        ],
+        "api_chains": [
+          "_workflow_before_ids.add",
+          "_workflow_created_node.GetID",
+          "_workflow_n.GetID",
+          "_workflow_nodes.GetItemAsObject",
+          "_workflow_nodes.GetNumberOfItems",
+          "logic.addCutPlane",
+          "slicer.mrmlScene.GetNodesByClass",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsPlaneNode').GetItemAsObject",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsPlaneNode').GetNumberOfItems",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule",
+          "colorTable.GetTableValue",
+          "colorTableNode.GetLookupTable",
+          "displayNode.AddViewNodeID",
+          "displayNode.HandlesInteractiveOn",
+          "displayNode.RotationHandleVisibilityOn",
+          "displayNode.ScaleHandleVisibilityOff",
+          "displayNode.SetGlyphScale",
+          "displayNode.SetSelectedColor",
+          "displayNode.TranslationHandleVisibilityOn",
+          "interactionNode.SwitchToSinglePlaceMode",
+          "logic.getParameterNode",
+          "mandibleViewNode.GetID",
+          "parameterNode.GetParameter",
+          "parameterNode.SetParameter",
+          "planeNode.GetDisplayNode",
+          "planeNode.GetID",
+          "planeNode.SetAttribute",
+          "planeNode.SetName",
+          "planeNode.SetPlaneType",
+          "planeNode.SetSize",
+          "shNode.CreateFolderItem",
+          "shNode.GetItemByDataNode",
+          "shNode.GetItemByName",
+          "shNode.GetSceneItemID",
+          "shNode.SetItemParent",
+          "slicer.MANDIBLE_VIEW_SINGLETON_TAG",
+          "slicer.modules.markups.logic",
+          "slicer.modules.markups.logic().AddNewDisplayNodeForMarkupsNode",
+          "slicer.modules.markups.logic().SetActiveListID",
+          "slicer.mrmlScene.AddNode",
+          "slicer.mrmlScene.CreateNodeByClass",
+          "slicer.mrmlScene.GetNodeByID",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLColorTableNodeFileMediumChartColors.txt').GetLookupTable",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToSinglePlaceMode",
+          "slicer.mrmlScene.GetSingletonNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().CreateFolderItem",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetItemByDataNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetItemByName",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetSceneItemID",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().SetItemParent",
+          "slicer.mrmlScene.GetUniqueNameByString",
+          "slicer.vtkMRMLMarkupsPlaneNode.PlaneType3Points",
+          "displayNode.SetGlyphSize",
+          "displayNode.SetHandlesInteractive",
+          "displayNode.SetRotationHandleVisibility",
+          "displayNode.SetScaleHandleVisibility",
+          "displayNode.SetTranslationHandleVisibility",
+          "slicer.vtkMRMLMarkupsDisplayNode.SafeDownCast"
+        ],
+        "operation_descriptions": [
+          "Add cut plane node and activate place mode"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_18",
@@ -2125,7 +2589,7 @@
         "operation_intents": [],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
+        "invokes_slicer_api": true,
         "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": true,
@@ -2173,8 +2637,8 @@
       "placement_binding_reason": "recent_same_node_class_placement_starter",
       "ui_guidance": {
         "title": "Place cutting plane",
-        "instruction": "Position this cutting plane, then click Done.",
-        "done_label": "Done",
+        "instruction": "Place one cut plane in the view.",
+        "done_label": "Cutting Plane placed",
         "choice_label": "",
         "input_label": "",
         "object_label": "cutting plane",
@@ -2186,7 +2650,43 @@
         }
       },
       "pre_template": "templates/cb_step_18_pre.py.tpl",
-      "post_template": "templates/cb_step_18_post.py.tpl"
+      "post_template": "templates/cb_step_18_post.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetDisplayNode",
+          "GetID",
+          "GetItemAsObject",
+          "GetNodesByClass",
+          "GetNumberOfItems",
+          "SetVisibility",
+          "mrmlScene",
+          "vtkMRMLMarkupsPlaneNode",
+          "GetNodeByID",
+          "GetNumberOfControlPoints",
+          "SwitchToViewTransformMode",
+          "vtkMRMLInteractionNodeSingleton"
+        ],
+        "api_chains": [
+          "displayNode.SetVisibility",
+          "node.GetDisplayNode",
+          "node.GetID",
+          "nodes.GetItemAsObject",
+          "nodes.GetNumberOfItems",
+          "slicer.mrmlScene.GetNodesByClass",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsPlaneNode').GetItemAsObject",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsPlaneNode').GetNumberOfItems",
+          "interactionNode.SwitchToViewTransformMode",
+          "node.GetNumberOfControlPoints",
+          "slicer.mrmlScene.GetNodeByID",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+        ],
+        "operation_descriptions": [
+          "Place one mandibular cut plane using the extension's Add cut plane workflow. If the user requested N cut planes, repeat the Add cut plane + place plane interaction N times."
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_19",
@@ -2250,7 +2750,7 @@
         "operation_intents": [],
         "invokes_extension_method": true,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
+        "invokes_slicer_api": true,
         "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
@@ -2261,14 +2761,113 @@
       "created_node_source": "extension_method",
       "ui_guidance": {
         "title": "Add fibula line",
-        "instruction": "",
+        "instruction": "Click 'Add fibula line'.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "line",
+        "object_label": "interaction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_19.py.tpl"
+      "code_template": "templates/cb_step_19.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetID",
+          "GetItemAsObject",
+          "GetNodesByClass",
+          "GetNumberOfItems",
+          "add",
+          "addFibulaLine",
+          "mrmlScene",
+          "selectModule",
+          "selectedModule",
+          "util",
+          "vtkMRMLMarkupsLineNode",
+          "AddNewDisplayNodeForMarkupsNode",
+          "AddNode",
+          "AddViewNodeID",
+          "CreateFolderItem",
+          "CreateNodeByClass",
+          "FIBULA_VIEW_SINGLETON_TAG",
+          "GetBounds",
+          "GetDisplayNode",
+          "GetItemByDataNode",
+          "GetItemByName",
+          "GetNodeByID",
+          "GetNodeReference",
+          "GetParameter",
+          "GetSceneItemID",
+          "GetSingletonNode",
+          "GetSubjectHierarchyNode",
+          "GetUniqueNameByString",
+          "SetActiveListID",
+          "SetItemParent",
+          "SetName",
+          "SwitchToSinglePlaceMode",
+          "array",
+          "getParameterNode",
+          "linalg",
+          "logic",
+          "markups",
+          "modules",
+          "norm",
+          "vtkMRMLInteractionNodeSingleton",
+          "vtkMRMLSliceNode",
+          "vtkMRMLViewNode"
+        ],
+        "api_chains": [
+          "_workflow_before_ids.add",
+          "_workflow_created_node.GetID",
+          "_workflow_n.GetID",
+          "_workflow_nodes.GetItemAsObject",
+          "_workflow_nodes.GetNumberOfItems",
+          "logic.addFibulaLine",
+          "slicer.mrmlScene.GetNodesByClass",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsLineNode').GetItemAsObject",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsLineNode').GetNumberOfItems",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule",
+          "displayNode.AddViewNodeID",
+          "fibulaViewNode.GetID",
+          "interactionNode.SwitchToSinglePlaceMode",
+          "lineNode.GetDisplayNode",
+          "lineNode.GetID",
+          "lineNode.SetName",
+          "logic.getParameterNode",
+          "np.array",
+          "np.linalg.norm",
+          "parameterNode.GetNodeReference",
+          "parameterNode.GetParameter",
+          "redSliceNode.GetID",
+          "scalarVolume.GetBounds",
+          "shNode.CreateFolderItem",
+          "shNode.GetItemByDataNode",
+          "shNode.GetItemByName",
+          "shNode.GetSceneItemID",
+          "shNode.SetItemParent",
+          "slicer.FIBULA_VIEW_SINGLETON_TAG",
+          "slicer.modules.markups.logic",
+          "slicer.modules.markups.logic().AddNewDisplayNodeForMarkupsNode",
+          "slicer.modules.markups.logic().SetActiveListID",
+          "slicer.mrmlScene.AddNode",
+          "slicer.mrmlScene.CreateNodeByClass",
+          "slicer.mrmlScene.GetNodeByID",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToSinglePlaceMode",
+          "slicer.mrmlScene.GetSingletonNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().CreateFolderItem",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetItemByDataNode",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetItemByName",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().GetSceneItemID",
+          "slicer.mrmlScene.GetSubjectHierarchyNode().SetItemParent",
+          "slicer.mrmlScene.GetUniqueNameByString"
+        ],
+        "operation_descriptions": [
+          "Add fibula line node"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_20",
@@ -2345,7 +2944,7 @@
         "operation_intents": [],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
+        "invokes_slicer_api": true,
         "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": true,
@@ -2411,7 +3010,7 @@
       "placement_binding_reason": "recent_same_node_class_placement_starter",
       "ui_guidance": {
         "title": "Draw fibula line",
-        "instruction": "Place first point distally, last point proximally in 3D View 2, then click Done.",
+        "instruction": "In 3D View 2, click the first point distally and the last point proximally over the fibula.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -2419,7 +3018,52 @@
         "repeat": {}
       },
       "pre_template": "templates/cb_step_20_pre.py.tpl",
-      "post_template": "templates/cb_step_20_post.py.tpl"
+      "post_template": "templates/cb_step_20_post.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetDisplayNode",
+          "GetID",
+          "GetItemAsObject",
+          "GetNodesByClass",
+          "GetNumberOfItems",
+          "SetVisibility",
+          "mrmlScene",
+          "vtkMRMLMarkupsLineNode",
+          "GetNodeByID",
+          "GetNumberOfControlPoints",
+          "SetNodeReferenceID",
+          "SwitchToViewTransformMode",
+          "getParameterNode",
+          "selectModule",
+          "selectedModule",
+          "util",
+          "vtkMRMLInteractionNodeSingleton"
+        ],
+        "api_chains": [
+          "displayNode.SetVisibility",
+          "node.GetDisplayNode",
+          "node.GetID",
+          "nodes.GetItemAsObject",
+          "nodes.GetNumberOfItems",
+          "slicer.mrmlScene.GetNodesByClass",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsLineNode').GetItemAsObject",
+          "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsLineNode').GetNumberOfItems",
+          "interactionNode.SwitchToViewTransformMode",
+          "logic.getParameterNode",
+          "node.GetNumberOfControlPoints",
+          "parameterNode.SetNodeReferenceID",
+          "slicer.mrmlScene.GetNodeByID",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Draw a line over the fibula in \"3D View 2\", starting with the first point distally and the last point proximally."
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_21",
@@ -2485,8 +3129,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Reset field of view (Red)",
-        "instruction": "",
+        "title": "Reset red view field of view",
+        "instruction": "Click 'Reset field of view' in the R (red) slice view.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -2600,22 +3244,54 @@
         "operation_intents": [],
         "invokes_extension_method": true,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Center fibula line on model",
-        "instruction": "",
+        "title": "Center fibula line",
+        "instruction": "Click 'Center fibula line using fibula model' to align the line with the fibula axis.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "line",
+        "object_label": "interaction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_22.py.tpl"
+      "code_template": "templates/cb_step_22.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetID",
+          "GetNodeReference",
+          "SetNodeReferenceID",
+          "centerFibulaLine",
+          "getNodesByClass",
+          "getParameterNode",
+          "selectModule",
+          "selectedModule",
+          "util",
+          "vtkMRMLMarkupsLineNode",
+          "vtkMRMLModelNode"
+        ],
+        "api_chains": [
+          "fibulaLine.GetID",
+          "fibulaModelNode.GetID",
+          "logic.centerFibulaLine",
+          "logic.getParameterNode",
+          "parameterNode.GetNodeReference",
+          "parameterNode.SetNodeReferenceID",
+          "slicer.util.getNodesByClass",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Center fibula line using fibula model"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_23",
@@ -2687,22 +3363,56 @@
         ],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Enable automatic plane positioning",
-        "instruction": "",
+        "title": "Enable automatic mandibular plane positioning",
+        "instruction": "Tick the 'Automatic mandibular planes positioning for maximum bones contact area' checkbox.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "plane",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_23.py.tpl"
+      "code_template": "templates/cb_step_23.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "Modified",
+          "SetParameter",
+          "bonereconstructionplanner",
+          "checked",
+          "getParameterNode",
+          "mandiblePlanesPositioningForMaximumBoneContact",
+          "mandiblePlanesPositioningForMaximumBoneContactCheckBox",
+          "modules",
+          "selectModule",
+          "selectedModule",
+          "self",
+          "ui",
+          "util",
+          "widgetRepresentation"
+        ],
+        "api_chains": [
+          "logic.getParameterNode",
+          "logic.mandiblePlanesPositioningForMaximumBoneContact",
+          "parameterNode.Modified",
+          "parameterNode.SetParameter",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Enable automatic mandibular planes positioning for maximum bone contact"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_24",
@@ -2774,22 +3484,54 @@
         ],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Lock planes to rotate together",
-        "instruction": "",
+        "title": "Rotate mandible planes together",
+        "instruction": "Tick the 'Make all mandible planes rotate together' checkbox.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "plane",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_24.py.tpl"
+      "code_template": "templates/cb_step_24.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "Modified",
+          "SetParameter",
+          "bonereconstructionplanner",
+          "checked",
+          "getParameterNode",
+          "makeAllMandiblePlanesRotateTogetherCheckBox",
+          "modules",
+          "selectModule",
+          "selectedModule",
+          "self",
+          "ui",
+          "util",
+          "widgetRepresentation"
+        ],
+        "api_chains": [
+          "logic.getParameterNode",
+          "parameterNode.Modified",
+          "parameterNode.SetParameter",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Enable make all mandible planes rotate together"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_25",
@@ -2927,10 +3669,10 @@
         }
       },
       "ui_guidance": {
-        "title": "Enter initial space (mm)",
-        "instruction": "Enter a value.",
+        "title": "Set initial space (mm)",
+        "instruction": "Enter the desired initial space in mm.",
         "done_label": "Done",
-        "choice_label": "Initial space (mm)",
+        "choice_label": "Plane",
         "input_label": "Initial space (mm)",
         "object_label": "plane",
         "repeat": {}
@@ -3078,10 +3820,10 @@
         }
       },
       "ui_guidance": {
-        "title": "Enter between space (mm)",
-        "instruction": "Enter a value.",
+        "title": "Set between space (mm)",
+        "instruction": "Enter the desired between space in mm.",
         "done_label": "Done",
-        "choice_label": "Between space (mm)",
+        "choice_label": "Plane",
         "input_label": "Between space (mm)",
         "object_label": "plane",
         "repeat": {}
@@ -3176,22 +3918,56 @@
         "operation_intents": [],
         "invokes_extension_method": true,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Update reconstruction",
-        "instruction": "",
+        "title": "Generate reconstruction",
+        "instruction": "Click 'Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible' to generate the reconstruction.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "cutting plane",
+        "object_label": "reconstruction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_27.py.tpl"
+      "code_template": "templates/cb_step_27.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetID",
+          "GetNodeByID",
+          "GetNodeReference",
+          "GetParameter",
+          "SetNodeReferenceID",
+          "SetParameter",
+          "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+          "getParameterNode",
+          "mrmlScene",
+          "selectModule",
+          "selectedModule",
+          "util"
+        ],
+        "api_chains": [
+          "logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+          "logic.getParameterNode",
+          "node.GetID",
+          "parameterNode.GetNodeReference",
+          "parameterNode.GetParameter",
+          "parameterNode.SetNodeReferenceID",
+          "parameterNode.SetParameter",
+          "slicer.mrmlScene.GetNodeByID",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Generate fibula planes, bone pieces, and transform to mandible"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_28",
@@ -3264,22 +4040,58 @@
         ],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Show mandible planes",
-        "instruction": "",
+        "title": "Show mandibular cut planes",
+        "instruction": "In the BoneReconstructionPlanner module, in the 'Mandible planes' row, toggle on the eye icon to show the cut planes.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "cutting plane",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_28.py.tpl"
+      "code_template": "templates/cb_step_28.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "Modified",
+          "SetParameter",
+          "bonereconstructionplanner",
+          "checked",
+          "getParameterNode",
+          "modules",
+          "selectModule",
+          "selectedModule",
+          "self",
+          "setMandiblePlanesVisibility",
+          "showMandiblePlanesToolButton",
+          "ui",
+          "util",
+          "widgetRepresentation"
+        ],
+        "api_chains": [
+          "_module_widget.setMandiblePlanesVisibility",
+          "logic.getParameterNode",
+          "parameterNode.Modified",
+          "parameterNode.SetParameter",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().setMandiblePlanesVisibility",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().ui.showMandiblePlanesToolButton.checked",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Show mandibular cut planes in 3D view"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_29",
@@ -3352,22 +4164,58 @@
         ],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "ui_guidance": {
         "title": "Show plane interaction handles",
-        "instruction": "",
+        "instruction": "In the 'Mandible planes' row, toggle on the axes icon to show the plane interaction handles.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "plane",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_29.py.tpl"
+      "code_template": "templates/cb_step_29.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "Modified",
+          "SetParameter",
+          "bonereconstructionplanner",
+          "checked",
+          "getParameterNode",
+          "modules",
+          "selectModule",
+          "selectedModule",
+          "self",
+          "setMandiblePlanesInteractionHandlesVisibility",
+          "showMandiblePlanesInteractionHandlesToolButton",
+          "ui",
+          "util",
+          "widgetRepresentation"
+        ],
+        "api_chains": [
+          "_module_widget.setMandiblePlanesInteractionHandlesVisibility",
+          "logic.getParameterNode",
+          "parameterNode.Modified",
+          "parameterNode.SetParameter",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().setMandiblePlanesInteractionHandlesVisibility",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().ui.showMandiblePlanesInteractionHandlesToolButton.checked",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Show mandibular plane interaction handles"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_30",
@@ -3431,7 +4279,7 @@
         "operation_intents": [],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
+        "invokes_slicer_api": true,
         "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": true,
@@ -3440,16 +4288,35 @@
         ]
       },
       "ui_guidance": {
-        "title": "Adjust mandible cut planes",
-        "instruction": "Drag the handles to position each plane, then click Done.",
+        "title": "Adjust the 3D view",
+        "instruction": "Rotate or zoom the view so the mandibular cut planes are clearly visible.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "cutting plane",
+        "object_label": "view",
         "repeat": {}
       },
       "pre_template": "templates/cb_step_30_pre.py.tpl",
-      "post_template": "templates/cb_step_30_post.py.tpl"
+      "post_template": "templates/cb_step_30_post.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetNodeByID",
+          "SwitchToViewTransformMode",
+          "mrmlScene",
+          "vtkMRMLInteractionNodeSingleton"
+        ],
+        "api_chains": [
+          "interactionNode.SwitchToViewTransformMode",
+          "slicer.mrmlScene.GetNodeByID",
+          "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+        ],
+        "operation_descriptions": [
+          "Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles."
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_31",
@@ -3537,22 +4404,49 @@
         "operation_intents": [],
         "invokes_extension_method": true,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "ui_guidance": {
         "title": "Regenerate reconstruction",
-        "instruction": "",
+        "instruction": "Click 'Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible' to regenerate the reconstruction.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "plane",
+        "object_label": "reconstruction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_31.py.tpl"
+      "code_template": "templates/cb_step_31.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetParameter",
+          "SetParameter",
+          "generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+          "getParameterNode",
+          "items",
+          "selectModule",
+          "selectedModule",
+          "util"
+        ],
+        "api_chains": [
+          "logic.generateFibulaPlanesFibulaBonePiecesAndTransformThemToMandible",
+          "logic.getParameterNode",
+          "parameterNode.GetParameter",
+          "parameterNode.SetParameter",
+          "scalar_defaults.items",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Regenerate fibula planes, bone pieces, and transform after adjustments"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_32",
@@ -3625,22 +4519,58 @@
         ],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Hide mandible planes",
-        "instruction": "",
+        "title": "Hide mandibular cut planes",
+        "instruction": "In the 'Mandible planes' row, toggle off the eye icon to hide the cut planes.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "cutting plane",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_32.py.tpl"
+      "code_template": "templates/cb_step_32.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "Modified",
+          "SetParameter",
+          "bonereconstructionplanner",
+          "checked",
+          "getParameterNode",
+          "modules",
+          "selectModule",
+          "selectedModule",
+          "self",
+          "setMandiblePlanesVisibility",
+          "showMandiblePlanesToolButton",
+          "ui",
+          "util",
+          "widgetRepresentation"
+        ],
+        "api_chains": [
+          "_module_widget.setMandiblePlanesVisibility",
+          "logic.getParameterNode",
+          "parameterNode.Modified",
+          "parameterNode.SetParameter",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().setMandiblePlanesVisibility",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().ui.showMandiblePlanesToolButton.checked",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Hide mandibular cut planes in 3D view"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     },
     {
       "step_id": "cb_step_33",
@@ -3712,22 +4642,58 @@
         ],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "ui_guidance": {
         "title": "Hide original mandible model",
-        "instruction": "",
+        "instruction": "Clear the 'Show original mandible model' checkbox.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "model",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_33.py.tpl"
+      "code_template": "templates/cb_step_33.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "Modified",
+          "SetParameter",
+          "bonereconstructionplanner",
+          "checked",
+          "getParameterNode",
+          "modules",
+          "selectModule",
+          "selectedModule",
+          "self",
+          "setOriginalMandibleVisility",
+          "showOriginalMandibleCheckBox",
+          "ui",
+          "util",
+          "widgetRepresentation"
+        ],
+        "api_chains": [
+          "_module_widget.setOriginalMandibleVisility",
+          "logic.getParameterNode",
+          "parameterNode.Modified",
+          "parameterNode.SetParameter",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().setOriginalMandibleVisility",
+          "slicer.modules.bonereconstructionplanner.widgetRepresentation().self().ui.showOriginalMandibleCheckBox.checked",
+          "slicer.util.selectModule",
+          "slicer.util.selectedModule"
+        ],
+        "operation_descriptions": [
+          "Clear show original mandible model checkbox"
+        ],
+        "slicer_op_categories": [],
+        "slicer_api_keywords": []
+      }
     }
   ],
   "step_count": 33,

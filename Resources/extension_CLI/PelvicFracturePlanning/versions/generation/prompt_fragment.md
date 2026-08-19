@@ -12,29 +12,44 @@ and wait for them to complete the interaction before proceeding.
 
 **Workflow Steps:**
 1. `cb_step_1` [user_choice] — In the "Input CT Volume" option, choose the Pelvic Volume.
-   - Ask user: Select the input CT volume
+   - Ask user: Choose the Pelvic Volume in the Input CT Volume option.
 2. `cb_step_2` [extension_op] — Click "Run Step 1: Segment Pelvis" button.
 3. `cb_step_3` [extension_op] — Click "Run Step 2: Segment Fractures" button.
-4. `cb_step_4` [user_choice] — In the "Untick any fragments to exclude it from planning" section, untick these segments.
-   - Ask user: Untick any fragments to exclude from planning
-5. `cb_step_5` [extension_op] — Click "Run Step 3: Generate Template" button.
-6. `cb_step_6` [extension_op] — Click "Run Step 4: Register _Reduce" button.
-7. `cb_step_7` [branch_op] — If further adjustments are required, tick the "Manually adjust a fragment" checkbox. If not, jump to step 12.
-   - Ask user: Manually adjust a fragment?
-8. `cb_step_8` [user_choice] — In the "Fragment" option, Choose which fragment needs adjustment in the "Fragment" selection box.
-   - Ask user: Choose fragment to adjust
-9. `cb_step_9` [user_interaction] — Manually adjust the position and rotation of the selected fragment.
+4. `cb_step_4` [user_choice] — In the "Untick a piece to stop treating it as separate" section, untick these segments.
+   - Ask user: Which segments should be unticked?
+5. `cb_step_5` [branch_op] — If a piece should have been split but was and and require cut it manually, jump to step 6. If not, jump to step 9.
+   - Ask user: Does a piece require manual separation?
+6. `cb_step_6` [extension_op] — Click "Manually seperate" button.
+7. `cb_step_7` [user_interaction] — Manually click to add a cut point and adjust the position and rotation of the cutting plane.
+   - Interaction: plane
+   - Tell user: Place a cutting plane by clicking a cut point and adjusting its position and rotation.
+8. `cb_step_8` [extension_op] — Click "Confirm seperation" button.
+9. `cb_step_9` [extension_op] — Click "Run Step 3: Generate template" button.
+10. `cb_step_10` [branch_op] — If further adjustments of the template are required, tick the "Manually adjust a template" checkbox. If not, jump to step 15.
+   - Ask user: Are further adjustments of the template required?
+11. `cb_step_11` [user_choice] — In the "Template" option, Choose which template needs adjustment in the "Template" selection box.
+   - Ask user: Which template needs adjustment?
+12. `cb_step_12` [user_interaction] — Manually adjust the position and rotation of the selected template.
    - Interaction: generic
-10. `cb_step_10` [branch_op] — If further adjustments are required, jump to step 8. If not, jump to step 11.
-   - Ask user: Further adjustments to this fragment?
-11. `cb_step_11` [extension_op] — Click the "Apply adjustments" button.
-12. `cb_step_12` [extension_op] — Click the "Run Step 5: Plan Screws" button.
-13. `cb_step_13` [branch_op] — If further adjustments are required, tick the "Edit Screw trajectories" checkbox. If not, stop here.
-   - Ask user: Edit screw trajectories?
-14. `cb_step_14` [user_interaction] — Manually adjust the position and rotation of the screw trajectories.
+13. `cb_step_13` [branch_op] — If more templates need adjustment, jump to step 11. If not, jump to step 14.
+   - Ask user: Do more templates need adjustment?
+14. `cb_step_14` [extension_op] — Click the "Apply template adjustment" button.
+15. `cb_step_15` [extension_op] — Click "Run Step 4: Register _Reduce" button.
+16. `cb_step_16` [branch_op] — If further adjustments are required, tick the "Manually adjust a fragment" checkbox. If not, jump to step 21.
+   - Ask user: Are further adjustments of a fragment required?
+17. `cb_step_17` [user_choice] — In the "Fragment" option, Choose which fragment needs adjustment in the "Fragment" selection box.
+   - Ask user: Which fragment needs adjustment?
+18. `cb_step_18` [user_interaction] — Manually adjust the position and rotation of the selected fragment.
    - Interaction: generic
-15. `cb_step_15` [extension_op] — Click the "Regenerate screws from edited lines" button.
-16. `cb_step_16` [extension_op] — Untick the "Edit Screw trajectories" checkbox.
+19. `cb_step_19` [branch_op] — If further adjustments are required, jump to step 17. If not, jump to step 20.
+   - Ask user: Do more fragments need adjustment?
+20. `cb_step_20` [extension_op] — Click the "Apply adjustments" button.
+21. `cb_step_21` [extension_op] — Click the "Run Step 5: Plan Screws" button.
+22. `cb_step_22` [branch_op] — If further adjustments are required, tick the "Edit Screw trajectories" checkbox. If not, stop here.
+   - Ask user: Are further adjustments of screw trajectories required?
+23. `cb_step_23` [user_interaction] — Manually adjust the position and rotation of the screw trajectories.
+   - Interaction: generic
+24. `cb_step_24` [extension_op] — Click the "Regenerate screws from edited lines" button.
 
 **Protocol:**
 1. Call `PelvicFracturePlanning` with `workflow_step='cb_step_1'` and `user_action='start'` to begin
@@ -42,8 +57,9 @@ and wait for them to complete the interaction before proceeding.
 3. For **user_interaction** steps: output the returned `pre_code` verbatim in a ```python block. Relay instructions to the user. Wait for them to click 'Done'.
 4. For **user_choice** steps: ask the returned question. After the user answers, call the same step with `user_action='choice_made'` and `choice_value`.
 5. For **branch_op** steps: a yes/no decision that also acts and branches. Ask the returned question, then call the same step with `user_action='choice_made'` and `choice_value` ('Yes'/'No'). 'Yes' performs the step's action (e.g. ticks a checkbox) and runs the optional body once; 'No' jumps to the indicated step or stops.
-6. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.
-7. Continue until all steps are done.
+6. For **review_op** steps: the panel shows the generated results for the user to review. Relay the instructions and wait for them to click Confirm — no code, no question.
+7. After each step completes, call the tool with the NEXT step's `step_id` and `user_action='start'`.
+8. Continue until all steps are done.
 
 **CRITICAL RULES:**
 - Execute ONE step per turn. Do NOT call multiple steps in a single turn.
