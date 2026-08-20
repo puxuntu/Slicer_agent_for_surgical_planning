@@ -1,0 +1,14 @@
+[
+  {
+    "label": "revision_20260820_113628",
+    "time": "2026-08-20T11:36:28",
+    "step_id": "cb_step_3",
+    "request": "it should center the 3D view which is a fundamental function in 3D view",
+    "summary": "Use the built-in 3D view Center view function (threeDView.resetFocalPoint) instead of manual camera math.",
+    "applied": [
+      "templates/cb_step_3_slicer.py.tpl"
+    ],
+    "backup": "versions/revision_20260820_113628",
+    "rounds": 1
+  }
+]

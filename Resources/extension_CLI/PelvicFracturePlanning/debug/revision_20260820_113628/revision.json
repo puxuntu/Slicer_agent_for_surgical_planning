@@ -1,0 +1,28 @@
+{
+  "label": "revision_20260820_113628",
+  "time": "2026-08-20T11:36:28",
+  "extension": "PelvicFracturePlanning",
+  "step_id": "cb_step_3",
+  "operation_type": "slicer_op",
+  "request": "it should center the 3D view which is a fundamental function in 3D view",
+  "summary": "Use the built-in 3D view Center view function (threeDView.resetFocalPoint) instead of manual camera math.",
+  "analysis": "The step hand-rolled camera math (bounding-box center plus manual SetFocalPoint/SetPosition/ParallelScale) instead of performing the 3D view fundamental Center view function. Confirmed in Slicer source that the Center view button (actionCenter, tooltip 'Center view') triggers qMRMLThreeDViewControllerWidget::resetFocalPoint(), whose only real action is d->ThreeDView->resetFocalPoint(), and the official script repository documents threeDView.resetFocalPoint() as 'Center the 3D view on the scene'. The manual math also risks failing its own bounds-based verification, which is why it was flagged.",
+  "rounds": 1,
+  "applied": [
+    "templates/cb_step_3_slicer.py.tpl"
+  ],
+  "backup": "versions/revision_20260820_113628",
+  "error": "",
+  "templates": [
+    {
+      "rel_path": "templates/cb_step_3_slicer.py.tpl",
+      "role": "main",
+      "before_chars": 3251,
+      "after_chars": 1424,
+      "placeholders_before": [],
+      "placeholders_after": [],
+      "warnings": []
+    }
+  ],
+  "unchanged": []
+}

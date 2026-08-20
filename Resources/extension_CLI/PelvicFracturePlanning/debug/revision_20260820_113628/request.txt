@@ -1,0 +1,1 @@
+it should center the 3D view which is a fundamental function in 3D view

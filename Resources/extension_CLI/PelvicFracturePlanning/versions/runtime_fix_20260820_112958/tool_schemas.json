@@ -1,0 +1,63 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "PelvicFracturePlanning",
+      "description": "Guided interactive workflow for PelvicFracturePlanning. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Input CT Volume\" option, choose the Pelvic Volume.; 'cb_step_2': Click \"Run Step 1: Segment Pelvis\" button.; 'cb_step_3': For the 3D view, click the \"Center view\" botton.; 'cb_step_4': Click \"Run Step 2: Segment Fractures\" button.; 'cb_step_5': In the \"Untick a piece to stop treating it as separate\" section, untick these segments.; 'cb_step_6': If a piece should have been split but was and and require cut it manually, jump to step 7. If not, jump to step 10.; 'cb_step_7': Click \"Manually seperate\" button.; 'cb_step_8': Manually click to add a cut point and adjust the position and rotation of the cutting plane. (interactive: plane); 'cb_step_9': Click \"Confirm seperation\" button.; 'cb_step_10': Click \"Run Step 3: Generate template\" button.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "workflow_step": {
+            "type": "string",
+            "enum": [
+              "cb_step_1",
+              "cb_step_2",
+              "cb_step_3",
+              "cb_step_4",
+              "cb_step_5",
+              "cb_step_6",
+              "cb_step_7",
+              "cb_step_8",
+              "cb_step_9",
+              "cb_step_10",
+              "cb_step_11",
+              "cb_step_12",
+              "cb_step_13",
+              "cb_step_14",
+              "cb_step_15",
+              "cb_step_16",
+              "cb_step_17",
+              "cb_step_18",
+              "cb_step_19",
+              "cb_step_20",
+              "cb_step_21"
+            ],
+            "description": "Which workflow step to execute"
+          },
+          "user_action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "proceed",
+              "skip",
+              "cancel",
+              "choice_made"
+            ],
+            "description": "Action: 'start' to begin a step, 'proceed' after user completes interaction, 'skip' for optional steps, 'cancel' to abort workflow, 'choice_made' for user_choice steps"
+          },
+          "choice_value": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "description": "Value selected by the user for user_choice steps. Required when user_action is 'choice_made'. A multi-selection step takes a JSON object mapping each parameter_name to its value."
+          }
+        },
+        "required": [
+          "workflow_step",
+          "user_action"
+        ]
+      }
+    }
+  }
+]

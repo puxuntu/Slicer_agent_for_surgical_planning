@@ -1,0 +1,19 @@
+I have everything I need. The evidence:
+
+1. **The "Center view" button** (`actionCenter`, tooltip "Center view") in the 3D view controller is connected to `qMRMLThreeDViewControllerWidget::resetFocalPoint()` (confirmed in `qMRMLThreeDViewControllerWidget.cxx` line 97-98, and UI analysis).
+2. **That handler does only** `d->ThreeDView->resetFocalPoint()` wrapped in camera-interaction start/end — so the fundamental function is `threeDView.resetFocalPoint()`.
+3. **The official script repository** documents exactly this as "Center the 3D view on the scene": `layoutManager.threeDWidget(0).threeDView().resetFocalPoint()`.
+4. `qMRMLLayoutManager::threeDViewCount()` / `threeDWidget(int)` are public and are the standard way to iterate 3D views (`qMRMLLayoutManager::resetThreeDViews()` uses the same loop).
+
+The current template instead hand-rolls bounding-box camera math (SetFocalPoint/SetPosition/ParallelScale) and then verifies against a self-computed center — it does not perform the fundamental Center view function. The fix: call `resetFocalPoint()` on each 3D view, keep a guard for no 3D view, and keep a light deterministic verification (finite focal point). I keep the file's no-placeholder state, avoid apostrophes in comments, and do not touch any other step.
+
+```json
+{
+  "analysis": "The step hand-rolled camera math (bounding-box center plus manual SetFocalPoint/SetPosition/ParallelScale) instead of performing the 3D view fundamental Center view function. Confirmed in Slicer source that the Center view button (actionCenter, tooltip 'Center view') triggers qMRMLThreeDViewControllerWidget::resetFocalPoint(), whose only real action is d->ThreeDView->resetFocalPoint(), and the official script repository documents threeDView.resetFocalPoint() as 'Center the 3D view on the scene'. The manual math also risks failing its own bounds-based verification, which is why it was flagged.",
+  "summary": "Use the built-in 3D view Center view function (threeDView.resetFocalPoint) instead of manual camera math.",
+  "templates": {
+    "templates/cb_step_3_slicer.py.tpl": "# Use the built-in 3D view Center view function (threeDView.resetFocalPoint)\n# instead of manual camera math (same action as the Center button in the 3D view toolbar).\nimport math\n\nlayoutManager = slicer.app.layoutManager()\nif layoutManager.threeDViewCount() == 0:\n    raise RuntimeError(\"STATE_NOT_APPLIED: 3D view centered on scene (no 3D view available)\")\n\n# The Center view button calls resetFocalPoint on the 3D view widget, which\n# moves the camera focal point to the center of the visible scene content.\nfor viewIndex in range(layoutManager.threeDViewCount()):\n    threeDView = layoutManager.threeDWidget(viewIndex).threeDView()\n    threeDView.resetFocalPoint()\n\n# Deterministic verification: every 3D camera node now has a finite focal\n# point (the scene content center set by resetFocalPoint).\nfor cameraNode in slicer.util.getNodesByClass(\"vtkMRMLCameraNode\"):\n    focalPoint = [0.0] * 3\n    cameraNode.GetFocalPoint(focalPoint)\n    if not all(math.isfinite(v) for v in focalPoint):\n        raise RuntimeError(\"STATE_NOT_APPLIED: 3D view centered on scene\")\n"
+  },
+  "blocked": ""
+}
+```
