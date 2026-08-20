@@ -9,7 +9,92 @@ from __future__ import annotations
 
 from typing import Dict, Optional, Tuple
 
+#: Last line of the hidden prelude every dispatched step is prefixed with, and
+#: therefore the exact boundary between what the RUNTIME injected and what the
+#: TEMPLATE contains.
+#:
+#: It exists because that boundary has to be found again later. A runtime
+#: self-correction is fixed against the dispatched code -- prelude included --
+#: and persisting the fix back into the .tpl means removing the prelude first:
+#: it carries ``_workflow_runtime_id``, which names ONE run. The boundary used
+#: to be guessed by scanning for the template's own ``import slicer`` line,
+#: which silently fails for any template that does not have one (a template may
+#: rely on ``slicer`` already being bound in ``__main__``, and several do). The
+#: write-back then refuses -- correctly, since baking in a run id is worse --
+#: and the same step self-corrects again on every future run.
+#:
+#: Emitted in ONE place (``choice_helpers._prepend_choice_prelude``, the single
+#: funnel every dispatch path goes through) and consumed in one place
+#: (``widget_execution_flow._stripRuntimePrelude``). Kept here because this
+#: module is already the neutral ground between them -- the prelude imports it.
+PRELUDE_END_MARKER = "# [Workflow runtime] end of injected prelude -- template body follows"
+
 _interaction_nodes: Dict[Tuple[str, str, str, int], str] = {}
+
+
+def strip_runtime_prelude(code: str) -> Optional[str]:
+    """Drop the runtime-injected workflow prelude, leaving template content.
+
+    The prelude (metadata-apply, hidden runtime globals, input guard) is
+    re-added fresh on every dispatch, so it must never be baked into the
+    saved template -- it carries `_workflow_runtime_id`, which identifies ONE
+    run. Only acts when a distinctive prelude marker is present (the
+    corrected code is sometimes already prelude-free).
+
+    Two ways to find the boundary, in this order:
+
+    1. ``PRELUDE_END_MARKER`` -- emitted as the prelude's last line by
+       ``choice_helpers._prepend_choice_prelude``. Exact, and independent of
+       anything the template happens to contain.
+    2. The template's own first Slicer import -- the original heuristic,
+       kept for corrected code produced before the marker existed. Broader
+       than an exact ``import slicer`` because a repair may rewrite the
+       import line (adding vtk, a trailing comment) without that meaning the
+       prelude is gone.
+
+    The heuristic alone is what made this necessary: it silently fails for
+    any template with no ``import slicer`` line -- and a template may rely on
+    ``slicer`` already being bound in ``__main__``, as
+    PelvicFracturePlanning's ``cb_step_3_slicer`` does (it opens with
+    ``import math``). The write-back then refused on every run, so that step
+    self-corrected, advanced, and threw the fix away, forever.
+
+    Returns ``None`` when a prelude IS present and NEITHER resolves. That
+    case used to return the code unchanged, which is how a shipped
+    CranialImplantPlanning template ended up with
+    ``_workflow_runtime_id = 'CranialImplantPlanning_1786919982267'`` at the
+    top: the strip silently became a no-op and the whole prelude was
+    persisted. Refusing is still the right answer for that case -- the fix
+    applies to the run in progress, and the next run regenerates the prelude
+    correctly from a clean template.
+    """
+    markers = (
+        "# [Workflow metadata] Apply source-derived defaults",
+        "# [Workflow runtime] Hidden generated-CLI workflow context",
+        "# [Workflow preconditions]",
+        PRELUDE_END_MARKER,
+    )
+    if not any(m in code for m in markers):
+        return code
+    # split("\n"), not splitlines(): the latter drops the trailing newline (so the
+    # recovered body never equalled the template it came from) and also breaks on
+    # \v, \f and \x1c-\x1e, which are ordinary characters inside a string literal.
+    lines = code.split("\n")
+    # LAST occurrence, not the first: a correction that quotes the failing
+    # code inside a comment or docstring would otherwise cut at the quote and
+    # keep the real prelude below it.
+    for i in range(len(lines) - 1, -1, -1):
+        if PRELUDE_END_MARKER in lines[i]:
+            return "\n".join(lines[i + 1:])
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if (stripped == "import slicer"
+                or stripped.startswith("import slicer ")
+                or stripped.startswith("import slicer,")
+                or stripped.startswith("import slicer #")
+                or stripped.startswith("from slicer ")):
+            return "\n".join(lines[i:])
+    return None
 
 
 def _key(

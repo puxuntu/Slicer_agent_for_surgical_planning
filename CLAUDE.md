@@ -65,6 +65,14 @@ python scripts/check_handler_drive.py
 # observes the click -- a generated interaction step that creates its own node
 # steals the click and the extension's follow-on behaviour never happens, silently.
 python scripts/check_placement_starter.py
+
+# A self-correction is fixed against the DISPATCHED code -- prelude included --
+# so persisting it back into the .tpl means cutting the prelude off first. The
+# boundary is an explicit end marker emitted by the prelude itself, because the
+# old "scan for the template's import slicer" heuristic silently failed for any
+# template lacking one, and the write-back then refused on every run: the step
+# self-corrected, advanced, threw the fix away, and did it again next run.
+python scripts/check_prelude_boundary.py
 ```
 
 Dependencies are in `requirements.txt` — `httpx`, `numpy`, `jsonschema` are explicit; `faiss-cpu`, `onnxruntime`, `transformers` are auto-installed at runtime. CMake installs these into Slicer's Python environment during extension setup.

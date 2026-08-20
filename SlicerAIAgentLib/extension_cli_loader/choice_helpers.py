@@ -1972,13 +1972,30 @@ def _build_input_guard(ctx: _WorkflowContext) -> str:
 
 
 def _prepend_choice_prelude(ctx: _WorkflowContext, code: Optional[str]) -> Optional[str]:
+    """Attach the hidden prelude to a step's template code.
+
+    The single funnel every dispatch path goes through, which is why the
+    prelude-end marker is emitted HERE rather than by each of the three builders:
+    the last one to contribute varies (the input guard is conditional), so only
+    the funnel knows where the prelude actually stops. It also keeps
+    ``build_assembled_code_for_validation`` -- which calls this too -- validating
+    the same bytes the runtime produces.
+    """
     if not code:
         return code
+    from ..workflow_state import PRELUDE_END_MARKER
+
     runtime_prelude = _build_runtime_prelude(ctx)
     prelude = _build_choice_prelude(ctx)
     input_guard = _build_input_guard(ctx)
     code = _inject_method_precondition_call(ctx, code)
-    return (prelude or "") + runtime_prelude + (input_guard or "") + code
+    return (
+        (prelude or "")
+        + runtime_prelude
+        + (input_guard or "")
+        + PRELUDE_END_MARKER + "\n"
+        + code
+    )
 
 
 def build_assembled_code_for_validation(
