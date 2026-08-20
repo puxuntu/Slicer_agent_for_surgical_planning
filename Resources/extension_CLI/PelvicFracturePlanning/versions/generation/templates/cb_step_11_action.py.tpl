@@ -1,4 +1,4 @@
-# --- PelvicFracturePlanning: If further adjustments of the template are required, tick the "Manually adjust a template" checkbox. If not, jump to step 15. ---
+# --- PelvicFracturePlanning: If further adjustments of the template are required, tick the "Manually adjust a template" checkbox. If not, jump to step 16. ---
 # [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
@@ -56,5 +56,5 @@ if _ctrl is not None:
     except Exception:
         pass
 _widget.onAdjustTemplateToggled(True)
-print("[PelvicFracturePlanning] Step 'cb_step_10': set 'chkAdjustTemplate' = True via onAdjustTemplateToggled.")
+print("[PelvicFracturePlanning] Step 'cb_step_11': set 'chkAdjustTemplate' = True via onAdjustTemplateToggled.")
 

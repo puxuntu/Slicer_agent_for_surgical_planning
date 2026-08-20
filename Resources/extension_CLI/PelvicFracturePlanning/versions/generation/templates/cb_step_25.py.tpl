@@ -29,5 +29,5 @@ if _widget is None:
 if not hasattr(_widget, 'onRegenScrews'):
     raise RuntimeError("PelvicFracturePlanning widget has no handler 'onRegenScrews' for 'btnRegenScrews'; regenerate the CLI.")
 _widget.onRegenScrews()
-print("[PelvicFracturePlanning] Step 'cb_step_24': clicked 'btnRegenScrews' via onRegenScrews().")
+print("[PelvicFracturePlanning] Step 'cb_step_25': clicked 'btnRegenScrews' via onRegenScrews().")
 

@@ -5,4 +5,4 @@ interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton"
 if interactionNode is not None:
     interactionNode.SwitchToViewTransformMode()
 
-print("[PelvicFracturePlanning] Step 'cb_step_23' view adjustment completed.")
+print("[PelvicFracturePlanning] Step 'cb_step_24' view adjustment completed.")

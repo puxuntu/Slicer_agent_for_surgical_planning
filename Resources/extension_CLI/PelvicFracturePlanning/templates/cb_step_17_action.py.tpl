@@ -1,4 +1,4 @@
-# --- PelvicFracturePlanning: If further adjustments are required, tick the "Manually adjust a fragment" checkbox. If not, jump to step 21. ---
+# --- PelvicFracturePlanning: If further adjustments are required, tick the "Manually adjust a fragment" checkbox. If not, jump to step 22. ---
 # [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
@@ -56,5 +56,5 @@ if _ctrl is not None:
     except Exception:
         pass
 _widget.onManualAdjustToggled(True)
-print("[PelvicFracturePlanning] Step 'cb_step_16': set 'chkManualAdjust' = True via onManualAdjustToggled.")
+print("[PelvicFracturePlanning] Step 'cb_step_17': set 'chkManualAdjust' = True via onManualAdjustToggled.")
 

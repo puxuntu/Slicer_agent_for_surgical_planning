@@ -12,44 +12,45 @@ and wait for them to complete the interaction before proceeding.
 
 **Workflow Steps:**
 1. `cb_step_1` [user_choice] — In the "Input CT Volume" option, choose the Pelvic Volume.
-   - Ask user: Choose the Pelvic Volume in the Input CT Volume option.
+   - Ask user: Which volume is the pelvic CT input?
 2. `cb_step_2` [extension_op] — Click "Run Step 1: Segment Pelvis" button.
-3. `cb_step_3` [extension_op] — Click "Run Step 2: Segment Fractures" button.
-4. `cb_step_4` [user_choice] — In the "Untick a piece to stop treating it as separate" section, untick these segments.
-   - Ask user: Which segments should be unticked?
-5. `cb_step_5` [branch_op] — If a piece should have been split but was and and require cut it manually, jump to step 6. If not, jump to step 9.
-   - Ask user: Does a piece require manual separation?
-6. `cb_step_6` [extension_op] — Click "Manually seperate" button.
-7. `cb_step_7` [user_interaction] — Manually click to add a cut point and adjust the position and rotation of the cutting plane.
+3. `cb_step_3` [slicer_op] — For the 3D view, click the "Center view" botton.
+4. `cb_step_4` [extension_op] — Click "Run Step 2: Segment Fractures" button.
+5. `cb_step_5` [user_choice] — In the "Untick a piece to stop treating it as separate" section, untick these segments.
+   - Ask user: Which fracture segments should be unticked and folded into a neighboring piece?
+6. `cb_step_6` [branch_op] — If a piece should have been split but was and and require cut it manually, jump to step 7. If not, jump to step 10.
+   - Ask user: Does a piece require manual splitting?
+7. `cb_step_7` [extension_op] — Click "Manually seperate" button.
+8. `cb_step_8` [user_interaction] — Manually click to add a cut point and adjust the position and rotation of the cutting plane.
    - Interaction: plane
-   - Tell user: Place a cutting plane by clicking a cut point and adjusting its position and rotation.
-8. `cb_step_8` [extension_op] — Click "Confirm seperation" button.
-9. `cb_step_9` [extension_op] — Click "Run Step 3: Generate template" button.
-10. `cb_step_10` [branch_op] — If further adjustments of the template are required, tick the "Manually adjust a template" checkbox. If not, jump to step 15.
+   - Tell user: Place a cut point and adjust the cutting plane position and rotation for manual splitting.
+9. `cb_step_9` [extension_op] — Click "Confirm seperation" button.
+10. `cb_step_10` [extension_op] — Click "Run Step 3: Generate template" button.
+11. `cb_step_11` [branch_op] — If further adjustments of the template are required, tick the "Manually adjust a template" checkbox. If not, jump to step 16.
    - Ask user: Are further adjustments of the template required?
-11. `cb_step_11` [user_choice] — In the "Template" option, Choose which template needs adjustment in the "Template" selection box.
+12. `cb_step_12` [user_choice] — In the "Template" option, Choose which template needs adjustment in the "Template" selection box.
    - Ask user: Which template needs adjustment?
-12. `cb_step_12` [user_interaction] — Manually adjust the position and rotation of the selected template.
+13. `cb_step_13` [user_interaction] — Manually adjust the position and rotation of the selected template.
    - Interaction: generic
-13. `cb_step_13` [branch_op] — If more templates need adjustment, jump to step 11. If not, jump to step 14.
+14. `cb_step_14` [branch_op] — If more templates need adjustment, jump to step 12. If not, jump to step 15.
    - Ask user: Do more templates need adjustment?
-14. `cb_step_14` [extension_op] — Click the "Apply template adjustment" button.
-15. `cb_step_15` [extension_op] — Click "Run Step 4: Register _Reduce" button.
-16. `cb_step_16` [branch_op] — If further adjustments are required, tick the "Manually adjust a fragment" checkbox. If not, jump to step 21.
-   - Ask user: Are further adjustments of a fragment required?
-17. `cb_step_17` [user_choice] — In the "Fragment" option, Choose which fragment needs adjustment in the "Fragment" selection box.
+15. `cb_step_15` [extension_op] — Click the "Apply template adjustment" button.
+16. `cb_step_16` [extension_op] — Click "Run Step 4: Register _Reduce" button.
+17. `cb_step_17` [branch_op] — If further adjustments are required, tick the "Manually adjust a fragment" checkbox. If not, jump to step 22.
+   - Ask user: Are further fragment adjustments required?
+18. `cb_step_18` [user_choice] — In the "Fragment" option, Choose which fragment needs adjustment in the "Fragment" selection box.
    - Ask user: Which fragment needs adjustment?
-18. `cb_step_18` [user_interaction] — Manually adjust the position and rotation of the selected fragment.
+19. `cb_step_19` [user_interaction] — Manually adjust the position and rotation of the selected fragment.
    - Interaction: generic
-19. `cb_step_19` [branch_op] — If further adjustments are required, jump to step 17. If not, jump to step 20.
+20. `cb_step_20` [branch_op] — If further adjustments are required, jump to step 18. If not, jump to step 21.
    - Ask user: Do more fragments need adjustment?
-20. `cb_step_20` [extension_op] — Click the "Apply adjustments" button.
-21. `cb_step_21` [extension_op] — Click the "Run Step 5: Plan Screws" button.
-22. `cb_step_22` [branch_op] — If further adjustments are required, tick the "Edit Screw trajectories" checkbox. If not, stop here.
-   - Ask user: Are further adjustments of screw trajectories required?
-23. `cb_step_23` [user_interaction] — Manually adjust the position and rotation of the screw trajectories.
+21. `cb_step_21` [extension_op] — Click the "Apply adjustments" button.
+22. `cb_step_22` [extension_op] — Click the "Run Step 5: Plan Screws" button.
+23. `cb_step_23` [branch_op] — If further adjustments are required, tick the "Edit Screw trajectories" checkbox. If not, stop here.
+   - Ask user: Are further screw trajectory adjustments required?
+24. `cb_step_24` [user_interaction] — Manually adjust the position and rotation of the screw trajectories.
    - Interaction: generic
-24. `cb_step_24` [extension_op] — Click the "Regenerate screws from edited lines" button.
+25. `cb_step_25` [extension_op] — Click the "Regenerate screws from edited lines" button.
 
 **Protocol:**
 1. Call `PelvicFracturePlanning` with `workflow_step='cb_step_1'` and `user_action='start'` to begin

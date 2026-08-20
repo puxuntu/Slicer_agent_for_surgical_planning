@@ -1,4 +1,4 @@
-# --- PelvicFracturePlanning: Click "Manually seperate" button. ---
+# --- PelvicFracturePlanning: Click "Run Step 3: Generate template" button. ---
 # [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
@@ -25,9 +25,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnManualSplit'.")
-if not hasattr(_widget, 'onManualSplit'):
-    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onManualSplit' for 'btnManualSplit'; regenerate the CLI.")
-_widget.onManualSplit()
-print("[PelvicFracturePlanning] Step 'cb_step_6': clicked 'btnManualSplit' via onManualSplit().")
+    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnGenTemplate'.")
+if not hasattr(_widget, 'onGenTemplate'):
+    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onGenTemplate' for 'btnGenTemplate'; regenerate the CLI.")
+_widget.onGenTemplate()
+print("[PelvicFracturePlanning] Step 'cb_step_10': clicked 'btnGenTemplate' via onGenTemplate().")
 

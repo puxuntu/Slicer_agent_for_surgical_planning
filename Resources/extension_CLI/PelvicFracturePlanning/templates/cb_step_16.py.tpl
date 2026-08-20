@@ -1,4 +1,4 @@
-# --- PelvicFracturePlanning: Click "Confirm seperation" button. ---
+# --- PelvicFracturePlanning: Click "Run Step 4: Register _Reduce" button. ---
 # [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
@@ -25,9 +25,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnConfirmSplit'.")
-if not hasattr(_widget, 'onConfirmSplit'):
-    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onConfirmSplit' for 'btnConfirmSplit'; regenerate the CLI.")
-_widget.onConfirmSplit()
-print("[PelvicFracturePlanning] Step 'cb_step_8': clicked 'btnConfirmSplit' via onConfirmSplit().")
+    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnReduce'.")
+if not hasattr(_widget, 'onReduce'):
+    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onReduce' for 'btnReduce'; regenerate the CLI.")
+_widget.onReduce()
+print("[PelvicFracturePlanning] Step 'cb_step_16': clicked 'btnReduce' via onReduce().")
 

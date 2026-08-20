@@ -3,7 +3,7 @@
     "type": "function",
     "function": {
       "name": "PelvicFracturePlanning",
-      "description": "Guided interactive workflow for PelvicFracturePlanning. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Input CT Volume\" option, choose the Pelvic Volume.; 'cb_step_2': Click \"Run Step 1: Segment Pelvis\" button.; 'cb_step_3': Click \"Run Step 2: Segment Fractures\" button.; 'cb_step_4': In the \"Untick a piece to stop treating it as separate\" section, untick these segments.; 'cb_step_5': If a piece should have been split but was and and require cut it manually, jump to step 6. If not, jump to step 9.; 'cb_step_6': Click \"Manually seperate\" button.; 'cb_step_7': Manually click to add a cut point and adjust the position and rotation of the cutting plane. (interactive: plane); 'cb_step_8': Click \"Confirm seperation\" button.; 'cb_step_9': Click \"Run Step 3: Generate template\" button.; 'cb_step_10': If further adjustments of the template are required, tick the \"Manually adjust a template\" checkbox. If not, jump to step 15.",
+      "description": "Guided interactive workflow for PelvicFracturePlanning. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Input CT Volume\" option, choose the Pelvic Volume.; 'cb_step_2': Click \"Run Step 1: Segment Pelvis\" button.; 'cb_step_3': For the 3D view, click the \"Center view\" botton.; 'cb_step_4': Click \"Run Step 2: Segment Fractures\" button.; 'cb_step_5': In the \"Untick a piece to stop treating it as separate\" section, untick these segments.; 'cb_step_6': If a piece should have been split but was and and require cut it manually, jump to step 7. If not, jump to step 10.; 'cb_step_7': Click \"Manually seperate\" button.; 'cb_step_8': Manually click to add a cut point and adjust the position and rotation of the cutting plane. (interactive: plane); 'cb_step_9': Click \"Confirm seperation\" button.; 'cb_step_10': Click \"Run Step 3: Generate template\" button.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -33,7 +33,8 @@
               "cb_step_21",
               "cb_step_22",
               "cb_step_23",
-              "cb_step_24"
+              "cb_step_24",
+              "cb_step_25"
             ],
             "description": "Which workflow step to execute"
           },
