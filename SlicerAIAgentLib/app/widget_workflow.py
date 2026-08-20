@@ -3459,15 +3459,106 @@ class WidgetWorkflowMixin:
         return True
 
     def _renderWorkflowSegmentNamePicker(self, state):
-        """Show a single-pick combobox of the SEGMENT NAMES of a segmentation, so
-        the user picks one fragment/segment by name exactly like the extension's
-        own content combobox (e.g. the "Fragment" selector), instead of a tree of
-        whole scene nodes. The picked name flows through choice_made -> choice_value
-        identically to a literal-choice step (and Part 4 mirrors it onto the live
-        source combobox so its connected handler fires).
+        """Show a single-pick combobox reproducing the extension's own content
+        combobox (its "Template" / "Fragment" / "Screw" selector), so the user picks
+        from a LIST instead of typing into a text box. The picked name flows through
+        choice_made -> choice_value identically to a literal-choice step, and the
+        preview mirrors it onto the live source combobox so its connected handler
+        fires.
 
-        Returns True if it rendered (a segmentation with >=1 segment resolved), or
-        False so the caller falls back to the free-text box (never the node tree).
+        Two sources of the option list, in this order:
+
+        1. The live source combobox's own items. Authoritative whenever available,
+           because these ARE the options the extension offers.
+        2. The segment names of the segmentation the step points at -- the original
+           behaviour, kept for a step whose source control is not reachable or not
+           yet populated.
+
+        The order matters. An extension's content combobox is often filled at
+        runtime from nodes it just made, so its items may be model names with no
+        segmentation behind them at all; reconstruction then finds nothing, and
+        before (1) existed the panel fell back to a free-TEXT box asking the surgeon
+        to type an option they were meant to choose from a list.
+
+        Returns True if it rendered, or False so the caller falls back to the
+        free-text box (never the node tree).
+        """
+        names = self._liveSourceComboItems(state) or self._segmentNamesForPicker(state)
+        if not names:
+            return False
+        return self._buildWorkflowSegmentNamePicker(state, names)
+
+    def _liveSourceComboItems(self, state):
+        """The items currently in the extension's OWN source combobox, or [].
+
+        This is the authoritative answer whenever it is available, and it is tried
+        BEFORE reconstructing names from a segmentation. An extension's content
+        combobox is frequently populated at runtime from nodes it just made --
+        ``for node in self._templateModelNodes: self.ui.templateSelector.addItem(
+        node.GetName())`` -- so its items are model names, not any segmentation's
+        segments, and no static reconstruction can produce them: they do not exist
+        until the extension builds them. Reconstruction then finds nothing, the
+        picker declines, and the panel falls back to a free-TEXT box asking the
+        surgeon to type an option they were supposed to choose from a list.
+
+        Reading the live control removes the inference entirely -- the options
+        shown are the options the extension itself offers, whatever filled them.
+        Silent [] on any miss (module not entered, no such widget, empty combo), so
+        the segmentation path and then free text still follow.
+        """
+        source_widget = str(state.get("segment_name_source_widget") or "").strip()
+        control = self._resolveLiveSourceControl(source_widget)
+        if control is None:
+            return []
+        try:
+            count = int(control.count)
+        except Exception:
+            return []
+        items = []
+        for index in range(count):
+            try:
+                text = str(control.itemText(index) or "").strip()
+            except Exception:
+                continue
+            if text:
+                items.append(text)
+        return items
+
+    def _resolveLiveSourceControl(self, source_widget):
+        """The extension's live control named `source_widget`, or None.
+
+        Mirrors the generator's own resolution order (``_resolve_qt_control_lines``):
+        the loaded ``.ui`` object, then a direct attribute, then an objectName search
+        of the widget tree. A control built in code rather than in Qt Designer has no
+        ``.ui`` entry, so stopping at the first form would miss it.
+        """
+        if not source_widget:
+            return None
+        module_name = self._workflowModuleName()
+        if not module_name:
+            return None
+        try:
+            widget = slicer.util.getModuleWidget(module_name)
+        except Exception:
+            widget = None
+        if widget is None:
+            return None
+        control = getattr(getattr(widget, "ui", None), source_widget, None)
+        if control is None:
+            control = getattr(widget, source_widget, None)
+        if control is None:
+            try:
+                found = slicer.util.findChildren(widget, name=source_widget)
+                control = found[0] if found else None
+            except Exception:
+                control = None
+        return control
+
+    def _segmentNamesForPicker(self, state):
+        """Segment names reconstructed from the segmentation this step points at, or [].
+
+        The original resolution: find the segmentation (by bound target field or by
+        widget-name keyword when several exist) and list its segments in order.
         """
         node_class = state.get("segmentation_node_class") or "vtkMRMLSegmentationNode"
         candidates = []
@@ -3485,7 +3576,7 @@ class WidgetWorkflowMixin:
             logger.debug("Enumerating segmentation candidates failed", exc_info=True)
             candidates = []
         if not candidates:
-            return False
+            return []
         # Safety for the deterministic content-combobox signal: with more than one
         # segmentation and no way to pick the right one (no bound target field and
         # no widget-name keyword match), do NOT guess -- fall through to the
@@ -3500,7 +3591,7 @@ class WidgetWorkflowMixin:
                     any(k in str(c.get("name") or "").lower() for k in kws) for c in candidates
                 )
             if not resolved:
-                return False
+                return []
         idx = self._preferredSegmentationIndex(candidates, state)
         if not (0 <= idx < len(candidates)):
             idx = 0
@@ -3517,9 +3608,10 @@ class WidgetWorkflowMixin:
         except Exception:
             logger.debug("Enumerating segment names failed", exc_info=True)
             names = []
-        if not names:
-            return False
+        return names
 
+    def _buildWorkflowSegmentNamePicker(self, state, names):
+        """Render the single-pick combobox over `names` and wire it up."""
         container = qt.QWidget()
         vbox = qt.QVBoxLayout(container)
         vbox.setContentsMargins(0, 0, 0, 0)
