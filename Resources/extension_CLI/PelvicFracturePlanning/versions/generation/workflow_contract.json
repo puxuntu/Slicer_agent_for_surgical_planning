@@ -21,17 +21,13 @@
           "operation_id": "cb_step_1_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the pelvic CT volume as the input volume.",
+          "description": "Select the input CT volume (Pelvic Volume) for the workflow",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [
-            "qMRMLNodeComboBox",
-            "vtkMRMLScalarVolumeNode",
-            "select"
-          ],
-          "parameter_name": "input_volume",
-          "node_class": "vtkMRMLScalarVolumeNode",
+          "slicer_api_keywords": [],
+          "parameter_name": "inputVolume",
+          "node_class": "",
           "confidence": "high",
           "required": true
         }
@@ -76,7 +72,7 @@
           "operation_id": "cb_step_2_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Run Step 1 to segment the pelvis.",
+          "description": "Run Step 1 to segment the pelvis from the selected CT volume",
           "extension_method_hint": "segment_pelvis",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -127,14 +123,14 @@
           "operation_id": "cb_step_3_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Center the 3D view on the scene.",
+          "description": "Center the 3D view on the scene",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "ThreeDWidget",
-            "resetFocalPoint",
-            "center view"
+            "3D view",
+            "center view",
+            "ResetCamera"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -183,7 +179,7 @@
           "operation_id": "cb_step_4_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Run Step 2 to segment fractures.",
+          "description": "Run Step 2 to segment fracture fragments",
           "extension_method_hint": "segment_fractures",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -234,16 +230,12 @@
           "operation_id": "cb_step_5_op_1",
           "operation_type": "user_choice",
           "intent": "segment_visibility_selection",
-          "description": "Select the segments to untick so they are no longer treated as separate pieces.",
+          "description": "Select which fracture segments to untick so they are not treated as separate pieces",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [
-            "qMRMLSegmentsTableView",
-            "segment",
-            "visibility"
-          ],
-          "parameter_name": "unticked_segments",
+          "slicer_api_keywords": [],
+          "parameter_name": "hiddenIds",
           "node_class": "vtkMRMLSegmentationNode",
           "confidence": "high",
           "required": true
@@ -291,12 +283,12 @@
           "operation_id": "cb_step_6_op_1",
           "operation_type": "branch_op",
           "intent": "",
-          "description": "Ask whether any piece needs a manual cut, and route to the manual split section or skip it.",
+          "description": "Ask whether a piece should have been split but was not and requires manual cutting; branch to manual cut or skip to step 10",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
-          "parameter_name": "manual_split_needed",
+          "parameter_name": "manual_cut_required",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -342,14 +334,14 @@
           "operation_id": "cb_step_7_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Click the manual separate button to start manual splitting.",
+          "description": "Start the manual separation workflow",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
           "parameter_name": "",
           "node_class": "",
-          "confidence": "medium",
+          "confidence": "high",
           "required": true
         }
       ],
@@ -393,19 +385,20 @@
           "operation_id": "cb_step_8_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Place a cut point and adjust the position and rotation of the manual cutting plane.",
+          "description": "Place the cutting plane by adding a cut point, then adjust its position and rotation",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "vtkMRMLMarkupsPlaneNode",
-            "cutting plane",
             "place",
+            "SetActiveListID",
+            "Translate",
             "Rotate"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLMarkupsFiducialNode",
-          "confidence": "medium",
+          "confidence": "high",
           "required": true
         }
       ],
@@ -414,7 +407,7 @@
         "interaction_kind": "markup_placement",
         "interaction_type": "fiducial",
         "node_class": "vtkMRMLMarkupsFiducialNode",
-        "placement_instructions": "Place a cut point and adjust the position and rotation of the manual cutting plane.",
+        "placement_instructions": "Click in the view to add a cut point, then adjust the cutting plane's position and rotation.",
         "interaction_owner": "previous_extension_method",
         "placement_starter_method": "onManualSplit",
         "created_node_source": "previous_extension_method"
@@ -459,7 +452,7 @@
           "operation_id": "cb_step_9_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Confirm the manual separation/cut.",
+          "description": "Confirm the manual separation of the cut piece",
           "extension_method_hint": "split_segment_by_plane",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -511,7 +504,7 @@
           "operation_id": "cb_step_10_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Run Step 3 to generate the template.",
+          "description": "Run Step 3 to generate the template from the pelvis segmentation",
           "extension_method_hint": "plan_generate_template",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -549,7 +542,7 @@
     {
       "step_id": "cb_step_11",
       "index": 10,
-      "description": "If further adjustments of the template are required, tick the \"Manually adjust a template\" checkbox. If not, jump to step 16.",
+      "description": "If further adjustments of the template are required, tick the \"Manually adjust a template\" checkbox. If not, jump to step 13.",
       "operation_type": "branch_op",
       "depends_on": [
         "cb_step_10"
@@ -562,12 +555,12 @@
           "operation_id": "cb_step_11_op_1",
           "operation_type": "branch_op",
           "intent": "",
-          "description": "Ask whether further template adjustments are needed; if so tick the manual template adjustment checkbox, otherwise skip to step 16.",
+          "description": "Ask whether further template adjustments are required; if so tick manual template adjustment, otherwise jump to step 13",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
-          "parameter_name": "manually_adjust_template",
+          "parameter_name": "manual_template_adjust",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -613,16 +606,12 @@
           "operation_id": "cb_step_12_op_1",
           "operation_type": "user_choice",
           "intent": "segment_name_selection",
-          "description": "Choose which template needs adjustment from the Template selection box.",
+          "description": "Choose which template needs adjustment",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [
-            "template",
-            "selector",
-            "select"
-          ],
-          "parameter_name": "template_selector",
+          "slicer_api_keywords": [],
+          "parameter_name": "templateName",
           "node_class": "vtkMRMLSegmentationNode",
           "confidence": "high",
           "required": true
@@ -657,138 +646,20 @@
     {
       "step_id": "cb_step_13",
       "index": 12,
-      "description": "Manually adjust the position and rotation of the selected template.",
-      "operation_type": "user_interaction",
-      "depends_on": [
-        "cb_step_12"
-      ],
-      "is_optional": false,
-      "method_name": "",
-      "extension_function_name": "",
-      "operations": [
-        {
-          "operation_id": "cb_step_13_op_1",
-          "operation_type": "user_interaction",
-          "intent": "",
-          "description": "Adjust the position and rotation of the selected template.",
-          "extension_method_hint": "",
-          "extension_function_hint": "",
-          "slicer_op_category": "",
-          "slicer_api_keywords": [
-            "vtkMRMLModelNode",
-            "template",
-            "Translate",
-            "Rotate"
-          ],
-          "parameter_name": "",
-          "node_class": "",
-          "confidence": "high",
-          "required": true
-        }
-      ],
-      "parameter_roles": {},
-      "interaction": {
-        "interaction_kind": "view_adjustment",
-        "interaction_type": "generic",
-        "node_class": "",
-        "placement_instructions": "",
-        "interaction_owner": "",
-        "placement_starter_method": "",
-        "created_node_source": ""
-      },
-      "operation_model": {
-        "step_type": "user_interaction",
-        "op_types": [
-          "user_interaction"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": true,
-        "allow_module_switch": false,
-        "produces_interaction_state": true,
-        "interaction_kinds": [
-          "view_adjustment"
-        ]
-      },
-      "template_contract": {
-        "template_file": "",
-        "pre_template_file": "templates/cb_step_13_pre.py.tpl",
-        "post_template_file": "templates/cb_step_13_post.py.tpl",
-        "required": true,
-        "allow_instruction_only": true
-      }
-    },
-    {
-      "step_id": "cb_step_14",
-      "index": 13,
-      "description": "If more templates need adjustment, jump to step 12. If not, jump to step 15.",
-      "operation_type": "branch_op",
-      "depends_on": [
-        "cb_step_13",
-        "cb_step_12"
-      ],
-      "is_optional": false,
-      "method_name": "",
-      "extension_function_name": "",
-      "operations": [
-        {
-          "operation_id": "cb_step_14_op_1",
-          "operation_type": "branch_op",
-          "intent": "",
-          "description": "Ask whether more templates need adjustment; yes loops back to template selection, no continues to apply.",
-          "extension_method_hint": "",
-          "extension_function_hint": "",
-          "slicer_op_category": "",
-          "slicer_api_keywords": [],
-          "parameter_name": "more_template_adjustments",
-          "node_class": "",
-          "confidence": "high",
-          "required": true
-        }
-      ],
-      "parameter_roles": {},
-      "interaction": {},
-      "operation_model": {
-        "step_type": "branch_op",
-        "op_types": [
-          "branch_op"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
-        "allow_module_switch": false,
-        "produces_interaction_state": false,
-        "interaction_kinds": []
-      },
-      "template_contract": {
-        "template_file": "",
-        "pre_template_file": "",
-        "post_template_file": "",
-        "required": true,
-        "allow_instruction_only": false
-      }
-    },
-    {
-      "step_id": "cb_step_15",
-      "index": 14,
       "description": "Click the \"Apply template adjustment\" button.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_14"
+        "cb_step_12"
       ],
       "is_optional": false,
       "method_name": "applyTemplateTransforms",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_15_op_1",
+          "operation_id": "cb_step_13_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Apply the template adjustments.",
+          "description": "Apply the manual template adjustment",
           "extension_method_hint": "applyTemplateTransforms",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -816,7 +687,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_15.py.tpl",
+        "template_file": "templates/cb_step_13.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -824,12 +695,12 @@
       }
     },
     {
-      "step_id": "cb_step_16",
-      "index": 15,
+      "step_id": "cb_step_14",
+      "index": 13,
       "description": "Click \"Run Step 4: Register _Reduce\" button.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_15",
+        "cb_step_13",
         "cb_step_4"
       ],
       "is_optional": false,
@@ -837,10 +708,10 @@
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_16_op_1",
+          "operation_id": "cb_step_14_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Run Step 4 to register and reduce the fragments.",
+          "description": "Run Step 4 to register and reduce the fracture fragments",
           "extension_method_hint": "plan_register_reduce",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -868,7 +739,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_16.py.tpl",
+        "template_file": "templates/cb_step_14.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -876,27 +747,27 @@
       }
     },
     {
-      "step_id": "cb_step_17",
-      "index": 16,
-      "description": "If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 22.",
+      "step_id": "cb_step_15",
+      "index": 14,
+      "description": "If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 17.",
       "operation_type": "branch_op",
       "depends_on": [
-        "cb_step_16"
+        "cb_step_14"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_17_op_1",
+          "operation_id": "cb_step_15_op_1",
           "operation_type": "branch_op",
           "intent": "",
-          "description": "Ask whether further fragment adjustments are needed; if so tick the manual fragment adjustment checkbox, otherwise skip to step 22.",
+          "description": "Ask whether further fragment adjustments are required; if so tick manual fragment adjustment, otherwise jump to step 17",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
-          "parameter_name": "manually_adjust_fragment",
+          "parameter_name": "manual_fragment_adjust",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -927,31 +798,27 @@
       }
     },
     {
-      "step_id": "cb_step_18",
-      "index": 17,
+      "step_id": "cb_step_16",
+      "index": 15,
       "description": "In the \"Fragment\" option, Choose which fragment needs adjustment in the \"Fragment\" selection box.",
       "operation_type": "user_choice",
       "depends_on": [
-        "cb_step_17"
+        "cb_step_15"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_18_op_1",
+          "operation_id": "cb_step_16_op_1",
           "operation_type": "user_choice",
           "intent": "segment_name_selection",
-          "description": "Choose which fragment needs adjustment from the Fragment selection box.",
+          "description": "Choose which fragment needs adjustment",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [
-            "fragment",
-            "selector",
-            "select"
-          ],
-          "parameter_name": "fragment_selector",
+          "slicer_api_keywords": [],
+          "parameter_name": "fragmentName",
           "node_class": "vtkMRMLSegmentationNode",
           "confidence": "high",
           "required": true
@@ -984,140 +851,22 @@
       }
     },
     {
-      "step_id": "cb_step_19",
-      "index": 18,
-      "description": "Manually adjust the position and rotation of the selected fragment.",
-      "operation_type": "user_interaction",
-      "depends_on": [
-        "cb_step_18"
-      ],
-      "is_optional": false,
-      "method_name": "",
-      "extension_function_name": "",
-      "operations": [
-        {
-          "operation_id": "cb_step_19_op_1",
-          "operation_type": "user_interaction",
-          "intent": "",
-          "description": "Adjust the position and rotation of the selected fragment.",
-          "extension_method_hint": "",
-          "extension_function_hint": "",
-          "slicer_op_category": "",
-          "slicer_api_keywords": [
-            "vtkMRMLModelNode",
-            "fragment",
-            "Translate",
-            "Rotate"
-          ],
-          "parameter_name": "",
-          "node_class": "",
-          "confidence": "high",
-          "required": true
-        }
-      ],
-      "parameter_roles": {},
-      "interaction": {
-        "interaction_kind": "view_adjustment",
-        "interaction_type": "generic",
-        "node_class": "",
-        "placement_instructions": "",
-        "interaction_owner": "",
-        "placement_starter_method": "",
-        "created_node_source": ""
-      },
-      "operation_model": {
-        "step_type": "user_interaction",
-        "op_types": [
-          "user_interaction"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": true,
-        "allow_module_switch": false,
-        "produces_interaction_state": true,
-        "interaction_kinds": [
-          "view_adjustment"
-        ]
-      },
-      "template_contract": {
-        "template_file": "",
-        "pre_template_file": "templates/cb_step_19_pre.py.tpl",
-        "post_template_file": "templates/cb_step_19_post.py.tpl",
-        "required": true,
-        "allow_instruction_only": true
-      }
-    },
-    {
-      "step_id": "cb_step_20",
-      "index": 19,
-      "description": "If further adjustments are required, jump to step 18. If not, jump to step 21.",
-      "operation_type": "branch_op",
-      "depends_on": [
-        "cb_step_19",
-        "cb_step_18"
-      ],
-      "is_optional": false,
-      "method_name": "",
-      "extension_function_name": "",
-      "operations": [
-        {
-          "operation_id": "cb_step_20_op_1",
-          "operation_type": "branch_op",
-          "intent": "",
-          "description": "Ask whether more fragment adjustments are needed; yes loops back to fragment selection, no continues to apply.",
-          "extension_method_hint": "",
-          "extension_function_hint": "",
-          "slicer_op_category": "",
-          "slicer_api_keywords": [],
-          "parameter_name": "more_fragment_adjustments",
-          "node_class": "",
-          "confidence": "high",
-          "required": true
-        }
-      ],
-      "parameter_roles": {},
-      "interaction": {},
-      "operation_model": {
-        "step_type": "branch_op",
-        "op_types": [
-          "branch_op"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
-        "allow_module_switch": false,
-        "produces_interaction_state": false,
-        "interaction_kinds": []
-      },
-      "template_contract": {
-        "template_file": "",
-        "pre_template_file": "",
-        "post_template_file": "",
-        "required": true,
-        "allow_instruction_only": false
-      }
-    },
-    {
-      "step_id": "cb_step_21",
-      "index": 20,
+      "step_id": "cb_step_17",
+      "index": 16,
       "description": "Click the \"Apply adjustments\" button.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_20"
+        "cb_step_16"
       ],
       "is_optional": false,
       "method_name": "applyReductionTransforms",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_21_op_1",
+          "operation_id": "cb_step_17_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Apply the fragment adjustments.",
+          "description": "Apply the manual fragment adjustments",
           "extension_method_hint": "applyReductionTransforms",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -1145,7 +894,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_21.py.tpl",
+        "template_file": "templates/cb_step_17.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -1153,12 +902,12 @@
       }
     },
     {
-      "step_id": "cb_step_22",
-      "index": 21,
+      "step_id": "cb_step_18",
+      "index": 17,
       "description": "Click the \"Run Step 5: Plan Screws\" button.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_21",
+        "cb_step_17",
         "cb_step_5"
       ],
       "is_optional": false,
@@ -1166,10 +915,10 @@
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_22_op_1",
+          "operation_id": "cb_step_18_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Run Step 5 to plan screws.",
+          "description": "Run Step 5 to plan screw trajectories",
           "extension_method_hint": "plan_screws",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -1197,7 +946,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_22.py.tpl",
+        "template_file": "templates/cb_step_18.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -1205,22 +954,22 @@
       }
     },
     {
-      "step_id": "cb_step_23",
-      "index": 22,
+      "step_id": "cb_step_19",
+      "index": 18,
       "description": "If further adjustments are required, tick the \"Edit Screw trajectories\" checkbox. If not, stop here.",
       "operation_type": "branch_op",
       "depends_on": [
-        "cb_step_22"
+        "cb_step_18"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_23_op_1",
+          "operation_id": "cb_step_19_op_1",
           "operation_type": "branch_op",
           "intent": "",
-          "description": "Ask whether further screw trajectory edits are needed; if so tick the edit screw trajectories checkbox, otherwise stop.",
+          "description": "Ask whether further screw trajectory edits are required; if so tick edit screw trajectories, otherwise stop",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -1256,95 +1005,82 @@
       }
     },
     {
-      "step_id": "cb_step_24",
-      "index": 23,
-      "description": "Manually adjust the position and rotation of the screw trajectories.",
-      "operation_type": "user_interaction",
+      "step_id": "cb_step_20",
+      "index": 19,
+      "description": "In the \"Trajectory\" option, Choose which trajectory needs adjustment in the \"Trajectory\" selection box.",
+      "operation_type": "user_choice",
       "depends_on": [
-        "cb_step_23"
+        "cb_step_19"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_24_op_1",
-          "operation_type": "user_interaction",
-          "intent": "",
-          "description": "Adjust the position and rotation of the screw trajectories.",
+          "operation_id": "cb_step_20_op_1",
+          "operation_type": "user_choice",
+          "intent": "segment_name_selection",
+          "description": "Choose which screw trajectory needs adjustment",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [
-            "screw trajectory",
-            "Translate",
-            "Rotate",
-            "handle"
-          ],
-          "parameter_name": "",
-          "node_class": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "screwTrajectoryName",
+          "node_class": "vtkMRMLSegmentationNode",
           "confidence": "high",
           "required": true
         }
       ],
       "parameter_roles": {},
-      "interaction": {
-        "interaction_kind": "view_adjustment",
-        "interaction_type": "generic",
-        "node_class": "",
-        "placement_instructions": "",
-        "interaction_owner": "",
-        "placement_starter_method": "",
-        "created_node_source": ""
-      },
+      "interaction": {},
       "operation_model": {
-        "step_type": "user_interaction",
+        "step_type": "user_choice",
         "op_types": [
-          "user_interaction"
+          "user_choice"
         ],
-        "operation_intents": [],
+        "operation_intents": [
+          "segment_name_selection"
+        ],
         "invokes_extension_method": false,
         "invokes_extension_function": false,
         "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": true,
+        "implementation_uses_slicer_api": false,
         "allow_module_switch": false,
-        "produces_interaction_state": true,
-        "interaction_kinds": [
-          "view_adjustment"
-        ]
+        "produces_interaction_state": false,
+        "interaction_kinds": []
       },
       "template_contract": {
         "template_file": "",
-        "pre_template_file": "templates/cb_step_24_pre.py.tpl",
-        "post_template_file": "templates/cb_step_24_post.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
         "required": true,
-        "allow_instruction_only": true
+        "allow_instruction_only": false
       }
     },
     {
-      "step_id": "cb_step_25",
-      "index": 24,
+      "step_id": "cb_step_21",
+      "index": 20,
       "description": "Click the \"Regenerate screws from edited lines\" button.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_24"
+        "cb_step_20"
       ],
       "is_optional": false,
-      "method_name": "_buildScrewNodes",
-      "extension_function_name": "",
+      "method_name": "",
+      "extension_function_name": "screw_color",
       "operations": [
         {
-          "operation_id": "cb_step_25_op_1",
+          "operation_id": "cb_step_21_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Regenerate the screws from the edited trajectory lines.",
-          "extension_method_hint": "_buildScrewNodes",
-          "extension_function_hint": "",
+          "description": "Regenerate the screw trajectories from the edited lines",
+          "extension_method_hint": "",
+          "extension_function_hint": "screw_color",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
           "parameter_name": "",
           "node_class": "",
-          "confidence": "medium",
+          "confidence": "high",
           "required": true
         }
       ],
@@ -1356,16 +1092,16 @@
           "extension_op"
         ],
         "operation_intents": [],
-        "invokes_extension_method": true,
-        "invokes_extension_function": false,
+        "invokes_extension_method": false,
+        "invokes_extension_function": true,
         "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_25.py.tpl",
+        "template_file": "templates/cb_step_21.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -1390,10 +1126,6 @@
       "cb_step_2",
       "cb_step_20",
       "cb_step_21",
-      "cb_step_22",
-      "cb_step_23",
-      "cb_step_24",
-      "cb_step_25",
       "cb_step_3",
       "cb_step_4",
       "cb_step_5",

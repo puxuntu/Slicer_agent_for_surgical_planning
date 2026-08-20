@@ -30,11 +30,7 @@
     "cb_step_18",
     "cb_step_19",
     "cb_step_20",
-    "cb_step_21",
-    "cb_step_22",
-    "cb_step_23",
-    "cb_step_24",
-    "cb_step_25"
+    "cb_step_21"
   ],
   "cookbook_driven": true,
   "cookbook_file": "PelvicFracturePlanning.md",
@@ -82,15 +78,19 @@
       "valid": true,
       "issues": []
     },
+    "cb_step_14": {
+      "valid": true,
+      "issues": []
+    },
     "cb_step_15": {
       "valid": true,
       "issues": []
     },
-    "cb_step_16": {
+    "cb_step_17": {
       "valid": true,
       "issues": []
     },
-    "cb_step_17": {
+    "cb_step_18": {
       "valid": true,
       "issues": []
     },
@@ -101,25 +101,9 @@
     "cb_step_21": {
       "valid": true,
       "issues": []
-    },
-    "cb_step_22": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_23": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_24": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_25": {
-      "valid": true,
-      "issues": []
     }
   },
-  "partial_valid_step_count": 18,
+  "partial_valid_step_count": 15,
   "validation_state": {
     "static_valid": true,
     "api_probe_valid": true,
@@ -137,12 +121,12 @@
     "generator_template_sync_valid": true
   },
   "api_proof_coverage": {
-    "total_calls": 198,
-    "state_changing_calls": 45,
-    "proven_calls": 190,
+    "total_calls": 209,
+    "state_changing_calls": 43,
+    "proven_calls": 195,
     "invalid_calls": 0,
     "blocking_unproven_calls": 0,
-    "warning_unproven_reads": 8,
+    "warning_unproven_reads": 14,
     "inventory_complete": true
   },
   "workflow_contract_file": "workflow_contract.json",

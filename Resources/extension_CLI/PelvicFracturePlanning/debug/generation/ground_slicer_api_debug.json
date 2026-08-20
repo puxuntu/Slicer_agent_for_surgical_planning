@@ -15,11 +15,11 @@
     {
       "step": 3,
       "key": "cb_step_3_0",
-      "description": "Center the 3D view on the scene.",
+      "description": "Center the 3D view on the scene",
       "keywords": [
-        "ThreeDWidget",
-        "resetFocalPoint",
-        "center view"
+        "3D view",
+        "center view",
+        "ResetCamera"
       ],
       "category": "generic_slicer_api",
       "final_state_intent": {
@@ -33,7 +33,7 @@
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
         "confidence": "high",
-        "interaction_kind": "none",
+        "interaction_kind": "view_adjustment",
         "node_class": null,
         "slicer_op_category": "generic_slicer_api"
       },
@@ -43,150 +43,396 @@
         "category_hint_provenance": "generic_slicer_search_hint"
       },
       "status": "done",
-      "total_time_s": 29.59,
-      "code_chars": 313,
-      "tool_rounds": 2,
-      "api_calls": 3,
+      "total_time_s": 140.03,
+      "code_chars": 1550,
+      "tool_rounds": 11,
+      "api_calls": 12,
       "error": null,
       "progress_events": [
         {
           "round": 1,
           "phase": "search",
-          "message": "[Search] Round 1: |   Grep: \"resetFocalPoint|resetThreeDViews|resetFocalPointToVolumeCenter\" \u2192 slicer-source |   VectorSearch: \"center 3D view on the scene reset focal point threeDWidget\""
+          "message": "[Search] Round 1: |   Grep: \"resetThreeDViews|reset3DViews|ResetCamera\" \u2192 slicer-source/Base/Python |   Grep: \"resetThreeDViews|resetSliceViews\" \u2192 slicer-source/Docs/developer_guide/script_repository"
         },
         {
           "round": 2,
-          "phase": "read",
-          "message": "[Read] Round 2: |   ReadFile: slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h"
+          "phase": "search+read",
+          "message": "[Search+Read] Round 2: |   Grep: \"Reset focal view|Reset.*3D|fit.*3D|center.*view\" \u2192 slicer-source/Docs/developer_guide/script_repository |   ReadFile: slicer-source/Base/Python/slicer/util.py"
+        },
+        {
+          "round": 3,
+          "phase": "search",
+          "message": "[Search] Round 3: |   Grep: \"resetThreeDViews|resetFocalPoint|resetCamera\" \u2192 slicer-source/Libs/MRML/Widgets"
+        },
+        {
+          "round": 4,
+          "phase": "search",
+          "message": "[Search] Round 4: |   Grep: \"GetFocalPoint|vtkPoints\\* GetFocalPoint|void Reset\" \u2192 slicer-source/Libs/MRML/Core"
+        },
+        {
+          "round": 5,
+          "phase": "search",
+          "message": "[Search] Round 5: |   Grep: \"GetBounds\" \u2192 slicer-source/Libs/MRML/Core/vtkMRMLScene.h"
+        },
+        {
+          "round": 6,
+          "phase": "search",
+          "message": "[Search] Round 6: |   Grep: \"void GetBounds|double\\* GetBounds|GetBounds\\(\" \u2192 slicer-source/Libs/MRML/Core"
+        },
+        {
+          "round": 7,
+          "phase": "search",
+          "message": "[Search] Round 7: |   Grep: \"CameraNode|GetCamera\" \u2192 slicer-source/Libs/MRML/Core/vtkMRMLViewNode.h |   Grep: \"IsValid|GetCenter\" \u2192 slicer-source/Libs/MRML/Core/vtkBoundingBox.h"
+        },
+        {
+          "round": 8,
+          "phase": "search",
+          "message": "[Search] Round 8: |   Grep: \"CameraNode\" \u2192 slicer-source/Libs/MRML/Core/vtkMRMLViewNode.cxx |   Grep: \"GetNodesByClass|vtkCollection|GetFirstNode\" \u2192 slicer-source/Libs/MRML/Core/vtkMRMLScene.h"
+        },
+        {
+          "round": 9,
+          "phase": "search",
+          "message": "[Search] Round 9: |   Grep: \"GetCameraNodeID|SetCameraNodeID\" \u2192 slicer-source/Libs/MRML/Core"
+        },
+        {
+          "round": 10,
+          "phase": "search",
+          "message": "[Search] Round 10: |   Grep: \"ActiveTag|Active\" \u2192 slicer-source/Libs/MRML/Core/vtkMRMLCameraNode.h"
+        },
+        {
+          "round": 11,
+          "phase": "search",
+          "message": "[Search] Round 11: |   Grep: \"threeDViewCount|threeDWidget\\(\" \u2192 slicer-source/Base/Python"
         }
       ],
       "prompt_build_s": 0.0,
-      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nCenter the 3D view on the scene.\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `PelvicFracturePlanning`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:PelvicFracturePlanning/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nAPI keyword hints: ThreeDWidget, resetFoca",
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nCenter the 3D view on the scene\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `PelvicFracturePlanning`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:PelvicFracturePlanning/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nAPI keyword hints: 3D view, center view, Re",
       "executor_ready": true,
       "tool_count": 3,
       "last_progress": {
-        "round": 2,
-        "phase": "read",
-        "message": "[Read] Round 2: |   ReadFile: slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h"
+        "round": 11,
+        "phase": "search",
+        "message": "[Search] Round 11: |   Grep: \"threeDViewCount|threeDWidget\\(\" \u2192 slicer-source/Base/Python"
       },
-      "tool_loop_s": 27.72,
-      "total_tokens": 37969,
-      "total_api_time_s": 21.398,
-      "total_tool_time_s": 5.231,
+      "tool_loop_s": 138.08,
+      "total_tokens": 355690,
+      "total_api_time_s": 100.17,
+      "total_tool_time_s": 32.197,
       "tool_names_called": [
         "Grep",
-        "VectorSearch",
         "ReadFile"
       ],
       "rounds": [
         {
           "round": 1,
           "phase": "search",
-          "api_time_s": 4.126,
-          "tool_time_s": 5.114,
-          "round_time_s": 9.24,
+          "api_time_s": 3.686,
+          "tool_time_s": 2.135,
+          "round_time_s": 5.821,
           "tools": [
             "Grep",
-            "VectorSearch"
+            "Grep"
           ],
-          "tokens": 3296
+          "tokens": 3326
         },
         {
           "round": 2,
-          "phase": "read",
-          "api_time_s": 7.848,
-          "tool_time_s": 0.117,
-          "round_time_s": 7.965,
+          "phase": "search+read",
+          "api_time_s": 2.88,
+          "tool_time_s": 7.119,
+          "round_time_s": 9.998,
           "tools": [
+            "Grep",
             "ReadFile"
           ],
-          "tokens": 15117
+          "tokens": 5322
         },
         {
           "round": 3,
+          "phase": "search",
+          "api_time_s": 3.803,
+          "tool_time_s": 4.557,
+          "round_time_s": 8.36,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 10859
+        },
+        {
+          "round": 4,
+          "phase": "search",
+          "api_time_s": 11.7,
+          "tool_time_s": 4.792,
+          "round_time_s": 16.493,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 19315
+        },
+        {
+          "round": 5,
+          "phase": "search",
+          "api_time_s": 12.337,
+          "tool_time_s": 0.896,
+          "round_time_s": 13.233,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 28381
+        },
+        {
+          "round": 6,
+          "phase": "search",
+          "api_time_s": 3.131,
+          "tool_time_s": 4.7,
+          "round_time_s": 7.83,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 28673
+        },
+        {
+          "round": 7,
+          "phase": "search",
+          "api_time_s": 17.794,
+          "tool_time_s": 1.123,
+          "round_time_s": 18.916,
+          "tools": [
+            "Grep",
+            "Grep"
+          ],
+          "tokens": 39291
+        },
+        {
+          "round": 8,
+          "phase": "search",
+          "api_time_s": 3.468,
+          "tool_time_s": 1.949,
+          "round_time_s": 5.416,
+          "tools": [
+            "Grep",
+            "Grep"
+          ],
+          "tokens": 39679
+        },
+        {
+          "round": 9,
+          "phase": "search",
+          "api_time_s": 6.061,
+          "tool_time_s": 0.817,
+          "round_time_s": 6.878,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 42595
+        },
+        {
+          "round": 10,
+          "phase": "search",
+          "api_time_s": 3.598,
+          "tool_time_s": 2.004,
+          "round_time_s": 5.603,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 42916
+        },
+        {
+          "round": 11,
+          "phase": "search",
+          "api_time_s": 13.527,
+          "tool_time_s": 2.104,
+          "round_time_s": 15.632,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 45326
+        },
+        {
+          "round": 12,
           "phase": "generate",
-          "api_time_s": 9.425,
+          "api_time_s": 18.186,
           "tool_time_s": 0.0,
-          "round_time_s": 9.425,
+          "round_time_s": 18.186,
           "tools": [],
-          "tokens": 19556
+          "tokens": 50007
         }
       ],
       "tool_calls_history": [
         {
           "tool": "Grep",
           "args": {
-            "pattern": "resetFocalPoint|resetThreeDViews|resetFocalPointToVolumeCenter",
-            "path": "slicer-source"
+            "pattern": "resetThreeDViews|reset3DViews|ResetCamera",
+            "path": "slicer-source/Base/Python"
           },
-          "result_preview": "Grep: 27 hit(s) in 15 file(s): slicer-source/Libs/MRML/Widgets/qMRMLThreeDViewControllerWidget.cxx (4), slicer-source/Libs/MRML/Widgets/qMRMLThreeDView.cxx (3), slicer-source/Libs/MRML/DisplayableManager/vtkMRMLViewDisplayableManager.cxx (3), slicer-source/Base/Python/slicer/util.py (2), slicer-source/Applications/SlicerApp/Testing/Python/RSNAVisTutorial.py (2)"
+          "result_preview": "Grep: 2 hit(s) in 1 file(s): slicer-source/Base/Python/slicer/util.py (2)"
         },
         {
-          "tool": "VectorSearch",
+          "tool": "Grep",
           "args": {
-            "query": "center 3D view on the scene reset focal point threeDWidget"
+            "pattern": "resetThreeDViews|resetSliceViews",
+            "path": "slicer-source/Docs/developer_guide/script_repository"
           },
-          "result_preview": "VectorSearch: 10 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 892-900) [doc_example] similarity:0.823 boosted:1.070\n```markdown\n### Center the 3D view on the scene\n\n```python\nlayoutManager = slicer.app.layoutManager()\nthreeDWidget = layoutManager.threeDWidget(0)\nthreeDView = threeDWidget.threeDView()\nthreeDView.resetFocalPoint()\n```\n```\n\n[2] slicer-source/Base/Python/slicer/util.py (lines 1543-1547) [python_api] similarity:0.671 boosted:0.805\n```python\ndef resetThreeDViews():\n    \"\"\"Reset focal view around volumes\"\"\"\n    import slicer\n\n    slicer.app.layoutManager().resetThreeDViews()\n\n```\n\n[3] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 953-955) [doc_example] similarity:0.638 boosted:0.830\n```markdown\n### Show a 3D view outside the view layout\n\n```python\n```\n\n[4] slicer-source/Docs/developer_guide/script_repository/segmentations.md (lines 381-387) [doc_example] similarity:0.606 boosted:0.788\n```markdown\n# Center slice views and cameras on this position\nfor sliceNode in slicer.util.getNodesByClass('vtkMRMLSliceNode'):\n    sliceNode.JumpSliceByCentering(*position)\nfor camera in slicer.util.getNodesByClass('vtkMRMLCameraNode'):\n    camera.SetFocalPoint(position)\n```\n```\n\n[5] slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/AbstractScriptedSegmentEditorAutoCompleteEffect.py (lines 376-387) [effect_implementation] similarity:0.600 boosted:0.660\n```python\n    def setPreviewShow3D(self, show):\n        previewNode = self.getPreviewNode()\n        if previewNode:\n            if show:\n                previewNode.CreateClosedSurfaceRepresentation()\n            else:\n                previewNode.RemoveClosedSurfaceRepresentation()\n\n        # Make sure the GUI is up-to-date\n        wasBlocked = self.previewShow3DButton.blockSignals(True)\n        self.previewShow3DButton.checked = show\n        self.previewShow3DButton.blockSignals(wasBlocked)\n\n```\n\n[6] slicer-sourc..."
+          "result_preview": "Grep: 1 hit(s) in 1 file(s): slicer-source/Docs/developer_guide/script_repository/volumes.md (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Docs/developer_guide/script_repository",
+            "pattern": "Reset focal view|Reset.*3D|fit.*3D|center.*view"
+          },
+          "result_preview": "Grep: 7 hit(s) in 2 file(s): slicer-source/Docs/developer_guide/script_repository/gui.md (4), slicer-source/Docs/developer_guide/script_repository/segmentations.md (3)"
         },
         {
           "tool": "ReadFile",
           "args": {
-            "path": "slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h",
-            "query": "threeDWidget"
+            "path": "slicer-source/Base/Python/slicer/util.py",
+            "query": "def resetThreeDViews"
           },
-          "result_preview": "/*==============================================================================\n\n  Program: 3D Slicer\n\n  Copyright (c) Kitware Inc.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Unless required by applicable law or agreed to in writing, software\n  distributed under the License is distributed on an \"AS IS\" BASIS,\n  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n  See the License for the specific language governing permissions and\n  limitations under the License.\n\n  This file was originally developed by Julien Finet, Kitware Inc.\n  and was partially funded by NIH grant 3P41RR013218-12S1\n\n==============================================================================*/\n\n#ifndef __qMRMLLayoutManager_h\n#define __qMRMLLayoutManager_h\n\n// Qt includes\n#include <QStringList>\nclass QWidget;\n\n// CTK includes\n#include <ctkLayoutFactory.h>\n\n// qMRML includes\n#include \"qMRMLWidgetsExport.h\"\n#include \"qMRMLLayoutViewFactory.h\"\n\nclass qMRMLPlotWidget;\nclass qMRMLTableWidget;\nclass qMRMLThreeDWidget;\nclass qMRMLSliceWidget;\nclass qMRMLLayoutManagerPrivate;\nclass qMRMLLayoutViewFactory;\n\nclass vtkMRMLAbstractViewNode;\nclass vtkMRMLColorLogic;\nclass vtkMRMLLayoutLogic;\nclass vtkMRMLScene;\nclass vtkMRMLNode;\nclass vtkMRMLTableNode;\nclass vtkMRMLTableViewNode;\nclass vtkMRMLViewNode;\nclass vtkMRMLPlotViewNode;\n\nclass vtkCollection;\nclass vtkRenderer;\n\n/// MRML layout manager that instantiates the Qt widgets and layouts from the\n/// layout node and the view nodes in the scene.\n/// The management (creation, configuration and deletion) of the view widgets\n/// are delegated to qMRMLLayoutViewFactory.\n/// Example to change a default factory:\n/// \\code\n/// qMRMLLayoutSliceViewFactory* mrmlSliceViewFactory =\n///   qobject_cast<qMRMLLayoutSliceViewFactory*>(\n///     app->layoutManager()->mrmlViewFactory(\"vtkMRMLSliceNode\"));\n/// MySliceViewFactory* mySliceViewFactory =\n///   new MySliceViewFactory(app->layoutManager());\n/// mySl..."
+          "result_preview": "    # application exit)\n    if hasattr(slicer.modules, widgetName):\n        widget = getattr(slicer.modules, widgetName)\n        widget.cleanup()\n\n        if hasattr(widget, \"_onModuleAboutToBeUnloaded\"):\n            slicer.app.moduleManager().disconnect(\"moduleAboutToBeUnloaded(QString)\", widget._onModuleAboutToBeUnloaded)\n\n    # remove layout items (remaining spacer items would add space above the widget)\n    items = []\n    for itemIndex in range(parent.layout().count()):\n        items.append(parent.layout().itemAt(itemIndex))\n    for item in items:\n        parent.layout().removeItem(item)\n\n    # Creates new widget at slicer.modules.{widgetName}.\n    # Also ensures that qSlicerScriptedLoadableModuleWidget has references to updated enter/exit/setup methods.\n    # See https://github.com/Slicer/Slicer/issues/7424\n    widget.parent.reload()\n\n    return reloaded_module\n\n\ndef setModulePanelTitleVisible(visible):\n    \"\"\"Show/hide module panel title bar at the top of module panel.\n\n    If the title bar is not visible then it is not possible to drag and dock the\n    module panel to a different location.\n\n    If there is no main window then the function has no effect.\n    \"\"\"\n    mw = mainWindow()\n    if mw is None:\n        return\n    modulePanelDockWidget = mw.findChildren(\"QDockWidget\", \"PanelDockWidget\")[0]\n    if visible:\n        modulePanelDockWidget.setTitleBarWidget(None)\n    else:\n        import qt\n\n        modulePanelDockWidget.setTitleBarWidget(qt.QWidget(modulePanelDockWidget))\n\n\ndef setApplicationLogoVisible(visible=True, scaleFactor=None, icon=None):\n    \"\"\"Customize appearance of the application logo at the top of module panel.\n\n    :param visible: if True then the logo is displayed, otherwise the area is left empty.\n    :param scaleFactor: specifies the displayed size of the icon. 1.0 means original size, larger value means larger displayed size.\n    :param icon: a qt.QIcon object specifying what icon to display as application logo.\n\n    If there is no main w..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Widgets",
+            "pattern": "resetThreeDViews|resetFocalPoint|resetCamera"
+          },
+          "result_preview": "Grep: 19 hit(s) in 6 file(s): slicer-source/Libs/MRML/Widgets/qMRMLThreeDView.cxx (6), slicer-source/Libs/MRML/Widgets/qMRMLThreeDViewControllerWidget.cxx (4), slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.cxx (3), slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h (3), slicer-source/Libs/MRML/Widgets/qMRMLThreeDView.h (2)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core",
+            "pattern": "GetFocalPoint|vtkPoints\\* GetFocalPoint|void Reset"
+          },
+          "result_preview": "Grep: 38 hit(s) in 18 file(s): slicer-source/Libs/MRML/Core/vtkMRMLCameraNode.cxx (11), slicer-source/Libs/MRML/Core/vtkMRMLCameraNode.h (7), slicer-source/Libs/MRML/Core/vtkMRMLStorageNode.h (4), slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h (2), slicer-source/Libs/MRML/Core/vtkMRMLAbstractViewNode.h (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core/vtkMRMLScene.h",
+            "pattern": "GetBounds"
+          },
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core",
+            "pattern": "void GetBounds|double\\* GetBounds|GetBounds\\("
+          },
+          "result_preview": "Grep: 39 hit(s) in 17 file(s): slicer-source/Libs/MRML/Core/vtkMRMLSegmentationNode.cxx (6), slicer-source/Libs/MRML/Core/vtkMRMLMarkupsNode.cxx (5), slicer-source/Libs/MRML/Core/vtkMRMLModelNode.cxx (4), slicer-source/Libs/MRML/Core/vtkMRMLMarkupsPlaneNode.cxx (3), slicer-source/Libs/MRML/Core/vtkMRMLDisplayableNode.h (2)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core/vtkMRMLViewNode.h",
+            "pattern": "CameraNode|GetCamera"
+          },
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core/vtkBoundingBox.h",
+            "pattern": "IsValid|GetCenter"
+          },
+          "result_preview": "ERROR: Path not found: C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkBoundingBox.h"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core/vtkMRMLViewNode.cxx",
+            "pattern": "CameraNode"
+          },
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core/vtkMRMLScene.h",
+            "pattern": "GetNodesByClass|vtkCollection|GetFirstNode"
+          },
+          "result_preview": "Grep: 31 hit(s) in 1 file(s): slicer-source/Libs/MRML/Core/vtkMRMLScene.h (31)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core",
+            "pattern": "GetCameraNodeID|SetCameraNodeID"
+          },
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Core/vtkMRMLCameraNode.h",
+            "pattern": "ActiveTag|Active"
+          },
+          "result_preview": "Grep: 8 hit(s) in 1 file(s): slicer-source/Libs/MRML/Core/vtkMRMLCameraNode.h (8)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Base/Python",
+            "pattern": "threeDViewCount|threeDWidget\\("
+          },
+          "result_preview": "Grep: 6 hit(s) in 2 file(s): slicer-source/Base/Python/slicer/util.py (5), slicer-source/Base/Python/slicer/ScriptedLoadableModule.py (1)"
         }
       ],
       "evidence_audit": {
         "source_verification": {
           "non_ui_result_files": [
-            "slicer-source",
-            "slicer-source/Libs/MRML/Widgets/qMRMLThreeDViewControllerWidget.cxx",
-            "slicer-source/Libs/MRML/Widgets/qMRMLThreeDView.cxx",
-            "slicer-source/Libs/MRML/DisplayableManager/vtkMRMLViewDisplayableManager.cxx",
+            "slicer-source/Base/Python",
             "slicer-source/Base/Python/slicer/util.py",
-            "slicer-source/Applications/SlicerApp/Testing/Python/RSNAVisTutorial.py",
+            "slicer-source/Docs/developer_guide/script_repository",
+            "slicer-source/Docs/developer_guide/script_repository/volumes.md",
             "slicer-source/Docs/developer_guide/script_repository/gui.md",
-            "slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h",
-            "slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.cxx",
-            "slicer-source/Applications/SlicerApp/Testing/Python/RSNAQuantTutorial.py",
-            "slicer-source/Applications/SlicerApp/Testing/Python/JRC2013Vis.py",
-            "slicer-source/Libs/MRML/Widgets/qMRMLThreeDViewControllerWidget.h",
-            "slicer-source/Libs/MRML/Widgets/qMRMLThreeDView.h",
-            "slicer-source/Modules/Loadable/Models/qSlicerModelsReader.cxx",
-            "slicer-source/Libs/MRML/Core/vtkMRMLViewNode.h",
-            "slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.cxx",
             "slicer-source/Docs/developer_guide/script_repository/segmentations.md",
-            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/AbstractScriptedSegmentEditorAutoCompleteEffect.py",
-            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsNode.h",
-            "slicer-source/Libs/MRML/Core/vtkMRMLCameraNode.h"
+            "slicer-source/Libs/MRML/Widgets",
+            "slicer-source/Libs/MRML/Widgets/qMRMLThreeDView.cxx",
+            "slicer-source/Libs/MRML/Widgets/qMRMLThreeDViewControllerWidget.cxx",
+            "slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.cxx",
+            "slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h",
+            "slicer-source/Libs/MRML/Widgets/qMRMLThreeDView.h",
+            "slicer-source/Libs/MRML/Widgets/qMRMLThreeDViewControllerWidget.h",
+            "slicer-source/Libs/MRML/Core",
+            "slicer-source/Libs/MRML/Core/vtkMRMLCameraNode.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLCameraNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLStorageNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLAbstractViewNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLColorNode.h"
           ],
           "source_type_counts": {
-            "ui_implementation": 8,
-            "source": 1,
-            "python_api": 2,
-            "test_example": 3,
-            "doc_example": 5,
-            "loadable_module": 1,
-            "mrml_definition": 5,
-            "effect_implementation": 1
+            "python_api": 4,
+            "doc_example": 3,
+            "ui_implementation": 6,
+            "mrml_definition": 37
           }
         },
         "searches": {
-          "vector_queries": [
-            "center 3D view on the scene reset focal point threeDWidget"
-          ],
+          "vector_queries": [],
           "grep_patterns": [
-            "resetFocalPoint|resetThreeDViews|resetFocalPointToVolumeCenter"
+            "resetThreeDViews|reset3DViews|ResetCamera",
+            "resetThreeDViews|resetSliceViews",
+            "Reset focal view|Reset.*3D|fit.*3D|center.*view",
+            "resetThreeDViews|resetFocalPoint|resetCamera",
+            "GetFocalPoint|vtkPoints\\* GetFocalPoint|void Reset",
+            "GetBounds",
+            "void GetBounds|double\\* GetBounds|GetBounds\\(",
+            "CameraNode|GetCamera",
+            "IsValid|GetCenter",
+            "CameraNode"
           ],
           "read_paths": [
-            "slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h"
+            "slicer-source/Base/Python/slicer/util.py"
           ]
         }
       },
-      "reasoning_chars": 6806,
-      "reasoning_preview": "[Round 1]\nThe user wants to center the 3D view on the scene. There's a known Slicer API: `threeDWidget(0).threeDView().resetFocalPoint()` or `slicer.util.resetSliceViews()` / `slicer.util.resetThreeDViews()`.\n\nLet me search the knowledge base for evidence.\n\nThe keyword hints: ThreeDWidget, resetFocalPoint, center view.\n\nLet me search the script repository.\n\n[Round 2]\nThe operation is \"Center the 3D view on the scene\". The knowledge base has the exact documented recipe:\n\n```python\nlayoutManager = slicer.app.layoutManager()\nthreeDWidget = layoutManager.threeDWidget(0)\nthreeDView = threeDWidget.threeDView()\nthreeDView.resetFocalPoint()\n```\n\nAlso `slicer.util.resetThreeDViews()` calls `slicer.app.layoutManager().resetThreeDViews()`.\n\nThe request doesn't specify a particular view name. \"Center the 3D view on the scene\" \u2014 the simplest robust approach: iterate over all threeDWidgets and resetFocalPoint each. Or use the doc example. Since the request says \"the 3D view\", I'll center all 3D views to be safe. Actually the doc example uses `threeDWidget(0)`. But the instructions warn against positional accessors for NAMED views. Here no specific view is named \u2014 it's the general 3D view. I could use `slicer.util.resetThreeDViews()` which resets all 3D views. But that is a toggle-free final-state operation. Actually `resetThreeDViews()` sets focal point around volumes.\n\nHmm, but resetThreeDViews resets around volumes' bounds. resetFocalPoint() on the qMRMLThreeDView resets camera based on scene. Both effectively center the view on the scene.\n\nI'll go with the documented recipe, iterating all threeD widgets, and add read-back verification. For read-back, checking focal point change isn't straightforward. I could verify via the camera node's focal point. Actually a simpler verification: the resetFocalPoint invokes ResetFocalPointRequestedEvent. We can check the camera's focal point changed... but we don't have a baseline. \n\nA reasonable read-back: after reset, verify that the threeDView exists (i.e., it succeeded without exception). But the requirement says \"After setting a state, read it back via the matching getter when one exists (SetX -> GetX, or the property itself)\". Here there's no property to read back \u2014 resetFocalPoint is an action, not a property setter. So no state read-back strictly applies. I could verify the widget is valid.\n\nThe doc example directly from the script repository is the authoritative recipe. Let me generate the code template. Since no named view is specified, I'll center all 3D views by iterating layoutManager threeDWidgetCount. Actually the layout manager has a `threeDWidgetCount()` method? Let me check qMRMLLayoutManager.h. It has `threeDWidget(int)`. There is also `resetThreeDViews()`.\n\nSimplest and safest: use the documented script_repository approach for the primary 3D view. But if there are multiple 3D views, the user probably wants all of them centered. Given \"Center the 3D view on the scene\" (singular), using the documented re",
-      "generated_code_preview": "# Center the 3D view on the scene (reset focal point around the scene content)\nlayoutManager = slicer.app.layoutManager()\nthreeDWidget = layoutManager.threeDWidget(0)\nthreeDView = threeDWidget.threeDView()\nif threeDView is None:\n    raise RuntimeError(\"STATE_NOT_APPLIED: threeDView\")\nthreeDView.resetFocalPoint()"
+      "reasoning_chars": 33915,
+      "reasoning_preview": "[Round 1]\nThe operation is \"Center the 3D view on the scene\" with API keyword hints: 3D view, center view, ResetCamera. This is a core Slicer operation, not extension-specific (no custom layout or slicer.Const needed).\n\nLet me search for the ResetCamera API in the script repository.\n\nThe typical approach: `slicer.util.resetSliceViews()` and `slicer.util.resetThreeDViews()`. Let me verify.\n\nLet me search the knowledge base.\n\n[Round 2]\nI found `slicer.util.resetThreeDViews()` which calls `slicer.app.layoutManager().resetThreeDViews()`. Let me check the script repository docs for the 3D view reset example too. Let me look at volumes.md around the resetThreeDViews.\n\nLet me check the docs for the 3D equivalent.\n\n[Round 3]\nI have the evidence. The docs in gui.md show the \"Center and fit displayed content in 3D view\" example using `layoutManager.threeDWidget(0).threeDView()` then `resetFocalPoint()` and `resetCamera()`. However, my instructions say to avoid positional accessors like `threeDWidget(0)` for a named view. But the operation here is \"Center the 3D view on the scene\" \u2014 it doesn't name a specific 3D view, so it applies to all 3D views.\n\nThe cleanest approach for \"center the 3D view on the scene\" is `slicer.util.resetThreeDViews()`, which calls `slicer.app.layoutManager().resetThreeDViews()`. Let me verify the qMRMLLayoutManager resetThreeDViews implementation to confirm what it does.\n\nLet me check the C++ implementation of `resetThreeDViews` in the layout manager.\n\n[Round 4]\nI have all the evidence I need. The operation \"Center the 3D view on the scene\" corresponds to `slicer.util.resetThreeDViews()`, which calls `slicer.app.layoutManager().resetThreeDViews()`. This resets focal point and camera for all 3D views.\n\nThe docs also show the manual approach:\n```\nthreeDView.resetFocalPoint()  # reset the 3D view cube size and center it\nthreeDView.resetCamera()  # reset camera zoom\n```\n\nSince the operation says \"Center the 3D view on the scene\" (not a specific named 3D view), `slicer.util.resetThreeDViews()` is the canonical API. \n\nFor read-back verification: the resetThreeDViews function doesn't return a state that's easy to check. I could check the camera node's focal point against the scene bounds. Actually, a reasonable read-back: after reset, the camera focal point should be at the center of the scene's visible bounds. But computing scene bounds is complex.\n\nAlternatively, I can implement it directly per-3D-view: iterate layoutManager.threeDWidgetCount() and call resetFocalPoint() and resetCamera() on each threeDView, then verify the camera node focal point is near the scene bounds center. Actually `slicer.util.resetThreeDViews()` is simplest and is the official wrapper.\n\nFor read-back, I can compute the scene bounds center and check that the camera's focal point is close to it. Let me think about what's reasonable. The resetFocalPoint centers the view on the displayed content. After resetting, the camera's focal point should be near the center o",
+      "generated_code_preview": "# Center the 3D view(s) on the scene\n# (equivalent to the \"Center\"/\"Reset focal view\" button of each 3D view controller)\nimport math\nimport vtk\n\n# Compute the center of the visible scene content (world/RAS bounds)\nsceneBounds = vtk.vtkBoundingBox()\nfor node in slicer.util.getNodesByClass('vtkMRMLDisplayableNode'):\n    displayNode = node.GetDisplayNode()\n    if displayNode is None or not displayNode.GetVisibility():\n        continue\n    nodeBounds = [0.0] * 6\n    node.GetRASBounds(nodeBounds)\n    sceneBounds.AddBounds(nodeBounds)\n\n# Reset focal point (center on scene) and camera zoom for all 3D views\nslicer.util.resetThreeDViews()\n\n# Read-back: verify each 3D view camera focal point is at the scene center\nif sceneBounds.IsValid():\n    minPoint = [0.0, 0.0, 0.0]\n    maxPoint = [0.0, 0.0, 0.0]\n    sceneBounds.GetMinPoint(minPoint)\n    sceneBounds.GetMaxPoint(maxPoint)\n    sceneCenter = [0.0, 0.0, 0.0]\n    sceneBounds.GetCenter(sceneCenter)\n    diagonal = math.sqrt(sum((maxPoint[i] - minPoint[i]) ** 2 for i in range(3)))\n    tolerance = max(1.0, 0.01 * diagonal)\n    layoutManager = slicer.app.layoutManager()\n    for viewIndex in range(layoutManager.threeDViewCount):\n        cameraNode = layoutManager.threeDWidget(viewIndex).threeDView().cameraNode()\n        focalPoint = [0.0, 0.0, 0.0]\n        cameraNode.GetFocalPoint(focalPoint)\n        distance = math.sqrt(sum((focalPoint[i] - sceneCenter[i]) ** 2 for i in range(3)))\n        if distance > tolerance:\n            raise RuntimeError(\"STATE_NOT_APPLIED: 3D view centered on scene\")"
     }
   ]
 }

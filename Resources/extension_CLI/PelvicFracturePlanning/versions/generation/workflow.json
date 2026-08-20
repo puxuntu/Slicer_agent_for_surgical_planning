@@ -9,7 +9,7 @@
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Select the pelvic CT volume as the input volume.",
+          "description": "Select the input CT volume (Pelvic Volume) for the workflow",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "inputSelector",
@@ -17,14 +17,10 @@
           "target_value": null,
           "target_value_mode": null,
           "slicer_op_category": null,
-          "slicer_api_keywords": [
-            "qMRMLNodeComboBox",
-            "vtkMRMLScalarVolumeNode",
-            "select"
-          ],
+          "slicer_api_keywords": [],
           "interaction_kind": "none",
           "interaction_type": null,
-          "node_class": "vtkMRMLScalarVolumeNode",
+          "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [],
@@ -36,16 +32,16 @@
             {
               "role_kind": "choice_input",
               "node_class": "vtkMRMLScalarVolumeNode",
-              "parameter_name": "",
+              "parameter_name": "inputVolume",
               "step_id": "cb_step_1"
             }
           ],
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "Choose the input CT volume.",
+          "question": "Choose the Pelvic Volume in the Input CT Volume option.",
           "choices": [],
-          "parameter_name": "input_volume",
+          "parameter_name": "inputVolume",
           "default_value": null,
           "value_kind": "node",
           "widget_class": "qMRMLNodeComboBox"
@@ -55,14 +51,14 @@
         {
           "role_kind": "choice_input",
           "node_class": "vtkMRMLScalarVolumeNode",
-          "parameter_name": "",
+          "parameter_name": "inputVolume",
           "step_id": "cb_step_1"
         }
       ],
       "choice_info": {
-        "question": "Choose the input CT volume.",
+        "question": "Choose the Pelvic Volume in the Input CT Volume option.",
         "choices": [],
-        "parameter_name": "input_volume",
+        "parameter_name": "inputVolume",
         "default_value": null
       },
       "operation_model": {
@@ -80,8 +76,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Choose input CT volume",
-        "instruction": "In the \"Input CT Volume\" section, choose the pelvic volume.",
+        "title": "Choose the input volume",
+        "instruction": "Select the Pelvic Volume in the Input CT Volume option.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
@@ -100,32 +96,28 @@
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Run Step 1 to segment the pelvis.",
+          "description": "Run Step 1 to segment the pelvis from the selected CT volume",
           "extension_method_hint": "segment_pelvis",
           "extension_function_hint": null,
           "widget_name": "btnSegPelvis",
           "ui_parameter_binding": null,
-          "target_value": null,
+          "target_value": true,
           "target_value_mode": null,
           "slicer_op_category": null,
           "slicer_api_keywords": [],
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": null,
-          "creates_node": true,
+          "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            1
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
           "node_roles": [
-            {
-              "role_kind": "extension_input",
-              "node_class": "vtkMRMLScalarVolumeNode",
-              "parameter_name": "",
-              "step_id": "cb_step_2"
-            },
             {
               "role_kind": "extension_output",
               "node_class": "vtkMRMLSegmentationNode",
@@ -139,12 +131,6 @@
         }
       ],
       "node_roles": [
-        {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLScalarVolumeNode",
-          "parameter_name": "",
-          "step_id": "cb_step_2"
-        },
         {
           "role_kind": "extension_output",
           "node_class": "vtkMRMLSegmentationNode",
@@ -168,12 +154,12 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Segment pelvis",
+        "title": "Run Step 1: Segment Pelvis",
         "instruction": "Click the \"Run Step 1: Segment Pelvis\" button.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "button",
         "repeat": {}
       },
       "code_template": "templates/cb_step_2.py.tpl"
@@ -189,7 +175,7 @@
         {
           "op_type": "slicer_op",
           "operation_type": "slicer_op",
-          "description": "Center the 3D view on the scene.",
+          "description": "Center the 3D view on the scene",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -198,16 +184,18 @@
           "target_value_mode": null,
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "ThreeDWidget",
-            "resetFocalPoint",
-            "center view"
+            "3D view",
+            "center view",
+            "ResetCamera"
           ],
-          "interaction_kind": "none",
+          "interaction_kind": "view_adjustment",
           "interaction_type": null,
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            2
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -233,7 +221,7 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Center 3D view",
+        "title": "Center the 3D view",
         "instruction": "Click the \"Center view\" button in the 3D view.",
         "done_label": "Done",
         "choice_label": "",
@@ -245,31 +233,62 @@
       "api_evidence": {
         "source": "ground_api",
         "accepted_footprints": [
+          "AddBounds",
+          "GetCenter",
+          "GetDisplayNode",
+          "GetFocalPoint",
+          "GetMaxPoint",
+          "GetMinPoint",
+          "GetRASBounds",
+          "GetVisibility",
+          "IsValid",
           "app",
+          "cameraNode",
+          "getNodesByClass",
           "layoutManager",
-          "resetFocalPoint",
+          "resetThreeDViews",
+          "sqrt",
           "threeDView",
-          "threeDWidget"
+          "threeDViewCount",
+          "threeDWidget",
+          "util",
+          "vtkBoundingBox",
+          "vtkMRMLDisplayableNode"
         ],
         "api_chains": [
+          "cameraNode.GetFocalPoint",
+          "displayNode.GetVisibility",
           "layoutManager.threeDWidget",
+          "layoutManager.threeDWidget(viewIndex).threeDView",
+          "layoutManager.threeDWidget(viewIndex).threeDView().cameraNode",
+          "math.sqrt",
+          "node.GetDisplayNode",
+          "node.GetRASBounds",
+          "sceneBounds.AddBounds",
+          "sceneBounds.GetCenter",
+          "sceneBounds.GetMaxPoint",
+          "sceneBounds.GetMinPoint",
+          "sceneBounds.IsValid",
           "slicer.app.layoutManager",
-          "slicer.app.layoutManager().threeDWidget",
-          "slicer.app.layoutManager().threeDWidget(0).threeDView",
-          "slicer.app.layoutManager().threeDWidget(0).threeDView().resetFocalPoint",
-          "threeDView.resetFocalPoint",
-          "threeDWidget.threeDView"
+          "slicer.util.getNodesByClass",
+          "slicer.util.resetThreeDViews",
+          "vtk.vtkBoundingBox",
+          "vtk.vtkBoundingBox().AddBounds",
+          "vtk.vtkBoundingBox().GetCenter",
+          "vtk.vtkBoundingBox().GetMaxPoint",
+          "vtk.vtkBoundingBox().GetMinPoint",
+          "vtk.vtkBoundingBox().IsValid"
         ],
         "operation_descriptions": [
-          "Center the 3D view on the scene."
+          "Center the 3D view on the scene"
         ],
         "slicer_op_categories": [
           "generic_slicer_api"
         ],
         "slicer_api_keywords": [
-          "ThreeDWidget",
-          "resetFocalPoint",
-          "center view"
+          "3D view",
+          "center view",
+          "ResetCamera"
         ]
       }
     },
@@ -285,7 +304,7 @@
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Run Step 2 to segment fractures.",
+          "description": "Run Step 2 to segment fracture fragments",
           "extension_method_hint": "segment_fractures",
           "extension_function_hint": null,
           "widget_name": "btnSegFracture",
@@ -297,20 +316,17 @@
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": null,
-          "creates_node": true,
+          "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            2,
+            3
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
           "node_roles": [
-            {
-              "role_kind": "extension_input",
-              "node_class": "vtkMRMLScalarVolumeNode",
-              "parameter_name": "",
-              "step_id": "cb_step_4"
-            },
             {
               "role_kind": "extension_output",
               "node_class": "vtkMRMLSegmentationNode",
@@ -324,12 +340,6 @@
         }
       ],
       "node_roles": [
-        {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLScalarVolumeNode",
-          "parameter_name": "",
-          "step_id": "cb_step_4"
-        },
         {
           "role_kind": "extension_output",
           "node_class": "vtkMRMLSegmentationNode",
@@ -353,12 +363,12 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Segment fractures",
+        "title": "Run Step 2: Segment Fractures",
         "instruction": "Click the \"Run Step 2: Segment Fractures\" button.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "button",
         "repeat": {}
       },
       "code_template": "templates/cb_step_4.py.tpl"
@@ -374,7 +384,7 @@
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Select the segments to untick so they are no longer treated as separate pieces.",
+          "description": "Select which fracture segments to untick so they are not treated as separate pieces",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "fractureSegmentsTable",
@@ -382,17 +392,15 @@
           "target_value": null,
           "target_value_mode": null,
           "slicer_op_category": null,
-          "slicer_api_keywords": [
-            "qMRMLSegmentsTableView",
-            "segment",
-            "visibility"
-          ],
+          "slicer_api_keywords": [],
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": "vtkMRMLSegmentationNode",
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            4
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -404,9 +412,9 @@
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
           "operation_intent": "segment_visibility_selection",
-          "question": "Which segments should be unticked (stop treating them as separate)?",
+          "question": "Untick the segments that should stop being treated as separate.",
           "choices": [],
-          "parameter_name": "unticked_segments",
+          "parameter_name": "hiddenIds",
           "default_value": null,
           "value_kind": "segment_visibility_selection",
           "widget_class": "qMRMLSegmentsTableView",
@@ -417,9 +425,9 @@
         "segment_visibility_selection"
       ],
       "choice_info": {
-        "question": "Which segments should be unticked (stop treating them as separate)?",
+        "question": "Untick the segments that should stop being treated as separate.",
         "choices": [],
-        "parameter_name": "unticked_segments",
+        "parameter_name": "hiddenIds",
         "default_value": null
       },
       "operation_model": {
@@ -439,12 +447,12 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Untick segments",
-        "instruction": "Untick the pieces that should stop being treated as separate.",
+        "title": "Stop treating segments as separate",
+        "instruction": "Untick each segment that should no longer be treated as separate.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
-        "object_label": "choice",
+        "object_label": "segment",
         "repeat": {}
       }
     },
@@ -459,7 +467,7 @@
         {
           "op_type": "branch_op",
           "operation_type": "branch_op",
-          "description": "Ask whether any piece needs a manual cut, and route to the manual split section or skip it.",
+          "description": "Ask whether a piece should have been split but was not and requires manual cutting; branch to manual cut or skip to step 10",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -473,7 +481,9 @@
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            5
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -482,7 +492,7 @@
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "Does a piece that should have been split require a manual cut?",
+          "question": "Does a piece require manual cutting because it should have been split but was not?",
           "choices": [
             {
               "label": "Yes",
@@ -493,13 +503,13 @@
               "value": false
             }
           ],
-          "parameter_name": "manual_split_needed",
+          "parameter_name": "manual_cut_required",
           "default_value": false,
           "value_kind": ""
         }
       ],
       "choice_info": {
-        "question": "Does a piece that should have been split require a manual cut?",
+        "question": "Does a piece require manual cutting because it should have been split but was not?",
         "choices": [
           {
             "label": "Yes",
@@ -510,7 +520,7 @@
             "value": false
           }
         ],
-        "parameter_name": "manual_split_needed",
+        "parameter_name": "manual_cut_required",
         "default_value": false
       },
       "operation_model": {
@@ -528,8 +538,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Manual cut needed?",
-        "instruction": "Choose Yes if a piece that should have been split needs a manual cut; otherwise choose No.",
+        "title": "Does a piece need manual cutting?",
+        "instruction": "Choose Yes if a piece should have been split but was not; choose No to continue.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
@@ -549,7 +559,7 @@
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Click the manual separate button to start manual splitting.",
+          "description": "Start the manual separation workflow",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "btnManualSplit",
@@ -563,13 +573,15 @@
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            6
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
           "node_roles": [],
-          "confidence": "medium",
+          "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
         }
@@ -589,7 +601,7 @@
         "interaction_kinds": []
       },
       "repeat_block": {
-        "repeat_id": "manual_split_optional",
+        "repeat_id": "repeat_manual_split_if_needed",
         "body_steps": [
           "cb_step_7",
           "cb_step_8",
@@ -601,7 +613,7 @@
         "controller": {
           "kind": "until_choice",
           "source_step": "cb_step_6",
-          "prompt": "Does a piece that should have been split require a manual cut?",
+          "prompt": "If a piece should have been split but was not and requires manual cutting, run the manual separation steps; otherwise jump to step 10.",
           "exit_value": false,
           "exit_target": 10
         },
@@ -611,7 +623,6 @@
           "evidence_step_ids": [
             6,
             7,
-            8,
             9
           ],
           "confidence": "high"
@@ -621,12 +632,12 @@
       "placement_starter_method": "onManualSplit",
       "created_node_source": "extension_method",
       "ui_guidance": {
-        "title": "Start manual split",
+        "title": "Manually separate pieces",
         "instruction": "Click the \"Manually seperate\" button.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "button",
         "repeat": {}
       },
       "code_template": "templates/cb_step_7.py.tpl"
@@ -642,7 +653,7 @@
         {
           "op_type": "user_interaction",
           "operation_type": "user_interaction",
-          "description": "Place a cut point and adjust the position and rotation of the manual cutting plane.",
+          "description": "Place the cutting plane by adding a cut point, then adjust its position and rotation",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -652,8 +663,9 @@
           "slicer_op_category": null,
           "slicer_api_keywords": [
             "vtkMRMLMarkupsPlaneNode",
-            "cutting plane",
             "place",
+            "SetActiveListID",
+            "Translate",
             "Rotate"
           ],
           "interaction_kind": "markup_placement",
@@ -664,7 +676,7 @@
           "setup_dependencies": [
             7
           ],
-          "placement_instructions": "Place a cut point and adjust the position and rotation of the manual cutting plane.",
+          "placement_instructions": "Click in the view to add a cut point, then adjust the cutting plane's position and rotation.",
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
@@ -676,7 +688,7 @@
               "step_id": "cb_step_8"
             }
           ],
-          "confidence": "medium",
+          "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
         }
@@ -697,7 +709,7 @@
       "setup_dependencies": [
         7
       ],
-      "placement_instructions": "Place a cut point and adjust the position and rotation of the manual cutting plane.",
+      "placement_instructions": "Click in the view to add a cut point, then adjust the cutting plane's position and rotation.",
       "min_control_points": 0,
       "operation_model": {
         "step_type": "user_interaction",
@@ -716,7 +728,7 @@
         ]
       },
       "repeat_block": {
-        "repeat_id": "manual_split_optional",
+        "repeat_id": "repeat_manual_split_if_needed",
         "body_steps": [
           "cb_step_7",
           "cb_step_8",
@@ -728,7 +740,7 @@
         "controller": {
           "kind": "until_choice",
           "source_step": "cb_step_6",
-          "prompt": "Does a piece that should have been split require a manual cut?",
+          "prompt": "If a piece should have been split but was not and requires manual cutting, run the manual separation steps; otherwise jump to step 10.",
           "exit_value": false,
           "exit_target": 10
         },
@@ -738,7 +750,6 @@
           "evidence_step_ids": [
             6,
             7,
-            8,
             9
           ],
           "confidence": "high"
@@ -751,8 +762,8 @@
       "placement_binding_reason": "recent_same_node_class_placement_starter",
       "node_class_adopted_from_starter": "vtkMRMLMarkupsPlaneNode",
       "ui_guidance": {
-        "title": "Place cutting plane",
-        "instruction": "Place the cutting plane in the view, then click Done.",
+        "title": "Place the cutting plane",
+        "instruction": "Click to place one point for the cutting plane, then adjust its position and rotation.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -774,7 +785,7 @@
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Confirm the manual separation/cut.",
+          "description": "Confirm the manual separation of the cut piece",
           "extension_method_hint": "split_segment_by_plane",
           "extension_function_hint": null,
           "widget_name": "btnConfirmSplit",
@@ -788,42 +799,17 @@
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            8
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
-          "node_roles": [
-            {
-              "role_kind": "extension_input",
-              "node_class": "vtkMRMLMarkupsPlaneNode",
-              "parameter_name": "",
-              "step_id": "cb_step_9"
-            },
-            {
-              "role_kind": "extension_input",
-              "node_class": "vtkMRMLSegmentationNode",
-              "parameter_name": "",
-              "step_id": "cb_step_9"
-            }
-          ],
+          "node_roles": [],
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
-        }
-      ],
-      "node_roles": [
-        {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLMarkupsPlaneNode",
-          "parameter_name": "",
-          "step_id": "cb_step_9"
-        },
-        {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLSegmentationNode",
-          "parameter_name": "",
-          "step_id": "cb_step_9"
         }
       ],
       "method_name": "split_segment_by_plane",
@@ -842,7 +828,7 @@
         "interaction_kinds": []
       },
       "repeat_block": {
-        "repeat_id": "manual_split_optional",
+        "repeat_id": "repeat_manual_split_if_needed",
         "body_steps": [
           "cb_step_7",
           "cb_step_8",
@@ -854,7 +840,7 @@
         "controller": {
           "kind": "until_choice",
           "source_step": "cb_step_6",
-          "prompt": "Does a piece that should have been split require a manual cut?",
+          "prompt": "If a piece should have been split but was not and requires manual cutting, run the manual separation steps; otherwise jump to step 10.",
           "exit_value": false,
           "exit_target": 10
         },
@@ -864,7 +850,6 @@
           "evidence_step_ids": [
             6,
             7,
-            8,
             9
           ],
           "confidence": "high"
@@ -876,7 +861,7 @@
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "button",
         "repeat": {}
       },
       "code_template": "templates/cb_step_9.py.tpl"
@@ -893,7 +878,7 @@
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Run Step 3 to generate the template.",
+          "description": "Run Step 3 to generate the template from the pelvis segmentation",
           "extension_method_hint": "plan_generate_template",
           "extension_function_hint": null,
           "widget_name": "btnGenTemplate",
@@ -905,9 +890,12 @@
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": null,
-          "creates_node": true,
+          "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            9,
+            3
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -917,12 +905,6 @@
               "role_kind": "extension_input",
               "node_class": "vtkMRMLSegmentationNode",
               "parameter_name": "OutputPelvisSeg",
-              "step_id": "cb_step_10"
-            },
-            {
-              "role_kind": "extension_output",
-              "node_class": "vtkMRMLModelNode",
-              "parameter_name": "",
               "step_id": "cb_step_10"
             }
           ],
@@ -936,12 +918,6 @@
           "role_kind": "extension_input",
           "node_class": "vtkMRMLSegmentationNode",
           "parameter_name": "OutputPelvisSeg",
-          "step_id": "cb_step_10"
-        },
-        {
-          "role_kind": "extension_output",
-          "node_class": "vtkMRMLModelNode",
-          "parameter_name": "",
           "step_id": "cb_step_10"
         }
       ],
@@ -961,12 +937,12 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Generate template",
+        "title": "Run Step 3: Generate template",
         "instruction": "Click the \"Run Step 3: Generate template\" button.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "button",
         "repeat": {}
       },
       "code_template": "templates/cb_step_10.py.tpl"
@@ -974,7 +950,7 @@
     {
       "step_id": "cb_step_11",
       "operation_type": "branch_op",
-      "description": "If further adjustments of the template are required, tick the \"Manually adjust a template\" checkbox. If not, jump to step 16.",
+      "description": "If further adjustments of the template are required, tick the \"Manually adjust a template\" checkbox. If not, jump to step 13.",
       "depends_on": [
         "cb_step_10"
       ],
@@ -982,7 +958,7 @@
         {
           "op_type": "branch_op",
           "operation_type": "branch_op",
-          "description": "Ask whether further template adjustments are needed; if so tick the manual template adjustment checkbox, otherwise skip to step 16.",
+          "description": "Ask whether further template adjustments are required; if so tick manual template adjustment, otherwise jump to step 13",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "chkAdjustTemplate",
@@ -996,7 +972,9 @@
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            10
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -1005,7 +983,7 @@
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "Are further template adjustments required?",
+          "question": "Are further adjustments of the template required?",
           "choices": [
             {
               "label": "Yes",
@@ -1016,13 +994,13 @@
               "value": false
             }
           ],
-          "parameter_name": "manually_adjust_template",
+          "parameter_name": "manual_template_adjust",
           "default_value": false,
           "value_kind": ""
         }
       ],
       "choice_info": {
-        "question": "Are further template adjustments required?",
+        "question": "Are further adjustments of the template required?",
         "choices": [
           {
             "label": "Yes",
@@ -1033,7 +1011,7 @@
             "value": false
           }
         ],
-        "parameter_name": "manually_adjust_template",
+        "parameter_name": "manual_template_adjust",
         "default_value": false
       },
       "operation_model": {
@@ -1051,8 +1029,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Adjust template further?",
-        "instruction": "Choose Yes if further template adjustments are required; otherwise choose No.",
+        "title": "Adjust the template?",
+        "instruction": "Choose Yes to manually adjust a template, or No to continue.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
@@ -1073,7 +1051,7 @@
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Choose which template needs adjustment from the Template selection box.",
+          "description": "Choose which template needs adjustment",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "templateSelector",
@@ -1081,17 +1059,15 @@
           "target_value": null,
           "target_value_mode": null,
           "slicer_op_category": null,
-          "slicer_api_keywords": [
-            "template",
-            "selector",
-            "select"
-          ],
+          "slicer_api_keywords": [],
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": "vtkMRMLSegmentationNode",
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            11
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -1102,9 +1078,9 @@
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "Which template needs adjustment?",
+          "question": "Choose which template needs adjustment.",
           "choices": [],
-          "parameter_name": "template_selector",
+          "parameter_name": "templateName",
           "default_value": null,
           "value_kind": "segment_name_selection",
           "widget_class": "QComboBox",
@@ -1115,9 +1091,9 @@
         "segment_name_selection"
       ],
       "choice_info": {
-        "question": "Which template needs adjustment?",
+        "question": "Choose which template needs adjustment.",
         "choices": [],
-        "parameter_name": "template_selector",
+        "parameter_name": "templateName",
         "default_value": null
       },
       "operation_model": {
@@ -1137,275 +1113,53 @@
         "interaction_kinds": []
       },
       "repeat_block": {
-        "repeat_id": "loop_back_step_14",
+        "repeat_id": "repeat_template_adjustment_if_needed",
         "body_steps": [
-          "cb_step_12",
-          "cb_step_13",
-          "cb_step_14"
+          "cb_step_12"
         ],
         "entry_step": "cb_step_12",
-        "terminal_step": "cb_step_14",
-        "exit_step": "cb_step_15",
+        "terminal_step": "cb_step_12",
+        "exit_step": "cb_step_13",
         "controller": {
           "kind": "until_choice",
-          "source_step": "cb_step_14",
-          "loop_back": true,
-          "prompt": "If more templates need adjustment, jump to step 12. If not, jump to step 15.",
+          "source_step": "cb_step_11",
+          "prompt": "If further template adjustments are required, choose the template to adjust; otherwise jump to step 13.",
           "exit_value": false,
-          "polarity": "deterministic",
-          "exit_target": 15
+          "exit_target": 13
         },
         "max_iterations": 20,
         "inference": {
-          "source": "backward_jump_loop_synthesis",
+          "source": "llm_semantic_decomposition",
+          "evidence_step_ids": [
+            11,
+            12,
+            13
+          ],
           "confidence": "high"
         }
       },
       "ui_guidance": {
-        "title": "Choose template to adjust",
-        "instruction": "Select the template to adjust in the \"Template\" box.",
+        "title": "Choose a template to adjust",
+        "instruction": "Select the template to adjust from the Template list.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
-        "object_label": "choice",
+        "object_label": "template",
         "repeat": {}
       }
     },
     {
       "step_id": "cb_step_13",
-      "operation_type": "user_interaction",
-      "description": "Manually adjust the position and rotation of the selected template.",
-      "depends_on": [
-        "cb_step_12"
-      ],
-      "sub_operations": [
-        {
-          "op_type": "user_interaction",
-          "operation_type": "user_interaction",
-          "description": "Adjust the position and rotation of the selected template.",
-          "extension_method_hint": null,
-          "extension_function_hint": null,
-          "widget_name": null,
-          "ui_parameter_binding": null,
-          "target_value": null,
-          "target_value_mode": null,
-          "slicer_op_category": null,
-          "slicer_api_keywords": [
-            "vtkMRMLModelNode",
-            "template",
-            "Translate",
-            "Rotate"
-          ],
-          "interaction_kind": "view_adjustment",
-          "interaction_type": "generic",
-          "node_class": null,
-          "creates_node": false,
-          "requires_place_mode": false,
-          "setup_dependencies": [
-            12
-          ],
-          "placement_instructions": null,
-          "min_control_points": 0,
-          "is_optional": false,
-          "operation_intents": [],
-          "node_roles": [],
-          "confidence": "high",
-          "evidence_type": "llm_semantic_decomposition",
-          "evidence_id": ""
-        }
-      ],
-      "interaction_type": "generic",
-      "interaction_kind": "view_adjustment",
-      "node_class": "",
-      "creates_node": false,
-      "requires_place_mode": false,
-      "setup_dependencies": [
-        12
-      ],
-      "placement_instructions": null,
-      "min_control_points": 0,
-      "operation_model": {
-        "step_type": "user_interaction",
-        "op_types": [
-          "user_interaction"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": true,
-        "allow_module_switch": false,
-        "produces_interaction_state": true,
-        "interaction_kinds": [
-          "view_adjustment"
-        ]
-      },
-      "repeat_block": {
-        "repeat_id": "loop_back_step_14",
-        "body_steps": [
-          "cb_step_12",
-          "cb_step_13",
-          "cb_step_14"
-        ],
-        "entry_step": "cb_step_12",
-        "terminal_step": "cb_step_14",
-        "exit_step": "cb_step_15",
-        "controller": {
-          "kind": "until_choice",
-          "source_step": "cb_step_14",
-          "loop_back": true,
-          "prompt": "If more templates need adjustment, jump to step 12. If not, jump to step 15.",
-          "exit_value": false,
-          "polarity": "deterministic",
-          "exit_target": 15
-        },
-        "max_iterations": 20,
-        "inference": {
-          "source": "backward_jump_loop_synthesis",
-          "confidence": "high"
-        }
-      },
-      "ui_guidance": {
-        "title": "Adjust view",
-        "instruction": "Rotate or zoom the 3D view for a clear view of the selected template.",
-        "done_label": "Done",
-        "choice_label": "",
-        "input_label": "",
-        "object_label": "view",
-        "repeat": {}
-      },
-      "extension_owns_adjust_mode": false,
-      "pre_template": "templates/cb_step_13_pre.py.tpl",
-      "post_template": "templates/cb_step_13_post.py.tpl"
-    },
-    {
-      "step_id": "cb_step_14",
-      "operation_type": "branch_op",
-      "description": "If more templates need adjustment, jump to step 12. If not, jump to step 15.",
-      "depends_on": [
-        "cb_step_13",
-        "cb_step_12"
-      ],
-      "sub_operations": [
-        {
-          "op_type": "branch_op",
-          "operation_type": "branch_op",
-          "description": "Ask whether more templates need adjustment; yes loops back to template selection, no continues to apply.",
-          "extension_method_hint": null,
-          "extension_function_hint": null,
-          "widget_name": null,
-          "ui_parameter_binding": null,
-          "target_value": null,
-          "target_value_mode": null,
-          "slicer_op_category": null,
-          "slicer_api_keywords": [],
-          "interaction_kind": "none",
-          "interaction_type": null,
-          "node_class": null,
-          "creates_node": false,
-          "requires_place_mode": false,
-          "setup_dependencies": [],
-          "placement_instructions": null,
-          "min_control_points": 0,
-          "is_optional": false,
-          "operation_intents": [],
-          "node_roles": [],
-          "confidence": "high",
-          "evidence_type": "llm_semantic_decomposition",
-          "evidence_id": "",
-          "question": "Do more templates need adjustment?",
-          "choices": [
-            {
-              "label": "Yes",
-              "value": true
-            },
-            {
-              "label": "No",
-              "value": false
-            }
-          ],
-          "parameter_name": "more_template_adjustments",
-          "default_value": false,
-          "value_kind": ""
-        }
-      ],
-      "choice_info": {
-        "question": "Do more templates need adjustment?",
-        "choices": [
-          {
-            "label": "Yes",
-            "value": true
-          },
-          {
-            "label": "No",
-            "value": false
-          }
-        ],
-        "parameter_name": "more_template_adjustments",
-        "default_value": false
-      },
-      "operation_model": {
-        "step_type": "branch_op",
-        "op_types": [
-          "branch_op"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
-        "allow_module_switch": false,
-        "produces_interaction_state": false,
-        "interaction_kinds": []
-      },
-      "repeat_block": {
-        "repeat_id": "loop_back_step_14",
-        "body_steps": [
-          "cb_step_12",
-          "cb_step_13",
-          "cb_step_14"
-        ],
-        "entry_step": "cb_step_12",
-        "terminal_step": "cb_step_14",
-        "exit_step": "cb_step_15",
-        "controller": {
-          "kind": "until_choice",
-          "source_step": "cb_step_14",
-          "loop_back": true,
-          "prompt": "If more templates need adjustment, jump to step 12. If not, jump to step 15.",
-          "exit_value": false,
-          "polarity": "deterministic",
-          "exit_target": 15
-        },
-        "max_iterations": 20,
-        "inference": {
-          "source": "backward_jump_loop_synthesis",
-          "confidence": "high"
-        }
-      },
-      "ui_guidance": {
-        "title": "More templates to adjust?",
-        "instruction": "Choose Yes to adjust another template; otherwise choose No.",
-        "done_label": "Done",
-        "choice_label": "Choice",
-        "input_label": "Choice",
-        "object_label": "choice",
-        "repeat": {}
-      },
-      "branch_action_drives_extension": false
-    },
-    {
-      "step_id": "cb_step_15",
       "operation_type": "extension_op",
       "description": "Click the \"Apply template adjustment\" button.",
       "depends_on": [
-        "cb_step_14"
+        "cb_step_12"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Apply the template adjustments.",
+          "description": "Apply the manual template adjustment",
           "extension_method_hint": "applyTemplateTransforms",
           "extension_function_hint": null,
           "widget_name": "btnApplyTemplateAdjust",
@@ -1419,7 +1173,9 @@
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            12
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -1445,61 +1201,30 @@
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
-      "repeat_block": {
-        "repeat_id": "template_adjust_optional",
-        "body_steps": [
-          "cb_step_12",
-          "cb_step_13",
-          "cb_step_14",
-          "cb_step_15"
-        ],
-        "entry_step": "cb_step_12",
-        "terminal_step": "cb_step_15",
-        "exit_step": "cb_step_16",
-        "controller": {
-          "kind": "until_choice",
-          "source_step": "cb_step_11",
-          "prompt": "Are further template adjustments required?",
-          "exit_value": false,
-          "exit_target": 16
-        },
-        "max_iterations": 20,
-        "inference": {
-          "source": "llm_semantic_decomposition",
-          "evidence_step_ids": [
-            11,
-            12,
-            13,
-            14,
-            15
-          ],
-          "confidence": "high"
-        }
-      },
       "ui_guidance": {
         "title": "Apply template adjustment",
         "instruction": "Click the \"Apply template adjustment\" button.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "button",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_15.py.tpl"
+      "code_template": "templates/cb_step_13.py.tpl"
     },
     {
-      "step_id": "cb_step_16",
+      "step_id": "cb_step_14",
       "operation_type": "extension_op",
       "description": "Click \"Run Step 4: Register _Reduce\" button.",
       "depends_on": [
-        "cb_step_15",
+        "cb_step_13",
         "cb_step_4"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Run Step 4 to register and reduce the fragments.",
+          "description": "Run Step 4 to register and reduce the fracture fragments",
           "extension_method_hint": "plan_register_reduce",
           "extension_function_hint": null,
           "widget_name": "btnReduce",
@@ -1511,9 +1236,12 @@
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": null,
-          "creates_node": true,
+          "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            13,
+            4
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -1523,19 +1251,19 @@
               "role_kind": "extension_input",
               "node_class": "vtkMRMLSegmentationNode",
               "parameter_name": "OutputPelvisSeg",
-              "step_id": "cb_step_16"
+              "step_id": "cb_step_14"
             },
             {
               "role_kind": "extension_input",
               "node_class": "vtkMRMLSegmentationNode",
               "parameter_name": "OutputFracSeg",
-              "step_id": "cb_step_16"
+              "step_id": "cb_step_14"
             },
             {
               "role_kind": "extension_output",
               "node_class": "vtkMRMLSegmentationNode",
               "parameter_name": "OutputReduction",
-              "step_id": "cb_step_16"
+              "step_id": "cb_step_14"
             }
           ],
           "confidence": "high",
@@ -1548,19 +1276,19 @@
           "role_kind": "extension_input",
           "node_class": "vtkMRMLSegmentationNode",
           "parameter_name": "OutputPelvisSeg",
-          "step_id": "cb_step_16"
+          "step_id": "cb_step_14"
         },
         {
           "role_kind": "extension_input",
           "node_class": "vtkMRMLSegmentationNode",
           "parameter_name": "OutputFracSeg",
-          "step_id": "cb_step_16"
+          "step_id": "cb_step_14"
         },
         {
           "role_kind": "extension_output",
           "node_class": "vtkMRMLSegmentationNode",
           "parameter_name": "OutputReduction",
-          "step_id": "cb_step_16"
+          "step_id": "cb_step_14"
         }
       ],
       "method_name": "plan_register_reduce",
@@ -1579,28 +1307,28 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Register and reduce",
+        "title": "Run Step 4: Register & Reduce",
         "instruction": "Click the \"Run Step 4: Register _Reduce\" button.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "button",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_16.py.tpl"
+      "code_template": "templates/cb_step_14.py.tpl"
     },
     {
-      "step_id": "cb_step_17",
+      "step_id": "cb_step_15",
       "operation_type": "branch_op",
-      "description": "If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 22.",
+      "description": "If further adjustments are required, tick the \"Manually adjust a fragment\" checkbox. If not, jump to step 17.",
       "depends_on": [
-        "cb_step_16"
+        "cb_step_14"
       ],
       "sub_operations": [
         {
           "op_type": "branch_op",
           "operation_type": "branch_op",
-          "description": "Ask whether further fragment adjustments are needed; if so tick the manual fragment adjustment checkbox, otherwise skip to step 22.",
+          "description": "Ask whether further fragment adjustments are required; if so tick manual fragment adjustment, otherwise jump to step 17",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "chkManualAdjust",
@@ -1614,7 +1342,9 @@
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            14
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -1623,7 +1353,7 @@
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "Are further fragment adjustments required?",
+          "question": "Are further adjustments of a fragment required?",
           "choices": [
             {
               "label": "Yes",
@@ -1634,13 +1364,13 @@
               "value": false
             }
           ],
-          "parameter_name": "manually_adjust_fragment",
+          "parameter_name": "manual_fragment_adjust",
           "default_value": false,
           "value_kind": ""
         }
       ],
       "choice_info": {
-        "question": "Are further fragment adjustments required?",
+        "question": "Are further adjustments of a fragment required?",
         "choices": [
           {
             "label": "Yes",
@@ -1651,7 +1381,7 @@
             "value": false
           }
         ],
-        "parameter_name": "manually_adjust_fragment",
+        "parameter_name": "manual_fragment_adjust",
         "default_value": false
       },
       "operation_model": {
@@ -1669,8 +1399,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Adjust fragments further?",
-        "instruction": "Choose Yes if further fragment adjustments are required; otherwise choose No.",
+        "title": "Adjust a fragment?",
+        "instruction": "Choose Yes to manually adjust a fragment, or No to continue.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
@@ -1678,20 +1408,20 @@
         "repeat": {}
       },
       "branch_action_drives_extension": true,
-      "branch_action_template": "templates/cb_step_17_action.py.tpl"
+      "branch_action_template": "templates/cb_step_15_action.py.tpl"
     },
     {
-      "step_id": "cb_step_18",
+      "step_id": "cb_step_16",
       "operation_type": "user_choice",
       "description": "In the \"Fragment\" option, Choose which fragment needs adjustment in the \"Fragment\" selection box.",
       "depends_on": [
-        "cb_step_17"
+        "cb_step_15"
       ],
       "sub_operations": [
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Choose which fragment needs adjustment from the Fragment selection box.",
+          "description": "Choose which fragment needs adjustment",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "fragmentSelector",
@@ -1699,17 +1429,15 @@
           "target_value": null,
           "target_value_mode": null,
           "slicer_op_category": null,
-          "slicer_api_keywords": [
-            "fragment",
-            "selector",
-            "select"
-          ],
+          "slicer_api_keywords": [],
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": "vtkMRMLSegmentationNode",
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            15
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -1720,9 +1448,9 @@
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "Which fragment needs adjustment?",
+          "question": "Choose which fragment needs adjustment.",
           "choices": [],
-          "parameter_name": "fragment_selector",
+          "parameter_name": "fragmentName",
           "default_value": null,
           "value_kind": "segment_name_selection",
           "widget_class": "QComboBox",
@@ -1733,9 +1461,9 @@
         "segment_name_selection"
       ],
       "choice_info": {
-        "question": "Which fragment needs adjustment?",
+        "question": "Choose which fragment needs adjustment.",
         "choices": [],
-        "parameter_name": "fragment_selector",
+        "parameter_name": "fragmentName",
         "default_value": null
       },
       "operation_model": {
@@ -1755,275 +1483,53 @@
         "interaction_kinds": []
       },
       "repeat_block": {
-        "repeat_id": "loop_back_step_20",
+        "repeat_id": "repeat_fragment_adjustment_if_needed",
         "body_steps": [
-          "cb_step_18",
-          "cb_step_19",
-          "cb_step_20"
+          "cb_step_16"
         ],
-        "entry_step": "cb_step_18",
-        "terminal_step": "cb_step_20",
-        "exit_step": "cb_step_21",
+        "entry_step": "cb_step_16",
+        "terminal_step": "cb_step_16",
+        "exit_step": "cb_step_17",
         "controller": {
           "kind": "until_choice",
-          "source_step": "cb_step_20",
-          "loop_back": true,
-          "prompt": "If further adjustments are required, jump to step 18. If not, jump to step 21.",
+          "source_step": "cb_step_15",
+          "prompt": "If further fragment adjustments are required, choose the fragment to adjust; otherwise jump to step 17.",
           "exit_value": false,
-          "polarity": "deterministic",
-          "exit_target": 21
+          "exit_target": 17
         },
         "max_iterations": 20,
         "inference": {
-          "source": "backward_jump_loop_synthesis",
+          "source": "llm_semantic_decomposition",
+          "evidence_step_ids": [
+            15,
+            16,
+            17
+          ],
           "confidence": "high"
         }
       },
       "ui_guidance": {
-        "title": "Choose fragment to adjust",
-        "instruction": "Select the fragment to adjust in the \"Fragment\" box.",
+        "title": "Choose a fragment to adjust",
+        "instruction": "Select the fragment to adjust from the Fragment list.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
-        "object_label": "choice",
+        "object_label": "fragment",
         "repeat": {}
       }
     },
     {
-      "step_id": "cb_step_19",
-      "operation_type": "user_interaction",
-      "description": "Manually adjust the position and rotation of the selected fragment.",
-      "depends_on": [
-        "cb_step_18"
-      ],
-      "sub_operations": [
-        {
-          "op_type": "user_interaction",
-          "operation_type": "user_interaction",
-          "description": "Adjust the position and rotation of the selected fragment.",
-          "extension_method_hint": null,
-          "extension_function_hint": null,
-          "widget_name": null,
-          "ui_parameter_binding": null,
-          "target_value": null,
-          "target_value_mode": null,
-          "slicer_op_category": null,
-          "slicer_api_keywords": [
-            "vtkMRMLModelNode",
-            "fragment",
-            "Translate",
-            "Rotate"
-          ],
-          "interaction_kind": "view_adjustment",
-          "interaction_type": "generic",
-          "node_class": null,
-          "creates_node": false,
-          "requires_place_mode": false,
-          "setup_dependencies": [
-            18
-          ],
-          "placement_instructions": null,
-          "min_control_points": 0,
-          "is_optional": false,
-          "operation_intents": [],
-          "node_roles": [],
-          "confidence": "high",
-          "evidence_type": "llm_semantic_decomposition",
-          "evidence_id": ""
-        }
-      ],
-      "interaction_type": "generic",
-      "interaction_kind": "view_adjustment",
-      "node_class": "",
-      "creates_node": false,
-      "requires_place_mode": false,
-      "setup_dependencies": [
-        18
-      ],
-      "placement_instructions": null,
-      "min_control_points": 0,
-      "operation_model": {
-        "step_type": "user_interaction",
-        "op_types": [
-          "user_interaction"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": true,
-        "allow_module_switch": false,
-        "produces_interaction_state": true,
-        "interaction_kinds": [
-          "view_adjustment"
-        ]
-      },
-      "repeat_block": {
-        "repeat_id": "loop_back_step_20",
-        "body_steps": [
-          "cb_step_18",
-          "cb_step_19",
-          "cb_step_20"
-        ],
-        "entry_step": "cb_step_18",
-        "terminal_step": "cb_step_20",
-        "exit_step": "cb_step_21",
-        "controller": {
-          "kind": "until_choice",
-          "source_step": "cb_step_20",
-          "loop_back": true,
-          "prompt": "If further adjustments are required, jump to step 18. If not, jump to step 21.",
-          "exit_value": false,
-          "polarity": "deterministic",
-          "exit_target": 21
-        },
-        "max_iterations": 20,
-        "inference": {
-          "source": "backward_jump_loop_synthesis",
-          "confidence": "high"
-        }
-      },
-      "ui_guidance": {
-        "title": "Adjust view",
-        "instruction": "Rotate or zoom the 3D view for a clear view of the selected fragment.",
-        "done_label": "Done",
-        "choice_label": "",
-        "input_label": "",
-        "object_label": "view",
-        "repeat": {}
-      },
-      "extension_owns_adjust_mode": false,
-      "pre_template": "templates/cb_step_19_pre.py.tpl",
-      "post_template": "templates/cb_step_19_post.py.tpl"
-    },
-    {
-      "step_id": "cb_step_20",
-      "operation_type": "branch_op",
-      "description": "If further adjustments are required, jump to step 18. If not, jump to step 21.",
-      "depends_on": [
-        "cb_step_19",
-        "cb_step_18"
-      ],
-      "sub_operations": [
-        {
-          "op_type": "branch_op",
-          "operation_type": "branch_op",
-          "description": "Ask whether more fragment adjustments are needed; yes loops back to fragment selection, no continues to apply.",
-          "extension_method_hint": null,
-          "extension_function_hint": null,
-          "widget_name": null,
-          "ui_parameter_binding": null,
-          "target_value": null,
-          "target_value_mode": null,
-          "slicer_op_category": null,
-          "slicer_api_keywords": [],
-          "interaction_kind": "none",
-          "interaction_type": null,
-          "node_class": null,
-          "creates_node": false,
-          "requires_place_mode": false,
-          "setup_dependencies": [],
-          "placement_instructions": null,
-          "min_control_points": 0,
-          "is_optional": false,
-          "operation_intents": [],
-          "node_roles": [],
-          "confidence": "high",
-          "evidence_type": "llm_semantic_decomposition",
-          "evidence_id": "",
-          "question": "Are further fragment adjustments required?",
-          "choices": [
-            {
-              "label": "Yes",
-              "value": true
-            },
-            {
-              "label": "No",
-              "value": false
-            }
-          ],
-          "parameter_name": "more_fragment_adjustments",
-          "default_value": false,
-          "value_kind": ""
-        }
-      ],
-      "choice_info": {
-        "question": "Are further fragment adjustments required?",
-        "choices": [
-          {
-            "label": "Yes",
-            "value": true
-          },
-          {
-            "label": "No",
-            "value": false
-          }
-        ],
-        "parameter_name": "more_fragment_adjustments",
-        "default_value": false
-      },
-      "operation_model": {
-        "step_type": "branch_op",
-        "op_types": [
-          "branch_op"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
-        "allow_module_switch": false,
-        "produces_interaction_state": false,
-        "interaction_kinds": []
-      },
-      "repeat_block": {
-        "repeat_id": "loop_back_step_20",
-        "body_steps": [
-          "cb_step_18",
-          "cb_step_19",
-          "cb_step_20"
-        ],
-        "entry_step": "cb_step_18",
-        "terminal_step": "cb_step_20",
-        "exit_step": "cb_step_21",
-        "controller": {
-          "kind": "until_choice",
-          "source_step": "cb_step_20",
-          "loop_back": true,
-          "prompt": "If further adjustments are required, jump to step 18. If not, jump to step 21.",
-          "exit_value": false,
-          "polarity": "deterministic",
-          "exit_target": 21
-        },
-        "max_iterations": 20,
-        "inference": {
-          "source": "backward_jump_loop_synthesis",
-          "confidence": "high"
-        }
-      },
-      "ui_guidance": {
-        "title": "More fragments to adjust?",
-        "instruction": "Choose Yes to adjust another fragment; otherwise choose No.",
-        "done_label": "Done",
-        "choice_label": "Choice",
-        "input_label": "Choice",
-        "object_label": "choice",
-        "repeat": {}
-      },
-      "branch_action_drives_extension": false
-    },
-    {
-      "step_id": "cb_step_21",
+      "step_id": "cb_step_17",
       "operation_type": "extension_op",
       "description": "Click the \"Apply adjustments\" button.",
       "depends_on": [
-        "cb_step_20"
+        "cb_step_16"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Apply the fragment adjustments.",
+          "description": "Apply the manual fragment adjustments",
           "extension_method_hint": "applyReductionTransforms",
           "extension_function_hint": null,
           "widget_name": "btnApplyAdjust",
@@ -2037,7 +1543,9 @@
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            16
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -2063,61 +1571,30 @@
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
-      "repeat_block": {
-        "repeat_id": "fragment_adjust_optional",
-        "body_steps": [
-          "cb_step_18",
-          "cb_step_19",
-          "cb_step_20",
-          "cb_step_21"
-        ],
-        "entry_step": "cb_step_18",
-        "terminal_step": "cb_step_21",
-        "exit_step": "cb_step_22",
-        "controller": {
-          "kind": "until_choice",
-          "source_step": "cb_step_17",
-          "prompt": "Are further fragment adjustments required?",
-          "exit_value": false,
-          "exit_target": 22
-        },
-        "max_iterations": 20,
-        "inference": {
-          "source": "llm_semantic_decomposition",
-          "evidence_step_ids": [
-            17,
-            18,
-            19,
-            20,
-            21
-          ],
-          "confidence": "high"
-        }
-      },
       "ui_guidance": {
         "title": "Apply adjustments",
         "instruction": "Click the \"Apply adjustments\" button.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "button",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_21.py.tpl"
+      "code_template": "templates/cb_step_17.py.tpl"
     },
     {
-      "step_id": "cb_step_22",
+      "step_id": "cb_step_18",
       "operation_type": "extension_op",
       "description": "Click the \"Run Step 5: Plan Screws\" button.",
       "depends_on": [
-        "cb_step_21",
+        "cb_step_17",
         "cb_step_5"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Run Step 5 to plan screws.",
+          "description": "Run Step 5 to plan screw trajectories",
           "extension_method_hint": "plan_screws",
           "extension_function_hint": null,
           "widget_name": "btnPlanScrews",
@@ -2129,25 +1606,22 @@
           "interaction_kind": "none",
           "interaction_type": null,
           "node_class": null,
-          "creates_node": true,
+          "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            17,
+            5
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
           "node_roles": [
             {
-              "role_kind": "extension_input",
-              "node_class": "vtkMRMLSegmentationNode",
-              "parameter_name": "",
-              "step_id": "cb_step_22"
-            },
-            {
               "role_kind": "extension_output",
               "node_class": "vtkMRMLModelNode",
               "parameter_name": "OutputScrew",
-              "step_id": "cb_step_22"
+              "step_id": "cb_step_18"
             }
           ],
           "confidence": "high",
@@ -2157,16 +1631,10 @@
       ],
       "node_roles": [
         {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLSegmentationNode",
-          "parameter_name": "",
-          "step_id": "cb_step_22"
-        },
-        {
           "role_kind": "extension_output",
           "node_class": "vtkMRMLModelNode",
           "parameter_name": "OutputScrew",
-          "step_id": "cb_step_22"
+          "step_id": "cb_step_18"
         }
       ],
       "method_name": "plan_screws",
@@ -2185,28 +1653,28 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Plan screws",
+        "title": "Run Step 5: Plan Screws",
         "instruction": "Click the \"Run Step 5: Plan Screws\" button.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "button",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_22.py.tpl"
+      "code_template": "templates/cb_step_18.py.tpl"
     },
     {
-      "step_id": "cb_step_23",
+      "step_id": "cb_step_19",
       "operation_type": "branch_op",
       "description": "If further adjustments are required, tick the \"Edit Screw trajectories\" checkbox. If not, stop here.",
       "depends_on": [
-        "cb_step_22"
+        "cb_step_18"
       ],
       "sub_operations": [
         {
           "op_type": "branch_op",
           "operation_type": "branch_op",
-          "description": "Ask whether further screw trajectory edits are needed; if so tick the edit screw trajectories checkbox, otherwise stop.",
+          "description": "Ask whether further screw trajectory edits are required; if so tick edit screw trajectories, otherwise stop",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "chkEditScrews",
@@ -2220,7 +1688,9 @@
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
-          "setup_dependencies": [],
+          "setup_dependencies": [
+            18
+          ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
@@ -2276,7 +1746,7 @@
       },
       "ui_guidance": {
         "title": "Edit screw trajectories?",
-        "instruction": "Choose Yes to edit screw trajectories; otherwise choose No.",
+        "instruction": "Choose Yes to edit screw trajectories, or No to finish.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
@@ -2284,40 +1754,144 @@
         "repeat": {}
       },
       "branch_action_drives_extension": true,
-      "branch_action_template": "templates/cb_step_23_action.py.tpl"
+      "branch_action_template": "templates/cb_step_19_action.py.tpl"
     },
     {
-      "step_id": "cb_step_24",
-      "operation_type": "user_interaction",
-      "description": "Manually adjust the position and rotation of the screw trajectories.",
+      "step_id": "cb_step_20",
+      "operation_type": "user_choice",
+      "description": "In the \"Trajectory\" option, Choose which trajectory needs adjustment in the \"Trajectory\" selection box.",
       "depends_on": [
-        "cb_step_23"
+        "cb_step_19"
       ],
       "sub_operations": [
         {
-          "op_type": "user_interaction",
-          "operation_type": "user_interaction",
-          "description": "Adjust the position and rotation of the screw trajectories.",
+          "op_type": "user_choice",
+          "operation_type": "user_choice",
+          "description": "Choose which screw trajectory needs adjustment",
           "extension_method_hint": null,
           "extension_function_hint": null,
-          "widget_name": null,
+          "widget_name": "screwSelector",
           "ui_parameter_binding": null,
           "target_value": null,
           "target_value_mode": null,
           "slicer_op_category": null,
-          "slicer_api_keywords": [
-            "screw trajectory",
-            "Translate",
-            "Rotate",
-            "handle"
+          "slicer_api_keywords": [],
+          "interaction_kind": "none",
+          "interaction_type": null,
+          "node_class": "vtkMRMLSegmentationNode",
+          "creates_node": false,
+          "requires_place_mode": false,
+          "setup_dependencies": [
+            19
           ],
-          "interaction_kind": "view_adjustment",
-          "interaction_type": "generic",
+          "placement_instructions": null,
+          "min_control_points": 0,
+          "is_optional": false,
+          "operation_intents": [
+            "segment_name_selection"
+          ],
+          "node_roles": [],
+          "confidence": "high",
+          "evidence_type": "llm_semantic_decomposition",
+          "evidence_id": "",
+          "question": "Choose which trajectory needs adjustment.",
+          "choices": [],
+          "parameter_name": "screwTrajectoryName",
+          "default_value": null,
+          "value_kind": "segment_name_selection",
+          "widget_class": "QComboBox",
+          "operation_intent": "segment_name_selection"
+        }
+      ],
+      "operation_intents": [
+        "segment_name_selection"
+      ],
+      "choice_info": {
+        "question": "Choose which trajectory needs adjustment.",
+        "choices": [],
+        "parameter_name": "screwTrajectoryName",
+        "default_value": null
+      },
+      "operation_model": {
+        "step_type": "user_choice",
+        "op_types": [
+          "user_choice"
+        ],
+        "operation_intents": [
+          "segment_name_selection"
+        ],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "repeat_block": {
+        "repeat_id": "repeat_screw_edit_if_needed",
+        "body_steps": [
+          "cb_step_20",
+          "cb_step_21"
+        ],
+        "entry_step": "cb_step_20",
+        "terminal_step": "cb_step_21",
+        "exit_step": "",
+        "controller": {
+          "kind": "until_choice",
+          "source_step": "cb_step_19",
+          "prompt": "If further screw trajectory adjustments are required, choose the trajectory and regenerate the screws; otherwise stop here.",
+          "exit_value": false,
+          "exit_target": "stop"
+        },
+        "max_iterations": 20,
+        "inference": {
+          "source": "llm_semantic_decomposition",
+          "evidence_step_ids": [
+            19,
+            20,
+            21
+          ],
+          "confidence": "high"
+        }
+      },
+      "ui_guidance": {
+        "title": "Choose a trajectory to adjust",
+        "instruction": "Select the trajectory to adjust from the Trajectory list.",
+        "done_label": "Done",
+        "choice_label": "Choice",
+        "input_label": "Choice",
+        "object_label": "trajectory",
+        "repeat": {}
+      }
+    },
+    {
+      "step_id": "cb_step_21",
+      "operation_type": "extension_op",
+      "description": "Click the \"Regenerate screws from edited lines\" button.",
+      "depends_on": [
+        "cb_step_20"
+      ],
+      "sub_operations": [
+        {
+          "op_type": "extension_op",
+          "operation_type": "extension_op",
+          "description": "Regenerate the screw trajectories from the edited lines",
+          "extension_method_hint": null,
+          "extension_function_hint": "screw_color",
+          "widget_name": "btnRegenScrews",
+          "ui_parameter_binding": null,
+          "target_value": null,
+          "target_value_mode": null,
+          "slicer_op_category": null,
+          "slicer_api_keywords": [],
+          "interaction_kind": "none",
+          "interaction_type": null,
           "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            22
+            20
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -2329,136 +1903,33 @@
           "evidence_id": ""
         }
       ],
-      "interaction_type": "generic",
-      "interaction_kind": "view_adjustment",
-      "node_class": "",
-      "creates_node": false,
-      "requires_place_mode": false,
-      "setup_dependencies": [
-        22
-      ],
-      "placement_instructions": null,
-      "min_control_points": 0,
-      "operation_model": {
-        "step_type": "user_interaction",
-        "op_types": [
-          "user_interaction"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": false,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": true,
-        "allow_module_switch": false,
-        "produces_interaction_state": true,
-        "interaction_kinds": [
-          "view_adjustment"
-        ]
-      },
-      "repeat_block": {
-        "repeat_id": "screw_edit_optional",
-        "body_steps": [
-          "cb_step_24",
-          "cb_step_25"
-        ],
-        "entry_step": "cb_step_24",
-        "terminal_step": "cb_step_25",
-        "exit_step": "",
-        "controller": {
-          "kind": "until_choice",
-          "source_step": "cb_step_23",
-          "prompt": "Are further screw trajectory adjustments required?",
-          "exit_value": false,
-          "exit_target": "stop"
-        },
-        "max_iterations": 20,
-        "inference": {
-          "source": "llm_semantic_decomposition",
-          "evidence_step_ids": [
-            23,
-            24,
-            25
-          ],
-          "confidence": "high"
-        }
-      },
-      "ui_guidance": {
-        "title": "Adjust view",
-        "instruction": "Rotate or zoom the 3D view for a clear view of the screw trajectories.",
-        "done_label": "Done",
-        "choice_label": "",
-        "input_label": "",
-        "object_label": "view",
-        "repeat": {}
-      },
-      "extension_owns_adjust_mode": true,
-      "pre_template": "templates/cb_step_24_pre.py.tpl",
-      "post_template": "templates/cb_step_24_post.py.tpl"
-    },
-    {
-      "step_id": "cb_step_25",
-      "operation_type": "extension_op",
-      "description": "Click the \"Regenerate screws from edited lines\" button.",
-      "depends_on": [
-        "cb_step_24"
-      ],
-      "sub_operations": [
-        {
-          "op_type": "extension_op",
-          "operation_type": "extension_op",
-          "description": "Regenerate the screws from the edited trajectory lines.",
-          "extension_method_hint": "_buildScrewNodes",
-          "extension_function_hint": null,
-          "widget_name": "btnRegenScrews",
-          "ui_parameter_binding": null,
-          "target_value": null,
-          "target_value_mode": null,
-          "slicer_op_category": null,
-          "slicer_api_keywords": [],
-          "interaction_kind": "none",
-          "interaction_type": null,
-          "node_class": null,
-          "creates_node": true,
-          "requires_place_mode": false,
-          "setup_dependencies": [],
-          "placement_instructions": null,
-          "min_control_points": 0,
-          "is_optional": false,
-          "operation_intents": [],
-          "node_roles": [],
-          "confidence": "medium",
-          "evidence_type": "llm_semantic_decomposition",
-          "evidence_id": ""
-        }
-      ],
-      "method_name": "_buildScrewNodes",
       "operation_model": {
         "step_type": "extension_op",
         "op_types": [
           "extension_op"
         ],
         "operation_intents": [],
-        "invokes_extension_method": true,
-        "invokes_extension_function": false,
+        "invokes_extension_method": false,
+        "invokes_extension_function": true,
         "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
+        "implementation_uses_slicer_api": true,
         "allow_module_switch": false,
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
       "repeat_block": {
-        "repeat_id": "screw_edit_optional",
+        "repeat_id": "repeat_screw_edit_if_needed",
         "body_steps": [
-          "cb_step_24",
-          "cb_step_25"
+          "cb_step_20",
+          "cb_step_21"
         ],
-        "entry_step": "cb_step_24",
-        "terminal_step": "cb_step_25",
+        "entry_step": "cb_step_20",
+        "terminal_step": "cb_step_21",
         "exit_step": "",
         "controller": {
           "kind": "until_choice",
-          "source_step": "cb_step_23",
-          "prompt": "Are further screw trajectory adjustments required?",
+          "source_step": "cb_step_19",
+          "prompt": "If further screw trajectory adjustments are required, choose the trajectory and regenerate the screws; otherwise stop here.",
           "exit_value": false,
           "exit_target": "stop"
         },
@@ -2466,30 +1937,31 @@
         "inference": {
           "source": "llm_semantic_decomposition",
           "evidence_step_ids": [
-            23,
-            24,
-            25
+            19,
+            20,
+            21
           ],
           "confidence": "high"
         }
       },
+      "extension_function_name": "screw_color",
       "ui_guidance": {
-        "title": "Regenerate screws",
+        "title": "Regenerate screws from edited lines",
         "instruction": "Click the \"Regenerate screws from edited lines\" button.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "interaction",
+        "object_label": "button",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_25.py.tpl"
+      "code_template": "templates/cb_step_21.py.tpl"
     }
   ],
-  "step_count": 25,
+  "step_count": 21,
   "source": "cookbook",
   "repeat_blocks": [
     {
-      "repeat_id": "manual_split_optional",
+      "repeat_id": "repeat_manual_split_if_needed",
       "body_steps": [
         "cb_step_7",
         "cb_step_8",
@@ -2501,7 +1973,7 @@
       "controller": {
         "kind": "until_choice",
         "source_step": "cb_step_6",
-        "prompt": "Does a piece that should have been split require a manual cut?",
+        "prompt": "If a piece should have been split but was not and requires manual cutting, run the manual separation steps; otherwise jump to step 10.",
         "exit_value": false,
         "exit_target": 10
       },
@@ -2511,29 +1983,25 @@
         "evidence_step_ids": [
           6,
           7,
-          8,
           9
         ],
         "confidence": "high"
       }
     },
     {
-      "repeat_id": "template_adjust_optional",
+      "repeat_id": "repeat_template_adjustment_if_needed",
       "body_steps": [
-        "cb_step_12",
-        "cb_step_13",
-        "cb_step_14",
-        "cb_step_15"
+        "cb_step_12"
       ],
       "entry_step": "cb_step_12",
-      "terminal_step": "cb_step_15",
-      "exit_step": "cb_step_16",
+      "terminal_step": "cb_step_12",
+      "exit_step": "cb_step_13",
       "controller": {
         "kind": "until_choice",
         "source_step": "cb_step_11",
-        "prompt": "Are further template adjustments required?",
+        "prompt": "If further template adjustments are required, choose the template to adjust; otherwise jump to step 13.",
         "exit_value": false,
-        "exit_target": 16
+        "exit_target": 13
       },
       "max_iterations": 20,
       "inference": {
@@ -2541,57 +2009,50 @@
         "evidence_step_ids": [
           11,
           12,
-          13,
-          14,
-          15
+          13
         ],
         "confidence": "high"
       }
     },
     {
-      "repeat_id": "fragment_adjust_optional",
+      "repeat_id": "repeat_fragment_adjustment_if_needed",
       "body_steps": [
-        "cb_step_18",
-        "cb_step_19",
-        "cb_step_20",
-        "cb_step_21"
+        "cb_step_16"
       ],
-      "entry_step": "cb_step_18",
-      "terminal_step": "cb_step_21",
-      "exit_step": "cb_step_22",
+      "entry_step": "cb_step_16",
+      "terminal_step": "cb_step_16",
+      "exit_step": "cb_step_17",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_17",
-        "prompt": "Are further fragment adjustments required?",
+        "source_step": "cb_step_15",
+        "prompt": "If further fragment adjustments are required, choose the fragment to adjust; otherwise jump to step 17.",
         "exit_value": false,
-        "exit_target": 22
+        "exit_target": 17
       },
       "max_iterations": 20,
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          17,
-          18,
-          19,
-          20,
-          21
+          15,
+          16,
+          17
         ],
         "confidence": "high"
       }
     },
     {
-      "repeat_id": "screw_edit_optional",
+      "repeat_id": "repeat_screw_edit_if_needed",
       "body_steps": [
-        "cb_step_24",
-        "cb_step_25"
+        "cb_step_20",
+        "cb_step_21"
       ],
-      "entry_step": "cb_step_24",
-      "terminal_step": "cb_step_25",
+      "entry_step": "cb_step_20",
+      "terminal_step": "cb_step_21",
       "exit_step": "",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_23",
-        "prompt": "Are further screw trajectory adjustments required?",
+        "source_step": "cb_step_19",
+        "prompt": "If further screw trajectory adjustments are required, choose the trajectory and regenerate the screws; otherwise stop here.",
         "exit_value": false,
         "exit_target": "stop"
       },
@@ -2599,60 +2060,10 @@
       "inference": {
         "source": "llm_semantic_decomposition",
         "evidence_step_ids": [
-          23,
-          24,
-          25
+          19,
+          20,
+          21
         ],
-        "confidence": "high"
-      }
-    },
-    {
-      "repeat_id": "loop_back_step_14",
-      "body_steps": [
-        "cb_step_12",
-        "cb_step_13",
-        "cb_step_14"
-      ],
-      "entry_step": "cb_step_12",
-      "terminal_step": "cb_step_14",
-      "exit_step": "cb_step_15",
-      "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_14",
-        "loop_back": true,
-        "prompt": "If more templates need adjustment, jump to step 12. If not, jump to step 15.",
-        "exit_value": false,
-        "polarity": "deterministic",
-        "exit_target": 15
-      },
-      "max_iterations": 20,
-      "inference": {
-        "source": "backward_jump_loop_synthesis",
-        "confidence": "high"
-      }
-    },
-    {
-      "repeat_id": "loop_back_step_20",
-      "body_steps": [
-        "cb_step_18",
-        "cb_step_19",
-        "cb_step_20"
-      ],
-      "entry_step": "cb_step_18",
-      "terminal_step": "cb_step_20",
-      "exit_step": "cb_step_21",
-      "controller": {
-        "kind": "until_choice",
-        "source_step": "cb_step_20",
-        "loop_back": true,
-        "prompt": "If further adjustments are required, jump to step 18. If not, jump to step 21.",
-        "exit_value": false,
-        "polarity": "deterministic",
-        "exit_target": 21
-      },
-      "max_iterations": 20,
-      "inference": {
-        "source": "backward_jump_loop_synthesis",
         "confidence": "high"
       }
     }

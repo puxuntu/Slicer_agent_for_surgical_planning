@@ -29,5 +29,5 @@ if _widget is None:
 if not hasattr(_widget, 'onReduce'):
     raise RuntimeError("PelvicFracturePlanning widget has no handler 'onReduce' for 'btnReduce'; regenerate the CLI.")
 _widget.onReduce()
-print("[PelvicFracturePlanning] Step 'cb_step_16': clicked 'btnReduce' via onReduce().")
+print("[PelvicFracturePlanning] Step 'cb_step_14': clicked 'btnReduce' via onReduce().")
 

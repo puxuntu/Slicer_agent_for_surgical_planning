@@ -1,4 +1,4 @@
-# --- PelvicFracturePlanning: Click the "Run Step 5: Plan Screws" button. ---
+# --- PelvicFracturePlanning: Click the "Apply template adjustment" button. ---
 # [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
@@ -25,9 +25,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnPlanScrews'.")
-if not hasattr(_widget, 'onPlanScrews'):
-    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onPlanScrews' for 'btnPlanScrews'; regenerate the CLI.")
-_widget.onPlanScrews()
-print("[PelvicFracturePlanning] Step 'cb_step_22': clicked 'btnPlanScrews' via onPlanScrews().")
+    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'btnApplyTemplateAdjust'.")
+if not hasattr(_widget, 'onApplyTemplateAdjust'):
+    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onApplyTemplateAdjust' for 'btnApplyTemplateAdjust'; regenerate the CLI.")
+_widget.onApplyTemplateAdjust()
+print("[PelvicFracturePlanning] Step 'cb_step_13': clicked 'btnApplyTemplateAdjust' via onApplyTemplateAdjust().")
 

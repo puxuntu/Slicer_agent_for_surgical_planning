@@ -1,4 +1,4 @@
-# --- PelvicFracturePlanning: If further adjustments are required, tick the "Edit Screw trajectories" checkbox. If not, stop here. ---
+# --- PelvicFracturePlanning: If further adjustments are required, tick the "Manually adjust a fragment" checkbox. If not, jump to step 17. ---
 # [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
@@ -25,9 +25,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'chkEditScrews'.")
-if not hasattr(_widget, 'onEditScrewsToggled'):
-    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onEditScrewsToggled' for 'chkEditScrews'; regenerate the CLI.")
+    raise RuntimeError("Could not obtain the PelvicFracturePlanning module widget for 'chkManualAdjust'.")
+if not hasattr(_widget, 'onManualAdjustToggled'):
+    raise RuntimeError("PelvicFracturePlanning widget has no handler 'onManualAdjustToggled' for 'chkManualAdjust'; regenerate the CLI.")
 # Resolve the bound control by name across the ways a Slicer
 # extension can expose it (.ui object, direct self.<name>
 # attribute, or objectName in the widget tree), then set its
@@ -38,13 +38,13 @@ if not hasattr(_widget, 'onEditScrewsToggled'):
 # unchecks the box to hide 3D interaction handles).
 _ctrl = None
 _ui = _widget.ui if hasattr(_widget, 'ui') else None
-if _ui is not None and hasattr(_ui, 'chkEditScrews'):
-    _ctrl = _ui.chkEditScrews
-if _ctrl is None and hasattr(_widget, 'chkEditScrews'):
-    _ctrl = _widget.chkEditScrews
+if _ui is not None and hasattr(_ui, 'chkManualAdjust'):
+    _ctrl = _ui.chkManualAdjust
+if _ctrl is None and hasattr(_widget, 'chkManualAdjust'):
+    _ctrl = _widget.chkManualAdjust
 if _ctrl is None:
     try:
-        _found = slicer.util.findChildren(_widget, name='chkEditScrews')
+        _found = slicer.util.findChildren(_widget, name='chkManualAdjust')
         _ctrl = _found[0] if _found else None
     except Exception:
         _ctrl = None
@@ -55,6 +55,6 @@ if _ctrl is not None:
         _ctrl.blockSignals(False)
     except Exception:
         pass
-_widget.onEditScrewsToggled(True)
-print("[PelvicFracturePlanning] Step 'cb_step_23': set 'chkEditScrews' = True via onEditScrewsToggled.")
+_widget.onManualAdjustToggled(True)
+print("[PelvicFracturePlanning] Step 'cb_step_15': set 'chkManualAdjust' = True via onManualAdjustToggled.")
 

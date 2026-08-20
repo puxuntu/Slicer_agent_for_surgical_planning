@@ -1,4 +1,4 @@
-# --- PelvicFracturePlanning: If further adjustments of the template are required, tick the "Manually adjust a template" checkbox. If not, jump to step 16. ---
+# --- PelvicFracturePlanning: If further adjustments of the template are required, tick the "Manually adjust a template" checkbox. If not, jump to step 13. ---
 # [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
