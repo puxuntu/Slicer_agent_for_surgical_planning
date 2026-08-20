@@ -1,6 +1,24 @@
 from .common import *
 
 
+def _class_body_end_line(lines: List[str], start_lineno: int) -> int:
+    """Last line (1-based, inclusive) of the block starting at start_lineno.
+
+    Used only where `end_lineno` is unavailable and the statement is the last in
+    its class body. Walks forward to the first non-blank line indented no deeper
+    than the block header, which is where the block provably ends.
+    """
+    header = lines[start_lineno - 1]
+    indent = len(header) - len(header.lstrip())
+    for index in range(start_lineno, len(lines)):
+        line = lines[index]
+        if not line.strip():
+            continue
+        if len(line) - len(line.lstrip()) <= indent:
+            return index
+    return len(lines)
+
+
 class AnalyzerCrossStageMixin:
     def _stage4_5_cross_stage_mapping(
         self, stage_map: Dict, logic_analysis: Dict, extension_name: str
@@ -332,6 +350,51 @@ class AnalyzerCrossStageMixin:
         """
         return self._stage4_node_lifecycle(scan_result, logic_analysis)
 
+    def _widget_method_sources(self) -> Dict[str, str]:
+        """Source of every method on the module WIDGET class, by name.
+
+        The logic-side counterpart is `_extract_method_source`, which is Logic-scoped
+        on purpose (a Widget and a Logic both define `setup()`), so it cannot answer
+        this. Scoped to the one widget class the scan identified rather than to any
+        class in the file, for the same reason.
+        """
+        info = getattr(self, "_widget_class_info", None) or {}
+        file_path = info.get("file", "")
+        class_name = info.get("class_name", "")
+        if not file_path or not class_name:
+            return {}
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as handle:
+                source = handle.read()
+            tree = ast.parse(source)
+        except Exception:
+            return {}
+        lines = source.splitlines()
+        sources: Dict[str, str] = {}
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.ClassDef) and node.name == class_name):
+                continue
+            # Bound each method by its NEXT SIBLING's first line, not by
+            # `end_lineno`: that attribute does not exist before Python 3.8, and a
+            # fallback of "to the end of the file" would make every method contain
+            # every other method's markers -- i.e. classify the whole class as a
+            # placement starter. Sibling bounds are exact and version-independent.
+            body = sorted(
+                (item for item in node.body if hasattr(item, "lineno")),
+                key=lambda item: item.lineno,
+            )
+            for position, item in enumerate(body):
+                if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                end = getattr(item, "end_lineno", None)
+                if not end:
+                    if position + 1 < len(body):
+                        end = body[position + 1].lineno - 1
+                    else:
+                        end = _class_body_end_line(lines, item.lineno)
+                sources[item.name] = "\n".join(lines[item.lineno - 1:end])
+        return sources
+
     def _classify_placement_starter_methods(self, logic_analysis: Dict) -> Dict[str, Dict]:
         """Detect extension methods that create a markup and enter placement mode.
 
@@ -343,14 +406,38 @@ class AnalyzerCrossStageMixin:
         logic_file = logic_analysis.get("_logic_file", "")
         starters: Dict[str, Dict] = {}
 
+        # Logic methods, then WIDGET methods. Arming a placement is a GUI action,
+        # and Slicer's module template puts GUI actions on the widget -- so on a
+        # template-shaped extension the starter is a button handler
+        # (`onManualSplit` creating a "Cut point" fiducial and switching to place
+        # mode) and scanning only the logic class reports zero starters. With none
+        # detected, `_find_recent_placement_starter_for_interaction` can never bind
+        # the following interaction step to it, and that step's generated PRE
+        # template creates a SECOND markup node and re-points the active list at
+        # it -- so the user's click lands in the runtime's node, the extension's
+        # PointPositionDefinedEvent never fires, and the behaviour the handler
+        # exists to start (here: build the cutting plane under the click) simply
+        # never happens. Nothing raises; the step just does nothing.
+        candidate_sources: List[Tuple[str, str]] = []
         for method in logic_analysis.get("methods", []):
             method_name = method.get("name", "")
             if not method_name:
                 continue
             source = self._extract_method_source(logic_file, method_name) or ""
-            if not source:
+            if source:
+                candidate_sources.append((method_name, source))
+        for method_name, source in sorted(self._widget_method_sources().items()):
+            # A logic method of the same name keeps precedence: it is the one the
+            # contract's `extension_method_hint` refers to.
+            if any(name == method_name for name, _ in candidate_sources):
                 continue
+            candidate_sources.append((method_name, source))
 
+        widget_only = {
+            name for name, _ in candidate_sources
+        } & set(self._widget_method_sources())
+        logic_names = {method.get("name", "") for method in logic_analysis.get("methods", [])}
+        for method_name, source in candidate_sources:
             markup_classes = sorted(set(_re.findall(r'"(vtkMRMLMarkups[^"]+Node)"', source)))
             creates_markup = bool(markup_classes) and (
                 "CreateNodeByClass" in source or "AddNewNodeByClass" in source
@@ -371,6 +458,12 @@ class AnalyzerCrossStageMixin:
                     "creates_node": creates_markup,
                     "sets_active_list": sets_active_markup,
                     "has_placement_observer": has_placement_observer,
+                    # Which object the method hangs off. A consumer that emits a
+                    # call has to know: `logic.<m>()` is wrong for a widget handler.
+                    "receiver": (
+                        "logic" if method_name in logic_names
+                        else ("widget" if method_name in widget_only else "unknown")
+                    ),
                     "reason": "creates a Markups node, activates it, and enters placement mode",
                 }
 

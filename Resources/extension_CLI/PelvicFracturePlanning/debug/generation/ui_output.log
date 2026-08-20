@@ -2,71 +2,80 @@
 Extension CLI pipeline  |  round: generation
   extension : PelvicFracturePlanning
   source    : C:/Users/20152/Desktop/slicer-skill/SlicerAgent/External_extensions/PelvicFracturePlanning
-  started   : 2026-08-19T20:56:38
+  started   : 2026-08-19T21:53:12
 ==============================================================================
-[2026-08-19T20:56:39 +    0.4s] [discover] Discover Source And Cookbook — Scanning extension files...
-[2026-08-19T20:56:53 +   14.3s] [discover] Discover Source And Cookbook — Found 2 Python files
-[2026-08-19T20:57:01 +   22.4s] [discover] Discover Source And Cookbook — Logic class: PelvicFracturePlanningLogic in PelvicFracturePlanning.py, Widget class: PelvicFracturePlanningWidget, UI files: 1
-[2026-08-19T20:57:01 +   22.8s] [discover] Discover Source And Cookbook — parameterNodeWrapper detected: PelvicFracturePlanningParameterNode (5 node fields)
-[2026-08-19T20:57:04 +   26.2s] [discover] Discover Source And Cookbook — Parsed cookbook: C:\Users\20152\Desktop\slicer-skill\SlicerAgent\Slicer_agent\Resources\extensions_cookbook\PelvicFracturePlanning.md (25 steps)
-[2026-08-19T20:57:05 +   26.5s] [discover] Discover Source And Cookbook — Phase 'discover' took 26.1s (cumulative 26.1s)
-[2026-08-19T20:57:05 +   27.0s] [analyze] Analyze Extension Logic — Reading PelvicFracturePlanningLogic from PelvicFracturePlanning.py...
-[2026-08-19T20:57:07 +   28.3s] [analyze] Analyze Extension Logic — AST enumerated 68 methods; requesting LLM annotation...
-[2026-08-19T21:00:17 +  218.4s] [llm_call] analyze — call 000 -> analyze_call_000.json (out 49843 chars)
-[2026-08-19T21:00:17 +  218.8s] [analyze] Analyze Extension Logic — Analyzed 68 methods (AST universe + LLM annotation)
-[2026-08-19T21:00:44 +  245.7s] [analyze] Analyze Extension Logic — Phase 'analyze' took 219.2s (cumulative 219.2s)
-[2026-08-19T21:00:44 +  246.1s] [contract] Build Workflow Contract — LLM interpreting cookbook steps and repeat intent...
-[2026-08-19T21:05:07 +  508.3s] [llm_call] contract — call 001 -> contract_call_001.json (out 31524 chars)
-[2026-08-19T21:06:12 +  574.1s] [llm_call] contract — call 002 -> contract_call_002.json (out 30867 chars)
-[2026-08-19T21:06:13 +  574.5s] [contract] Build Workflow Contract — LLM interpreted 25 cookbook steps
-[2026-08-19T21:06:13 +  574.8s] [contract] Build Workflow Contract — LLM analyzing data flow between steps...
-[2026-08-19T21:10:52 +  854.2s] [llm_call] contract — call 003 -> contract_call_003.json (out 5685 chars)
-[2026-08-19T21:10:53 +  854.6s] [contract] Build Workflow Contract — AST verification: -3 unverifiable, +0 closure connection(s)
-[2026-08-19T21:10:53 +  854.9s] [contract] Build Workflow Contract — LLM identified 18 cross-stage connections
-[2026-08-19T21:11:24 +  885.7s] [contract] Build Workflow Contract — Placement-starter methods detected: 0
-[2026-08-19T21:12:46 +  967.3s] [llm_call] contract — call 004 -> contract_call_004.json (out 10976 chars)
-[2026-08-19T21:13:37 + 1019.1s] [llm_call] contract — call 005 -> contract_call_005.json (out 10316 chars)
-[2026-08-19T21:13:38 + 1019.5s] [contract] Build Workflow Contract — Phase 'contract' took 773.8s (cumulative 773.8s)
-[2026-08-19T21:13:38 + 1019.8s] [audit_contract] Audit Workflow Contract — Auditing workflow contract against cookbook/source evidence...
-[2026-08-19T21:13:39 + 1020.8s] [audit_contract] Audit Workflow Contract — PASS
-[2026-08-19T21:13:39 + 1021.2s] [audit_contract] Audit Workflow Contract — Phase 'audit_contract' took 1.6s (cumulative 1.6s)
-[2026-08-19T21:13:43 + 1024.9s] [ground] Ground Slicer APIs — Generating templates for 1 slicer_op operations...
-[2026-08-19T21:13:44 + 1025.6s] [ground] Ground Slicer APIs — [0/1] starting 1 slicer_op templates
-[2026-08-19T21:13:45 + 1026.3s] [ground] Ground Slicer APIs — [0/1] running Center the 3D view to inspect the segmented pelvis.
-[2026-08-19T21:14:07 + 1048.7s] [ground] Ground Slicer APIs — [0/1] Center the 3D view to inspect the segmented pelvis.: round 1 search: [Search] Round 1: |   Grep: "resetFocalPoint" → slicer-source |   Grep: "ResetFocalPoint" → slicer-source/Base/Python |   VectorSearch: "center 3D view reset focal point ThreeDWidget"
-[2026-08-19T21:14:23 + 1064.4s] [ground] Ground Slicer APIs — [0/1] Center the 3D view to inspect the segmented pelvis.: round 2 search: [Search] Round 2: |   Grep: "FocalPoint|resetFocalPoint|resetCamera|resetThreeDViews" → slicer-extensions/PelvicFracturePlanning |   Grep: "pelvis|Pelvis" → slicer-extensions/PelvicFracturePlanning
-[2026-08-19T21:14:56 + 1097.5s] [ground] Ground Slicer APIs — [0/1] Center the 3D view to inspect the segmented pelvis.: round 3 search+read: [Search+Read] Round 3: |   Grep: "SetSingletonTag|Default" → slicer-source/Libs/MRML/Core/vtkMRMLViewNode.cxx |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md
-[2026-08-19T21:15:09 + 1110.8s] [ground] Ground Slicer APIs — [1/1] done Center the 3D view to inspect the segmented pelvis.
-[2026-08-19T21:15:10 + 1111.5s] [ground] Ground Slicer APIs — Generated 1 slicer_op templates
-[2026-08-19T21:15:10 + 1112.0s] [ground] Ground Slicer APIs — Grounded 1 slicer_op template(s); 0 reporting MISSING_EVIDENCE
-[2026-08-19T21:15:11 + 1112.4s] [ground] Ground Slicer APIs — Phase 'ground' took 91.3s (cumulative 91.3s)
-[2026-08-19T21:15:11 + 1112.8s] [generate] Generate Schemas And Templates — Building tool definitions...
-[2026-08-19T21:15:11 + 1113.2s] [generate] Generate Schemas And Templates — Generated interactive workflow schema with 25 steps
-[2026-08-19T21:15:12 + 1113.6s] [generate] Generate Schemas And Templates — Determining node creation patterns via AST...
-[2026-08-19T21:15:38 + 1139.8s] [generate] Generate Schemas And Templates — Analyzed 17 output nodes via AST
-[2026-08-19T21:15:39 + 1140.7s] [generate] Generate Schemas And Templates — Generated 24 workflow templates
-[2026-08-19T21:15:40 + 1141.3s] [generate] Generate Schemas And Templates — Sending templates to LLM for correctness review...
-[2026-08-19T21:15:40 + 1142.1s] [generate] Generate Schemas And Templates — All templates passed LLM review
-[2026-08-19T21:15:41 + 1142.6s] [audit_contract] Audit Workflow Contract — Auditing workflow contract against cookbook/source evidence...
-[2026-08-19T21:15:41 + 1142.9s] [audit_contract] Audit Workflow Contract — PASS
-[2026-08-19T21:15:42 + 1143.3s] [generate] Generate Schemas And Templates — Phase 'generate' took 30.8s (cumulative 30.8s)
-[2026-08-19T21:15:43 + 1144.8s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
-[2026-08-19T21:15:45 + 1146.3s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
-[2026-08-19T21:15:48 + 1149.5s] [verify_repair] Verify And Repair Templates — All 19 API probes passed
-[2026-08-19T21:15:49 + 1150.8s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
-[2026-08-19T21:15:53 + 1155.0s] [verify_repair] Verify And Repair Templates — PASS
-[2026-08-19T21:15:54 + 1155.5s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 1 validation attempt(s)
-[2026-08-19T21:15:54 + 1156.0s] [package] Final Gate — status=validated_with_warnings | api_proof=OK | final_syntax=OK | placeholders=OK | generator_sync=OK | steps_valid=18/18 | unproven_read_warnings=7
-[2026-08-19T21:15:55 + 1156.5s] [verify_repair] Verify And Repair Templates — Phase 'verify_repair' took 13.2s (cumulative 13.2s)
-[2026-08-19T21:15:55 + 1156.8s] [package] Package Validated CLI — Building usage instructions...
-[2026-08-19T21:15:55 + 1157.1s] [package] Package Validated CLI — Generated workflow prompt
-[2026-08-19T21:16:13 + 1174.6s] [package] Package Validated CLI — Phase 'package' took 18.1s (cumulative 18.1s)
-[2026-08-19T21:16:13 + 1175.0s] [summary] Run Summary — SUCCESS | total 1175.0s | phases: discover 26.1s, analyze 219.2s, contract 773.8s, audit_contract 1.6s, ground 91.3s, generate 30.8s, verify_repair 13.2s, package 18.1s | LLM calls: 6 | events: 57
+[2026-08-19T21:53:13 +    0.8s] [discover] Discover Source And Cookbook — Scanning extension files...
+[2026-08-19T21:53:28 +   16.1s] [discover] Discover Source And Cookbook — Found 2 Python files
+[2026-08-19T21:53:36 +   24.0s] [discover] Discover Source And Cookbook — Logic class: PelvicFracturePlanningLogic in PelvicFracturePlanning.py, Widget class: PelvicFracturePlanningWidget, UI files: 1
+[2026-08-19T21:53:36 +   24.3s] [discover] Discover Source And Cookbook — parameterNodeWrapper detected: PelvicFracturePlanningParameterNode (5 node fields)
+[2026-08-19T21:53:40 +   28.0s] [discover] Discover Source And Cookbook — Parsed cookbook: C:\Users\20152\Desktop\slicer-skill\SlicerAgent\Slicer_agent\Resources\extensions_cookbook\PelvicFracturePlanning.md (25 steps)
+[2026-08-19T21:53:40 +   28.4s] [discover] Discover Source And Cookbook — Phase 'discover' took 27.6s (cumulative 27.6s)
+[2026-08-19T21:53:40 +   28.7s] [analyze] Analyze Extension Logic — Reading PelvicFracturePlanningLogic from PelvicFracturePlanning.py...
+[2026-08-19T21:53:42 +   29.8s] [analyze] Analyze Extension Logic — AST enumerated 68 methods; requesting LLM annotation...
+[2026-08-19T21:57:51 +  279.6s] [llm_call] analyze — call 000 -> analyze_call_000.json (out 49424 chars)
+[2026-08-19T21:57:52 +  280.1s] [analyze] Analyze Extension Logic — Analyzed 68 methods (AST universe + LLM annotation)
+[2026-08-19T21:58:22 +  310.6s] [analyze] Analyze Extension Logic — Phase 'analyze' took 282.2s (cumulative 282.2s)
+[2026-08-19T21:58:23 +  311.1s] [contract] Build Workflow Contract — LLM interpreting cookbook steps and repeat intent...
+[2026-08-19T22:02:29 +  557.6s] [llm_call] contract — call 001 -> contract_call_001.json (out 29838 chars)
+[2026-08-19T22:03:53 +  641.0s] [llm_call] contract — call 002 -> contract_call_002.json (out 29130 chars)
+[2026-08-19T22:03:53 +  641.5s] [contract] Build Workflow Contract — LLM interpreted 25 cookbook steps
+[2026-08-19T22:03:54 +  641.9s] [contract] Build Workflow Contract — LLM analyzing data flow between steps...
+[2026-08-19T22:07:57 +  885.3s] [llm_call] contract — call 003 -> contract_call_003.json (out 7325 chars)
+[2026-08-19T22:07:57 +  885.5s] [contract] Build Workflow Contract — AST verification: -4 unverifiable, +0 closure connection(s)
+[2026-08-19T22:07:58 +  886.0s] [contract] Build Workflow Contract — LLM identified 22 cross-stage connections
+[2026-08-19T22:08:30 +  918.0s] [generate] Generate Schemas And Templates — Detected 1 placement-starter method(s)
+[2026-08-19T22:08:30 +  918.4s] [contract] Build Workflow Contract — Placement-starter methods detected: 1 (onManualSplit)
+[2026-08-19T22:09:45 +  993.3s] [llm_call] contract — call 004 -> contract_call_004.json (out 9898 chars)
+[2026-08-19T22:10:41 + 1049.2s] [llm_call] contract — call 005 -> contract_call_005.json (out 9515 chars)
+[2026-08-19T22:10:41 + 1049.7s] [contract] Build Workflow Contract — Phase 'contract' took 739.0s (cumulative 739.0s)
+[2026-08-19T22:10:42 + 1049.9s] [audit_contract] Audit Workflow Contract — Auditing workflow contract against cookbook/source evidence...
+[2026-08-19T22:10:42 + 1050.4s] [audit_contract] Audit Workflow Contract — PASS
+[2026-08-19T22:10:43 + 1050.9s] [audit_contract] Audit Workflow Contract — Phase 'audit_contract' took 1.2s (cumulative 1.2s)
+[2026-08-19T22:10:46 + 1054.7s] [ground] Ground Slicer APIs — Generating templates for 1 slicer_op operations...
+[2026-08-19T22:10:47 + 1055.4s] [ground] Ground Slicer APIs — [0/1] starting 1 slicer_op templates
+[2026-08-19T22:10:48 + 1055.9s] [ground] Ground Slicer APIs — [0/1] running Center the 3D view on the scene.
+[2026-08-19T22:10:58 + 1066.3s] [ground] Ground Slicer APIs — [0/1] Center the 3D view on the scene.: round 1 search: [Search] Round 1: |   Grep: "resetFocalPoint|resetThreeDViews|resetFocalPointToVolumeCenter" → slicer-source |   VectorSearch: "center 3D view on the scene reset focal point threeDWidget"
+[2026-08-19T22:11:07 + 1075.1s] [ground] Ground Slicer APIs — [0/1] Center the 3D view on the scene.: round 2 read: [Read] Round 2: |   ReadFile: slicer-source/Libs/MRML/Widgets/qMRMLLayoutManager.h
+[2026-08-19T22:11:17 + 1085.5s] [ground] Ground Slicer APIs — [1/1] done Center the 3D view on the scene.
+[2026-08-19T22:11:18 + 1086.2s] [ground] Ground Slicer APIs — Generated 1 slicer_op templates
+[2026-08-19T22:11:18 + 1086.6s] [ground] Ground Slicer APIs — Grounded 1 slicer_op template(s); 0 reporting MISSING_EVIDENCE
+[2026-08-19T22:11:19 + 1087.0s] [ground] Ground Slicer APIs — Phase 'ground' took 36.1s (cumulative 36.1s)
+[2026-08-19T22:11:19 + 1087.2s] [generate] Generate Schemas And Templates — Building tool definitions...
+[2026-08-19T22:11:19 + 1087.6s] [generate] Generate Schemas And Templates — Generated interactive workflow schema with 25 steps
+[2026-08-19T22:11:20 + 1088.0s] [generate] Generate Schemas And Templates — Determining node creation patterns via AST...
+[2026-08-19T22:11:43 + 1111.5s] [generate] Generate Schemas And Templates — Analyzed 17 output nodes via AST
+[2026-08-19T22:11:44 + 1112.3s] [generate] Generate Schemas And Templates — Generated 24 workflow templates
+[2026-08-19T22:11:45 + 1113.0s] [generate] Generate Schemas And Templates — Sending templates to LLM for correctness review...
+[2026-08-19T22:11:45 + 1113.8s] [generate] Generate Schemas And Templates — All templates passed LLM review
+[2026-08-19T22:11:46 + 1114.3s] [audit_contract] Audit Workflow Contract — Auditing workflow contract against cookbook/source evidence...
+[2026-08-19T22:11:46 + 1114.6s] [audit_contract] Audit Workflow Contract — PASS
+[2026-08-19T22:11:47 + 1114.9s] [generate] Generate Schemas And Templates — Phase 'generate' took 27.9s (cumulative 27.9s)
+[2026-08-19T22:11:48 + 1116.5s] [verify_repair] Verify And Repair Templates — Validation attempt 1/5
+[2026-08-19T22:11:50 + 1118.1s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-08-19T22:11:53 + 1121.3s] [verify_repair] Verify And Repair Templates — All 16 API probes passed
+[2026-08-19T22:11:54 + 1122.6s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-08-19T22:12:00 + 1127.9s] [verify_repair] Verify And Repair Templates — FAIL: ["templates/cb_step_8_pre.py.tpl: UnprovenApiCall: method_unproven for 'node.CreateDefaultDisplayNodes' (line 33, effect=state_change)"]
+[2026-08-19T22:12:00 + 1128.2s] [verify_repair] Verify And Repair Templates — Attempt 1 found 1 repairable issue(s) [UnprovenReceiverx1]
+[2026-08-19T22:12:00 + 1128.6s] [verify_repair] Verify And Repair Templates — Repair ladder: cb_step_8:UnprovenReceiver -> contract_aware_template_repair
+[2026-08-19T22:12:41 + 1169.8s] [llm_call] verify_repair — call 006 -> verify_repair_call_006.json (out 1586 chars)
+[2026-08-19T22:12:42 + 1170.6s] [verify_repair] Verify And Repair Templates — Repairs applied: 1 change(s) via targeted_or_contract_aware_template_repair
+[2026-08-19T22:12:43 + 1171.0s] [verify_repair] Verify And Repair Templates — Validation attempt 2/5
+[2026-08-19T22:12:44 + 1172.5s] [verify_repair] Verify And Repair Templates — Verifying template API calls against running Slicer...
+[2026-08-19T22:12:47 + 1175.1s] [verify_repair] Verify And Repair Templates — All 15 API probes passed
+[2026-08-19T22:12:48 + 1176.3s] [verify_repair] Verify And Repair Templates — Running CodeValidator...
+[2026-08-19T22:12:52 + 1180.7s] [verify_repair] Verify And Repair Templates — PASS
+[2026-08-19T22:12:54 + 1182.1s] [verify_repair] Verify And Repair Templates — verify_repair finished: PASS after 2 validation attempt(s)
+[2026-08-19T22:12:54 + 1182.6s] [package] Final Gate — status=validated_with_warnings | api_proof=OK | final_syntax=OK | placeholders=OK | generator_sync=OK | steps_valid=18/18 | unproven_read_warnings=8
+[2026-08-19T22:12:55 + 1183.1s] [verify_repair] Verify And Repair Templates — Phase 'verify_repair' took 68.2s (cumulative 68.2s)
+[2026-08-19T22:12:55 + 1183.4s] [package] Package Validated CLI — Building usage instructions...
+[2026-08-19T22:12:55 + 1183.6s] [package] Package Validated CLI — Generated workflow prompt
+[2026-08-19T22:13:13 + 1201.5s] [package] Package Validated CLI — Phase 'package' took 18.4s (cumulative 18.4s)
+[2026-08-19T22:13:14 + 1202.0s] [summary] Run Summary — SUCCESS | total 1202.0s | phases: discover 27.6s, analyze 282.2s, contract 739.0s, audit_contract 1.2s, ground 36.1s, generate 27.9s, verify_repair 68.2s, package 18.4s | LLM calls: 7 | events: 66
 ------------------------------------------------------------------------------
 SUMMARY
   success         : True
   phases_completed: discover, analyze, contract, audit_contract, ground, generate, verify_repair, package
-  llm_calls       : 6
-  events          : 58
-  phase_durations : discover=26.1s  analyze=219.2s  contract=773.8s  audit_contract=1.6s  ground=91.3s  generate=30.8s  verify_repair=13.2s  package=18.1s
+  llm_calls       : 7
+  events          : 67
+  phase_durations : discover=27.6s  analyze=282.2s  contract=739.0s  audit_contract=1.2s  ground=36.1s  generate=27.9s  verify_repair=68.2s  package=18.4s
 ------------------------------------------------------------------------------

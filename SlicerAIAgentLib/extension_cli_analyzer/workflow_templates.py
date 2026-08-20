@@ -168,7 +168,7 @@ class AnalyzerWorkflowTemplatesMixin:
                         ext_step = dict(step)
                         ext_step["method_name"] = so["extension_method_hint"]
                         ext_step["description"] = so["description"]
-                        if so["extension_method_hint"] in self._placement_starter_methods:
+                        if self._is_logic_placement_starter(so["extension_method_hint"]):
                             ext_tpl = self._generate_placement_starter_pre_template(
                                 extension_name, ext_step, logic_class_name, module_name,
                             )
@@ -261,7 +261,7 @@ class AnalyzerWorkflowTemplatesMixin:
                     tpl = self._generate_extension_function_template(
                         extension_name, step, module_name,
                     )
-                elif step.get("method_name") in self._placement_starter_methods:
+                elif self._is_logic_placement_starter(step.get("method_name")):
                     step["interaction_owner"] = "extension_method"
                     step["placement_starter_method"] = step.get("method_name")
                     step["created_node_source"] = "extension_method"
@@ -318,6 +318,13 @@ class AnalyzerWorkflowTemplatesMixin:
                     if starter_binding:
                         step["placement_starter_step_id"] = starter_binding.get("step_id", "")
                         step["placement_binding_reason"] = starter_binding.get("reason", "")
+                        if starter_binding.get("adopt_node_class"):
+                            # Reached when the contract normalizer did not run (the
+                            # revise path). The templates below read node_class, so
+                            # adopting it here too keeps the emitted code and the
+                            # contract from disagreeing about what is being placed.
+                            self._adopt_placement_starter_node_class(step, starter_binding)
+                            node_class = step.get("node_class", node_class)
 
                 is_view_adjustment = interaction_kind == "view_adjustment"
                 # An in-tool interaction: the user drives an already-active module
@@ -416,7 +423,7 @@ class AnalyzerWorkflowTemplatesMixin:
                         ext_step = dict(step)
                         ext_step["method_name"] = so["extension_method_hint"]
                         ext_step["description"] = so["description"]
-                        if so["extension_method_hint"] in self._placement_starter_methods:
+                        if self._is_logic_placement_starter(so["extension_method_hint"]):
                             placement_starter_method = so["extension_method_hint"]
                             step["interaction_owner"] = "extension_method"
                             step["placement_starter_method"] = placement_starter_method

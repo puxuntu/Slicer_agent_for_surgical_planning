@@ -58,6 +58,13 @@ python scripts/check_template_revision.py
 # no rung can rewrite code the generator just produced. Also cross-checks every
 # shipped [source drive] template against the installed extension's source.
 python scripts/check_handler_drive.py
+
+# A placement the EXTENSION armed must not be re-armed by the runtime. Slicer's
+# module template puts GUI actions on the widget, so the handler behind "click
+# Manually separate" is what creates the markup, points the active list at it and
+# observes the click -- a generated interaction step that creates its own node
+# steals the click and the extension's follow-on behaviour never happens, silently.
+python scripts/check_placement_starter.py
 ```
 
 Dependencies are in `requirements.txt` — `httpx`, `numpy`, `jsonschema` are explicit; `faiss-cpu`, `onnxruntime`, `transformers` are auto-installed at runtime. CMake installs these into Slicer's Python environment during extension setup.

@@ -1,7 +1,7 @@
 [
   {
     "attempt": 1,
-    "timestamp": "2026-08-19T21:15:56.604391",
+    "timestamp": "2026-08-19T22:12:56.391390",
     "phase": "package",
     "trigger": "user_request",
     "phases_completed": [
@@ -15,7 +15,7 @@
       "package"
     ],
     "api_probe_result": {
-      "probed": 19,
+      "probed": 15,
       "failures": [],
       "revised": 0,
       "syntax_skipped": [],
@@ -98,7 +98,7 @@
             "expanded_receiver_expr": "slicer.app",
             "proof_kind": "live_instance",
             "attr": "layoutManager",
-            "lineno": 6,
+            "lineno": 2,
             "is_attribute": false,
             "method_exists": true,
             "live_receiver_type": "qSlicerApplication",
@@ -112,7 +112,7 @@
             "expanded_receiver_expr": "slicer.app.layoutManager()",
             "proof_kind": "live_instance",
             "attr": "threeDWidget",
-            "lineno": 7,
+            "lineno": 3,
             "is_attribute": false,
             "method_exists": true,
             "live_receiver_type": "qSlicerLayoutManager",
@@ -126,7 +126,7 @@
             "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
             "proof_kind": "live_instance",
             "attr": "threeDView",
-            "lineno": 10,
+            "lineno": 4,
             "is_attribute": false,
             "method_exists": true,
             "live_receiver_type": "qMRMLThreeDWidget",
@@ -140,7 +140,7 @@
             "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
             "proof_kind": "live_instance",
             "attr": "resetFocalPoint",
-            "lineno": 11,
+            "lineno": 7,
             "is_attribute": false,
             "method_exists": true,
             "live_receiver_type": "qMRMLThreeDView",
@@ -148,13 +148,13 @@
             "evidence_source": "live_probe_success"
           },
           {
-            "chain": "slicer.mrmlScene.AddNewNodeByClass",
+            "chain": "slicer.mrmlScene.GetNodesByClass",
             "receiver_expr": "slicer.mrmlScene",
             "original_receiver_expr": "slicer.mrmlScene",
             "expanded_receiver_expr": "slicer.mrmlScene",
             "proof_kind": "live_instance",
-            "attr": "AddNewNodeByClass",
-            "lineno": 6,
+            "attr": "GetNodesByClass",
+            "lineno": 7,
             "is_attribute": false,
             "method_exists": true,
             "live_receiver_type": "vtkMRMLScene",
@@ -162,31 +162,31 @@
             "evidence_source": "live_probe_success"
           },
           {
-            "chain": "node.GetDisplayNode",
-            "receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-            "original_receiver_expr": "node",
-            "expanded_receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-            "receiver_type": "vtkMRMLMarkupsPlaneNode",
-            "proof_kind": "class_type",
-            "attr": "GetDisplayNode",
-            "lineno": 7,
+            "chain": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetNumberOfItems",
+            "receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+            "original_receiver_expr": "nodes",
+            "expanded_receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+            "proof_kind": "live_instance",
+            "attr": "GetNumberOfItems",
+            "lineno": 9,
             "is_attribute": false,
             "method_exists": true,
-            "live_receiver_type": "type",
+            "live_receiver_type": "vtkCollection",
+            "receiver_type": "vtkCollection",
             "evidence_source": "live_probe_success"
           },
           {
-            "chain": "slicer.modules.markups.logic().SetActiveListID",
-            "receiver_expr": "slicer.modules.markups.logic()",
-            "original_receiver_expr": "slicer.modules.markups.logic()",
-            "expanded_receiver_expr": "slicer.modules.markups.logic()",
+            "chain": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetItemAsObject",
+            "receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+            "original_receiver_expr": "nodes",
+            "expanded_receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
             "proof_kind": "live_instance",
-            "attr": "SetActiveListID",
-            "lineno": 15,
+            "attr": "GetItemAsObject",
+            "lineno": 10,
             "is_attribute": false,
             "method_exists": true,
-            "live_receiver_type": "vtkSlicerMarkupsLogic",
-            "receiver_type": "vtkSlicerMarkupsLogic",
+            "live_receiver_type": "vtkCollection",
+            "receiver_type": "vtkCollection",
             "evidence_source": "live_probe_success"
           },
           {
@@ -196,67 +196,11 @@
             "expanded_receiver_expr": "slicer.mrmlScene",
             "proof_kind": "live_instance",
             "attr": "GetNodeByID",
-            "lineno": 16,
+            "lineno": 12,
             "is_attribute": false,
             "method_exists": true,
             "live_receiver_type": "vtkMRMLScene",
             "receiver_type": "vtkMRMLScene",
-            "evidence_source": "live_probe_success"
-          },
-          {
-            "chain": "node.GetID",
-            "receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-            "original_receiver_expr": "node",
-            "expanded_receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-            "receiver_type": "vtkMRMLMarkupsPlaneNode",
-            "proof_kind": "class_type",
-            "attr": "GetID",
-            "lineno": 20,
-            "is_attribute": false,
-            "method_exists": true,
-            "live_receiver_type": "type",
-            "evidence_source": "live_probe_success"
-          },
-          {
-            "chain": "displayNode.SetVisibility",
-            "receiver_expr": "slicer.vtkMRMLDisplayNode",
-            "original_receiver_expr": "displayNode",
-            "expanded_receiver_expr": "slicer.vtkMRMLDisplayNode",
-            "receiver_type": "vtkMRMLDisplayNode",
-            "proof_kind": "class_type",
-            "attr": "SetVisibility",
-            "lineno": 9,
-            "is_attribute": false,
-            "method_exists": true,
-            "live_receiver_type": "type",
-            "evidence_source": "live_probe_success"
-          },
-          {
-            "chain": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToSinglePlaceMode",
-            "receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-            "original_receiver_expr": "interactionNode",
-            "expanded_receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-            "proof_kind": "live_instance",
-            "attr": "SwitchToSinglePlaceMode",
-            "lineno": 18,
-            "is_attribute": false,
-            "method_exists": true,
-            "live_receiver_type": "vtkMRMLInteractionNode",
-            "receiver_type": "vtkMRMLInteractionNode",
-            "evidence_source": "live_probe_success"
-          },
-          {
-            "chain": "slicer.modules.markups.logic",
-            "receiver_expr": "slicer.modules.markups",
-            "original_receiver_expr": "slicer.modules.markups",
-            "expanded_receiver_expr": "slicer.modules.markups",
-            "proof_kind": "live_instance",
-            "attr": "logic",
-            "lineno": 15,
-            "is_attribute": false,
-            "method_exists": true,
-            "live_receiver_type": "qSlicerMarkupsModule",
-            "receiver_type": "qSlicerMarkupsModule",
             "evidence_source": "live_probe_success"
           },
           {
@@ -296,10 +240,11 @@
       "valid": true,
       "errors": [],
       "warnings": [
-        "cb_step_1: user choice 'inputVolume' has no source-derived parameter binding",
-        "cb_step_5: user choice 'hiddenIds' has no source-derived parameter binding",
-        "cb_step_12: user choice 'templateSelection' has no source-derived parameter binding",
-        "cb_step_18: user choice 'fragmentSelection' has no source-derived parameter binding",
+        "cb_step_1: user choice 'input_volume' has no source-derived parameter binding",
+        "cb_step_5: user choice 'unticked_segments' has no source-derived parameter binding",
+        "cb_step_12: user choice 'template_selector' has no source-derived parameter binding",
+        "cb_step_18: user choice 'fragment_selector' has no source-derived parameter binding",
+        "templates/cb_step_8_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetID' (line 17, effect=read_only)",
         "templates/cb_step_8_post.py.tpl: UnprovenApiCall: receiver_type_unproven for 'node.GetNumberOfControlPoints' (line 15, effect=read_only)",
         "templates/cb_step_11_action.py.tpl: UnprovenApiCall: method_unproven for '_ctrl.blockSignals' (line 53, effect=read_only)",
         "templates/cb_step_11_action.py.tpl: UnprovenApiCall: method_unproven for '_ctrl.blockSignals' (line 55, effect=read_only)",
@@ -307,7 +252,6 @@
         "templates/cb_step_17_action.py.tpl: UnprovenApiCall: method_unproven for '_ctrl.blockSignals' (line 55, effect=read_only)",
         "templates/cb_step_23_action.py.tpl: UnprovenApiCall: method_unproven for '_ctrl.blockSignals' (line 53, effect=read_only)",
         "templates/cb_step_23_action.py.tpl: UnprovenApiCall: method_unproven for '_ctrl.blockSignals' (line 55, effect=read_only)",
-        "templates/cb_step_10.py.tpl: Assembled prelude+template is 6014B — exceeds 5KB budget. The generator may be re-emitting constant metadata as source text.",
         "templates/cb_step_16.py.tpl: Assembled prelude+template is 5986B — exceeds 5KB budget. The generator may be re-emitting constant metadata as source text."
       ],
       "per_template": {
@@ -467,6 +411,28 @@
         }
       },
       "validation_issues": [
+        {
+          "issue_id": "api_proof_5bacf53190fa91dd6215",
+          "issue_type": "UnprovenApiCall",
+          "severity": "warning",
+          "blocking": false,
+          "template": "templates/cb_step_8_pre.py.tpl",
+          "call_id": "5bacf53190fa91dd6215",
+          "source_span": {
+            "lineno": 17,
+            "col_offset": 39,
+            "end_lineno": 17,
+            "end_col_offset": 51
+          },
+          "diagnosis": "receiver_type_unproven",
+          "receiver_expression": "node",
+          "receiver_type": "",
+          "method": "GetID",
+          "method_exists": null,
+          "effect": "read_only",
+          "evidence_sources": [],
+          "minimal_repair": null
+        },
         {
           "issue_id": "api_proof_0f3ad457feb55ed38e7d",
           "issue_type": "UnprovenApiCall",
@@ -640,8 +606,8 @@
           "blocking": false,
           "template": "",
           "diagnosis": "validation_warning",
-          "message": "cb_step_1: user choice 'inputVolume' has no source-derived parameter binding",
-          "rendered_message": "cb_step_1: user choice 'inputVolume' has no source-derived parameter binding",
+          "message": "cb_step_1: user choice 'input_volume' has no source-derived parameter binding",
+          "rendered_message": "cb_step_1: user choice 'input_volume' has no source-derived parameter binding",
           "evidence_sources": [],
           "minimal_repair": null
         },
@@ -652,8 +618,8 @@
           "blocking": false,
           "template": "",
           "diagnosis": "validation_warning",
-          "message": "cb_step_5: user choice 'hiddenIds' has no source-derived parameter binding",
-          "rendered_message": "cb_step_5: user choice 'hiddenIds' has no source-derived parameter binding",
+          "message": "cb_step_5: user choice 'unticked_segments' has no source-derived parameter binding",
+          "rendered_message": "cb_step_5: user choice 'unticked_segments' has no source-derived parameter binding",
           "evidence_sources": [],
           "minimal_repair": null
         },
@@ -664,8 +630,8 @@
           "blocking": false,
           "template": "",
           "diagnosis": "validation_warning",
-          "message": "cb_step_12: user choice 'templateSelection' has no source-derived parameter binding",
-          "rendered_message": "cb_step_12: user choice 'templateSelection' has no source-derived parameter binding",
+          "message": "cb_step_12: user choice 'template_selector' has no source-derived parameter binding",
+          "rendered_message": "cb_step_12: user choice 'template_selector' has no source-derived parameter binding",
           "evidence_sources": [],
           "minimal_repair": null
         },
@@ -676,20 +642,8 @@
           "blocking": false,
           "template": "",
           "diagnosis": "validation_warning",
-          "message": "cb_step_18: user choice 'fragmentSelection' has no source-derived parameter binding",
-          "rendered_message": "cb_step_18: user choice 'fragmentSelection' has no source-derived parameter binding",
-          "evidence_sources": [],
-          "minimal_repair": null
-        },
-        {
-          "issue_id": "validation_warning_12",
-          "issue_type": "ValidationError",
-          "severity": "warning",
-          "blocking": false,
-          "template": "templates/cb_step_10.py.tpl",
-          "diagnosis": "validation_warning",
-          "message": "Assembled prelude+template is 6014B — exceeds 5KB budget. The generator may be re-emitting constant metadata as source text.",
-          "rendered_message": "templates/cb_step_10.py.tpl: Assembled prelude+template is 6014B — exceeds 5KB budget. The generator may be re-emitting constant metadata as source text.",
+          "message": "cb_step_18: user choice 'fragment_selector' has no source-derived parameter binding",
+          "rendered_message": "cb_step_18: user choice 'fragment_selector' has no source-derived parameter binding",
           "evidence_sources": [],
           "minimal_repair": null
         },
@@ -923,12 +877,12 @@
             "complete": true,
             "calls": [
               {
-                "call_id": "2f8555c93a9a85420957",
+                "call_id": "7114d2ac7128f1f31139",
                 "template": "templates/cb_step_3_slicer.py.tpl",
                 "source_span": {
-                  "lineno": 6,
+                  "lineno": 2,
                   "col_offset": 16,
-                  "end_lineno": 6,
+                  "end_lineno": 2,
                   "end_col_offset": 42
                 },
                 "call_expression": "slicer.app.layoutManager()",
@@ -940,12 +894,12 @@
                 "enclosing_operation": "cb_step_3"
               },
               {
-                "call_id": "b388cdd2760053ca6c39",
+                "call_id": "0738aed0e213148bbcf5",
                 "template": "templates/cb_step_3_slicer.py.tpl",
                 "source_span": {
-                  "lineno": 7,
+                  "lineno": 3,
                   "col_offset": 15,
-                  "end_lineno": 7,
+                  "end_lineno": 3,
                   "end_col_offset": 44
                 },
                 "call_expression": "layoutManager.threeDWidget(0)",
@@ -959,31 +913,12 @@
                 "enclosing_operation": "cb_step_3"
               },
               {
-                "call_id": "1404f9ecbd3cce87367a",
+                "call_id": "5d449991c4d522b5ef6e",
                 "template": "templates/cb_step_3_slicer.py.tpl",
                 "source_span": {
-                  "lineno": 9,
-                  "col_offset": 10,
-                  "end_lineno": 9,
-                  "end_col_offset": 84
-                },
-                "call_expression": "RuntimeError('STATE_NOT_APPLIED: no 3D view widget in the current layout')",
-                "receiver_expression": "",
-                "method": "RuntimeError",
-                "arguments": [
-                  "'STATE_NOT_APPLIED: no 3D view widget in the current layout'"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_3"
-              },
-              {
-                "call_id": "ae4d8a1c358187ceac94",
-                "template": "templates/cb_step_3_slicer.py.tpl",
-                "source_span": {
-                  "lineno": 10,
+                  "lineno": 4,
                   "col_offset": 13,
-                  "end_lineno": 10,
+                  "end_lineno": 4,
                   "end_col_offset": 38
                 },
                 "call_expression": "threeDWidget.threeDView()",
@@ -995,12 +930,31 @@
                 "enclosing_operation": "cb_step_3"
               },
               {
-                "call_id": "82feffab5c4a3f29dea6",
+                "call_id": "5cb3ecf19efd7eb4f2ec",
                 "template": "templates/cb_step_3_slicer.py.tpl",
                 "source_span": {
-                  "lineno": 11,
+                  "lineno": 6,
+                  "col_offset": 10,
+                  "end_lineno": 6,
+                  "end_col_offset": 55
+                },
+                "call_expression": "RuntimeError('STATE_NOT_APPLIED: threeDView')",
+                "receiver_expression": "",
+                "method": "RuntimeError",
+                "arguments": [
+                  "'STATE_NOT_APPLIED: threeDView'"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_3"
+              },
+              {
+                "call_id": "e11df5603ca2cd482a1c",
+                "template": "templates/cb_step_3_slicer.py.tpl",
+                "source_span": {
+                  "lineno": 7,
                   "col_offset": 0,
-                  "end_lineno": 11,
+                  "end_lineno": 7,
                   "end_col_offset": 28
                 },
                 "call_expression": "threeDView.resetFocalPoint()",
@@ -1437,178 +1391,124 @@
             "complete": true,
             "calls": [
               {
-                "call_id": "471e4870e65926d592dd",
-                "template": "templates/cb_step_8_pre.py.tpl",
-                "source_span": {
-                  "lineno": 6,
-                  "col_offset": 7,
-                  "end_lineno": 6,
-                  "end_col_offset": 81
-                },
-                "call_expression": "slicer.mrmlScene.AddNewNodeByClass('vtkMRMLMarkupsPlaneNode', 'Cb Step 8')",
-                "receiver_expression": "slicer.mrmlScene",
-                "method": "AddNewNodeByClass",
-                "arguments": [
-                  "'vtkMRMLMarkupsPlaneNode'",
-                  "'Cb Step 8'"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "assigned",
-                "enclosing_operation": "cb_step_8"
-              },
-              {
-                "call_id": "a8767ecfdbe03e46a54d",
+                "call_id": "54120e83f81096653a17",
                 "template": "templates/cb_step_8_pre.py.tpl",
                 "source_span": {
                   "lineno": 7,
-                  "col_offset": 14,
+                  "col_offset": 8,
                   "end_lineno": 7,
-                  "end_col_offset": 35
+                  "end_col_offset": 70
                 },
-                "call_expression": "node.GetDisplayNode()",
-                "receiver_expression": "node",
-                "method": "GetDisplayNode",
-                "arguments": [],
+                "call_expression": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+                "receiver_expression": "slicer.mrmlScene",
+                "method": "GetNodesByClass",
+                "arguments": [
+                  "'vtkMRMLMarkupsFiducialNode'"
+                ],
                 "keyword_arguments": {},
                 "result_usage": "assigned",
                 "enclosing_operation": "cb_step_8"
               },
               {
-                "call_id": "7363b5911fcd0386625d",
+                "call_id": "98777cf0be024823c215",
                 "template": "templates/cb_step_8_pre.py.tpl",
                 "source_span": {
                   "lineno": 9,
-                  "col_offset": 4,
+                  "col_offset": 9,
                   "end_lineno": 9,
-                  "end_col_offset": 35
+                  "end_col_offset": 40
                 },
-                "call_expression": "displayNode.SetVisibility(True)",
-                "receiver_expression": "displayNode",
-                "method": "SetVisibility",
-                "arguments": [
-                  "True"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "discarded",
-                "enclosing_operation": "cb_step_8"
-              },
-              {
-                "call_id": "53377f58521d02aec79a",
-                "template": "templates/cb_step_8_pre.py.tpl",
-                "source_span": {
-                  "lineno": 11,
-                  "col_offset": 0,
-                  "end_lineno": 11,
-                  "end_col_offset": 131
-                },
-                "call_expression": "print('[PelvicFracturePlanning] Please Place a cut point and adjust the cutting plane position and rotation for manual splitting.')",
+                "call_expression": "range(nodes.GetNumberOfItems())",
                 "receiver_expression": "",
-                "method": "print",
+                "method": "range",
                 "arguments": [
-                  "'[PelvicFracturePlanning] Please Place a cut point and adjust the cutting plane position and rotation for manual splitting.'"
+                  "nodes.GetNumberOfItems()"
                 ],
                 "keyword_arguments": {},
-                "result_usage": "discarded",
+                "result_usage": "consumed",
                 "enclosing_operation": "cb_step_8"
               },
               {
-                "call_id": "2cdc89a2ee541dd39779",
+                "call_id": "ecc1f1e84736f5cb5061",
                 "template": "templates/cb_step_8_pre.py.tpl",
                 "source_span": {
-                  "lineno": 12,
-                  "col_offset": 0,
-                  "end_lineno": 12,
-                  "end_col_offset": 70
+                  "lineno": 9,
+                  "col_offset": 15,
+                  "end_lineno": 9,
+                  "end_col_offset": 39
                 },
-                "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
-                "receiver_expression": "",
-                "method": "print",
-                "arguments": [
-                  "\"When finished, press the 'Done' button in the workflow panel.\""
-                ],
-                "keyword_arguments": {},
-                "result_usage": "discarded",
-                "enclosing_operation": "cb_step_8"
-              },
-              {
-                "call_id": "31a508a495635df55a79",
-                "template": "templates/cb_step_8_pre.py.tpl",
-                "source_span": {
-                  "lineno": 15,
-                  "col_offset": 0,
-                  "end_lineno": 15,
-                  "end_col_offset": 52
-                },
-                "call_expression": "slicer.modules.markups.logic().SetActiveListID(node)",
-                "receiver_expression": "slicer.modules.markups.logic()",
-                "method": "SetActiveListID",
-                "arguments": [
-                  "node"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "discarded",
-                "enclosing_operation": "cb_step_8"
-              },
-              {
-                "call_id": "a0ed41cd16d86948af1f",
-                "template": "templates/cb_step_8_pre.py.tpl",
-                "source_span": {
-                  "lineno": 15,
-                  "col_offset": 0,
-                  "end_lineno": 15,
-                  "end_col_offset": 30
-                },
-                "call_expression": "slicer.modules.markups.logic()",
-                "receiver_expression": "slicer.modules.markups",
-                "method": "logic",
+                "call_expression": "nodes.GetNumberOfItems()",
+                "receiver_expression": "nodes",
+                "method": "GetNumberOfItems",
                 "arguments": [],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
                 "enclosing_operation": "cb_step_8"
               },
               {
-                "call_id": "6572c8e5aa1b6ee3ce1c",
+                "call_id": "e7a493a8eabd858082ac",
                 "template": "templates/cb_step_8_pre.py.tpl",
                 "source_span": {
-                  "lineno": 16,
-                  "col_offset": 18,
-                  "end_lineno": 16,
-                  "end_col_offset": 81
+                  "lineno": 10,
+                  "col_offset": 16,
+                  "end_lineno": 10,
+                  "end_col_offset": 40
                 },
-                "call_expression": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-                "receiver_expression": "slicer.mrmlScene",
-                "method": "GetNodeByID",
+                "call_expression": "nodes.GetItemAsObject(i)",
+                "receiver_expression": "nodes",
+                "method": "GetItemAsObject",
                 "arguments": [
-                  "'vtkMRMLInteractionNodeSingleton'"
+                  "i"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "assigned",
                 "enclosing_operation": "cb_step_8"
               },
               {
-                "call_id": "aca84d092cce9101f558",
+                "call_id": "8139db5410aea6916e78",
                 "template": "templates/cb_step_8_pre.py.tpl",
                 "source_span": {
-                  "lineno": 18,
-                  "col_offset": 4,
-                  "end_lineno": 18,
-                  "end_col_offset": 45
+                  "lineno": 12,
+                  "col_offset": 8,
+                  "end_lineno": 12,
+                  "end_col_offset": 37
                 },
-                "call_expression": "interactionNode.SwitchToSinglePlaceMode()",
-                "receiver_expression": "interactionNode",
-                "method": "SwitchToSinglePlaceMode",
-                "arguments": [],
+                "call_expression": "_candidates.append(candidate)",
+                "receiver_expression": "_candidates",
+                "method": "append",
+                "arguments": [
+                  "candidate"
+                ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
                 "enclosing_operation": "cb_step_8"
               },
               {
-                "call_id": "f3a65d469ee1de649493",
+                "call_id": "2d1ad9c268f1f775b867",
                 "template": "templates/cb_step_8_pre.py.tpl",
                 "source_span": {
-                  "lineno": 20,
+                  "lineno": 14,
+                  "col_offset": 10,
+                  "end_lineno": 14,
+                  "end_col_offset": 91
+                },
+                "call_expression": "RuntimeError('No vtkMRMLMarkupsFiducialNode found from previous placement step.')",
+                "receiver_expression": "",
+                "method": "RuntimeError",
+                "arguments": [
+                  "'No vtkMRMLMarkupsFiducialNode found from previous placement step.'"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_8"
+              },
+              {
+                "call_id": "5bacf53190fa91dd6215",
+                "template": "templates/cb_step_8_pre.py.tpl",
+                "source_span": {
+                  "lineno": 17,
                   "col_offset": 39,
-                  "end_lineno": 20,
+                  "end_lineno": 17,
                   "end_col_offset": 51
                 },
                 "call_expression": "node.GetID()",
@@ -1620,12 +1520,12 @@
                 "enclosing_operation": "cb_step_8"
               },
               {
-                "call_id": "af22ce054d3f15c66040",
+                "call_id": "e12026a6ce56db49b330",
                 "template": "templates/cb_step_8_pre.py.tpl",
                 "source_span": {
-                  "lineno": 21,
+                  "lineno": 18,
                   "col_offset": 0,
-                  "end_lineno": 21,
+                  "end_lineno": 18,
                   "end_col_offset": 159
                 },
                 "call_expression": "remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_8', _pelvicfractureplanning_cb_step_8_id, _workflow_runtime_repeat_index)",
@@ -1641,6 +1541,44 @@
                 "keyword_arguments": {},
                 "result_usage": "discarded",
                 "enclosing_operation": "cb_step_8"
+              },
+              {
+                "call_id": "ce1bc45dd05061a5d41d",
+                "template": "templates/cb_step_8_pre.py.tpl",
+                "source_span": {
+                  "lineno": 20,
+                  "col_offset": 0,
+                  "end_lineno": 20,
+                  "end_col_offset": 124
+                },
+                "call_expression": "print('[PelvicFracturePlanning] Please Place a cut point and adjust the position and rotation of the manual cutting plane.')",
+                "receiver_expression": "",
+                "method": "print",
+                "arguments": [
+                  "'[PelvicFracturePlanning] Please Place a cut point and adjust the position and rotation of the manual cutting plane.'"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "discarded",
+                "enclosing_operation": "cb_step_8"
+              },
+              {
+                "call_id": "ff293a8ff930a51f69d1",
+                "template": "templates/cb_step_8_pre.py.tpl",
+                "source_span": {
+                  "lineno": 21,
+                  "col_offset": 0,
+                  "end_lineno": 21,
+                  "end_col_offset": 70
+                },
+                "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
+                "receiver_expression": "",
+                "method": "print",
+                "arguments": [
+                  "\"When finished, press the 'Done' button in the workflow panel.\""
+                ],
+                "keyword_arguments": {},
+                "result_usage": "discarded",
+                "enclosing_operation": "cb_step_8"
               }
             ],
             "error": ""
@@ -1650,22 +1588,22 @@
             "complete": true,
             "calls": [
               {
-                "call_id": "f7399d6ff8ed8459ee61",
+                "call_id": "ecfb243cdd1f160b2ccc",
                 "template": "templates/cb_step_8_post.py.tpl",
                 "source_span": {
                   "lineno": 5,
                   "col_offset": 7,
                   "end_lineno": 5,
-                  "end_col_offset": 154
+                  "end_col_offset": 157
                 },
-                "call_expression": "resolve_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_8', 'vtkMRMLMarkupsPlaneNode', _workflow_runtime_repeat_index)",
+                "call_expression": "resolve_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_8', 'vtkMRMLMarkupsFiducialNode', _workflow_runtime_repeat_index)",
                 "receiver_expression": "",
                 "method": "resolve_interaction_node",
                 "arguments": [
                   "_workflow_runtime_extension",
                   "_workflow_runtime_id",
                   "'cb_step_8'",
-                  "'vtkMRMLMarkupsPlaneNode'",
+                  "'vtkMRMLMarkupsFiducialNode'",
                   "_workflow_runtime_repeat_index"
                 ],
                 "keyword_arguments": {},
@@ -4960,12 +4898,12 @@
             "repair_history": []
           },
           {
-            "call_id": "2f8555c93a9a85420957",
+            "call_id": "7114d2ac7128f1f31139",
             "template": "templates/cb_step_3_slicer.py.tpl",
             "source_span": {
-              "lineno": 6,
+              "lineno": 2,
               "col_offset": 16,
-              "end_lineno": 6,
+              "end_lineno": 2,
               "end_col_offset": 42
             },
             "call_expression": "slicer.app.layoutManager()",
@@ -5001,12 +4939,12 @@
             "repair_history": []
           },
           {
-            "call_id": "b388cdd2760053ca6c39",
+            "call_id": "0738aed0e213148bbcf5",
             "template": "templates/cb_step_3_slicer.py.tpl",
             "source_span": {
-              "lineno": 7,
+              "lineno": 3,
               "col_offset": 15,
-              "end_lineno": 7,
+              "end_lineno": 3,
               "end_col_offset": 44
             },
             "call_expression": "layoutManager.threeDWidget(0)",
@@ -5033,43 +4971,12 @@
             "repair_history": []
           },
           {
-            "call_id": "1404f9ecbd3cce87367a",
+            "call_id": "5d449991c4d522b5ef6e",
             "template": "templates/cb_step_3_slicer.py.tpl",
             "source_span": {
-              "lineno": 9,
-              "col_offset": 10,
-              "end_lineno": 9,
-              "end_col_offset": 84
-            },
-            "call_expression": "RuntimeError('STATE_NOT_APPLIED: no 3D view widget in the current layout')",
-            "receiver_expression": "",
-            "method": "RuntimeError",
-            "arguments": [
-              "'STATE_NOT_APPLIED: no 3D view widget in the current layout'"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "consumed",
-            "enclosing_operation": "cb_step_3",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "ae4d8a1c358187ceac94",
-            "template": "templates/cb_step_3_slicer.py.tpl",
-            "source_span": {
-              "lineno": 10,
+              "lineno": 4,
               "col_offset": 13,
-              "end_lineno": 10,
+              "end_lineno": 4,
               "end_col_offset": 38
             },
             "call_expression": "threeDWidget.threeDView()",
@@ -5094,12 +5001,43 @@
             "repair_history": []
           },
           {
-            "call_id": "82feffab5c4a3f29dea6",
+            "call_id": "5cb3ecf19efd7eb4f2ec",
             "template": "templates/cb_step_3_slicer.py.tpl",
             "source_span": {
-              "lineno": 11,
+              "lineno": 6,
+              "col_offset": 10,
+              "end_lineno": 6,
+              "end_col_offset": 55
+            },
+            "call_expression": "RuntimeError('STATE_NOT_APPLIED: threeDView')",
+            "receiver_expression": "",
+            "method": "RuntimeError",
+            "arguments": [
+              "'STATE_NOT_APPLIED: threeDView'"
+            ],
+            "keyword_arguments": {},
+            "result_usage": "consumed",
+            "enclosing_operation": "cb_step_3",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "e11df5603ca2cd482a1c",
+            "template": "templates/cb_step_3_slicer.py.tpl",
+            "source_span": {
+              "lineno": 7,
               "col_offset": 0,
-              "end_lineno": 11,
+              "end_lineno": 7,
               "end_col_offset": 28
             },
             "call_expression": "threeDView.resetFocalPoint()",
@@ -5920,20 +5858,19 @@
             "repair_history": []
           },
           {
-            "call_id": "471e4870e65926d592dd",
+            "call_id": "54120e83f81096653a17",
             "template": "templates/cb_step_8_pre.py.tpl",
             "source_span": {
-              "lineno": 6,
-              "col_offset": 7,
-              "end_lineno": 6,
-              "end_col_offset": 81
+              "lineno": 7,
+              "col_offset": 8,
+              "end_lineno": 7,
+              "end_col_offset": 70
             },
-            "call_expression": "slicer.mrmlScene.AddNewNodeByClass('vtkMRMLMarkupsPlaneNode', 'Cb Step 8')",
+            "call_expression": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
             "receiver_expression": "slicer.mrmlScene",
-            "method": "AddNewNodeByClass",
+            "method": "GetNodesByClass",
             "arguments": [
-              "'vtkMRMLMarkupsPlaneNode'",
-              "'Cb Step 8'"
+              "'vtkMRMLMarkupsFiducialNode'"
             ],
             "keyword_arguments": {},
             "result_usage": "assigned",
@@ -5945,7 +5882,7 @@
                 "provenance": "slicer_runtime_root"
               }
             ],
-            "effect": "state_change",
+            "effect": "read_only",
             "proof_status": "proven",
             "evidence": [
               {
@@ -5957,54 +5894,6 @@
                 "kind": "live_probe",
                 "receiver_type": "vtkMRMLScene",
                 "method_exists": true,
-                "effect": "state_change",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "a8767ecfdbe03e46a54d",
-            "template": "templates/cb_step_8_pre.py.tpl",
-            "source_span": {
-              "lineno": 7,
-              "col_offset": 14,
-              "end_lineno": 7,
-              "end_col_offset": 35
-            },
-            "call_expression": "node.GetDisplayNode()",
-            "receiver_expression": "node",
-            "method": "GetDisplayNode",
-            "arguments": [],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_8",
-            "receiver_type_candidates": [
-              {
-                "type": "vtkMRMLMarkupsPlaneNode",
-                "confidence": "high",
-                "provenance": "AddNewNodeByClass_class_argument"
-              }
-            ],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "type": "vtkMRMLMarkupsPlaneNode",
-                "confidence": "high",
-                "provenance": "AddNewNodeByClass_class_argument"
-              },
-              {
-                "kind": "type_contract",
-                "receiver_type": "vtkMRMLMarkupsPlaneNode",
-                "method_exists": true,
-                "effect": "read_only",
-                "source": "live_probe_success"
-              },
-              {
-                "kind": "live_probe",
-                "receiver_type": "type",
-                "method_exists": true,
                 "effect": "read_only",
                 "source": "live_probe_success"
               }
@@ -6012,72 +5901,22 @@
             "repair_history": []
           },
           {
-            "call_id": "7363b5911fcd0386625d",
+            "call_id": "98777cf0be024823c215",
             "template": "templates/cb_step_8_pre.py.tpl",
             "source_span": {
               "lineno": 9,
-              "col_offset": 4,
+              "col_offset": 9,
               "end_lineno": 9,
-              "end_col_offset": 35
+              "end_col_offset": 40
             },
-            "call_expression": "displayNode.SetVisibility(True)",
-            "receiver_expression": "displayNode",
-            "method": "SetVisibility",
-            "arguments": [
-              "True"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "discarded",
-            "enclosing_operation": "cb_step_8",
-            "receiver_type_candidates": [
-              {
-                "type": "vtkMRMLDisplayNode",
-                "confidence": "medium",
-                "provenance": "slicer_return_contract"
-              }
-            ],
-            "effect": "state_change",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "type": "vtkMRMLDisplayNode",
-                "confidence": "medium",
-                "provenance": "slicer_return_contract"
-              },
-              {
-                "kind": "type_contract",
-                "receiver_type": "vtkMRMLDisplayNode",
-                "method_exists": true,
-                "effect": "state_change",
-                "source": "live_probe_success"
-              },
-              {
-                "kind": "live_probe",
-                "receiver_type": "type",
-                "method_exists": true,
-                "effect": "state_change",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "53377f58521d02aec79a",
-            "template": "templates/cb_step_8_pre.py.tpl",
-            "source_span": {
-              "lineno": 11,
-              "col_offset": 0,
-              "end_lineno": 11,
-              "end_col_offset": 131
-            },
-            "call_expression": "print('[PelvicFracturePlanning] Please Place a cut point and adjust the cutting plane position and rotation for manual splitting.')",
+            "call_expression": "range(nodes.GetNumberOfItems())",
             "receiver_expression": "",
-            "method": "print",
+            "method": "range",
             "arguments": [
-              "'[PelvicFracturePlanning] Please Place a cut point and adjust the cutting plane position and rotation for manual splitting.'"
+              "nodes.GetNumberOfItems()"
             ],
             "keyword_arguments": {},
-            "result_usage": "discarded",
+            "result_usage": "consumed",
             "enclosing_operation": "cb_step_8",
             "receiver_type_candidates": [],
             "effect": "read_only",
@@ -6093,113 +5932,28 @@
             "repair_history": []
           },
           {
-            "call_id": "2cdc89a2ee541dd39779",
+            "call_id": "ecc1f1e84736f5cb5061",
             "template": "templates/cb_step_8_pre.py.tpl",
             "source_span": {
-              "lineno": 12,
-              "col_offset": 0,
-              "end_lineno": 12,
-              "end_col_offset": 70
+              "lineno": 9,
+              "col_offset": 15,
+              "end_lineno": 9,
+              "end_col_offset": 39
             },
-            "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
-            "receiver_expression": "",
-            "method": "print",
-            "arguments": [
-              "\"When finished, press the 'Done' button in the workflow panel.\""
-            ],
-            "keyword_arguments": {},
-            "result_usage": "discarded",
-            "enclosing_operation": "cb_step_8",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "31a508a495635df55a79",
-            "template": "templates/cb_step_8_pre.py.tpl",
-            "source_span": {
-              "lineno": 15,
-              "col_offset": 0,
-              "end_lineno": 15,
-              "end_col_offset": 52
-            },
-            "call_expression": "slicer.modules.markups.logic().SetActiveListID(node)",
-            "receiver_expression": "slicer.modules.markups.logic()",
-            "method": "SetActiveListID",
-            "arguments": [
-              "node"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "discarded",
-            "enclosing_operation": "cb_step_8",
-            "receiver_type_candidates": [
-              {
-                "type": "PelvicFracturePlanningLogic",
-                "confidence": "high",
-                "provenance": "extension_module_logic_contract"
-              }
-            ],
-            "effect": "state_change",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "type": "PelvicFracturePlanningLogic",
-                "confidence": "high",
-                "provenance": "extension_module_logic_contract"
-              },
-              {
-                "kind": "live_probe",
-                "receiver_type": "vtkSlicerMarkupsLogic",
-                "method_exists": true,
-                "effect": "state_change",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "a0ed41cd16d86948af1f",
-            "template": "templates/cb_step_8_pre.py.tpl",
-            "source_span": {
-              "lineno": 15,
-              "col_offset": 0,
-              "end_lineno": 15,
-              "end_col_offset": 30
-            },
-            "call_expression": "slicer.modules.markups.logic()",
-            "receiver_expression": "slicer.modules.markups",
-            "method": "logic",
+            "call_expression": "nodes.GetNumberOfItems()",
+            "receiver_expression": "nodes",
+            "method": "GetNumberOfItems",
             "arguments": [],
             "keyword_arguments": {},
             "result_usage": "consumed",
             "enclosing_operation": "cb_step_8",
-            "receiver_type_candidates": [
-              {
-                "type": "slicer.modules.markups",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              }
-            ],
+            "receiver_type_candidates": [],
             "effect": "read_only",
             "proof_status": "proven",
             "evidence": [
               {
-                "type": "slicer.modules.markups",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              },
-              {
                 "kind": "live_probe",
-                "receiver_type": "qSlicerMarkupsModule",
+                "receiver_type": "vtkCollection",
                 "method_exists": true,
                 "effect": "read_only",
                 "source": "live_probe_success"
@@ -6208,41 +5962,30 @@
             "repair_history": []
           },
           {
-            "call_id": "6572c8e5aa1b6ee3ce1c",
+            "call_id": "e7a493a8eabd858082ac",
             "template": "templates/cb_step_8_pre.py.tpl",
             "source_span": {
-              "lineno": 16,
-              "col_offset": 18,
-              "end_lineno": 16,
-              "end_col_offset": 81
+              "lineno": 10,
+              "col_offset": 16,
+              "end_lineno": 10,
+              "end_col_offset": 40
             },
-            "call_expression": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-            "receiver_expression": "slicer.mrmlScene",
-            "method": "GetNodeByID",
+            "call_expression": "nodes.GetItemAsObject(i)",
+            "receiver_expression": "nodes",
+            "method": "GetItemAsObject",
             "arguments": [
-              "'vtkMRMLInteractionNodeSingleton'"
+              "i"
             ],
             "keyword_arguments": {},
             "result_usage": "assigned",
             "enclosing_operation": "cb_step_8",
-            "receiver_type_candidates": [
-              {
-                "type": "slicer.mrmlScene",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              }
-            ],
+            "receiver_type_candidates": [],
             "effect": "read_only",
             "proof_status": "proven",
             "evidence": [
               {
-                "type": "slicer.mrmlScene",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              },
-              {
                 "kind": "live_probe",
-                "receiver_type": "vtkMRMLScene",
+                "receiver_type": "vtkCollection",
                 "method_exists": true,
                 "effect": "read_only",
                 "source": "live_probe_success"
@@ -6251,42 +5994,85 @@
             "repair_history": []
           },
           {
-            "call_id": "aca84d092cce9101f558",
+            "call_id": "8139db5410aea6916e78",
             "template": "templates/cb_step_8_pre.py.tpl",
             "source_span": {
-              "lineno": 18,
-              "col_offset": 4,
-              "end_lineno": 18,
-              "end_col_offset": 45
+              "lineno": 12,
+              "col_offset": 8,
+              "end_lineno": 12,
+              "end_col_offset": 37
             },
-            "call_expression": "interactionNode.SwitchToSinglePlaceMode()",
-            "receiver_expression": "interactionNode",
-            "method": "SwitchToSinglePlaceMode",
-            "arguments": [],
+            "call_expression": "_candidates.append(candidate)",
+            "receiver_expression": "_candidates",
+            "method": "append",
+            "arguments": [
+              "candidate"
+            ],
             "keyword_arguments": {},
             "result_usage": "discarded",
             "enclosing_operation": "cb_step_8",
-            "receiver_type_candidates": [],
+            "receiver_type_candidates": [
+              {
+                "type": "list",
+                "confidence": "high",
+                "provenance": "python_literal"
+              }
+            ],
             "effect": "state_change",
             "proof_status": "proven",
             "evidence": [
               {
-                "kind": "live_probe",
-                "receiver_type": "vtkMRMLInteractionNode",
+                "type": "list",
+                "confidence": "high",
+                "provenance": "python_literal"
+              },
+              {
+                "kind": "python_method",
+                "source": "python_runtime_contract",
                 "method_exists": true,
-                "effect": "state_change",
-                "source": "live_probe_success"
+                "effect": "state_change"
               }
             ],
             "repair_history": []
           },
           {
-            "call_id": "f3a65d469ee1de649493",
+            "call_id": "2d1ad9c268f1f775b867",
             "template": "templates/cb_step_8_pre.py.tpl",
             "source_span": {
-              "lineno": 20,
+              "lineno": 14,
+              "col_offset": 10,
+              "end_lineno": 14,
+              "end_col_offset": 91
+            },
+            "call_expression": "RuntimeError('No vtkMRMLMarkupsFiducialNode found from previous placement step.')",
+            "receiver_expression": "",
+            "method": "RuntimeError",
+            "arguments": [
+              "'No vtkMRMLMarkupsFiducialNode found from previous placement step.'"
+            ],
+            "keyword_arguments": {},
+            "result_usage": "consumed",
+            "enclosing_operation": "cb_step_8",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "5bacf53190fa91dd6215",
+            "template": "templates/cb_step_8_pre.py.tpl",
+            "source_span": {
+              "lineno": 17,
               "col_offset": 39,
-              "end_lineno": 20,
+              "end_lineno": 17,
               "end_col_offset": 51
             },
             "call_expression": "node.GetID()",
@@ -6296,45 +6082,19 @@
             "keyword_arguments": {},
             "result_usage": "assigned",
             "enclosing_operation": "cb_step_8",
-            "receiver_type_candidates": [
-              {
-                "type": "vtkMRMLMarkupsPlaneNode",
-                "confidence": "high",
-                "provenance": "AddNewNodeByClass_class_argument"
-              }
-            ],
+            "receiver_type_candidates": [],
             "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "type": "vtkMRMLMarkupsPlaneNode",
-                "confidence": "high",
-                "provenance": "AddNewNodeByClass_class_argument"
-              },
-              {
-                "kind": "type_contract",
-                "receiver_type": "vtkMRMLMarkupsPlaneNode",
-                "method_exists": true,
-                "effect": "read_only",
-                "source": "live_probe_success"
-              },
-              {
-                "kind": "live_probe",
-                "receiver_type": "type",
-                "method_exists": true,
-                "effect": "read_only",
-                "source": "live_probe_success"
-              }
-            ],
+            "proof_status": "unproven",
+            "evidence": [],
             "repair_history": []
           },
           {
-            "call_id": "af22ce054d3f15c66040",
+            "call_id": "e12026a6ce56db49b330",
             "template": "templates/cb_step_8_pre.py.tpl",
             "source_span": {
-              "lineno": 21,
+              "lineno": 18,
               "col_offset": 0,
-              "end_lineno": 21,
+              "end_lineno": 18,
               "end_col_offset": 159
             },
             "call_expression": "remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_8', _pelvicfractureplanning_cb_step_8_id, _workflow_runtime_repeat_index)",
@@ -6364,22 +6124,84 @@
             "repair_history": []
           },
           {
-            "call_id": "f7399d6ff8ed8459ee61",
+            "call_id": "ce1bc45dd05061a5d41d",
+            "template": "templates/cb_step_8_pre.py.tpl",
+            "source_span": {
+              "lineno": 20,
+              "col_offset": 0,
+              "end_lineno": 20,
+              "end_col_offset": 124
+            },
+            "call_expression": "print('[PelvicFracturePlanning] Please Place a cut point and adjust the position and rotation of the manual cutting plane.')",
+            "receiver_expression": "",
+            "method": "print",
+            "arguments": [
+              "'[PelvicFracturePlanning] Please Place a cut point and adjust the position and rotation of the manual cutting plane.'"
+            ],
+            "keyword_arguments": {},
+            "result_usage": "discarded",
+            "enclosing_operation": "cb_step_8",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "ff293a8ff930a51f69d1",
+            "template": "templates/cb_step_8_pre.py.tpl",
+            "source_span": {
+              "lineno": 21,
+              "col_offset": 0,
+              "end_lineno": 21,
+              "end_col_offset": 70
+            },
+            "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
+            "receiver_expression": "",
+            "method": "print",
+            "arguments": [
+              "\"When finished, press the 'Done' button in the workflow panel.\""
+            ],
+            "keyword_arguments": {},
+            "result_usage": "discarded",
+            "enclosing_operation": "cb_step_8",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "ecfb243cdd1f160b2ccc",
             "template": "templates/cb_step_8_post.py.tpl",
             "source_span": {
               "lineno": 5,
               "col_offset": 7,
               "end_lineno": 5,
-              "end_col_offset": 154
+              "end_col_offset": 157
             },
-            "call_expression": "resolve_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_8', 'vtkMRMLMarkupsPlaneNode', _workflow_runtime_repeat_index)",
+            "call_expression": "resolve_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, 'cb_step_8', 'vtkMRMLMarkupsFiducialNode', _workflow_runtime_repeat_index)",
             "receiver_expression": "",
             "method": "resolve_interaction_node",
             "arguments": [
               "_workflow_runtime_extension",
               "_workflow_runtime_id",
               "'cb_step_8'",
-              "'vtkMRMLMarkupsPlaneNode'",
+              "'vtkMRMLMarkupsFiducialNode'",
               "_workflow_runtime_repeat_index"
             ],
             "keyword_arguments": {},
@@ -11724,6 +11546,28 @@
         ],
         "issues": [
           {
+            "issue_id": "api_proof_5bacf53190fa91dd6215",
+            "issue_type": "UnprovenApiCall",
+            "severity": "warning",
+            "blocking": false,
+            "template": "templates/cb_step_8_pre.py.tpl",
+            "call_id": "5bacf53190fa91dd6215",
+            "source_span": {
+              "lineno": 17,
+              "col_offset": 39,
+              "end_lineno": 17,
+              "end_col_offset": 51
+            },
+            "diagnosis": "receiver_type_unproven",
+            "receiver_expression": "node",
+            "receiver_type": "",
+            "method": "GetID",
+            "method_exists": null,
+            "effect": "read_only",
+            "evidence_sources": [],
+            "minimal_repair": null
+          },
+          {
             "issue_id": "api_proof_0f3ad457feb55ed38e7d",
             "issue_type": "UnprovenApiCall",
             "severity": "warning",
@@ -11891,35 +11735,114 @@
           }
         ],
         "api_proof_coverage": {
-          "total_calls": 199,
-          "state_changing_calls": 48,
-          "proven_calls": 192,
+          "total_calls": 198,
+          "state_changing_calls": 45,
+          "proven_calls": 190,
           "invalid_calls": 0,
           "blocking_unproven_calls": 0,
-          "warning_unproven_reads": 7,
+          "warning_unproven_reads": 8,
           "inventory_complete": true
         },
         "valid": true,
         "has_warnings": true
       },
       "api_proof_coverage": {
-        "total_calls": 199,
-        "state_changing_calls": 48,
-        "proven_calls": 192,
+        "total_calls": 198,
+        "state_changing_calls": 45,
+        "proven_calls": 190,
         "invalid_calls": 0,
         "blocking_unproven_calls": 0,
-        "warning_unproven_reads": 7,
+        "warning_unproven_reads": 8,
         "inventory_complete": true
       },
       "repair_log": [
         {
           "attempt": 1,
-          "valid": true,
-          "issue_count": 0,
-          "issues": [],
-          "repair_plan": [],
+          "valid": false,
+          "issue_count": 1,
+          "issues": [
+            {
+              "issue_id": "api_proof_3b6f195b2696a4d99ea9",
+              "issue_type": "UnprovenReceiver",
+              "severity": "error",
+              "blocking": true,
+              "template": "templates/cb_step_8_pre.py.tpl",
+              "call_id": "3b6f195b2696a4d99ea9",
+              "source_span": {
+                "lineno": 33,
+                "col_offset": 4,
+                "end_lineno": 33,
+                "end_col_offset": 36
+              },
+              "diagnosis": "method_unproven",
+              "receiver_expression": "node",
+              "receiver_type": "NoneType",
+              "method": "CreateDefaultDisplayNodes",
+              "method_exists": null,
+              "effect": "state_change",
+              "evidence_sources": [
+                "python_literal"
+              ],
+              "minimal_repair": null,
+              "issue_class": "runtime_api",
+              "template_key": "templates/cb_step_8_pre.py.tpl",
+              "step_id": "cb_step_8",
+              "root_cause": "method_unproven",
+              "repair_strategy": "contract_aware_template_repair",
+              "repair_route": "gather_receiver_method_behavior_evidence",
+              "affected_artifacts": [
+                "runtime_api"
+              ],
+              "message": "method_unproven",
+              "raw": {
+                "issue_id": "api_proof_3b6f195b2696a4d99ea9",
+                "issue_type": "UnprovenApiCall",
+                "severity": "error",
+                "blocking": true,
+                "template": "templates/cb_step_8_pre.py.tpl",
+                "call_id": "3b6f195b2696a4d99ea9",
+                "source_span": {
+                  "lineno": 33,
+                  "col_offset": 4,
+                  "end_lineno": 33,
+                  "end_col_offset": 36
+                },
+                "diagnosis": "method_unproven",
+                "receiver_expression": "node",
+                "receiver_type": "NoneType",
+                "method": "CreateDefaultDisplayNodes",
+                "method_exists": null,
+                "effect": "state_change",
+                "evidence_sources": [
+                  "python_literal"
+                ],
+                "minimal_repair": null
+              },
+              "evidence_diagnosis": {
+                "diagnosis": "method_unproven",
+                "receiver_type": "NoneType",
+                "method_exists": null,
+                "effect": "state_change",
+                "evidence_sources": [
+                  "python_literal"
+                ],
+                "minimal_repair": null
+              },
+              "ladder_rung": "contract_aware_template_repair"
+            }
+          ],
+          "repair_plan": [
+            {
+              "issue_id": "api_proof_3b6f195b2696a4d99ea9",
+              "template_key": "templates/cb_step_8_pre.py.tpl",
+              "step_id": "cb_step_8",
+              "strategy": "contract_aware_template_repair",
+              "route": "gather_receiver_method_behavior_evidence",
+              "semantic_recipe_id": ""
+            }
+          ],
           "api_probe_result": {
-            "probed": 19,
+            "probed": 16,
             "failures": [],
             "revised": 0,
             "syntax_skipped": [],
@@ -12002,7 +11925,7 @@
                   "expanded_receiver_expr": "slicer.app",
                   "proof_kind": "live_instance",
                   "attr": "layoutManager",
-                  "lineno": 6,
+                  "lineno": 2,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "qSlicerApplication",
@@ -12016,7 +11939,7 @@
                   "expanded_receiver_expr": "slicer.app.layoutManager()",
                   "proof_kind": "live_instance",
                   "attr": "threeDWidget",
-                  "lineno": 7,
+                  "lineno": 3,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "qSlicerLayoutManager",
@@ -12030,7 +11953,7 @@
                   "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
                   "proof_kind": "live_instance",
                   "attr": "threeDView",
-                  "lineno": 10,
+                  "lineno": 4,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "qMRMLThreeDWidget",
@@ -12044,7 +11967,7 @@
                   "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
                   "proof_kind": "live_instance",
                   "attr": "resetFocalPoint",
-                  "lineno": 11,
+                  "lineno": 7,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "qMRMLThreeDView",
@@ -12052,13 +11975,13 @@
                   "evidence_source": "live_probe_success"
                 },
                 {
-                  "chain": "slicer.mrmlScene.AddNewNodeByClass",
+                  "chain": "slicer.mrmlScene.GetNodesByClass",
                   "receiver_expr": "slicer.mrmlScene",
                   "original_receiver_expr": "slicer.mrmlScene",
                   "expanded_receiver_expr": "slicer.mrmlScene",
                   "proof_kind": "live_instance",
-                  "attr": "AddNewNodeByClass",
-                  "lineno": 6,
+                  "attr": "GetNodesByClass",
+                  "lineno": 11,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "vtkMRMLScene",
@@ -12066,59 +11989,31 @@
                   "evidence_source": "live_probe_success"
                 },
                 {
-                  "chain": "node.GetDisplayNode",
-                  "receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-                  "original_receiver_expr": "node",
-                  "expanded_receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-                  "receiver_type": "vtkMRMLMarkupsPlaneNode",
-                  "proof_kind": "class_type",
-                  "attr": "GetDisplayNode",
-                  "lineno": 7,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "type",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "slicer.modules.markups.logic().SetActiveListID",
-                  "receiver_expr": "slicer.modules.markups.logic()",
-                  "original_receiver_expr": "slicer.modules.markups.logic()",
-                  "expanded_receiver_expr": "slicer.modules.markups.logic()",
+                  "chain": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetNumberOfItems",
+                  "receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+                  "original_receiver_expr": "nodes",
+                  "expanded_receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
                   "proof_kind": "live_instance",
-                  "attr": "SetActiveListID",
-                  "lineno": 15,
+                  "attr": "GetNumberOfItems",
+                  "lineno": 13,
                   "is_attribute": false,
                   "method_exists": true,
-                  "live_receiver_type": "vtkSlicerMarkupsLogic",
-                  "receiver_type": "vtkSlicerMarkupsLogic",
+                  "live_receiver_type": "vtkCollection",
+                  "receiver_type": "vtkCollection",
                   "evidence_source": "live_probe_success"
                 },
                 {
-                  "chain": "slicer.mrmlScene.GetNodeByID",
-                  "receiver_expr": "slicer.mrmlScene",
-                  "original_receiver_expr": "slicer.mrmlScene",
-                  "expanded_receiver_expr": "slicer.mrmlScene",
+                  "chain": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetItemAsObject",
+                  "receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+                  "original_receiver_expr": "nodes",
+                  "expanded_receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
                   "proof_kind": "live_instance",
-                  "attr": "GetNodeByID",
-                  "lineno": 16,
+                  "attr": "GetItemAsObject",
+                  "lineno": 14,
                   "is_attribute": false,
                   "method_exists": true,
-                  "live_receiver_type": "vtkMRMLScene",
-                  "receiver_type": "vtkMRMLScene",
-                  "evidence_source": "live_probe_success"
-                },
-                {
-                  "chain": "node.GetID",
-                  "receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-                  "original_receiver_expr": "node",
-                  "expanded_receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-                  "receiver_type": "vtkMRMLMarkupsPlaneNode",
-                  "proof_kind": "class_type",
-                  "attr": "GetID",
-                  "lineno": 20,
-                  "is_attribute": false,
-                  "method_exists": true,
-                  "live_receiver_type": "type",
+                  "live_receiver_type": "vtkCollection",
+                  "receiver_type": "vtkCollection",
                   "evidence_source": "live_probe_success"
                 },
                 {
@@ -12129,20 +12024,34 @@
                   "receiver_type": "vtkMRMLDisplayNode",
                   "proof_kind": "class_type",
                   "attr": "SetVisibility",
-                  "lineno": 9,
+                  "lineno": 36,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "type",
                   "evidence_source": "live_probe_success"
                 },
                 {
-                  "chain": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToSinglePlaceMode",
+                  "chain": "slicer.mrmlScene.GetNodeByID",
+                  "receiver_expr": "slicer.mrmlScene",
+                  "original_receiver_expr": "slicer.mrmlScene",
+                  "expanded_receiver_expr": "slicer.mrmlScene",
+                  "proof_kind": "live_instance",
+                  "attr": "GetNodeByID",
+                  "lineno": 12,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "vtkMRMLScene",
+                  "receiver_type": "vtkMRMLScene",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
                   "receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
                   "original_receiver_expr": "interactionNode",
                   "expanded_receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
                   "proof_kind": "live_instance",
-                  "attr": "SwitchToSinglePlaceMode",
-                  "lineno": 18,
+                  "attr": "SwitchToViewTransformMode",
+                  "lineno": 13,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "vtkMRMLInteractionNode",
@@ -12150,17 +12059,227 @@
                   "evidence_source": "live_probe_success"
                 },
                 {
-                  "chain": "slicer.modules.markups.logic",
-                  "receiver_expr": "slicer.modules.markups",
-                  "original_receiver_expr": "slicer.modules.markups",
-                  "expanded_receiver_expr": "slicer.modules.markups",
+                  "chain": "slicer.util.findChildren",
+                  "receiver_expr": "slicer.util",
+                  "original_receiver_expr": "slicer.util",
+                  "expanded_receiver_expr": "slicer.util",
                   "proof_kind": "live_instance",
-                  "attr": "logic",
-                  "lineno": 15,
+                  "attr": "findChildren",
+                  "lineno": 47,
                   "is_attribute": false,
                   "method_exists": true,
-                  "live_receiver_type": "qSlicerMarkupsModule",
-                  "receiver_type": "qSlicerMarkupsModule",
+                  "live_receiver_type": "module",
+                  "receiver_type": "module",
+                  "evidence_source": "live_probe_success"
+                }
+              ],
+              "unresolved": [],
+              "skipped": []
+            }
+          },
+          "strategy_results": [
+            {
+              "strategy": "targeted_or_contract_aware_template_repair",
+              "changed": true,
+              "changed_templates": [
+                "templates/cb_step_8_pre.py.tpl"
+              ]
+            }
+          ]
+        },
+        {
+          "attempt": 2,
+          "valid": true,
+          "issue_count": 0,
+          "issues": [],
+          "repair_plan": [],
+          "api_probe_result": {
+            "probed": 15,
+            "failures": [],
+            "revised": 0,
+            "syntax_skipped": [],
+            "api_probe_coverage": {
+              "resolved": [
+                {
+                  "chain": "slicer.util.selectedModule",
+                  "receiver_expr": "slicer.util",
+                  "original_receiver_expr": "slicer.util",
+                  "expanded_receiver_expr": "slicer.util",
+                  "proof_kind": "live_instance",
+                  "attr": "selectedModule",
+                  "lineno": 6,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "module",
+                  "receiver_type": "module",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.util.getModuleWidget",
+                  "receiver_expr": "slicer.util",
+                  "original_receiver_expr": "slicer.util",
+                  "expanded_receiver_expr": "slicer.util",
+                  "proof_kind": "live_instance",
+                  "attr": "getModuleWidget",
+                  "lineno": 19,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "module",
+                  "receiver_type": "module",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.util.selectModule",
+                  "receiver_expr": "slicer.util",
+                  "original_receiver_expr": "slicer.util",
+                  "expanded_receiver_expr": "slicer.util",
+                  "proof_kind": "live_instance",
+                  "attr": "selectModule",
+                  "lineno": 9,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "module",
+                  "receiver_type": "module",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.modules.pelvicfractureplanning.widgetRepresentation().self",
+                  "receiver_expr": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
+                  "original_receiver_expr": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
+                  "expanded_receiver_expr": "slicer.modules.pelvicfractureplanning.widgetRepresentation()",
+                  "proof_kind": "live_instance",
+                  "attr": "self",
+                  "lineno": 24,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qSlicerScriptedLoadableModuleWidget",
+                  "receiver_type": "qSlicerScriptedLoadableModuleWidget",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.modules.pelvicfractureplanning.widgetRepresentation",
+                  "receiver_expr": "slicer.modules.pelvicfractureplanning",
+                  "original_receiver_expr": "slicer.modules.pelvicfractureplanning",
+                  "expanded_receiver_expr": "slicer.modules.pelvicfractureplanning",
+                  "proof_kind": "live_instance",
+                  "attr": "widgetRepresentation",
+                  "lineno": 24,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qSlicerScriptedLoadableModule",
+                  "receiver_type": "qSlicerScriptedLoadableModule",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager",
+                  "receiver_expr": "slicer.app",
+                  "original_receiver_expr": "slicer.app",
+                  "expanded_receiver_expr": "slicer.app",
+                  "proof_kind": "live_instance",
+                  "attr": "layoutManager",
+                  "lineno": 2,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qSlicerApplication",
+                  "receiver_type": "qSlicerApplication",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager().threeDWidget",
+                  "receiver_expr": "slicer.app.layoutManager()",
+                  "original_receiver_expr": "layoutManager",
+                  "expanded_receiver_expr": "slicer.app.layoutManager()",
+                  "proof_kind": "live_instance",
+                  "attr": "threeDWidget",
+                  "lineno": 3,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qSlicerLayoutManager",
+                  "receiver_type": "qSlicerLayoutManager",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager().threeDWidget(0).threeDView",
+                  "receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
+                  "original_receiver_expr": "threeDWidget",
+                  "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
+                  "proof_kind": "live_instance",
+                  "attr": "threeDView",
+                  "lineno": 4,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qMRMLThreeDWidget",
+                  "receiver_type": "qMRMLThreeDWidget",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager().threeDWidget(0).threeDView().resetFocalPoint",
+                  "receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
+                  "original_receiver_expr": "threeDView",
+                  "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
+                  "proof_kind": "live_instance",
+                  "attr": "resetFocalPoint",
+                  "lineno": 7,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qMRMLThreeDView",
+                  "receiver_type": "qMRMLThreeDView",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.mrmlScene.GetNodesByClass",
+                  "receiver_expr": "slicer.mrmlScene",
+                  "original_receiver_expr": "slicer.mrmlScene",
+                  "expanded_receiver_expr": "slicer.mrmlScene",
+                  "proof_kind": "live_instance",
+                  "attr": "GetNodesByClass",
+                  "lineno": 7,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "vtkMRMLScene",
+                  "receiver_type": "vtkMRMLScene",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetNumberOfItems",
+                  "receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+                  "original_receiver_expr": "nodes",
+                  "expanded_receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+                  "proof_kind": "live_instance",
+                  "attr": "GetNumberOfItems",
+                  "lineno": 9,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "vtkCollection",
+                  "receiver_type": "vtkCollection",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetItemAsObject",
+                  "receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+                  "original_receiver_expr": "nodes",
+                  "expanded_receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+                  "proof_kind": "live_instance",
+                  "attr": "GetItemAsObject",
+                  "lineno": 10,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "vtkCollection",
+                  "receiver_type": "vtkCollection",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.mrmlScene.GetNodeByID",
+                  "receiver_expr": "slicer.mrmlScene",
+                  "original_receiver_expr": "slicer.mrmlScene",
+                  "expanded_receiver_expr": "slicer.mrmlScene",
+                  "proof_kind": "live_instance",
+                  "attr": "GetNodeByID",
+                  "lineno": 12,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "vtkMRMLScene",
+                  "receiver_type": "vtkMRMLScene",
                   "evidence_source": "live_probe_success"
                 },
                 {
@@ -12199,7 +12318,7 @@
         }
       ],
       "api_probe_result": {
-        "probed": 19,
+        "probed": 15,
         "failures": [],
         "revised": 0,
         "syntax_skipped": [],
@@ -12282,7 +12401,7 @@
               "expanded_receiver_expr": "slicer.app",
               "proof_kind": "live_instance",
               "attr": "layoutManager",
-              "lineno": 6,
+              "lineno": 2,
               "is_attribute": false,
               "method_exists": true,
               "live_receiver_type": "qSlicerApplication",
@@ -12296,7 +12415,7 @@
               "expanded_receiver_expr": "slicer.app.layoutManager()",
               "proof_kind": "live_instance",
               "attr": "threeDWidget",
-              "lineno": 7,
+              "lineno": 3,
               "is_attribute": false,
               "method_exists": true,
               "live_receiver_type": "qSlicerLayoutManager",
@@ -12310,7 +12429,7 @@
               "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
               "proof_kind": "live_instance",
               "attr": "threeDView",
-              "lineno": 10,
+              "lineno": 4,
               "is_attribute": false,
               "method_exists": true,
               "live_receiver_type": "qMRMLThreeDWidget",
@@ -12324,7 +12443,7 @@
               "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
               "proof_kind": "live_instance",
               "attr": "resetFocalPoint",
-              "lineno": 11,
+              "lineno": 7,
               "is_attribute": false,
               "method_exists": true,
               "live_receiver_type": "qMRMLThreeDView",
@@ -12332,13 +12451,13 @@
               "evidence_source": "live_probe_success"
             },
             {
-              "chain": "slicer.mrmlScene.AddNewNodeByClass",
+              "chain": "slicer.mrmlScene.GetNodesByClass",
               "receiver_expr": "slicer.mrmlScene",
               "original_receiver_expr": "slicer.mrmlScene",
               "expanded_receiver_expr": "slicer.mrmlScene",
               "proof_kind": "live_instance",
-              "attr": "AddNewNodeByClass",
-              "lineno": 6,
+              "attr": "GetNodesByClass",
+              "lineno": 7,
               "is_attribute": false,
               "method_exists": true,
               "live_receiver_type": "vtkMRMLScene",
@@ -12346,31 +12465,31 @@
               "evidence_source": "live_probe_success"
             },
             {
-              "chain": "node.GetDisplayNode",
-              "receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-              "original_receiver_expr": "node",
-              "expanded_receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-              "receiver_type": "vtkMRMLMarkupsPlaneNode",
-              "proof_kind": "class_type",
-              "attr": "GetDisplayNode",
-              "lineno": 7,
+              "chain": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetNumberOfItems",
+              "receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+              "original_receiver_expr": "nodes",
+              "expanded_receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+              "proof_kind": "live_instance",
+              "attr": "GetNumberOfItems",
+              "lineno": 9,
               "is_attribute": false,
               "method_exists": true,
-              "live_receiver_type": "type",
+              "live_receiver_type": "vtkCollection",
+              "receiver_type": "vtkCollection",
               "evidence_source": "live_probe_success"
             },
             {
-              "chain": "slicer.modules.markups.logic().SetActiveListID",
-              "receiver_expr": "slicer.modules.markups.logic()",
-              "original_receiver_expr": "slicer.modules.markups.logic()",
-              "expanded_receiver_expr": "slicer.modules.markups.logic()",
+              "chain": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode').GetItemAsObject",
+              "receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
+              "original_receiver_expr": "nodes",
+              "expanded_receiver_expr": "slicer.mrmlScene.GetNodesByClass('vtkMRMLMarkupsFiducialNode')",
               "proof_kind": "live_instance",
-              "attr": "SetActiveListID",
-              "lineno": 15,
+              "attr": "GetItemAsObject",
+              "lineno": 10,
               "is_attribute": false,
               "method_exists": true,
-              "live_receiver_type": "vtkSlicerMarkupsLogic",
-              "receiver_type": "vtkSlicerMarkupsLogic",
+              "live_receiver_type": "vtkCollection",
+              "receiver_type": "vtkCollection",
               "evidence_source": "live_probe_success"
             },
             {
@@ -12380,67 +12499,11 @@
               "expanded_receiver_expr": "slicer.mrmlScene",
               "proof_kind": "live_instance",
               "attr": "GetNodeByID",
-              "lineno": 16,
+              "lineno": 12,
               "is_attribute": false,
               "method_exists": true,
               "live_receiver_type": "vtkMRMLScene",
               "receiver_type": "vtkMRMLScene",
-              "evidence_source": "live_probe_success"
-            },
-            {
-              "chain": "node.GetID",
-              "receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-              "original_receiver_expr": "node",
-              "expanded_receiver_expr": "slicer.vtkMRMLMarkupsPlaneNode",
-              "receiver_type": "vtkMRMLMarkupsPlaneNode",
-              "proof_kind": "class_type",
-              "attr": "GetID",
-              "lineno": 20,
-              "is_attribute": false,
-              "method_exists": true,
-              "live_receiver_type": "type",
-              "evidence_source": "live_probe_success"
-            },
-            {
-              "chain": "displayNode.SetVisibility",
-              "receiver_expr": "slicer.vtkMRMLDisplayNode",
-              "original_receiver_expr": "displayNode",
-              "expanded_receiver_expr": "slicer.vtkMRMLDisplayNode",
-              "receiver_type": "vtkMRMLDisplayNode",
-              "proof_kind": "class_type",
-              "attr": "SetVisibility",
-              "lineno": 9,
-              "is_attribute": false,
-              "method_exists": true,
-              "live_receiver_type": "type",
-              "evidence_source": "live_probe_success"
-            },
-            {
-              "chain": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToSinglePlaceMode",
-              "receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-              "original_receiver_expr": "interactionNode",
-              "expanded_receiver_expr": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-              "proof_kind": "live_instance",
-              "attr": "SwitchToSinglePlaceMode",
-              "lineno": 18,
-              "is_attribute": false,
-              "method_exists": true,
-              "live_receiver_type": "vtkMRMLInteractionNode",
-              "receiver_type": "vtkMRMLInteractionNode",
-              "evidence_source": "live_probe_success"
-            },
-            {
-              "chain": "slicer.modules.markups.logic",
-              "receiver_expr": "slicer.modules.markups",
-              "original_receiver_expr": "slicer.modules.markups",
-              "expanded_receiver_expr": "slicer.modules.markups",
-              "proof_kind": "live_instance",
-              "attr": "logic",
-              "lineno": 15,
-              "is_attribute": false,
-              "method_exists": true,
-              "live_receiver_type": "qSlicerMarkupsModule",
-              "receiver_type": "qSlicerMarkupsModule",
               "evidence_source": "live_probe_success"
             },
             {

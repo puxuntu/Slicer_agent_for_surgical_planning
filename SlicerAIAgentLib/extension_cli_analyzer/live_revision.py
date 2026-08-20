@@ -329,6 +329,15 @@ class AnalyzerLiveRevisionMixin:
         if source_path and workflow_data and logic_analysis:
             try:
                 scan_result = self._stage1_scan(source_path)
+                # The starter scan reads widget methods too (a placement is usually
+                # armed by a button handler), and this path never runs discover.
+                self._widget_class_info = dict(scan_result.get("widget_class") or {})
+                widget_source = self._extract_class_source(
+                    self._widget_class_info.get("file", ""),
+                    self._widget_class_info.get("class_name", ""),
+                )
+                if widget_source and not self._widget_connections:
+                    self._widget_connections = self._extract_widget_connections(widget_source)
                 self._placement_starter_methods = self._classify_placement_starter_methods(
                     logic_analysis
                 )

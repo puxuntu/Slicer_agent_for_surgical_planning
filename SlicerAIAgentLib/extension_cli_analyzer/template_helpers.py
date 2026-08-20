@@ -289,6 +289,18 @@ class AnalyzerTemplateHelpersMixin:
             return "unknown"
         return "none"
 
+    def _is_logic_placement_starter(self, method_name: str) -> bool:
+        """True for a placement starter that can be called on the LOGIC object.
+
+        `_generate_placement_starter_pre_template` emits `logic.<method>()`, so a
+        widget-side starter must never reach it -- `logic.onManualSplit()` does not
+        exist. Those steps are driven by the connected-handler template instead,
+        which is tried first and is the correct emitter for them.
+        """
+        if not method_name or method_name not in self._placement_starter_methods:
+            return False
+        return self._placement_starter_info(method_name).get("receiver") != "widget"
+
     def _placement_starter_info(self, method_name: str) -> Dict:
         """Return source-derived placement-starter metadata for a method."""
         if not method_name:

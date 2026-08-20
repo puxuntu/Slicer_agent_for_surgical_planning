@@ -176,6 +176,29 @@ class AnalyzerWorkflowContractsMixin:
             intents.add(_text_or_empty(step.get("operation_intent")))
         return sorted(i for i in intents if i)
 
+    def _step_widget_handlers(self, step: Dict) -> List[str]:
+        """Handlers the step's own controls are connected to, from the scan.
+
+        A "click the X button" step often carries only `widget_name`, with no
+        `method_name`/`extension_method_hint` -- its real unit of work is the
+        connected handler, which is exactly what the emitted template drives
+        (`_maybe_generate_button_handler_template`). Resolving the same way here
+        keeps the two readings of "what does this step call?" in agreement.
+        """
+        widget_names = {
+            name for name in (
+                [step.get("widget_name")]
+                + [so.get("widget_name") for so in step.get("sub_operations", []) or []]
+            ) if name
+        }
+        if not widget_names:
+            return []
+        handlers = []
+        for conn in getattr(self, "_widget_connections", None) or []:
+            if conn.get("button_widget_name") in widget_names and conn.get("handler_method"):
+                handlers.append(conn["handler_method"])
+        return handlers
+
     def _step_placement_starter(self, step: Dict) -> str:
         """Return the placement-starter method a workflow step calls, if any."""
         method = step.get("method_name")
@@ -185,6 +208,11 @@ class AnalyzerWorkflowContractsMixin:
             hint = so.get("extension_method_hint")
             if hint in self._placement_starter_methods:
                 return hint
+        # ...and the widget handler the step drives. Checked last so an explicit
+        # logic-method hint still wins.
+        for handler in self._step_widget_handlers(step):
+            if handler in self._placement_starter_methods:
+                return handler
         return ""
 
     def _step_interaction_node_class(self, step: Dict) -> str:
@@ -248,16 +276,100 @@ class AnalyzerWorkflowContractsMixin:
             starter = self._step_placement_starter(previous_step)
             if not starter:
                 continue
-            if not self._placement_starter_supports_node_class(starter, node_class):
-                continue
-            return {
-                "method": starter,
-                "step_id": previous_step.get("step_id", ""),
-                "node_class": node_class,
-                "lookback_steps": step_index - previous_index,
-                "reason": "recent_same_node_class_placement_starter",
-            }
+            if self._placement_starter_supports_node_class(starter, node_class):
+                return {
+                    "method": starter,
+                    "step_id": previous_step.get("step_id", ""),
+                    "node_class": node_class,
+                    "lookback_steps": step_index - previous_index,
+                    "reason": "recent_same_node_class_placement_starter",
+                }
+            # The classes disagree. That is not automatically a mismatch: the
+            # interaction step's node_class is an LLM reading of cookbook prose,
+            # while the starter's is SCANNED from the handler that actually arms
+            # the placement -- and prose names what the user ends up adjusting,
+            # not what they place. ("Click to add a cut point and adjust the
+            # cutting plane" yielded vtkMRMLMarkupsPlaneNode; the click places a
+            # FIDUCIAL, and the extension's PointPositionDefinedEvent observer
+            # derives the plane from it.) Believe the scan, but only on a
+            # structural link -- the interaction step DEPENDS on the starter step,
+            # so the contract already says they are one operation -- and only when
+            # the starter arms exactly one class, since more than one would put us
+            # back to guessing.
+            armed = list((self._placement_starter_info(starter) or {}).get("node_classes") or [])
+            if (
+                len(armed) == 1
+                and self._is_markup_node_class(armed[0])
+                and self._step_depends_on(interaction_step, previous_step)
+            ):
+                return {
+                    "method": starter,
+                    "step_id": previous_step.get("step_id", ""),
+                    "node_class": armed[0],
+                    "declared_node_class": node_class,
+                    "adopt_node_class": True,
+                    "lookback_steps": step_index - previous_index,
+                    "reason": "dependent_placement_starter_arms_other_node_class",
+                }
         return {}
+
+    @staticmethod
+    def _adopt_placement_starter_node_class(step: Dict, binding: Dict) -> None:
+        """Rewrite an interaction step to the node class its starter actually arms.
+
+        Applied only on the `adopt_node_class` binding, so the long-standing
+        class-matched path is untouched. Both readings are rewritten -- the step
+        and its sub-operations -- because the runtime has two independent readers
+        of node_class and fixing one leaves the other resolving nothing. The step
+        also stops claiming to CREATE the node: the extension's handler already
+        did, and a second one is exactly the duplicate this binding exists to
+        prevent. `requires_place_mode` is deliberately left alone; the placement
+        is real, it is just already armed, and the policy reads the pair.
+        """
+        armed = binding.get("node_class", "")
+        declared = binding.get("declared_node_class", "")
+        if not armed:
+            return
+        step["node_class"] = armed
+        step["creates_node"] = False
+        step["node_class_adopted_from_starter"] = declared or None
+        for so in step.get("sub_operations", []) or []:
+            if so.get("op_type") != "user_interaction":
+                continue
+            if so.get("node_class") in ("", None, declared, armed):
+                so["node_class"] = armed
+                so["creates_node"] = False
+        # Only the role describing what THIS step produces has to agree with the
+        # step's own node_class. A downstream extension_input keeps its declared
+        # class -- by the time it is read the extension HAS derived that object
+        # (the plane exists once the observer has fired), so rewriting it would
+        # replace a correct statement with a wrong one.
+        for holder in (step, *(step.get("sub_operations") or [])):
+            for role in (holder.get("node_roles") or []) if isinstance(holder, dict) else []:
+                if not isinstance(role, dict):
+                    continue
+                if role.get("role_kind") == "interaction_output" and role.get("node_class") == declared:
+                    role["node_class"] = armed
+
+    @staticmethod
+    def _step_depends_on(step: Dict, other: Dict) -> bool:
+        """True when `step` names `other` as a dependency in the contract."""
+        other_id = other.get("step_id", "")
+        if other_id and other_id in (step.get("depends_on") or []):
+            return True
+        # Numeric form, as sub-operations record it (setup_dependencies: [7]).
+        digits = _re.findall(r"\d+", other_id)
+        if not digits:
+            return False
+        other_number = int(digits[-1])
+        for so in step.get("sub_operations", []) or []:
+            for dep in so.get("setup_dependencies") or []:
+                try:
+                    if int(dep) == other_number:
+                        return True
+                except (TypeError, ValueError):
+                    continue
+        return False
 
     def _synthesize_workflow_ui_guidance(
         self,
@@ -715,6 +827,8 @@ class AnalyzerWorkflowContractsMixin:
             step["created_node_source"] = "previous_extension_method"
             step["placement_starter_step_id"] = binding.get("step_id", "")
             step["placement_binding_reason"] = binding.get("reason", "")
+            if binding.get("adopt_node_class"):
+                self._adopt_placement_starter_node_class(step, binding)
             starter_info = self._placement_starter_info(starter)
             interaction_policy = self._placement_mode_policy(step, starter_info)
             metadata.setdefault("interaction_policies", {})[step["step_id"]] = {

@@ -2,7 +2,7 @@
 import slicer
 from SlicerAIAgentLib.workflow_state import resolve_interaction_node
 
-node = resolve_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_8", "vtkMRMLMarkupsPlaneNode", _workflow_runtime_repeat_index)
+node = resolve_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_8", "vtkMRMLMarkupsFiducialNode", _workflow_runtime_repeat_index)
 if node is None:
     node = slicer.mrmlScene.GetNodeByID(_pelvicfractureplanning_cb_step_8_id)
 if node is None:

@@ -126,6 +126,12 @@ class ExtensionCLIAnalyzer(
         self._cookbook_def = None                # Parsed CookbookDef when cookbook found
         self._step_instructions = None           # {version, steps} dual instructions
         self._widget_connections: List[Dict] = []
+        # {"file", "class_name"} of the module WIDGET class. Slicer's module
+        # template puts GUI actions on the widget and computation on the logic, so
+        # anything that arms a Markups placement (create + SetActiveListID + place
+        # mode) is usually a widget button handler -- see
+        # _classify_placement_starter_methods, which would otherwise see none of it.
+        self._widget_class_info: Dict = {}
         self._ui_parameter_bindings: Dict[str, Dict] = {}
         self._slicer_op_templates: Dict = {}     # Pre-generated slicer_op templates
         self._slicer_op_evidence: Dict = {}      # API evidence for pre-generated slicer_op templates
@@ -584,6 +590,7 @@ class ExtensionCLIAnalyzer(
         self._slicer_op_evidence = {}
         self._placement_starter_methods = {}
         self._widget_connections = []
+        self._widget_class_info = {}
         self._ui_parameter_bindings = {}
         self._workflow_metadata = {}
         self._last_logic_analysis = None
@@ -687,6 +694,7 @@ class ExtensionCLIAnalyzer(
             # Extract Widget button→logic-method connections for post-classification verification
             self._widget_connections = []
             widget_info = scan_result.get("widget_class")
+            self._widget_class_info = dict(widget_info or {})
             if widget_info:
                 widget_source = self._extract_class_source(
                     widget_info.get("file", ""), widget_info.get("class_name", "")

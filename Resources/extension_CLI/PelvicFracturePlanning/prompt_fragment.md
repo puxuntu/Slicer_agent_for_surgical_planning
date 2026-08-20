@@ -12,22 +12,22 @@ and wait for them to complete the interaction before proceeding.
 
 **Workflow Steps:**
 1. `cb_step_1` [user_choice] — In the "Input CT Volume" option, choose the Pelvic Volume.
-   - Ask user: Which volume is the pelvic CT input?
+   - Ask user: Choose the input CT volume.
 2. `cb_step_2` [extension_op] — Click "Run Step 1: Segment Pelvis" button.
 3. `cb_step_3` [slicer_op] — For the 3D view, click the "Center view" botton.
 4. `cb_step_4` [extension_op] — Click "Run Step 2: Segment Fractures" button.
 5. `cb_step_5` [user_choice] — In the "Untick a piece to stop treating it as separate" section, untick these segments.
-   - Ask user: Which fracture segments should be unticked and folded into a neighboring piece?
+   - Ask user: Which segments should be unticked (stop treating them as separate)?
 6. `cb_step_6` [branch_op] — If a piece should have been split but was and and require cut it manually, jump to step 7. If not, jump to step 10.
-   - Ask user: Does a piece require manual splitting?
+   - Ask user: Does a piece that should have been split require a manual cut?
 7. `cb_step_7` [extension_op] — Click "Manually seperate" button.
 8. `cb_step_8` [user_interaction] — Manually click to add a cut point and adjust the position and rotation of the cutting plane.
    - Interaction: plane
-   - Tell user: Place a cut point and adjust the cutting plane position and rotation for manual splitting.
+   - Tell user: Place a cut point and adjust the position and rotation of the manual cutting plane.
 9. `cb_step_9` [extension_op] — Click "Confirm seperation" button.
 10. `cb_step_10` [extension_op] — Click "Run Step 3: Generate template" button.
 11. `cb_step_11` [branch_op] — If further adjustments of the template are required, tick the "Manually adjust a template" checkbox. If not, jump to step 16.
-   - Ask user: Are further adjustments of the template required?
+   - Ask user: Are further template adjustments required?
 12. `cb_step_12` [user_choice] — In the "Template" option, Choose which template needs adjustment in the "Template" selection box.
    - Ask user: Which template needs adjustment?
 13. `cb_step_13` [user_interaction] — Manually adjust the position and rotation of the selected template.
@@ -43,7 +43,7 @@ and wait for them to complete the interaction before proceeding.
 19. `cb_step_19` [user_interaction] — Manually adjust the position and rotation of the selected fragment.
    - Interaction: generic
 20. `cb_step_20` [branch_op] — If further adjustments are required, jump to step 18. If not, jump to step 21.
-   - Ask user: Do more fragments need adjustment?
+   - Ask user: Are further fragment adjustments required?
 21. `cb_step_21` [extension_op] — Click the "Apply adjustments" button.
 22. `cb_step_22` [extension_op] — Click the "Run Step 5: Plan Screws" button.
 23. `cb_step_23` [branch_op] — If further adjustments are required, tick the "Edit Screw trajectories" checkbox. If not, stop here.
