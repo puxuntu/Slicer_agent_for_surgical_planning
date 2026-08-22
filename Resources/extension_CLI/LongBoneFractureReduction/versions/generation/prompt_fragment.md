@@ -13,44 +13,48 @@ and wait for them to complete the interaction before proceeding.
 **Workflow Steps:**
 1. `cb_step_1` [user_choice] — In the "Input volume" section, select the CT volume for processing.
    - Ask user: Select the CT volume for processing.
-2. `cb_step_2` [slicer_op] — In the "Segment Editor" module, create a new segmentation named "Reference_Segmentation".
-3. `cb_step_3` [slicer_op] — In the "Segment Editor" module, click the "Add" button and rename the segment to "Reference_Segment" under "Reference_Segmentation", and set its color
-4. `cb_step_4` [slicer_op] — In the "Segment Editor" module, click the "Threshold" button.
-5. `cb_step_5` [user_choice] — In the "Segment Editor" module, adjust the threshold slider to set the segmentation range.
-   - Ask user: Set the threshold range.
-6. `cb_step_6` [slicer_op] — In the "Segment Editor" module, click the "Apply" button.
-7. `cb_step_7` [slicer_op] — In the "Segment Editor" module, click the "Islands" button.
-8. `cb_step_8` [slicer_op] — In the "Segment Editor" module, select the "Keep selected island" option.
-9. `cb_step_9` [user_interaction] — In the 2D view, click to select the reference part.
+2. `cb_step_2` [branch_op] — If ROI crop of the volume is required, check the "Crop the input volume to an ROI" box. If not, jump to step 7.
+   - Ask user: Is ROI crop of the volume required?
+3. `cb_step_3` [slicer_op] — In the "Markups" module, click "ROI" to create an empty MarkupsROI node named "Longbone_Region".
+4. `cb_step_4` [user_interaction] — Manually click and adjust on the Slice views to create the ROI for the "Longbone_Region".
+   - Interaction: roi
+   - Tell user: Click and adjust in the Slice views to draw the ROI bounding box around the long bone region.
+5. `cb_step_5` [user_choice] — In the "ROI (Drawn in Markups)" section, select the MarkupsROI node.
+   - Ask user: Select the MarkupsROI node drawn for Longbone_Region.
+6. `cb_step_6` [extension_op] — Click the "Cofrim crop" button.
+7. `cb_step_7` [slicer_op] — In the "Segment Editor" module, create a new segmentation named "Reference_Segmentation".
+8. `cb_step_8` [slicer_op] — In the "Segment Editor" module, click the "Add" button and rename the segment to "Reference_Segment" under "Reference_Segmentation", and set its color
+9. `cb_step_9` [slicer_op] — In the "Segment Editor" module, click the "Threshold" button.
+10. `cb_step_10` [user_choice] — In the "Segment Editor" module, adjust the threshold slider to set the segmentation range.
+   - Ask user: Set the threshold range for the reference segmentation.
+11. `cb_step_11` [slicer_op] — In the "Segment Editor" module, click the "Apply" button.
+12. `cb_step_12` [slicer_op] — In the "Segment Editor" module, click the "Islands" button.
+13. `cb_step_13` [slicer_op] — In the "Segment Editor" module, select the "Keep selected island" option.
+14. `cb_step_14` [user_interaction] — In the 2D view, click to select the reference part.
    - Interaction: generic
-   - Tell user: Click in 2D view to select the reference part via Islands effect
-10. `cb_step_10` [slicer_op] — In the "Segment Editor" module, create a new segmentation named "Moving_Segmentation".
-11. `cb_step_11` [slicer_op] — In the "Segment Editor" module, click the "Add" button and rename the segment to "Moving_Segment" under "Moving_Segmentation", and set its color to Cy
-12. `cb_step_12` [slicer_op] — In the "Segment Editor" module, click the "Threshold" button.
-13. `cb_step_13` [user_choice] — In the "Segment Editor" module, adjust the threshold slider to set the segmentation range. The default value matches the threshold set in Step 5.
-   - Ask user: Set the threshold range (default from previous threshold).
-14. `cb_step_14` [slicer_op] — In the "Segment Editor" module, click the "Apply" button.
-15. `cb_step_15` [slicer_op] — In the "Segment Editor" module, click the "Islands" button.
-16. `cb_step_16` [slicer_op] — In the "Segment Editor" module, select the "Keep selected island" option.
-17. `cb_step_17` [user_interaction] — In the 2D view, click to select the moving part.
+   - Tell user: Click in the 2D view to select the reference part using the Islands effect.
+15. `cb_step_15` [slicer_op] — In the "Segment Editor" module, create a new segmentation named "Moving_Segmentation".
+16. `cb_step_16` [slicer_op] — In the "Segment Editor" module, click the "Add" button and rename the segment to "Moving_Segment" under "Moving_Segmentation", and set its color to Cy
+17. `cb_step_17` [slicer_op] — In the "Segment Editor" module, click the "Threshold" button.
+18. `cb_step_18` [user_choice] — In the "Segment Editor" module, adjust the threshold slider to set the segmentation range. The default value matches the threshold set in Step 10.
+   - Ask user: Set the threshold range for the moving segmentation. The default value matches the threshold set in step 10.
+19. `cb_step_19` [slicer_op] — In the "Segment Editor" module, click the "Apply" button.
+20. `cb_step_20` [slicer_op] — In the "Segment Editor" module, click the "Islands" button.
+21. `cb_step_21` [slicer_op] — In the "Segment Editor" module, select the "Keep selected island" option.
+22. `cb_step_22` [user_interaction] — In the 2D view, click to select the moving part.
    - Interaction: generic
-   - Tell user: Click in 2D view to select the moving part via Islands effect
-18. `cb_step_18` [user_choice] — In the "Reference segmentation (fixed)" section, select the reference segmentation node.
+   - Tell user: Click in the 2D view to select the moving part using the Islands effect.
+23. `cb_step_23` [user_choice] — In the "Reference segmentation (fixed)" section, select the reference segmentation node.
    - Ask user: Select the reference segmentation node.
-19. `cb_step_19` [extension_op] — Click the "3D Reconstruction (reference)" button.
-20. `cb_step_20` [user_choice] — In the "Moving segmentation (repositioned)" section, select the moving segmentation node.
+24. `cb_step_24` [extension_op] — Click the "3D Reconstruction (reference)" button.
+25. `cb_step_25` [user_choice] — In the "Moving segmentation (repositioned)" section, select the moving segmentation node.
    - Ask user: Select the moving segmentation node.
-21. `cb_step_21` [extension_op] — Click the "3D Reconstruction (moving)" button.
-22. `cb_step_22` [extension_op] — Click the "Detect fracture surfaces" button.
-23. `cb_step_23` [extension_op] — Click the "Initialize registration" button.
-24. `cb_step_24` [user_interaction] — Manually adjust the rotation and displacement of the moving part.
+26. `cb_step_26` [extension_op] — Click the "3D Reconstruction (moving)" button.
+27. `cb_step_27` [extension_op] — Click the "Detect fracture surfaces" button.
+28. `cb_step_28` [extension_op] — Click the "Initialize registration" button.
+29. `cb_step_29` [user_interaction] — Manually adjust the rotation and displacement of the moving part.
    - Interaction: generic
-25. `cb_step_25` [extension_op] — Click the "Reduction planning" button.
-26. `cb_step_26` [branch_op] — If further adjustments are required, check the "Manually adjust the moving fragment" box. If not, stop here.
-   - Ask user: Manually adjust the moving fragment?
-27. `cb_step_27` [user_interaction] — Manually adjust the moving fragment.
-   - Interaction: generic
-28. `cb_step_28` [extension_op] — Click the "Harden transform into moving fragment" button.
+30. `cb_step_30` [extension_op] — Click the "Reduction planning" button.
 
 **Protocol:**
 1. Call `LongBoneFractureReduction` with `workflow_step='cb_step_1'` and `user_action='start'` to begin

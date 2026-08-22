@@ -1,10 +1,13 @@
-# --- [Segment Editor session] add or reuse the target segment ---
-# Deterministic + IDEMPOTENT: reuse a segment already named 'Moving_Segment' (so a
-# re-run / correction never creates a duplicate orphan), else
-# AddEmptySegment(id, name) with the correct arg order (a one-arg
-# AddEmptySegment auto-names the segment 'Segment_1'). Marks it the session
-# TARGET segment so the effect Apply writes into it.
+# --- [Segment Editor session] run the effect on the target segment ---
+# The grounded effect code re-created the segmentation/segment statelessly;
+# operate on the SESSION segmentation + tracked target instead (no duplicates).
 import slicer
+_ses_widget = slicer.modules.segmenteditor.widgetRepresentation().self().editor
+_ses_widget.setMRMLScene(slicer.mrmlScene)
+_ses_editor_node = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLSegmentEditorNode")
+if _ses_editor_node is None:
+    _ses_editor_node = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
+_ses_widget.setMRMLSegmentEditorNode(_ses_editor_node)
 _ses_seg = None
 _ses_segs = slicer.mrmlScene.GetNodesByClass("vtkMRMLSegmentationNode")
 for _ses_i in range(_ses_segs.GetNumberOfItems()):
@@ -18,18 +21,38 @@ if _ses_seg is None:
         if _ses_c is not None:
             _ses_seg = _ses_c
             break
-if _ses_seg is None:
-    raise RuntimeError("STATE_NOT_APPLIED: no segmentation found for add-segment")
-_ses_segmentation = _ses_seg.GetSegmentation()
-_ses_sid = _ses_segmentation.GetSegmentIdBySegmentName("Moving_Segment")
-if not _ses_sid:
-    _ses_sid = _ses_segmentation.AddEmptySegment("Moving_Segment", "Moving_Segment")
-if not _ses_sid:
-    raise RuntimeError("STATE_NOT_APPLIED: AddEmptySegment returned empty id")
-_ses_segment = _ses_segmentation.GetSegment(_ses_sid)
-if _ses_segment is not None:
-    _ses_segment.SetColor(0.0, 1.0, 1.0)
-_ses_seg.SetAttribute("SlicerAIAgent.SegmentEditorTargetSegmentID", _ses_sid)
-segmentId = _ses_sid
-print("[SegmentEditor] Segment 'Moving_Segment' ready.")
+if _ses_seg is not None:
+    _ses_widget.setSegmentationNode(_ses_seg)
+_ses_vol = None
+_ses_vols = slicer.mrmlScene.GetNodesByClass("vtkMRMLScalarVolumeNode")
+for _ses_j in range(_ses_vols.GetNumberOfItems() - 1, -1, -1):
+    _ses_vc = _ses_vols.GetItemAsObject(_ses_j)
+    if _ses_vc is not None and not _ses_vc.IsA("vtkMRMLLabelMapVolumeNode"):
+        _ses_vol = _ses_vc
+        break
+if _ses_vol is not None:
+    _ses_widget.setSourceVolumeNode(_ses_vol)
+if _ses_seg is not None and _ses_editor_node is not None:
+    _ses_segmentation = _ses_seg.GetSegmentation()
+    _ses_target = _ses_seg.GetAttribute("SlicerAIAgent.SegmentEditorTargetSegmentID")
+    if not _ses_target or _ses_segmentation.GetSegment(_ses_target) is None:
+        _ses_target = _ses_segmentation.GetNthSegmentID(0) if _ses_segmentation.GetNumberOfSegments() > 0 else ""
+    if _ses_target:
+        _ses_editor_node.SetSelectedSegmentID(_ses_target)
+        _ses_widget.setCurrentSegmentID(_ses_target)
+        _ses_disp = slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast(_ses_seg.GetDisplayNode())
+        if _ses_disp is not None:
+            _ses_disp.SetVisibility(True)
+            _ses_disp.SetVisibility2DFill(True)
+            _ses_disp.SetVisibility2DOutline(True)
+            _ses_disp.SetSegmentVisibility(_ses_target, True)
+_ses_widget.setActiveEffectByName("Threshold")
+_ses_eff = _ses_widget.activeEffect()
+if _ses_eff is not None:
+    _ses_eff.setParameter("MinimumThreshold", {threshold_min: 150.0})
+    _ses_eff.setParameter("MaximumThreshold", {threshold_max: 3000.0})
+    try:
+        _ses_eff.self().onApply()
+    except Exception:
+        pass
 # --- [end Segment Editor session] ---

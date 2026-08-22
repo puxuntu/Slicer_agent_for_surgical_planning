@@ -46,6 +46,14 @@ python scripts/check_rsa_analysis.py
 python scripts/check_cranial_analysis.py            # 3 cases
 python scripts/check_cranial_analysis.py --cases 10 # more
 
+# PelvicFracturePlanning reduction error, which is READ out of each run's
+# recorded annotation transform rather than estimated. The whole analysis runs
+# outside Slicer, and the section that matters builds a STALE record -- a
+# ground truth moved one way, a record saying another -- and requires it to be
+# refused: an internally perfect record written before its ground truth was last
+# saved is the one way a read number can be wrong, and it happened here.
+python scripts/check_pelvic_analysis.py
+
 # The ✍ Revise core: which template a step owns, whether a rewritten one may be
 # installed, and whether the original comes back. Sweeps every shipped package
 # and requires each of its 172 templates to validate against ITSELF -- a rule
@@ -73,6 +81,14 @@ python scripts/check_placement_starter.py
 # template lacking one, and the write-back then refused on every run: the step
 # self-corrected, advanced, threw the fix away, and did it again next run.
 python scripts/check_prelude_boundary.py
+
+# A range the user chose must reach the step that consumes it. The range step and
+# the step that spends it are named INDEPENDENTLY -- the Segment Editor driver
+# builds its Threshold-apply block from the effect alone, so it can only write the
+# generic {threshold_min}, while the choice carries whatever parameter_name the
+# decomposition invented. When the bridge misses, nothing raises: the placeholder
+# default silently overwrites the mask the range step just committed.
+python scripts/check_range_choice_fill.py
 ```
 
 Dependencies are in `requirements.txt` — `httpx`, `numpy`, `jsonschema` are explicit; `faiss-cpu`, `onnxruntime`, `transformers` are auto-installed at runtime. CMake installs these into Slicer's Python environment during extension setup.
@@ -838,6 +854,33 @@ both resolve the same recorded value through the same scanned option list. A mis
 recorded value may address a different option than the user saw); a missing widget
 only warns, since the template's own binding still carries the value.
 
+**A range choice reaches its consumer by NAME, and the two names are chosen
+independently.** A `user_choice` step with `value_kind == "range"` records `[lo, hi]`
+under the `parameter_name` the decomposition invented; the step that spends it asks
+for a placeholder. Those never come from the same place: the Segment Editor session
+driver builds its Threshold-apply block from the EFFECT alone
+(`module_sessions._effect_operation_block`), so all it can write is the generic
+`{threshold_min: 150.0}` / `{threshold_max: 3000.0}`. `_build_format_kwargs` is the
+bridge, and it must reduce the recorded name to the concept the driver used.
+
+The marker word can sit **anywhere** in that name -- `thresholdRange`,
+`referenceThresholdRange`, `threshold_range_reference` are all names the
+decomposition produces for the same thing -- so `_range_alias_words` drops it
+wherever it appears and offers every remaining word as a concept, rather than
+stripping a trailing marker and taking the stem's last word. That earlier rule
+covered exactly the marker-last spellings and silently covered nothing else:
+LongBoneFractureReduction's `threshold_range_reference` has the marker in the
+middle, so no alias was emitted at all and both its Apply steps thresholded at the
+placeholder's hard-coded 150-3000 -- overwriting the segment the range step had
+just committed. **Nothing raises.** The user sets the slider, sees the mask they
+asked for, and meets a different one two steps later, after Islands has already
+been pointed at it. The aliases OVERWRITE so the most-recently-recorded range wins,
+which is what keeps consecutive threshold cycles (reference, then moving) correct
+and what makes a replay truncation put the earlier one back.
+`scripts/check_range_choice_fill.py` holds this over every shipped package: for each
+`*_min`/`*_max` placeholder, the nearest preceding range choice must fill it, proven
+by filling the real template with the real loader.
+
 ### A node class is a lookup key, not prose
 
 `node_class` goes straight to `getNodesByClass` and to `qMRMLSubjectHierarchyTreeView.nodeTypes`,
@@ -1292,6 +1335,65 @@ brings to a cranioplasty map is "where is the implant I produced wrong", not "wh
 did it miss" — which is why the prediction is passed to `_surface_distances` first. `map_hd95_mm` is
 the same figure recomputed from those smoothed meshes and is carried in the table beside the voxel
 `hd95_mm`, so the picture and the number can be seen to agree instead of being trusted to.
+
+`pelvic.py` scores how far a planned fracture reduction is from the surgeon's, and it **reads that
+number rather than measuring it**. Each run saved three things into its own `Statistic/scene/`:
+`Fragment Reduction*.seg.nrrd` (where the pipeline put every bone), `Ground truth*.seg.nrrd` (where
+they belong), and `Ground truth*.transforms.json` — **the per-piece rigid transform between them,
+recorded when the annotation was saved**. That transform *is* the reduction error, so
+`displacement_mm` and `rotation_deg` come straight out of it.
+
+The first version of this module recovered the same transform by ICP between the two segmentations.
+It agreed with the record to **0.009–0.034°**, which is a good reason to believe both and no reason
+to keep spending a hundred iterations per piece re-deriving a number that is written down. The
+estimator is gone, and `check_pelvic_analysis.py` asserts statically that no `kabsch` /
+`rigid_register` / SVD has grown back — a fitting step added later would agree with the record to a
+hundredth of a degree, so nothing else would notice the claim had stopped being true.
+
+**Reading a number instead of measuring one has exactly one hazard, and it is not hypothetical.** A
+record measures whatever was on disk *when it was written*; ICP measured whatever is on disk now. A
+ground truth re-annotated afterwards leaves the record silently stale — which happened here: an
+earlier ground truth gave 5.83° where the record says 2.25°. So the segmentations are still read,
+and `transform_residual_mm` applies the recorded matrix to the reduction's own surface and measures
+how far it lands from the ground truth's (0.14–0.24 mm on the saved runs — the two grids' sampling).
+Two verdicts, and they are not interchangeable: **`record_consistent`** judges the record against
+*itself* (the matrix is a proper rotation, its stated angle and axis are the ones it encodes, it
+carries `centroid_reduced_mm` onto `centroid_annotated_mm`) and catches a malformed file;
+**`transform_verified`** judges it against the *files* and is the only thing that catches a stale one.
+The check script builds a deliberately stale case — a ground truth moved one way, an internally
+perfect record saying another — and requires it to be refused. `verify=False` (a panel checkbox)
+skips the segmentations entirely and finishes in milliseconds, reporting identical displacement and
+rotation and leaving the second verdict **blank rather than True**: a blank and a failure must not
+print the same.
+
+**`displacement_mm` is measured at ONE point and `point_error_*` is not.** A rigid body's
+displacement depends on which point you pick: case 0001's Left Ilium is 1.74 mm out at its reference
+centroid and **6.13 mm** out at its worst surface point, because 2.25° of rotation moves the far end
+of an ilium far more than its centre. `point_error_*` applies the recorded matrix to every surface
+point — arithmetic, not estimation — and is the figure to quote. `surface_*` is the symmetric
+distance between the two surfaces *as they stand* and is smaller again, because a point that slid
+**along** the surface still has a near neighbour on it. No Dice: for a rigid piece, overlap is a
+function of the same pose error the record states directly.
+
+Pieces are paired by NAME. The record names **fewer** pieces than the reduction moves — the surgeon
+only corrected some — so the rest are listed as unannotated rather than dropped, and a ground-truth
+segment with no recorded transform is reported too.
+
+`segmentation_io.py` is the Slicer-free reader this needs, and `volume_io.read_nrrd` could not be it:
+a segmentation with overlapping segments is **4-D**, and its `list` axis of LAYERS is the first of
+`sizes:` and therefore the **last** array index. `array[layer]` is in bounds, is the right dtype, and
+returns a slab of the volume instead of a layer of it — after which every segment comes back nearly
+empty. A segment is addressed by the pair `(layer, label value)`: case 0001's `Right Ilium` and
+`Left Ilium` are both label 2, in different layers. `Segment<N>_Extent` is deliberately **unused** —
+cropping to it would be a large speed-up, and the extent is the segment's *tight* box, so foreground
+on its faces is expected and a truncated read looks exactly like a correct one. Everything is scanned
+in slabs with a one-plane halo instead (peak memory is a slab, not the 912 MB a case-0001 file
+unpacks to), and the centroid comes from per-axis marginal counts rather than `np.nonzero`, which
+over a half-full 32 MB slab would itself cost 380 MB.
+
+`canonical_step_id` moved from `shoulder.py` into `run_timing.py` when this became the second phase
+split to need it — the run folder zero-pads step ids so they sort and the timing report does not, so
+reconciling the two belongs beside the report, not in any one procedure.
 
 ### Debug Artifacts
 

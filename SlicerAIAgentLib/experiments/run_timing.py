@@ -179,6 +179,25 @@ def parse_timing_steps(path: str) -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Step ids
+# ---------------------------------------------------------------------------
+
+_STEP_NUMBER = re.compile(r"^(.*?_)0*(\d+)$")
+
+
+def canonical_step_id(step_id: str) -> str:
+    """``cb_step_07`` and ``cb_step_7`` are the same step.
+
+    The run folder zero-pads so that it sorts; the timing report does not. Both
+    spellings reach a caller depending on which artifact it read, so every
+    procedure's phase split has to reduce them to one -- which is why this lives
+    here, beside the report it reconciles, rather than in any one of them.
+    """
+    match = _STEP_NUMBER.match((step_id or "").strip())
+    return "%s%d" % (match.group(1), int(match.group(2))) if match else (step_id or "").strip()
+
+
+# ---------------------------------------------------------------------------
 # Case discovery
 # ---------------------------------------------------------------------------
 

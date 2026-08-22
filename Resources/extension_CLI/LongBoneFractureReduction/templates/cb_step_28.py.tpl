@@ -1,4 +1,5 @@
-# --- LongBoneFractureReduction: Click the "Harden transform into moving fragment" button. ---
+# --- LongBoneFractureReduction: Click the "Initialize registration" button. ---
+# [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
@@ -24,9 +25,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the LongBoneFractureReduction module widget for 'btnHarden'.")
-if not hasattr(_widget, 'onHarden'):
-    raise RuntimeError("LongBoneFractureReduction widget has no handler 'onHarden' for 'btnHarden'; regenerate the CLI.")
-_widget.onHarden()
-print("[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnHarden' via onHarden().")
+    raise RuntimeError("Could not obtain the LongBoneFractureReduction module widget for 'btnInitialize'.")
+if not hasattr(_widget, 'onInitialize'):
+    raise RuntimeError("LongBoneFractureReduction widget has no handler 'onInitialize' for 'btnInitialize'; regenerate the CLI.")
+_widget.onInitialize()
+print("[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnInitialize' via onInitialize().")
 

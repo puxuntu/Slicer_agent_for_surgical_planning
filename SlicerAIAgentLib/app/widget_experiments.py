@@ -42,7 +42,7 @@ def register_experiment_panel(extension_name):
 #: dependency-missing analysis then costs its own extension's panel and nothing
 #: else, instead of taking the whole widget down at Slicer startup.
 _PANEL_MODULES = ("zygomatic_panel", "orbital_panel", "shoulder_panel",
-                  "cranial_panel", "dicom_panel")
+                  "cranial_panel", "pelvic_panel", "dicom_panel")
 
 _panels_loaded = False
 

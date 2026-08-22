@@ -51,7 +51,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from . import geometry_io as gio
-from .run_timing import collect_timing, discover_cases as _discover_cases, timing_sheet
+from .run_timing import (canonical_step_id, collect_timing,
+                         discover_cases as _discover_cases, timing_sheet)
 from .volume_io import read_nrrd, sample_nearest
 
 logger = logging.getLogger(__name__)
@@ -1043,19 +1044,6 @@ def _score_trajectory(index: int, plan: str, screw: Optional[Dict[str, Any]],
 # ---------------------------------------------------------------------------
 # Timing, split into the paper's phases
 # ---------------------------------------------------------------------------
-
-_STEP_NUMBER = re.compile(r"^(.*?_)0*(\d+)$")
-
-
-def canonical_step_id(step_id: str) -> str:
-    """``cb_step_07`` and ``cb_step_7`` are the same step.
-
-    The run folder zero-pads so that it sorts; the timing report does not. Both
-    spellings reach this module depending on which artifact a caller read.
-    """
-    match = _STEP_NUMBER.match((step_id or "").strip())
-    return "%s%d" % (match.group(1), int(match.group(2))) if match else (step_id or "").strip()
-
 
 _PHASE_OF_STEP = {canonical_step_id(step): phase
                   for phase, steps in PHASE_STEPS.items() for step in steps}

@@ -3,7 +3,7 @@
     "type": "function",
     "function": {
       "name": "LongBoneFractureReduction",
-      "description": "Guided interactive workflow for LongBoneFractureReduction. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Input volume\" section, select the CT volume for processing.; 'cb_step_2': In the \"Segment Editor\" module, create a new segmentation named \"Reference_Segmentation\".; 'cb_step_3': In the \"Segment Editor\" module, click the \"Add\" button and rename the segment to \"Reference_Segment\" under \"Reference_Segmentation\", and set its color to Sage Green.; 'cb_step_4': In the \"Segment Editor\" module, click the \"Threshold\" button.; 'cb_step_5': In the \"Segment Editor\" module, adjust the threshold slider to set the segmentation range.; 'cb_step_6': In the \"Segment Editor\" module, click the \"Apply\" button.; 'cb_step_7': In the \"Segment Editor\" module, click the \"Islands\" button.; 'cb_step_8': In the \"Segment Editor\" module, select the \"Keep selected island\" option.; 'cb_step_9': In the 2D view, click to select the reference part. (interactive: generic); 'cb_step_10': In the \"Segment Editor\" module, create a new segmentation named \"Moving_Segmentation\".",
+      "description": "Guided interactive workflow for LongBoneFractureReduction. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Input volume\" section, select the CT volume for processing.; 'cb_step_2': If ROI crop of the volume is required, check the \"Crop the input volume to an ROI\" box. If not, jump to step 7.; 'cb_step_3': In the \"Markups\" module, click \"ROI\" to create an empty MarkupsROI node named \"Longbone_Region\".; 'cb_step_4': Manually click and adjust on the Slice views to create the ROI for the \"Longbone_Region\". (interactive: roi); 'cb_step_5': In the \"ROI (Drawn in Markups)\" section, select the MarkupsROI node.; 'cb_step_6': Click the \"Cofrim crop\" button.; 'cb_step_7': In the \"Segment Editor\" module, create a new segmentation named \"Reference_Segmentation\".; 'cb_step_8': In the \"Segment Editor\" module, click the \"Add\" button and rename the segment to \"Reference_Segment\" under \"Reference_Segmentation\", and set its color to Sage Green.; 'cb_step_9': In the \"Segment Editor\" module, click the \"Threshold\" button.; 'cb_step_10': In the \"Segment Editor\" module, adjust the threshold slider to set the segmentation range.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -37,7 +37,9 @@
               "cb_step_25",
               "cb_step_26",
               "cb_step_27",
-              "cb_step_28"
+              "cb_step_28",
+              "cb_step_29",
+              "cb_step_30"
             ],
             "description": "Which workflow step to execute"
           },

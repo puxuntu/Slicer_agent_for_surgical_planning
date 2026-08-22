@@ -46,5 +46,5 @@ if _ses_seg is not None and _ses_editor_node is not None:
             _ses_disp.SetVisibility2DFill(True)
             _ses_disp.SetVisibility2DOutline(True)
             _ses_disp.SetSegmentVisibility(_ses_target, True)
-_ses_widget.setActiveEffectByName("Threshold")
+_ses_widget.setActiveEffectByName("Islands")
 # --- [end Segment Editor session] ---

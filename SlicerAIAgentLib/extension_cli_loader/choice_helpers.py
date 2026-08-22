@@ -65,7 +65,9 @@ def _segment_ref_stem(key: str) -> str:
     """Map a segment choice's parameter_name to the stem an independently-grounded
     template is likely to use: camelCase->snake, then drop a trailing
     'segment_id'/'segment'/'segmentation' segment. E.g. ``referenceSegmentId`` ->
-    ``reference``. Same convention as _range_stem; generic, no extension-specific
+    ``reference``. Trailing-only, unlike _range_alias_words: no shipped template
+    has needed a mid-name segment marker, and widening this one would alias far
+    more names (every word of a compound). Generic, no extension-specific
     strings."""
     src = str(key or "")
     out = []
@@ -81,24 +83,57 @@ def _segment_ref_stem(key: str) -> str:
     return s.strip("_")
 
 
-def _range_stem(key: str) -> str:
-    """Map a range choice's parameter_name to the stem an independently-grounded
-    template is likely to use for its min/max placeholders: camelCase->snake, then
-    drop a trailing 'range'/'ranges' segment. E.g. ``thresholdRange`` -> ``threshold``
-    (so ``{threshold_min}``/``{threshold_max}`` fill). Generic naming convention,
-    no extension/param-specific strings."""
+#: The words a decomposition uses to say "this parameter IS a range". They carry
+#: no concept of their own, so they are what a min/max placeholder name drops.
+_RANGE_MARKER_WORDS = frozenset({"range", "ranges"})
+
+
+def _snake_words(key: str) -> list:
+    """``parameter_name`` split into lower-case words (camelCase and snake_case)."""
     src = str(key or "")
     out = []
     for i, ch in enumerate(src):
         if ch.isupper() and i > 0 and (src[i - 1].islower() or src[i - 1].isdigit()):
             out.append("_")
         out.append(ch.lower())
-    s = "".join(out)
-    for suffix in ("_ranges", "_range", "ranges", "range"):
-        if s.endswith(suffix):
-            s = s[: -len(suffix)]
-            break
-    return s.strip("_")
+    return [w for w in "".join(out).split("_") if w]
+
+
+def _range_stem(key: str) -> str:
+    """A range choice's parameter_name with its range-marker word(s) removed:
+    ``thresholdRange`` -> ``threshold``, ``threshold_range_reference`` ->
+    ``threshold_reference``. See _range_alias_words for why the marker is dropped
+    wherever it sits rather than only off the end. Generic naming convention, no
+    extension/param-specific strings."""
+    return "_".join(_range_alias_words(key))
+
+
+def _range_alias_words(key: str) -> list:
+    """The words of a range choice's parameter_name, marker words removed.
+
+    A template emitted by a SHARED driver cannot know the step's qualified
+    parameter name -- the Segment Editor session driver writes the generic
+    ``{threshold_min}``/``{threshold_max}`` into every Threshold-apply step it
+    generates, because it builds that block from the effect alone. So the concept
+    word has to be recovered from whatever name the decomposition happened to
+    choose, and the marker word can sit ANYWHERE in that name: ``thresholdRange``,
+    ``referenceThresholdRange``, ``threshold_range_reference``, ``range_threshold``
+    are all names it produces for the same thing.
+
+    Dropping the marker only off the END (and then taking the stem's LAST word as
+    the concept) covered exactly the marker-last, concept-last spellings. It
+    silently covered nothing else: ``threshold_range_reference`` has the marker in
+    the middle, so the stem came back equal to the key, no alias was emitted at
+    all, and the Apply step fell back to the hard-coded default range in its
+    placeholder -- overwriting, with a range the user never chose, the segment the
+    range step had just committed. Nothing raises; the mask simply changes between
+    the step that chose it and the next step that shows it.
+
+    So the marker is dropped wherever it appears and EVERY remaining word is a
+    candidate concept (plus their join, see _range_stem) -- which covers any
+    qualifier order without knowing which word is the qualifier.
+    """
+    return [w for w in _snake_words(key) if w not in _RANGE_MARKER_WORDS]
 
 
 def _build_format_kwargs(arguments: Dict, ext_name: str = "") -> Dict[str, str]:
@@ -108,8 +143,9 @@ def _build_format_kwargs(arguments: Dict, ext_name: str = "") -> Dict[str, str]:
     grounded template can fill placeholders from an EARLIER user_choice (e.g. a
     threshold range chosen in step 5 fills the ``{threshold_min}``/``{threshold_max}``
     placeholders of the Apply step). A range value ``[lo, hi]`` is expanded to
-    ``<key>_min``/``<key>_max`` AND a de-suffixed stem form (see _range_stem) so
-    independently-grounded templates line up. Explicit tool arguments always win
+    ``<key>_min``/``<key>_max``, its de-marked stem, and EVERY word of that stem
+    (see _range_alias_words) so independently-grounded templates line up whatever
+    order the decomposition put the qualifier in. Explicit tool arguments always win
     over merged choices. Generic: keyed on value shape, applied to every extension.
     """
     format_kwargs = {}
@@ -150,28 +186,35 @@ def _build_format_kwargs(arguments: Dict, ext_name: str = "") -> Dict[str, str]:
             lo, hi = value[0], value[1]
             format_kwargs.setdefault(f"{key}_min", repr(lo))
             format_kwargs.setdefault(f"{key}_max", repr(hi))
+            # The de-marked whole name (``threshold_range_reference`` ->
+            # ``threshold_reference``), for a template grounded against this step's
+            # own qualified parameter name.
             stem = _range_stem(key)
             if stem and stem != key:
                 format_kwargs.setdefault(f"{stem}_min", repr(lo))
                 format_kwargs.setdefault(f"{stem}_max", repr(hi))
-                # ALSO fill the last word of the stem, so a QUALIFIED choice name
-                # (e.g. ``referenceThresholdRange`` -> ``reference_threshold``) lines
-                # up with a template that uses the generic effect-concept placeholder
-                # (``{threshold_min}``, emitted by the Segment Editor driver's Apply
-                # block, which cannot know the step's qualified parameter name).
-                # Without this the Apply falls back to a hard-coded default range that
-                # is meaningless for a non-Hounsfield volume. OVERWRITE (not
-                # setdefault) so the MOST-RECENTLY-recorded range choice wins — this
-                # keeps consecutive cycles correct (the reference cycle's range fills
-                # the reference Apply; once the moving range is recorded it fills the
-                # moving Apply) and respects replay truncation. Explicit tool
-                # arguments still win (guarded below).
-                last = stem.rsplit("_", 1)[-1]
-                if last and last != stem:
-                    if f"{last}_min" not in arguments:
-                        format_kwargs[f"{last}_min"] = repr(lo)
-                    if f"{last}_max" not in arguments:
-                        format_kwargs[f"{last}_max"] = repr(hi)
+            # ALSO fill EVERY word of that name on its own, so a template using the
+            # generic effect-concept placeholder (``{threshold_min}``, emitted by the
+            # Segment Editor driver's Apply block, which builds that block from the
+            # effect alone and cannot know the step's qualified parameter name) lines
+            # up whatever order the decomposition put the qualifier in:
+            # ``referenceThresholdRange`` and ``threshold_range_reference`` both have
+            # to reach ``{threshold_min}``. Without this the Apply falls back to the
+            # hard-coded default range in its placeholder, which silently overwrites
+            # the mask the range step just committed (see _range_alias_words).
+            #
+            # OVERWRITE (not setdefault) so the MOST-RECENTLY-recorded range choice
+            # wins — this keeps consecutive cycles correct (the reference cycle's
+            # range fills the reference Apply; once the moving range is recorded it
+            # fills the moving Apply) and respects replay truncation, which drops the
+            # later choices again. Explicit tool arguments still win.
+            for word in _range_alias_words(key):
+                if word == key:
+                    continue  # the bare {key} form is already set above
+                if f"{word}_min" not in arguments:
+                    format_kwargs[f"{word}_min"] = repr(lo)
+                if f"{word}_max" not in arguments:
+                    format_kwargs[f"{word}_max"] = repr(hi)
     # Provide the structural vol_lookup expansion (raw code, not repr-wrapped) so
     # a template's bare {vol_lookup} fills instead of raising "placeholder not
     # filled". Harmless when the template has no such placeholder.
