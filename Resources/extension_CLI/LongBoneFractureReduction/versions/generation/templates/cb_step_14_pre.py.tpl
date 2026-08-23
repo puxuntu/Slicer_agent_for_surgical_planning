@@ -61,5 +61,5 @@ if _ses_vol is not None:
         pass
 # --- [end Segment Editor session] ---
 
-print("[LongBoneFractureReduction] Please Click in the 2D view to select the reference part using the Islands effect.")
+print("[LongBoneFractureReduction] Please Click in the 2D view to select the reference part.")
 print("When finished, press the 'Done' button in the workflow panel.")

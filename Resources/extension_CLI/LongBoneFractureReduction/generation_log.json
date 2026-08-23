@@ -1,7 +1,7 @@
 [
   {
     "attempt": 1,
-    "timestamp": "2026-08-22T13:44:30.491779",
+    "timestamp": "2026-08-22T19:19:03.932232",
     "phase": "package",
     "trigger": "user_request",
     "phases_completed": [
@@ -15,7 +15,7 @@
       "package"
     ],
     "api_probe_result": {
-      "probed": 22,
+      "probed": 27,
       "failures": [],
       "revised": 0,
       "syntax_skipped": [],
@@ -120,6 +120,20 @@
             "evidence_source": "live_probe_success"
           },
           {
+            "chain": "roiNode.SetName",
+            "receiver_expr": "slicer.vtkMRMLMarkupsROINode",
+            "original_receiver_expr": "roiNode",
+            "expanded_receiver_expr": "slicer.vtkMRMLMarkupsROINode",
+            "receiver_type": "vtkMRMLMarkupsROINode",
+            "proof_kind": "class_type",
+            "attr": "SetName",
+            "lineno": 2,
+            "is_attribute": false,
+            "method_exists": true,
+            "live_receiver_type": "type",
+            "evidence_source": "live_probe_success"
+          },
+          {
             "chain": "roiNode.GetName",
             "receiver_expr": "slicer.vtkMRMLMarkupsROINode",
             "original_receiver_expr": "roiNode",
@@ -127,7 +141,7 @@
             "receiver_type": "vtkMRMLMarkupsROINode",
             "proof_kind": "class_type",
             "attr": "GetName",
-            "lineno": 4,
+            "lineno": 3,
             "is_attribute": false,
             "method_exists": true,
             "live_receiver_type": "type",
@@ -328,6 +342,62 @@
             "live_receiver_type": "qMRMLSegmentEditorWidget",
             "receiver_type": "qMRMLSegmentEditorWidget",
             "evidence_source": "live_probe_success"
+          },
+          {
+            "chain": "slicer.app.layoutManager",
+            "receiver_expr": "slicer.app",
+            "original_receiver_expr": "slicer.app",
+            "expanded_receiver_expr": "slicer.app",
+            "proof_kind": "live_instance",
+            "attr": "layoutManager",
+            "lineno": 4,
+            "is_attribute": false,
+            "method_exists": true,
+            "live_receiver_type": "qSlicerApplication",
+            "receiver_type": "qSlicerApplication",
+            "evidence_source": "live_probe_success"
+          },
+          {
+            "chain": "slicer.app.layoutManager().threeDWidget",
+            "receiver_expr": "slicer.app.layoutManager()",
+            "original_receiver_expr": "layoutManager",
+            "expanded_receiver_expr": "slicer.app.layoutManager()",
+            "proof_kind": "live_instance",
+            "attr": "threeDWidget",
+            "lineno": 5,
+            "is_attribute": false,
+            "method_exists": true,
+            "live_receiver_type": "qSlicerLayoutManager",
+            "receiver_type": "qSlicerLayoutManager",
+            "evidence_source": "live_probe_success"
+          },
+          {
+            "chain": "slicer.app.layoutManager().threeDWidget(0).threeDView",
+            "receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
+            "original_receiver_expr": "threeDWidget",
+            "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
+            "proof_kind": "live_instance",
+            "attr": "threeDView",
+            "lineno": 6,
+            "is_attribute": false,
+            "method_exists": true,
+            "live_receiver_type": "qMRMLThreeDWidget",
+            "receiver_type": "qMRMLThreeDWidget",
+            "evidence_source": "live_probe_success"
+          },
+          {
+            "chain": "slicer.app.layoutManager().threeDWidget(0).threeDView().resetFocalPoint",
+            "receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
+            "original_receiver_expr": "threeDView",
+            "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
+            "proof_kind": "live_instance",
+            "attr": "resetFocalPoint",
+            "lineno": 9,
+            "is_attribute": false,
+            "method_exists": true,
+            "live_receiver_type": "qMRMLThreeDView",
+            "receiver_type": "qMRMLThreeDView",
+            "evidence_source": "live_probe_success"
           }
         ],
         "unresolved": [],
@@ -348,10 +418,10 @@
         "templates/cb_step_21_slicer.py.tpl: Unknown MRML node class: 'vtkMRMLSegmentEditorNode'",
         "cb_step_1: user choice 'inputVolume' has no source-derived parameter binding",
         "cb_step_5: user choice 'roiNode' has no source-derived parameter binding",
-        "cb_step_10: user choice 'threshold_range_reference' has no source-derived parameter binding",
-        "cb_step_18: user choice 'threshold_range_moving' has no source-derived parameter binding",
+        "cb_step_10: user choice 'thresholdRange' has no source-derived parameter binding",
+        "cb_step_18: user choice 'movingThresholdRange' has no source-derived parameter binding",
         "cb_step_23: user choice 'referenceSegmentation' has no source-derived parameter binding",
-        "cb_step_25: user choice 'movingSegmentation' has no source-derived parameter binding",
+        "cb_step_26: user choice 'movingSegmentation' has no source-derived parameter binding",
         "templates/cb_step_2_action.py.tpl: UnprovenApiCall: method_unproven for '_ctrl.blockSignals' (line 53, effect=read_only)",
         "templates/cb_step_2_action.py.tpl: UnprovenApiCall: method_unproven for '_ctrl.blockSignals' (line 55, effect=read_only)",
         "templates/cb_step_4_pre.py.tpl: UnprovenApiCall: method_unproven for 'node.GetDisplayNode' (line 31, effect=read_only)",
@@ -494,7 +564,8 @@
         "templates/cb_step_22_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for '_ses_segmentation.GetSegment' (line 44, effect=read_only)",
         "templates/cb_step_22_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for '_ses_segmentation.GetNthSegmentID' (line 45, effect=read_only)",
         "templates/cb_step_22_pre.py.tpl: UnprovenApiCall: receiver_type_unproven for '_ses_segmentation.GetNumberOfSegments' (line 45, effect=read_only)",
-        "templates/cb_step_22_pre.py.tpl: UnprovenApiCall: behavior_unproven for 'slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast' (line 49, effect=unknown)"
+        "templates/cb_step_22_pre.py.tpl: UnprovenApiCall: behavior_unproven for 'slicer.vtkMRMLSegmentationDisplayNode.SafeDownCast' (line 49, effect=unknown)",
+        "templates/cb_step_28.py.tpl: Assembled prelude+template is 6045B — exceeds 5KB budget. The generator may be re-emitting constant metadata as source text."
       ],
       "per_template": {
         "templates/cb_step_2_action.py.tpl": {
@@ -667,7 +738,7 @@
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_26.py.tpl": {
+        "templates/cb_step_25_slicer.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
@@ -688,21 +759,28 @@
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_29_pre.py.tpl": {
+        "templates/cb_step_29.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_29_post.py.tpl": {
+        "templates/cb_step_30_pre.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
           "requires_confirmation": false,
           "destructive_ops": []
         },
-        "templates/cb_step_30.py.tpl": {
+        "templates/cb_step_30_post.py.tpl": {
+          "valid": true,
+          "reason": null,
+          "warnings": [],
+          "requires_confirmation": false,
+          "destructive_ops": []
+        },
+        "templates/cb_step_31.py.tpl": {
           "valid": true,
           "reason": null,
           "warnings": [],
@@ -4022,8 +4100,8 @@
           "blocking": false,
           "template": "",
           "diagnosis": "validation_warning",
-          "message": "cb_step_10: user choice 'threshold_range_reference' has no source-derived parameter binding",
-          "rendered_message": "cb_step_10: user choice 'threshold_range_reference' has no source-derived parameter binding",
+          "message": "cb_step_10: user choice 'thresholdRange' has no source-derived parameter binding",
+          "rendered_message": "cb_step_10: user choice 'thresholdRange' has no source-derived parameter binding",
           "evidence_sources": [],
           "minimal_repair": null
         },
@@ -4034,8 +4112,8 @@
           "blocking": false,
           "template": "",
           "diagnosis": "validation_warning",
-          "message": "cb_step_18: user choice 'threshold_range_moving' has no source-derived parameter binding",
-          "rendered_message": "cb_step_18: user choice 'threshold_range_moving' has no source-derived parameter binding",
+          "message": "cb_step_18: user choice 'movingThresholdRange' has no source-derived parameter binding",
+          "rendered_message": "cb_step_18: user choice 'movingThresholdRange' has no source-derived parameter binding",
           "evidence_sources": [],
           "minimal_repair": null
         },
@@ -4058,8 +4136,20 @@
           "blocking": false,
           "template": "",
           "diagnosis": "validation_warning",
-          "message": "cb_step_25: user choice 'movingSegmentation' has no source-derived parameter binding",
-          "rendered_message": "cb_step_25: user choice 'movingSegmentation' has no source-derived parameter binding",
+          "message": "cb_step_26: user choice 'movingSegmentation' has no source-derived parameter binding",
+          "rendered_message": "cb_step_26: user choice 'movingSegmentation' has no source-derived parameter binding",
+          "evidence_sources": [],
+          "minimal_repair": null
+        },
+        {
+          "issue_id": "validation_warning_158",
+          "issue_type": "ValidationError",
+          "severity": "warning",
+          "blocking": false,
+          "template": "templates/cb_step_28.py.tpl",
+          "diagnosis": "validation_warning",
+          "message": "Assembled prelude+template is 6045B — exceeds 5KB budget. The generator may be re-emitting constant metadata as source text.",
+          "rendered_message": "templates/cb_step_28.py.tpl: Assembled prelude+template is 6045B — exceeds 5KB budget. The generator may be re-emitting constant metadata as source text.",
           "evidence_sources": [],
           "minimal_repair": null
         }
@@ -4402,51 +4492,50 @@
             "complete": true,
             "calls": [
               {
-                "call_id": "95ff13bc2f5814d0115b",
+                "call_id": "64e5401d28b053828d4a",
                 "template": "templates/cb_step_3_slicer.py.tpl",
                 "source_span": {
                   "lineno": 1,
                   "col_offset": 10,
                   "end_lineno": 1,
-                  "end_col_offset": 88
+                  "end_col_offset": 69
                 },
-                "call_expression": "slicer.mrmlScene.AddNewNodeByClass('vtkMRMLMarkupsROINode', 'Longbone_Region')",
+                "call_expression": "slicer.mrmlScene.AddNewNodeByClass('vtkMRMLMarkupsROINode')",
                 "receiver_expression": "slicer.mrmlScene",
                 "method": "AddNewNodeByClass",
                 "arguments": [
-                  "'vtkMRMLMarkupsROINode'",
-                  "'Longbone_Region'"
+                  "'vtkMRMLMarkupsROINode'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "assigned",
                 "enclosing_operation": "cb_step_3"
               },
               {
-                "call_id": "91ccc4bcaef9e4a2b375",
+                "call_id": "4dac978eeecaae49129f",
                 "template": "templates/cb_step_3_slicer.py.tpl",
                 "source_span": {
-                  "lineno": 3,
-                  "col_offset": 10,
-                  "end_lineno": 3,
-                  "end_col_offset": 68
+                  "lineno": 2,
+                  "col_offset": 0,
+                  "end_lineno": 2,
+                  "end_col_offset": 34
                 },
-                "call_expression": "RuntimeError('STATE_NOT_APPLIED: MarkupsROINode creation')",
-                "receiver_expression": "",
-                "method": "RuntimeError",
+                "call_expression": "roiNode.SetName('Longbone_Region')",
+                "receiver_expression": "roiNode",
+                "method": "SetName",
                 "arguments": [
-                  "'STATE_NOT_APPLIED: MarkupsROINode creation'"
+                  "'Longbone_Region'"
                 ],
                 "keyword_arguments": {},
-                "result_usage": "consumed",
+                "result_usage": "discarded",
                 "enclosing_operation": "cb_step_3"
               },
               {
-                "call_id": "9671bd27f34f969d43ee",
+                "call_id": "4c3317c401a45bf42ec9",
                 "template": "templates/cb_step_3_slicer.py.tpl",
                 "source_span": {
-                  "lineno": 4,
+                  "lineno": 3,
                   "col_offset": 3,
-                  "end_lineno": 4,
+                  "end_lineno": 3,
                   "end_col_offset": 20
                 },
                 "call_expression": "roiNode.GetName()",
@@ -4458,19 +4547,19 @@
                 "enclosing_operation": "cb_step_3"
               },
               {
-                "call_id": "f62a65af324e07859310",
+                "call_id": "313c41504372545c96b9",
                 "template": "templates/cb_step_3_slicer.py.tpl",
                 "source_span": {
-                  "lineno": 5,
+                  "lineno": 4,
                   "col_offset": 10,
-                  "end_lineno": 5,
-                  "end_col_offset": 58
+                  "end_lineno": 4,
+                  "end_col_offset": 49
                 },
-                "call_expression": "RuntimeError('STATE_NOT_APPLIED: ROI node name')",
+                "call_expression": "RuntimeError('STATE_NOT_APPLIED: name')",
                 "receiver_expression": "",
                 "method": "RuntimeError",
                 "arguments": [
-                  "'STATE_NOT_APPLIED: ROI node name'"
+                  "'STATE_NOT_APPLIED: name'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
@@ -4837,19 +4926,19 @@
                 "enclosing_operation": "cb_step_4"
               },
               {
-                "call_id": "df4cc146850f35c9a8ed",
+                "call_id": "ede556e4ba465afbe1ce",
                 "template": "templates/cb_step_4_pre.py.tpl",
                 "source_span": {
                   "lineno": 41,
                   "col_offset": 0,
                   "end_lineno": 41,
-                  "end_col_offset": 137
+                  "end_col_offset": 123
                 },
-                "call_expression": "print('[LongBoneFractureReduction] Please Click and adjust in the Slice views to draw the ROI bounding box around the long bone region.')",
+                "call_expression": "print('[LongBoneFractureReduction] Please Manually click and adjust on the Slice views to create the Longbone_Region ROI.')",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "'[LongBoneFractureReduction] Please Click and adjust in the Slice views to draw the ROI bounding box around the long bone region.'"
+                  "'[LongBoneFractureReduction] Please Manually click and adjust on the Slice views to create the Longbone_Region ROI.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
@@ -9530,19 +9619,19 @@
                 "enclosing_operation": "cb_step_14"
               },
               {
-                "call_id": "c330c8311c13f402b6ad",
+                "call_id": "07efc9ab7ec70e78390b",
                 "template": "templates/cb_step_14_pre.py.tpl",
                 "source_span": {
                   "lineno": 64,
                   "col_offset": 0,
                   "end_lineno": 64,
-                  "end_col_offset": 119
+                  "end_col_offset": 94
                 },
-                "call_expression": "print('[LongBoneFractureReduction] Please Click in the 2D view to select the reference part using the Islands effect.')",
+                "call_expression": "print('[LongBoneFractureReduction] Please Click in the 2D view to select the reference part.')",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "'[LongBoneFractureReduction] Please Click in the 2D view to select the reference part using the Islands effect.'"
+                  "'[LongBoneFractureReduction] Please Click in the 2D view to select the reference part.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
@@ -13900,19 +13989,19 @@
                 "enclosing_operation": "cb_step_22"
               },
               {
-                "call_id": "c295af23cbd1da07367d",
+                "call_id": "43ef466b8383f7b665f5",
                 "template": "templates/cb_step_22_pre.py.tpl",
                 "source_span": {
                   "lineno": 64,
                   "col_offset": 0,
                   "end_lineno": 64,
-                  "end_col_offset": 116
+                  "end_col_offset": 91
                 },
-                "call_expression": "print('[LongBoneFractureReduction] Please Click in the 2D view to select the moving part using the Islands effect.')",
+                "call_expression": "print('[LongBoneFractureReduction] Please Click in the 2D view to select the moving part.')",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "'[LongBoneFractureReduction] Please Click in the 2D view to select the moving part using the Islands effect.'"
+                  "'[LongBoneFractureReduction] Please Click in the 2D view to select the moving part.'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
@@ -14264,211 +14353,98 @@
             ],
             "error": ""
           },
-          "templates/cb_step_26.py.tpl": {
-            "template": "templates/cb_step_26.py.tpl",
+          "templates/cb_step_25_slicer.py.tpl": {
+            "template": "templates/cb_step_25_slicer.py.tpl",
             "complete": true,
             "calls": [
               {
-                "call_id": "bbc2123ccd950277c592",
-                "template": "templates/cb_step_26.py.tpl",
+                "call_id": "bdcf485d8fd4af9095f0",
+                "template": "templates/cb_step_25_slicer.py.tpl",
+                "source_span": {
+                  "lineno": 4,
+                  "col_offset": 16,
+                  "end_lineno": 4,
+                  "end_col_offset": 42
+                },
+                "call_expression": "slicer.app.layoutManager()",
+                "receiver_expression": "slicer.app",
+                "method": "layoutManager",
+                "arguments": [],
+                "keyword_arguments": {},
+                "result_usage": "assigned",
+                "enclosing_operation": "cb_step_25"
+              },
+              {
+                "call_id": "8f4e09f562030d038684",
+                "template": "templates/cb_step_25_slicer.py.tpl",
+                "source_span": {
+                  "lineno": 5,
+                  "col_offset": 15,
+                  "end_lineno": 5,
+                  "end_col_offset": 44
+                },
+                "call_expression": "layoutManager.threeDWidget(0)",
+                "receiver_expression": "layoutManager",
+                "method": "threeDWidget",
+                "arguments": [
+                  "0"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "assigned",
+                "enclosing_operation": "cb_step_25"
+              },
+              {
+                "call_id": "74e2a68c913c519776fa",
+                "template": "templates/cb_step_25_slicer.py.tpl",
                 "source_span": {
                   "lineno": 6,
-                  "col_offset": 22,
+                  "col_offset": 13,
                   "end_lineno": 6,
-                  "end_col_offset": 50
+                  "end_col_offset": 38
                 },
-                "call_expression": "slicer.util.selectedModule()",
-                "receiver_expression": "slicer.util",
-                "method": "selectedModule",
+                "call_expression": "threeDWidget.threeDView()",
+                "receiver_expression": "threeDWidget",
+                "method": "threeDView",
                 "arguments": [],
                 "keyword_arguments": {},
                 "result_usage": "assigned",
-                "enclosing_operation": "cb_step_26"
+                "enclosing_operation": "cb_step_25"
               },
               {
-                "call_id": "f7b1136a10e9a15786d0",
-                "template": "templates/cb_step_26.py.tpl",
+                "call_id": "e7a96dabdbe4729efd6a",
+                "template": "templates/cb_step_25_slicer.py.tpl",
+                "source_span": {
+                  "lineno": 8,
+                  "col_offset": 10,
+                  "end_lineno": 8,
+                  "end_col_offset": 52
+                },
+                "call_expression": "RuntimeError('STATE_NOT_APPLIED: 3D view')",
+                "receiver_expression": "",
+                "method": "RuntimeError",
+                "arguments": [
+                  "'STATE_NOT_APPLIED: 3D view'"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_25"
+              },
+              {
+                "call_id": "2cb69cd36176950b45c9",
+                "template": "templates/cb_step_25_slicer.py.tpl",
                 "source_span": {
                   "lineno": 9,
-                  "col_offset": 8,
+                  "col_offset": 0,
                   "end_lineno": 9,
-                  "end_col_offset": 61
+                  "end_col_offset": 28
                 },
-                "call_expression": "slicer.util.selectModule('LongBoneFractureReduction')",
-                "receiver_expression": "slicer.util",
-                "method": "selectModule",
-                "arguments": [
-                  "'LongBoneFractureReduction'"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "discarded",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "2b27c7092a3655af6dd8",
-                "template": "templates/cb_step_26.py.tpl",
-                "source_span": {
-                  "lineno": 11,
-                  "col_offset": 8,
-                  "end_lineno": 11,
-                  "end_col_offset": 103
-                },
-                "call_expression": "print(f\"Warning: could not activate module 'LongBoneFractureReduction': {_module_enter_error}\")",
-                "receiver_expression": "",
-                "method": "print",
-                "arguments": [
-                  "f\"Warning: could not activate module 'LongBoneFractureReduction': {_module_enter_error}\""
-                ],
-                "keyword_arguments": {},
-                "result_usage": "discarded",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "0954937284564fcd7ab2",
-                "template": "templates/cb_step_26.py.tpl",
-                "source_span": {
-                  "lineno": 19,
-                  "col_offset": 14,
-                  "end_lineno": 19,
-                  "end_col_offset": 70
-                },
-                "call_expression": "slicer.util.getModuleWidget('LongBoneFractureReduction')",
-                "receiver_expression": "slicer.util",
-                "method": "getModuleWidget",
-                "arguments": [
-                  "'LongBoneFractureReduction'"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "assigned",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "81c9998d5ddd136d496e",
-                "template": "templates/cb_step_26.py.tpl",
-                "source_span": {
-                  "lineno": 24,
-                  "col_offset": 18,
-                  "end_lineno": 24,
-                  "end_col_offset": 88
-                },
-                "call_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation().self()",
-                "receiver_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation()",
-                "method": "self",
-                "arguments": [],
-                "keyword_arguments": {},
-                "result_usage": "assigned",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "be015d17b13c2b5f3315",
-                "template": "templates/cb_step_26.py.tpl",
-                "source_span": {
-                  "lineno": 24,
-                  "col_offset": 18,
-                  "end_lineno": 24,
-                  "end_col_offset": 81
-                },
-                "call_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation()",
-                "receiver_expression": "slicer.modules.longbonefracturereduction",
-                "method": "widgetRepresentation",
-                "arguments": [],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "2fcb8777a949550b663e",
-                "template": "templates/cb_step_26.py.tpl",
-                "source_span": {
-                  "lineno": 28,
-                  "col_offset": 10,
-                  "end_lineno": 28,
-                  "end_col_offset": 111
-                },
-                "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnReconstructMov'.\")",
-                "receiver_expression": "",
-                "method": "RuntimeError",
-                "arguments": [
-                  "\"Could not obtain the LongBoneFractureReduction module widget for 'btnReconstructMov'.\""
-                ],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "c881fcd44949b152dbcf",
-                "template": "templates/cb_step_26.py.tpl",
-                "source_span": {
-                  "lineno": 29,
-                  "col_offset": 7,
-                  "end_lineno": 29,
-                  "end_col_offset": 46
-                },
-                "call_expression": "hasattr(_widget, 'onReconstructMoving')",
-                "receiver_expression": "",
-                "method": "hasattr",
-                "arguments": [
-                  "_widget",
-                  "'onReconstructMoving'"
-                ],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "e3bcfade5b853002eaf4",
-                "template": "templates/cb_step_26.py.tpl",
-                "source_span": {
-                  "lineno": 30,
-                  "col_offset": 10,
-                  "end_lineno": 30,
-                  "end_col_offset": 140
-                },
-                "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onReconstructMoving' for 'btnReconstructMov'; regenerate the CLI.\")",
-                "receiver_expression": "",
-                "method": "RuntimeError",
-                "arguments": [
-                  "\"LongBoneFractureReduction widget has no handler 'onReconstructMoving' for 'btnReconstructMov'; regenerate the CLI.\""
-                ],
-                "keyword_arguments": {},
-                "result_usage": "consumed",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "1698572b6e3d4659111f",
-                "template": "templates/cb_step_26.py.tpl",
-                "source_span": {
-                  "lineno": 31,
-                  "col_offset": 0,
-                  "end_lineno": 31,
-                  "end_col_offset": 29
-                },
-                "call_expression": "_widget.onReconstructMoving()",
-                "receiver_expression": "_widget",
-                "method": "onReconstructMoving",
+                "call_expression": "threeDView.resetFocalPoint()",
+                "receiver_expression": "threeDView",
+                "method": "resetFocalPoint",
                 "arguments": [],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
-                "enclosing_operation": "cb_step_26"
-              },
-              {
-                "call_id": "c7556f9ac3831350434c",
-                "template": "templates/cb_step_26.py.tpl",
-                "source_span": {
-                  "lineno": 32,
-                  "col_offset": 0,
-                  "end_lineno": 32,
-                  "end_col_offset": 110
-                },
-                "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_26': clicked 'btnReconstructMov' via onReconstructMoving().\")",
-                "receiver_expression": "",
-                "method": "print",
-                "arguments": [
-                  "\"[LongBoneFractureReduction] Step 'cb_step_26': clicked 'btnReconstructMov' via onReconstructMoving().\""
-                ],
-                "keyword_arguments": {},
-                "result_usage": "discarded",
-                "enclosing_operation": "cb_step_26"
+                "enclosing_operation": "cb_step_25"
               }
             ],
             "error": ""
@@ -14586,94 +14562,94 @@
                 "enclosing_operation": "cb_step_27"
               },
               {
-                "call_id": "2ab5b4b8a74cf9fc20a2",
+                "call_id": "7daa58764aaeb85ea53a",
                 "template": "templates/cb_step_27.py.tpl",
                 "source_span": {
                   "lineno": 28,
                   "col_offset": 10,
                   "end_lineno": 28,
-                  "end_col_offset": 103
+                  "end_col_offset": 111
                 },
-                "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnDetect'.\")",
+                "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnReconstructMov'.\")",
                 "receiver_expression": "",
                 "method": "RuntimeError",
                 "arguments": [
-                  "\"Could not obtain the LongBoneFractureReduction module widget for 'btnDetect'.\""
+                  "\"Could not obtain the LongBoneFractureReduction module widget for 'btnReconstructMov'.\""
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
                 "enclosing_operation": "cb_step_27"
               },
               {
-                "call_id": "b8456aff4f57325fdd6b",
+                "call_id": "bc4e0eda3616875b721f",
                 "template": "templates/cb_step_27.py.tpl",
                 "source_span": {
                   "lineno": 29,
                   "col_offset": 7,
                   "end_lineno": 29,
-                  "end_col_offset": 35
+                  "end_col_offset": 46
                 },
-                "call_expression": "hasattr(_widget, 'onDetect')",
+                "call_expression": "hasattr(_widget, 'onReconstructMoving')",
                 "receiver_expression": "",
                 "method": "hasattr",
                 "arguments": [
                   "_widget",
-                  "'onDetect'"
+                  "'onReconstructMoving'"
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
                 "enclosing_operation": "cb_step_27"
               },
               {
-                "call_id": "06d00d8bf64b3d4e6d5f",
+                "call_id": "2c92b1795b8c81228b98",
                 "template": "templates/cb_step_27.py.tpl",
                 "source_span": {
                   "lineno": 30,
                   "col_offset": 10,
                   "end_lineno": 30,
-                  "end_col_offset": 121
+                  "end_col_offset": 140
                 },
-                "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onDetect' for 'btnDetect'; regenerate the CLI.\")",
+                "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onReconstructMoving' for 'btnReconstructMov'; regenerate the CLI.\")",
                 "receiver_expression": "",
                 "method": "RuntimeError",
                 "arguments": [
-                  "\"LongBoneFractureReduction widget has no handler 'onDetect' for 'btnDetect'; regenerate the CLI.\""
+                  "\"LongBoneFractureReduction widget has no handler 'onReconstructMoving' for 'btnReconstructMov'; regenerate the CLI.\""
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
                 "enclosing_operation": "cb_step_27"
               },
               {
-                "call_id": "ada7f1c378cbe319538c",
+                "call_id": "c25a049b3e821d27a3e8",
                 "template": "templates/cb_step_27.py.tpl",
                 "source_span": {
                   "lineno": 31,
                   "col_offset": 0,
                   "end_lineno": 31,
-                  "end_col_offset": 18
+                  "end_col_offset": 29
                 },
-                "call_expression": "_widget.onDetect()",
+                "call_expression": "_widget.onReconstructMoving()",
                 "receiver_expression": "_widget",
-                "method": "onDetect",
+                "method": "onReconstructMoving",
                 "arguments": [],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
                 "enclosing_operation": "cb_step_27"
               },
               {
-                "call_id": "e8c95725cae259c6dd84",
+                "call_id": "01e282ae8229e311945e",
                 "template": "templates/cb_step_27.py.tpl",
                 "source_span": {
                   "lineno": 32,
                   "col_offset": 0,
                   "end_lineno": 32,
-                  "end_col_offset": 91
+                  "end_col_offset": 110
                 },
-                "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_27': clicked 'btnDetect' via onDetect().\")",
+                "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_27': clicked 'btnReconstructMov' via onReconstructMoving().\")",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "\"[LongBoneFractureReduction] Step 'cb_step_27': clicked 'btnDetect' via onDetect().\""
+                  "\"[LongBoneFractureReduction] Step 'cb_step_27': clicked 'btnReconstructMov' via onReconstructMoving().\""
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
@@ -14795,8 +14771,217 @@
                 "enclosing_operation": "cb_step_28"
               },
               {
-                "call_id": "63b61e85cd050d49ef6f",
+                "call_id": "900eb543e379bc647933",
                 "template": "templates/cb_step_28.py.tpl",
+                "source_span": {
+                  "lineno": 28,
+                  "col_offset": 10,
+                  "end_lineno": 28,
+                  "end_col_offset": 103
+                },
+                "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnDetect'.\")",
+                "receiver_expression": "",
+                "method": "RuntimeError",
+                "arguments": [
+                  "\"Could not obtain the LongBoneFractureReduction module widget for 'btnDetect'.\""
+                ],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_28"
+              },
+              {
+                "call_id": "49e865216b2d4f5ca45d",
+                "template": "templates/cb_step_28.py.tpl",
+                "source_span": {
+                  "lineno": 29,
+                  "col_offset": 7,
+                  "end_lineno": 29,
+                  "end_col_offset": 35
+                },
+                "call_expression": "hasattr(_widget, 'onDetect')",
+                "receiver_expression": "",
+                "method": "hasattr",
+                "arguments": [
+                  "_widget",
+                  "'onDetect'"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_28"
+              },
+              {
+                "call_id": "4d0d501c3bf237da66da",
+                "template": "templates/cb_step_28.py.tpl",
+                "source_span": {
+                  "lineno": 30,
+                  "col_offset": 10,
+                  "end_lineno": 30,
+                  "end_col_offset": 121
+                },
+                "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onDetect' for 'btnDetect'; regenerate the CLI.\")",
+                "receiver_expression": "",
+                "method": "RuntimeError",
+                "arguments": [
+                  "\"LongBoneFractureReduction widget has no handler 'onDetect' for 'btnDetect'; regenerate the CLI.\""
+                ],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_28"
+              },
+              {
+                "call_id": "3cfe999c6dbb64915bc3",
+                "template": "templates/cb_step_28.py.tpl",
+                "source_span": {
+                  "lineno": 31,
+                  "col_offset": 0,
+                  "end_lineno": 31,
+                  "end_col_offset": 18
+                },
+                "call_expression": "_widget.onDetect()",
+                "receiver_expression": "_widget",
+                "method": "onDetect",
+                "arguments": [],
+                "keyword_arguments": {},
+                "result_usage": "discarded",
+                "enclosing_operation": "cb_step_28"
+              },
+              {
+                "call_id": "20516a1708d7d3f9c27f",
+                "template": "templates/cb_step_28.py.tpl",
+                "source_span": {
+                  "lineno": 32,
+                  "col_offset": 0,
+                  "end_lineno": 32,
+                  "end_col_offset": 91
+                },
+                "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnDetect' via onDetect().\")",
+                "receiver_expression": "",
+                "method": "print",
+                "arguments": [
+                  "\"[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnDetect' via onDetect().\""
+                ],
+                "keyword_arguments": {},
+                "result_usage": "discarded",
+                "enclosing_operation": "cb_step_28"
+              }
+            ],
+            "error": ""
+          },
+          "templates/cb_step_29.py.tpl": {
+            "template": "templates/cb_step_29.py.tpl",
+            "complete": true,
+            "calls": [
+              {
+                "call_id": "319406656ce5f813ba2c",
+                "template": "templates/cb_step_29.py.tpl",
+                "source_span": {
+                  "lineno": 6,
+                  "col_offset": 22,
+                  "end_lineno": 6,
+                  "end_col_offset": 50
+                },
+                "call_expression": "slicer.util.selectedModule()",
+                "receiver_expression": "slicer.util",
+                "method": "selectedModule",
+                "arguments": [],
+                "keyword_arguments": {},
+                "result_usage": "assigned",
+                "enclosing_operation": "cb_step_29"
+              },
+              {
+                "call_id": "25fa20aa91c67af5b16b",
+                "template": "templates/cb_step_29.py.tpl",
+                "source_span": {
+                  "lineno": 9,
+                  "col_offset": 8,
+                  "end_lineno": 9,
+                  "end_col_offset": 61
+                },
+                "call_expression": "slicer.util.selectModule('LongBoneFractureReduction')",
+                "receiver_expression": "slicer.util",
+                "method": "selectModule",
+                "arguments": [
+                  "'LongBoneFractureReduction'"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "discarded",
+                "enclosing_operation": "cb_step_29"
+              },
+              {
+                "call_id": "ab7cc1eba990748dfb53",
+                "template": "templates/cb_step_29.py.tpl",
+                "source_span": {
+                  "lineno": 11,
+                  "col_offset": 8,
+                  "end_lineno": 11,
+                  "end_col_offset": 103
+                },
+                "call_expression": "print(f\"Warning: could not activate module 'LongBoneFractureReduction': {_module_enter_error}\")",
+                "receiver_expression": "",
+                "method": "print",
+                "arguments": [
+                  "f\"Warning: could not activate module 'LongBoneFractureReduction': {_module_enter_error}\""
+                ],
+                "keyword_arguments": {},
+                "result_usage": "discarded",
+                "enclosing_operation": "cb_step_29"
+              },
+              {
+                "call_id": "494d250cab604812fcaf",
+                "template": "templates/cb_step_29.py.tpl",
+                "source_span": {
+                  "lineno": 19,
+                  "col_offset": 14,
+                  "end_lineno": 19,
+                  "end_col_offset": 70
+                },
+                "call_expression": "slicer.util.getModuleWidget('LongBoneFractureReduction')",
+                "receiver_expression": "slicer.util",
+                "method": "getModuleWidget",
+                "arguments": [
+                  "'LongBoneFractureReduction'"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "assigned",
+                "enclosing_operation": "cb_step_29"
+              },
+              {
+                "call_id": "47caed6995145bcaad1b",
+                "template": "templates/cb_step_29.py.tpl",
+                "source_span": {
+                  "lineno": 24,
+                  "col_offset": 18,
+                  "end_lineno": 24,
+                  "end_col_offset": 81
+                },
+                "call_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation()",
+                "receiver_expression": "slicer.modules.longbonefracturereduction",
+                "method": "widgetRepresentation",
+                "arguments": [],
+                "keyword_arguments": {},
+                "result_usage": "consumed",
+                "enclosing_operation": "cb_step_29"
+              },
+              {
+                "call_id": "d7b3c1e5d7da7d7678c7",
+                "template": "templates/cb_step_29.py.tpl",
+                "source_span": {
+                  "lineno": 24,
+                  "col_offset": 18,
+                  "end_lineno": 24,
+                  "end_col_offset": 88
+                },
+                "call_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation().self()",
+                "receiver_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation()",
+                "method": "self",
+                "arguments": [],
+                "keyword_arguments": {},
+                "result_usage": "assigned",
+                "enclosing_operation": "cb_step_29"
+              },
+              {
+                "call_id": "245d44466291debc6ef0",
+                "template": "templates/cb_step_29.py.tpl",
                 "source_span": {
                   "lineno": 28,
                   "col_offset": 10,
@@ -14811,11 +14996,11 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
-                "enclosing_operation": "cb_step_28"
+                "enclosing_operation": "cb_step_29"
               },
               {
-                "call_id": "256a40d27f7f72401632",
-                "template": "templates/cb_step_28.py.tpl",
+                "call_id": "4591b4ec56d98a092027",
+                "template": "templates/cb_step_29.py.tpl",
                 "source_span": {
                   "lineno": 29,
                   "col_offset": 7,
@@ -14831,11 +15016,11 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
-                "enclosing_operation": "cb_step_28"
+                "enclosing_operation": "cb_step_29"
               },
               {
-                "call_id": "6b10f68efb94e3c500f1",
-                "template": "templates/cb_step_28.py.tpl",
+                "call_id": "7b61d8f0a1d17ef280ac",
+                "template": "templates/cb_step_29.py.tpl",
                 "source_span": {
                   "lineno": 30,
                   "col_offset": 10,
@@ -14850,11 +15035,11 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
-                "enclosing_operation": "cb_step_28"
+                "enclosing_operation": "cb_step_29"
               },
               {
-                "call_id": "7f3d67418a7950bc4043",
-                "template": "templates/cb_step_28.py.tpl",
+                "call_id": "70e02ce2496b1a58aa47",
+                "template": "templates/cb_step_29.py.tpl",
                 "source_span": {
                   "lineno": 31,
                   "col_offset": 0,
@@ -14867,56 +15052,56 @@
                 "arguments": [],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
-                "enclosing_operation": "cb_step_28"
+                "enclosing_operation": "cb_step_29"
               },
               {
-                "call_id": "01cf601a8838be8ac11e",
-                "template": "templates/cb_step_28.py.tpl",
+                "call_id": "e80a6e02f480a0b4bf77",
+                "template": "templates/cb_step_29.py.tpl",
                 "source_span": {
                   "lineno": 32,
                   "col_offset": 0,
                   "end_lineno": 32,
                   "end_col_offset": 99
                 },
-                "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnInitialize' via onInitialize().\")",
+                "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_29': clicked 'btnInitialize' via onInitialize().\")",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "\"[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnInitialize' via onInitialize().\""
-                ],
-                "keyword_arguments": {},
-                "result_usage": "discarded",
-                "enclosing_operation": "cb_step_28"
-              }
-            ],
-            "error": ""
-          },
-          "templates/cb_step_29_pre.py.tpl": {
-            "template": "templates/cb_step_29_pre.py.tpl",
-            "complete": true,
-            "calls": [
-              {
-                "call_id": "698897a8e0ebc4601062",
-                "template": "templates/cb_step_29_pre.py.tpl",
-                "source_span": {
-                  "lineno": 5,
-                  "col_offset": 0,
-                  "end_lineno": 5,
-                  "end_col_offset": 109
-                },
-                "call_expression": "print('[LongBoneFractureReduction] Please Manually adjust the rotation and displacement of the moving part.')",
-                "receiver_expression": "",
-                "method": "print",
-                "arguments": [
-                  "'[LongBoneFractureReduction] Please Manually adjust the rotation and displacement of the moving part.'"
+                  "\"[LongBoneFractureReduction] Step 'cb_step_29': clicked 'btnInitialize' via onInitialize().\""
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
                 "enclosing_operation": "cb_step_29"
+              }
+            ],
+            "error": ""
+          },
+          "templates/cb_step_30_pre.py.tpl": {
+            "template": "templates/cb_step_30_pre.py.tpl",
+            "complete": true,
+            "calls": [
+              {
+                "call_id": "a13ac3e254ff11af70f3",
+                "template": "templates/cb_step_30_pre.py.tpl",
+                "source_span": {
+                  "lineno": 5,
+                  "col_offset": 0,
+                  "end_lineno": 5,
+                  "end_col_offset": 124
+                },
+                "call_expression": "print('[LongBoneFractureReduction] Please Manually adjust the rotation and displacement of the moving part in the 3D view.')",
+                "receiver_expression": "",
+                "method": "print",
+                "arguments": [
+                  "'[LongBoneFractureReduction] Please Manually adjust the rotation and displacement of the moving part in the 3D view.'"
+                ],
+                "keyword_arguments": {},
+                "result_usage": "discarded",
+                "enclosing_operation": "cb_step_30"
               },
               {
-                "call_id": "b64f02596cb843622cc5",
-                "template": "templates/cb_step_29_pre.py.tpl",
+                "call_id": "0e4db4905212911c1839",
+                "template": "templates/cb_step_30_pre.py.tpl",
                 "source_span": {
                   "lineno": 6,
                   "col_offset": 0,
@@ -14931,18 +15116,18 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
-                "enclosing_operation": "cb_step_29"
+                "enclosing_operation": "cb_step_30"
               }
             ],
             "error": ""
           },
-          "templates/cb_step_29_post.py.tpl": {
-            "template": "templates/cb_step_29_post.py.tpl",
+          "templates/cb_step_30_post.py.tpl": {
+            "template": "templates/cb_step_30_post.py.tpl",
             "complete": true,
             "calls": [
               {
-                "call_id": "fb96ba4053adfcacf63f",
-                "template": "templates/cb_step_29_post.py.tpl",
+                "call_id": "c64e0e0f4165b01e7ef6",
+                "template": "templates/cb_step_30_post.py.tpl",
                 "source_span": {
                   "lineno": 4,
                   "col_offset": 18,
@@ -14957,11 +15142,11 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "assigned",
-                "enclosing_operation": "cb_step_29"
+                "enclosing_operation": "cb_step_30"
               },
               {
-                "call_id": "610d4e64ec43240f3782",
-                "template": "templates/cb_step_29_post.py.tpl",
+                "call_id": "7434ac33a146758e2a2f",
+                "template": "templates/cb_step_30_post.py.tpl",
                 "source_span": {
                   "lineno": 6,
                   "col_offset": 4,
@@ -14974,37 +15159,37 @@
                 "arguments": [],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
-                "enclosing_operation": "cb_step_29"
+                "enclosing_operation": "cb_step_30"
               },
               {
-                "call_id": "a8a2dbb823c358416e5e",
-                "template": "templates/cb_step_29_post.py.tpl",
+                "call_id": "c9dcdd688710d9760eea",
+                "template": "templates/cb_step_30_post.py.tpl",
                 "source_span": {
                   "lineno": 8,
                   "col_offset": 0,
                   "end_lineno": 8,
                   "end_col_offset": 81
                 },
-                "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_29' view adjustment completed.\")",
+                "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_30' view adjustment completed.\")",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "\"[LongBoneFractureReduction] Step 'cb_step_29' view adjustment completed.\""
+                  "\"[LongBoneFractureReduction] Step 'cb_step_30' view adjustment completed.\""
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
-                "enclosing_operation": "cb_step_29"
+                "enclosing_operation": "cb_step_30"
               }
             ],
             "error": ""
           },
-          "templates/cb_step_30.py.tpl": {
-            "template": "templates/cb_step_30.py.tpl",
+          "templates/cb_step_31.py.tpl": {
+            "template": "templates/cb_step_31.py.tpl",
             "complete": true,
             "calls": [
               {
-                "call_id": "b9629b49f72ab7f1c0dd",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "a110581ee748a23fa7ac",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 6,
                   "col_offset": 22,
@@ -15017,11 +15202,11 @@
                 "arguments": [],
                 "keyword_arguments": {},
                 "result_usage": "assigned",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               },
               {
-                "call_id": "9d1892b07916f8632d81",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "220a7fa79731d3a9859d",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 9,
                   "col_offset": 8,
@@ -15036,11 +15221,11 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               },
               {
-                "call_id": "97a2c1998ee0193710ea",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "d89e5a1633c4ac236e7a",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 11,
                   "col_offset": 8,
@@ -15055,11 +15240,11 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               },
               {
-                "call_id": "14cfaf40aa3c3d559efb",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "093c3fabc11b46af72cf",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 19,
                   "col_offset": 14,
@@ -15074,11 +15259,11 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "assigned",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               },
               {
-                "call_id": "53c85579d8ff3b13f879",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "1b61c725d49cfe37f6c3",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 24,
                   "col_offset": 18,
@@ -15091,11 +15276,11 @@
                 "arguments": [],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               },
               {
-                "call_id": "5b6a4a8c7f40f4e0b71d",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "8acf4e46b5c38de6212d",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 24,
                   "col_offset": 18,
@@ -15108,11 +15293,11 @@
                 "arguments": [],
                 "keyword_arguments": {},
                 "result_usage": "assigned",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               },
               {
-                "call_id": "58510d3153b4b77e4820",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "35f3482f40848c13819a",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 28,
                   "col_offset": 10,
@@ -15127,11 +15312,11 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               },
               {
-                "call_id": "940925c6f2ae8a41e632",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "f3741bcce546d3f3268b",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 29,
                   "col_offset": 7,
@@ -15147,11 +15332,11 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               },
               {
-                "call_id": "219ae12d4719c6a8f8f6",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "40fec908e4b076e47336",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 30,
                   "col_offset": 10,
@@ -15166,11 +15351,11 @@
                 ],
                 "keyword_arguments": {},
                 "result_usage": "consumed",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               },
               {
-                "call_id": "7afdad42788c999cee9a",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "f75643e8fe9affda8247",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 31,
                   "col_offset": 0,
@@ -15183,26 +15368,26 @@
                 "arguments": [],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               },
               {
-                "call_id": "3ca755821c0958e5bf9d",
-                "template": "templates/cb_step_30.py.tpl",
+                "call_id": "69d9442a0b6bd63d1137",
+                "template": "templates/cb_step_31.py.tpl",
                 "source_span": {
                   "lineno": 32,
                   "col_offset": 0,
                   "end_lineno": 32,
                   "end_col_offset": 91
                 },
-                "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_30': clicked 'btnReduce' via onReduce().\")",
+                "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_31': clicked 'btnReduce' via onReduce().\")",
                 "receiver_expression": "",
                 "method": "print",
                 "arguments": [
-                  "\"[LongBoneFractureReduction] Step 'cb_step_30': clicked 'btnReduce' via onReduce().\""
+                  "\"[LongBoneFractureReduction] Step 'cb_step_31': clicked 'btnReduce' via onReduce().\""
                 ],
                 "keyword_arguments": {},
                 "result_usage": "discarded",
-                "enclosing_operation": "cb_step_30"
+                "enclosing_operation": "cb_step_31"
               }
             ],
             "error": ""
@@ -15823,20 +16008,19 @@
             "repair_history": []
           },
           {
-            "call_id": "95ff13bc2f5814d0115b",
+            "call_id": "64e5401d28b053828d4a",
             "template": "templates/cb_step_3_slicer.py.tpl",
             "source_span": {
               "lineno": 1,
               "col_offset": 10,
               "end_lineno": 1,
-              "end_col_offset": 88
+              "end_col_offset": 69
             },
-            "call_expression": "slicer.mrmlScene.AddNewNodeByClass('vtkMRMLMarkupsROINode', 'Longbone_Region')",
+            "call_expression": "slicer.mrmlScene.AddNewNodeByClass('vtkMRMLMarkupsROINode')",
             "receiver_expression": "slicer.mrmlScene",
             "method": "AddNewNodeByClass",
             "arguments": [
-              "'vtkMRMLMarkupsROINode'",
-              "'Longbone_Region'"
+              "'vtkMRMLMarkupsROINode'"
             ],
             "keyword_arguments": {},
             "result_usage": "assigned",
@@ -15867,43 +16051,62 @@
             "repair_history": []
           },
           {
-            "call_id": "91ccc4bcaef9e4a2b375",
+            "call_id": "4dac978eeecaae49129f",
             "template": "templates/cb_step_3_slicer.py.tpl",
             "source_span": {
-              "lineno": 3,
-              "col_offset": 10,
-              "end_lineno": 3,
-              "end_col_offset": 68
+              "lineno": 2,
+              "col_offset": 0,
+              "end_lineno": 2,
+              "end_col_offset": 34
             },
-            "call_expression": "RuntimeError('STATE_NOT_APPLIED: MarkupsROINode creation')",
-            "receiver_expression": "",
-            "method": "RuntimeError",
+            "call_expression": "roiNode.SetName('Longbone_Region')",
+            "receiver_expression": "roiNode",
+            "method": "SetName",
             "arguments": [
-              "'STATE_NOT_APPLIED: MarkupsROINode creation'"
+              "'Longbone_Region'"
             ],
             "keyword_arguments": {},
-            "result_usage": "consumed",
+            "result_usage": "discarded",
             "enclosing_operation": "cb_step_3",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
+            "receiver_type_candidates": [
+              {
+                "type": "vtkMRMLMarkupsROINode",
+                "confidence": "high",
+                "provenance": "AddNewNodeByClass_class_argument"
+              }
+            ],
+            "effect": "state_change",
             "proof_status": "proven",
             "evidence": [
               {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
+                "type": "vtkMRMLMarkupsROINode",
+                "confidence": "high",
+                "provenance": "AddNewNodeByClass_class_argument"
+              },
+              {
+                "kind": "type_contract",
+                "receiver_type": "vtkMRMLMarkupsROINode",
                 "method_exists": true,
-                "effect": "read_only"
+                "effect": "state_change",
+                "source": "live_probe_success"
+              },
+              {
+                "kind": "live_probe",
+                "receiver_type": "type",
+                "method_exists": true,
+                "effect": "state_change",
+                "source": "live_probe_success"
               }
             ],
             "repair_history": []
           },
           {
-            "call_id": "9671bd27f34f969d43ee",
+            "call_id": "4c3317c401a45bf42ec9",
             "template": "templates/cb_step_3_slicer.py.tpl",
             "source_span": {
-              "lineno": 4,
+              "lineno": 3,
               "col_offset": 3,
-              "end_lineno": 4,
+              "end_lineno": 3,
               "end_col_offset": 20
             },
             "call_expression": "roiNode.GetName()",
@@ -15946,19 +16149,19 @@
             "repair_history": []
           },
           {
-            "call_id": "f62a65af324e07859310",
+            "call_id": "313c41504372545c96b9",
             "template": "templates/cb_step_3_slicer.py.tpl",
             "source_span": {
-              "lineno": 5,
+              "lineno": 4,
               "col_offset": 10,
-              "end_lineno": 5,
-              "end_col_offset": 58
+              "end_lineno": 4,
+              "end_col_offset": 49
             },
-            "call_expression": "RuntimeError('STATE_NOT_APPLIED: ROI node name')",
+            "call_expression": "RuntimeError('STATE_NOT_APPLIED: name')",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "'STATE_NOT_APPLIED: ROI node name'"
+              "'STATE_NOT_APPLIED: name'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -16683,19 +16886,19 @@
             "repair_history": []
           },
           {
-            "call_id": "df4cc146850f35c9a8ed",
+            "call_id": "ede556e4ba465afbe1ce",
             "template": "templates/cb_step_4_pre.py.tpl",
             "source_span": {
               "lineno": 41,
               "col_offset": 0,
               "end_lineno": 41,
-              "end_col_offset": 137
+              "end_col_offset": 123
             },
-            "call_expression": "print('[LongBoneFractureReduction] Please Click and adjust in the Slice views to draw the ROI bounding box around the long bone region.')",
+            "call_expression": "print('[LongBoneFractureReduction] Please Manually click and adjust on the Slice views to create the Longbone_Region ROI.')",
             "receiver_expression": "",
             "method": "print",
             "arguments": [
-              "'[LongBoneFractureReduction] Please Click and adjust in the Slice views to draw the ROI bounding box around the long bone region.'"
+              "'[LongBoneFractureReduction] Please Manually click and adjust on the Slice views to create the Longbone_Region ROI.'"
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -25678,19 +25881,19 @@
             "repair_history": []
           },
           {
-            "call_id": "c330c8311c13f402b6ad",
+            "call_id": "07efc9ab7ec70e78390b",
             "template": "templates/cb_step_14_pre.py.tpl",
             "source_span": {
               "lineno": 64,
               "col_offset": 0,
               "end_lineno": 64,
-              "end_col_offset": 119
+              "end_col_offset": 94
             },
-            "call_expression": "print('[LongBoneFractureReduction] Please Click in the 2D view to select the reference part using the Islands effect.')",
+            "call_expression": "print('[LongBoneFractureReduction] Please Click in the 2D view to select the reference part.')",
             "receiver_expression": "",
             "method": "print",
             "arguments": [
-              "'[LongBoneFractureReduction] Please Click in the 2D view to select the reference part using the Islands effect.'"
+              "'[LongBoneFractureReduction] Please Click in the 2D view to select the reference part.'"
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -34071,19 +34274,19 @@
             "repair_history": []
           },
           {
-            "call_id": "c295af23cbd1da07367d",
+            "call_id": "43ef466b8383f7b665f5",
             "template": "templates/cb_step_22_pre.py.tpl",
             "source_span": {
               "lineno": 64,
               "col_offset": 0,
               "end_lineno": 64,
-              "end_col_offset": 116
+              "end_col_offset": 91
             },
-            "call_expression": "print('[LongBoneFractureReduction] Please Click in the 2D view to select the moving part using the Islands effect.')",
+            "call_expression": "print('[LongBoneFractureReduction] Please Click in the 2D view to select the moving part.')",
             "receiver_expression": "",
             "method": "print",
             "arguments": [
-              "'[LongBoneFractureReduction] Please Click in the 2D view to select the moving part using the Islands effect.'"
+              "'[LongBoneFractureReduction] Please Click in the 2D view to select the moving part.'"
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -34744,399 +34947,165 @@
             "repair_history": []
           },
           {
-            "call_id": "bbc2123ccd950277c592",
-            "template": "templates/cb_step_26.py.tpl",
+            "call_id": "bdcf485d8fd4af9095f0",
+            "template": "templates/cb_step_25_slicer.py.tpl",
+            "source_span": {
+              "lineno": 4,
+              "col_offset": 16,
+              "end_lineno": 4,
+              "end_col_offset": 42
+            },
+            "call_expression": "slicer.app.layoutManager()",
+            "receiver_expression": "slicer.app",
+            "method": "layoutManager",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "assigned",
+            "enclosing_operation": "cb_step_25",
+            "receiver_type_candidates": [
+              {
+                "type": "slicer.app",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              }
+            ],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "type": "slicer.app",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              },
+              {
+                "kind": "live_probe",
+                "receiver_type": "qSlicerApplication",
+                "method_exists": true,
+                "effect": "read_only",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "8f4e09f562030d038684",
+            "template": "templates/cb_step_25_slicer.py.tpl",
+            "source_span": {
+              "lineno": 5,
+              "col_offset": 15,
+              "end_lineno": 5,
+              "end_col_offset": 44
+            },
+            "call_expression": "layoutManager.threeDWidget(0)",
+            "receiver_expression": "layoutManager",
+            "method": "threeDWidget",
+            "arguments": [
+              "0"
+            ],
+            "keyword_arguments": {},
+            "result_usage": "assigned",
+            "enclosing_operation": "cb_step_25",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "live_probe",
+                "receiver_type": "qSlicerLayoutManager",
+                "method_exists": true,
+                "effect": "read_only",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "74e2a68c913c519776fa",
+            "template": "templates/cb_step_25_slicer.py.tpl",
             "source_span": {
               "lineno": 6,
-              "col_offset": 22,
+              "col_offset": 13,
               "end_lineno": 6,
-              "end_col_offset": 50
+              "end_col_offset": 38
             },
-            "call_expression": "slicer.util.selectedModule()",
-            "receiver_expression": "slicer.util",
-            "method": "selectedModule",
+            "call_expression": "threeDWidget.threeDView()",
+            "receiver_expression": "threeDWidget",
+            "method": "threeDView",
             "arguments": [],
             "keyword_arguments": {},
             "result_usage": "assigned",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [
-              {
-                "type": "slicer.util",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              }
-            ],
-            "effect": "state_change",
+            "enclosing_operation": "cb_step_25",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
             "proof_status": "proven",
             "evidence": [
               {
-                "type": "slicer.util",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              },
-              {
                 "kind": "live_probe",
-                "receiver_type": "module",
+                "receiver_type": "qMRMLThreeDWidget",
                 "method_exists": true,
-                "effect": "state_change",
+                "effect": "read_only",
                 "source": "live_probe_success"
               }
             ],
             "repair_history": []
           },
           {
-            "call_id": "f7b1136a10e9a15786d0",
-            "template": "templates/cb_step_26.py.tpl",
+            "call_id": "e7a96dabdbe4729efd6a",
+            "template": "templates/cb_step_25_slicer.py.tpl",
+            "source_span": {
+              "lineno": 8,
+              "col_offset": 10,
+              "end_lineno": 8,
+              "end_col_offset": 52
+            },
+            "call_expression": "RuntimeError('STATE_NOT_APPLIED: 3D view')",
+            "receiver_expression": "",
+            "method": "RuntimeError",
+            "arguments": [
+              "'STATE_NOT_APPLIED: 3D view'"
+            ],
+            "keyword_arguments": {},
+            "result_usage": "consumed",
+            "enclosing_operation": "cb_step_25",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "2cb69cd36176950b45c9",
+            "template": "templates/cb_step_25_slicer.py.tpl",
             "source_span": {
               "lineno": 9,
-              "col_offset": 8,
+              "col_offset": 0,
               "end_lineno": 9,
-              "end_col_offset": 61
+              "end_col_offset": 28
             },
-            "call_expression": "slicer.util.selectModule('LongBoneFractureReduction')",
-            "receiver_expression": "slicer.util",
-            "method": "selectModule",
-            "arguments": [
-              "'LongBoneFractureReduction'"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "discarded",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [
-              {
-                "type": "slicer.util",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              }
-            ],
-            "effect": "state_change",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "type": "slicer.util",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              },
-              {
-                "kind": "live_probe",
-                "receiver_type": "module",
-                "method_exists": true,
-                "effect": "state_change",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "2b27c7092a3655af6dd8",
-            "template": "templates/cb_step_26.py.tpl",
-            "source_span": {
-              "lineno": 11,
-              "col_offset": 8,
-              "end_lineno": 11,
-              "end_col_offset": 103
-            },
-            "call_expression": "print(f\"Warning: could not activate module 'LongBoneFractureReduction': {_module_enter_error}\")",
-            "receiver_expression": "",
-            "method": "print",
-            "arguments": [
-              "f\"Warning: could not activate module 'LongBoneFractureReduction': {_module_enter_error}\""
-            ],
-            "keyword_arguments": {},
-            "result_usage": "discarded",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "0954937284564fcd7ab2",
-            "template": "templates/cb_step_26.py.tpl",
-            "source_span": {
-              "lineno": 19,
-              "col_offset": 14,
-              "end_lineno": 19,
-              "end_col_offset": 70
-            },
-            "call_expression": "slicer.util.getModuleWidget('LongBoneFractureReduction')",
-            "receiver_expression": "slicer.util",
-            "method": "getModuleWidget",
-            "arguments": [
-              "'LongBoneFractureReduction'"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [
-              {
-                "type": "slicer.util",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              }
-            ],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "type": "slicer.util",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              },
-              {
-                "kind": "live_probe",
-                "receiver_type": "module",
-                "method_exists": true,
-                "effect": "read_only",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "81c9998d5ddd136d496e",
-            "template": "templates/cb_step_26.py.tpl",
-            "source_span": {
-              "lineno": 24,
-              "col_offset": 18,
-              "end_lineno": 24,
-              "end_col_offset": 88
-            },
-            "call_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation().self()",
-            "receiver_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation()",
-            "method": "self",
-            "arguments": [],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "live_probe",
-                "receiver_type": "qSlicerScriptedLoadableModuleWidget",
-                "method_exists": true,
-                "effect": "read_only",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "be015d17b13c2b5f3315",
-            "template": "templates/cb_step_26.py.tpl",
-            "source_span": {
-              "lineno": 24,
-              "col_offset": 18,
-              "end_lineno": 24,
-              "end_col_offset": 81
-            },
-            "call_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation()",
-            "receiver_expression": "slicer.modules.longbonefracturereduction",
-            "method": "widgetRepresentation",
-            "arguments": [],
-            "keyword_arguments": {},
-            "result_usage": "consumed",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [
-              {
-                "type": "slicer.modules.longbonefracturereduction",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              }
-            ],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "type": "slicer.modules.longbonefracturereduction",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              },
-              {
-                "kind": "live_probe",
-                "receiver_type": "qSlicerScriptedLoadableModule",
-                "method_exists": true,
-                "effect": "read_only",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "2fcb8777a949550b663e",
-            "template": "templates/cb_step_26.py.tpl",
-            "source_span": {
-              "lineno": 28,
-              "col_offset": 10,
-              "end_lineno": 28,
-              "end_col_offset": 111
-            },
-            "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnReconstructMov'.\")",
-            "receiver_expression": "",
-            "method": "RuntimeError",
-            "arguments": [
-              "\"Could not obtain the LongBoneFractureReduction module widget for 'btnReconstructMov'.\""
-            ],
-            "keyword_arguments": {},
-            "result_usage": "consumed",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "c881fcd44949b152dbcf",
-            "template": "templates/cb_step_26.py.tpl",
-            "source_span": {
-              "lineno": 29,
-              "col_offset": 7,
-              "end_lineno": 29,
-              "end_col_offset": 46
-            },
-            "call_expression": "hasattr(_widget, 'onReconstructMoving')",
-            "receiver_expression": "",
-            "method": "hasattr",
-            "arguments": [
-              "_widget",
-              "'onReconstructMoving'"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "consumed",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "e3bcfade5b853002eaf4",
-            "template": "templates/cb_step_26.py.tpl",
-            "source_span": {
-              "lineno": 30,
-              "col_offset": 10,
-              "end_lineno": 30,
-              "end_col_offset": 140
-            },
-            "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onReconstructMoving' for 'btnReconstructMov'; regenerate the CLI.\")",
-            "receiver_expression": "",
-            "method": "RuntimeError",
-            "arguments": [
-              "\"LongBoneFractureReduction widget has no handler 'onReconstructMoving' for 'btnReconstructMov'; regenerate the CLI.\""
-            ],
-            "keyword_arguments": {},
-            "result_usage": "consumed",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "1698572b6e3d4659111f",
-            "template": "templates/cb_step_26.py.tpl",
-            "source_span": {
-              "lineno": 31,
-              "col_offset": 0,
-              "end_lineno": 31,
-              "end_col_offset": 29
-            },
-            "call_expression": "_widget.onReconstructMoving()",
-            "receiver_expression": "_widget",
-            "method": "onReconstructMoving",
+            "call_expression": "threeDView.resetFocalPoint()",
+            "receiver_expression": "threeDView",
+            "method": "resetFocalPoint",
             "arguments": [],
             "keyword_arguments": {},
             "result_usage": "discarded",
-            "enclosing_operation": "cb_step_26",
-            "receiver_type_candidates": [
-              {
-                "type": "NoneType",
-                "confidence": "high",
-                "provenance": "python_literal"
-              },
-              {
-                "type": "_module_widget",
-                "confidence": "high",
-                "provenance": "module_widget_accessor"
-              }
-            ],
-            "effect": "unknown",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "module_widget_handler",
-                "receiver_type": "_module_widget",
-                "method_exists": true,
-                "arity_satisfied": true,
-                "required_args": 0,
-                "supplied_args": 0,
-                "effect": "read_only",
-                "source": "module_widget_handler_invocation"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "c7556f9ac3831350434c",
-            "template": "templates/cb_step_26.py.tpl",
-            "source_span": {
-              "lineno": 32,
-              "col_offset": 0,
-              "end_lineno": 32,
-              "end_col_offset": 110
-            },
-            "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_26': clicked 'btnReconstructMov' via onReconstructMoving().\")",
-            "receiver_expression": "",
-            "method": "print",
-            "arguments": [
-              "\"[LongBoneFractureReduction] Step 'cb_step_26': clicked 'btnReconstructMov' via onReconstructMoving().\""
-            ],
-            "keyword_arguments": {},
-            "result_usage": "discarded",
-            "enclosing_operation": "cb_step_26",
+            "enclosing_operation": "cb_step_25",
             "receiver_type_candidates": [],
             "effect": "read_only",
             "proof_status": "proven",
             "evidence": [
               {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
+                "kind": "live_probe",
+                "receiver_type": "qMRMLThreeDView",
                 "method_exists": true,
-                "effect": "read_only"
+                "effect": "read_only",
+                "source": "live_probe_success"
               }
             ],
             "repair_history": []
@@ -35371,19 +35340,19 @@
             "repair_history": []
           },
           {
-            "call_id": "2ab5b4b8a74cf9fc20a2",
+            "call_id": "7daa58764aaeb85ea53a",
             "template": "templates/cb_step_27.py.tpl",
             "source_span": {
               "lineno": 28,
               "col_offset": 10,
               "end_lineno": 28,
-              "end_col_offset": 103
+              "end_col_offset": 111
             },
-            "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnDetect'.\")",
+            "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnReconstructMov'.\")",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "\"Could not obtain the LongBoneFractureReduction module widget for 'btnDetect'.\""
+              "\"Could not obtain the LongBoneFractureReduction module widget for 'btnReconstructMov'.\""
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -35402,20 +35371,20 @@
             "repair_history": []
           },
           {
-            "call_id": "b8456aff4f57325fdd6b",
+            "call_id": "bc4e0eda3616875b721f",
             "template": "templates/cb_step_27.py.tpl",
             "source_span": {
               "lineno": 29,
               "col_offset": 7,
               "end_lineno": 29,
-              "end_col_offset": 35
+              "end_col_offset": 46
             },
-            "call_expression": "hasattr(_widget, 'onDetect')",
+            "call_expression": "hasattr(_widget, 'onReconstructMoving')",
             "receiver_expression": "",
             "method": "hasattr",
             "arguments": [
               "_widget",
-              "'onDetect'"
+              "'onReconstructMoving'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -35434,19 +35403,19 @@
             "repair_history": []
           },
           {
-            "call_id": "06d00d8bf64b3d4e6d5f",
+            "call_id": "2c92b1795b8c81228b98",
             "template": "templates/cb_step_27.py.tpl",
             "source_span": {
               "lineno": 30,
               "col_offset": 10,
               "end_lineno": 30,
-              "end_col_offset": 121
+              "end_col_offset": 140
             },
-            "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onDetect' for 'btnDetect'; regenerate the CLI.\")",
+            "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onReconstructMoving' for 'btnReconstructMov'; regenerate the CLI.\")",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "\"LongBoneFractureReduction widget has no handler 'onDetect' for 'btnDetect'; regenerate the CLI.\""
+              "\"LongBoneFractureReduction widget has no handler 'onReconstructMoving' for 'btnReconstructMov'; regenerate the CLI.\""
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -35465,17 +35434,17 @@
             "repair_history": []
           },
           {
-            "call_id": "ada7f1c378cbe319538c",
+            "call_id": "c25a049b3e821d27a3e8",
             "template": "templates/cb_step_27.py.tpl",
             "source_span": {
               "lineno": 31,
               "col_offset": 0,
               "end_lineno": 31,
-              "end_col_offset": 18
+              "end_col_offset": 29
             },
-            "call_expression": "_widget.onDetect()",
+            "call_expression": "_widget.onReconstructMoving()",
             "receiver_expression": "_widget",
-            "method": "onDetect",
+            "method": "onReconstructMoving",
             "arguments": [],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -35509,19 +35478,19 @@
             "repair_history": []
           },
           {
-            "call_id": "e8c95725cae259c6dd84",
+            "call_id": "01e282ae8229e311945e",
             "template": "templates/cb_step_27.py.tpl",
             "source_span": {
               "lineno": 32,
               "col_offset": 0,
               "end_lineno": 32,
-              "end_col_offset": 91
+              "end_col_offset": 110
             },
-            "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_27': clicked 'btnDetect' via onDetect().\")",
+            "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_27': clicked 'btnReconstructMov' via onReconstructMoving().\")",
             "receiver_expression": "",
             "method": "print",
             "arguments": [
-              "\"[LongBoneFractureReduction] Step 'cb_step_27': clicked 'btnDetect' via onDetect().\""
+              "\"[LongBoneFractureReduction] Step 'cb_step_27': clicked 'btnReconstructMov' via onReconstructMoving().\""
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -35769,19 +35738,19 @@
             "repair_history": []
           },
           {
-            "call_id": "63b61e85cd050d49ef6f",
+            "call_id": "900eb543e379bc647933",
             "template": "templates/cb_step_28.py.tpl",
             "source_span": {
               "lineno": 28,
               "col_offset": 10,
               "end_lineno": 28,
-              "end_col_offset": 107
+              "end_col_offset": 103
             },
-            "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnInitialize'.\")",
+            "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnDetect'.\")",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "\"Could not obtain the LongBoneFractureReduction module widget for 'btnInitialize'.\""
+              "\"Could not obtain the LongBoneFractureReduction module widget for 'btnDetect'.\""
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -35800,20 +35769,20 @@
             "repair_history": []
           },
           {
-            "call_id": "256a40d27f7f72401632",
+            "call_id": "49e865216b2d4f5ca45d",
             "template": "templates/cb_step_28.py.tpl",
             "source_span": {
               "lineno": 29,
               "col_offset": 7,
               "end_lineno": 29,
-              "end_col_offset": 39
+              "end_col_offset": 35
             },
-            "call_expression": "hasattr(_widget, 'onInitialize')",
+            "call_expression": "hasattr(_widget, 'onDetect')",
             "receiver_expression": "",
             "method": "hasattr",
             "arguments": [
               "_widget",
-              "'onInitialize'"
+              "'onDetect'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -35832,19 +35801,19 @@
             "repair_history": []
           },
           {
-            "call_id": "6b10f68efb94e3c500f1",
+            "call_id": "4d0d501c3bf237da66da",
             "template": "templates/cb_step_28.py.tpl",
             "source_span": {
               "lineno": 30,
               "col_offset": 10,
               "end_lineno": 30,
-              "end_col_offset": 129
+              "end_col_offset": 121
             },
-            "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onInitialize' for 'btnInitialize'; regenerate the CLI.\")",
+            "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onDetect' for 'btnDetect'; regenerate the CLI.\")",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "\"LongBoneFractureReduction widget has no handler 'onInitialize' for 'btnInitialize'; regenerate the CLI.\""
+              "\"LongBoneFractureReduction widget has no handler 'onDetect' for 'btnDetect'; regenerate the CLI.\""
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
@@ -35863,17 +35832,17 @@
             "repair_history": []
           },
           {
-            "call_id": "7f3d67418a7950bc4043",
+            "call_id": "3cfe999c6dbb64915bc3",
             "template": "templates/cb_step_28.py.tpl",
             "source_span": {
               "lineno": 31,
               "col_offset": 0,
               "end_lineno": 31,
-              "end_col_offset": 22
+              "end_col_offset": 18
             },
-            "call_expression": "_widget.onInitialize()",
+            "call_expression": "_widget.onDetect()",
             "receiver_expression": "_widget",
-            "method": "onInitialize",
+            "method": "onDetect",
             "arguments": [],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -35907,19 +35876,19 @@
             "repair_history": []
           },
           {
-            "call_id": "01cf601a8838be8ac11e",
+            "call_id": "20516a1708d7d3f9c27f",
             "template": "templates/cb_step_28.py.tpl",
             "source_span": {
               "lineno": 32,
               "col_offset": 0,
               "end_lineno": 32,
-              "end_col_offset": 99
+              "end_col_offset": 91
             },
-            "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnInitialize' via onInitialize().\")",
+            "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnDetect' via onDetect().\")",
             "receiver_expression": "",
             "method": "print",
             "arguments": [
-              "\"[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnInitialize' via onInitialize().\""
+              "\"[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnDetect' via onDetect().\""
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
@@ -35938,174 +35907,8 @@
             "repair_history": []
           },
           {
-            "call_id": "698897a8e0ebc4601062",
-            "template": "templates/cb_step_29_pre.py.tpl",
-            "source_span": {
-              "lineno": 5,
-              "col_offset": 0,
-              "end_lineno": 5,
-              "end_col_offset": 109
-            },
-            "call_expression": "print('[LongBoneFractureReduction] Please Manually adjust the rotation and displacement of the moving part.')",
-            "receiver_expression": "",
-            "method": "print",
-            "arguments": [
-              "'[LongBoneFractureReduction] Please Manually adjust the rotation and displacement of the moving part.'"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "discarded",
-            "enclosing_operation": "cb_step_29",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "b64f02596cb843622cc5",
-            "template": "templates/cb_step_29_pre.py.tpl",
-            "source_span": {
-              "lineno": 6,
-              "col_offset": 0,
-              "end_lineno": 6,
-              "end_col_offset": 70
-            },
-            "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
-            "receiver_expression": "",
-            "method": "print",
-            "arguments": [
-              "\"When finished, press the 'Done' button in the workflow panel.\""
-            ],
-            "keyword_arguments": {},
-            "result_usage": "discarded",
-            "enclosing_operation": "cb_step_29",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "fb96ba4053adfcacf63f",
-            "template": "templates/cb_step_29_post.py.tpl",
-            "source_span": {
-              "lineno": 4,
-              "col_offset": 18,
-              "end_lineno": 4,
-              "end_col_offset": 81
-            },
-            "call_expression": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
-            "receiver_expression": "slicer.mrmlScene",
-            "method": "GetNodeByID",
-            "arguments": [
-              "'vtkMRMLInteractionNodeSingleton'"
-            ],
-            "keyword_arguments": {},
-            "result_usage": "assigned",
-            "enclosing_operation": "cb_step_29",
-            "receiver_type_candidates": [
-              {
-                "type": "slicer.mrmlScene",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              }
-            ],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "type": "slicer.mrmlScene",
-                "confidence": "high",
-                "provenance": "slicer_runtime_root"
-              },
-              {
-                "kind": "live_probe",
-                "receiver_type": "vtkMRMLScene",
-                "method_exists": true,
-                "effect": "read_only",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "610d4e64ec43240f3782",
-            "template": "templates/cb_step_29_post.py.tpl",
-            "source_span": {
-              "lineno": 6,
-              "col_offset": 4,
-              "end_lineno": 6,
-              "end_col_offset": 47
-            },
-            "call_expression": "interactionNode.SwitchToViewTransformMode()",
-            "receiver_expression": "interactionNode",
-            "method": "SwitchToViewTransformMode",
-            "arguments": [],
-            "keyword_arguments": {},
-            "result_usage": "discarded",
-            "enclosing_operation": "cb_step_29",
-            "receiver_type_candidates": [],
-            "effect": "state_change",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "live_probe",
-                "receiver_type": "vtkMRMLInteractionNode",
-                "method_exists": true,
-                "effect": "state_change",
-                "source": "live_probe_success"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "a8a2dbb823c358416e5e",
-            "template": "templates/cb_step_29_post.py.tpl",
-            "source_span": {
-              "lineno": 8,
-              "col_offset": 0,
-              "end_lineno": 8,
-              "end_col_offset": 81
-            },
-            "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_29' view adjustment completed.\")",
-            "receiver_expression": "",
-            "method": "print",
-            "arguments": [
-              "\"[LongBoneFractureReduction] Step 'cb_step_29' view adjustment completed.\""
-            ],
-            "keyword_arguments": {},
-            "result_usage": "discarded",
-            "enclosing_operation": "cb_step_29",
-            "receiver_type_candidates": [],
-            "effect": "read_only",
-            "proof_status": "proven",
-            "evidence": [
-              {
-                "kind": "python_builtin",
-                "source": "python_runtime_contract",
-                "method_exists": true,
-                "effect": "read_only"
-              }
-            ],
-            "repair_history": []
-          },
-          {
-            "call_id": "b9629b49f72ab7f1c0dd",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "319406656ce5f813ba2c",
+            "template": "templates/cb_step_29.py.tpl",
             "source_span": {
               "lineno": 6,
               "col_offset": 22,
@@ -36118,7 +35921,7 @@
             "arguments": [],
             "keyword_arguments": {},
             "result_usage": "assigned",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_29",
             "receiver_type_candidates": [
               {
                 "type": "slicer.util",
@@ -36145,8 +35948,8 @@
             "repair_history": []
           },
           {
-            "call_id": "9d1892b07916f8632d81",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "25fa20aa91c67af5b16b",
+            "template": "templates/cb_step_29.py.tpl",
             "source_span": {
               "lineno": 9,
               "col_offset": 8,
@@ -36161,7 +35964,7 @@
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_29",
             "receiver_type_candidates": [
               {
                 "type": "slicer.util",
@@ -36188,8 +35991,8 @@
             "repair_history": []
           },
           {
-            "call_id": "97a2c1998ee0193710ea",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "ab7cc1eba990748dfb53",
+            "template": "templates/cb_step_29.py.tpl",
             "source_span": {
               "lineno": 11,
               "col_offset": 8,
@@ -36204,7 +36007,7 @@
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_29",
             "receiver_type_candidates": [],
             "effect": "read_only",
             "proof_status": "proven",
@@ -36219,8 +36022,8 @@
             "repair_history": []
           },
           {
-            "call_id": "14cfaf40aa3c3d559efb",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "494d250cab604812fcaf",
+            "template": "templates/cb_step_29.py.tpl",
             "source_span": {
               "lineno": 19,
               "col_offset": 14,
@@ -36235,7 +36038,7 @@
             ],
             "keyword_arguments": {},
             "result_usage": "assigned",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_29",
             "receiver_type_candidates": [
               {
                 "type": "slicer.util",
@@ -36262,8 +36065,8 @@
             "repair_history": []
           },
           {
-            "call_id": "53c85579d8ff3b13f879",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "47caed6995145bcaad1b",
+            "template": "templates/cb_step_29.py.tpl",
             "source_span": {
               "lineno": 24,
               "col_offset": 18,
@@ -36276,7 +36079,7 @@
             "arguments": [],
             "keyword_arguments": {},
             "result_usage": "consumed",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_29",
             "receiver_type_candidates": [
               {
                 "type": "slicer.modules.longbonefracturereduction",
@@ -36303,8 +36106,8 @@
             "repair_history": []
           },
           {
-            "call_id": "5b6a4a8c7f40f4e0b71d",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "d7b3c1e5d7da7d7678c7",
+            "template": "templates/cb_step_29.py.tpl",
             "source_span": {
               "lineno": 24,
               "col_offset": 18,
@@ -36317,7 +36120,7 @@
             "arguments": [],
             "keyword_arguments": {},
             "result_usage": "assigned",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_29",
             "receiver_type_candidates": [],
             "effect": "read_only",
             "proof_status": "proven",
@@ -36333,23 +36136,23 @@
             "repair_history": []
           },
           {
-            "call_id": "58510d3153b4b77e4820",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "245d44466291debc6ef0",
+            "template": "templates/cb_step_29.py.tpl",
             "source_span": {
               "lineno": 28,
               "col_offset": 10,
               "end_lineno": 28,
-              "end_col_offset": 103
+              "end_col_offset": 107
             },
-            "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnReduce'.\")",
+            "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnInitialize'.\")",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "\"Could not obtain the LongBoneFractureReduction module widget for 'btnReduce'.\""
+              "\"Could not obtain the LongBoneFractureReduction module widget for 'btnInitialize'.\""
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_29",
             "receiver_type_candidates": [],
             "effect": "read_only",
             "proof_status": "proven",
@@ -36364,24 +36167,24 @@
             "repair_history": []
           },
           {
-            "call_id": "940925c6f2ae8a41e632",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "4591b4ec56d98a092027",
+            "template": "templates/cb_step_29.py.tpl",
             "source_span": {
               "lineno": 29,
               "col_offset": 7,
               "end_lineno": 29,
-              "end_col_offset": 35
+              "end_col_offset": 39
             },
-            "call_expression": "hasattr(_widget, 'onReduce')",
+            "call_expression": "hasattr(_widget, 'onInitialize')",
             "receiver_expression": "",
             "method": "hasattr",
             "arguments": [
               "_widget",
-              "'onReduce'"
+              "'onInitialize'"
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_29",
             "receiver_type_candidates": [],
             "effect": "read_only",
             "proof_status": "proven",
@@ -36396,23 +36199,23 @@
             "repair_history": []
           },
           {
-            "call_id": "219ae12d4719c6a8f8f6",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "7b61d8f0a1d17ef280ac",
+            "template": "templates/cb_step_29.py.tpl",
             "source_span": {
               "lineno": 30,
               "col_offset": 10,
               "end_lineno": 30,
-              "end_col_offset": 121
+              "end_col_offset": 129
             },
-            "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onReduce' for 'btnReduce'; regenerate the CLI.\")",
+            "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onInitialize' for 'btnInitialize'; regenerate the CLI.\")",
             "receiver_expression": "",
             "method": "RuntimeError",
             "arguments": [
-              "\"LongBoneFractureReduction widget has no handler 'onReduce' for 'btnReduce'; regenerate the CLI.\""
+              "\"LongBoneFractureReduction widget has no handler 'onInitialize' for 'btnInitialize'; regenerate the CLI.\""
             ],
             "keyword_arguments": {},
             "result_usage": "consumed",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_29",
             "receiver_type_candidates": [],
             "effect": "read_only",
             "proof_status": "proven",
@@ -36427,21 +36230,21 @@
             "repair_history": []
           },
           {
-            "call_id": "7afdad42788c999cee9a",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "70e02ce2496b1a58aa47",
+            "template": "templates/cb_step_29.py.tpl",
             "source_span": {
               "lineno": 31,
               "col_offset": 0,
               "end_lineno": 31,
-              "end_col_offset": 18
+              "end_col_offset": 22
             },
-            "call_expression": "_widget.onReduce()",
+            "call_expression": "_widget.onInitialize()",
             "receiver_expression": "_widget",
-            "method": "onReduce",
+            "method": "onInitialize",
             "arguments": [],
             "keyword_arguments": {},
             "result_usage": "discarded",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_29",
             "receiver_type_candidates": [
               {
                 "type": "NoneType",
@@ -36471,23 +36274,587 @@
             "repair_history": []
           },
           {
-            "call_id": "3ca755821c0958e5bf9d",
-            "template": "templates/cb_step_30.py.tpl",
+            "call_id": "e80a6e02f480a0b4bf77",
+            "template": "templates/cb_step_29.py.tpl",
+            "source_span": {
+              "lineno": 32,
+              "col_offset": 0,
+              "end_lineno": 32,
+              "end_col_offset": 99
+            },
+            "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_29': clicked 'btnInitialize' via onInitialize().\")",
+            "receiver_expression": "",
+            "method": "print",
+            "arguments": [
+              "\"[LongBoneFractureReduction] Step 'cb_step_29': clicked 'btnInitialize' via onInitialize().\""
+            ],
+            "keyword_arguments": {},
+            "result_usage": "discarded",
+            "enclosing_operation": "cb_step_29",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "a13ac3e254ff11af70f3",
+            "template": "templates/cb_step_30_pre.py.tpl",
+            "source_span": {
+              "lineno": 5,
+              "col_offset": 0,
+              "end_lineno": 5,
+              "end_col_offset": 124
+            },
+            "call_expression": "print('[LongBoneFractureReduction] Please Manually adjust the rotation and displacement of the moving part in the 3D view.')",
+            "receiver_expression": "",
+            "method": "print",
+            "arguments": [
+              "'[LongBoneFractureReduction] Please Manually adjust the rotation and displacement of the moving part in the 3D view.'"
+            ],
+            "keyword_arguments": {},
+            "result_usage": "discarded",
+            "enclosing_operation": "cb_step_30",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "0e4db4905212911c1839",
+            "template": "templates/cb_step_30_pre.py.tpl",
+            "source_span": {
+              "lineno": 6,
+              "col_offset": 0,
+              "end_lineno": 6,
+              "end_col_offset": 70
+            },
+            "call_expression": "print(\"When finished, press the 'Done' button in the workflow panel.\")",
+            "receiver_expression": "",
+            "method": "print",
+            "arguments": [
+              "\"When finished, press the 'Done' button in the workflow panel.\""
+            ],
+            "keyword_arguments": {},
+            "result_usage": "discarded",
+            "enclosing_operation": "cb_step_30",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "c64e0e0f4165b01e7ef6",
+            "template": "templates/cb_step_30_post.py.tpl",
+            "source_span": {
+              "lineno": 4,
+              "col_offset": 18,
+              "end_lineno": 4,
+              "end_col_offset": 81
+            },
+            "call_expression": "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton')",
+            "receiver_expression": "slicer.mrmlScene",
+            "method": "GetNodeByID",
+            "arguments": [
+              "'vtkMRMLInteractionNodeSingleton'"
+            ],
+            "keyword_arguments": {},
+            "result_usage": "assigned",
+            "enclosing_operation": "cb_step_30",
+            "receiver_type_candidates": [
+              {
+                "type": "slicer.mrmlScene",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              }
+            ],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "type": "slicer.mrmlScene",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              },
+              {
+                "kind": "live_probe",
+                "receiver_type": "vtkMRMLScene",
+                "method_exists": true,
+                "effect": "read_only",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "7434ac33a146758e2a2f",
+            "template": "templates/cb_step_30_post.py.tpl",
+            "source_span": {
+              "lineno": 6,
+              "col_offset": 4,
+              "end_lineno": 6,
+              "end_col_offset": 47
+            },
+            "call_expression": "interactionNode.SwitchToViewTransformMode()",
+            "receiver_expression": "interactionNode",
+            "method": "SwitchToViewTransformMode",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "discarded",
+            "enclosing_operation": "cb_step_30",
+            "receiver_type_candidates": [],
+            "effect": "state_change",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "live_probe",
+                "receiver_type": "vtkMRMLInteractionNode",
+                "method_exists": true,
+                "effect": "state_change",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "c9dcdd688710d9760eea",
+            "template": "templates/cb_step_30_post.py.tpl",
+            "source_span": {
+              "lineno": 8,
+              "col_offset": 0,
+              "end_lineno": 8,
+              "end_col_offset": 81
+            },
+            "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_30' view adjustment completed.\")",
+            "receiver_expression": "",
+            "method": "print",
+            "arguments": [
+              "\"[LongBoneFractureReduction] Step 'cb_step_30' view adjustment completed.\""
+            ],
+            "keyword_arguments": {},
+            "result_usage": "discarded",
+            "enclosing_operation": "cb_step_30",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "a110581ee748a23fa7ac",
+            "template": "templates/cb_step_31.py.tpl",
+            "source_span": {
+              "lineno": 6,
+              "col_offset": 22,
+              "end_lineno": 6,
+              "end_col_offset": 50
+            },
+            "call_expression": "slicer.util.selectedModule()",
+            "receiver_expression": "slicer.util",
+            "method": "selectedModule",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "assigned",
+            "enclosing_operation": "cb_step_31",
+            "receiver_type_candidates": [
+              {
+                "type": "slicer.util",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              }
+            ],
+            "effect": "state_change",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "type": "slicer.util",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              },
+              {
+                "kind": "live_probe",
+                "receiver_type": "module",
+                "method_exists": true,
+                "effect": "state_change",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "220a7fa79731d3a9859d",
+            "template": "templates/cb_step_31.py.tpl",
+            "source_span": {
+              "lineno": 9,
+              "col_offset": 8,
+              "end_lineno": 9,
+              "end_col_offset": 61
+            },
+            "call_expression": "slicer.util.selectModule('LongBoneFractureReduction')",
+            "receiver_expression": "slicer.util",
+            "method": "selectModule",
+            "arguments": [
+              "'LongBoneFractureReduction'"
+            ],
+            "keyword_arguments": {},
+            "result_usage": "discarded",
+            "enclosing_operation": "cb_step_31",
+            "receiver_type_candidates": [
+              {
+                "type": "slicer.util",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              }
+            ],
+            "effect": "state_change",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "type": "slicer.util",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              },
+              {
+                "kind": "live_probe",
+                "receiver_type": "module",
+                "method_exists": true,
+                "effect": "state_change",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "d89e5a1633c4ac236e7a",
+            "template": "templates/cb_step_31.py.tpl",
+            "source_span": {
+              "lineno": 11,
+              "col_offset": 8,
+              "end_lineno": 11,
+              "end_col_offset": 103
+            },
+            "call_expression": "print(f\"Warning: could not activate module 'LongBoneFractureReduction': {_module_enter_error}\")",
+            "receiver_expression": "",
+            "method": "print",
+            "arguments": [
+              "f\"Warning: could not activate module 'LongBoneFractureReduction': {_module_enter_error}\""
+            ],
+            "keyword_arguments": {},
+            "result_usage": "discarded",
+            "enclosing_operation": "cb_step_31",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "093c3fabc11b46af72cf",
+            "template": "templates/cb_step_31.py.tpl",
+            "source_span": {
+              "lineno": 19,
+              "col_offset": 14,
+              "end_lineno": 19,
+              "end_col_offset": 70
+            },
+            "call_expression": "slicer.util.getModuleWidget('LongBoneFractureReduction')",
+            "receiver_expression": "slicer.util",
+            "method": "getModuleWidget",
+            "arguments": [
+              "'LongBoneFractureReduction'"
+            ],
+            "keyword_arguments": {},
+            "result_usage": "assigned",
+            "enclosing_operation": "cb_step_31",
+            "receiver_type_candidates": [
+              {
+                "type": "slicer.util",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              }
+            ],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "type": "slicer.util",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              },
+              {
+                "kind": "live_probe",
+                "receiver_type": "module",
+                "method_exists": true,
+                "effect": "read_only",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "1b61c725d49cfe37f6c3",
+            "template": "templates/cb_step_31.py.tpl",
+            "source_span": {
+              "lineno": 24,
+              "col_offset": 18,
+              "end_lineno": 24,
+              "end_col_offset": 81
+            },
+            "call_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation()",
+            "receiver_expression": "slicer.modules.longbonefracturereduction",
+            "method": "widgetRepresentation",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "consumed",
+            "enclosing_operation": "cb_step_31",
+            "receiver_type_candidates": [
+              {
+                "type": "slicer.modules.longbonefracturereduction",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              }
+            ],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "type": "slicer.modules.longbonefracturereduction",
+                "confidence": "high",
+                "provenance": "slicer_runtime_root"
+              },
+              {
+                "kind": "live_probe",
+                "receiver_type": "qSlicerScriptedLoadableModule",
+                "method_exists": true,
+                "effect": "read_only",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "8acf4e46b5c38de6212d",
+            "template": "templates/cb_step_31.py.tpl",
+            "source_span": {
+              "lineno": 24,
+              "col_offset": 18,
+              "end_lineno": 24,
+              "end_col_offset": 88
+            },
+            "call_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation().self()",
+            "receiver_expression": "slicer.modules.longbonefracturereduction.widgetRepresentation()",
+            "method": "self",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "assigned",
+            "enclosing_operation": "cb_step_31",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "live_probe",
+                "receiver_type": "qSlicerScriptedLoadableModuleWidget",
+                "method_exists": true,
+                "effect": "read_only",
+                "source": "live_probe_success"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "35f3482f40848c13819a",
+            "template": "templates/cb_step_31.py.tpl",
+            "source_span": {
+              "lineno": 28,
+              "col_offset": 10,
+              "end_lineno": 28,
+              "end_col_offset": 103
+            },
+            "call_expression": "RuntimeError(\"Could not obtain the LongBoneFractureReduction module widget for 'btnReduce'.\")",
+            "receiver_expression": "",
+            "method": "RuntimeError",
+            "arguments": [
+              "\"Could not obtain the LongBoneFractureReduction module widget for 'btnReduce'.\""
+            ],
+            "keyword_arguments": {},
+            "result_usage": "consumed",
+            "enclosing_operation": "cb_step_31",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "f3741bcce546d3f3268b",
+            "template": "templates/cb_step_31.py.tpl",
+            "source_span": {
+              "lineno": 29,
+              "col_offset": 7,
+              "end_lineno": 29,
+              "end_col_offset": 35
+            },
+            "call_expression": "hasattr(_widget, 'onReduce')",
+            "receiver_expression": "",
+            "method": "hasattr",
+            "arguments": [
+              "_widget",
+              "'onReduce'"
+            ],
+            "keyword_arguments": {},
+            "result_usage": "consumed",
+            "enclosing_operation": "cb_step_31",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "40fec908e4b076e47336",
+            "template": "templates/cb_step_31.py.tpl",
+            "source_span": {
+              "lineno": 30,
+              "col_offset": 10,
+              "end_lineno": 30,
+              "end_col_offset": 121
+            },
+            "call_expression": "RuntimeError(\"LongBoneFractureReduction widget has no handler 'onReduce' for 'btnReduce'; regenerate the CLI.\")",
+            "receiver_expression": "",
+            "method": "RuntimeError",
+            "arguments": [
+              "\"LongBoneFractureReduction widget has no handler 'onReduce' for 'btnReduce'; regenerate the CLI.\""
+            ],
+            "keyword_arguments": {},
+            "result_usage": "consumed",
+            "enclosing_operation": "cb_step_31",
+            "receiver_type_candidates": [],
+            "effect": "read_only",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "python_builtin",
+                "source": "python_runtime_contract",
+                "method_exists": true,
+                "effect": "read_only"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "f75643e8fe9affda8247",
+            "template": "templates/cb_step_31.py.tpl",
+            "source_span": {
+              "lineno": 31,
+              "col_offset": 0,
+              "end_lineno": 31,
+              "end_col_offset": 18
+            },
+            "call_expression": "_widget.onReduce()",
+            "receiver_expression": "_widget",
+            "method": "onReduce",
+            "arguments": [],
+            "keyword_arguments": {},
+            "result_usage": "discarded",
+            "enclosing_operation": "cb_step_31",
+            "receiver_type_candidates": [
+              {
+                "type": "NoneType",
+                "confidence": "high",
+                "provenance": "python_literal"
+              },
+              {
+                "type": "_module_widget",
+                "confidence": "high",
+                "provenance": "module_widget_accessor"
+              }
+            ],
+            "effect": "unknown",
+            "proof_status": "proven",
+            "evidence": [
+              {
+                "kind": "module_widget_handler",
+                "receiver_type": "_module_widget",
+                "method_exists": true,
+                "arity_satisfied": true,
+                "required_args": 0,
+                "supplied_args": 0,
+                "effect": "read_only",
+                "source": "module_widget_handler_invocation"
+              }
+            ],
+            "repair_history": []
+          },
+          {
+            "call_id": "69d9442a0b6bd63d1137",
+            "template": "templates/cb_step_31.py.tpl",
             "source_span": {
               "lineno": 32,
               "col_offset": 0,
               "end_lineno": 32,
               "end_col_offset": 91
             },
-            "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_30': clicked 'btnReduce' via onReduce().\")",
+            "call_expression": "print(\"[LongBoneFractureReduction] Step 'cb_step_31': clicked 'btnReduce' via onReduce().\")",
             "receiver_expression": "",
             "method": "print",
             "arguments": [
-              "\"[LongBoneFractureReduction] Step 'cb_step_30': clicked 'btnReduce' via onReduce().\""
+              "\"[LongBoneFractureReduction] Step 'cb_step_31': clicked 'btnReduce' via onReduce().\""
             ],
             "keyword_arguments": {},
             "result_usage": "discarded",
-            "enclosing_operation": "cb_step_30",
+            "enclosing_operation": "cb_step_31",
             "receiver_type_candidates": [],
             "effect": "read_only",
             "proof_status": "proven",
@@ -39689,9 +40056,9 @@
           }
         ],
         "api_proof_coverage": {
-          "total_calls": 587,
-          "state_changing_calls": 190,
-          "proven_calls": 444,
+          "total_calls": 592,
+          "state_changing_calls": 191,
+          "proven_calls": 449,
           "invalid_calls": 0,
           "blocking_unproven_calls": 0,
           "warning_unproven_reads": 143,
@@ -39701,9 +40068,9 @@
         "has_warnings": true
       },
       "api_proof_coverage": {
-        "total_calls": 587,
-        "state_changing_calls": 190,
-        "proven_calls": 444,
+        "total_calls": 592,
+        "state_changing_calls": 191,
+        "proven_calls": 449,
         "invalid_calls": 0,
         "blocking_unproven_calls": 0,
         "warning_unproven_reads": 143,
@@ -39713,7 +40080,7 @@
         {
           "attempt": 1,
           "valid": false,
-          "issue_count": 1,
+          "issue_count": 2,
           "issues": [
             {
               "issue_id": "api_proof_0ecc1bdf0953f8ccc370",
@@ -39783,6 +40150,48 @@
                 "minimal_repair": null
               },
               "ladder_rung": "contract_aware_template_repair"
+            },
+            {
+              "issue_id": "validation_error_1",
+              "issue_type": "StubTemplate",
+              "severity": "error",
+              "blocking": true,
+              "template": "templates/cb_step_17_slicer.py.tpl",
+              "diagnosis": "validation_failure",
+              "message": "validation_failure",
+              "rendered_message": "templates/cb_step_17_slicer.py.tpl: Required template is a stub (only pass/comments/prints)",
+              "evidence_sources": [],
+              "minimal_repair": null,
+              "issue_class": "template",
+              "template_key": "templates/cb_step_17_slicer.py.tpl",
+              "step_id": "cb_step_17",
+              "root_cause": "validation_failure",
+              "repair_strategy": "contract_aware_template_repair",
+              "repair_route": "contract_aware_template_repair",
+              "affected_artifacts": [
+                "template"
+              ],
+              "raw": {
+                "issue_id": "validation_error_1",
+                "issue_type": "StubTemplate",
+                "severity": "error",
+                "blocking": true,
+                "template": "templates/cb_step_17_slicer.py.tpl",
+                "diagnosis": "validation_failure",
+                "message": "Required template is a stub (only pass/comments/prints)",
+                "rendered_message": "templates/cb_step_17_slicer.py.tpl: Required template is a stub (only pass/comments/prints)",
+                "evidence_sources": [],
+                "minimal_repair": null
+              },
+              "evidence_diagnosis": {
+                "diagnosis": "validation_failure",
+                "receiver_type": "",
+                "method_exists": null,
+                "effect": "unknown",
+                "evidence_sources": [],
+                "minimal_repair": null
+              },
+              "ladder_rung": "contract_aware_template_repair"
             }
           ],
           "repair_plan": [
@@ -39793,10 +40202,18 @@
               "strategy": "contract_aware_template_repair",
               "route": "gather_receiver_method_behavior_evidence",
               "semantic_recipe_id": ""
+            },
+            {
+              "issue_id": "validation_error_1",
+              "template_key": "templates/cb_step_17_slicer.py.tpl",
+              "step_id": "cb_step_17",
+              "strategy": "contract_aware_template_repair",
+              "route": "contract_aware_template_repair",
+              "semantic_recipe_id": ""
             }
           ],
           "api_probe_result": {
-            "probed": 22,
+            "probed": 27,
             "failures": [],
             "revised": 0,
             "syntax_skipped": [],
@@ -39901,6 +40318,20 @@
                   "evidence_source": "live_probe_success"
                 },
                 {
+                  "chain": "roiNode.SetName",
+                  "receiver_expr": "slicer.vtkMRMLMarkupsROINode",
+                  "original_receiver_expr": "roiNode",
+                  "expanded_receiver_expr": "slicer.vtkMRMLMarkupsROINode",
+                  "receiver_type": "vtkMRMLMarkupsROINode",
+                  "proof_kind": "class_type",
+                  "attr": "SetName",
+                  "lineno": 2,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "type",
+                  "evidence_source": "live_probe_success"
+                },
+                {
                   "chain": "roiNode.GetName",
                   "receiver_expr": "slicer.vtkMRMLMarkupsROINode",
                   "original_receiver_expr": "roiNode",
@@ -39908,7 +40339,7 @@
                   "receiver_type": "vtkMRMLMarkupsROINode",
                   "proof_kind": "class_type",
                   "attr": "GetName",
-                  "lineno": 4,
+                  "lineno": 3,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "type",
@@ -40109,6 +40540,62 @@
                   "live_receiver_type": "qMRMLSegmentEditorWidget",
                   "receiver_type": "qMRMLSegmentEditorWidget",
                   "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager",
+                  "receiver_expr": "slicer.app",
+                  "original_receiver_expr": "slicer.app",
+                  "expanded_receiver_expr": "slicer.app",
+                  "proof_kind": "live_instance",
+                  "attr": "layoutManager",
+                  "lineno": 4,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qSlicerApplication",
+                  "receiver_type": "qSlicerApplication",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager().threeDWidget",
+                  "receiver_expr": "slicer.app.layoutManager()",
+                  "original_receiver_expr": "layoutManager",
+                  "expanded_receiver_expr": "slicer.app.layoutManager()",
+                  "proof_kind": "live_instance",
+                  "attr": "threeDWidget",
+                  "lineno": 5,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qSlicerLayoutManager",
+                  "receiver_type": "qSlicerLayoutManager",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager().threeDWidget(0).threeDView",
+                  "receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
+                  "original_receiver_expr": "threeDWidget",
+                  "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
+                  "proof_kind": "live_instance",
+                  "attr": "threeDView",
+                  "lineno": 6,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qMRMLThreeDWidget",
+                  "receiver_type": "qMRMLThreeDWidget",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager().threeDWidget(0).threeDView().resetFocalPoint",
+                  "receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
+                  "original_receiver_expr": "threeDView",
+                  "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
+                  "proof_kind": "live_instance",
+                  "attr": "resetFocalPoint",
+                  "lineno": 9,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qMRMLThreeDView",
+                  "receiver_type": "qMRMLThreeDView",
+                  "evidence_source": "live_probe_success"
                 }
               ],
               "unresolved": [],
@@ -40120,6 +40607,7 @@
               "strategy": "targeted_or_contract_aware_template_repair",
               "changed": true,
               "changed_templates": [
+                "templates/cb_step_17_slicer.py.tpl",
                 "templates/cb_step_4_pre.py.tpl"
               ]
             }
@@ -40132,7 +40620,7 @@
           "issues": [],
           "repair_plan": [],
           "api_probe_result": {
-            "probed": 22,
+            "probed": 27,
             "failures": [],
             "revised": 0,
             "syntax_skipped": [],
@@ -40237,6 +40725,20 @@
                   "evidence_source": "live_probe_success"
                 },
                 {
+                  "chain": "roiNode.SetName",
+                  "receiver_expr": "slicer.vtkMRMLMarkupsROINode",
+                  "original_receiver_expr": "roiNode",
+                  "expanded_receiver_expr": "slicer.vtkMRMLMarkupsROINode",
+                  "receiver_type": "vtkMRMLMarkupsROINode",
+                  "proof_kind": "class_type",
+                  "attr": "SetName",
+                  "lineno": 2,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "type",
+                  "evidence_source": "live_probe_success"
+                },
+                {
                   "chain": "roiNode.GetName",
                   "receiver_expr": "slicer.vtkMRMLMarkupsROINode",
                   "original_receiver_expr": "roiNode",
@@ -40244,7 +40746,7 @@
                   "receiver_type": "vtkMRMLMarkupsROINode",
                   "proof_kind": "class_type",
                   "attr": "GetName",
-                  "lineno": 4,
+                  "lineno": 3,
                   "is_attribute": false,
                   "method_exists": true,
                   "live_receiver_type": "type",
@@ -40445,6 +40947,62 @@
                   "live_receiver_type": "qMRMLSegmentEditorWidget",
                   "receiver_type": "qMRMLSegmentEditorWidget",
                   "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager",
+                  "receiver_expr": "slicer.app",
+                  "original_receiver_expr": "slicer.app",
+                  "expanded_receiver_expr": "slicer.app",
+                  "proof_kind": "live_instance",
+                  "attr": "layoutManager",
+                  "lineno": 4,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qSlicerApplication",
+                  "receiver_type": "qSlicerApplication",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager().threeDWidget",
+                  "receiver_expr": "slicer.app.layoutManager()",
+                  "original_receiver_expr": "layoutManager",
+                  "expanded_receiver_expr": "slicer.app.layoutManager()",
+                  "proof_kind": "live_instance",
+                  "attr": "threeDWidget",
+                  "lineno": 5,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qSlicerLayoutManager",
+                  "receiver_type": "qSlicerLayoutManager",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager().threeDWidget(0).threeDView",
+                  "receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
+                  "original_receiver_expr": "threeDWidget",
+                  "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
+                  "proof_kind": "live_instance",
+                  "attr": "threeDView",
+                  "lineno": 6,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qMRMLThreeDWidget",
+                  "receiver_type": "qMRMLThreeDWidget",
+                  "evidence_source": "live_probe_success"
+                },
+                {
+                  "chain": "slicer.app.layoutManager().threeDWidget(0).threeDView().resetFocalPoint",
+                  "receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
+                  "original_receiver_expr": "threeDView",
+                  "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
+                  "proof_kind": "live_instance",
+                  "attr": "resetFocalPoint",
+                  "lineno": 9,
+                  "is_attribute": false,
+                  "method_exists": true,
+                  "live_receiver_type": "qMRMLThreeDView",
+                  "receiver_type": "qMRMLThreeDView",
+                  "evidence_source": "live_probe_success"
                 }
               ],
               "unresolved": [],
@@ -40454,7 +41012,7 @@
         }
       ],
       "api_probe_result": {
-        "probed": 22,
+        "probed": 27,
         "failures": [],
         "revised": 0,
         "syntax_skipped": [],
@@ -40559,6 +41117,20 @@
               "evidence_source": "live_probe_success"
             },
             {
+              "chain": "roiNode.SetName",
+              "receiver_expr": "slicer.vtkMRMLMarkupsROINode",
+              "original_receiver_expr": "roiNode",
+              "expanded_receiver_expr": "slicer.vtkMRMLMarkupsROINode",
+              "receiver_type": "vtkMRMLMarkupsROINode",
+              "proof_kind": "class_type",
+              "attr": "SetName",
+              "lineno": 2,
+              "is_attribute": false,
+              "method_exists": true,
+              "live_receiver_type": "type",
+              "evidence_source": "live_probe_success"
+            },
+            {
               "chain": "roiNode.GetName",
               "receiver_expr": "slicer.vtkMRMLMarkupsROINode",
               "original_receiver_expr": "roiNode",
@@ -40566,7 +41138,7 @@
               "receiver_type": "vtkMRMLMarkupsROINode",
               "proof_kind": "class_type",
               "attr": "GetName",
-              "lineno": 4,
+              "lineno": 3,
               "is_attribute": false,
               "method_exists": true,
               "live_receiver_type": "type",
@@ -40766,6 +41338,62 @@
               "method_exists": true,
               "live_receiver_type": "qMRMLSegmentEditorWidget",
               "receiver_type": "qMRMLSegmentEditorWidget",
+              "evidence_source": "live_probe_success"
+            },
+            {
+              "chain": "slicer.app.layoutManager",
+              "receiver_expr": "slicer.app",
+              "original_receiver_expr": "slicer.app",
+              "expanded_receiver_expr": "slicer.app",
+              "proof_kind": "live_instance",
+              "attr": "layoutManager",
+              "lineno": 4,
+              "is_attribute": false,
+              "method_exists": true,
+              "live_receiver_type": "qSlicerApplication",
+              "receiver_type": "qSlicerApplication",
+              "evidence_source": "live_probe_success"
+            },
+            {
+              "chain": "slicer.app.layoutManager().threeDWidget",
+              "receiver_expr": "slicer.app.layoutManager()",
+              "original_receiver_expr": "layoutManager",
+              "expanded_receiver_expr": "slicer.app.layoutManager()",
+              "proof_kind": "live_instance",
+              "attr": "threeDWidget",
+              "lineno": 5,
+              "is_attribute": false,
+              "method_exists": true,
+              "live_receiver_type": "qSlicerLayoutManager",
+              "receiver_type": "qSlicerLayoutManager",
+              "evidence_source": "live_probe_success"
+            },
+            {
+              "chain": "slicer.app.layoutManager().threeDWidget(0).threeDView",
+              "receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
+              "original_receiver_expr": "threeDWidget",
+              "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0)",
+              "proof_kind": "live_instance",
+              "attr": "threeDView",
+              "lineno": 6,
+              "is_attribute": false,
+              "method_exists": true,
+              "live_receiver_type": "qMRMLThreeDWidget",
+              "receiver_type": "qMRMLThreeDWidget",
+              "evidence_source": "live_probe_success"
+            },
+            {
+              "chain": "slicer.app.layoutManager().threeDWidget(0).threeDView().resetFocalPoint",
+              "receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
+              "original_receiver_expr": "threeDView",
+              "expanded_receiver_expr": "slicer.app.layoutManager().threeDWidget(0).threeDView()",
+              "proof_kind": "live_instance",
+              "attr": "resetFocalPoint",
+              "lineno": 9,
+              "is_attribute": false,
+              "method_exists": true,
+              "live_receiver_type": "qMRMLThreeDView",
+              "receiver_type": "qMRMLThreeDView",
               "evidence_source": "live_probe_success"
             }
           ],

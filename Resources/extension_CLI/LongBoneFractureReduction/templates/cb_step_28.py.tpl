@@ -1,4 +1,4 @@
-# --- LongBoneFractureReduction: Click the "Initialize registration" button. ---
+# --- LongBoneFractureReduction: Click the "Detect fracture surfaces" button. ---
 # [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
@@ -25,9 +25,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the LongBoneFractureReduction module widget for 'btnInitialize'.")
-if not hasattr(_widget, 'onInitialize'):
-    raise RuntimeError("LongBoneFractureReduction widget has no handler 'onInitialize' for 'btnInitialize'; regenerate the CLI.")
-_widget.onInitialize()
-print("[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnInitialize' via onInitialize().")
+    raise RuntimeError("Could not obtain the LongBoneFractureReduction module widget for 'btnDetect'.")
+if not hasattr(_widget, 'onDetect'):
+    raise RuntimeError("LongBoneFractureReduction widget has no handler 'onDetect' for 'btnDetect'; regenerate the CLI.")
+_widget.onDetect()
+print("[LongBoneFractureReduction] Step 'cb_step_28': clicked 'btnDetect' via onDetect().")
 

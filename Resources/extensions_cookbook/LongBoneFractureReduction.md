@@ -24,9 +24,10 @@
 22. [op=user_interaction] In the 2D view, click to select the moving part.
 23. [op=user_choice] In the "Reference segmentation (fixed)" section, select the reference segmentation node.
 24. [op=extension_op] Click the "3D Reconstruction (reference)" button.
-25. [op=user_choice] In the "Moving segmentation (repositioned)" section, select the moving segmentation node.
-26. [op=extension_op] Click the "3D Reconstruction (moving)" button.
-27. [op=extension_op] Click the "Detect fracture surfaces" button.
-28. [op=extension_op] Click the "Initialize registration" button.
-29. [op=user_interaction] Manually adjust the rotation and displacement of the moving part.
-30. [op=extension_op] Click the "Reduction planning" button.
+25. [op=slicer_op] For the 3D view, click the "Center view" botton.
+26. [op=user_choice] In the "Moving segmentation (repositioned)" section, select the moving segmentation node.
+27. [op=extension_op] Click the "3D Reconstruction (moving)" button.
+28. [op=extension_op] Click the "Detect fracture surfaces" button.
+29. [op=extension_op] Click the "Initialize registration" button.
+30. [op=user_interaction] Manually adjust the rotation and displacement of the moving part.
+31. [op=extension_op] Click the "Reduction planning" button.

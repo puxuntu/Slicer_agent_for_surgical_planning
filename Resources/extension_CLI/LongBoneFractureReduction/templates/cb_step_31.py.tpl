@@ -29,5 +29,5 @@ if _widget is None:
 if not hasattr(_widget, 'onReduce'):
     raise RuntimeError("LongBoneFractureReduction widget has no handler 'onReduce' for 'btnReduce'; regenerate the CLI.")
 _widget.onReduce()
-print("[LongBoneFractureReduction] Step 'cb_step_30': clicked 'btnReduce' via onReduce().")
+print("[LongBoneFractureReduction] Step 'cb_step_31': clicked 'btnReduce' via onReduce().")
 

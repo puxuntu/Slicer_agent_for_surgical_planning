@@ -21,11 +21,15 @@
           "operation_id": "cb_step_1_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the CT volume to process.",
+          "description": "Select the CT volume for processing in the Input volume section.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
+          "slicer_api_keywords": [
+            "vtkMRMLScalarVolumeNode",
+            "SubjectHierarchy",
+            "select volume"
+          ],
           "parameter_name": "inputVolume",
           "node_class": "vtkMRMLScalarVolumeNode",
           "confidence": "high",
@@ -72,12 +76,12 @@
           "operation_id": "cb_step_2_op_1",
           "operation_type": "branch_op",
           "intent": "",
-          "description": "Optionally crop the volume to an ROI; if not required, skip the ROI crop steps to step 7.",
+          "description": "Ask whether to crop the input volume to an ROI and branch accordingly.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
-          "parameter_name": "crop_volume_enabled",
+          "parameter_name": "cropVolumeRequired",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -126,13 +130,12 @@
           "description": "Create an empty MarkupsROI node named Longbone_Region in the Markups module.",
           "extension_method_hint": "",
           "extension_function_hint": "",
-          "slicer_op_category": "markups_display",
+          "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "vtkMRMLMarkupsROINode",
             "AddNewNodeByClass",
             "SetName",
-            "Markups",
-            "ROI"
+            "Longbone_Region"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLMarkupsROINode",
@@ -180,7 +183,7 @@
           "operation_id": "cb_step_4_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Place the ROI by clicking and adjusting it in the Slice views.",
+          "description": "Manually click and adjust on the Slice views to define the Longbone_Region ROI.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -188,8 +191,7 @@
             "vtkMRMLMarkupsROINode",
             "place",
             "SetActiveListID",
-            "Slice views",
-            "ROI"
+            "Slice views"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLMarkupsROINode",
@@ -202,7 +204,7 @@
         "interaction_kind": "markup_placement",
         "interaction_type": "roi",
         "node_class": "vtkMRMLMarkupsROINode",
-        "placement_instructions": "Click and adjust in the Slice views to draw the ROI bounding box around the long bone region.",
+        "placement_instructions": "Manually click and adjust on the Slice views to create the Longbone_Region ROI.",
         "interaction_owner": "runtime_template",
         "placement_starter_method": "",
         "created_node_source": "previous_step"
@@ -247,11 +249,15 @@
           "operation_id": "cb_step_5_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the MarkupsROI node drawn for Longbone_Region.",
+          "description": "Select the drawn MarkupsROI node in the ROI section.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
-          "slicer_api_keywords": [],
+          "slicer_api_keywords": [
+            "vtkMRMLMarkupsROINode",
+            "SubjectHierarchy",
+            "select ROI"
+          ],
           "parameter_name": "roiNode",
           "node_class": "vtkMRMLMarkupsROINode",
           "confidence": "high",
@@ -298,15 +304,14 @@
           "operation_id": "cb_step_6_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Confirm cropping of the input volume to the selected ROI.",
+          "description": "Click the Confirm crop button to crop the input volume to the selected ROI.",
           "extension_method_hint": "cropVolumeToRoi",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "cropVolumeToRoi",
             "vtkMRMLMarkupsROINode",
-            "vtkMRMLScalarVolumeNode",
-            "crop volume"
+            "vtkMRMLScalarVolumeNode"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLScalarVolumeNode",
@@ -354,15 +359,15 @@
           "operation_id": "cb_step_7_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Create a new segmentation named Reference_Segmentation in Segment Editor.",
+          "description": "Create a new segmentation named Reference_Segmentation in the Segment Editor module.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "vtkMRMLSegmentationNode",
-            "Segment Editor",
             "AddNewNodeByClass",
-            "SetName"
+            "SetName",
+            "Reference_Segmentation"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLSegmentationNode",
@@ -417,9 +422,9 @@
           "slicer_api_keywords": [
             "vtkMRMLSegmentationNode",
             "AddSegment",
-            "SetName",
+            "RenameSegment",
             "SetColor",
-            "Segment Editor"
+            "Sage Green"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLSegmentationNode",
@@ -474,8 +479,7 @@
           "slicer_api_keywords": [
             "Segment Editor",
             "ThresholdEffect",
-            "ActivateEffect",
-            "Threshold"
+            "setActiveEffect"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -523,17 +527,17 @@
           "operation_id": "cb_step_10_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Adjust the threshold slider to set the reference segmentation range.",
+          "description": "Adjust the threshold slider to set the segmentation range.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "Segment Editor",
             "ThresholdEffect",
-            "SetThresholdRange",
-            "threshold slider"
+            "setMinimumThreshold",
+            "setMaximumThreshold",
+            "thresholdRange"
           ],
-          "parameter_name": "threshold_range_reference",
+          "parameter_name": "thresholdRange",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -579,14 +583,14 @@
           "operation_id": "cb_step_11_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Apply the Threshold effect to create the reference segment.",
+          "description": "Apply the current threshold effect.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "Segment Editor",
             "ThresholdEffect",
-            "Apply"
+            "apply",
+            "Segment Editor"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -634,15 +638,14 @@
           "operation_id": "cb_step_12_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Open the Islands effect in Segment Editor.",
+          "description": "Activate the Islands effect in Segment Editor.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "Segment Editor",
             "IslandsEffect",
-            "ActivateEffect",
-            "Islands"
+            "setActiveEffect"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -690,15 +693,14 @@
           "operation_id": "cb_step_13_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Select the Keep selected island option in the Islands effect.",
+          "description": "Configure the Islands effect to keep the selected island.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "Segment Editor",
             "IslandsEffect",
-            "Keep selected island",
-            "KeepSelectedIsland"
+            "KeepSelectedIsland",
+            "setOperation"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -746,7 +748,7 @@
           "operation_id": "cb_step_14_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Click in the 2D view to select the reference part using the Islands effect.",
+          "description": "Click in the 2D view to select the reference part for the Islands effect.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -754,8 +756,7 @@
             "Segment Editor",
             "IslandsEffect",
             "Keep selected island",
-            "click",
-            "select island"
+            "click in 2D view"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -768,7 +769,7 @@
         "interaction_kind": "module_tool_interaction",
         "interaction_type": "generic",
         "node_class": "",
-        "placement_instructions": "Click in the 2D view to select the reference part using the Islands effect.",
+        "placement_instructions": "Click in the 2D view to select the reference part.",
         "interaction_owner": "",
         "placement_starter_method": "",
         "created_node_source": ""
@@ -813,15 +814,15 @@
           "operation_id": "cb_step_15_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Create a new segmentation named Moving_Segmentation in Segment Editor.",
+          "description": "Create a new segmentation named Moving_Segmentation in the Segment Editor module.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "vtkMRMLSegmentationNode",
-            "Segment Editor",
             "AddNewNodeByClass",
-            "SetName"
+            "SetName",
+            "Moving_Segmentation"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLSegmentationNode",
@@ -876,9 +877,9 @@
           "slicer_api_keywords": [
             "vtkMRMLSegmentationNode",
             "AddSegment",
-            "SetName",
+            "RenameSegment",
             "SetColor",
-            "Segment Editor"
+            "Cyan"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLSegmentationNode",
@@ -926,15 +927,14 @@
           "operation_id": "cb_step_17_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Activate the Threshold effect in Segment Editor for the moving segmentation.",
+          "description": "Activate the Threshold effect for the moving segmentation.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "Segment Editor",
             "ThresholdEffect",
-            "ActivateEffect",
-            "Threshold"
+            "setActiveEffect"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -983,17 +983,17 @@
           "operation_id": "cb_step_18_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Adjust the threshold slider to set the moving segmentation range, using the step 10 threshold as the default.",
+          "description": "Adjust the moving threshold slider to set the segmentation range; default matches the reference threshold set in Step 10.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "Segment Editor",
             "ThresholdEffect",
-            "SetThresholdRange",
-            "threshold slider"
+            "setMinimumThreshold",
+            "setMaximumThreshold",
+            "movingThresholdRange"
           ],
-          "parameter_name": "threshold_range_moving",
+          "parameter_name": "movingThresholdRange",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -1039,14 +1039,14 @@
           "operation_id": "cb_step_19_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Apply the Threshold effect to create the moving segment.",
+          "description": "Apply the current threshold effect for the moving segmentation.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "Segment Editor",
             "ThresholdEffect",
-            "Apply"
+            "apply",
+            "Segment Editor"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -1094,15 +1094,14 @@
           "operation_id": "cb_step_20_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Open the Islands effect in Segment Editor for the moving segmentation.",
+          "description": "Activate the Islands effect for the moving segmentation.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
             "Segment Editor",
             "IslandsEffect",
-            "ActivateEffect",
-            "Islands"
+            "setActiveEffect"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -1150,15 +1149,14 @@
           "operation_id": "cb_step_21_op_1",
           "operation_type": "slicer_op",
           "intent": "",
-          "description": "Select the Keep selected island option for the moving segmentation.",
+          "description": "Configure the Islands effect to keep the selected island for the moving segmentation.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "generic_slicer_api",
           "slicer_api_keywords": [
-            "Segment Editor",
             "IslandsEffect",
-            "Keep selected island",
-            "KeepSelectedIsland"
+            "KeepSelectedIsland",
+            "setOperation"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -1206,7 +1204,7 @@
           "operation_id": "cb_step_22_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Click in the 2D view to select the moving part using the Islands effect.",
+          "description": "Click in the 2D view to select the moving part for the Islands effect.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -1214,8 +1212,7 @@
             "Segment Editor",
             "IslandsEffect",
             "Keep selected island",
-            "click",
-            "select island"
+            "click in 2D view"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -1228,7 +1225,7 @@
         "interaction_kind": "module_tool_interaction",
         "interaction_type": "generic",
         "node_class": "",
-        "placement_instructions": "Click in the 2D view to select the moving part using the Islands effect.",
+        "placement_instructions": "Click in the 2D view to select the moving part.",
         "interaction_owner": "",
         "placement_starter_method": "",
         "created_node_source": ""
@@ -1273,14 +1270,14 @@
           "operation_id": "cb_step_23_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the reference segmentation node for 3D reconstruction.",
+          "description": "Select the reference segmentation node in the Reference segmentation (fixed) section.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "vtkMRMLSegmentationNode",
-            "referenceSegmentationTree",
-            "select"
+            "SubjectHierarchy",
+            "select reference segmentation"
           ],
           "parameter_name": "referenceSegmentation",
           "node_class": "vtkMRMLSegmentationNode",
@@ -1328,14 +1325,15 @@
           "operation_id": "cb_step_24_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Run 3D reconstruction of the reference segmentation.",
+          "description": "Click 3D Reconstruction (reference) to reconstruct the reference segmentation into a model.",
           "extension_method_hint": "reconstructModelFromSegment",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "reconstructModelFromSegment",
+            "vtkMRMLSegmentationNode",
             "vtkMRMLModelNode",
-            "closed surface"
+            "3D reconstruction"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLModelNode",
@@ -1370,8 +1368,8 @@
     {
       "step_id": "cb_step_25",
       "index": 24,
-      "description": "In the \"Moving segmentation (repositioned)\" section, select the moving segmentation node.",
-      "operation_type": "user_choice",
+      "description": "For the 3D view, click the \"Center view\" botton.",
+      "operation_type": "slicer_op",
       "depends_on": [
         "cb_step_24"
       ],
@@ -1381,16 +1379,72 @@
       "operations": [
         {
           "operation_id": "cb_step_25_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Click the Center view button for the 3D view to center the reference reconstruction.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "layout_slice_view",
+          "slicer_api_keywords": [
+            "vtkMRMLViewNode",
+            "Center view",
+            "3D view",
+            "reset focal point"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_25_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_26",
+      "index": 25,
+      "description": "In the \"Moving segmentation (repositioned)\" section, select the moving segmentation node.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_25"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_26_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the moving segmentation node for 3D reconstruction.",
+          "description": "Select the moving segmentation node in the Moving segmentation (repositioned) section.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "vtkMRMLSegmentationNode",
-            "movingSegmentationTree",
-            "select"
+            "SubjectHierarchy",
+            "select moving segmentation"
           ],
           "parameter_name": "movingSegmentation",
           "node_class": "vtkMRMLSegmentationNode",
@@ -1423,87 +1477,33 @@
       }
     },
     {
-      "step_id": "cb_step_26",
-      "index": 25,
+      "step_id": "cb_step_27",
+      "index": 26,
       "description": "Click the \"3D Reconstruction (moving)\" button.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_25"
+        "cb_step_26"
       ],
       "is_optional": false,
       "method_name": "reconstructModelFromSegment",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_26_op_1",
+          "operation_id": "cb_step_27_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Run 3D reconstruction of the moving segmentation.",
+          "description": "Click 3D Reconstruction (moving) to reconstruct the moving segmentation into a model.",
           "extension_method_hint": "reconstructModelFromSegment",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "reconstructModelFromSegment",
+            "vtkMRMLSegmentationNode",
             "vtkMRMLModelNode",
-            "closed surface"
+            "3D reconstruction"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLModelNode",
-          "confidence": "high",
-          "required": true
-        }
-      ],
-      "parameter_roles": {},
-      "interaction": {},
-      "operation_model": {
-        "step_type": "extension_op",
-        "op_types": [
-          "extension_op"
-        ],
-        "operation_intents": [],
-        "invokes_extension_method": true,
-        "invokes_extension_function": false,
-        "invokes_slicer_api": false,
-        "implementation_uses_slicer_api": false,
-        "allow_module_switch": false,
-        "produces_interaction_state": false,
-        "interaction_kinds": []
-      },
-      "template_contract": {
-        "template_file": "templates/cb_step_26.py.tpl",
-        "pre_template_file": "",
-        "post_template_file": "",
-        "required": true,
-        "allow_instruction_only": false
-      }
-    },
-    {
-      "step_id": "cb_step_27",
-      "index": 26,
-      "description": "Click the \"Detect fracture surfaces\" button.",
-      "operation_type": "extension_op",
-      "depends_on": [
-        "cb_step_26"
-      ],
-      "is_optional": false,
-      "method_name": "detectSurfaces",
-      "extension_function_name": "",
-      "operations": [
-        {
-          "operation_id": "cb_step_27_op_1",
-          "operation_type": "extension_op",
-          "intent": "",
-          "description": "Detect the fracture surfaces.",
-          "extension_method_hint": "detectSurfaces",
-          "extension_function_hint": "",
-          "slicer_op_category": "",
-          "slicer_api_keywords": [
-            "detectSurfaces",
-            "fracture surfaces",
-            "vtkMRMLModelNode"
-          ],
-          "parameter_name": "",
-          "node_class": "",
           "confidence": "high",
           "required": true
         }
@@ -1535,31 +1535,31 @@
     {
       "step_id": "cb_step_28",
       "index": 27,
-      "description": "Click the \"Initialize registration\" button.",
+      "description": "Click the \"Detect fracture surfaces\" button.",
       "operation_type": "extension_op",
       "depends_on": [
         "cb_step_27"
       ],
       "is_optional": false,
-      "method_name": "initializeRegistration",
+      "method_name": "detectSurfaces",
       "extension_function_name": "",
       "operations": [
         {
           "operation_id": "cb_step_28_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Initialize registration.",
-          "extension_method_hint": "initializeRegistration",
+          "description": "Detect fracture surfaces on the reconstructed reference and moving models.",
+          "extension_method_hint": "detectSurfaces",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
-            "initializeRegistration",
-            "vtkMRMLLinearTransformNode",
-            "transform chain",
-            "registration"
+            "detectSurfaces",
+            "vtkMRMLModelNode",
+            "fracture surface",
+            "detection"
           ],
           "parameter_name": "",
-          "node_class": "vtkMRMLLinearTransformNode",
+          "node_class": "",
           "confidence": "high",
           "required": true
         }
@@ -1591,29 +1591,84 @@
     {
       "step_id": "cb_step_29",
       "index": 28,
+      "description": "Click the \"Initialize registration\" button.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_28"
+      ],
+      "is_optional": false,
+      "method_name": "initializeRegistration",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_29_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Initialize registration between the detected fracture surfaces.",
+          "extension_method_hint": "initializeRegistration",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "initializeRegistration",
+            "vtkMRMLLinearTransformNode",
+            "shaft frame",
+            "registration"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLLinearTransformNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": true,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_29.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_30",
+      "index": 29,
       "description": "Manually adjust the rotation and displacement of the moving part.",
       "operation_type": "user_interaction",
       "depends_on": [
-        "cb_step_28"
+        "cb_step_29"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_29_op_1",
+          "operation_id": "cb_step_30_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Manually adjust the rotation and displacement of the moving part.",
+          "description": "Manually adjust the rotation and displacement of the moving part to align the fracture.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "vtkMRMLLinearTransformNode",
-            "rotate",
-            "translate",
-            "moving model",
-            "manual adjustment"
+            "Translate",
+            "Rotate",
+            "transform handles"
           ],
           "parameter_name": "",
           "node_class": "",
@@ -1626,7 +1681,7 @@
         "interaction_kind": "view_adjustment",
         "interaction_type": "generic",
         "node_class": "",
-        "placement_instructions": "",
+        "placement_instructions": "Manually adjust the rotation and displacement of the moving part in the 3D view.",
         "interaction_owner": "",
         "placement_starter_method": "",
         "created_node_source": ""
@@ -1649,40 +1704,40 @@
       },
       "template_contract": {
         "template_file": "",
-        "pre_template_file": "templates/cb_step_29_pre.py.tpl",
-        "post_template_file": "templates/cb_step_29_post.py.tpl",
+        "pre_template_file": "templates/cb_step_30_pre.py.tpl",
+        "post_template_file": "templates/cb_step_30_post.py.tpl",
         "required": true,
         "allow_instruction_only": true
       }
     },
     {
-      "step_id": "cb_step_30",
-      "index": 29,
+      "step_id": "cb_step_31",
+      "index": 30,
       "description": "Click the \"Reduction planning\" button.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_29"
+        "cb_step_30"
       ],
       "is_optional": false,
       "method_name": "applyReductionFromInitialization",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_30_op_1",
+          "operation_id": "cb_step_31_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Run reduction planning.",
+          "description": "Click Reduction planning to compute and apply the planned fracture reduction.",
           "extension_method_hint": "applyReductionFromInitialization",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "applyReductionFromInitialization",
-            "reduction planning",
+            "vtkMRMLLinearTransformNode",
             "ICP",
-            "registration"
+            "reduction"
           ],
           "parameter_name": "",
-          "node_class": "",
+          "node_class": "vtkMRMLLinearTransformNode",
           "confidence": "high",
           "required": true
         }
@@ -1704,7 +1759,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_30.py.tpl",
+        "template_file": "templates/cb_step_31.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -1739,6 +1794,7 @@
       "cb_step_29",
       "cb_step_3",
       "cb_step_30",
+      "cb_step_31",
       "cb_step_4",
       "cb_step_5",
       "cb_step_6",

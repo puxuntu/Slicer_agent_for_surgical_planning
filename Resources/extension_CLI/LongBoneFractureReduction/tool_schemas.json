@@ -39,7 +39,8 @@
               "cb_step_27",
               "cb_step_28",
               "cb_step_29",
-              "cb_step_30"
+              "cb_step_30",
+              "cb_step_31"
             ],
             "description": "Which workflow step to execute"
           },

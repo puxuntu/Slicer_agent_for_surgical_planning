@@ -1,4 +1,4 @@
-# --- LongBoneFractureReduction: Click the "3D Reconstruction (moving)" button. ---
+# --- LongBoneFractureReduction: Click the "Initialize registration" button. ---
 # [source drive] derived from the scanned signal connection -- do not rewrite.
 import slicer
 # precondition:begin
@@ -25,9 +25,9 @@ if _widget is None:
     except Exception:
         _widget = None
 if _widget is None:
-    raise RuntimeError("Could not obtain the LongBoneFractureReduction module widget for 'btnReconstructMov'.")
-if not hasattr(_widget, 'onReconstructMoving'):
-    raise RuntimeError("LongBoneFractureReduction widget has no handler 'onReconstructMoving' for 'btnReconstructMov'; regenerate the CLI.")
-_widget.onReconstructMoving()
-print("[LongBoneFractureReduction] Step 'cb_step_26': clicked 'btnReconstructMov' via onReconstructMoving().")
+    raise RuntimeError("Could not obtain the LongBoneFractureReduction module widget for 'btnInitialize'.")
+if not hasattr(_widget, 'onInitialize'):
+    raise RuntimeError("LongBoneFractureReduction widget has no handler 'onInitialize' for 'btnInitialize'; regenerate the CLI.")
+_widget.onInitialize()
+print("[LongBoneFractureReduction] Step 'cb_step_29': clicked 'btnInitialize' via onInitialize().")
 

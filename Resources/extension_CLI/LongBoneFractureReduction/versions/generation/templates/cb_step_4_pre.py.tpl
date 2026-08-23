@@ -26,8 +26,8 @@ node = (_owned or _candidates)[-1] if (_owned or _candidates) else None
 if node is None:
     raise RuntimeError("No vtkMRMLMarkupsROINode found from previous placement step.")
 
-# The ROI node is created by the previous step. Keep it visible when a display
-# node already exists; do not attempt to create display nodes here.
+# The ROI node was created by a previous step and already has its display node.
+# Keep it visible; do not create a new display node here.
 displayNode = node.GetDisplayNode()
 if displayNode is not None:
     displayNode.SetVisibility(True)
@@ -38,5 +38,5 @@ if interactionNode is not None:
 _longbonefracturereduction_cb_step_4_id = node.GetID()
 remember_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_4", _longbonefracturereduction_cb_step_4_id, _workflow_runtime_repeat_index)
 
-print("[LongBoneFractureReduction] Please Click and adjust in the Slice views to draw the ROI bounding box around the long bone region.")
+print("[LongBoneFractureReduction] Please Manually click and adjust on the Slice views to create the Longbone_Region ROI.")
 print("When finished, press the 'Done' button in the workflow panel.")
