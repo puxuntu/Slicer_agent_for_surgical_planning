@@ -1,0 +1,30 @@
+--- templates/cb_step_31_pre.py.tpl (before)
++++ templates/cb_step_31_pre.py.tpl (after)
+@@ -1,6 +1,27 @@
++# [revised] Rewritten by the runtime revision agent (revision_20260909_215845).
++# Pre-revision package backed up under versions/revision_20260909_215845/.
++# Requested: do not show the decimatedMandible model in this step
++# Change: Hide the decimatedMandible model display while this step is active and restore its previous visibility afterwards.
+ # --- BoneReconstructionPlanner: Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles. (Setup) ---
+ import slicer
+ from SlicerAIAgentLib.workflow_state import remember_interaction_node
++
++# The decimatedMandible model sits in front of the cut planes in the mandible 3D view,
++# so keep it hidden while this step is active. Only that model is touched: its current
++# visibility is saved here and put back by the process template when the user is done.
++_cb31_decimatedMandible = None
++try:
++    _cb31_decimatedMandible = logic.getParameterNode().GetNodeReference("decimatedMandibleModelNode")
++except NameError:
++    _cb31_decimatedMandible = None
++if _cb31_decimatedMandible is None:
++    _cb31_decimatedMandible = slicer.mrmlScene.GetFirstNodeByName("decimatedMandible")
++_cb31_decimatedMandible_wasVisible = None
++if _cb31_decimatedMandible is not None:
++    _cb31_decimatedMandibleDisplayNode = _cb31_decimatedMandible.GetDisplayNode()
++    if _cb31_decimatedMandibleDisplayNode is not None:
++        _cb31_decimatedMandible_wasVisible = bool(_cb31_decimatedMandibleDisplayNode.GetVisibility())
++        _cb31_decimatedMandibleDisplayNode.SetVisibility(False)
+ 
+ # Reuse the markup node created by a previous step (do not create a duplicate).
+ # Prefer a node THIS extension owns. Slicer extensions tag their own nodes

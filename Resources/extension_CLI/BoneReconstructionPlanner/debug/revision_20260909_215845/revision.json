@@ -1,0 +1,38 @@
+{
+  "label": "revision_20260909_215845",
+  "time": "2026-09-09T21:58:45",
+  "extension": "BoneReconstructionPlanner",
+  "step_id": "cb_step_31",
+  "operation_type": "user_interaction",
+  "request": "do not show the decimatedMandible model in this step",
+  "summary": "Hide the decimatedMandible model display while this step is active and restore its previous visibility afterwards.",
+  "analysis": "The step only made the cut planes visible; nothing hid the decimatedMandible surface (vtkMRMLModelNode7, currently visible in the scene) which sits in front of the planes in the mandible 3D view. In the extension this model is the parameter-node reference \"decimatedMandibleModelNode\" (set in BoneReconstructionPlannerLogic.makeModels around line 2695, read by BoneReconstructionPlannerWidget.setOriginalMandibleVisility), so the model is resolved by that reference with a name fallback and its display node visibility is turned off for the duration of the step, then restored to its previous value when the user clicks Done.",
+  "rounds": 1,
+  "applied": [
+    "templates/cb_step_31_post.py.tpl",
+    "templates/cb_step_31_pre.py.tpl"
+  ],
+  "backup": "versions/revision_20260909_215845",
+  "error": "",
+  "templates": [
+    {
+      "rel_path": "templates/cb_step_31_post.py.tpl",
+      "role": "post",
+      "before_chars": 856,
+      "after_chars": 1867,
+      "placeholders_before": [],
+      "placeholders_after": [],
+      "warnings": []
+    },
+    {
+      "rel_path": "templates/cb_step_31_pre.py.tpl",
+      "role": "pre",
+      "before_chars": 2159,
+      "after_chars": 3466,
+      "placeholders_before": [],
+      "placeholders_after": [],
+      "warnings": []
+    }
+  ],
+  "unchanged": []
+}

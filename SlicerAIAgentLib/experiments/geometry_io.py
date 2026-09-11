@@ -111,6 +111,214 @@ def read_vtk_points(path: str) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# Legacy VTK PolyData, as a SURFACE
+# ---------------------------------------------------------------------------
+#
+# Deliberately without the "use VTK when it is importable" branch that
+# ``read_vtk_points`` has, and that is not an oversight. VTK's reader
+# triangulates strips, merges nothing, and reports cells its own way, so the
+# two branches would hand back meshes that differ in vertex count and face
+# order -- and every consumer here goes on to voxelise the result, where a
+# different mesh is a different volume. One reader means the number this
+# module produces inside Slicer is the number ``scripts/check_mandible_analysis.py``
+# proves outside it.
+
+_VTK_INT_DTYPES = {
+    "int": ">i4", "unsigned_int": ">u4", "long": ">i8", "unsigned_long": ">u8",
+    "vtktypeint32": ">i4", "vtktypeint64": ">i8", "vtkidtype": ">i8",
+}
+
+
+def _vtk_section(blob: bytes, keyword: bytes):
+    return re.search(rb"^" + keyword + rb"\s+(\d+)\s+(\S+)\s*\n", blob, re.MULTILINE)
+
+
+def _vtk_int_array(blob: bytes, start: int, count: int, dtype: str, binary: bool
+                   ) -> Tuple[np.ndarray, int]:
+    """``count`` integers at ``start``, and the offset just past them."""
+    if binary:
+        width = np.dtype(dtype).itemsize
+        return (np.frombuffer(blob[start:start + count * width], dtype=dtype).astype(np.int64),
+                start + count * width)
+    numbers: List[int] = []
+    text = blob[start:].decode("ascii", "replace")
+    consumed = start
+    for token in text.split():
+        try:
+            numbers.append(int(token))
+        except ValueError:
+            break
+        consumed = start + text.index(token) + len(token)
+        if len(numbers) >= count:
+            break
+    return np.asarray(numbers[:count], dtype=np.int64), consumed
+
+
+def _vtk_cells(blob: bytes, keyword: bytes, binary: bool) -> List[List[int]]:
+    """The cells of one legacy PolyData section, in either file layout.
+
+    Legacy VTK writes cells two ways and the file version does not always say
+    which: the classic ``POLYGONS n size`` followed by ``npts id id ...``
+    records, and (from file version 5.1) ``POLYGONS n_offsets n_connectivity``
+    followed by typed ``OFFSETS`` and ``CONNECTIVITY`` arrays. Reading the
+    second as the first yields cells with plausible-looking but wrong vertex
+    ids, so the layout is decided by looking for the ``OFFSETS`` keyword rather
+    than by trusting the version banner.
+    """
+    match = _vtk_section(blob, keyword)
+    if not match:
+        return []
+    first, second = int(match.group(1)), int(match.group(2))
+    start = match.end()
+
+    offsets_match = re.match(rb"\s*OFFSETS\s+(\S+)\s*\n", blob[start:start + 64])
+    if offsets_match:
+        dtype = _VTK_INT_DTYPES.get(
+            offsets_match.group(1).decode("ascii", "replace").lower(), ">i8")
+        offsets, cursor = _vtk_int_array(blob, start + offsets_match.end(), first,
+                                         dtype, binary)
+        connectivity_match = re.match(rb"\s*CONNECTIVITY\s+(\S+)\s*\n", blob[cursor:cursor + 64])
+        if connectivity_match is None:
+            return []
+        dtype = _VTK_INT_DTYPES.get(
+            connectivity_match.group(1).decode("ascii", "replace").lower(), ">i8")
+        connectivity = _vtk_int_array(blob, cursor + connectivity_match.end(), second,
+                                      dtype, binary)[0]
+        return [[int(v) for v in connectivity[offsets[i]:offsets[i + 1]]]
+                for i in range(len(offsets) - 1)]
+
+    # Classic layout: `second` counts the integers, not bytes, and legacy files
+    # write cell ids as 32-bit big-endian regardless of the writing machine.
+    raw = _vtk_int_array(blob, start, second, ">i4", binary)[0]
+    cells: List[List[int]] = []
+    cursor = 0
+    while cursor < len(raw) and len(cells) < first:
+        size = int(raw[cursor])
+        if size <= 0 or cursor + 1 + size > len(raw):
+            break
+        cells.append([int(v) for v in raw[cursor + 1:cursor + 1 + size]])
+        cursor += size + 1
+    return cells
+
+
+def read_vtk_mesh(path: str) -> Tuple[np.ndarray, np.ndarray]:
+    """``(vertices, faces)`` of a legacy .vtk PolyData, in the FILE's own frame.
+
+    Faces are triangles: a polygon is fanned and a triangle strip is unpacked
+    with the alternating winding VTK defines. Points no cell refers to are
+    dropped, which is not cosmetic -- Slicer's plane-cut output keeps the WHOLE
+    input point array and references a few hundred of them, so a bounding box
+    taken over ``POINTS`` describes the uncut bone and says nothing about the
+    piece that was actually saved.
+    """
+    with open(path, "rb") as handle:
+        blob = handle.read()
+    points_match = _vtk_section(blob, b"POINTS")
+    if not points_match:
+        return np.zeros((0, 3)), np.zeros((0, 3), dtype=np.int64)
+    count = int(points_match.group(1))
+    kind = points_match.group(2).decode("ascii", "replace").lower()
+    start = points_match.end()
+    binary = re.search(rb"^BINARY\s*$", blob[:points_match.start()], re.MULTILINE) is not None
+    if binary:
+        dtype = _VTK_DTYPES.get(kind, ">f4")
+        need = count * 3 * np.dtype(dtype).itemsize
+        if len(blob) - start < need:
+            raise ValueError(f"{path}: truncated POINTS block")
+        vertices = np.frombuffer(blob[start:start + need],
+                                 dtype=dtype).reshape(count, 3).astype(np.float64)
+        rest = blob[start + need:]
+    else:
+        vertices = _read_vtk_points_python(path)
+        rest = blob[start:]
+
+    faces: List[List[int]] = []
+    for polygon in _vtk_cells(rest, b"POLYGONS", binary):
+        for corner in range(1, len(polygon) - 1):
+            faces.append([polygon[0], polygon[corner], polygon[corner + 1]])
+    for strip in _vtk_cells(rest, b"TRIANGLE_STRIPS", binary):
+        for corner in range(len(strip) - 2):
+            triangle = strip[corner:corner + 3]
+            faces.append(triangle if corner % 2 == 0
+                         else [triangle[1], triangle[0], triangle[2]])
+
+    if not faces:
+        return vertices, np.zeros((0, 3), dtype=np.int64)
+    triangles = np.asarray(faces, dtype=np.int64)
+    used = np.unique(triangles)
+    remap = np.zeros(len(vertices), dtype=np.int64)
+    remap[used] = np.arange(len(used))
+    return vertices[used], remap[triangles]
+
+
+def vtk_coordinate_system(path: str) -> Optional[str]:
+    """``"lps"`` / ``"ras"`` from the file's own header comment, else None.
+
+    Slicer stamps ``3D Slicer output. SPACE=LPS`` into the second line of every
+    model it writes. That is a statement by the writer and is the only frame
+    evidence a ``.vtk`` carries; everything else is inference from anatomy.
+    """
+    with open(path, "rb") as handle:
+        head = handle.read(512)
+    match = re.search(rb"SPACE\s*=\s*(\w+)", head)
+    return match.group(1).decode("ascii", "replace").lower() if match else None
+
+
+def weld_mesh(vertices: np.ndarray, faces: np.ndarray, tolerance: float = 1e-4
+              ) -> Tuple[np.ndarray, np.ndarray]:
+    """Merge coincident vertices and drop the degenerate triangles that leaves.
+
+    Slicer's plane-cut models are *partially* welded: the cap and the wall meet
+    at points that are equal to the last bit but stored twice, so every edge
+    along the cut is referenced once rather than twice and the surface reads as
+    open. That is not a cosmetic defect. ``vtkPolyDataToImageStencil`` on such a
+    mesh over-fills a resected mandible by 4% and UNDER-fills a cut fibula
+    segment by 38%, and both come back as a plausible volume rather than an
+    error -- on the reference case the inflated mandible went on to make the
+    completion network predict a 45 cm3 blob instead of a 19 cm3 graft.
+
+    A ray-parity voxeliser is immune (it treats every triangle independently),
+    so welding is not what makes THIS module's numbers right. It is what makes
+    ``mesh_open_edges`` mean something: after welding, an open edge is a real
+    hole and is worth reporting.
+    """
+    vertices = np.asarray(vertices, dtype=np.float64)
+    faces = np.asarray(faces, dtype=np.int64)
+    if len(vertices) == 0 or len(faces) == 0:
+        return vertices, faces
+    key = np.round(vertices / float(tolerance)).astype(np.int64)
+    _unique, index, inverse = np.unique(key, axis=0, return_index=True, return_inverse=True)
+    merged = vertices[index]
+    triangles = inverse[faces]
+    keep = ((triangles[:, 0] != triangles[:, 1]) &
+            (triangles[:, 1] != triangles[:, 2]) &
+            (triangles[:, 0] != triangles[:, 2]))
+    return merged, triangles[keep]
+
+
+def mesh_open_edges(faces: np.ndarray) -> int:
+    """Edges not shared by exactly two triangles -- 0 on a watertight surface."""
+    faces = np.asarray(faces, dtype=np.int64)
+    if len(faces) == 0:
+        return 0
+    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
+    edges = np.sort(edges, axis=1)
+    counts = np.unique(edges, axis=0, return_counts=True)[1]
+    return int((counts != 2).sum())
+
+
+def mesh_volume_mm3(vertices: np.ndarray, faces: np.ndarray) -> float:
+    """Enclosed volume by the divergence theorem. Meaningful only if watertight."""
+    vertices = np.asarray(vertices, dtype=np.float64)
+    faces = np.asarray(faces, dtype=np.int64)
+    if len(faces) == 0:
+        return 0.0
+    triangle = vertices[faces]
+    return float(abs(np.einsum("ij,ij->i", triangle[:, 0],
+                               np.cross(triangle[:, 1], triangle[:, 2])).sum()) / 6.0)
+
+
+# ---------------------------------------------------------------------------
 # STL
 # ---------------------------------------------------------------------------
 

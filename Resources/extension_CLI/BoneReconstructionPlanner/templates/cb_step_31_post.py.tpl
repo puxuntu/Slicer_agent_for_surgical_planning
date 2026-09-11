@@ -1,0 +1,33 @@
+# [revised] Rewritten by the runtime revision agent (revision_20260909_215845).
+# Pre-revision package backed up under versions/revision_20260909_215845/.
+# Requested: do not show the decimatedMandible model in this step
+# Change: Hide the decimatedMandible model display while this step is active and restore its previous visibility afterwards.
+# --- BoneReconstructionPlanner: Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles. (Process) ---
+import slicer
+from SlicerAIAgentLib.workflow_state import resolve_interaction_node
+
+node = resolve_interaction_node(_workflow_runtime_extension, _workflow_runtime_id, "cb_step_31", "vtkMRMLMarkupsPlaneNode", _workflow_runtime_repeat_index)
+if node is None:
+    node = slicer.mrmlScene.GetNodeByID(_bonereconstructionplanner_cb_step_31_id)
+if node is None:
+    raise RuntimeError("Node not found for step 'cb_step_31'")
+
+# Exit placement mode
+interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+interactionNode.SwitchToViewTransformMode()
+
+# Put the decimatedMandible model back the way the setup template found it.
+try:
+    _cb31_decimatedMandible = _cb31_decimatedMandible
+except NameError:
+    _cb31_decimatedMandible = None
+try:
+    _cb31_decimatedMandible_wasVisible = _cb31_decimatedMandible_wasVisible
+except NameError:
+    _cb31_decimatedMandible_wasVisible = None
+if (_cb31_decimatedMandible is not None) and (_cb31_decimatedMandible_wasVisible is not None):
+    _cb31_decimatedMandibleDisplayNode = _cb31_decimatedMandible.GetDisplayNode()
+    if _cb31_decimatedMandibleDisplayNode is not None:
+        _cb31_decimatedMandibleDisplayNode.SetVisibility(bool(_cb31_decimatedMandible_wasVisible))
+
+print("[BoneReconstructionPlanner] Step 'cb_step_31' processed with %d control points." % node.GetNumberOfControlPoints())

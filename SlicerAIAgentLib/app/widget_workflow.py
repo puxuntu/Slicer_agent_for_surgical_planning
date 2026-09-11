@@ -23,11 +23,19 @@ AUTO_SELECT_SOLE_NODE_SETTLE_MS = 600
 
 
 class WidgetWorkflowMixin:
-    # Inert first item for every multi-selection combo: no option is pre-selected, so
-    # the user must ACTIVELY pick each selector. Picking a real option is what drives
-    # the extension's live combo (and thus activates the corresponding geometry). A
-    # pre-selected default would show a value the extension never activated. Excluded
-    # from the option list used to match/drive the live combo, so it never drives.
+    # Inert first item for a multi-selection combo whose SOURCE control starts on a
+    # prompt rather than on an option ("Choose the puncture site"): there the user
+    # must ACTIVELY pick, because picking is what drives the extension's live combo
+    # and activates the corresponding geometry, and a pre-selected value would show
+    # an answer the extension never activated. Excluded from the option list used to
+    # match/drive the live combo, so it never drives.
+    #
+    # A control that starts on a REAL option (the ROI page opens on "L&R" /
+    # "Posterior") gets no placeholder at all: that option is the extension's own
+    # answer -- read by doStepProcessing whether or not the surgeon touches the
+    # control -- so demanding a pick here would ask for a decision the original never
+    # asked for. Which shape a selector has is decided by the generator, from the
+    # scanned control (``default_value``), never guessed from the option list.
     _MULTI_CHOICE_PLACEHOLDER = "-- Select --"
 
     def _setupWorkflowUI(self):
@@ -557,11 +565,16 @@ class WidgetWorkflowMixin:
             self._workflowReviewContainer.setParent(None)
             self._workflowReviewContainer = None
         self._workflowMultiChoiceCombos = {}
+        # Which of those controls take SEVERAL answers ({param: kind}), so the
+        # read/drive paths dispatch on the control that is actually there rather
+        # than assuming currentText.
+        self._workflowMultiChoiceMulti = {}
         # Cleared with the combos it points at. The container below DESTROYS
         # them (reparent to None), so a surviving ordered list would hand
         # _onWorkflowMultiChoiceConfirmed freed C++ objects on the next
         # multi-selection step -- a crash in PythonQt, not an exception.
         self._workflowMultiChoiceOrdered = []
+        self._workflowMultiChoiceOrderedParams = []
         if getattr(self, "_workflowMultiChoiceContainer", None) is not None:
             # The container owns the per-selector combos + Confirm; reparenting to
             # None destroys them together.
@@ -2879,14 +2892,21 @@ class WidgetWorkflowMixin:
         also drives its extension counterpart LIVE on selection, so the 2D views
         update immediately as in the original widget."""
         items = [i for i in (state.get("choice_items") or []) if isinstance(i, dict)]
-        if len(items) < 2:
+        # One item is enough when that item is itself multi-select: the form is the
+        # only renderer that puts a tick list on screen, and every single-choice
+        # renderer below would turn it into a one-of-N dropdown -- which keeps one
+        # answer out of however many were ticked, and raises nothing.
+        if not items:
             return False
         container = qt.QWidget()
         form = qt.QFormLayout(container)
         form.setContentsMargins(0, 0, 0, 0)
         self._workflowMultiChoiceCombos = {}
+        self._workflowMultiChoiceMulti = {}
         self._workflowMultiChoiceOrdered = []
+        self._workflowMultiChoiceOrderedParams = []
         ordered = []  # (combo, options, anchor) in item order (drive order matters)
+        ordered_params = []  # the same items' parameter names, positionally
         for item in items:
             param = str(item.get("parameter_name") or "")
             if not param:
@@ -2897,25 +2917,49 @@ class WidgetWorkflowMixin:
             ]
             if not options and item.get("live_items"):
                 options = [str(o) for o in self._liveComboItemsByAnchor(item.get("question"))]
+            if item.get("multi_select") and options:
+                # This selector's source control is checkable: the surgeon ticks
+                # every level to instrument, not one of them. Reproduce that, and
+                # commit a LIST. Requires resolved options -- with none there is
+                # nothing to tick, so such an item falls through to the editable
+                # box below rather than rendering an empty list.
+                widget, kind = self._buildMultiSelectControl(
+                    options, item.get("widget_class"))
+                form.addRow(str(item.get("question") or param), widget)
+                self._workflowMultiChoiceCombos[param] = widget
+                self._workflowMultiChoiceMulti[param] = kind
+                ordered.append((widget, options, item.get("question")))
+                ordered_params.append(param)
+                continue
             combo = qt.QComboBox()
-            if options:
-                # Lead with an inert placeholder; do NOT pre-select any real option.
-                # The user must actively pick, and that pick is what activates the
-                # extension geometry (see _MULTI_CHOICE_PLACEHOLDER). Deliberately no
-                # default_value: mirrors the original combo, which starts unselected.
+            # The source control's own startup selection, when it has one. Only a
+            # value that is really among this selector's options counts -- a stale
+            # or renamed default must leave the selector unanswered rather than
+            # silently pick a neighbour.
+            default = str(item.get("default_value") or "")
+            if default not in options:
+                default = ""
+            if options and not default:
+                # The source control starts on a prompt, so this one does too: the
+                # user must actively pick, and that pick is what activates the
+                # extension geometry (see _MULTI_CHOICE_PLACEHOLDER).
                 combo.addItem(self._MULTI_CHOICE_PLACEHOLDER)
             for option in options:
                 combo.addItem(option)
             combo.setEditable(not options)  # free text only when nothing resolved
             if options:
-                combo.setCurrentIndex(0)  # the placeholder -- nothing chosen yet
+                # Index by POSITION in the list just built, not findText(): the
+                # option text is the extension's own and may contain anything.
+                combo.setCurrentIndex(options.index(default) if default else 0)
             form.addRow(str(item.get("question") or param), combo)
             self._workflowMultiChoiceCombos[param] = combo
             ordered.append((combo, options, item.get("question")))
+            ordered_params.append(param)
         if not self._workflowMultiChoiceCombos:
             container.setParent(None)
             return False
         self._workflowMultiChoiceOrdered = list(ordered)
+        self._workflowMultiChoiceOrderedParams = list(ordered_params)
         # Wire each combo to drive its live counterpart on USER selection, for the
         # immediate 2D-view feedback the original widget gives. Deliberately NOT
         # driven on initial render: on a loop-back re-entry the combos default to the
@@ -2924,7 +2968,13 @@ class WidgetWorkflowMixin:
         # line at a DEFAULT position). Driving on render would silently reset the
         # item the user already fixed in a prior iteration. The FINAL selections are
         # driven once, in item order, at commit instead (see the confirm handler).
-        for combo, options, anchor in ordered:
+        for (combo, options, anchor), param in zip(ordered, ordered_params):
+            if param in self._workflowMultiChoiceMulti:
+                # A tick list has no single "current" option to preview, and it
+                # would fire once per tick. It is mirrored onto the extension's own
+                # control by the step's emitted drive code at commit, which is also
+                # what raises if the control cannot be found.
+                continue
             combo.currentIndexChanged.connect(
                 lambda *a, o=options, an=anchor, cb=combo:
                     self._driveMultiChoicePreview(o, an, cb)
@@ -2940,8 +2990,18 @@ class WidgetWorkflowMixin:
 
     def _onWorkflowMultiChoiceConfirmed(self):
         combos = getattr(self, "_workflowMultiChoiceCombos", {}) or {}
+        multi = getattr(self, "_workflowMultiChoiceMulti", {}) or {}
         values = {}
         for param, combo in combos.items():
+            kind = multi.get(param)
+            if kind:
+                # A multi-select selector commits the LIST of ticked options, and
+                # counts as answered only once at least one is ticked -- the same
+                # rule the source extension enforces in its own validate().
+                ticked = self._multiSelectCheckedTexts(combo, kind)
+                if ticked:
+                    values[param] = ticked
+                continue
             try:
                 text = str(combo.currentText).strip()
             except Exception:
@@ -2956,9 +3016,95 @@ class WidgetWorkflowMixin:
         # later handler depends on (e.g. the diameter handler reads the fiducial index
         # the puncture-site handler set). This targets only the item the user is
         # configuring now (its selected index), never a previously fixed one.
-        for combo, options, anchor in getattr(self, "_workflowMultiChoiceOrdered", []) or []:
+        for (combo, options, anchor), param in zip(
+                getattr(self, "_workflowMultiChoiceOrdered", []) or [],
+                getattr(self, "_workflowMultiChoiceOrderedParams", []) or []):
+            if param in multi:
+                continue  # ticked rows are mirrored by the emitted drive code
             self._driveMultiChoicePreview(options, anchor, combo)
         self._commitWorkflowChoice(values)
+
+    def _buildMultiSelectControl(self, options, source_class):
+        """A control that takes SEVERAL of ``options`` at once, reproducing the
+        extension's own checkable combo. Returns ``(widget, kind)``.
+
+        ``kind`` is what the read path dispatches on, because the two shapes keep
+        their answer in different places: a ctkCheckableComboBox keeps it in the
+        MODEL (read with checkedIndexes(), written with setCheckState) while a
+        QListWidget keeps it on the items. The ctk control is preferred because it
+        IS what the source extension puts on screen -- same popup, same tick boxes
+        -- and because it stays one row high, which a 25-row vertebral-level list
+        in a module panel does not. The list is the fallback for a build whose ctk
+        does not carry the class: losing the exact look is acceptable, silently
+        rendering a one-of-N dropdown is not.
+        """
+        try:
+            if str(source_class or "").strip() != "QListWidget":
+                combo = ctk.ctkCheckableComboBox()
+                for option in options:
+                    combo.addItem(str(option))
+                # Prove it is really checkable before handing it over -- an
+                # unchecked assumption here degrades to a control that shows tick
+                # boxes and reports nothing ticked.
+                combo.checkedIndexes()
+                return combo, "check_combo"
+        except Exception:
+            logger.debug("ctkCheckableComboBox unavailable; using a tick list",
+                         exc_info=True)
+        listing = qt.QListWidget()
+        for option in options:
+            entry = qt.QListWidgetItem(str(option))
+            entry.setFlags(entry.flags() | qt.Qt.ItemIsUserCheckable)
+            entry.setCheckState(qt.Qt.Unchecked)
+            listing.addItem(entry)
+        listing.setMaximumHeight(140)
+        return listing, "check_list"
+
+    @staticmethod
+    def _multiSelectCheckedTexts(widget, kind):
+        """The options ticked in a multi-select control, in the control's own row
+        order (which is the order the source extension reads them in). Fail-soft:
+        an unreadable control returns nothing, which the confirm handler treats as
+        unanswered rather than as an empty answer."""
+        out = []
+        try:
+            if kind == "check_combo":
+                model = widget.model()
+                for index in widget.checkedIndexes():
+                    text = model.data(index)
+                    if text is not None:
+                        out.append(str(text))
+            else:
+                for row in range(widget.count):
+                    entry = widget.item(row)
+                    if entry is not None and entry.checkState() == qt.Qt.Checked:
+                        out.append(str(entry.text()))
+        except Exception:
+            logger.debug("Reading a multi-select control failed", exc_info=True)
+        return out
+
+    @staticmethod
+    def _setMultiSelectChecked(widget, kind, values):
+        """Tick exactly ``values`` in a multi-select control (used by voice, which
+        names one option per utterance and accumulates)."""
+        wanted = {str(v) for v in (values or [])}
+        try:
+            if kind == "check_combo":
+                model = widget.model()
+                for row in range(widget.count):
+                    index = model.index(row, 0)
+                    state = qt.Qt.Checked if str(widget.itemText(row)) in wanted \
+                        else qt.Qt.Unchecked
+                    widget.setCheckState(index, state)
+            else:
+                for row in range(widget.count):
+                    entry = widget.item(row)
+                    if entry is None:
+                        continue
+                    entry.setCheckState(
+                        qt.Qt.Checked if str(entry.text()) in wanted else qt.Qt.Unchecked)
+        except Exception:
+            logger.debug("Writing a multi-select control failed", exc_info=True)
 
     @staticmethod
     def _isComboWidget(widget):

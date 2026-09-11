@@ -183,6 +183,108 @@ class AnalyzerParameterMetadataMixin:
             return attrs[2], attrs[-1]
         return "", ""
 
+    # Qt properties whose value IS a two-state control state. A source can spell
+    # the same fact two ways -- ``if w.checked:`` (an attribute truth test) or
+    # ``if w.checkState == qt.Qt.Checked:`` (a comparison) -- and a scan that
+    # reads only the first loses the binding for every control written the second
+    # way, silently: the step then has no ui_parameter_binding, falls through to
+    # free-form generation, and ships whatever spelling the model guessed.
+    # Restricting the comparison form to these properties keeps the rule from
+    # inventing boolean semantics for ``currentIndex == 0``.
+    _BOOLEAN_STATE_PROPERTIES = {
+        "checked", "ischecked", "checkstate",
+        "visible", "isvisible", "enabled", "isenabled",
+    }
+
+    # Leaf tokens of the dotted enum spellings for those two states.
+    _STATE_ON_NAMES = {"checked", "on", "true"}
+    _STATE_OFF_NAMES = {"unchecked", "off", "false"}
+
+    @staticmethod
+    def _state_expression_is_on(node: ast.AST) -> Optional[bool]:
+        """Whether *node* names a control's ON state, or None when undecidable.
+
+        ``2`` / ``True`` / ``"True"`` / ``qt.Qt.Checked`` are ON; ``0`` /
+        ``qt.Qt.Unchecked`` are OFF. Anything else -- ``Qt.PartiallyChecked``, a
+        variable -- is undecidable, and the caller must then record nothing
+        rather than guess a polarity it cannot recover.
+        """
+        literal = AnalyzerParameterMetadataMixin._literal_parameter_value(node)
+        if isinstance(literal, bool):
+            return literal
+        if isinstance(literal, str):
+            lowered = literal.strip().lower()
+            if lowered in ("true", "false"):
+                return lowered == "true"
+            return None
+        if isinstance(literal, int):
+            return bool(literal)
+        if isinstance(node, ast.Attribute):
+            leaf = (node.attr or "").lower()
+            if leaf in AnalyzerParameterMetadataMixin._STATE_ON_NAMES:
+                return True
+            if leaf in AnalyzerParameterMetadataMixin._STATE_OFF_NAMES:
+                return False
+        return None
+
+    @staticmethod
+    def _widget_state_test(node: ast.AST) -> Tuple[str, str, bool]:
+        """Return (widget, property, polarity) for an ``if`` test on a control.
+
+        ``polarity`` is True when entering the branch means the control is ON.
+        Handles the plain attribute truth test, ``not`` of one, and the
+        comparison form ``w.checkState == qt.Qt.Checked`` in either operand
+        order with ``==`` / ``!=`` / ``is`` / ``is not``.
+        """
+        _self = AnalyzerParameterMetadataMixin
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            widget_name, prop, polarity = _self._widget_state_test(node.operand)
+            return widget_name, prop, (not polarity)
+        if isinstance(node, ast.Compare) and len(node.ops) == 1 and len(node.comparators) == 1:
+            op = node.ops[0]
+            if not isinstance(op, (ast.Eq, ast.NotEq, ast.Is, ast.IsNot)):
+                return "", "", True
+            for side, other in (
+                (node.left, node.comparators[0]),
+                (node.comparators[0], node.left),
+            ):
+                widget_name, prop = _self._widget_reference_from_expr(side)
+                if not widget_name:
+                    continue
+                if (prop or "").lower() not in _self._BOOLEAN_STATE_PROPERTIES:
+                    return "", "", True
+                is_on = _self._state_expression_is_on(other)
+                if is_on is None:
+                    return "", "", True
+                negated = isinstance(op, (ast.NotEq, ast.IsNot))
+                return widget_name, prop, (is_on != negated)
+            return "", "", True
+        widget_name, prop = _self._widget_reference_from_expr(node)
+        return widget_name, prop, True
+
+    @staticmethod
+    def _state_write_expression(node: ast.AST) -> str:
+        """Source text for a control-state write, when safely reproducible.
+
+        Only a literal (``2``) or a dotted module constant (``qt.Qt.Checked``)
+        qualifies: those mean the same thing inside a generated template, while
+        an expression rooted at ``self`` or a local name does not.
+        """
+        literal = AnalyzerParameterMetadataMixin._literal_parameter_value(node)
+        if isinstance(literal, (bool, int, float, str)):
+            return repr(literal)
+        parts = []
+        current = node
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if isinstance(current, ast.Name) and parts:
+            parts.append(current.id)
+            parts.reverse()
+            if parts[0] in ("qt", "ctk", "slicer", "vtk"):
+                return ".".join(parts)
+        return ""
+
     @staticmethod
     def _default_property_for_widget(qt_class: str, expr_property: str) -> str:
         prop = (expr_property or "").lower()
@@ -344,6 +446,7 @@ class AnalyzerParameterMetadataMixin:
             value_property: str = "",
             true_value: Any = None,
             false_value: Any = None,
+            write_form: Optional[Dict[str, str]] = None,
         ) -> None:
             if not widget_name or not role:
                 return
@@ -365,16 +468,39 @@ class AnalyzerParameterMetadataMixin:
                     )
                 )),
             })
-            role_entry = {
-                "parameter_name": role,
-                "access": access,
-                "value_property": value_property,
-            }
-            if true_value is not None or false_value is not None:
-                role_entry["true_value"] = true_value
-                role_entry["false_value"] = false_value
-            if role_entry not in entry["roles"]:
+            # The if- and else- branches of one GUI sync are two separate
+            # SetParameter calls, and the GUI-write scan below names the same
+            # role a third time. Merge them onto one role entry: downstream
+            # reads roles[0], so appending a second dict for the else branch
+            # silently dropped false_value, and appending a third would drop
+            # the write form with it.
+            role_key = (role, access, value_property)
+            role_entry = None
+            for existing in entry["roles"]:
+                key = (
+                    existing.get("parameter_name"),
+                    existing.get("access"),
+                    existing.get("value_property"),
+                )
+                if key == role_key:
+                    role_entry = existing
+                    break
+            if role_entry is None:
+                role_entry = {
+                    "parameter_name": role,
+                    "access": access,
+                    "value_property": value_property,
+                }
                 entry["roles"].append(role_entry)
+            if true_value is not None or false_value is not None:
+                role_entry.setdefault("true_value", None)
+                role_entry.setdefault("false_value", None)
+                if true_value is not None:
+                    role_entry["true_value"] = true_value
+                if false_value is not None:
+                    role_entry["false_value"] = false_value
+            if write_form:
+                role_entry["write_form"] = dict(write_form)
             entry["keywords"] = sorted(set(
                 entry.get("keywords", [])
                 + self._role_keywords(role)
@@ -386,15 +512,74 @@ class AnalyzerParameterMetadataMixin:
                 return node.value
             return self._literal_parameter_value(node)
 
-        def _find_if_widget_test(node: ast.AST) -> Tuple[str, str]:
+        def _find_if_widget_test(node: ast.AST):
+            """Nearest enclosing ``if`` whose test names a UI control.
+
+            Returns (widget, property, polarity, if_node). The ``if`` node comes
+            back so the branch membership test below is made against the SAME
+            statement the polarity was read from: the nearest ``if`` and the
+            nearest one that names a control are not always the same statement.
+            """
             parent = getattr(node, "_parent", None)
             while parent is not None:
                 if isinstance(parent, ast.If):
-                    widget_name, prop = self._widget_reference_from_expr(parent.test)
+                    widget_name, prop, polarity = self._widget_state_test(parent.test)
                     if widget_name:
-                        return widget_name, prop
+                        return widget_name, prop, polarity, parent
                 parent = getattr(parent, "_parent", None)
-            return "", ""
+            return "", "", True, None
+
+        def _in_orelse(node: ast.AST, if_node: ast.If) -> bool:
+            current = node
+            while current is not None and getattr(current, "_parent", None) is not if_node:
+                current = getattr(current, "_parent", None)
+            return current is not None and current in (if_node.orelse or [])
+
+        def _parameter_role_from_test(test: ast.AST, role_states: Dict) -> Tuple[str, bool]:
+            """(role, polarity) for a ``GetParameter("role") == "True"`` test.
+
+            The compared value is the extension's OWN spelling of the state, and
+            that spelling is not always boolean-shaped -- ``== "1"`` is as valid
+            as ``== "True"``. So an unrecognisable string is resolved against the
+            on/off strings the GUI-to-parameter scan already recorded for this
+            role, and left undecided when neither scan knows it. Guessing here
+            would invert the branch, which ships a step that ticks the box the
+            cookbook asked to clear.
+            """
+            if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+                role_name, polarity = _parameter_role_from_test(test.operand, role_states)
+                return role_name, (not polarity)
+            if not (isinstance(test, ast.Compare) and len(test.ops) == 1):
+                return "", True
+            op = test.ops[0]
+            if not isinstance(op, (ast.Eq, ast.NotEq, ast.Is, ast.IsNot)):
+                return "", True
+            for side, other in (
+                (test.left, test.comparators[0]),
+                (test.comparators[0], test.left),
+            ):
+                if not isinstance(side, ast.Call):
+                    continue
+                call_name = self._get_call_name(side)
+                if not call_name or not call_name.endswith("GetParameter") or not side.args:
+                    continue
+                role_arg = side.args[0]
+                if not isinstance(role_arg, ast.Constant) or not isinstance(role_arg.value, str):
+                    continue
+                role_name = role_arg.value
+                is_on = self._state_expression_is_on(other)
+                if is_on is None:
+                    literal = self._literal_parameter_value(other)
+                    states = role_states.get(role_name) or {}
+                    if literal in states.get("on", ()):
+                        is_on = True
+                    elif literal in states.get("off", ()):
+                        is_on = False
+                if is_on is None:
+                    continue
+                negated = isinstance(op, (ast.NotEq, ast.IsNot))
+                return role_name, (is_on != negated)
+            return "", True
 
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -419,25 +604,72 @@ class AnalyzerParameterMetadataMixin:
             # literal, while the widget is in the surrounding if condition.
             literal_value = _literal(node.args[1])
             if literal_value is not None:
-                test_widget, test_prop = _find_if_widget_test(node)
-                if test_widget:
-                    parent_if = getattr(node, "_parent", None)
-                    while parent_if is not None and not isinstance(parent_if, ast.If):
-                        parent_if = getattr(parent_if, "_parent", None)
-                    true_value = literal_value
-                    false_value = None
-                    if parent_if is not None:
-                        current_stmt = getattr(node, "_parent", None)
-                        while current_stmt is not None and getattr(current_stmt, "_parent", None) is not parent_if:
-                            current_stmt = getattr(current_stmt, "_parent", None)
-                        if current_stmt in getattr(parent_if, "orelse", []):
-                            false_value = literal_value
-                            true_value = None
+                test_widget, test_prop, test_polarity, test_if = _find_if_widget_test(node)
+                if test_widget and test_if is not None:
+                    # The branch asserts the control is ON when the test polarity
+                    # and the branch agree: the if-body of a positive test, or
+                    # the else-body of a negated one.
+                    asserts_on = test_polarity != _in_orelse(node, test_if)
                     _record(
                         test_widget, role, access, test_prop,
-                        true_value=true_value,
-                        false_value=false_value,
+                        true_value=literal_value if asserts_on else None,
+                        false_value=None if asserts_on else literal_value,
                     )
+
+        # Second channel, opposite direction: the extension writing its OWN
+        # control from the parameter -- if GetParameter(role) == "True":
+        # self.ui.w.checkState = 2, else = 0. It pairs widget with role
+        # independently of the GUI-to-parameter sync above, and it states the
+        # exact write form, which a generated step must reproduce: the state
+        # property is not always a bool, and on a ctkCheckablePushButton (whose
+        # indicator is checkState) writing checked is silently a no-op.
+        # The on/off strings the pass above recovered, so a parameter test
+        # written against a non-boolean spelling can still be read.
+        role_states: Dict[str, Dict[str, set]] = {}
+        for widget_entry in bindings.values():
+            for role_entry in widget_entry.get("roles") or []:
+                states = role_states.setdefault(
+                    role_entry.get("parameter_name", ""), {"on": set(), "off": set()}
+                )
+                if role_entry.get("true_value") is not None:
+                    states["on"].add(role_entry["true_value"])
+                if role_entry.get("false_value") is not None:
+                    states["off"].add(role_entry["false_value"])
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.If):
+                continue
+            role, polarity = _parameter_role_from_test(node.test, role_states)
+            if not role:
+                continue
+            branches = (
+                (node.body if polarity else (node.orelse or []), "on"),
+                ((node.orelse or []) if polarity else node.body, "off"),
+            )
+            writes = {}
+            for statements, state in branches:
+                for statement in statements:
+                    if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
+                        continue
+                    widget_name, prop = self._widget_reference_from_expr(statement.targets[0])
+                    if not widget_name:
+                        continue
+                    if (prop or "").lower() not in self._BOOLEAN_STATE_PROPERTIES:
+                        continue
+                    expression = self._state_write_expression(statement.value)
+                    if not expression:
+                        continue
+                    writes.setdefault((widget_name, prop), {})[state] = expression
+            for (widget_name, prop), forms in writes.items():
+                # Both halves or nothing: a one-sided write says how to turn the
+                # control on but not how to turn it off, and a step that can only
+                # move one way is worse than one that drives nothing.
+                if "on" not in forms or "off" not in forms:
+                    continue
+                _record(
+                    widget_name, role, "parameter_write", prop,
+                    write_form={"on": forms["on"], "off": forms["off"]},
+                )
 
         return bindings
 

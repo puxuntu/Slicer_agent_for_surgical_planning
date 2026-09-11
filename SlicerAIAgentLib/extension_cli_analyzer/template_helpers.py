@@ -608,7 +608,23 @@ class AnalyzerTemplateHelpersMixin:
         return "\n".join(lines) + "\n"
 
     def _generate_view_adjustment_pre_template(self, extension_name, step) -> str:
-        """Generate setup for interactions that do not create markups nodes."""
+        """Generate setup for interactions that do not create markups nodes.
+
+        The mouse is RELEASED here, not only on Done. A view adjustment is done
+        with the mouse in the views, so a placement mode left armed by an earlier
+        step means every click drops a control point instead of rotating the
+        slice -- and nothing raises: the step opens, the surgeon drags, and the
+        scene fills with points. The post-template already switches to
+        view-transform mode, which is this same fix applied one step too late to
+        help the person doing the adjusting.
+
+        Safe unconditionally: this branch is reached only for a step whose whole
+        content is "manipulate an existing view or handle", and no such step
+        wants a live placement mode. A step where the extension's OWN tool
+        consumes the clicks is a module_tool_interaction, generated elsewhere --
+        that one must NOT release the mode, which is why the release lives here
+        rather than in a shared interaction path.
+        """
         step_id = step.get("step_id", "")
         instructions = self._sanitize_interaction_instruction(
             step.get("placement_instructions"),
@@ -618,7 +634,12 @@ class AnalyzerTemplateHelpersMixin:
             *self._template_header_lines(extension_name, step, "Setup"),
             "import slicer",
             "",
-            "# This step is a view adjustment, not a Markups placement.",
+            "# This step is a view adjustment, not a Markups placement: give the",
+            "# views back to the mouse before the user starts adjusting.",
+            "interactionNode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
+            "if interactionNode is not None:",
+            "    interactionNode.SwitchToViewTransformMode()",
+            "",
             f"print(\"[{extension_name}] Please {instructions}\")",
             "print(\"When finished, press the 'Done' button in the workflow panel.\")",
         ]

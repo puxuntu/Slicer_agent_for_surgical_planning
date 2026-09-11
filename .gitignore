@@ -47,6 +47,11 @@ Resources/Skills/slicer-skill-full/**
 # Dense vector retrieval index and model cache (large local artifacts)
 Resources/Code_RAG/
 
+# The mandible shape-completion network (143 MB ONNX). It is the ground-truth
+# generator for the BoneReconstructionPlanner experiment, not source: copied in
+# from Test_data/.../Mandile_Reconstruction/deploy/ per that folder's own README.
+Resources/Models/
+
 # Debug / runtime output files
 logs/
 *_prompt_debug.txt

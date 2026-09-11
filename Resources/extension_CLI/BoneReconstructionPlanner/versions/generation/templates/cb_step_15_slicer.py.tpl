@@ -1,11 +1,13 @@
-# Toggle off slice visibility in 3D view for Red slice
+# Turn off 3D display ("Show in 3D") of the Red slice plane.
+layoutManager = slicer.app.layoutManager()
+sliceWidget = layoutManager.sliceWidget("Red")
 
-# Get the Red slice node via its named slice widget
-sliceNode = slicer.app.layoutManager().sliceWidget("Red").mrmlSliceNode()
+# The controller's setSliceVisible controls the slice node's SliceVisible
+# property (the "Show in 3D" checkbox).
+controller = sliceWidget.sliceController()
+controller.setSliceVisible(False)
 
-# Turn off slice visibility in 3D view (0 = off)
-sliceNode.SetSliceVisible(0)
-
-# Verify that the state was applied
-if sliceNode.GetSliceVisible() != 0:
-    raise RuntimeError("STATE_NOT_APPLIED: SliceVisible on Red slice")
+# Read back via the MRML node getter to confirm the state took effect.
+sliceNode = sliceWidget.mrmlSliceNode()
+if sliceNode.GetSliceVisible():
+    raise RuntimeError("STATE_NOT_APPLIED: SliceVisible")

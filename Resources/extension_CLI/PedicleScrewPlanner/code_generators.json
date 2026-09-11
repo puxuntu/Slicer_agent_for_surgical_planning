@@ -10,12 +10,12 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Select CT Volume",
-      "instruction": "In the 'Spine CT' section, choose the CT volume for processing.",
+      "title": "Select the CT volume",
+      "instruction": "Choose the CT volume to process.",
       "done_label": "Done",
-      "choice_label": "Choice",
-      "input_label": "Choice",
-      "object_label": "choice",
+      "choice_label": "Volume",
+      "input_label": "Volume",
+      "object_label": "volume",
       "repeat": {}
     },
     "operation_model": {
@@ -33,17 +33,17 @@
       "interaction_kinds": []
     },
     "choice_descriptor": {
-      "question": "In the \"Spine CT\" section, select the CT volume for processing.",
+      "question": "Select the CT volume for processing.",
       "choices": [],
-      "parameter_name": "choice_step_1",
+      "parameter_name": "ct_volume",
       "default_value": null,
       "ui_guidance": {
-        "title": "Select CT Volume",
-        "instruction": "In the 'Spine CT' section, choose the CT volume for processing.",
+        "title": "Select the CT volume",
+        "instruction": "Choose the CT volume to process.",
         "done_label": "Done",
-        "choice_label": "Choice",
-        "input_label": "Choice",
-        "object_label": "choice",
+        "choice_label": "Volume",
+        "input_label": "Volume",
+        "object_label": "volume",
         "repeat": {}
       }
     },
@@ -51,7 +51,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the input CT volume from the Spine CT section",
+        "description": "Select the CT volume for processing from the Spine CT section.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -74,11 +74,11 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "In the \"Spine CT\" section, select the CT volume for processing.",
+        "question": "Select the CT volume for processing.",
         "choices": [],
-        "parameter_name": "choice_step_1",
+        "parameter_name": "ct_volume",
         "default_value": null,
-        "value_kind": ""
+        "value_kind": "node"
       }
     ]
   },
@@ -93,8 +93,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Click Next on Load Image Volume page",
-      "instruction": "",
+      "title": "Continue from image loading",
+      "instruction": "Click Next in the '1. Load Image Volume' page.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -120,7 +120,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Advance to the next step after loading the image volume",
+        "description": "Advance from the Load Image Volume page to the ROI definition workflow.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -169,7 +169,7 @@
         "slicer.util.getModuleWidget('PedicleScrewPlanner').workflow.goForward"
       ],
       "operation_descriptions": [
-        "Advance to the next step after loading the image volume"
+        "Advance from the Load Image Volume page to the ROI definition workflow."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -186,12 +186,12 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust ROI Boundaries",
-      "instruction": "Manually adjust the boundaries of the ROI.",
+      "title": "Adjust the view",
+      "instruction": "Rotate or zoom the view to clearly see the ROI.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "roi",
+      "object_label": "view",
       "repeat": {}
     },
     "operation_model": {
@@ -210,28 +210,20 @@
         "interaction"
       ]
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_input",
-        "node_class": "vtkMRMLMarkupsROINode",
-        "parameter_name": null,
-        "step_id": "cb_step_3"
-      }
-    ],
     "pre_template_file": "templates/cb_step_3_pre.py.tpl",
     "post_template_file": "templates/cb_step_3_post.py.tpl",
     "interaction_descriptor": {
-      "interaction_type": "roi",
+      "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
-      "node_class": "vtkMRMLMarkupsROINode",
-      "placement_instructions": null,
+      "node_class": "",
+      "placement_instructions": "Manually adjust the boundaries of the ROI.",
       "ui_guidance": {
-        "title": "Adjust ROI Boundaries",
-        "instruction": "Manually adjust the boundaries of the ROI.",
+        "title": "Adjust the view",
+        "instruction": "Rotate or zoom the view to clearly see the ROI.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "roi",
+        "object_label": "view",
         "repeat": {}
       }
     },
@@ -260,18 +252,18 @@
     "param_signature": {
       "workflow_step": "cb_step_4"
     },
-    "description": "Choose the \"1st Instrumented Level:\". Choose the \"# Sides:\". Choose the \"# to Instrument:\". Choose the \"Approach Direction:\".",
+    "description": "Choose the \"Instrumented Levels:\". Choose the \"# Sides:\". Choose the \"Approach Direction:\".",
     "requirements": [
       "PedicleScrewPlanner extension must be installed"
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Set Instrument Parameters",
-      "instruction": "Select the 1st instrumented level, number of sides, number to instrument, and approach direction.",
+      "title": "Choose instrumentation options",
+      "instruction": "Pick the instrumented levels, number of sides, and approach direction.",
       "done_label": "Done",
-      "choice_label": "Side",
-      "input_label": "Side",
-      "object_label": "side",
+      "choice_label": "Options",
+      "input_label": "Options",
+      "object_label": "options",
       "repeat": {}
     },
     "operation_model": {
@@ -289,7 +281,7 @@
       "interaction_kinds": []
     },
     "choice_descriptor": {
-      "question": "1st Instrumented Level",
+      "question": "Instrumented Levels",
       "choices": [
         {
           "label": "C1",
@@ -392,15 +384,15 @@
           "value": "S1"
         }
       ],
-      "parameter_name": "c_1st_instrumented_level",
+      "parameter_name": "instrumented_levels",
       "default_value": null,
       "ui_guidance": {
-        "title": "Set Instrument Parameters",
-        "instruction": "Select the 1st instrumented level, number of sides, number to instrument, and approach direction.",
+        "title": "Choose instrumentation options",
+        "instruction": "Pick the instrumented levels, number of sides, and approach direction.",
         "done_label": "Done",
-        "choice_label": "Side",
-        "input_label": "Side",
-        "object_label": "side",
+        "choice_label": "Options",
+        "input_label": "Options",
+        "object_label": "options",
         "repeat": {}
       }
     },
@@ -408,10 +400,10 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
+        "description": "Choose instrumented levels, number of sides, and approach direction.",
         "extension_method_hint": null,
         "extension_function_hint": null,
-        "widget_name": "vSelector",
+        "widget_name": "lSelector",
         "ui_parameter_binding": null,
         "target_value": null,
         "target_value_mode": null,
@@ -433,7 +425,7 @@
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
-        "question": "1st Instrumented Level",
+        "question": "Instrumented Levels",
         "choices": [
           {
             "label": "C1",
@@ -536,20 +528,21 @@
             "value": "S1"
           }
         ],
-        "parameter_name": "c_1st_instrumented_level",
+        "parameter_name": "instrumented_levels",
         "default_value": null,
-        "value_kind": "",
-        "widget_class": "QComboBox",
+        "value_kind": "multi_select",
+        "widget_class": "ctkCheckableComboBox",
         "wizard_combo": {
           "page_class": "DefineROIStep",
-          "attr": "vSelector",
-          "label": "1st Instrumented Level:"
-        }
+          "attr": "lSelector",
+          "label": "Instrumented Levels:"
+        },
+        "multi_select": true
       },
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
+        "description": "Choose instrumented levels, number of sides, and approach direction.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "sSelector",
@@ -594,7 +587,7 @@
           }
         ],
         "parameter_name": "sides",
-        "default_value": null,
+        "default_value": "L&R",
         "value_kind": "",
         "widget_class": "QComboBox",
         "wizard_combo": {
@@ -606,96 +599,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
-        "extension_method_hint": null,
-        "extension_function_hint": null,
-        "widget_name": "iSelector",
-        "ui_parameter_binding": null,
-        "target_value": null,
-        "target_value_mode": null,
-        "slicer_op_category": null,
-        "slicer_api_keywords": [],
-        "interaction_kind": "none",
-        "interaction_type": null,
-        "node_class": null,
-        "creates_node": false,
-        "requires_place_mode": false,
-        "setup_dependencies": [
-          3
-        ],
-        "placement_instructions": null,
-        "min_control_points": 0,
-        "is_optional": false,
-        "operation_intents": [],
-        "node_roles": [],
-        "confidence": "high",
-        "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "",
-        "question": "# to Instrument",
-        "choices": [
-          {
-            "label": "1",
-            "value": "1"
-          },
-          {
-            "label": "2",
-            "value": "2"
-          },
-          {
-            "label": "3",
-            "value": "3"
-          },
-          {
-            "label": "4",
-            "value": "4"
-          },
-          {
-            "label": "5",
-            "value": "5"
-          },
-          {
-            "label": "6",
-            "value": "6"
-          },
-          {
-            "label": "7",
-            "value": "7"
-          },
-          {
-            "label": "8",
-            "value": "8"
-          },
-          {
-            "label": "9",
-            "value": "9"
-          },
-          {
-            "label": "10",
-            "value": "10"
-          },
-          {
-            "label": "11",
-            "value": "11"
-          },
-          {
-            "label": "12",
-            "value": "12"
-          }
-        ],
-        "parameter_name": "to_instrument",
-        "default_value": null,
-        "value_kind": "",
-        "widget_class": "QComboBox",
-        "wizard_combo": {
-          "page_class": "DefineROIStep",
-          "attr": "iSelector",
-          "label": "# to Instrument:"
-        }
-      },
-      {
-        "op_type": "user_choice",
-        "operation_type": "user_choice",
-        "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
+        "description": "Choose instrumented levels, number of sides, and approach direction.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "aSelector",
@@ -740,7 +644,7 @@
           }
         ],
         "parameter_name": "approach_direction",
-        "default_value": null,
+        "default_value": "Posterior",
         "value_kind": "",
         "widget_class": "QComboBox",
         "wizard_combo": {
@@ -762,8 +666,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Click Next on Define ROI page",
-      "instruction": "",
+      "title": "Continue to ROI definition",
+      "instruction": "Click Next in the '2. Define Surgical Region of Interest (ROI)' page.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -789,7 +693,7 @@
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Advance to the next step after defining surgical ROI",
+        "description": "Advance past the surgical ROI definition page to the next workflow page.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -827,8 +731,7 @@
         "goForward",
         "processEvents",
         "util",
-        "workflow",
-        "ProcessEventsFlag"
+        "workflow"
       ],
       "api_chains": [
         "_wiz_flow.goForward",
@@ -836,11 +739,10 @@
         "slicer.app.processEvents",
         "slicer.util.getModuleWidget",
         "slicer.util.getModuleWidget('PedicleScrewPlanner').workflow",
-        "slicer.util.getModuleWidget('PedicleScrewPlanner').workflow.goForward",
-        "qt.QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents"
+        "slicer.util.getModuleWidget('PedicleScrewPlanner').workflow.goForward"
       ],
       "operation_descriptions": [
-        "Advance to the next step after defining surgical ROI"
+        "Advance past the surgical ROI definition page to the next workflow page."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -851,14 +753,770 @@
     "param_signature": {
       "workflow_step": "cb_step_6"
     },
-    "description": "Click the \"Place a control point\" button.",
+    "description": "In the toolbar, turn on \"slice intersection visibility\". In the slice intersection interaction options, turn on \"set interaction\", then enable both \"Translate\" and \"Rotate\".",
+    "requirements": [
+      "PedicleScrewPlanner extension must be installed"
+    ],
+    "operation_type": "slicer_op",
+    "ui_guidance": {
+      "title": "Enable slice intersection interaction",
+      "instruction": "Turn on slice intersection visibility, enable Set interaction, then turn on Translate and Rotate.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "view",
+      "repeat": {}
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetIntersectingSlicesInteractive",
+        "GetIntersectingSlicesRotationEnabled",
+        "GetIntersectingSlicesTranslationEnabled",
+        "GetIntersectingSlicesVisibility",
+        "SetIntersectingSlicesInteractive",
+        "SetIntersectingSlicesRotationEnabled",
+        "SetIntersectingSlicesTranslationEnabled",
+        "SetIntersectingSlicesVisibility",
+        "getNodesByClass",
+        "util",
+        "vtkMRMLSliceDisplayNode",
+        "Modified",
+        "vtkMRMLSliceNode"
+      ],
+      "api_chains": [
+        "sliceDisplayNode.GetIntersectingSlicesInteractive",
+        "sliceDisplayNode.GetIntersectingSlicesRotationEnabled",
+        "sliceDisplayNode.GetIntersectingSlicesTranslationEnabled",
+        "sliceDisplayNode.GetIntersectingSlicesVisibility",
+        "sliceDisplayNode.SetIntersectingSlicesInteractive",
+        "sliceDisplayNode.SetIntersectingSlicesRotationEnabled",
+        "sliceDisplayNode.SetIntersectingSlicesTranslationEnabled",
+        "sliceDisplayNode.SetIntersectingSlicesVisibility",
+        "slicer.util.getNodesByClass",
+        "sliceNode.Modified"
+      ],
+      "operation_descriptions": [
+        "Enable slice intersection visibility and enable set interaction with Translate and Rotate."
+      ],
+      "slicer_op_categories": [
+        "crosshair"
+      ],
+      "slicer_api_keywords": [
+        "vtkMRMLCrosshairNode",
+        "slice intersection",
+        "SetInteractiveMode",
+        "Translate",
+        "Rotate"
+      ]
+    },
+    "operation_model": {
+      "step_type": "slicer_op",
+      "op_types": [
+        "slicer_op"
+      ],
+      "operation_intents": [
+        "slice_intersection_interaction",
+        "slice_intersection_visibility"
+      ],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_6_slicer.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "operation_type": "slicer_op",
+        "description": "Enable slice intersection visibility and enable set interaction with Translate and Rotate.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": "crosshair",
+        "slicer_api_keywords": [
+          "vtkMRMLCrosshairNode",
+          "slice intersection",
+          "SetInteractiveMode",
+          "Translate",
+          "Rotate"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": "vtkMRMLCrosshairNode",
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          5
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [
+          "slice_intersection_visibility",
+          "slice_intersection_interaction"
+        ],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": ""
+      }
+    ],
+    "semantic_recipe_id": "",
+    "behavior_requirements": [],
+    "invalid_substitutions": [],
+    "repair_evidence": {
+      "source": "verify_repair_reground",
+      "issue_id": "validation_error_1",
+      "semantic_recipe_id": "",
+      "behavior_requirements": [],
+      "invalid_substitutions": [],
+      "evidence_policy": "",
+      "generator_records": [
+        {
+          "step": 6,
+          "key": "cb_step_6_0",
+          "description": "Enable slice intersection visibility and enable set interaction with Translate and Rotate.",
+          "keywords": [
+            "Rotate",
+            "SetInteractiveMode",
+            "Translate",
+            "slice intersection",
+            "vtkMRMLCrosshairNode"
+          ],
+          "category": "crosshair",
+          "final_state_intent": {
+            "mode": "set",
+            "state": true,
+            "confidence": "high",
+            "source": "enable"
+          },
+          "classification": {
+            "op_type": "slicer_op",
+            "evidence_type": "verify_repair_reground",
+            "evidence_id": "validation_error_1",
+            "confidence": "high",
+            "interaction_kind": "none",
+            "node_class": "vtkMRMLCrosshairNode",
+            "slicer_op_category": "crosshair"
+          },
+          "search_policy": {
+            "requires_ui_first_when_ui_labeled": true,
+            "category_hints": [
+              "sliceIntersectionsVisibilityCheckBox",
+              "SetIntersectingSlicesEnabled",
+              "vtkMRMLApplicationLogic",
+              "IntersectingSlicesVisibility",
+              "IntersectingSlicesInteractive",
+              "IntersectingSlicesTranslation",
+              "IntersectingSlicesRotation",
+              "qSlicerViewersToolBar",
+              "vtkMRMLSliceDisplayNode",
+              "vtkMRMLSliceNode Modified"
+            ],
+            "category_hint_provenance": "generic_slicer_search_hint"
+          },
+          "status": "done",
+          "total_time_s": 146.94,
+          "code_chars": 1972,
+          "tool_rounds": 14,
+          "api_calls": 15,
+          "error": null,
+          "progress_events": [
+            {
+              "round": 3,
+              "phase": "search+read",
+              "message": "[Search+Read] Round 3: |   Grep: \"SetIntersectingSlicesEnabled|IntersectingSlicesVisibility|enum IntersectingSlicesType\" → slicer-source/Libs/MRML/Core/vtkMRMLApplicationLogic |   ReadFile: slicer-source/Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.cxx"
+            },
+            {
+              "round": 4,
+              "phase": "search",
+              "message": "[Search] Round 4: |   Grep: \"SetIntersectingSlicesEnabled|IntersectingSlicesType|IntersectingSlicesTranslation|IntersectingSlicesRotation\" → slicer-source/Libs/MRML"
+            },
+            {
+              "round": 5,
+              "phase": "read",
+              "message": "[Read] Round 5: |   ReadFile: slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.h"
+            },
+            {
+              "round": 6,
+              "phase": "search",
+              "message": "[Search] Round 6: |   Grep: \"def getNodesByClass\" → slicer-source/Base/Python/slicer/util.py"
+            },
+            {
+              "round": 7,
+              "phase": "read",
+              "message": "[Read] Round 7: |   ReadFile: slicer-source/Base/Python/slicer/util.py"
+            },
+            {
+              "round": 8,
+              "phase": "search",
+              "message": "[Search] Round 8: |   Grep: \"IntersectingSlices|SliceIntersections\" → slicer-source/Modules/Loadable/SliceViewer |   Grep: \"IntersectingSlices|setIntersectingSlices|SliceIntersections\" → slicer-source/Modules/Loadable/SlicerCustomizableToolBar"
+            },
+            {
+              "round": 9,
+              "phase": "search",
+              "message": "[Search] Round 9: |   Grep: \"IntersectingSlicesInteractive|setIntersectingSlices|IntersectingSlicesAction\" → slicer-source/Modules/Loadable |   Grep: \"class qSlicerViewersToolBar|qSlicerViewersToolBar\" → slicer-source"
+            },
+            {
+              "round": 10,
+              "phase": "search",
+              "message": "[Search] Round 10: |   Grep: \"IntersectingSlices|SliceIntersections|intersection\" → slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx"
+            },
+            {
+              "round": 11,
+              "phase": "read",
+              "message": "[Read] Round 11: |   ReadFile: slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionInteractionRepresentation.cxx"
+            },
+            {
+              "round": 12,
+              "phase": "search+read",
+              "message": "[Search+Read] Round 12: |   Grep: \"IntersectingSlices|slice intersection|SliceIntersections\" → slicer-source/Docs |   ReadFile: slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.cxx"
+            },
+            {
+              "round": 13,
+              "phase": "read",
+              "message": "[Read] Round 13: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+            },
+            {
+              "round": 14,
+              "phase": "read",
+              "message": "[Read] Round 14: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+            }
+          ],
+          "prompt_build_s": 0.0,
+          "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nEnable slice intersection visibility and enable set interaction with Translate and Rotate.\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE — a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) — resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `PedicleScrewPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:PedicleScrewPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not fro",
+          "executor_ready": true,
+          "tool_count": 3,
+          "last_progress": {
+            "round": 14,
+            "phase": "read",
+            "message": "[Read] Round 14: |   ReadFile: slicer-source/Docs/developer_guide/script_repository/gui.md"
+          },
+          "tool_loop_s": 144.8,
+          "total_tokens": 656139,
+          "total_api_time_s": 93.523,
+          "total_tool_time_s": 43.55,
+          "tool_names_called": [
+            "Grep",
+            "ReadFile"
+          ],
+          "rounds": [
+            {
+              "round": 1,
+              "phase": "search",
+              "api_time_s": 4.076,
+              "tool_time_s": 4.389,
+              "round_time_s": 8.465,
+              "tools": [
+                "Grep",
+                "Grep"
+              ],
+              "tokens": 4216
+            },
+            {
+              "round": 2,
+              "phase": "search+read",
+              "api_time_s": 3.445,
+              "tool_time_s": 5.463,
+              "round_time_s": 8.908,
+              "tools": [
+                "ReadFile",
+                "Grep"
+              ],
+              "tokens": 8776
+            },
+            {
+              "round": 3,
+              "phase": "search+read",
+              "api_time_s": 6.819,
+              "tool_time_s": 4.648,
+              "round_time_s": 11.468,
+              "tools": [
+                "Grep",
+                "ReadFile"
+              ],
+              "tokens": 19962
+            },
+            {
+              "round": 4,
+              "phase": "search",
+              "api_time_s": 3.371,
+              "tool_time_s": 4.575,
+              "round_time_s": 7.946,
+              "tools": [
+                "Grep"
+              ],
+              "tokens": 26256
+            },
+            {
+              "round": 5,
+              "phase": "read",
+              "api_time_s": 2.558,
+              "tool_time_s": 0.434,
+              "round_time_s": 2.992,
+              "tools": [
+                "ReadFile"
+              ],
+              "tokens": 33386
+            },
+            {
+              "round": 6,
+              "phase": "search",
+              "api_time_s": 9.565,
+              "tool_time_s": 1.497,
+              "round_time_s": 11.062,
+              "tools": [
+                "Grep"
+              ],
+              "tokens": 38545
+            },
+            {
+              "round": 7,
+              "phase": "read",
+              "api_time_s": 3.001,
+              "tool_time_s": 4.72,
+              "round_time_s": 7.721,
+              "tools": [
+                "ReadFile"
+              ],
+              "tokens": 39456
+            },
+            {
+              "round": 8,
+              "phase": "search",
+              "api_time_s": 13.458,
+              "tool_time_s": 0.326,
+              "round_time_s": 13.783,
+              "tools": [
+                "Grep",
+                "Grep"
+              ],
+              "tokens": 42909
+            },
+            {
+              "round": 9,
+              "phase": "search",
+              "api_time_s": 3.378,
+              "tool_time_s": 6.103,
+              "round_time_s": 9.481,
+              "tools": [
+                "Grep",
+                "Grep"
+              ],
+              "tokens": 43242
+            },
+            {
+              "round": 10,
+              "phase": "search",
+              "api_time_s": 3.188,
+              "tool_time_s": 1.575,
+              "round_time_s": 4.763,
+              "tools": [
+                "Grep"
+              ],
+              "tokens": 54168
+            },
+            {
+              "round": 11,
+              "phase": "read",
+              "api_time_s": 7.211,
+              "tool_time_s": 3.465,
+              "round_time_s": 10.676,
+              "tools": [
+                "ReadFile"
+              ],
+              "tokens": 55953
+            },
+            {
+              "round": 12,
+              "phase": "search+read",
+              "api_time_s": 14.795,
+              "tool_time_s": 5.316,
+              "round_time_s": 20.112,
+              "tools": [
+                "Grep",
+                "ReadFile"
+              ],
+              "tokens": 63648
+            },
+            {
+              "round": 13,
+              "phase": "read",
+              "api_time_s": 5.466,
+              "tool_time_s": 0.669,
+              "round_time_s": 6.134,
+              "tools": [
+                "ReadFile"
+              ],
+              "tokens": 74078
+            },
+            {
+              "round": 14,
+              "phase": "read",
+              "api_time_s": 3.104,
+              "tool_time_s": 0.37,
+              "round_time_s": 3.474,
+              "tools": [
+                "ReadFile"
+              ],
+              "tokens": 74740
+            },
+            {
+              "round": 15,
+              "phase": "generate",
+              "api_time_s": 10.09,
+              "tool_time_s": 0.0,
+              "round_time_s": 10.09,
+              "tools": [],
+              "tokens": 76804
+            }
+          ],
+          "tool_calls_history": [
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "IntersectingSlices",
+                "path": "slicer-source/Libs/MRML/Core"
+              },
+              "result_preview": "Grep: 99 hit(s) in 4 file(s): slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.cxx (53), slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.h (40), slicer-source/Libs/MRML/Core/vtkMRMLSliceCompositeNode.cxx (4), slicer-source/Libs/MRML/Core/vtkMRMLSliceCompositeNode.h (2)"
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "IntersectingSlices",
+                "path": "slicer-source/Modules/Loadable/SliceViewer"
+              },
+              "result_preview": "ERROR: Path not found: C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/SliceViewer"
+            },
+            {
+              "tool": "ReadFile",
+              "args": {
+                "path": "slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.h",
+                "query": "IntersectingSlices"
+              },
+              "result_preview": "/*==============================================================================\n\n  Program: 3D Slicer\n\n  Copyright (c) Ebatinca S.L., Las Palmas de Gran Canaria, Spain\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Unless required by applicable law or agreed to in writing, software\n  distributed under the License is distributed on an \"AS IS\" BASIS,\n  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n  See the License for the specific language governing permissions and\n  limitations under the License.\n\n==============================================================================*/\n\n#ifndef __vtkMRMLSliceDisplayNode_h\n#define __vtkMRMLSliceDisplayNode_h\n\n// MRML includes\n#include \"vtkMRMLModelDisplayNode.h\"\n\n/// \\brief MRML node to store display properties of slice nodes.\n///\n/// This node controls appearance of slice intersections in slice views\n/// and slices in 3D views.\nclass VTK_MRML_EXPORT vtkMRMLSliceDisplayNode : public vtkMRMLModelDisplayNode\n{\npublic:\n  static vtkMRMLSliceDisplayNode* New();\n  vtkTypeMacro(vtkMRMLSliceDisplayNode, vtkMRMLModelDisplayNode);\n  void PrintSelf(ostream& os, vtkIndent indent) override;\n\n  /// Read node attributes from XML file\n  void ReadXMLAttributes(const char** atts) override;\n\n  /// Write this node's information to a MRML file in XML format.\n  void WriteXML(ostream& of, int indent) override;\n\n  /// Copy node content (excludes basic data, such as name and node references).\n  /// \\sa vtkMRMLNode::CopyContent\n  vtkMRMLCopyContentMacro(vtkMRMLSliceDisplayNode);\n\n  vtkMRMLNode* CreateNodeInstance() override;\n\n  /// Get node XML tag name (like Volume, Model)\n  const char* GetNodeTagName() override { return \"SliceDisplay\"; }\n\n  //@{\n  /// Toggles visibility of intersections of other slices in the slice viewer\n  bool GetIntersectingSlicesVisibility() { return this->GetVisibility2D(); };\n\n  void SetIntersectingSlicesVisibility(bool visible) { this->SetVisibility2D(visibl..."
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "IntersectingSlices|SetInteractiveMode",
+                "path": "slicer-source/Modules/Loadable"
+              },
+              "result_preview": "Grep: 55 hit(s) in 6 file(s): slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.cxx (44), slicer-source/Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.cxx (5), slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsROIWidget.cxx (2), slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.h (2), slicer-source/Modules/Loadable/Annotations/MRML/vtkMRMLAnnotationROINode.cxx (1)"
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "SetIntersectingSlicesEnabled|IntersectingSlicesVisibility|enum IntersectingSlicesType",
+                "path": "slicer-source/Libs/MRML/Core/vtkMRMLApplicationLogic"
+              },
+              "result_preview": "ERROR: Path not found: C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Libs/MRML/Core/vtkMRMLApplicationLogic"
+            },
+            {
+              "tool": "ReadFile",
+              "args": {
+                "path": "slicer-source/Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.cxx",
+                "query": "onSliceIntersectionsVisibilityToggled"
+              },
+              "result_preview": "  QObject::connect(this->visibilityAllControlPointsInListMenuButton, SIGNAL(clicked()), q, SLOT(onVisibilityAllControlPointsInListToggled()));\n\n  // lock\n  // first add actions to the menu, then hook them up\n  lockMenu = new QMenu(qSlicerMarkupsModuleWidget::tr(\"Lock\"), this->lockAllControlPointsInListMenuButton);\n  // lock\n  this->lockAllControlPointsInListAction = new QAction(QIcon(\":/Icons/Small/SlicerLock.png\"), qSlicerMarkupsModuleWidget::tr(\"Lock\"), lockMenu);\n  this->lockAllControlPointsInListAction->setToolTip(qSlicerMarkupsModuleWidget::tr(\"Set lock flag to on for all control points in the active markup\"));\n  this->lockAllControlPointsInListAction->setCheckable(false);\n  QObject::connect(this->lockAllControlPointsInListAction, SIGNAL(triggered()), q, SLOT(onLockAllControlPointsInListPushButtonClicked()));\n\n  // lock off\n  this->unlockAllControlPointsInListAction = new QAction(QIcon(\":/Icons/Small/SlicerUnlock.png\"), qSlicerMarkupsModuleWidget::tr(\"Unlock\"), lockMenu);\n  this->unlockAllControlPointsInListAction->setToolTip(qSlicerMarkupsModuleWidget::tr(\"Set lock flag to off for all control points in the active markup\"));\n  this->unlockAllControlPointsInListAction->setCheckable(false);\n  QObject::connect(this->unlockAllControlPointsInListAction, SIGNAL(triggered()), q, SLOT(onUnlockAllControlPointsInListPushButtonClicked()));\n\n  this->lockMenu->addAction(this->lockAllControlPointsInListAction);\n  this->lockMenu->addAction(this->unlockAllControlPointsInListAction);\n  this->lockAllControlPointsInListMenuButton->setMenu(this->lockMenu);\n  this->lockAllControlPointsInListMenuButton->setIcon(QIcon(\":/Icons/Small/SlicerLockUnlock.png\"));\n\n  // lock toggle\n  QObject::connect(this->lockAllControlPointsInListMenuButton, SIGNAL(clicked()), q, SLOT(onLockAllControlPointsInListToggled()));\n\n  // selected\n  // first add actions to the menu, then hook them up\n  selectedMenu = new QMenu(qSlicerMarkupsModuleWidget::tr(\"Selected\"), this->selectedAllControlPointsInListMenuBut..."
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "SetIntersectingSlicesEnabled|IntersectingSlicesType|IntersectingSlicesTranslation|IntersectingSlicesRotation",
+                "path": "slicer-source/Libs/MRML"
+              },
+              "result_preview": "Grep: 56 hit(s) in 7 file(s): slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.cxx (16), slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.cxx (12), slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionInteractionRepresentation.cxx (10), slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.h (10), slicer-source/Libs/MRML/Logic/vtkMRMLSliceLogic.cxx (4)"
+            },
+            {
+              "tool": "ReadFile",
+              "args": {
+                "path": "slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.h",
+                "query": "IntersectingSlices"
+              },
+              "result_preview": "/*==============================================================================\n\n  Program: 3D Slicer\n\n  Copyright (c) Kitware Inc.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Unless required by applicable law or agreed to in writing, software\n  distributed under the License is distributed on an \"AS IS\" BASIS,\n  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n  See the License for the specific language governing permissions and\n  limitations under the License.\n\n  This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc.\n  and was partially funded by NIH grant 3P41RR013218-12S1\n\n==============================================================================*/\n\n#ifndef __vtkMRMLApplicationLogic_h\n#define __vtkMRMLApplicationLogic_h\n\n// MRMLLogic includes\n#include \"vtkMRMLAbstractLogic.h\"\n\n#include \"vtkMRMLLogicExport.h\"\n#include \"vtkMRMLSliceCompositeNode.h\"\n\nclass vtkMRMLColorLogic;\nclass vtkMRMLModelDisplayNode;\nclass vtkMRMLSliceNode;\nclass vtkMRMLSliceLogic;\nclass vtkMRMLSelectionNode;\nclass vtkMRMLStorableNode;\nclass vtkMRMLStorageNode;\nclass vtkMRMLInteractionNode;\nclass vtkMRMLMessageCollection;\nclass vtkMRMLViewLogic;\nclass vtkMRMLViewNode;\nclass vtkTextProperty;\n\n// VTK includes\nclass vtkCollection;\nclass vtkImageData;\n\n// STD includes\n#include <vector>\n\nclass VTK_MRML_LOGIC_EXPORT vtkMRMLApplicationLogic : public vtkMRMLAbstractLogic\n{\npublic:\n  static vtkMRMLApplicationLogic* New();\n  void PrintSelf(ostream& os, vtkIndent indent) override;\n  vtkTypeMacro(vtkMRMLApplicationLogic, vtkMRMLAbstractLogic);\n\n  /// Get default Selection node\n  vtkMRMLSelectionNode* GetSelectionNode() const;\n\n  /// Get default Interaction node\n  vtkMRMLInteractionNode* GetInteractionNode() const;\n\n  /// All the slice logics in the application\n  void SetSliceLogics(vtkCollection* sliceLogics);\n  vtkCollection* GetSliceLogics() const;\n  vtkMRMLSliceLogic* GetSliceLogic(vtkMRMLSliceNode* slice..."
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "def getNodesByClass",
+                "path": "slicer-source/Base/Python/slicer/util.py"
+              },
+              "result_preview": "Grep: 1 hit(s) in 1 file(s): slicer-source/Base/Python/slicer/util.py (1)"
+            },
+            {
+              "tool": "ReadFile",
+              "args": {
+                "path": "slicer-source/Base/Python/slicer/util.py",
+                "query": "getNodesByClass"
+              },
+              "result_preview": "    mw = mainWindow()\n    if mw is None:\n        return\n    modulePanel = findChild(mw, \"ModulePanel\")\n    modulePanel.helpAndAcknowledgmentVisible = visible\n\n\ndef setDataProbeVisible(visible):\n    \"\"\"Show/hide Data probe at the bottom of module panel.\n\n    If there is no main window then the function has no effect.\n    \"\"\"\n    mw = mainWindow()\n    if mw is None:\n        return\n    widget = findChild(mw, \"DataProbeCollapsibleWidget\")\n    widget.setVisible(visible)\n\n\n#\n# Layout\n#\n\n\ndef resetThreeDViews():\n    \"\"\"Reset focal view around volumes\"\"\"\n    import slicer\n\n    slicer.app.layoutManager().resetThreeDViews()\n\n\ndef resetSliceViews():\n    \"\"\"Reset focal view around volumes\"\"\"\n    import slicer\n\n    manager = slicer.app.layoutManager().resetSliceViews()\n\n\n#\n# MRML\n#\n\n\nclass MRMLNodeNotFoundException(Exception):\n    \"\"\"Exception raised when a requested MRML node was not found.\"\"\"\n\n    pass\n\n\ndef getNodes(pattern=\"*\", scene=None, useLists=False):\n    \"\"\"Return a dictionary of nodes where the name or id matches the ``pattern``.\n\n    By default, ``pattern`` is a wildcard and it returns all nodes associated\n    with ``slicer.mrmlScene``.\n\n    If multiple node share the same name, using ``useLists=False`` (default behavior)\n    returns only the last node with that name. If ``useLists=True``, it returns\n    a dictionary of lists of nodes.\n    \"\"\"\n    import slicer, collections, fnmatch\n\n    nodes = collections.OrderedDict()\n    if scene is None:\n        scene = slicer.mrmlScene\n    count = scene.GetNumberOfNodes()\n    for idx in range(count):\n        node = scene.GetNthNode(idx)\n        name = node.GetName()\n        id = node.GetID()\n        if fnmatch.fnmatchcase(name, pattern) or fnmatch.fnmatchcase(id, pattern):\n            if useLists:\n                nodes.setdefault(node.GetName(), []).append(node)\n            else:\n                nodes[node.GetName()] = node\n    return nodes\n\n\ndef getNode(pattern=\"*\", index=0, scene=None):\n    \"\"\"Return the indexth node where na..."
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "IntersectingSlices|SliceIntersections",
+                "path": "slicer-source/Modules/Loadable/SliceViewer"
+              },
+              "result_preview": "ERROR: Path not found: C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/SliceViewer"
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "IntersectingSlices|setIntersectingSlices|SliceIntersections",
+                "path": "slicer-source/Modules/Loadable/SlicerCustomizableToolBar"
+              },
+              "result_preview": "ERROR: Path not found: C:\\Users\\20152\\Desktop\\slicer-skill\\SlicerAgent\\Slicer_agent\\Resources\\Skills\\slicer-skill-full\\slicer-source/Modules/Loadable/SlicerCustomizableToolBar"
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "IntersectingSlicesInteractive|setIntersectingSlices|IntersectingSlicesAction",
+                "path": "slicer-source/Modules/Loadable"
+              },
+              "result_preview": "Grep: 26 hit(s) in 3 file(s): slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.cxx (23), slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.h (2), slicer-source/Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.cxx (1)"
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "class qSlicerViewersToolBar|qSlicerViewersToolBar",
+                "path": "slicer-source"
+              },
+              "result_preview": "Grep: 127 hit(s) in 6 file(s): slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx (99), slicer-source/Base/QTGUI/qSlicerViewersToolBar.h (11), slicer-source/Base/QTGUI/qSlicerViewersToolBar_p.h (9), slicer-source/Base/QTGUI/CMakeLists.txt (3), slicer-source/Base/QTApp/Resources/UI/qSlicerMainWindow.ui (3)"
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "IntersectingSlices|SliceIntersections|intersection",
+                "path": "slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx"
+              },
+              "result_preview": "Grep: 205 hit(s) in 1 file(s): slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx (205)"
+            },
+            {
+              "tool": "ReadFile",
+              "args": {
+                "path": "slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionInteractionRepresentation.cxx",
+                "query": "showInteractiveSliceHandles"
+              },
+              "result_preview": "    // The slice view's node is modified\n    self->SliceNodeModified(sliceNode);\n    return;\n  }\n\n  // One of the intersecting slices are modified, update all slice intersections\n  self->SliceNodeModified(self->Internal->SliceNode);\n}\n\n//----------------------------------------------------------------------\nvoid vtkMRMLSliceIntersectionInteractionRepresentation::SliceNodeModified(vtkMRMLSliceNode* sliceNode)\n{\n  if (!sliceNode)\n  {\n    return;\n  }\n  if (sliceNode == this->Internal->SliceNode)\n  {\n    // update all slice intersection\n    for (std::deque<SliceIntersectionInteractionDisplayPipeline*>::iterator sliceIntersectionIt = this->Internal->SliceIntersectionInteractionDisplayPipelines.begin();\n         sliceIntersectionIt != this->Internal->SliceIntersectionInteractionDisplayPipelines.end();\n         ++sliceIntersectionIt)\n    {\n      this->UpdateSliceIntersectionDisplay(*sliceIntersectionIt);\n    }\n    bool handlesVisible = false;\n    vtkMRMLSliceDisplayNode* displayNode = this->GetSliceDisplayNode();\n    if (displayNode)\n    {\n      int componentType = displayNode->GetActiveComponentType();\n      handlesVisible =\n        componentType != vtkMRMLSliceDisplayNode::ComponentNone && componentType != vtkMRMLSliceDisplayNode::ComponentSliceIntersection; // hide handles during interaction:\n    }\n    this->SetPipelinesHandlesVisibility(handlesVisible);\n  }\n}\n\n//----------------------------------------------------------------------\nSliceIntersectionInteractionDisplayPipeline* vtkMRMLSliceIntersectionInteractionRepresentation::GetDisplayPipelineFromSliceLogic(vtkMRMLSliceLogic* sliceLogic)\n{\n  for (std::deque<SliceIntersectionInteractionDisplayPipeline*>::iterator sliceIntersectionIt = this->Internal->SliceIntersectionInteractionDisplayPipelines.begin();\n       sliceIntersectionIt != this->Internal->SliceIntersectionInteractionDisplayPipelines.end();\n       ++sliceIntersectionIt)\n  {\n    if (!(*sliceIntersectionIt)->SliceLogic)\n    {\n      continue;\n    }\n    if (sliceL..."
+            },
+            {
+              "tool": "Grep",
+              "args": {
+                "pattern": "IntersectingSlices|slice intersection|SliceIntersections",
+                "path": "slicer-source/Docs"
+              },
+              "result_preview": "Grep: 8 hit(s) in 4 file(s): slicer-source/Docs/developer_guide/script_repository/gui.md (3), slicer-source/Docs/user_guide/user_interface.md (2), slicer-source/Docs/user_guide/modules/markups.md (2), slicer-source/Docs/user_guide/modules/segmentations.md (1)"
+            },
+            {
+              "tool": "ReadFile",
+              "args": {
+                "path": "slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.cxx",
+                "query": "setIntersectingSlicesVisible"
+              },
+              "result_preview": "void qSlicerSubjectHierarchyViewContextMenuPluginPrivate::init()\n{\n  Q_Q(qSlicerSubjectHierarchyViewContextMenuPlugin);\n\n  // Interaction mode\n\n  this->InteractionModeViewTransformAction = new QAction(qSlicerSubjectHierarchyViewContextMenuPlugin::tr(\"View transform\"), q);\n  this->InteractionModeViewTransformAction->setObjectName(\"MouseModeViewTransformAction\");\n  this->InteractionModeViewTransformAction->setCheckable(true);\n  qSlicerSubjectHierarchyAbstractPlugin::setActionPosition(this->InteractionModeViewTransformAction, qSlicerSubjectHierarchyAbstractPlugin::SectionInteraction, 0);\n\n  this->InteractionModeAdjustWindowLevelAction = new QAction(qSlicerSubjectHierarchyViewContextMenuPlugin::tr(\"Adjust window/level\"), q);\n  this->InteractionModeAdjustWindowLevelAction->setObjectName(\"MouseModeAdjustWindowLevelAction\");\n  this->InteractionModeAdjustWindowLevelAction->setCheckable(true);\n  qSlicerSubjectHierarchyAbstractPlugin::setActionPosition(this->InteractionModeAdjustWindowLevelAction, qSlicerSubjectHierarchyAbstractPlugin::SectionInteraction, 1);\n\n  this->InteractionModePlaceAction = new QAction(qSlicerSubjectHierarchyViewContextMenuPlugin::tr(\"Place\"), q);\n  this->InteractionModePlaceAction->setObjectName(\"MouseModePlaceAction\");\n  this->InteractionModePlaceAction->setCheckable(true);\n  qSlicerSubjectHierarchyAbstractPlugin::setActionPosition(this->InteractionModePlaceAction, qSlicerSubjectHierarchyAbstractPlugin::SectionInteraction, 2);\n\n  QActionGroup* interactionModeActions = new QActionGroup(q);\n  interactionModeActions->setExclusive(true);\n\n  interactionModeActions->addAction(this->InteractionModeViewTransformAction);\n  interactionModeActions->addAction(this->InteractionModeAdjustWindowLevelAction);\n  interactionModeActions->addAction(this->InteractionModePlaceAction);\n\n  this->InteractionModeMapper = new ctkSignalMapper(q);\n  this->InteractionModeMapper->setMapping(this->InteractionModeViewTransformAction, vtkMRMLInteractionNode::ViewTransform);\n  this->In..."
+            },
+            {
+              "tool": "ReadFile",
+              "args": {
+                "path": "slicer-source/Docs/developer_guide/script_repository/gui.md",
+                "query": "Turn on slice intersections"
+              },
+              "result_preview": "### Turn on slice intersections\n\n```python\nsliceDisplayNodes = slicer.util.getNodesByClass(\"vtkMRMLSliceDisplayNode\")\nfor sliceDisplayNode in sliceDisplayNodes:\n  sliceDisplayNode.SetIntersectingSlicesVisibility(1)\n\n"
+            },
+            {
+              "tool": "ReadFile",
+              "args": {
+                "path": "slicer-source/Docs/developer_guide/script_repository/gui.md",
+                "query": "setSliceIntersectionVisible"
+              },
+              "result_preview": "# Workaround to force visual update (see https://github.com/Slicer/Slicer/issues/6338)\nsliceNodes = slicer.util.getNodesByClass('vtkMRMLSliceNode')\nfor sliceNode in sliceNodes:\n    sliceNode.Modified()\n```\n\n:::{note}\n\nHow to find code corresponding to a user interface widget?\n\nFor this one I searched for \"slice intersections\" text in the whole Slicer source code, found that the function is implemented in `Base\\QTGUI\\qSlicerViewersToolBar.cxx`, then translated the `qSlicerViewersToolBarPrivate::setSliceIntersectionVisible(bool visible)` method to Python.\n\n:::\n\n"
+            }
+          ],
+          "evidence_audit": {
+            "source_verification": {
+              "non_ui_result_files": [
+                "slicer-source/Libs/MRML/Core",
+                "slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.cxx",
+                "slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.h",
+                "slicer-source/Libs/MRML/Core/vtkMRMLSliceCompositeNode.cxx",
+                "slicer-source/Libs/MRML/Core/vtkMRMLSliceCompositeNode.h",
+                "slicer-source/Modules/Loadable",
+                "slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.cxx",
+                "slicer-source/Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.cxx",
+                "slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsROIWidget.cxx",
+                "slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.h",
+                "slicer-source/Modules/Loadable/Annotations/MRML/vtkMRMLAnnotationROINode.cxx",
+                "slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsROIWidget.h",
+                "slicer-source/Libs/MRML",
+                "slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.cxx",
+                "slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionInteractionRepresentation.cxx",
+                "slicer-source/Libs/MRML/Logic/vtkMRMLSliceLogic.cxx",
+                "slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.h",
+                "slicer-source/Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx",
+                "slicer-source/Base/Python/slicer/util.py",
+                "slicer-source"
+              ],
+              "source_type_counts": {
+                "mrml_definition": 7,
+                "ui_implementation": 8,
+                "loadable_module": 4,
+                "source": 15,
+                "python_api": 2,
+                "doc_example": 4
+              }
+            },
+            "searches": {
+              "vector_queries": [],
+              "grep_patterns": [
+                "IntersectingSlices",
+                "IntersectingSlices|SetInteractiveMode",
+                "SetIntersectingSlicesEnabled|IntersectingSlicesVisibility|enum IntersectingSlicesType",
+                "SetIntersectingSlicesEnabled|IntersectingSlicesType|IntersectingSlicesTranslation|IntersectingSlicesRotation",
+                "def getNodesByClass",
+                "IntersectingSlices|SliceIntersections",
+                "IntersectingSlices|setIntersectingSlices|SliceIntersections",
+                "IntersectingSlicesInteractive|setIntersectingSlices|IntersectingSlicesAction",
+                "class qSlicerViewersToolBar|qSlicerViewersToolBar",
+                "IntersectingSlices|SliceIntersections|intersection"
+              ],
+              "read_paths": [
+                "slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.h",
+                "slicer-source/Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.cxx",
+                "slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.h",
+                "slicer-source/Base/Python/slicer/util.py",
+                "slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionInteractionRepresentation.cxx",
+                "slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.cxx",
+                "slicer-source/Docs/developer_guide/script_repository/gui.md"
+              ]
+            }
+          },
+          "reasoning_chars": 33265,
+          "reasoning_preview": "[Round 1]\nLet me analyze this task. I need to generate a Python code template for enabling slice intersection visibility and interaction with Translate and Rotate in 3D Slicer, for the PedicleScrewPlanner extension context.\n\nThe validation failure says the previous code used APIs like `SetIntersectingSlicesVisibility`, `SetIntersectingSlicesInteractive`, `SetIntersectingSlicesTranslationEnabled`, `SetIntersectingSlicesRotationEnabled` on `vtkMRMLSliceDisplayNode`. But I need to verify these against source evidence.\n\nLet me search the knowledge base for evidence about these APIs. The suggested API terms include:\n- sliceIntersectionsVisibilityCheckBox\n- SetIntersectingSlicesEnabled\n- vtkMRMLApplicationLogic\n- IntersectingSlicesVisibility\n- IntersectingSlicesInteractive\n- IntersectingSlicesTranslation\n- IntersectingSlicesRotation\n- qSlicerViewersToolBar\n\nLet me search for these APIs in the source.\n\n[Round 2]\nThe APIs on vtkMRMLSliceDisplayNode are confirmed: SetIntersectingSlicesVisibility, GetIntersectingSlicesVisibility, SetIntersectingSlicesInteractive, GetIntersectingSlicesInteractive, SetIntersectingSlicesTranslationEnabled, GetIntersectingSlicesTranslationEnabled, SetIntersectingSlicesRotationEnabled, GetIntersectingSlicesRotationEnabled.\n\nLet me read the vtkMRMLSliceDisplayNode.h header to confirm the exact API signatures and also check for the interactive handles visibility mode. Also let me look for how the UI (Slice viewer toolbar) maps to these, e.g. qSlicerViewersToolBar.\n\nLet me read the header file for the relevant section.\n\n[Round 3]\nI have confirmed the vtkMRMLSliceDisplayNode APIs:\n- `SetIntersectingSlicesVisibility(bool)` / `GetIntersectingSlicesVisibility()`\n- `SetIntersectingSlicesInteractive(bool)` / `GetIntersectingSlicesInteractive()`\n- `SetIntersectingSlicesTranslationEnabled(bool)` / `GetIntersectingSlicesTranslationEnabled()`\n- `SetIntersectingSlicesRotationEnabled(bool)` / `GetIntersectingSlicesRotationEnabled()`\n\nNow, there's also `vtkMRMLApplicationLogic::SetIntersectingSlicesEnabled(IntersectingSlicesType, flag)` which is used by the Markups module widget to set slice intersections visibility globally across all slice views. Let me check what types exist: `IntersectingSlicesVisibility`, `IntersectingSlicesInteractive`, etc.\n\nThe failing code used `slicer.util.getNodesByClass(\"vtkMRMLSliceDisplayNode\")` and set each display node. That's a valid approach but the ground truth API evidence includes `vtkMRMLApplicationLogic`, `SetIntersectingSlicesEnabled`, and `slicer.util.getNodesByClass`. \n\nLet me check the vtkMRMLApplicationLogic API to see how SetIntersectingSlicesEnabled works. The ground truth \"accepted_footprints\" includes:\n- GetIntersectingSlicesInteractive\n- GetIntersectingSlicesRotationEnabled\n- GetIntersectingSlicesTranslationEnabled\n- GetIntersectingSlicesVisibility\n- SetIntersectingSlicesInteractive\n- SetIntersectingSlicesRotationEnabled\n- SetIntersectingSlicesTranslationEnabled\n- SetIntersectingSlicesVisibilit",
+          "generated_code_preview": "# Enable slice intersection visibility and interaction with Translate and Rotate\n# for every slice display node in the scene (backing properties of the \"Slice\n# intersections\" / \"Interaction\" / Translate / Rotate options).\n# Source evidence: vtkMRMLSliceDisplayNode.h (Set/GetIntersectingSlicesVisibility,\n# Set/GetIntersectingSlicesInteractive, Set/GetIntersectingSlicesTranslationEnabled,\n# Set/GetIntersectingSlicesRotationEnabled) and slicer.util.getNodesByClass.\n\nsliceDisplayNodes = slicer.util.getNodesByClass(\"vtkMRMLSliceDisplayNode\")\nif not sliceDisplayNodes:\n    raise RuntimeError(\"STATE_NOT_APPLIED: no vtkMRMLSliceDisplayNode found in scene\")\n\nfor sliceDisplayNode in sliceDisplayNodes:\n    # Show intersection lines of the other slice planes in each slice viewer.\n    sliceDisplayNode.SetIntersectingSlicesVisibility(True)\n    if not sliceDisplayNode.GetIntersectingSlicesVisibility():\n        raise RuntimeError(\"STATE_NOT_APPLIED: IntersectingSlicesVisibility\")\n\n    # Show handles for slice intersection interaction.\n    sliceDisplayNode.SetIntersectingSlicesInteractive(True)\n    if not sliceDisplayNode.GetIntersectingSlicesInteractive():\n        raise RuntimeError(\"STATE_NOT_APPLIED: IntersectingSlicesInteractive\")\n\n    # Enable the Translate interaction handle.\n    sliceDisplayNode.SetIntersectingSlicesTranslationEnabled(True)\n    if not sliceDisplayNode.GetIntersectingSlicesTranslationEnabled():\n        raise RuntimeError(\"STATE_NOT_APPLIED: IntersectingSlicesTranslationEnabled\")\n\n    # Enable the Rotate interaction handle.\n    sliceDisplayNode.SetIntersectingSlicesRotationEnabled(True)\n    if not sliceDisplayNode.GetIntersectingSlicesRotationEnabled():\n        raise RuntimeError(\"STATE_NOT_APPLIED: IntersectingSlicesRotationEnabled\")\n\n# Workaround to force visual update (see https://github.com/Slicer/Slicer/issues/6338)\nsliceNodes = slicer.util.getNodesByClass(\"vtkMRMLSliceNode\")\nfor sliceNode in sliceNodes:\n    sliceNode.Modified()"
+        }
+      ]
+    }
+  },
+  {
+    "tool_name": "PedicleScrewPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_7"
+    },
+    "description": "Manually adjust the rotation angle of the red slice.",
+    "requirements": [
+      "PedicleScrewPlanner extension must be installed"
+    ],
+    "operation_type": "user_interaction",
+    "ui_guidance": {
+      "title": "Adjust the red slice view",
+      "instruction": "Rotate or zoom the red slice view to the desired angle.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "view",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_interaction",
+      "op_types": [
+        "user_interaction"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": true,
+      "interaction_kinds": [
+        "interaction"
+      ]
+    },
+    "pre_template_file": "templates/cb_step_7_pre.py.tpl",
+    "post_template_file": "templates/cb_step_7_post.py.tpl",
+    "interaction_descriptor": {
+      "interaction_type": "generic",
+      "interaction_kind": "view_adjustment",
+      "node_class": "",
+      "placement_instructions": "Manually adjust the rotation angle of the red slice.",
+      "ui_guidance": {
+        "title": "Adjust the red slice view",
+        "instruction": "Rotate or zoom the red slice view to the desired angle.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "view",
+        "repeat": {}
+      }
+    },
+    "repeat_block": {
+      "repeat_id": "loop_back_step_11",
+      "body_steps": [
+        "cb_step_7",
+        "cb_step_8",
+        "cb_step_9",
+        "cb_step_10",
+        "cb_step_11"
+      ],
+      "entry_step": "cb_step_7",
+      "terminal_step": "cb_step_11",
+      "exit_step": "cb_step_12",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_11",
+        "loop_back": true,
+        "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+        "exit_value": true,
+        "polarity": "deterministic",
+        "exit_target": 12
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "backward_jump_loop_synthesis",
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetNodeByID",
+        "SwitchToViewTransformMode",
+        "mrmlScene",
+        "vtkMRMLInteractionNodeSingleton"
+      ],
+      "api_chains": [
+        "interactionNode.SwitchToViewTransformMode",
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode"
+      ],
+      "operation_descriptions": [
+        "Manually adjust the rotation angle of the red slice."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "PedicleScrewPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_8"
+    },
+    "description": "Click the \"Place a control point\" button to activate the point placement.",
     "requirements": [
       "PedicleScrewPlanner extension must be installed"
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Click 'Place a control point' button",
-      "instruction": "",
+      "title": "Activate point placement",
+      "instruction": "Click the 'Place a control point' button to activate placement.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -879,12 +1537,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_6.py.tpl",
+    "template_file": "templates/cb_step_8.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Activate landmark placement mode by clicking 'Place a control point'",
+        "description": "Activate the control point placement mode.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -899,7 +1557,7 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          5
+          7
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -915,6 +1573,33 @@
         }
       }
     ],
+    "repeat_block": {
+      "repeat_id": "loop_back_step_11",
+      "body_steps": [
+        "cb_step_7",
+        "cb_step_8",
+        "cb_step_9",
+        "cb_step_10",
+        "cb_step_11"
+      ],
+      "entry_step": "cb_step_7",
+      "terminal_step": "cb_step_11",
+      "exit_step": "cb_step_12",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_11",
+        "loop_back": true,
+        "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+        "exit_value": true,
+        "polarity": "deterministic",
+        "exit_target": 12
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "backward_jump_loop_synthesis",
+        "confidence": "high"
+      }
+    },
     "api_evidence": {
       "source": "ground_api",
       "accepted_footprints": [
@@ -937,7 +1622,7 @@
         "slicer.util.getModuleWidget('PedicleScrewPlanner').landmarksStep.startMeasurements.setPlaceModeEnabled"
       ],
       "operation_descriptions": [
-        "Activate landmark placement mode by clicking 'Place a control point'"
+        "Activate the control point placement mode."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -946,21 +1631,23 @@
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_7"
+      "workflow_step": "cb_step_9"
     },
-    "description": "Manually click in the 2D views to add fiducial points. The total number of points added should be three times the value specified in '# to Instrument'.",
+    "description": "Manually click in the 2D views to add fiducial points for one part of the spine.",
     "requirements": [
       "PedicleScrewPlanner extension must be installed"
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Add Fiducial Points",
-      "instruction": "Click in the 2D views to add fiducial points. Add three times the '# to Instrument' value.",
+      "title": "Add fiducial points for one spine part",
+      "instruction": "Click in the 2D views on one part of the spine to add the fiducial points, then click Done.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
       "object_label": "fiducial",
-      "repeat": {}
+      "repeat": {
+        "summary": "One part of the spine per pass."
+      }
     },
     "operation_model": {
       "step_type": "user_interaction",
@@ -982,127 +1669,70 @@
       {
         "role_kind": "interaction_output",
         "node_class": "vtkMRMLMarkupsFiducialNode",
-        "parameter_name": null,
-        "step_id": "cb_step_7"
+        "parameter_name": "",
+        "step_id": "cb_step_9"
       }
     ],
-    "pre_template_file": "templates/cb_step_7_pre.py.tpl",
-    "post_template_file": "templates/cb_step_7_post.py.tpl",
+    "pre_template_file": "templates/cb_step_9_pre.py.tpl",
+    "post_template_file": "templates/cb_step_9_post.py.tpl",
     "interaction_descriptor": {
       "interaction_type": "fiducial",
       "interaction_kind": "module_tool_interaction",
       "node_class": "vtkMRMLMarkupsFiducialNode",
-      "placement_instructions": "Place fiducial landmarks by clicking in the 2D views; number of points equals three times the instrument count",
+      "placement_instructions": "Manually click in the 2D views to add fiducial points for one part of the spine.",
       "ui_guidance": {
-        "title": "Add Fiducial Points",
-        "instruction": "Click in the 2D views to add fiducial points. Add three times the '# to Instrument' value.",
+        "title": "Add fiducial points for one spine part",
+        "instruction": "Click in the 2D views on one part of the spine to add the fiducial points, then click Done.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "fiducial",
-        "repeat": {}
+        "repeat": {
+          "summary": "One part of the spine per pass."
+        }
+      }
+    },
+    "repeat_block": {
+      "repeat_id": "loop_back_step_11",
+      "body_steps": [
+        "cb_step_7",
+        "cb_step_8",
+        "cb_step_9",
+        "cb_step_10",
+        "cb_step_11"
+      ],
+      "entry_step": "cb_step_7",
+      "terminal_step": "cb_step_11",
+      "exit_step": "cb_step_12",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_11",
+        "loop_back": true,
+        "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+        "exit_value": true,
+        "polarity": "deterministic",
+        "exit_target": 12
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "backward_jump_loop_synthesis",
+        "confidence": "high"
       }
     }
   },
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_8"
+      "workflow_step": "cb_step_10"
     },
-    "description": "Set the Level/Side/Landmarks following the original selection widget.",
-    "requirements": [
-      "PedicleScrewPlanner extension must be installed"
-    ],
-    "operation_type": "user_choice",
-    "ui_guidance": {
-      "title": "Set Level/Side/Landmarks",
-      "instruction": "Select the level, side, and landmarks using the widget.",
-      "done_label": "Done",
-      "choice_label": "Side",
-      "input_label": "Side",
-      "object_label": "side",
-      "repeat": {}
-    },
-    "operation_model": {
-      "step_type": "user_choice",
-      "op_types": [
-        "user_choice"
-      ],
-      "operation_intents": [],
-      "invokes_extension_method": false,
-      "invokes_extension_function": false,
-      "invokes_slicer_api": false,
-      "implementation_uses_slicer_api": false,
-      "allow_module_switch": false,
-      "produces_interaction_state": false,
-      "interaction_kinds": []
-    },
-    "choice_descriptor": {
-      "question": "Set the Level/Side/Landmarks following the original selection widget.",
-      "choices": [],
-      "parameter_name": "choice_step_8",
-      "default_value": null,
-      "ui_guidance": {
-        "title": "Set Level/Side/Landmarks",
-        "instruction": "Select the level, side, and landmarks using the widget.",
-        "done_label": "Done",
-        "choice_label": "Side",
-        "input_label": "Side",
-        "object_label": "side",
-        "repeat": {}
-      }
-    },
-    "sub_operations": [
-      {
-        "op_type": "user_choice",
-        "operation_type": "user_choice",
-        "description": "Select level, side, and landmarks for the current instrumented level",
-        "extension_method_hint": null,
-        "extension_function_hint": null,
-        "widget_name": null,
-        "ui_parameter_binding": null,
-        "target_value": null,
-        "target_value_mode": null,
-        "slicer_op_category": null,
-        "slicer_api_keywords": [],
-        "interaction_kind": "none",
-        "interaction_type": null,
-        "node_class": null,
-        "creates_node": false,
-        "requires_place_mode": false,
-        "setup_dependencies": [
-          7
-        ],
-        "placement_instructions": null,
-        "min_control_points": 0,
-        "is_optional": false,
-        "operation_intents": [],
-        "node_roles": [],
-        "confidence": "high",
-        "evidence_type": "llm_semantic_decomposition",
-        "evidence_id": "",
-        "question": "Set the Level/Side/Landmarks following the original selection widget.",
-        "choices": [],
-        "parameter_name": "choice_step_8",
-        "default_value": null,
-        "value_kind": "",
-        "native_widget": true
-      }
-    ]
-  },
-  {
-    "tool_name": "PedicleScrewPlanner",
-    "param_signature": {
-      "workflow_step": "cb_step_9"
-    },
-    "description": "Click the \"Next\" button in the \"3. Place the Landmarks\" page.",
+    "description": "Click the \"Place a control point\" button to inactivate the point placement.",
     "requirements": [
       "PedicleScrewPlanner extension must be installed"
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Click Next on Place Landmarks page",
-      "instruction": "",
+      "title": "Stop point placement",
+      "instruction": "Click the 'Place a control point' button again to stop placement.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1123,12 +1753,166 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_9.py.tpl",
+    "template_file": "templates/cb_step_10.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Advance to the next step after placing landmarks",
+        "description": "Deactivate the control point placement mode.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": false,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          9
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "wizard_place_button": {
+          "step_attr": "landmarksStep",
+          "place_attr": "startMeasurements"
+        }
+      }
+    ],
+    "repeat_block": {
+      "repeat_id": "loop_back_step_11",
+      "body_steps": [
+        "cb_step_7",
+        "cb_step_8",
+        "cb_step_9",
+        "cb_step_10",
+        "cb_step_11"
+      ],
+      "entry_step": "cb_step_7",
+      "terminal_step": "cb_step_11",
+      "exit_step": "cb_step_12",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_11",
+        "loop_back": true,
+        "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+        "exit_value": true,
+        "polarity": "deterministic",
+        "exit_target": 12
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "backward_jump_loop_synthesis",
+        "confidence": "high"
+      }
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetNodeByID",
+        "SwitchToViewTransformMode",
+        "findChildren",
+        "getModule",
+        "getModuleWidget",
+        "landmarksStep",
+        "mrmlScene",
+        "setPlaceModeEnabled",
+        "startMeasurements",
+        "util",
+        "vtkMRMLInteractionNodeSingleton",
+        "widgetRepresentation"
+      ],
+      "api_chains": [
+        "_wiz_inode.SwitchToViewTransformMode",
+        "_wiz_pw.setPlaceModeEnabled",
+        "_wiz_widget.landmarksStep.startMeasurements.setPlaceModeEnabled",
+        "slicer.mrmlScene.GetNodeByID",
+        "slicer.mrmlScene.GetNodeByID('vtkMRMLInteractionNodeSingleton').SwitchToViewTransformMode",
+        "slicer.util.findChildren",
+        "slicer.util.getModule",
+        "slicer.util.getModule('PedicleScrewPlanner').widgetRepresentation",
+        "slicer.util.getModuleWidget",
+        "slicer.util.getModuleWidget('PedicleScrewPlanner').landmarksStep.startMeasurements.setPlaceModeEnabled"
+      ],
+      "operation_descriptions": [
+        "Deactivate the control point placement mode."
+      ],
+      "slicer_op_categories": [],
+      "slicer_api_keywords": []
+    }
+  },
+  {
+    "tool_name": "PedicleScrewPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_11"
+    },
+    "description": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+    "requirements": [
+      "PedicleScrewPlanner extension must be installed"
+    ],
+    "operation_type": "branch_op",
+    "ui_guidance": {
+      "title": "All points configured for all parts?",
+      "instruction": "Choose Yes if every part is done; choose No to continue with the next part.",
+      "done_label": "Done",
+      "choice_label": "Choice",
+      "input_label": "Choice",
+      "object_label": "choice",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "branch_op",
+      "op_types": [
+        "branch_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "choice_descriptor": {
+      "question": "Are all points configured for all parts?",
+      "choices": [
+        {
+          "label": "Yes",
+          "value": true
+        },
+        {
+          "label": "No",
+          "value": false
+        }
+      ],
+      "parameter_name": "all_points_configured",
+      "default_value": false,
+      "ui_guidance": {
+        "title": "All points configured for all parts?",
+        "instruction": "Choose Yes if every part is done; choose No to continue with the next part.",
+        "done_label": "Done",
+        "choice_label": "Choice",
+        "input_label": "Choice",
+        "object_label": "choice",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "branch_op",
+        "operation_type": "branch_op",
+        "description": "Decide whether all spine parts have configured fiducial points; if not, repeat from step 7.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1143,7 +1927,308 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          8
+          10,
+          7
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Are all points configured for all parts?",
+        "choices": [
+          {
+            "label": "Yes",
+            "value": true
+          },
+          {
+            "label": "No",
+            "value": false
+          }
+        ],
+        "parameter_name": "all_points_configured",
+        "default_value": false,
+        "value_kind": ""
+      }
+    ],
+    "repeat_block": {
+      "repeat_id": "loop_back_step_11",
+      "body_steps": [
+        "cb_step_7",
+        "cb_step_8",
+        "cb_step_9",
+        "cb_step_10",
+        "cb_step_11"
+      ],
+      "entry_step": "cb_step_7",
+      "terminal_step": "cb_step_11",
+      "exit_step": "cb_step_12",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_11",
+        "loop_back": true,
+        "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+        "exit_value": true,
+        "polarity": "deterministic",
+        "exit_target": 12
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "backward_jump_loop_synthesis",
+        "confidence": "high"
+      }
+    }
+  },
+  {
+    "tool_name": "PedicleScrewPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_12"
+    },
+    "description": "In the slice intersection interaction options of the toolbar, turn off \"set interaction\".",
+    "requirements": [
+      "PedicleScrewPlanner extension must be installed"
+    ],
+    "operation_type": "slicer_op",
+    "ui_guidance": {
+      "title": "Disable slice intersection interaction",
+      "instruction": "In the slice intersection interaction options, turn off Set interaction.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "view",
+      "repeat": {}
+    },
+    "api_evidence": {
+      "source": "ground_api",
+      "accepted_footprints": [
+        "GetIntersectingSlicesEnabled",
+        "IntersectingSlicesInteractive",
+        "SetIntersectingSlicesEnabled",
+        "app",
+        "applicationLogic",
+        "vtkMRMLApplicationLogic"
+      ],
+      "api_chains": [
+        "appLogic.GetIntersectingSlicesEnabled",
+        "appLogic.SetIntersectingSlicesEnabled",
+        "slicer.app.applicationLogic",
+        "slicer.app.applicationLogic().GetIntersectingSlicesEnabled",
+        "slicer.app.applicationLogic().SetIntersectingSlicesEnabled",
+        "slicer.vtkMRMLApplicationLogic.IntersectingSlicesInteractive"
+      ],
+      "operation_descriptions": [
+        "Disable the set interaction option for slice intersections."
+      ],
+      "slicer_op_categories": [
+        "crosshair"
+      ],
+      "slicer_api_keywords": [
+        "vtkMRMLCrosshairNode",
+        "slice intersection",
+        "SetInteractiveMode",
+        "disable"
+      ]
+    },
+    "operation_model": {
+      "step_type": "slicer_op",
+      "op_types": [
+        "slicer_op"
+      ],
+      "operation_intents": [
+        "slice_intersection_interaction"
+      ],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_12_slicer.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "slicer_op",
+        "operation_type": "slicer_op",
+        "description": "Disable the set interaction option for slice intersections.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": "crosshair",
+        "slicer_api_keywords": [
+          "vtkMRMLCrosshairNode",
+          "slice intersection",
+          "SetInteractiveMode",
+          "disable"
+        ],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": "vtkMRMLCrosshairNode",
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          11
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [
+          "slice_intersection_interaction"
+        ],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "operation_intent": "slice_intersection_interaction"
+      }
+    ]
+  },
+  {
+    "tool_name": "PedicleScrewPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_13"
+    },
+    "description": "Set the Level/Side/Landmarks following the original selection widget.",
+    "requirements": [
+      "PedicleScrewPlanner extension must be installed"
+    ],
+    "operation_type": "user_choice",
+    "ui_guidance": {
+      "title": "Set level, side, and landmarks",
+      "instruction": "Set the level, side, and landmarks in the selection widget.",
+      "done_label": "Done",
+      "choice_label": "Selection",
+      "input_label": "Selection",
+      "object_label": "selection",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "user_choice",
+      "op_types": [
+        "user_choice"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": false,
+      "implementation_uses_slicer_api": false,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "choice_descriptor": {
+      "question": "Set the Level/Side/Landmarks following the original selection widget.",
+      "choices": [],
+      "parameter_name": "choice_step_13",
+      "default_value": null,
+      "ui_guidance": {
+        "title": "Set level, side, and landmarks",
+        "instruction": "Set the level, side, and landmarks in the selection widget.",
+        "done_label": "Done",
+        "choice_label": "Selection",
+        "input_label": "Selection",
+        "object_label": "selection",
+        "repeat": {}
+      }
+    },
+    "sub_operations": [
+      {
+        "op_type": "user_choice",
+        "operation_type": "user_choice",
+        "description": "Set the level, side, and landmarks according to the original selection widget.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          12
+        ],
+        "placement_instructions": null,
+        "min_control_points": 0,
+        "is_optional": false,
+        "operation_intents": [],
+        "node_roles": [],
+        "confidence": "high",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "question": "Set the Level/Side/Landmarks following the original selection widget.",
+        "choices": [],
+        "parameter_name": "choice_step_13",
+        "default_value": null,
+        "value_kind": "",
+        "native_widget": true
+      }
+    ]
+  },
+  {
+    "tool_name": "PedicleScrewPlanner",
+    "param_signature": {
+      "workflow_step": "cb_step_14"
+    },
+    "description": "Click the \"Next\" button in the \"3. Place the Landmarks\" page.",
+    "requirements": [
+      "PedicleScrewPlanner extension must be installed"
+    ],
+    "operation_type": "extension_op",
+    "ui_guidance": {
+      "title": "Continue to landmark placement",
+      "instruction": "Click Next in the '3. Place the Landmarks' page.",
+      "done_label": "Done",
+      "choice_label": "",
+      "input_label": "",
+      "object_label": "interaction",
+      "repeat": {}
+    },
+    "operation_model": {
+      "step_type": "extension_op",
+      "op_types": [
+        "extension_op"
+      ],
+      "operation_intents": [],
+      "invokes_extension_method": false,
+      "invokes_extension_function": false,
+      "invokes_slicer_api": true,
+      "implementation_uses_slicer_api": true,
+      "allow_module_switch": false,
+      "produces_interaction_state": false,
+      "interaction_kinds": []
+    },
+    "template_file": "templates/cb_step_14.py.tpl",
+    "sub_operations": [
+      {
+        "op_type": "extension_op",
+        "operation_type": "extension_op",
+        "description": "Advance past the Place the Landmarks page to the next workflow page.",
+        "extension_method_hint": null,
+        "extension_function_hint": null,
+        "widget_name": null,
+        "ui_parameter_binding": null,
+        "target_value": null,
+        "target_value_mode": null,
+        "slicer_op_category": null,
+        "slicer_api_keywords": [],
+        "interaction_kind": "none",
+        "interaction_type": null,
+        "node_class": null,
+        "creates_node": false,
+        "requires_place_mode": false,
+        "setup_dependencies": [
+          13
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -1177,7 +2262,7 @@
         "slicer.util.getModuleWidget('PedicleScrewPlanner').workflow.goForward"
       ],
       "operation_descriptions": [
-        "Advance to the next step after placing landmarks"
+        "Advance past the Place the Landmarks page to the next workflow page."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -1186,7 +2271,7 @@
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_10"
+      "workflow_step": "cb_step_15"
     },
     "description": "Choose the \"Choose the puncture site\". Choose the \"Select screw diametermm\".",
     "requirements": [
@@ -1194,13 +2279,15 @@
     ],
     "operation_type": "user_choice",
     "ui_guidance": {
-      "title": "Choose Puncture Site and Screw Diameter",
-      "instruction": "Choose the puncture site and select screw diameter.",
+      "title": "Choose puncture site and screw diameter",
+      "instruction": "Select the puncture site and the screw diameter in mm.",
       "done_label": "Done",
       "choice_label": "Choice",
       "input_label": "Choice",
       "object_label": "choice",
-      "repeat": {}
+      "repeat": {
+        "summary": "One puncture site per pass."
+      }
     },
     "operation_model": {
       "step_type": "user_choice",
@@ -1216,42 +2303,28 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "node_roles": [
-      {
-        "role_kind": "choice_input",
-        "node_class": "vtkMRMLMarkupsFiducialNode",
-        "parameter_name": "",
-        "step_id": "cb_step_10"
-      }
-    ],
     "choice_descriptor": {
       "question": "Choose the puncture site",
       "choices": [],
       "parameter_name": "choose_the_puncture_site",
       "default_value": null,
       "ui_guidance": {
-        "title": "Choose Puncture Site and Screw Diameter",
-        "instruction": "Choose the puncture site and select screw diameter.",
+        "title": "Choose puncture site and screw diameter",
+        "instruction": "Select the puncture site and the screw diameter in mm.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
         "object_label": "choice",
-        "repeat": {}
-      },
-      "node_roles": [
-        {
-          "role_kind": "choice_input",
-          "node_class": "vtkMRMLMarkupsFiducialNode",
-          "parameter_name": "",
-          "step_id": "cb_step_10"
+        "repeat": {
+          "summary": "One puncture site per pass."
         }
-      ]
+      }
     },
     "sub_operations": [
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the puncture site and screw diameter",
+        "description": "Choose the puncture site and screw diameter.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "sSelector",
@@ -1266,21 +2339,13 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          7,
-          9
+          14
         ],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "choice_input",
-            "node_class": "vtkMRMLMarkupsFiducialNode",
-            "parameter_name": "",
-            "step_id": "cb_step_10"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
@@ -1300,7 +2365,7 @@
       {
         "op_type": "user_choice",
         "operation_type": "user_choice",
-        "description": "Select the puncture site and screw diameter",
+        "description": "Choose the puncture site and screw diameter.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "dSelector",
@@ -1315,21 +2380,13 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          7,
-          9
+          14
         ],
         "placement_instructions": null,
         "min_control_points": 0,
         "is_optional": false,
         "operation_intents": [],
-        "node_roles": [
-          {
-            "role_kind": "choice_input",
-            "node_class": "vtkMRMLMarkupsFiducialNode",
-            "parameter_name": "",
-            "step_id": "cb_step_10"
-          }
-        ],
+        "node_roles": [],
         "confidence": "high",
         "evidence_type": "llm_semantic_decomposition",
         "evidence_id": "",
@@ -1396,25 +2453,25 @@
       }
     ],
     "repeat_block": {
-      "repeat_id": "loop_back_step_14",
+      "repeat_id": "loop_back_step_19",
       "body_steps": [
-        "cb_step_10",
-        "cb_step_11",
-        "cb_step_12",
-        "cb_step_13",
-        "cb_step_14"
+        "cb_step_15",
+        "cb_step_16",
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
       ],
-      "entry_step": "cb_step_10",
-      "terminal_step": "cb_step_14",
-      "exit_step": "cb_step_15",
+      "entry_step": "cb_step_15",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_14",
+        "source_step": "cb_step_19",
         "loop_back": true,
-        "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+        "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
         "exit_value": true,
         "polarity": "deterministic",
-        "exit_target": 15
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {
@@ -1426,7 +2483,7 @@
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_11"
+      "workflow_step": "cb_step_16"
     },
     "description": "Manually adjust the start and end position of puncture site in 2D views.",
     "requirements": [
@@ -1434,12 +2491,12 @@
     ],
     "operation_type": "user_interaction",
     "ui_guidance": {
-      "title": "Adjust Puncture Site Line",
-      "instruction": "Adjust the start and end points of the puncture site line in the 2D views.",
+      "title": "Adjust the view of the puncture site",
+      "instruction": "Rotate or zoom the 2D views to clearly see the puncture site.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
-      "object_label": "line",
+      "object_label": "view",
       "repeat": {}
     },
     "operation_model": {
@@ -1458,51 +2515,43 @@
         "interaction"
       ]
     },
-    "node_roles": [
-      {
-        "role_kind": "extension_input",
-        "node_class": "vtkMRMLMarkupsLineNode",
-        "parameter_name": null,
-        "step_id": "cb_step_11"
-      }
-    ],
-    "pre_template_file": "templates/cb_step_11_pre.py.tpl",
-    "post_template_file": "templates/cb_step_11_post.py.tpl",
+    "pre_template_file": "templates/cb_step_16_pre.py.tpl",
+    "post_template_file": "templates/cb_step_16_post.py.tpl",
     "interaction_descriptor": {
-      "interaction_type": "line",
+      "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
-      "node_class": "vtkMRMLMarkupsLineNode",
-      "placement_instructions": null,
+      "node_class": "",
+      "placement_instructions": "Manually adjust the start and end position of the puncture site in the 2D views.",
       "ui_guidance": {
-        "title": "Adjust Puncture Site Line",
-        "instruction": "Adjust the start and end points of the puncture site line in the 2D views.",
+        "title": "Adjust the view of the puncture site",
+        "instruction": "Rotate or zoom the 2D views to clearly see the puncture site.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "line",
+        "object_label": "view",
         "repeat": {}
       }
     },
     "repeat_block": {
-      "repeat_id": "loop_back_step_14",
+      "repeat_id": "loop_back_step_19",
       "body_steps": [
-        "cb_step_10",
-        "cb_step_11",
-        "cb_step_12",
-        "cb_step_13",
-        "cb_step_14"
+        "cb_step_15",
+        "cb_step_16",
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
       ],
-      "entry_step": "cb_step_10",
-      "terminal_step": "cb_step_14",
-      "exit_step": "cb_step_15",
+      "entry_step": "cb_step_15",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_14",
+        "source_step": "cb_step_19",
         "loop_back": true,
-        "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+        "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
         "exit_value": true,
         "polarity": "deterministic",
-        "exit_target": 15
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {
@@ -1533,7 +2582,7 @@
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_12"
+      "workflow_step": "cb_step_17"
     },
     "description": "Click the \"Update\" button.",
     "requirements": [
@@ -1541,8 +2590,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Click 'Update' button",
-      "instruction": "",
+      "title": "Update the plan",
+      "instruction": "Click Update.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1563,12 +2612,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_12.py.tpl",
+    "template_file": "templates/cb_step_17.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Update the screw plan after adjusting the puncture site",
+        "description": "Apply the updated puncture site settings with the Update button.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1583,7 +2632,7 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          11
+          16
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -1603,25 +2652,25 @@
       }
     ],
     "repeat_block": {
-      "repeat_id": "loop_back_step_14",
+      "repeat_id": "loop_back_step_19",
       "body_steps": [
-        "cb_step_10",
-        "cb_step_11",
-        "cb_step_12",
-        "cb_step_13",
-        "cb_step_14"
+        "cb_step_15",
+        "cb_step_16",
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
       ],
-      "entry_step": "cb_step_10",
-      "terminal_step": "cb_step_14",
-      "exit_step": "cb_step_15",
+      "entry_step": "cb_step_15",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_14",
+        "source_step": "cb_step_19",
         "loop_back": true,
-        "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+        "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
         "exit_value": true,
         "polarity": "deterministic",
-        "exit_target": 15
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {
@@ -1667,7 +2716,7 @@
         "slicer.util.getModuleWidget('PedicleScrewPlanner').measurementsStep.manualUp"
       ],
       "operation_descriptions": [
-        "Update the screw plan after adjusting the puncture site"
+        "Apply the updated puncture site settings with the Update button."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -1676,7 +2725,7 @@
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_13"
+      "workflow_step": "cb_step_18"
     },
     "description": "Click the \"OK\" button.",
     "requirements": [
@@ -1684,8 +2733,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Click 'OK' button",
-      "instruction": "",
+      "title": "Confirm the puncture site",
+      "instruction": "Click OK.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1706,12 +2755,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_13.py.tpl",
+    "template_file": "templates/cb_step_18.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Confirm the screw adjustment by clicking OK",
+        "description": "Confirm and close the screw adjustment dialog with OK.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": "okButton",
@@ -1726,7 +2775,7 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          12
+          17
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -1746,25 +2795,25 @@
       }
     ],
     "repeat_block": {
-      "repeat_id": "loop_back_step_14",
+      "repeat_id": "loop_back_step_19",
       "body_steps": [
-        "cb_step_10",
-        "cb_step_11",
-        "cb_step_12",
-        "cb_step_13",
-        "cb_step_14"
+        "cb_step_15",
+        "cb_step_16",
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
       ],
-      "entry_step": "cb_step_10",
-      "terminal_step": "cb_step_14",
-      "exit_step": "cb_step_15",
+      "entry_step": "cb_step_15",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_14",
+        "source_step": "cb_step_19",
         "loop_back": true,
-        "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+        "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
         "exit_value": true,
         "polarity": "deterministic",
-        "exit_target": 15
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {
@@ -1790,7 +2839,8 @@
         "strip",
         "text",
         "util",
-        "widgetRepresentation"
+        "widgetRepresentation",
+        "ProcessEventsFlag"
       ],
       "api_chains": [
         "'OK'.replace",
@@ -1807,10 +2857,11 @@
         "slicer.util.getModule",
         "slicer.util.getModule('PedicleScrewPlanner').widgetRepresentation",
         "slicer.util.getModuleWidget",
-        "slicer.util.getModuleWidget('PedicleScrewPlanner').measurementsStep.okShow"
+        "slicer.util.getModuleWidget('PedicleScrewPlanner').measurementsStep.okShow",
+        "qt.QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents"
       ],
       "operation_descriptions": [
-        "Confirm the screw adjustment by clicking OK"
+        "Confirm and close the screw adjustment dialog with OK."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -1819,20 +2870,20 @@
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_14"
+      "workflow_step": "cb_step_19"
     },
-    "description": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+    "description": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
     "requirements": [
       "PedicleScrewPlanner extension must be installed"
     ],
     "operation_type": "branch_op",
     "ui_guidance": {
-      "title": "All Puncture Sites Configured?",
-      "instruction": "Select Yes if all puncture sites are configured, No to continue configuring.",
+      "title": "All puncture sites configured?",
+      "instruction": "Choose Yes if every puncture site is done; choose No to configure the next site.",
       "done_label": "Done",
       "choice_label": "Choice",
       "input_label": "Choice",
-      "object_label": "interaction",
+      "object_label": "choice",
       "repeat": {}
     },
     "operation_model": {
@@ -1854,22 +2905,22 @@
       "choices": [
         {
           "label": "Yes",
-          "value": "done"
+          "value": true
         },
         {
           "label": "No",
-          "value": "not_done"
+          "value": false
         }
       ],
       "parameter_name": "all_puncture_sites_configured",
-      "default_value": null,
+      "default_value": false,
       "ui_guidance": {
-        "title": "All Puncture Sites Configured?",
-        "instruction": "Select Yes if all puncture sites are configured, No to continue configuring.",
+        "title": "All puncture sites configured?",
+        "instruction": "Choose Yes if every puncture site is done; choose No to configure the next site.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
-        "object_label": "interaction",
+        "object_label": "choice",
         "repeat": {}
       }
     },
@@ -1877,7 +2928,7 @@
       {
         "op_type": "branch_op",
         "operation_type": "branch_op",
-        "description": "Check if all puncture sites are configured and jump accordingly",
+        "description": "Decide whether every puncture site is configured; if not, repeat from step 15.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -1892,8 +2943,8 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          10,
-          13
+          18,
+          15
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -1907,38 +2958,38 @@
         "choices": [
           {
             "label": "Yes",
-            "value": "done"
+            "value": true
           },
           {
             "label": "No",
-            "value": "not_done"
+            "value": false
           }
         ],
         "parameter_name": "all_puncture_sites_configured",
-        "default_value": null,
+        "default_value": false,
         "value_kind": ""
       }
     ],
     "repeat_block": {
-      "repeat_id": "loop_back_step_14",
+      "repeat_id": "loop_back_step_19",
       "body_steps": [
-        "cb_step_10",
-        "cb_step_11",
-        "cb_step_12",
-        "cb_step_13",
-        "cb_step_14"
+        "cb_step_15",
+        "cb_step_16",
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
       ],
-      "entry_step": "cb_step_10",
-      "terminal_step": "cb_step_14",
-      "exit_step": "cb_step_15",
+      "entry_step": "cb_step_15",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_14",
+        "source_step": "cb_step_19",
         "loop_back": true,
-        "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+        "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
         "exit_value": true,
         "polarity": "deterministic",
-        "exit_target": 15
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {
@@ -1950,7 +3001,7 @@
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_15"
+      "workflow_step": "cb_step_20"
     },
     "description": "Click the \"Next\" button in the \"4. Adjust Screws\" page.",
     "requirements": [
@@ -1958,8 +3009,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Click Next on Adjust Screws page",
-      "instruction": "",
+      "title": "Continue to screw adjustment",
+      "instruction": "Click Next in the '4. Adjust Screws' page.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -1980,12 +3031,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_15.py.tpl",
+    "template_file": "templates/cb_step_20.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Advance to the next step after adjusting screws",
+        "description": "Advance past the Adjust Screws page to the next workflow page.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -2000,7 +3051,7 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          14
+          19
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -2034,7 +3085,7 @@
         "slicer.util.getModuleWidget('PedicleScrewPlanner').workflow.goForward"
       ],
       "operation_descriptions": [
-        "Advance to the next step after adjusting screws"
+        "Advance past the Adjust Screws page to the next workflow page."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -2043,7 +3094,7 @@
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_16"
+      "workflow_step": "cb_step_21"
     },
     "description": "Click the \"Grade Screws\" button.",
     "requirements": [
@@ -2051,8 +3102,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Click 'Grade Screws' button",
-      "instruction": "",
+      "title": "Grade the screws",
+      "instruction": "Click Grade Screws to generate the grading table.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -2073,12 +3124,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_16.py.tpl",
+    "template_file": "templates/cb_step_21.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Trigger screw grading",
+        "description": "Run screw grading with the Grade Screws button.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -2093,7 +3144,7 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          15
+          20
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -2150,7 +3201,7 @@
         "slicer.util.getModuleWidget('PedicleScrewPlanner').gradeStep.gradeScrews"
       ],
       "operation_descriptions": [
-        "Trigger screw grading"
+        "Run screw grading with the Grade Screws button."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []
@@ -2159,7 +3210,7 @@
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_17"
+      "workflow_step": "cb_step_22"
     },
     "description": "Review the generated Grade Screws output Table following the original results table.",
     "requirements": [
@@ -2167,7 +3218,7 @@
     ],
     "operation_type": "review_op",
     "ui_guidance": {
-      "title": "Review Grade Screws Results",
+      "title": "Review the grading table",
       "instruction": "Review the generated Grade Screws output table.",
       "done_label": "Done",
       "choice_label": "",
@@ -2193,7 +3244,7 @@
   {
     "tool_name": "PedicleScrewPlanner",
     "param_signature": {
-      "workflow_step": "cb_step_18"
+      "workflow_step": "cb_step_23"
     },
     "description": "Click the \"Next\" button in the \"Grading Step\" page.",
     "requirements": [
@@ -2201,8 +3252,8 @@
     ],
     "operation_type": "extension_op",
     "ui_guidance": {
-      "title": "Click Next on Grading Step page",
-      "instruction": "",
+      "title": "Continue from grading",
+      "instruction": "Click Next in the 'Grading Step' page.",
       "done_label": "Done",
       "choice_label": "",
       "input_label": "",
@@ -2223,12 +3274,12 @@
       "produces_interaction_state": false,
       "interaction_kinds": []
     },
-    "template_file": "templates/cb_step_18.py.tpl",
+    "template_file": "templates/cb_step_23.py.tpl",
     "sub_operations": [
       {
         "op_type": "extension_op",
         "operation_type": "extension_op",
-        "description": "Advance to the next step after grading",
+        "description": "Advance past the Grading Step page to finish the workflow.",
         "extension_method_hint": null,
         "extension_function_hint": null,
         "widget_name": null,
@@ -2243,7 +3294,7 @@
         "creates_node": false,
         "requires_place_mode": false,
         "setup_dependencies": [
-          17
+          22
         ],
         "placement_instructions": null,
         "min_control_points": 0,
@@ -2266,7 +3317,8 @@
         "goForward",
         "processEvents",
         "util",
-        "workflow"
+        "workflow",
+        "ProcessEventsFlag"
       ],
       "api_chains": [
         "_wiz_flow.goForward",
@@ -2274,10 +3326,11 @@
         "slicer.app.processEvents",
         "slicer.util.getModuleWidget",
         "slicer.util.getModuleWidget('PedicleScrewPlanner').workflow",
-        "slicer.util.getModuleWidget('PedicleScrewPlanner').workflow.goForward"
+        "slicer.util.getModuleWidget('PedicleScrewPlanner').workflow.goForward",
+        "qt.QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents"
       ],
       "operation_descriptions": [
-        "Advance to the next step after grading"
+        "Advance past the Grading Step page to finish the workflow."
       ],
       "slicer_op_categories": [],
       "slicer_api_keywords": []

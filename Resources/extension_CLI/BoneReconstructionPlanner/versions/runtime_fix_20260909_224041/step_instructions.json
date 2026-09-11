@@ -1,0 +1,203 @@
+{
+  "version": 1,
+  "steps": {
+    "cb_step_1": {
+      "title": "Fibula graft side",
+      "simple": "Tick the \"Right side leg\" checkbox if the fibula graft was harvested from the right leg.",
+      "detailed": "The side the fibula was harvested from determines the laterality of the flap, which is needed to mirror and orient the planned bone segments correctly when the neomandible is assembled. If the donor fibula came from the right leg, tick the \"Right side leg\" checkbox; leave it unticked for a left fibula.",
+      "edited": false
+    },
+    "cb_step_2": {
+      "title": "Select mandibular segmentation",
+      "simple": "In the \"Select mandibular segmentation\" section, choose the segmentation that contains the mandible.",
+      "detailed": "The mandibular segmentation defines the native mandible against which the resection planes and the reconstructed contour are planned. In the \"Select mandibular segmentation\" section, pick the segmentation node that contains the mandible; this will be used to build the mandible model.",
+      "edited": false
+    },
+    "cb_step_3": {
+      "title": "Select fibula segmentation",
+      "simple": "In the \"Select fibula segmentation\" section, choose the segmentation that contains the fibula.",
+      "detailed": "The fibula segmentation provides the donor bone geometry from which the bone segments are cut and shaped; it must be a different segmentation from the mandible. In the \"Select fibula segmentation\" section, choose the segmentation node that contains the fibula.",
+      "edited": false
+    },
+    "cb_step_4": {
+      "title": "Select current scalar volume",
+      "simple": "In the \"Current Scalar Volume\" option, choose the Mandible Volume.",
+      "detailed": "The current scalar volume is the reference image set used for the 2D slice views during resection planning, so the correct study must be displayed. In the \"Current Scalar Volume\" selector, choose the mandible CT volume (for example the Mandible Volume).",
+      "edited": false
+    },
+    "cb_step_5": {
+      "title": "Create bone models",
+      "simple": "Click \"Create bone models from segmentations\" to generate the mandible and fibula models.",
+      "detailed": "The segmentation masks are converted into 3D surface models so that the anatomy can be visualised and the cut planes placed in three dimensions. Click \"Create bone models from segmentations\" to build the mandible and fibula models.",
+      "edited": false
+    },
+    "cb_step_6": {
+      "title": "Switch to Conventional layout",
+      "simple": "Change the layout to \"Conventional\".",
+      "detailed": "The conventional four-up layout shows the three orthogonal slice views together with the 3D view, which is needed to orient the slice planes used for the mandibular contour tracing. Change the layout to \"Conventional\".",
+      "edited": false
+    },
+    "cb_step_7": {
+      "title": "Show red slice in 3D view",
+      "simple": "For the red slice view, toggle on \"slice visibility in 3D view\".",
+      "detailed": "Displaying the red slice plane inside the 3D view lets you see exactly where that plane cuts the mandible while you work. In the red slice view controls, toggle on \"slice visibility in 3D view\" so the red plane is rendered in the 3D view.",
+      "edited": false
+    },
+    "cb_step_8": {
+      "title": "Match red slice FOV to 2D spacing",
+      "simple": "For the red view, toggle on \"FOV, Spacing match 2D\".",
+      "detailed": "Matching the slice field of view to the 2D viewport spacing keeps the rendered red plane in the 3D view aligned with what you see in the 2D views, avoiding parallax errors while tracing. Toggle on \"FOV, Spacing match 2D\" for the red view.",
+      "edited": false
+    },
+    "cb_step_9": {
+      "title": "Enable slice intersection interaction",
+      "simple": "Turn on \"slice intersection visibility\" in the toolbar, then in the slice intersection options turn on \"set interaction\" and enable both \"Translate\" and \"Rotate\".",
+      "detailed": "Making the slice intersections visible and interactive lets you move the three slice planes as a crosshair so the views are centred on the mandible for the contour tracing. In the toolbar turn on \"slice intersection visibility\", then in the slice intersection interaction options turn on \"set interaction\" and enable both \"Translate\" and \"Rotate\".",
+      "edited": false
+    },
+    "cb_step_10": {
+      "title": "Adjust the views to a clear vantage",
+      "simple": "Rotate, zoom and pan the views so the slice intersection lines and the mandible are clearly in view.",
+      "detailed": "A clear, well-oriented view of the mandible is needed before tracing its contour, since the next steps depend on an unobstructed view of the bone. Rotate, zoom and pan in the 2D and 3D views, and drag the slice intersection cross lines to bring the region of interest into a comfortable working position; adjust the view only until the anatomy is clearly displayed.",
+      "edited": false
+    },
+    "cb_step_11": {
+      "title": "Add mandibular curve",
+      "simple": "Click \"Add mandibular curve\" to create the curve that will follow the mandible.",
+      "detailed": "This curve records the planned mandibular contour and, together with the cut planes, defines how the neomandible will be shaped after resection. Click \"Add mandibular curve\" to create an empty mandibular curve ready to be traced.",
+      "edited": false
+    },
+    "cb_step_12": {
+      "title": "Set curve display views",
+      "simple": "In the Markups module under \"Advanced\", set the mandibular curve's view to \"3D View 1\" and \"Red\".",
+      "detailed": "The curve must be displayed in the views where you will trace and check it, otherwise it will be invisible during tracing. Open the Markups module, expand the \"Advanced\" section, and select \"3D View 1\" and \"Red\" in the \"View\" selector for the mandibular curve.",
+      "edited": false
+    },
+    "cb_step_13": {
+      "title": "Draw mandibular curve",
+      "simple": "In the Red view, click along the mandible to draw the curve, then click Done.",
+      "detailed": "Tracing the mandibular contour defines the inferior border the reconstructed mandible should reproduce, and it drives the subsequent cut-plane placement and fibula segment shaping. In the Red view, click along the mandible in the slice showing its contour to place the curve points; each Done click finalises this one curve.",
+      "edited": false
+    },
+    "cb_step_14": {
+      "title": "Switch to BoneReconstructionPlanner layout",
+      "simple": "Change the layout to \"BoneReconstructionPlanner\".",
+      "detailed": "The extension's dedicated layout arranges the mandible and fibula views needed for resection planning and fibula segment shaping. Change the layout to \"BoneReconstructionPlanner\".",
+      "edited": false
+    },
+    "cb_step_15": {
+      "title": "Hide red slice from 3D view",
+      "simple": "For the red slice view, toggle off \"slice visibility in 3D view\".",
+      "detailed": "The red slice plane is no longer needed in the 3D view and would obscure the bone models during the next planning steps. In the red slice view controls, toggle off \"slice visibility in 3D view\".",
+      "edited": false
+    },
+    "cb_step_16": {
+      "title": "Number of mandibular cut planes",
+      "simple": "Enter how many mandibular cut planes you want to create.",
+      "detailed": "The number of cut planes equals the number of mandibular osteotomies and therefore how many fibula segments will be used to rebuild the defect. Enter the desired number of mandibular cut planes; you will then be prompted to create and position each one in turn.",
+      "edited": false
+    },
+    "cb_step_17": {
+      "title": "Add mandibular cut plane",
+      "simple": "Click \"Add cut plane\" to create the next mandibular cut plane.",
+      "detailed": "Each cut plane marks one planned mandibular osteotomy and, once positioned, will be used to segment the mandible and to align the fibula segments contoured along the mandibular curve. Click \"Add cut plane\" to create a new mandibular cut plane, then position it in the following step.",
+      "edited": false
+    },
+    "cb_step_18": {
+      "title": "Place mandibular cut plane",
+      "simple": "Move and rotate this cut plane into the desired position on the mandible, then click Done.",
+      "detailed": "The position and angulation of each plane determine the resection margins and the geometry of the resulting bone gap, so accurate placement is critical for a well-fitting reconstruction. Drag and rotate the plane into position on the mandible in the view, then click Done; each Done click finalises this one cut plane, and the \"Add cut plane\" plus placement sequence is repeated for each plane you requested.",
+      "edited": false
+    },
+    "cb_step_19": {
+      "title": "Add fibula line",
+      "simple": "Click \"Add fibula line\" to create the line that will run along the fibula.",
+      "detailed": "This line defines the fibula's anatomical axis and is the reference along which the fibula cut planes are later generated to harvest a straight bone segment. Click \"Add fibula line\" to create an empty line node ready to be drawn on the fibula.",
+      "edited": false
+    },
+    "cb_step_20": {
+      "title": "Draw fibula line",
+      "simple": "In 3D View 2, click along the fibula to define the line, with the first point distal and the second point proximal, then click Done.",
+      "detailed": "The direction of this line matters: it sets the orientation of the harvested fibula and therefore which end of the graft is used for each segment of the neomandible. In 3D View 2, place the first point at the distal end of the fibula and the final point proximally, so the line follows the bone axis; each Done click finalises this single two-point line.",
+      "edited": false
+    },
+    "cb_step_21": {
+      "title": "Reset red slice field of view",
+      "simple": "Click \"Reset field of view\" in the red slice view.",
+      "detailed": "Resetting the field of view restores a standard zoom in the red slice view so the anatomy is displayed at a known scale for checking the fibula line. Click \"Reset field of view\" in the red slice view.",
+      "edited": false
+    },
+    "cb_step_22": {
+      "title": "Center fibula line on fibula model",
+      "simple": "Click \"Center fibula line using fibula model\" to align the line with the fibula's anatomical axis.",
+      "detailed": "Centering the line inside the fibula model ensures the planned cut planes are perpendicular to the true bone axis, avoiding oblique cuts and mismatched segments. Click \"Center fibula line using fibula model\" to re-align the line with the fibula axis.",
+      "edited": false
+    },
+    "cb_step_23": {
+      "title": "Automatic mandibular planes positioning",
+      "simple": "Tick \"Automatic mandibular planes positioning for maximum bones contact area\".",
+      "detailed": "Automatic positioning orients the mandibular cut planes to maximise the contact area between bone ends, which improves union at the osteotomy sites. Tick the checkbox \"Automatic mandibular planes positioning for maximum bones contact area\".",
+      "edited": false
+    },
+    "cb_step_24": {
+      "title": "Rotate mandible planes together",
+      "simple": "Tick \"Make all mandible planes rotate together\".",
+      "detailed": "Linking the mandibular planes keeps their relative orientation constant, so adjusting one plane does not introduce angular discrepancies between segments. Tick the checkbox \"Make all mandible planes rotate together\".",
+      "edited": false
+    },
+    "cb_step_25": {
+      "title": "Set initial space",
+      "simple": "Enter the desired initial space in millimetres.",
+      "detailed": "The initial space sets the distance of the first fibula cut plane from the reference end of the graft, i.e. how much bone is left before the first segment. Enter the desired value in \"Initial space (mm)\".",
+      "edited": false
+    },
+    "cb_step_26": {
+      "title": "Set between space",
+      "simple": "Enter the desired between space in millimetres.",
+      "detailed": "The between space controls the extra gap left between consecutive fibula segments, which accounts for the cuts and for the soft tissue needed between segments. Enter the desired value in \"Between space (mm)\".",
+      "edited": false
+    },
+    "cb_step_27": {
+      "title": "Update fibula planes and generate reconstruction",
+      "simple": "Click \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" to generate the cut planes and the reconstruction.",
+      "detailed": "This action generates the fibula cut planes along the fibula line, cuts the fibula into the planned segments, and transforms them into the mandibular defect to preview the reconstruction. Click the \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\" button.",
+      "edited": false
+    },
+    "cb_step_28": {
+      "title": "Update fibula planes automatically",
+      "simple": "Tick \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\".",
+      "detailed": "Keeping this option ticked means any later change to the line, spaces or planes automatically regenerates the fibula segments and their transfer, so the preview stays consistent with your adjustments. Tick the checkbox \"Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible\".",
+      "edited": false
+    },
+    "cb_step_29": {
+      "title": "Show mandible cut planes",
+      "simple": "In the \"Mandible planes\" row, click the eye icon to show the mandibular cut planes.",
+      "detailed": "The mandibular cut planes must be visible in the 3D view so they can be inspected and finely adjusted before the resection is finalised. In the \"Mandible planes\" row of the module, toggle on the eye-icon button.",
+      "edited": false
+    },
+    "cb_step_30": {
+      "title": "Show plane interaction handles",
+      "simple": "In the same \"Mandible planes\" row, click the axes icon to show the plane interaction handles.",
+      "detailed": "The interaction handles provide the grab points needed to translate and rotate each plane precisely in the 3D view. In the \"Mandible planes\" row, toggle on the axes-icon button to display the handles.",
+      "edited": false
+    },
+    "cb_step_31": {
+      "title": "Adjust mandibular cut planes",
+      "simple": "In the mandible 3D view, drag the visible plane handles to move and rotate the mandibular cut planes into the desired position, then click Done.",
+      "detailed": "Fine adjustment of the mandibular cut planes defines the final osteotomy positions and angles, directly affecting the fit and contact of the fibula segments in the reconstruction. In the mandible 3D view, drag the visible handles to translate and rotate each plane as needed; click Done when the planes are correctly positioned.",
+      "edited": false
+    },
+    "cb_step_32": {
+      "title": "Hide mandible cut planes",
+      "simple": "In the \"Mandible planes\" row, click the eye icon again to hide the mandibular cut planes.",
+      "detailed": "Hiding the planes clears the 3D view so the reconstructed mandible and fibula segments can be assessed without obstruction. In the \"Mandible planes\" row, toggle off the eye-icon button.",
+      "edited": false
+    },
+    "cb_step_33": {
+      "title": "Hide original mandible model",
+      "simple": "Untick \"Show original mandible model\".",
+      "detailed": "Hiding the native mandible model lets you inspect the reconstructed neomandible alone and verify its contour and fit against the planned position. Clear the checkbox \"Show original mandible model\".",
+      "edited": false
+    }
+  }
+}

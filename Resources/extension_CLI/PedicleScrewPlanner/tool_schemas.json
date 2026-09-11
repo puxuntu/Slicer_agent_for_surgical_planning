@@ -3,7 +3,7 @@
     "type": "function",
     "function": {
       "name": "PedicleScrewPlanner",
-      "description": "Guided interactive workflow for PedicleScrewPlanner. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Spine CT\" section, select the CT volume for processing.; 'cb_step_2': Click the \"Next\" button in the \"1. Load Image Volume\" page.; 'cb_step_3': Manually adjust the boundaries of the ROI. (interactive: roi); 'cb_step_4': Choose the \"1st Instrumented Level:\". Choose the \"# Sides:\". Choose the \"# to Instrument:\". Choose the \"Approach Direction:\".; 'cb_step_5': Click the \"Next\" button in the \"2. Define Surgical Region of Interest (ROI)\" page.; 'cb_step_6': Click the \"Place a control point\" button.; 'cb_step_7': Manually click in the 2D views to add fiducial points. The total number of points added should be three times the value specified in '# to Instrument'. (interactive: fiducial); 'cb_step_8': Set the Level/Side/Landmarks following the original selection widget.; 'cb_step_9': Click the \"Next\" button in the \"3. Place the Landmarks\" page.; 'cb_step_10': Choose the \"Choose the puncture site\". Choose the \"Select screw diametermm\".",
+      "description": "Guided interactive workflow for PedicleScrewPlanner. Execute steps in order. Interactive steps require user 3D interaction. Steps: 'cb_step_1': In the \"Spine CT\" section, select the CT volume for processing.; 'cb_step_2': Click the \"Next\" button in the \"1. Load Image Volume\" page.; 'cb_step_3': Manually adjust the boundaries of the ROI. (interactive: generic); 'cb_step_4': Choose the \"Instrumented Levels:\". Choose the \"# Sides:\". Choose the \"Approach Direction:\".; 'cb_step_5': Click the \"Next\" button in the \"2. Define Surgical Region of Interest (ROI)\" page.; 'cb_step_6': In the toolbar, turn on \"slice intersection visibility\". In the slice intersection interaction options, turn on \"set interaction\", then enable both \"Translate\" and \"Rotate\".; 'cb_step_7': Manually adjust the rotation angle of the red slice. (interactive: generic); 'cb_step_8': Click the \"Place a control point\" button to activate the point placement.; 'cb_step_9': Manually click in the 2D views to add fiducial points for one part of the spine. (interactive: fiducial); 'cb_step_10': Click the \"Place a control point\" button to inactivate the point placement.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -27,7 +27,12 @@
               "cb_step_15",
               "cb_step_16",
               "cb_step_17",
-              "cb_step_18"
+              "cb_step_18",
+              "cb_step_19",
+              "cb_step_20",
+              "cb_step_21",
+              "cb_step_22",
+              "cb_step_23"
             ],
             "description": "Which workflow step to execute"
           },

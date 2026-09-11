@@ -1,0 +1,19 @@
+--- templates/cb_step_10_pre.py.tpl (before)
++++ templates/cb_step_10_pre.py.tpl (after)
+@@ -1,5 +1,16 @@
++# [revised] Rewritten by the runtime revision agent (revision_20260910_113324).
++# Pre-revision package backed up under versions/revision_20260910_113324/.
++# Requested: in this step, set the layout as Conventional, not Four up
++# Change: Switch the application to the Conventional layout when this view-adjustment step opens, instead of leaving the Four up layout.
+ # --- BoneReconstructionPlanner: Manually adjust the slice intersection position by translate and rotate of the cross lines in each view. (Setup) ---
+ import slicer
++
++# Use the standard Conventional layout (one 3D view plus the three slice views)
++# instead of the Four up layout, so the slice intersection lines and the
++# mandible are clearly in view while the cross lines are adjusted.
++layoutManager = slicer.app.layoutManager()
++if layoutManager is not None:
++    layoutManager.setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutConventionalView)
+ 
+ # This step is a view adjustment, not a Markups placement: give the
+ # views back to the mouse before the user starts adjusting.

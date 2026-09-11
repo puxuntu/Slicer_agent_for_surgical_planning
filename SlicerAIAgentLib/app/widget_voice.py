@@ -2129,6 +2129,7 @@ class WidgetVoiceMixin:
             # panel shows, and it is far better spoken than the parameter name
             # ("1st Instrumented Level" vs "c_1st_instrumented_level").
             combos = getattr(self, "_workflowMultiChoiceCombos", None) or {}
+            multi = getattr(self, "_workflowMultiChoiceMulti", None) or {}
             for combo, options, question in (
                     getattr(self, "_workflowMultiChoiceOrdered", None) or []):
                 param = None
@@ -2140,6 +2141,10 @@ class WidgetVoiceMixin:
                     "param": param,
                     "label": str(question or param or ""),
                     "options": [str(o) for o in (options or [])],
+                    # This selector takes SEVERAL of its options. Carried into the
+                    # grammar so the spoken prompt says so and the fallback model
+                    # is not told the step is one-of-N when it is not.
+                    "multi": param in multi,
                 })
         except Exception:
             logger.debug("Voice multi-choice read failed", exc_info=True)
@@ -2267,7 +2272,14 @@ class WidgetVoiceMixin:
         self._voiceSpeak(command.describe())
 
         if action == _commands.ACTION_PROCEED:
-            self._onWorkflowDoneClicked()
+            # On a multi-selection form the primary action IS that form's own
+            # Confirm button: the generic Done neither records the selectors nor
+            # mirrors them onto the extension's controls, so it would advance the
+            # step having answered nothing. Press the button the mouse would have.
+            if getattr(self, "_workflowMultiChoiceContainer", None) is not None:
+                self._onWorkflowMultiChoiceConfirmed()
+            else:
+                self._onWorkflowDoneClicked()
         elif action == _commands.ACTION_SKIP:
             self._onWorkflowSkipClicked()
         elif action == _commands.ACTION_BACK:
@@ -2462,12 +2474,29 @@ class WidgetVoiceMixin:
         ``_onWorkflowMultiChoiceConfirmed`` refuses to commit while any combo is
         still on its placeholder, so a partial spoken answer leaves the form
         half-filled and waiting rather than failing.
+
+        A MULTI-SELECT selector accumulates instead of being replaced: one
+        utterance names one option and the surgeon ticks several by saying
+        several. That also means the form must NOT auto-confirm once every
+        selector holds something -- after the first level, one level is exactly
+        what "answered" looks like, and confirming there would commit a one-level
+        plan. Such a step is committed by saying "done", which reaches this form's
+        own Confirm (see _voiceApply's ACTION_PROCEED branch).
         """
         combos = getattr(self, "_workflowMultiChoiceCombos", None) or {}
+        multi = getattr(self, "_workflowMultiChoiceMulti", None) or {}
         for param, value in (command.value or {}).items():
             combo = combos.get(param)
-            if combo is not None:
-                combo.setCurrentText(str(value))
+            if combo is None:
+                continue
+            kind = multi.get(param)
+            if kind:
+                ticked = self._multiSelectCheckedTexts(combo, kind)
+                if str(value) not in ticked:
+                    ticked.append(str(value))
+                self._setMultiSelectChecked(combo, kind, ticked)
+                continue
+            combo.setCurrentText(str(value))
         labels = {}
         for _combo, _options, question in (
                 getattr(self, "_workflowMultiChoiceOrdered", None) or []):
@@ -2476,21 +2505,40 @@ class WidgetVoiceMixin:
                     labels[name] = str(question or name)
         remaining = []
         for param, combo in combos.items():
+            kind = multi.get(param)
+            if kind:
+                # A tick list is answered once ANY option is ticked -- the same
+                # rule the source extension's own validate() applies.
+                if not self._multiSelectCheckedTexts(combo, kind):
+                    remaining.append(labels.get(param, param))
+                continue
             try:
-                # Index 0 is the inert "-- Select --" placeholder; the confirm
-                # handler refuses to commit while any combo is still on it. A
-                # selector whose options could NOT be resolved is built editable
-                # with no items at all, so its index is permanently -1 -- for
-                # those, typed text is what counts as answered.
-                if combo.isEditable() and combo.count == 0:
-                    if not str(combo.currentText or "").strip():
-                        remaining.append(labels.get(param, param))
-                elif combo.currentIndex <= 0:
+                # "Answered" must mean here exactly what it means in the confirm
+                # handler -- a real, non-placeholder value -- and index arithmetic
+                # cannot say that. A selector whose SOURCE control starts on a real
+                # option carries no placeholder row at all, so its index 0 is an
+                # answer, not an empty one; a selector whose options could not be
+                # resolved is built editable with no items and sits at -1 with the
+                # typed text as its answer. Reading the text covers all three.
+                text = str(combo.currentText or "").strip()
+                if not text or text == self._MULTI_CHOICE_PLACEHOLDER:
                     remaining.append(labels.get(param, param))
             except Exception:
                 logger.debug("Voice multi-choice state read failed", exc_info=True)
         if remaining:
             self._voiceSpeak("Still need %s." % ", ".join(remaining))
+            return
+        if multi:
+            # Every selector holds something, but a tick list is never finished by
+            # being non-empty. Read back what is ticked and wait for "done".
+            ticked = []
+            for param, kind in multi.items():
+                combo = combos.get(param)
+                if combo is None:
+                    continue
+                ticked.extend(self._multiSelectCheckedTexts(combo, kind))
+            self._voiceSpeak("Ticked %s. Say done when the list is complete."
+                             % (", ".join(ticked) or "nothing"))
             return
         self._onWorkflowMultiChoiceConfirmed()
 

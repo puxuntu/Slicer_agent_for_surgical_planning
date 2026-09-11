@@ -3152,21 +3152,55 @@ class WorkflowRuntime:
                 return True
         return False
 
-    @staticmethod
-    def _multi_choice_items(meta: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """The step's multi-selection items ([] for a single-choice step).
+    # Qt classes of a control that takes SEVERAL of its options at once -- the user
+    # ticks a checkbox per answer rather than picking one row. Source-widget-
+    # authoritative like every other render family, and the class is the ONLY
+    # evidence: such a control is filled with addItems and read with
+    # checkedIndexes() exactly like a one-of-N combo, so reproducing it as a
+    # dropdown raises nothing and silently keeps one answer out of however many the
+    # surgeon ticked.
+    _MULTI_SELECT_WIDGET_CLASSES = ("ctkCheckableComboBox",)
+
+    @classmethod
+    def _item_is_multi_select(cls, item: Any) -> bool:
+        """True when one choice item is answered with SEVERAL of its options.
+
+        Two channels, deliberately: the explicit ``multi_select`` flag the wizard
+        reconciler records, and the source control's own Qt class -- which is what a
+        classic extension's ``.ui`` inventory yields, where nothing sets the flag.
+        """
+        if not isinstance(item, dict):
+            return False
+        if item.get("multi_select"):
+            return True
+        return str(item.get("widget_class") or "").strip() in cls._MULTI_SELECT_WIDGET_CLASSES
+
+    @classmethod
+    def _multi_choice_items(cls, meta: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """The step's multi-selection items ([] for an ordinary single-choice step).
 
         A cookbook step may drive SEVERAL selectors at once ("Choose the 'A'.
         Choose the 'B'. ..."); the pipeline records one choice item per selector in
         ``choice_info_list``. The panel renders them as ONE form with a single
         Confirm, and the commit is a {parameter_name: value} dict.
+
+        A LONE selector qualifies too when it is itself multi-select (a checkable
+        combo): the form is the only renderer that can put a tick list on screen,
+        and the single-choice renderers would degrade it to one-of-N -- so the
+        one-item list is exactly the point, not a degenerate case. Such a step may
+        also predate ``choice_info_list`` (which older artifacts wrote only for two
+        or more selectors), so a one-item list is synthesized from ``choice_info``.
         """
         if not isinstance(meta, dict):
             return []
         items = meta.get("choice_info_list")
-        if not isinstance(items, list) or len(items) < 2:
-            return []
-        return [i for i in items if isinstance(i, dict) and i.get("parameter_name")]
+        if not isinstance(items, list) or not items:
+            single = meta.get("choice_info")
+            items = [single] if cls._item_is_multi_select(single) else []
+        items = [i for i in items if isinstance(i, dict) and i.get("parameter_name")]
+        if len(items) >= 2 or any(cls._item_is_multi_select(i) for i in items):
+            return items
+        return []
 
     def _expected_interaction_count(self, meta: Dict[str, Any]) -> int:
         """How many points the current interaction step expects, resolved from its

@@ -9,7 +9,7 @@
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Select the input CT volume from the Spine CT section",
+          "description": "Select the CT volume for processing from the Spine CT section.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -32,17 +32,17 @@
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "In the \"Spine CT\" section, select the CT volume for processing.",
+          "question": "Select the CT volume for processing.",
           "choices": [],
-          "parameter_name": "choice_step_1",
+          "parameter_name": "ct_volume",
           "default_value": null,
-          "value_kind": ""
+          "value_kind": "node"
         }
       ],
       "choice_info": {
-        "question": "In the \"Spine CT\" section, select the CT volume for processing.",
+        "question": "Select the CT volume for processing.",
         "choices": [],
-        "parameter_name": "choice_step_1",
+        "parameter_name": "ct_volume",
         "default_value": null
       },
       "operation_model": {
@@ -60,12 +60,12 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Select CT Volume",
-        "instruction": "In the 'Spine CT' section, choose the CT volume for processing.",
+        "title": "Select the CT volume",
+        "instruction": "Choose the CT volume to process.",
         "done_label": "Done",
-        "choice_label": "Choice",
-        "input_label": "Choice",
-        "object_label": "choice",
+        "choice_label": "Volume",
+        "input_label": "Volume",
+        "object_label": "volume",
         "repeat": {}
       }
     },
@@ -80,7 +80,7 @@
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Advance to the next step after loading the image volume",
+          "description": "Advance from the Load Image Volume page to the ROI definition workflow.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -123,8 +123,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Click Next on Load Image Volume page",
-        "instruction": "",
+        "title": "Continue from image loading",
+        "instruction": "Click Next in the '1. Load Image Volume' page.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -144,7 +144,7 @@
         {
           "op_type": "user_interaction",
           "operation_type": "user_interaction",
-          "description": "Adjust the boundaries of the ROI in the 2D views",
+          "description": "Adjust the ROI boundaries to define the surgical region of interest.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -156,50 +156,35 @@
             "vtkMRMLMarkupsROINode",
             "handles",
             "Translate",
-            "Resize"
+            "resize"
           ],
           "interaction_kind": "view_adjustment",
           "interaction_type": null,
-          "node_class": "vtkMRMLMarkupsROINode",
+          "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
             2
           ],
-          "placement_instructions": null,
+          "placement_instructions": "Manually adjust the boundaries of the ROI.",
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
-          "node_roles": [
-            {
-              "role_kind": "extension_input",
-              "node_class": "vtkMRMLMarkupsROINode",
-              "parameter_name": null,
-              "step_id": "cb_step_3"
-            }
-          ],
-          "confidence": "high",
+          "node_roles": [],
+          "confidence": "medium",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
         }
       ],
-      "node_roles": [
-        {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLMarkupsROINode",
-          "parameter_name": null,
-          "step_id": "cb_step_3"
-        }
-      ],
-      "interaction_type": "roi",
+      "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
-      "node_class": "vtkMRMLMarkupsROINode",
+      "node_class": "",
       "creates_node": false,
       "requires_place_mode": false,
       "setup_dependencies": [
         2
       ],
-      "placement_instructions": null,
+      "placement_instructions": "Manually adjust the boundaries of the ROI.",
       "min_control_points": 0,
       "operation_model": {
         "step_type": "user_interaction",
@@ -218,21 +203,22 @@
         ]
       },
       "ui_guidance": {
-        "title": "Adjust ROI Boundaries",
-        "instruction": "Manually adjust the boundaries of the ROI.",
+        "title": "Adjust the view",
+        "instruction": "Rotate or zoom the view to clearly see the ROI.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "roi",
+        "object_label": "view",
         "repeat": {}
       },
+      "extension_owns_adjust_mode": false,
       "pre_template": "templates/cb_step_3_pre.py.tpl",
       "post_template": "templates/cb_step_3_post.py.tpl"
     },
     {
       "step_id": "cb_step_4",
       "operation_type": "user_choice",
-      "description": "Choose the \"1st Instrumented Level:\". Choose the \"# Sides:\". Choose the \"# to Instrument:\". Choose the \"Approach Direction:\".",
+      "description": "Choose the \"Instrumented Levels:\". Choose the \"# Sides:\". Choose the \"Approach Direction:\".",
       "depends_on": [
         "cb_step_3"
       ],
@@ -240,10 +226,10 @@
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
+          "description": "Choose instrumented levels, number of sides, and approach direction.",
           "extension_method_hint": null,
           "extension_function_hint": null,
-          "widget_name": "vSelector",
+          "widget_name": "lSelector",
           "ui_parameter_binding": null,
           "target_value": null,
           "target_value_mode": null,
@@ -265,7 +251,7 @@
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "question": "1st Instrumented Level",
+          "question": "Instrumented Levels",
           "choices": [
             {
               "label": "C1",
@@ -368,20 +354,21 @@
               "value": "S1"
             }
           ],
-          "parameter_name": "c_1st_instrumented_level",
+          "parameter_name": "instrumented_levels",
           "default_value": null,
-          "value_kind": "",
-          "widget_class": "QComboBox",
+          "value_kind": "multi_select",
+          "widget_class": "ctkCheckableComboBox",
           "wizard_combo": {
             "page_class": "DefineROIStep",
-            "attr": "vSelector",
-            "label": "1st Instrumented Level:"
-          }
+            "attr": "lSelector",
+            "label": "Instrumented Levels:"
+          },
+          "multi_select": true
         },
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
+          "description": "Choose instrumented levels, number of sides, and approach direction.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "sSelector",
@@ -426,7 +413,7 @@
             }
           ],
           "parameter_name": "sides",
-          "default_value": null,
+          "default_value": "L&R",
           "value_kind": "",
           "widget_class": "QComboBox",
           "wizard_combo": {
@@ -438,96 +425,7 @@
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
-          "extension_method_hint": null,
-          "extension_function_hint": null,
-          "widget_name": "iSelector",
-          "ui_parameter_binding": null,
-          "target_value": null,
-          "target_value_mode": null,
-          "slicer_op_category": null,
-          "slicer_api_keywords": [],
-          "interaction_kind": "none",
-          "interaction_type": null,
-          "node_class": null,
-          "creates_node": false,
-          "requires_place_mode": false,
-          "setup_dependencies": [
-            3
-          ],
-          "placement_instructions": null,
-          "min_control_points": 0,
-          "is_optional": false,
-          "operation_intents": [],
-          "node_roles": [],
-          "confidence": "high",
-          "evidence_type": "llm_semantic_decomposition",
-          "evidence_id": "",
-          "question": "# to Instrument",
-          "choices": [
-            {
-              "label": "1",
-              "value": "1"
-            },
-            {
-              "label": "2",
-              "value": "2"
-            },
-            {
-              "label": "3",
-              "value": "3"
-            },
-            {
-              "label": "4",
-              "value": "4"
-            },
-            {
-              "label": "5",
-              "value": "5"
-            },
-            {
-              "label": "6",
-              "value": "6"
-            },
-            {
-              "label": "7",
-              "value": "7"
-            },
-            {
-              "label": "8",
-              "value": "8"
-            },
-            {
-              "label": "9",
-              "value": "9"
-            },
-            {
-              "label": "10",
-              "value": "10"
-            },
-            {
-              "label": "11",
-              "value": "11"
-            },
-            {
-              "label": "12",
-              "value": "12"
-            }
-          ],
-          "parameter_name": "to_instrument",
-          "default_value": null,
-          "value_kind": "",
-          "widget_class": "QComboBox",
-          "wizard_combo": {
-            "page_class": "DefineROIStep",
-            "attr": "iSelector",
-            "label": "# to Instrument:"
-          }
-        },
-        {
-          "op_type": "user_choice",
-          "operation_type": "user_choice",
-          "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
+          "description": "Choose instrumented levels, number of sides, and approach direction.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "aSelector",
@@ -572,7 +470,7 @@
             }
           ],
           "parameter_name": "approach_direction",
-          "default_value": null,
+          "default_value": "Posterior",
           "value_kind": "",
           "widget_class": "QComboBox",
           "wizard_combo": {
@@ -583,7 +481,7 @@
         }
       ],
       "choice_info": {
-        "question": "1st Instrumented Level",
+        "question": "Instrumented Levels",
         "choices": [
           {
             "label": "C1",
@@ -686,17 +584,19 @@
             "value": "S1"
           }
         ],
-        "parameter_name": "c_1st_instrumented_level",
+        "parameter_name": "instrumented_levels",
         "default_value": null,
+        "multi_select": true,
+        "widget_class": "ctkCheckableComboBox",
         "wizard_combo": {
           "page_class": "DefineROIStep",
-          "attr": "vSelector",
-          "label": "1st Instrumented Level:"
+          "attr": "lSelector",
+          "label": "Instrumented Levels:"
         }
       },
       "choice_info_list": [
         {
-          "question": "1st Instrumented Level",
+          "question": "Instrumented Levels",
           "choices": [
             {
               "label": "C1",
@@ -799,12 +699,14 @@
               "value": "S1"
             }
           ],
-          "parameter_name": "c_1st_instrumented_level",
+          "parameter_name": "instrumented_levels",
           "default_value": null,
+          "multi_select": true,
+          "widget_class": "ctkCheckableComboBox",
           "wizard_combo": {
             "page_class": "DefineROIStep",
-            "attr": "vSelector",
-            "label": "1st Instrumented Level:"
+            "attr": "lSelector",
+            "label": "Instrumented Levels:"
           }
         },
         {
@@ -828,71 +730,12 @@
             }
           ],
           "parameter_name": "sides",
-          "default_value": null,
+          "default_value": "L&R",
+          "widget_class": "QComboBox",
           "wizard_combo": {
             "page_class": "DefineROIStep",
             "attr": "sSelector",
             "label": "# Sides:"
-          }
-        },
-        {
-          "question": "# to Instrument",
-          "choices": [
-            {
-              "label": "1",
-              "value": "1"
-            },
-            {
-              "label": "2",
-              "value": "2"
-            },
-            {
-              "label": "3",
-              "value": "3"
-            },
-            {
-              "label": "4",
-              "value": "4"
-            },
-            {
-              "label": "5",
-              "value": "5"
-            },
-            {
-              "label": "6",
-              "value": "6"
-            },
-            {
-              "label": "7",
-              "value": "7"
-            },
-            {
-              "label": "8",
-              "value": "8"
-            },
-            {
-              "label": "9",
-              "value": "9"
-            },
-            {
-              "label": "10",
-              "value": "10"
-            },
-            {
-              "label": "11",
-              "value": "11"
-            },
-            {
-              "label": "12",
-              "value": "12"
-            }
-          ],
-          "parameter_name": "to_instrument",
-          "default_value": null,
-          "wizard_combo": {
-            "page_class": "DefineROIStep",
-            "attr": "iSelector",
-            "label": "# to Instrument:"
           }
         },
         {
@@ -916,7 +759,8 @@
             }
           ],
           "parameter_name": "approach_direction",
-          "default_value": null,
+          "default_value": "Posterior",
+          "widget_class": "QComboBox",
           "wizard_combo": {
             "page_class": "DefineROIStep",
             "attr": "aSelector",
@@ -939,12 +783,12 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Set Instrument Parameters",
-        "instruction": "Select the 1st instrumented level, number of sides, number to instrument, and approach direction.",
+        "title": "Choose instrumentation options",
+        "instruction": "Pick the instrumented levels, number of sides, and approach direction.",
         "done_label": "Done",
-        "choice_label": "Side",
-        "input_label": "Side",
-        "object_label": "side",
+        "choice_label": "Options",
+        "input_label": "Options",
+        "object_label": "options",
         "repeat": {}
       }
     },
@@ -959,7 +803,7 @@
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Advance to the next step after defining surgical ROI",
+          "description": "Advance past the surgical ROI definition page to the next workflow page.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -1002,8 +846,8 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Click Next on Define ROI page",
-        "instruction": "",
+        "title": "Continue to ROI definition",
+        "instruction": "Click Next in the '2. Define Surgical Region of Interest (ROI)' page.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
@@ -1014,16 +858,244 @@
     },
     {
       "step_id": "cb_step_6",
-      "operation_type": "extension_op",
-      "description": "Click the \"Place a control point\" button.",
+      "operation_type": "slicer_op",
+      "description": "In the toolbar, turn on \"slice intersection visibility\". In the slice intersection interaction options, turn on \"set interaction\", then enable both \"Translate\" and \"Rotate\".",
       "depends_on": [
         "cb_step_5"
       ],
       "sub_operations": [
         {
+          "op_type": "slicer_op",
+          "operation_type": "slicer_op",
+          "description": "Enable slice intersection visibility and enable set interaction with Translate and Rotate.",
+          "extension_method_hint": null,
+          "extension_function_hint": null,
+          "widget_name": null,
+          "ui_parameter_binding": null,
+          "target_value": null,
+          "target_value_mode": null,
+          "slicer_op_category": "crosshair",
+          "slicer_api_keywords": [
+            "vtkMRMLCrosshairNode",
+            "slice intersection",
+            "SetInteractiveMode",
+            "Translate",
+            "Rotate"
+          ],
+          "interaction_kind": "none",
+          "interaction_type": null,
+          "node_class": "vtkMRMLCrosshairNode",
+          "creates_node": false,
+          "requires_place_mode": false,
+          "setup_dependencies": [
+            5
+          ],
+          "placement_instructions": null,
+          "min_control_points": 0,
+          "is_optional": false,
+          "operation_intents": [
+            "slice_intersection_visibility",
+            "slice_intersection_interaction"
+          ],
+          "node_roles": [],
+          "confidence": "high",
+          "evidence_type": "llm_semantic_decomposition",
+          "evidence_id": ""
+        }
+      ],
+      "operation_intents": [
+        "slice_intersection_interaction",
+        "slice_intersection_visibility"
+      ],
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [
+          "slice_intersection_interaction",
+          "slice_intersection_visibility"
+        ],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "ui_guidance": {
+        "title": "Enable slice intersection interaction",
+        "instruction": "Turn on slice intersection visibility, enable Set interaction, then turn on Translate and Rotate.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "view",
+        "repeat": {}
+      },
+      "code_template": "templates/cb_step_6_slicer.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetIntersectingSlicesInteractive",
+          "GetIntersectingSlicesRotationEnabled",
+          "GetIntersectingSlicesTranslationEnabled",
+          "GetIntersectingSlicesVisibility",
+          "SetIntersectingSlicesInteractive",
+          "SetIntersectingSlicesRotationEnabled",
+          "SetIntersectingSlicesTranslationEnabled",
+          "SetIntersectingSlicesVisibility",
+          "getNodesByClass",
+          "util",
+          "vtkMRMLSliceDisplayNode"
+        ],
+        "api_chains": [
+          "sliceDisplayNode.GetIntersectingSlicesInteractive",
+          "sliceDisplayNode.GetIntersectingSlicesRotationEnabled",
+          "sliceDisplayNode.GetIntersectingSlicesTranslationEnabled",
+          "sliceDisplayNode.GetIntersectingSlicesVisibility",
+          "sliceDisplayNode.SetIntersectingSlicesInteractive",
+          "sliceDisplayNode.SetIntersectingSlicesRotationEnabled",
+          "sliceDisplayNode.SetIntersectingSlicesTranslationEnabled",
+          "sliceDisplayNode.SetIntersectingSlicesVisibility",
+          "slicer.util.getNodesByClass"
+        ],
+        "operation_descriptions": [
+          "Enable slice intersection visibility and enable set interaction with Translate and Rotate."
+        ],
+        "slicer_op_categories": [
+          "crosshair"
+        ],
+        "slicer_api_keywords": [
+          "vtkMRMLCrosshairNode",
+          "slice intersection",
+          "SetInteractiveMode",
+          "Translate",
+          "Rotate"
+        ]
+      }
+    },
+    {
+      "step_id": "cb_step_7",
+      "operation_type": "user_interaction",
+      "description": "Manually adjust the rotation angle of the red slice.",
+      "depends_on": [
+        "cb_step_6"
+      ],
+      "sub_operations": [
+        {
+          "op_type": "user_interaction",
+          "operation_type": "user_interaction",
+          "description": "Rotate the red slice to the desired orientation.",
+          "extension_method_hint": null,
+          "extension_function_hint": null,
+          "widget_name": null,
+          "ui_parameter_binding": null,
+          "target_value": null,
+          "target_value_mode": null,
+          "slicer_op_category": null,
+          "slicer_api_keywords": [
+            "slice intersection",
+            "red slice",
+            "rotate",
+            "view"
+          ],
+          "interaction_kind": "view_adjustment",
+          "interaction_type": "generic",
+          "node_class": null,
+          "creates_node": false,
+          "requires_place_mode": false,
+          "setup_dependencies": [
+            6
+          ],
+          "placement_instructions": "Manually adjust the rotation angle of the red slice.",
+          "min_control_points": 0,
+          "is_optional": false,
+          "operation_intents": [],
+          "node_roles": [],
+          "confidence": "high",
+          "evidence_type": "llm_semantic_decomposition",
+          "evidence_id": ""
+        }
+      ],
+      "interaction_type": "generic",
+      "interaction_kind": "view_adjustment",
+      "node_class": "",
+      "creates_node": false,
+      "requires_place_mode": false,
+      "setup_dependencies": [
+        6
+      ],
+      "placement_instructions": "Manually adjust the rotation angle of the red slice.",
+      "min_control_points": 0,
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "view_adjustment"
+        ]
+      },
+      "repeat_block": {
+        "repeat_id": "loop_back_step_11",
+        "body_steps": [
+          "cb_step_7",
+          "cb_step_8",
+          "cb_step_9",
+          "cb_step_10",
+          "cb_step_11"
+        ],
+        "entry_step": "cb_step_7",
+        "terminal_step": "cb_step_11",
+        "exit_step": "cb_step_12",
+        "controller": {
+          "kind": "until_choice",
+          "source_step": "cb_step_11",
+          "loop_back": true,
+          "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+          "exit_value": true,
+          "polarity": "deterministic",
+          "exit_target": 12
+        },
+        "max_iterations": 20,
+        "inference": {
+          "source": "backward_jump_loop_synthesis",
+          "confidence": "high"
+        }
+      },
+      "ui_guidance": {
+        "title": "Adjust the red slice view",
+        "instruction": "Rotate or zoom the red slice view to the desired angle.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "view",
+        "repeat": {}
+      },
+      "extension_owns_adjust_mode": false,
+      "pre_template": "templates/cb_step_7_pre.py.tpl",
+      "post_template": "templates/cb_step_7_post.py.tpl"
+    },
+    {
+      "step_id": "cb_step_8",
+      "operation_type": "extension_op",
+      "description": "Click the \"Place a control point\" button to activate the point placement.",
+      "depends_on": [
+        "cb_step_7"
+      ],
+      "sub_operations": [
+        {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Activate landmark placement mode by clicking 'Place a control point'",
+          "description": "Activate the control point placement mode.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -1038,7 +1110,7 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            5
+            7
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -1068,29 +1140,56 @@
         "produces_interaction_state": false,
         "interaction_kinds": []
       },
+      "repeat_block": {
+        "repeat_id": "loop_back_step_11",
+        "body_steps": [
+          "cb_step_7",
+          "cb_step_8",
+          "cb_step_9",
+          "cb_step_10",
+          "cb_step_11"
+        ],
+        "entry_step": "cb_step_7",
+        "terminal_step": "cb_step_11",
+        "exit_step": "cb_step_12",
+        "controller": {
+          "kind": "until_choice",
+          "source_step": "cb_step_11",
+          "loop_back": true,
+          "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+          "exit_value": true,
+          "polarity": "deterministic",
+          "exit_target": 12
+        },
+        "max_iterations": 20,
+        "inference": {
+          "source": "backward_jump_loop_synthesis",
+          "confidence": "high"
+        }
+      },
       "ui_guidance": {
-        "title": "Click 'Place a control point' button",
-        "instruction": "",
+        "title": "Activate point placement",
+        "instruction": "Click the 'Place a control point' button to activate placement.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "interaction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_6.py.tpl"
+      "code_template": "templates/cb_step_8.py.tpl"
     },
     {
-      "step_id": "cb_step_7",
+      "step_id": "cb_step_9",
       "operation_type": "user_interaction",
-      "description": "Manually click in the 2D views to add fiducial points. The total number of points added should be three times the value specified in '# to Instrument'.",
+      "description": "Manually click in the 2D views to add fiducial points for one part of the spine.",
       "depends_on": [
-        "cb_step_6"
+        "cb_step_8"
       ],
       "sub_operations": [
         {
           "op_type": "user_interaction",
           "operation_type": "user_interaction",
-          "description": "Place fiducial landmarks by clicking in the 2D views; number of points equals three times the instrument count",
+          "description": "Place fiducial points in the 2D views for one spine part.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -1102,7 +1201,7 @@
             "vtkMRMLMarkupsFiducialNode",
             "place",
             "SetActiveListID",
-            "AddControlPoint"
+            "add control point"
           ],
           "interaction_kind": "module_tool_interaction",
           "interaction_type": "fiducial",
@@ -1110,10 +1209,9 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            4,
-            6
+            8
           ],
-          "placement_instructions": "Place fiducial landmarks by clicking in the 2D views; number of points equals three times the instrument count",
+          "placement_instructions": "Manually click in the 2D views to add fiducial points for one part of the spine.",
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
@@ -1121,18 +1219,13 @@
             {
               "role_kind": "interaction_output",
               "node_class": "vtkMRMLMarkupsFiducialNode",
-              "parameter_name": null,
-              "step_id": "cb_step_7"
+              "parameter_name": "",
+              "step_id": "cb_step_9"
             }
           ],
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
-          "expected_count_rule": {
-            "multiplier": 3,
-            "param": "to_instrument",
-            "source_step": "cb_step_4"
-          },
           "native_placement": true
         }
       ],
@@ -1140,8 +1233,8 @@
         {
           "role_kind": "interaction_output",
           "node_class": "vtkMRMLMarkupsFiducialNode",
-          "parameter_name": null,
-          "step_id": "cb_step_7"
+          "parameter_name": "",
+          "step_id": "cb_step_9"
         }
       ],
       "interaction_type": "fiducial",
@@ -1150,10 +1243,9 @@
       "creates_node": false,
       "requires_place_mode": false,
       "setup_dependencies": [
-        4,
-        6
+        8
       ],
-      "placement_instructions": "Place fiducial landmarks by clicking in the 2D views; number of points equals three times the instrument count",
+      "placement_instructions": "Manually click in the 2D views to add fiducial points for one part of the spine.",
       "min_control_points": 0,
       "operation_model": {
         "step_type": "user_interaction",
@@ -1171,30 +1263,155 @@
           "module_tool_interaction"
         ]
       },
+      "repeat_block": {
+        "repeat_id": "loop_back_step_11",
+        "body_steps": [
+          "cb_step_7",
+          "cb_step_8",
+          "cb_step_9",
+          "cb_step_10",
+          "cb_step_11"
+        ],
+        "entry_step": "cb_step_7",
+        "terminal_step": "cb_step_11",
+        "exit_step": "cb_step_12",
+        "controller": {
+          "kind": "until_choice",
+          "source_step": "cb_step_11",
+          "loop_back": true,
+          "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+          "exit_value": true,
+          "polarity": "deterministic",
+          "exit_target": 12
+        },
+        "max_iterations": 20,
+        "inference": {
+          "source": "backward_jump_loop_synthesis",
+          "confidence": "high"
+        }
+      },
       "ui_guidance": {
-        "title": "Add Fiducial Points",
-        "instruction": "Click in the 2D views to add fiducial points. Add three times the '# to Instrument' value.",
+        "title": "Add fiducial points for one spine part",
+        "instruction": "Click in the 2D views on one part of the spine to add the fiducial points, then click Done.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "fiducial",
-        "repeat": {}
+        "repeat": {
+          "summary": "One part of the spine per pass."
+        }
       },
-      "pre_template": "templates/cb_step_7_pre.py.tpl",
-      "post_template": "templates/cb_step_7_post.py.tpl"
+      "extension_owns_adjust_mode": false,
+      "pre_template": "templates/cb_step_9_pre.py.tpl",
+      "post_template": "templates/cb_step_9_post.py.tpl"
     },
     {
-      "step_id": "cb_step_8",
-      "operation_type": "user_choice",
-      "description": "Set the Level/Side/Landmarks following the original selection widget.",
+      "step_id": "cb_step_10",
+      "operation_type": "extension_op",
+      "description": "Click the \"Place a control point\" button to inactivate the point placement.",
       "depends_on": [
+        "cb_step_9"
+      ],
+      "sub_operations": [
+        {
+          "op_type": "extension_op",
+          "operation_type": "extension_op",
+          "description": "Deactivate the control point placement mode.",
+          "extension_method_hint": null,
+          "extension_function_hint": null,
+          "widget_name": null,
+          "ui_parameter_binding": null,
+          "target_value": false,
+          "target_value_mode": null,
+          "slicer_op_category": null,
+          "slicer_api_keywords": [],
+          "interaction_kind": "none",
+          "interaction_type": null,
+          "node_class": null,
+          "creates_node": false,
+          "requires_place_mode": false,
+          "setup_dependencies": [
+            9
+          ],
+          "placement_instructions": null,
+          "min_control_points": 0,
+          "is_optional": false,
+          "operation_intents": [],
+          "node_roles": [],
+          "confidence": "high",
+          "evidence_type": "llm_semantic_decomposition",
+          "evidence_id": "",
+          "wizard_place_button": {
+            "step_attr": "landmarksStep",
+            "place_attr": "startMeasurements"
+          }
+        }
+      ],
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "repeat_block": {
+        "repeat_id": "loop_back_step_11",
+        "body_steps": [
+          "cb_step_7",
+          "cb_step_8",
+          "cb_step_9",
+          "cb_step_10",
+          "cb_step_11"
+        ],
+        "entry_step": "cb_step_7",
+        "terminal_step": "cb_step_11",
+        "exit_step": "cb_step_12",
+        "controller": {
+          "kind": "until_choice",
+          "source_step": "cb_step_11",
+          "loop_back": true,
+          "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+          "exit_value": true,
+          "polarity": "deterministic",
+          "exit_target": 12
+        },
+        "max_iterations": 20,
+        "inference": {
+          "source": "backward_jump_loop_synthesis",
+          "confidence": "high"
+        }
+      },
+      "ui_guidance": {
+        "title": "Stop point placement",
+        "instruction": "Click the 'Place a control point' button again to stop placement.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "interaction",
+        "repeat": {}
+      },
+      "code_template": "templates/cb_step_10.py.tpl"
+    },
+    {
+      "step_id": "cb_step_11",
+      "operation_type": "branch_op",
+      "description": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+      "depends_on": [
+        "cb_step_10",
         "cb_step_7"
       ],
       "sub_operations": [
         {
-          "op_type": "user_choice",
-          "operation_type": "user_choice",
-          "description": "Select level, side, and landmarks for the current instrumented level",
+          "op_type": "branch_op",
+          "operation_type": "branch_op",
+          "description": "Decide whether all spine parts have configured fiducial points; if not, repeat from step 7.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -1209,7 +1426,234 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
+            10,
             7
+          ],
+          "placement_instructions": null,
+          "min_control_points": 0,
+          "is_optional": false,
+          "operation_intents": [],
+          "node_roles": [],
+          "confidence": "high",
+          "evidence_type": "llm_semantic_decomposition",
+          "evidence_id": "",
+          "question": "Are all points configured for all parts?",
+          "choices": [
+            {
+              "label": "Yes",
+              "value": true
+            },
+            {
+              "label": "No",
+              "value": false
+            }
+          ],
+          "parameter_name": "all_points_configured",
+          "default_value": false,
+          "value_kind": ""
+        }
+      ],
+      "choice_info": {
+        "question": "Are all points configured for all parts?",
+        "choices": [
+          {
+            "label": "Yes",
+            "value": true
+          },
+          {
+            "label": "No",
+            "value": false
+          }
+        ],
+        "parameter_name": "all_points_configured",
+        "default_value": false
+      },
+      "operation_model": {
+        "step_type": "branch_op",
+        "op_types": [
+          "branch_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "repeat_block": {
+        "repeat_id": "loop_back_step_11",
+        "body_steps": [
+          "cb_step_7",
+          "cb_step_8",
+          "cb_step_9",
+          "cb_step_10",
+          "cb_step_11"
+        ],
+        "entry_step": "cb_step_7",
+        "terminal_step": "cb_step_11",
+        "exit_step": "cb_step_12",
+        "controller": {
+          "kind": "until_choice",
+          "source_step": "cb_step_11",
+          "loop_back": true,
+          "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+          "exit_value": true,
+          "polarity": "deterministic",
+          "exit_target": 12
+        },
+        "max_iterations": 20,
+        "inference": {
+          "source": "backward_jump_loop_synthesis",
+          "confidence": "high"
+        }
+      },
+      "ui_guidance": {
+        "title": "All points configured for all parts?",
+        "instruction": "Choose Yes if every part is done; choose No to continue with the next part.",
+        "done_label": "Done",
+        "choice_label": "Choice",
+        "input_label": "Choice",
+        "object_label": "choice",
+        "repeat": {}
+      },
+      "branch_action_drives_extension": false
+    },
+    {
+      "step_id": "cb_step_12",
+      "operation_type": "slicer_op",
+      "description": "In the slice intersection interaction options of the toolbar, turn off \"set interaction\".",
+      "depends_on": [
+        "cb_step_11"
+      ],
+      "sub_operations": [
+        {
+          "op_type": "slicer_op",
+          "operation_type": "slicer_op",
+          "description": "Disable the set interaction option for slice intersections.",
+          "extension_method_hint": null,
+          "extension_function_hint": null,
+          "widget_name": null,
+          "ui_parameter_binding": null,
+          "target_value": null,
+          "target_value_mode": null,
+          "slicer_op_category": "crosshair",
+          "slicer_api_keywords": [
+            "vtkMRMLCrosshairNode",
+            "slice intersection",
+            "SetInteractiveMode",
+            "disable"
+          ],
+          "interaction_kind": "none",
+          "interaction_type": null,
+          "node_class": "vtkMRMLCrosshairNode",
+          "creates_node": false,
+          "requires_place_mode": false,
+          "setup_dependencies": [
+            11
+          ],
+          "placement_instructions": null,
+          "min_control_points": 0,
+          "is_optional": false,
+          "operation_intents": [
+            "slice_intersection_interaction"
+          ],
+          "node_roles": [],
+          "confidence": "high",
+          "evidence_type": "llm_semantic_decomposition",
+          "evidence_id": "",
+          "operation_intent": "slice_intersection_interaction"
+        }
+      ],
+      "operation_intents": [
+        "slice_intersection_interaction"
+      ],
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [
+          "slice_intersection_interaction"
+        ],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "ui_guidance": {
+        "title": "Disable slice intersection interaction",
+        "instruction": "In the slice intersection interaction options, turn off Set interaction.",
+        "done_label": "Done",
+        "choice_label": "",
+        "input_label": "",
+        "object_label": "view",
+        "repeat": {}
+      },
+      "code_template": "templates/cb_step_12_slicer.py.tpl",
+      "api_evidence": {
+        "source": "ground_api",
+        "accepted_footprints": [
+          "GetIntersectingSlicesEnabled",
+          "IntersectingSlicesInteractive",
+          "SetIntersectingSlicesEnabled",
+          "app",
+          "applicationLogic",
+          "vtkMRMLApplicationLogic"
+        ],
+        "api_chains": [
+          "appLogic.GetIntersectingSlicesEnabled",
+          "appLogic.SetIntersectingSlicesEnabled",
+          "slicer.app.applicationLogic",
+          "slicer.app.applicationLogic().GetIntersectingSlicesEnabled",
+          "slicer.app.applicationLogic().SetIntersectingSlicesEnabled",
+          "slicer.vtkMRMLApplicationLogic.IntersectingSlicesInteractive"
+        ],
+        "operation_descriptions": [
+          "Disable the set interaction option for slice intersections."
+        ],
+        "slicer_op_categories": [
+          "crosshair"
+        ],
+        "slicer_api_keywords": [
+          "vtkMRMLCrosshairNode",
+          "slice intersection",
+          "SetInteractiveMode",
+          "disable"
+        ]
+      }
+    },
+    {
+      "step_id": "cb_step_13",
+      "operation_type": "user_choice",
+      "description": "Set the Level/Side/Landmarks following the original selection widget.",
+      "depends_on": [
+        "cb_step_12"
+      ],
+      "sub_operations": [
+        {
+          "op_type": "user_choice",
+          "operation_type": "user_choice",
+          "description": "Set the level, side, and landmarks according to the original selection widget.",
+          "extension_method_hint": null,
+          "extension_function_hint": null,
+          "widget_name": null,
+          "ui_parameter_binding": null,
+          "target_value": null,
+          "target_value_mode": null,
+          "slicer_op_category": null,
+          "slicer_api_keywords": [],
+          "interaction_kind": "none",
+          "interaction_type": null,
+          "node_class": null,
+          "creates_node": false,
+          "requires_place_mode": false,
+          "setup_dependencies": [
+            12
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -1221,7 +1665,7 @@
           "evidence_id": "",
           "question": "Set the Level/Side/Landmarks following the original selection widget.",
           "choices": [],
-          "parameter_name": "choice_step_8",
+          "parameter_name": "choice_step_13",
           "default_value": null,
           "value_kind": "",
           "native_widget": true
@@ -1230,7 +1674,7 @@
       "choice_info": {
         "question": "Set the Level/Side/Landmarks following the original selection widget.",
         "choices": [],
-        "parameter_name": "choice_step_8",
+        "parameter_name": "choice_step_13",
         "default_value": null
       },
       "operation_model": {
@@ -1248,27 +1692,27 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Set Level/Side/Landmarks",
-        "instruction": "Select the level, side, and landmarks using the widget.",
+        "title": "Set level, side, and landmarks",
+        "instruction": "Set the level, side, and landmarks in the selection widget.",
         "done_label": "Done",
-        "choice_label": "Side",
-        "input_label": "Side",
-        "object_label": "side",
+        "choice_label": "Selection",
+        "input_label": "Selection",
+        "object_label": "selection",
         "repeat": {}
       }
     },
     {
-      "step_id": "cb_step_9",
+      "step_id": "cb_step_14",
       "operation_type": "extension_op",
       "description": "Click the \"Next\" button in the \"3. Place the Landmarks\" page.",
       "depends_on": [
-        "cb_step_8"
+        "cb_step_13"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Advance to the next step after placing landmarks",
+          "description": "Advance past the Place the Landmarks page to the next workflow page.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -1283,7 +1727,7 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            8
+            13
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -1311,28 +1755,28 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Click Next on Place Landmarks page",
-        "instruction": "",
+        "title": "Continue to landmark placement",
+        "instruction": "Click Next in the '3. Place the Landmarks' page.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "interaction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_9.py.tpl"
+      "code_template": "templates/cb_step_14.py.tpl"
     },
     {
-      "step_id": "cb_step_10",
+      "step_id": "cb_step_15",
       "operation_type": "user_choice",
       "description": "Choose the \"Choose the puncture site\". Choose the \"Select screw diametermm\".",
       "depends_on": [
-        "cb_step_9"
+        "cb_step_14"
       ],
       "sub_operations": [
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Select the puncture site and screw diameter",
+          "description": "Choose the puncture site and screw diameter.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "sSelector",
@@ -1347,21 +1791,13 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            7,
-            9
+            14
           ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
-          "node_roles": [
-            {
-              "role_kind": "choice_input",
-              "node_class": "vtkMRMLMarkupsFiducialNode",
-              "parameter_name": "",
-              "step_id": "cb_step_10"
-            }
-          ],
+          "node_roles": [],
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
@@ -1381,7 +1817,7 @@
         {
           "op_type": "user_choice",
           "operation_type": "user_choice",
-          "description": "Select the puncture site and screw diameter",
+          "description": "Choose the puncture site and screw diameter.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "dSelector",
@@ -1396,21 +1832,13 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            7,
-            9
+            14
           ],
           "placement_instructions": null,
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
-          "node_roles": [
-            {
-              "role_kind": "choice_input",
-              "node_class": "vtkMRMLMarkupsFiducialNode",
-              "parameter_name": "",
-              "step_id": "cb_step_10"
-            }
-          ],
+          "node_roles": [],
           "confidence": "high",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": "",
@@ -1476,20 +1904,13 @@
           }
         }
       ],
-      "node_roles": [
-        {
-          "role_kind": "choice_input",
-          "node_class": "vtkMRMLMarkupsFiducialNode",
-          "parameter_name": "",
-          "step_id": "cb_step_10"
-        }
-      ],
       "choice_info": {
         "question": "Choose the puncture site",
         "choices": [],
         "parameter_name": "choose_the_puncture_site",
         "default_value": null,
         "live_items": true,
+        "widget_class": "ctkComboBox",
         "wizard_combo": {
           "page_class": "PlanningMeasurementsStep",
           "attr": "sSelector",
@@ -1503,6 +1924,7 @@
           "parameter_name": "choose_the_puncture_site",
           "default_value": null,
           "live_items": true,
+          "widget_class": "ctkComboBox",
           "wizard_combo": {
             "page_class": "PlanningMeasurementsStep",
             "attr": "sSelector",
@@ -1563,6 +1985,7 @@
           ],
           "parameter_name": "select_screw_diametermm",
           "default_value": null,
+          "widget_class": "ctkComboBox",
           "wizard_combo": {
             "page_class": "PlanningMeasurementsStep",
             "attr": "dSelector",
@@ -1585,25 +2008,25 @@
         "interaction_kinds": []
       },
       "repeat_block": {
-        "repeat_id": "loop_back_step_14",
+        "repeat_id": "loop_back_step_19",
         "body_steps": [
-          "cb_step_10",
-          "cb_step_11",
-          "cb_step_12",
-          "cb_step_13",
-          "cb_step_14"
+          "cb_step_15",
+          "cb_step_16",
+          "cb_step_17",
+          "cb_step_18",
+          "cb_step_19"
         ],
-        "entry_step": "cb_step_10",
-        "terminal_step": "cb_step_14",
-        "exit_step": "cb_step_15",
+        "entry_step": "cb_step_15",
+        "terminal_step": "cb_step_19",
+        "exit_step": "cb_step_20",
         "controller": {
           "kind": "until_choice",
-          "source_step": "cb_step_14",
+          "source_step": "cb_step_19",
           "loop_back": true,
-          "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+          "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
           "exit_value": true,
           "polarity": "deterministic",
-          "exit_target": 15
+          "exit_target": 20
         },
         "max_iterations": 20,
         "inference": {
@@ -1612,27 +2035,29 @@
         }
       },
       "ui_guidance": {
-        "title": "Choose Puncture Site and Screw Diameter",
-        "instruction": "Choose the puncture site and select screw diameter.",
+        "title": "Choose puncture site and screw diameter",
+        "instruction": "Select the puncture site and the screw diameter in mm.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
         "object_label": "choice",
-        "repeat": {}
+        "repeat": {
+          "summary": "One puncture site per pass."
+        }
       }
     },
     {
-      "step_id": "cb_step_11",
+      "step_id": "cb_step_16",
       "operation_type": "user_interaction",
       "description": "Manually adjust the start and end position of puncture site in 2D views.",
       "depends_on": [
-        "cb_step_10"
+        "cb_step_15"
       ],
       "sub_operations": [
         {
           "op_type": "user_interaction",
           "operation_type": "user_interaction",
-          "description": "Adjust the start and end positions of the puncture site in the 2D views",
+          "description": "Adjust the start and end positions of the puncture site in the 2D views.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -1642,52 +2067,37 @@
           "slicer_op_category": null,
           "slicer_api_keywords": [
             "vtkMRMLMarkupsLineNode",
-            "handles",
+            "start/end points",
             "Translate",
-            "start end"
+            "adjust"
           ],
           "interaction_kind": "view_adjustment",
           "interaction_type": null,
-          "node_class": "vtkMRMLMarkupsLineNode",
+          "node_class": null,
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            10
+            15
           ],
-          "placement_instructions": null,
+          "placement_instructions": "Manually adjust the start and end position of the puncture site in the 2D views.",
           "min_control_points": 0,
           "is_optional": false,
           "operation_intents": [],
-          "node_roles": [
-            {
-              "role_kind": "extension_input",
-              "node_class": "vtkMRMLMarkupsLineNode",
-              "parameter_name": null,
-              "step_id": "cb_step_11"
-            }
-          ],
-          "confidence": "high",
+          "node_roles": [],
+          "confidence": "medium",
           "evidence_type": "llm_semantic_decomposition",
           "evidence_id": ""
         }
       ],
-      "node_roles": [
-        {
-          "role_kind": "extension_input",
-          "node_class": "vtkMRMLMarkupsLineNode",
-          "parameter_name": null,
-          "step_id": "cb_step_11"
-        }
-      ],
-      "interaction_type": "line",
+      "interaction_type": "generic",
       "interaction_kind": "view_adjustment",
-      "node_class": "vtkMRMLMarkupsLineNode",
+      "node_class": "",
       "creates_node": false,
       "requires_place_mode": false,
       "setup_dependencies": [
-        10
+        15
       ],
-      "placement_instructions": null,
+      "placement_instructions": "Manually adjust the start and end position of the puncture site in the 2D views.",
       "min_control_points": 0,
       "operation_model": {
         "step_type": "user_interaction",
@@ -1706,25 +2116,25 @@
         ]
       },
       "repeat_block": {
-        "repeat_id": "loop_back_step_14",
+        "repeat_id": "loop_back_step_19",
         "body_steps": [
-          "cb_step_10",
-          "cb_step_11",
-          "cb_step_12",
-          "cb_step_13",
-          "cb_step_14"
+          "cb_step_15",
+          "cb_step_16",
+          "cb_step_17",
+          "cb_step_18",
+          "cb_step_19"
         ],
-        "entry_step": "cb_step_10",
-        "terminal_step": "cb_step_14",
-        "exit_step": "cb_step_15",
+        "entry_step": "cb_step_15",
+        "terminal_step": "cb_step_19",
+        "exit_step": "cb_step_20",
         "controller": {
           "kind": "until_choice",
-          "source_step": "cb_step_14",
+          "source_step": "cb_step_19",
           "loop_back": true,
-          "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+          "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
           "exit_value": true,
           "polarity": "deterministic",
-          "exit_target": 15
+          "exit_target": 20
         },
         "max_iterations": 20,
         "inference": {
@@ -1733,29 +2143,30 @@
         }
       },
       "ui_guidance": {
-        "title": "Adjust Puncture Site Line",
-        "instruction": "Adjust the start and end points of the puncture site line in the 2D views.",
+        "title": "Adjust the view of the puncture site",
+        "instruction": "Rotate or zoom the 2D views to clearly see the puncture site.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
-        "object_label": "line",
+        "object_label": "view",
         "repeat": {}
       },
-      "pre_template": "templates/cb_step_11_pre.py.tpl",
-      "post_template": "templates/cb_step_11_post.py.tpl"
+      "extension_owns_adjust_mode": false,
+      "pre_template": "templates/cb_step_16_pre.py.tpl",
+      "post_template": "templates/cb_step_16_post.py.tpl"
     },
     {
-      "step_id": "cb_step_12",
+      "step_id": "cb_step_17",
       "operation_type": "extension_op",
       "description": "Click the \"Update\" button.",
       "depends_on": [
-        "cb_step_11"
+        "cb_step_16"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Update the screw plan after adjusting the puncture site",
+          "description": "Apply the updated puncture site settings with the Update button.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -1770,7 +2181,7 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            11
+            16
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -1804,25 +2215,25 @@
         "interaction_kinds": []
       },
       "repeat_block": {
-        "repeat_id": "loop_back_step_14",
+        "repeat_id": "loop_back_step_19",
         "body_steps": [
-          "cb_step_10",
-          "cb_step_11",
-          "cb_step_12",
-          "cb_step_13",
-          "cb_step_14"
+          "cb_step_15",
+          "cb_step_16",
+          "cb_step_17",
+          "cb_step_18",
+          "cb_step_19"
         ],
-        "entry_step": "cb_step_10",
-        "terminal_step": "cb_step_14",
-        "exit_step": "cb_step_15",
+        "entry_step": "cb_step_15",
+        "terminal_step": "cb_step_19",
+        "exit_step": "cb_step_20",
         "controller": {
           "kind": "until_choice",
-          "source_step": "cb_step_14",
+          "source_step": "cb_step_19",
           "loop_back": true,
-          "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+          "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
           "exit_value": true,
           "polarity": "deterministic",
-          "exit_target": 15
+          "exit_target": 20
         },
         "max_iterations": 20,
         "inference": {
@@ -1831,28 +2242,28 @@
         }
       },
       "ui_guidance": {
-        "title": "Click 'Update' button",
-        "instruction": "",
+        "title": "Update the plan",
+        "instruction": "Click Update.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "interaction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_12.py.tpl"
+      "code_template": "templates/cb_step_17.py.tpl"
     },
     {
-      "step_id": "cb_step_13",
+      "step_id": "cb_step_18",
       "operation_type": "extension_op",
       "description": "Click the \"OK\" button.",
       "depends_on": [
-        "cb_step_12"
+        "cb_step_17"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Confirm the screw adjustment by clicking OK",
+          "description": "Confirm and close the screw adjustment dialog with OK.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": "okButton",
@@ -1867,7 +2278,7 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            12
+            17
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -1901,25 +2312,25 @@
         "interaction_kinds": []
       },
       "repeat_block": {
-        "repeat_id": "loop_back_step_14",
+        "repeat_id": "loop_back_step_19",
         "body_steps": [
-          "cb_step_10",
-          "cb_step_11",
-          "cb_step_12",
-          "cb_step_13",
-          "cb_step_14"
+          "cb_step_15",
+          "cb_step_16",
+          "cb_step_17",
+          "cb_step_18",
+          "cb_step_19"
         ],
-        "entry_step": "cb_step_10",
-        "terminal_step": "cb_step_14",
-        "exit_step": "cb_step_15",
+        "entry_step": "cb_step_15",
+        "terminal_step": "cb_step_19",
+        "exit_step": "cb_step_20",
         "controller": {
           "kind": "until_choice",
-          "source_step": "cb_step_14",
+          "source_step": "cb_step_19",
           "loop_back": true,
-          "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+          "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
           "exit_value": true,
           "polarity": "deterministic",
-          "exit_target": 15
+          "exit_target": 20
         },
         "max_iterations": 20,
         "inference": {
@@ -1928,29 +2339,29 @@
         }
       },
       "ui_guidance": {
-        "title": "Click 'OK' button",
-        "instruction": "",
+        "title": "Confirm the puncture site",
+        "instruction": "Click OK.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "interaction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_13.py.tpl"
+      "code_template": "templates/cb_step_18.py.tpl"
     },
     {
-      "step_id": "cb_step_14",
+      "step_id": "cb_step_19",
       "operation_type": "branch_op",
-      "description": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+      "description": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
       "depends_on": [
-        "cb_step_13",
-        "cb_step_10"
+        "cb_step_18",
+        "cb_step_15"
       ],
       "sub_operations": [
         {
           "op_type": "branch_op",
           "operation_type": "branch_op",
-          "description": "Check if all puncture sites are configured and jump accordingly",
+          "description": "Decide whether every puncture site is configured; if not, repeat from step 15.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -1965,8 +2376,8 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            10,
-            13
+            18,
+            15
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -1980,15 +2391,15 @@
           "choices": [
             {
               "label": "Yes",
-              "value": "done"
+              "value": true
             },
             {
               "label": "No",
-              "value": "not_done"
+              "value": false
             }
           ],
           "parameter_name": "all_puncture_sites_configured",
-          "default_value": null,
+          "default_value": false,
           "value_kind": ""
         }
       ],
@@ -1997,15 +2408,15 @@
         "choices": [
           {
             "label": "Yes",
-            "value": "done"
+            "value": true
           },
           {
             "label": "No",
-            "value": "not_done"
+            "value": false
           }
         ],
         "parameter_name": "all_puncture_sites_configured",
-        "default_value": null
+        "default_value": false
       },
       "operation_model": {
         "step_type": "branch_op",
@@ -2022,25 +2433,25 @@
         "interaction_kinds": []
       },
       "repeat_block": {
-        "repeat_id": "loop_back_step_14",
+        "repeat_id": "loop_back_step_19",
         "body_steps": [
-          "cb_step_10",
-          "cb_step_11",
-          "cb_step_12",
-          "cb_step_13",
-          "cb_step_14"
+          "cb_step_15",
+          "cb_step_16",
+          "cb_step_17",
+          "cb_step_18",
+          "cb_step_19"
         ],
-        "entry_step": "cb_step_10",
-        "terminal_step": "cb_step_14",
-        "exit_step": "cb_step_15",
+        "entry_step": "cb_step_15",
+        "terminal_step": "cb_step_19",
+        "exit_step": "cb_step_20",
         "controller": {
           "kind": "until_choice",
-          "source_step": "cb_step_14",
+          "source_step": "cb_step_19",
           "loop_back": true,
-          "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+          "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
           "exit_value": true,
           "polarity": "deterministic",
-          "exit_target": 15
+          "exit_target": 20
         },
         "max_iterations": 20,
         "inference": {
@@ -2049,27 +2460,28 @@
         }
       },
       "ui_guidance": {
-        "title": "All Puncture Sites Configured?",
-        "instruction": "Select Yes if all puncture sites are configured, No to continue configuring.",
+        "title": "All puncture sites configured?",
+        "instruction": "Choose Yes if every puncture site is done; choose No to configure the next site.",
         "done_label": "Done",
         "choice_label": "Choice",
         "input_label": "Choice",
-        "object_label": "interaction",
+        "object_label": "choice",
         "repeat": {}
-      }
+      },
+      "branch_action_drives_extension": false
     },
     {
-      "step_id": "cb_step_15",
+      "step_id": "cb_step_20",
       "operation_type": "extension_op",
       "description": "Click the \"Next\" button in the \"4. Adjust Screws\" page.",
       "depends_on": [
-        "cb_step_14"
+        "cb_step_19"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Advance to the next step after adjusting screws",
+          "description": "Advance past the Adjust Screws page to the next workflow page.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -2084,7 +2496,7 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            14
+            19
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -2112,28 +2524,28 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Click Next on Adjust Screws page",
-        "instruction": "",
+        "title": "Continue to screw adjustment",
+        "instruction": "Click Next in the '4. Adjust Screws' page.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "interaction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_15.py.tpl"
+      "code_template": "templates/cb_step_20.py.tpl"
     },
     {
-      "step_id": "cb_step_16",
+      "step_id": "cb_step_21",
       "operation_type": "extension_op",
       "description": "Click the \"Grade Screws\" button.",
       "depends_on": [
-        "cb_step_15"
+        "cb_step_20"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Trigger screw grading",
+          "description": "Run screw grading with the Grade Screws button.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -2148,7 +2560,7 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            15
+            20
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -2182,28 +2594,28 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Click 'Grade Screws' button",
-        "instruction": "",
+        "title": "Grade the screws",
+        "instruction": "Click Grade Screws to generate the grading table.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "interaction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_16.py.tpl"
+      "code_template": "templates/cb_step_21.py.tpl"
     },
     {
-      "step_id": "cb_step_17",
+      "step_id": "cb_step_22",
       "operation_type": "review_op",
       "description": "Review the generated Grade Screws output Table following the original results table.",
       "depends_on": [
-        "cb_step_16"
+        "cb_step_21"
       ],
       "sub_operations": [
         {
           "op_type": "review_op",
           "operation_type": "review_op",
-          "description": "Review the generated screw grading results table",
+          "description": "Review the generated Grade Screws output table.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -2218,7 +2630,7 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            16
+            21
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -2245,7 +2657,7 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Review Grade Screws Results",
+        "title": "Review the grading table",
         "instruction": "Review the generated Grade Screws output table.",
         "done_label": "Done",
         "choice_label": "",
@@ -2255,17 +2667,17 @@
       }
     },
     {
-      "step_id": "cb_step_18",
+      "step_id": "cb_step_23",
       "operation_type": "extension_op",
       "description": "Click the \"Next\" button in the \"Grading Step\" page.",
       "depends_on": [
-        "cb_step_17"
+        "cb_step_22"
       ],
       "sub_operations": [
         {
           "op_type": "extension_op",
           "operation_type": "extension_op",
-          "description": "Advance to the next step after grading",
+          "description": "Advance past the Grading Step page to finish the workflow.",
           "extension_method_hint": null,
           "extension_function_hint": null,
           "widget_name": null,
@@ -2280,7 +2692,7 @@
           "creates_node": false,
           "requires_place_mode": false,
           "setup_dependencies": [
-            17
+            22
           ],
           "placement_instructions": null,
           "min_control_points": 0,
@@ -2308,40 +2720,67 @@
         "interaction_kinds": []
       },
       "ui_guidance": {
-        "title": "Click Next on Grading Step page",
-        "instruction": "",
+        "title": "Continue from grading",
+        "instruction": "Click Next in the 'Grading Step' page.",
         "done_label": "Done",
         "choice_label": "",
         "input_label": "",
         "object_label": "interaction",
         "repeat": {}
       },
-      "code_template": "templates/cb_step_18.py.tpl"
+      "code_template": "templates/cb_step_23.py.tpl"
     }
   ],
-  "step_count": 18,
+  "step_count": 23,
   "source": "cookbook",
   "repeat_blocks": [
     {
-      "repeat_id": "loop_back_step_14",
+      "repeat_id": "loop_back_step_11",
       "body_steps": [
+        "cb_step_7",
+        "cb_step_8",
+        "cb_step_9",
         "cb_step_10",
-        "cb_step_11",
-        "cb_step_12",
-        "cb_step_13",
-        "cb_step_14"
+        "cb_step_11"
       ],
-      "entry_step": "cb_step_10",
-      "terminal_step": "cb_step_14",
-      "exit_step": "cb_step_15",
+      "entry_step": "cb_step_7",
+      "terminal_step": "cb_step_11",
+      "exit_step": "cb_step_12",
       "controller": {
         "kind": "until_choice",
-        "source_step": "cb_step_14",
+        "source_step": "cb_step_11",
         "loop_back": true,
-        "prompt": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+        "prompt": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
         "exit_value": true,
         "polarity": "deterministic",
-        "exit_target": 15
+        "exit_target": 12
+      },
+      "max_iterations": 20,
+      "inference": {
+        "source": "backward_jump_loop_synthesis",
+        "confidence": "high"
+      }
+    },
+    {
+      "repeat_id": "loop_back_step_19",
+      "body_steps": [
+        "cb_step_15",
+        "cb_step_16",
+        "cb_step_17",
+        "cb_step_18",
+        "cb_step_19"
+      ],
+      "entry_step": "cb_step_15",
+      "terminal_step": "cb_step_19",
+      "exit_step": "cb_step_20",
+      "controller": {
+        "kind": "until_choice",
+        "source_step": "cb_step_19",
+        "loop_back": true,
+        "prompt": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
+        "exit_value": true,
+        "polarity": "deterministic",
+        "exit_target": 20
       },
       "max_iterations": 20,
       "inference": {

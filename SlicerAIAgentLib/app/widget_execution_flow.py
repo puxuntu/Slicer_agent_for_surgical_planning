@@ -672,11 +672,22 @@ class WidgetExecutionFlowMixin:
 
     @staticmethod
     def _templatePlaceholderNames(tpl_path):
-        """Single-brace placeholder names in a template file (``{{x}}`` excluded).
+        """Placeholder names the LOADER will actually look up in this template.
 
-        Deliberately conservative and self-contained: over-reporting only makes the
-        write-back skip a template it could have persisted, while under-reporting
-        would persist run-specific values into the package.
+        Not a brace scan. A brace scan also matches every f-string interpolation,
+        and the precondition block every generated step carries ends with
+        ``print(f"...: {_module_enter_error}")`` -- so a raw scan reports a
+        placeholder for 45 of the 181 shipped templates that have none, and the
+        write-back below then refuses all of them. The symptom is invisible and
+        permanent: the step self-corrects, advances, throws the fix away, and does
+        it again on every later run.
+
+        Answered by ``fillable_placeholder_names``, which subtracts what the
+        loader's own filler leaves alone (a survivor inside a string literal), so
+        the guard measures what the filler LOOKS UP rather than what looks like a
+        brace. Falls back to the conservative brace scan if TemplateReviser cannot
+        be imported -- over-reporting only skips a write-back, under-reporting
+        would freeze a run's values into the package.
         """
         import re as _re
 
@@ -685,6 +696,11 @@ class WidgetExecutionFlowMixin:
                 text = f.read()
         except Exception:
             return {"__unreadable__"}
+        try:
+            from SlicerAIAgentLib.TemplateReviser import fillable_placeholder_names
+            return set(fillable_placeholder_names(text))
+        except Exception:
+            logger.debug("Fillable-placeholder probe unavailable", exc_info=True)
         return set(_re.findall(
             r"(?<!\{)\{([A-Za-z_][A-Za-z0-9_]*)(?::[^{}]*)?\}(?!\})", text,
         ))
@@ -727,16 +743,22 @@ class WidgetExecutionFlowMixin:
         if not os.path.isfile(tpl_path):
             return
 
-        # A template with placeholders cannot be recovered from executed code.
-        # `corrected_code` is the FILLED code, so the run's own values are already
-        # substituted into it, and the write-back escapes every brace — persisting
-        # it would freeze this run's values into the package. For `{side}` (a
-        # parameter bound to the user's choice) that means every later run
-        # reconstructing whichever side this one happened to pick, no matter what
-        # the surgeon selects: a silently wrong result rather than a visible
+        # A template with FILLABLE placeholders cannot be recovered from executed
+        # code. `corrected_code` is the FILLED code, so the run's own values are
+        # already substituted into it, and the write-back escapes every brace —
+        # persisting it would freeze this run's values into the package. For
+        # `{side}` (a parameter bound to the user's choice) that means every later
+        # run reconstructing whichever side this one happened to pick, no matter
+        # what the surgeon selects: a silently wrong result rather than a visible
         # failure. `{vol_lookup}` is exempt because it is structural — it expands
         # to the same scene lookup on every run, so the expansion is not
         # run-specific.
+        #
+        # "Fillable" is the whole point: a brace span the filler never looks up —
+        # an f-string interpolation, or a placeholder buried in a string literal —
+        # expands to the same text on every run, so persisting it loses nothing.
+        # Counting those refuses the write-back for a template that has no
+        # run-specific value in it at all.
         skipped = self._templatePlaceholderNames(tpl_path) - {"vol_lookup"}
         if skipped:
             logger.info(

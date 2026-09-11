@@ -12,32 +12,42 @@ and wait for them to complete the interaction before proceeding.
 
 **Workflow Steps:**
 1. `cb_step_1` [user_choice] — In the "Spine CT" section, select the CT volume for processing.
-   - Ask user: In the "Spine CT" section, select the CT volume for processing.
+   - Ask user: Select the CT volume for processing.
 2. `cb_step_2` [extension_op] — Click the "Next" button in the "1. Load Image Volume" page.
 3. `cb_step_3` [user_interaction] — Manually adjust the boundaries of the ROI.
-   - Interaction: roi
-4. `cb_step_4` [user_choice] — Choose the "1st Instrumented Level:". Choose the "# Sides:". Choose the "# to Instrument:". Choose the "Approach Direction:".
-   - Ask user: 1st Instrumented Level
+   - Interaction: generic
+   - Tell user: Manually adjust the boundaries of the ROI.
+4. `cb_step_4` [user_choice] — Choose the "Instrumented Levels:". Choose the "# Sides:". Choose the "Approach Direction:".
+   - Ask user: Instrumented Levels
 5. `cb_step_5` [extension_op] — Click the "Next" button in the "2. Define Surgical Region of Interest (ROI)" page.
-6. `cb_step_6` [extension_op] — Click the "Place a control point" button.
-7. `cb_step_7` [user_interaction] — Manually click in the 2D views to add fiducial points. The total number of points added should be three times the value specified in '# to Instrument'
+6. `cb_step_6` [slicer_op] — In the toolbar, turn on "slice intersection visibility". In the slice intersection interaction options, turn on "set interaction", then enable both "T
+7. `cb_step_7` [user_interaction] — Manually adjust the rotation angle of the red slice.
+   - Interaction: generic
+   - Tell user: Manually adjust the rotation angle of the red slice.
+8. `cb_step_8` [extension_op] — Click the "Place a control point" button to activate the point placement.
+9. `cb_step_9` [user_interaction] — Manually click in the 2D views to add fiducial points for one part of the spine.
    - Interaction: fiducial
-   - Tell user: Place fiducial landmarks by clicking in the 2D views; number of points equals three times the instrument count
-8. `cb_step_8` [user_choice] — Set the Level/Side/Landmarks following the original selection widget.
+   - Tell user: Manually click in the 2D views to add fiducial points for one part of the spine.
+10. `cb_step_10` [extension_op] — Click the "Place a control point" button to inactivate the point placement.
+11. `cb_step_11` [branch_op] — If all points are configured for all parts, jump to step 12. If not, jump to step 7.
+   - Ask user: Are all points configured for all parts?
+12. `cb_step_12` [slicer_op] — In the slice intersection interaction options of the toolbar, turn off "set interaction".
+13. `cb_step_13` [user_choice] — Set the Level/Side/Landmarks following the original selection widget.
    - Ask user: Set the Level/Side/Landmarks following the original selection widget.
-9. `cb_step_9` [extension_op] — Click the "Next" button in the "3. Place the Landmarks" page.
-10. `cb_step_10` [user_choice] — Choose the "Choose the puncture site". Choose the "Select screw diametermm".
+14. `cb_step_14` [extension_op] — Click the "Next" button in the "3. Place the Landmarks" page.
+15. `cb_step_15` [user_choice] — Choose the "Choose the puncture site". Choose the "Select screw diametermm".
    - Ask user: Choose the puncture site
-11. `cb_step_11` [user_interaction] — Manually adjust the start and end position of puncture site in 2D views.
-   - Interaction: line
-12. `cb_step_12` [extension_op] — Click the "Update" button.
-13. `cb_step_13` [extension_op] — Click the "OK" button.
-14. `cb_step_14` [branch_op] — If every puncture site is configured, jump to step 15. If not, jump to step 10.
+16. `cb_step_16` [user_interaction] — Manually adjust the start and end position of puncture site in 2D views.
+   - Interaction: generic
+   - Tell user: Manually adjust the start and end position of the puncture site in the 2D views.
+17. `cb_step_17` [extension_op] — Click the "Update" button.
+18. `cb_step_18` [extension_op] — Click the "OK" button.
+19. `cb_step_19` [branch_op] — If every puncture site is configured, jump to step 20. If not, jump to step 15.
    - Ask user: Is every puncture site configured?
-15. `cb_step_15` [extension_op] — Click the "Next" button in the "4. Adjust Screws" page.
-16. `cb_step_16` [extension_op] — Click the "Grade Screws" button.
-17. `cb_step_17` [review_op] — Review the generated Grade Screws output Table following the original results table.
-18. `cb_step_18` [extension_op] — Click the "Next" button in the "Grading Step" page.
+20. `cb_step_20` [extension_op] — Click the "Next" button in the "4. Adjust Screws" page.
+21. `cb_step_21` [extension_op] — Click the "Grade Screws" button.
+22. `cb_step_22` [review_op] — Review the generated Grade Screws output Table following the original results table.
+23. `cb_step_23` [extension_op] — Click the "Next" button in the "Grading Step" page.
 
 **Protocol:**
 1. Call `PedicleScrewPlanner` with `workflow_step='cb_step_1'` and `user_action='start'` to begin

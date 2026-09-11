@@ -171,6 +171,136 @@ class AnalyzerValidationSemanticsMixin:
                 )
         return result
 
+    def _parameter_state_spellings(self) -> Dict[str, set]:
+        """Role -> the exact strings this extension compares that role against.
+
+        Scanned from the source, so it is the extension's own vocabulary and
+        not a convention: ``"True"`` here, but an extension is free to write
+        ``"1"``. A role appears only when BOTH states were seen, since a rule
+        that knows one spelling cannot judge a write of the other.
+        """
+        metadata = self._workflow_metadata if isinstance(self._workflow_metadata, dict) else {}
+        spellings: Dict[str, Dict[str, set]] = {}
+        for binding in (metadata.get("ui_parameter_bindings") or {}).values():
+            for role_entry in (binding or {}).get("roles") or []:
+                role = role_entry.get("parameter_name") or ""
+                if not role:
+                    continue
+                states = spellings.setdefault(role, {"on": set(), "off": set()})
+                for key, bucket in (("true_value", "on"), ("false_value", "off")):
+                    value = role_entry.get(key)
+                    if isinstance(value, str) and value:
+                        states[bucket].add(value)
+        return {
+            role: states["on"] | states["off"]
+            for role, states in spellings.items()
+            if states["on"] and states["off"]
+        }
+
+    def _collect_parameter_state_writes(self, code: str) -> List[Tuple[str, str, int]]:
+        """Literal (role, value, lineno) string writes on the parameter node."""
+        writes: List[Tuple[str, str, int]] = []
+        try:
+            tree = ast.parse(code or "")
+        except SyntaxError:
+            return writes
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            if node.func.attr != "SetParameter" or len(node.args) < 2:
+                continue
+            receiver = self._expr_text(node.func.value)
+            if "parameterNode" not in receiver and "getParameterNode" not in receiver:
+                continue
+            role = value = None
+            for index, target in ((0, "role"), (1, "value")):
+                argument = node.args[index]
+                text = None
+                if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                    text = argument.value
+                elif hasattr(ast, "Str") and isinstance(argument, ast.Str):  # py<3.8
+                    text = argument.s
+                if target == "role":
+                    role = text
+                else:
+                    value = text
+            # A non-literal value (a variable, an f-string, a conditional) is
+            # deliberately skipped: its spelling is not decidable here, and a
+            # guess would reject correct templates.
+            if role and value is not None:
+                writes.append((role, value, getattr(node, "lineno", 0)))
+        return writes
+
+    def _validate_parameter_state_spelling(self, code: str) -> Dict[str, List[str]]:
+        """A boolean parameter must be written in the extension's own spelling.
+
+        The extension reads these roles with an exact string comparison
+        (``GetParameter(role) == "True"``), so a template writing ``'true'``
+        raises nothing, changes nothing, and leaves whatever the parameter gates
+        switched off for the rest of the run. That is the worst shape a defect
+        can take here, and it is invisible to every other gate: the code is valid
+        Python, the role exists, the method exists, and the step reports success.
+
+        Checked only for roles whose ON *and* OFF strings were both recovered
+        from source, and only for literal writes.
+        """
+        result = {"errors": [], "warnings": []}
+        spellings = self._parameter_state_spellings()
+        if not spellings:
+            return result
+        for role, value, lineno in self._collect_parameter_state_writes(code):
+            allowed = spellings.get(role)
+            if not allowed or value in allowed:
+                continue
+            result["errors"].append(
+                f"ParameterStateSpelling: template writes {value!r} to parameter "
+                f"'{role}' (line {lineno}), but the extension compares that role "
+                f"against {sorted(allowed)!r}. An exact-string comparison makes "
+                "any other spelling a silent no-op; write one of those values."
+            )
+        return result
+
+    @staticmethod
+    def _validate_placeholder_reachability(raw_code: str) -> Dict[str, List[str]]:
+        """A placeholder buried in a plain string is text, not a parameter.
+
+        The loader masks string literals before it substitutes, deliberately --
+        a template's prose must survive filling untouched. So
+        ``AddNewNodeByClass(cls, "{curve_name: CuttingCurve}")`` is left exactly
+        as written, and the step names its node ``{curve_name: CuttingCurve}``.
+        Nothing raises: the code is valid Python and the string is a good string.
+        The failure lands wherever something later looks for the name that was
+        meant -- CranialImplantPlanning ships that one, and
+        BoneReconstructionPlanner's cb_step_12 searched every node name for the
+        literal text ``{curve_name_keyword: mandible}`` and raised MISSING_NODE
+        on every run of the procedure.
+
+        The blanket unresolved-placeholder rule cannot catch it, because these
+        carry a DEFAULT and a default is what makes a placeholder safe at
+        dispatch -- everywhere except inside a string, where it is never read.
+
+        Measured with the loader's own filler (``inert_placeholders``), and an
+        f-string interpolation is not reported: ``f"role \'{role}\'"`` is how
+        every generated template reports an error.
+        """
+        result = {"errors": [], "warnings": []}
+        try:
+            from SlicerAIAgentLib.TemplateReviser import inert_placeholders
+        except Exception:  # stand-alone import: cannot judge, do not guess
+            return result
+        try:
+            inert = inert_placeholders(raw_code or "")
+        except Exception:
+            return result
+        for name in inert:
+            result["errors"].append(
+                f"InertPlaceholder: '{{{name}}}' sits inside a string literal, "
+                "where the loader never substitutes it -- the step would run with "
+                "the brace text as its value. Move it out of the string (build the "
+                "string from the placeholder) or write the literal value."
+            )
+        return result
+
     def _validate_parameter_effect_application(self, code: str) -> Dict[str, List[str]]:
         """Require evidence-backed effect application after parameter writes.
 

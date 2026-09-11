@@ -25,14 +25,41 @@ from .common import *
 
 
 #: extension name (as in manifest.json, e.g. "ZygomaticImplantPlanner")
-#: -> callable(widget, layout, extension_name) -> None
+#: -> [callable(widget, layout, extension_name) -> None, ...], in _PANEL_MODULES
+#: order.
+#:
+#: A LIST, not one builder. Two modules may legitimately claim the same
+#: procedure -- one scoring its runs while another prepares its input -- and a
+#: dict of one made the later import silently erase the earlier, so an analysis
+#: panel simply did not exist and the section showed the other tool as if that
+#: were all there was. Nothing raised: an overwrite is a legal dict assignment,
+#: and which panel survived depended on the order of a tuple in this file.
+#:
+#: No shipped procedure claims two today, which is exactly why the property is
+#: pinned by ``scripts/check_longbone_analysis.py`` against SYNTHETIC builders:
+#: an invariant that nothing currently exercises is the one that rots.
 EXPERIMENT_PANELS = {}
 
 
 def register_experiment_panel(extension_name):
-    """Register the builder for one extension's Experiments content."""
+    """Register a builder for one extension's Experiments content.
+
+    Appends, so several modules can contribute to one procedure's section. A
+    builder already registered under the same module and qualified name is
+    REPLACED in place rather than appended beside itself, so re-importing a
+    panel module (Slicer's Reload) does not stack duplicates of it.
+    """
     def _register(builder):
-        EXPERIMENT_PANELS[str(extension_name)] = builder
+        builders = EXPERIMENT_PANELS.setdefault(str(extension_name), [])
+        identity = (getattr(builder, "__module__", ""),
+                    getattr(builder, "__qualname__", getattr(builder, "__name__", "")))
+        for index, existing in enumerate(builders):
+            if (getattr(existing, "__module__", ""),
+                    getattr(existing, "__qualname__",
+                            getattr(existing, "__name__", ""))) == identity:
+                builders[index] = builder
+                return builder
+        builders.append(builder)
         return builder
     return _register
 
@@ -42,7 +69,8 @@ def register_experiment_panel(extension_name):
 #: dependency-missing analysis then costs its own extension's panel and nothing
 #: else, instead of taking the whole widget down at Slicer startup.
 _PANEL_MODULES = ("zygomatic_panel", "orbital_panel", "shoulder_panel",
-                  "cranial_panel", "pelvic_panel", "dicom_panel")
+                  "cranial_panel", "pelvic_panel", "longbone_panel",
+                  "pedicle_panel", "mandible_panel")
 
 _panels_loaded = False
 
@@ -58,6 +86,18 @@ def _loadExperimentPanels():
             importlib.import_module("SlicerAIAgentLib.experiments." + name)
         except Exception:
             logger.warning("Experiments panel %s failed to load", name, exc_info=True)
+
+
+def _panelSeparator():
+    """A rule between two panels that claim the same procedure.
+
+    Without it, the analysis button and the dataset-preparation button read as
+    one form with two unrelated halves.
+    """
+    line = qt.QFrame()
+    line.setFrameShape(qt.QFrame.HLine)
+    line.setFrameShadow(qt.QFrame.Sunken)
+    return line
 
 
 class WidgetExperimentsMixin:
@@ -87,11 +127,12 @@ class WidgetExperimentsMixin:
 
         # Everything below the selector is owned by the per-extension builder and
         # rebuilt from scratch on each change, so it lives in its own container
-        # whose layout can be emptied without touching the selector row.
-        self._experimentContent = qt.QWidget()
-        self._experimentContentLayout = qt.QVBoxLayout(self._experimentContent)
-        self._experimentContentLayout.setContentsMargins(0, 0, 0, 0)
-        outer.addWidget(self._experimentContent)
+        # -- which is REPLACED wholesale rather than emptied. See
+        # _clearExperimentContent for why that distinction is load-bearing.
+        self._experimentsOuterLayout = outer
+        self._experimentContent = None
+        self._experimentContentLayout = None
+        self._newExperimentContent()
 
         self._experimentSelector.currentIndexChanged.connect(
             self._onExperimentExtensionChanged)
@@ -158,8 +199,8 @@ class WidgetExperimentsMixin:
         extension = self._selectedExperimentExtension()
         if not extension:
             return
-        builder = EXPERIMENT_PANELS.get(extension)
-        if builder is None:
+        builders = EXPERIMENT_PANELS.get(extension) or []
+        if not builders:
             # No analysis defined for this procedure yet. Say so rather than
             # leaving a blank gap, which reads as a panel that failed to load.
             hint = qt.QLabel(f"No analysis defined for {extension} yet.")
@@ -167,26 +208,66 @@ class WidgetExperimentsMixin:
             hint.setStyleSheet("color: gray; font-style: italic;")
             self._experimentContentLayout.addWidget(hint)
             return
-        try:
-            builder(self, self._experimentContentLayout, extension)
-        except Exception as exc:
-            # A broken analysis must not take the module panel down with it.
-            logger.warning("Experiments panel for %s failed: %s", extension, exc,
-                           exc_info=True)
-            self._clearExperimentContent()
-            error = qt.QLabel(f"This analysis failed to load: {exc}")
-            error.setWordWrap(True)
-            error.setStyleSheet("color: #b00;")
-            self._experimentContentLayout.addWidget(error)
+        for position, builder in enumerate(builders):
+            if position:
+                self._experimentContentLayout.addWidget(_panelSeparator())
+            try:
+                builder(self, self._experimentContentLayout, extension)
+            except Exception as exc:
+                # A broken analysis must not take the module panel down with it
+                # -- nor its neighbours: the content is NOT cleared here, since
+                # a later builder failing would then delete an earlier one's
+                # working panel. The failure is reported in its own place and
+                # the loop goes on.
+                logger.warning("Experiments panel %s for %s failed: %s",
+                               getattr(builder, "__module__", "?"), extension,
+                               exc, exc_info=True)
+                error = qt.QLabel(f"This analysis failed to load: {exc}")
+                error.setWordWrap(True)
+                error.setStyleSheet("color: #b00;")
+                self._experimentContentLayout.addWidget(error)
+
+    def _newExperimentContent(self):
+        """A fresh, empty container for one extension's panels."""
+        content = qt.QWidget()
+        layout = qt.QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._experimentsOuterLayout.addWidget(content)
+        self._experimentContent = content
+        self._experimentContentLayout = layout
 
     def _clearExperimentContent(self):
-        """Destroy the current extension's widgets before building the next."""
-        layout = getattr(self, "_experimentContentLayout", None)
-        if layout is None:
+        """Destroy the current extension's panels before building the next.
+
+        The whole CONTAINER is replaced, rather than its layout emptied one
+        widget at a time, and that is a crash fix rather than a tidy-up.
+
+        Emptying it meant ``takeAt(0)`` then ``setParent(None)`` then
+        ``deleteLater()`` on each child. Those last two must not both happen. A
+        parented QWidget is owned by C++; ``setParent(None)`` hands ownership to
+        the PythonQt wrapper, and that wrapper is dropped on the next loop
+        iteration -- so Python deletes the C++ object, and the queued
+        DeferredDelete event then fires on a freed pointer. Slicer exits, with no
+        traceback, on every change of the extension selector.
+
+        Replacing the container avoids the question entirely: the old one keeps
+        its parent, so Qt owns the single delete, and every widget and nested
+        LAYOUT below it goes with it. The emptying loop could not do the second
+        part anyway -- ``item.widget()`` is None for a nested layout, so a
+        builder that added one (a row of buttons, a form) leaked it, still
+        parented and still connected, to fire its slots against the next
+        panel's state.
+
+        ``hide()`` before the delete because DeferredDelete is processed on the
+        next event-loop turn, and until then a removed-but-live widget still
+        paints at its old geometry underneath the panel being built.
+        """
+        outer = getattr(self, "_experimentsOuterLayout", None)
+        if outer is None:
             return
-        while layout.count():
-            item = layout.takeAt(0)
-            widget = item.widget() if item is not None else None
-            if widget is not None:
-                widget.setParent(None)
-                widget.deleteLater()
+        old = getattr(self, "_experimentContent", None)
+        if old is not None:
+            outer.removeWidget(old)          # out of the layout; parent intact
+            old.hide()
+            old.deleteLater()
+        self._newExperimentContent()

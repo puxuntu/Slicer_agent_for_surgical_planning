@@ -439,6 +439,16 @@ class AnalyzerCookbookMappingMixin:
                         item["default_from_step"] = default_from_step
                     if so.get("live_items"):
                         item["live_items"] = True
+                    if so.get("multi_select"):
+                        # This selector takes SEVERAL of its options at once (its
+                        # source control is a checkable combo). Carried on the item
+                        # because the runtime renders per ITEM: one tick list among
+                        # ordinary dropdowns on the same form.
+                        item["multi_select"] = True
+                    if so.get("widget_class"):
+                        # The source control's Qt class -- the render family is
+                        # source-widget-authoritative here as everywhere else.
+                        item["widget_class"] = so.get("widget_class")
                     if so.get("widget_state_binding"):
                         # The extension's own value control for this choice: which
                         # control to write, which property, and what each option
@@ -498,7 +508,13 @@ class AnalyzerCookbookMappingMixin:
                 step.update(interaction_info)
             if choice_info:
                 step["choice_info"] = choice_info
-            if len(choice_info_list) > 1:
+            # A single selector normally needs no list -- choice_info says it all.
+            # A MULTI-SELECT selector does: the list is what the runtime renders as
+            # a form (and what carries per-item facts like multi_select), so a lone
+            # tick list would otherwise fall through to the single-choice renderer
+            # and lose every answer but one.
+            if len(choice_info_list) > 1 or any(
+                    i.get("multi_select") for i in choice_info_list):
                 step["choice_info_list"] = choice_info_list
             if is_optional:
                 step["is_optional"] = True

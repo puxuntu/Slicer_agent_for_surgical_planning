@@ -200,6 +200,12 @@ def _infer_final_state_intent(text: str) -> Dict[str, Any]:
         " clear ",
         " deactivate ",
         " deactivated ",
+        # "click it again to INACTIVATE the point placement" -- a cookbook
+        # spelling that reads as ordinary English and is not a prefixed form of
+        # any true pattern (" activate " needs a leading space, which "inactivate"
+        # does not give it).
+        " inactivate ",
+        " inactivated ",
     )
     if any(pattern in padded for pattern in invert_patterns):
         return {"mode": "invert", "state": None, "confidence": "high"}
@@ -216,6 +222,7 @@ def _infer_final_state_intent(text: str) -> Dict[str, Any]:
         "clear ",
         "untick ",
         "deactivate ",
+        "inactivate ",
     )
     leading_true_patterns = (
         "toggle on ",

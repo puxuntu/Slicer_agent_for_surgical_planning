@@ -1,14 +1,20 @@
-"""
-Toggle on FOV and spacing match 2D for Red slice.
-Sets the Red slice node's resolution mode to SliceResolutionMatch2DView,
-which means both FOV and spacing are matched to the 2D view.
-"""
-import slicer
-from vtkMRMLCorePython import vtkMRMLSliceNode
-sliceWidget = slicer.app.layoutManager().sliceWidget('Red')
+# Enable the Red slice view's automatic slice spacing mode so the slice
+# resolution (spacing) matches the 2D viewport resolution.
+# Backing API: vtkMRMLSliceNode SliceSpacingMode (Automatic vs Prescribed).
+#   AutomaticSliceSpacingMode = 0, PrescribedSliceSpacingMode = 1
+
+lm = slicer.app.layoutManager()
+sliceWidget = lm.sliceWidget("Red")
+if sliceWidget is None:
+    raise RuntimeError("RedSliceViewNotFound")
+
 sliceNode = sliceWidget.mrmlSliceNode()
-SLICE_RESOLUTION_MATCH_2D_VIEW = slicer.vtkMRMLSliceNode.SliceResolutionMatch2DView
-sliceNode.SetSliceResolutionMode(SLICE_RESOLUTION_MATCH_2D_VIEW)
-actualMode = sliceNode.GetSliceResolutionMode()
-if actualMode != SLICE_RESOLUTION_MATCH_2D_VIEW:
-    raise RuntimeError('STATE_NOT_APPLIED: SliceResolutionMode (expected %d, got %d)' % (SLICE_RESOLUTION_MATCH_2D_VIEW, actualMode))
+if sliceNode is None:
+    raise RuntimeError("RedSliceNodeNotFound")
+
+# "Spacing match 2D" == automatic slice spacing mode
+sliceNode.SetSliceSpacingModeToAutomatic()
+
+# Read back
+if sliceNode.GetSliceSpacingMode() != sliceNode.AutomaticSliceSpacingMode:
+    raise RuntimeError("STATE_NOT_APPLIED: SliceSpacingMode (automatic)")

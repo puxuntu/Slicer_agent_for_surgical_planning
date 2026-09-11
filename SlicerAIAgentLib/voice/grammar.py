@@ -143,7 +143,12 @@ class StepGrammar(object):
         if self.family == FAMILY_MULTI:
             out = []
             for item in self.multi_items:
-                out.append("%s: %s" % (item.get("label") or item.get("param"),
+                label = item.get("label") or item.get("param")
+                if item.get("multi"):
+                    # Say that this one takes any number, or the prompt reads as a
+                    # one-of-N list and the surgeon names a single level.
+                    label = "%s (tick any number)" % label
+                out.append("%s: %s" % (label,
                                        ", ".join(item.get("options") or [])))
             return out
         return []
@@ -204,7 +209,12 @@ class StepGrammar(object):
             payload["selectors"] = [
                 {"param": item.get("param"),
                  "label": item.get("label"),
-                 "options": list(item.get("options") or [])}
+                 "options": list(item.get("options") or []),
+                 # A selector the surgeon answers with SEVERAL options. Told to
+                 # the model because one utterance still names ONE option -- the
+                 # panel accumulates them -- so a model that assumed one-of-N
+                 # would try to replace the answer instead of adding to it.
+                 "multi_select": bool(item.get("multi"))}
                 for item in self.multi_items
             ]
         elif self.family == FAMILY_TEXT:

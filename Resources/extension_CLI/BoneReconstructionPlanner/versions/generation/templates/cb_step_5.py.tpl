@@ -1,4 +1,6 @@
 import slicer
+from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
+
 # precondition:begin
 # Ensure the extension module is active so module.enter() has run.
 _active_module_name = slicer.util.selectedModule()
@@ -12,45 +14,32 @@ if _active_module_name != 'BoneReconstructionPlanner':
 try:
     logic = _bonereconstructionplanner_logic
 except NameError:
-    from BoneReconstructionPlanner import BoneReconstructionPlannerLogic
     logic = BoneReconstructionPlannerLogic()
-    _bonereconstructionplanner_logic = logic
 
 parameterNode = logic.getParameterNode()
 
-# Ensure required node references are set
-fibulaSegmentation = parameterNode.GetNodeReference("fibulaSegmentation")
-if fibulaSegmentation is None:
-    # Search for fibula segmentation node
-    segNodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
-    fibulaSegmentation = None
-    for node in segNodes:
-        name = node.GetName().lower()
-        if "fibula" in name:
-            fibulaSegmentation = node
-            break
-    if fibulaSegmentation is None:
-        raise RuntimeError("Fibula segmentation node not found. Ensure step 3/4 completed.")
-    parameterNode.SetNodeReferenceID("fibulaSegmentation", fibulaSegmentation.GetID())
-
-mandibularSegmentation = parameterNode.GetNodeReference("mandibularSegmentation")
-if mandibularSegmentation is None:
-    segNodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
-    mandibularSegmentation = None
-    for node in segNodes:
-        name = node.GetName().lower()
-        if "mandibular" in name or "mandible" in name:
-            mandibularSegmentation = node
-            break
-    if mandibularSegmentation is None:
-        raise RuntimeError("Mandibular segmentation node not found. Ensure step 3/4 completed.")
-    parameterNode.SetNodeReferenceID("mandibularSegmentation", mandibularSegmentation.GetID())
-
-# Set default parameter for useNonDecimatedBoneModelsForPreview if not set
-if parameterNode.GetParameter("useNonDecimatedBoneModelsForPreview") == "":
+# Initialize source-derived scalar defaults without overwriting existing values
+if not parameterNode.GetParameter("useNonDecimatedBoneModelsForPreview"):
     parameterNode.SetParameter("useNonDecimatedBoneModelsForPreview", "True")
 
-# Call the method
+# Resolve required segmentation node references (strict order: existing reference first)
+for role, keyword in (("fibulaSegmentation", "fibula"), ("mandibularSegmentation", "mandible")):
+    if parameterNode.GetNodeReference(role):
+        continue
+    candidates = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
+    selected = None
+    for candidate in candidates:
+        if keyword in candidate.GetName().lower():
+            selected = candidate
+            break
+    if selected is None and len(candidates) == 1:
+        selected = candidates[0]
+    if selected is None:
+        raise RuntimeError(f"No segmentation node available for role '{role}'")
+    parameterNode.SetNodeReferenceID(role, selected.GetID())
+
 logic.makeModels()
 
-print("[BoneReconstructionPlanner] Step 5 complete: Models generated.")
+_bonereconstructionplanner_logic = logic
+
+print("Segmentation models (fibula and mandible) were created from the fibula and mandibular segmentation nodes.")

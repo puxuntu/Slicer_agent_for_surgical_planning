@@ -821,6 +821,14 @@ class AnalyzerWorkflowTemplatesMixin:
         ]
 
         applier_lines: List[str] = []
+        # A control-state write may need Qt's own enum (checkState wants
+        # qt.Qt.Checked, not True). The import is added only when a line asks
+        # for it, so the templates of every other extension are unchanged.
+        needs_qt = False
+
+        def _sync_needs_qt(sync_lines: List[str]) -> bool:
+            return any("qt.Qt." in line for line in sync_lines)
+
         for so in ops:
             role = so.get("parameter_name", "")
             mode = so.get("target_value_mode", "")
@@ -864,17 +872,25 @@ class AnalyzerWorkflowTemplatesMixin:
                     assign_line,
                 ])
             elif target is True:
-                lines.extend(self._widget_sync_lines(so, module_name, True))
-                lines.append(f"parameterNode.SetParameter({role!r}, 'True')")
+                sync = self._widget_sync_lines(so, module_name, True)
+                needs_qt = needs_qt or _sync_needs_qt(sync)
+                lines.extend(sync)
+                on_text = self._parameter_state_string(role_info, True)
+                lines.append(f"parameterNode.SetParameter({role!r}, {on_text!r})")
                 applier_lines.extend(self._applier_call_lines(role, "True", module_name))
             elif target is False:
-                lines.extend(self._widget_sync_lines(so, module_name, False))
-                lines.append(f"parameterNode.SetParameter({role!r}, 'False')")
+                sync = self._widget_sync_lines(so, module_name, False)
+                needs_qt = needs_qt or _sync_needs_qt(sync)
+                lines.extend(sync)
+                off_text = self._parameter_state_string(role_info, False)
+                lines.append(f"parameterNode.SetParameter({role!r}, {off_text!r})")
                 applier_lines.extend(self._applier_call_lines(role, "False", module_name))
             elif mode == "invert":
+                on_text = self._parameter_state_string(role_info, True)
+                off_text = self._parameter_state_string(role_info, False)
                 lines.extend([
-                    f"_current_{role} = parameterNode.GetParameter({role!r}) == 'True'",
-                    f"parameterNode.SetParameter({role!r}, 'False' if _current_{role} else 'True')",
+                    f"_current_{role} = parameterNode.GetParameter({role!r}) == {on_text!r}",
+                    f"parameterNode.SetParameter({role!r}, {off_text!r} if _current_{role} else {on_text!r})",
                 ])
                 applier_lines.extend(self._applier_call_lines(
                     role, f"not _current_{role}", module_name
@@ -897,9 +913,11 @@ class AnalyzerWorkflowTemplatesMixin:
                 else:
                     default_text = str(default)
                 if default_text in ("True", "False"):
-                    lines.extend(self._widget_sync_lines(
+                    sync = self._widget_sync_lines(
                         so, module_name, default_text == "True"
-                    ))
+                    )
+                    needs_qt = needs_qt or _sync_needs_qt(sync)
+                    lines.extend(sync)
                 lines.append(
                     f"# Final state was not explicit; apply source-derived/default truthy state for {role}"
                 )
@@ -925,29 +943,78 @@ class AnalyzerWorkflowTemplatesMixin:
             f"{logic_var} = logic",
             f"print(\"[{extension_name}] Step '{step_id}' completed.\")",
         ])
+        if needs_qt and "import qt" not in lines and "import slicer" in lines:
+            lines.insert(lines.index("import slicer") + 1, "import qt")
         return "\n".join(lines) + "\n"
 
-    @staticmethod
-    def _widget_sync_lines(so: Dict, module_name: str, target: bool) -> List[str]:
-        """Sync the bound UI control's checked state for boolean updates.
+    # Qt properties a generated step may drive to mirror the user's click, with
+    # the on/off values to write when the source did not state its own form.
+    # ``checked`` is a bool; ``checkState`` is a tri-state enum and writing True
+    # to it is NOT the same thing -- on a ctkCheckablePushButton, whose indicator
+    # is separate from the button's own checked state, ``checked = True`` is
+    # silently a no-op and the control stays unticked.
+    _WIDGET_STATE_WRITE_DEFAULTS = {
+        "checked": ("True", "False"),
+        "ischecked": ("True", "False"),
+        "checkstate": ("qt.Qt.Checked", "qt.Qt.Unchecked"),
+        "visible": ("True", "False"),
+        "isvisible": ("True", "False"),
+        "enabled": ("True", "False"),
+        "isenabled": ("True", "False"),
+    }
+
+    @classmethod
+    def _widget_state_write_form(cls, binding: Dict, role_name: str, value_property: str):
+        """(property, on_expression, off_expression) for driving the control.
+
+        Prefers the extension's OWN write -- the branch that sets the control
+        from the parameter (``checkState = 2`` / ``= 0``), scanned as the
+        binding's ``write_form`` -- because reproducing it is exact rather than
+        inferred. Falls back to the Qt vocabulary for the property the source
+        reads. Returns None when there is no control-state evidence at all, in
+        which case nothing is driven.
+        """
+        role_info = binding.get("role") or {}
+        for candidate in [role_info] + list(binding.get("roles") or []):
+            candidate_role = candidate.get("parameter_name")
+            if role_name and candidate_role and candidate_role != role_name:
+                continue
+            form = candidate.get("write_form") or {}
+            prop = candidate.get("value_property") or value_property
+            if prop and form.get("on") and form.get("off"):
+                return prop, form["on"], form["off"]
+        prop = value_property or role_info.get("value_property", "")
+        defaults = cls._WIDGET_STATE_WRITE_DEFAULTS.get((prop or "").lower())
+        if defaults:
+            return prop, defaults[0], defaults[1]
+        if "checked" in (binding.get("properties") or {}):
+            return "checked", "True", "False"
+        return None
+
+    @classmethod
+    def _widget_sync_lines(cls, so: Dict, module_name: str, target: bool) -> List[str]:
+        """Sync the bound UI control's state for boolean parameter updates.
 
         Extensions often write GUI control state back into parameters on
         every sync (the ratchet: an unchecked button re-writes 'False' over a
         programmatic 'True'). Mirroring the user's actual click — setting the
-        bound control's checked state — keeps GUI and parameter consistent so
+        bound control's state — keeps GUI and parameter consistent so
         later GUI-driven syncs cannot revert the value. Evidence-backed: the
-        widget name comes from the source-derived UI parameter binding.
+        widget name, the property AND the values written come from the
+        source-derived UI parameter binding, never from an assumed ``checked``.
         """
         binding = so.get("ui_parameter_binding") or {}
         widget_name = binding.get("widget_name", "")
         role_info = binding.get("role") or {}
+        role_name = so.get("parameter_name") or role_info.get("parameter_name", "")
         value_property = so.get("value_property") or role_info.get("value_property", "")
-        has_checked_evidence = (
-            value_property == "checked"
-            or "checked" in (binding.get("properties") or {})
-        )
-        if not widget_name or not module_name or not has_checked_evidence:
+        if not widget_name or not module_name:
             return []
+        write_form = cls._widget_state_write_form(binding, role_name, value_property)
+        if write_form is None:
+            return []
+        prop, on_expression, off_expression = write_form
+        state_expression = on_expression if target else off_expression
         return [
             "# Sync the bound UI control (mirrors the user's click) so",
             "# GUI-driven parameter syncs cannot ratchet the value back.",
@@ -958,10 +1025,27 @@ class AnalyzerWorkflowTemplatesMixin:
             f"    _module_widget = slicer.modules.{module_name.lower()}.widgetRepresentation().self()",
             *_resolve_qt_control_lines("_module_widget", widget_name, "_sync_ctrl", indent="    "),
             "    if _sync_ctrl is not None:",
-            f"        _sync_ctrl.checked = {target}",
+            f"        _sync_ctrl.{prop} = {state_expression}",
             "except Exception:",
             "    pass",
         ]
+
+    @staticmethod
+    def _parameter_state_string(role_info: Dict, state: bool) -> str:
+        """The ON/OFF spelling this extension uses for a boolean parameter.
+
+        Read from the source, never assumed. The extension compares
+        ``GetParameter(role) == "True"`` against an exact string, so a template
+        that writes ``'true'`` sets the parameter and changes nothing: the read
+        is False forever, the observer it gates never fires, and nothing raises.
+        """
+        key = "true_value" if state else "false_value"
+        value = (role_info or {}).get(key)
+        if isinstance(value, bool):
+            return "True" if value else "False"
+        if isinstance(value, str) and value:
+            return value
+        return "True" if state else "False"
 
     def _prev_template_for_reuse(self, key: str, step: Dict) -> Optional[str]:
         """Prior iteration's template, when scoped-re-entry reuse is sound.
@@ -1737,8 +1821,10 @@ class AnalyzerWorkflowTemplatesMixin:
           CONTROLLER, not a QWidget, so a Qt-tree search scoped to it finds nothing
           -- the earlier version failed every button step for exactly this reason.
           A text search over the WHOLE module representation is the fallback.
-        - The place button enables place mode on the step's own markups place
-          widget the same way, whole-rep search as fallback.
+        - The place button drives place mode on the step's own markups place widget
+          the same way, whole-rep search as fallback -- ON or OFF, since the button
+          is a toggle and a cookbook uses it as one ("click it to activate", then
+          "click it again to inactivate").
         """
         wizard = getattr(self, "_wizard", {}) or {}
         if not wizard:
@@ -1832,6 +1918,22 @@ class AnalyzerWorkflowTemplatesMixin:
         if place:
             step_attr = str(place.get("step_attr") or "") if isinstance(place, dict) else ""
             place_attr = str(place.get("place_attr") or "") if isinstance(place, dict) else ""
+            # The place button is a TOGGLE and the cookbook uses it as one: the same
+            # control activates point placement and, clicked again, ends it. Emitting
+            # True for both leaves placement armed for the rest of the procedure --
+            # and raises nothing, because re-enabling an enabled widget succeeds. The
+            # symptom therefore lands on a LATER step, as a view the surgeon cannot
+            # rotate because every click drops a control point. Polarity comes from
+            # the step's recorded target_value, with the step text as the fallback --
+            # the same two-layer rule the checkbox toggle branch uses.
+            enable = sub_op.get("target_value")
+            if enable is None:
+                enable = _infer_final_state_intent(
+                    step.get("description", "") or "").get("state")
+            enable = False if enable is False else True
+            report = ("enabled -- click in the views to add points."
+                      if enable else
+                      "disabled -- the views take the mouse again.")
             lines = header + [
                 f"_wiz_widget = slicer.util.getModuleWidget({module_name!r})",
                 "_wiz_hit = False",
@@ -1839,7 +1941,7 @@ class AnalyzerWorkflowTemplatesMixin:
             if _pub_ident(step_attr) and _pub_ident(place_attr):
                 lines += [
                     "try:",
-                    f"    _wiz_widget.{step_attr}.{place_attr}.setPlaceModeEnabled(True)",
+                    f"    _wiz_widget.{step_attr}.{place_attr}.setPlaceModeEnabled({enable})",
                     "    _wiz_hit = True",
                     "except AttributeError:",
                     "    _wiz_hit = False",
@@ -1849,13 +1951,26 @@ class AnalyzerWorkflowTemplatesMixin:
                 f"    _wiz_root = slicer.util.getModule({module_name!r}).widgetRepresentation()",
                 "    for _wiz_pw in slicer.util.findChildren(_wiz_root, className='qSlicerMarkupsPlaceWidget'):",
                 "        try:",
-                "            _wiz_pw.setPlaceModeEnabled(True)",
+                f"            _wiz_pw.setPlaceModeEnabled({enable})",
                 "            _wiz_hit = True",
                 "            break",
                 "        except Exception:",
                 "            continue",
+            ]
+            if not enable:
+                # Belt and braces on the way OUT only. The place widget owns the
+                # interaction node, so this changes nothing when the widget was
+                # reached; when it was not, the alternative is a surgeon who cannot
+                # use the views at all, and switching an already-idle interaction
+                # node to view-transform costs nothing.
+                lines += [
+                    "_wiz_inode = slicer.mrmlScene.GetNodeByID(\"vtkMRMLInteractionNodeSingleton\")",
+                    "if _wiz_inode is not None:",
+                    "    _wiz_inode.SwitchToViewTransformMode()",
+                ]
+            lines += [
                 "if _wiz_hit:",
-                f"    print(\"[{extension_name}] Place mode enabled -- click in the views to add points.\")",
+                f"    print(\"[{extension_name}] Place mode {report}\")",
                 "else:",
                 f"    raise RuntimeError(\"No markups place widget found in the {module_name} wizard.\")",
                 "",

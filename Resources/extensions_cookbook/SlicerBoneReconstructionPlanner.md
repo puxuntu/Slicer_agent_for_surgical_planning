@@ -27,9 +27,9 @@
 25. [op=user_choice] Enter the desired value in "Initial space (mm)".
 26. [op=user_choice] Enter the desired value in "Between space (mm)".
 27. [op=extension_op] Click "Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible" to generate the reconstruction and create the fibula cut planes.
-28. [op=extension_op] In the BoneReconstructionPlanner module, in the "Mandible planes" row, toggle on the eye-icon tool button to show the mandibular cut planes.
-29. [op=extension_op] In the same "Mandible planes" row, toggle on the axes-icon tool button to show the plane interaction handles.
-30. [op=user_interaction] Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles.
-31. [op=extension_op] Click "Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible" to regenerate the reconstruction.
+28. [op=extension_op] Tick the "Update fibula planes over fibula line; update fibula bone pieces and transform them to mandible" checkbox.
+29. [op=extension_op] In the BoneReconstructionPlanner module, in the "Mandible planes" row, toggle on the eye-icon tool button to show the mandibular cut planes.
+30. [op=extension_op] In the same "Mandible planes" row, toggle on the axes-icon tool button to show the plane interaction handles.
+31. [op=user_interaction] Manually adjust the mandibular cut planes in the mandible 3D view by dragging the visible plane interaction handles.
 32. [op=extension_op] In the "Mandible planes" row, toggle off the eye-icon tool button to hide the mandibular cut planes.
 33. [op=extension_op] Clear the "Show original mandible model" checkbox.

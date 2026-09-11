@@ -1,0 +1,736 @@
+{
+  "stage": "5T",
+  "debug_schema_version": 2,
+  "debug_features": [
+    "slicer_op_classification",
+    "source_verification_summary",
+    "generated_code_preview",
+    "final_state_intent"
+  ],
+  "total_operations": 2,
+  "started": 2,
+  "finished": 2,
+  "errors_count": 0,
+  "operations": [
+    {
+      "step": 6,
+      "key": "cb_step_6_0",
+      "description": "Enable slice intersection visibility and enable set interaction with Translate and Rotate.",
+      "keywords": [
+        "vtkMRMLCrosshairNode",
+        "slice intersection",
+        "SetInteractiveMode",
+        "Translate",
+        "Rotate"
+      ],
+      "category": "crosshair",
+      "final_state_intent": {
+        "mode": "set",
+        "state": true,
+        "confidence": "high",
+        "source": "enable"
+      },
+      "classification": {
+        "op_type": "slicer_op",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "confidence": "high",
+        "interaction_kind": "none",
+        "node_class": "vtkMRMLCrosshairNode",
+        "slicer_op_category": "crosshair"
+      },
+      "search_policy": {
+        "requires_ui_first_when_ui_labeled": true,
+        "category_hints": [
+          "sliceIntersectionsVisibilityCheckBox",
+          "SetIntersectingSlicesEnabled",
+          "vtkMRMLApplicationLogic",
+          "IntersectingSlicesVisibility",
+          "IntersectingSlicesInteractive",
+          "IntersectingSlicesTranslation",
+          "IntersectingSlicesRotation",
+          "qSlicerViewersToolBar",
+          "vtkMRMLSliceDisplayNode",
+          "vtkMRMLSliceNode Modified"
+        ],
+        "category_hint_provenance": "generic_slicer_search_hint"
+      },
+      "status": "done",
+      "total_time_s": 34.72,
+      "code_chars": 1551,
+      "tool_rounds": 3,
+      "api_calls": 4,
+      "error": null,
+      "progress_events": [
+        {
+          "round": 1,
+          "phase": "search",
+          "message": "[Search] Round 1: |   VectorSearch: \"slice intersection visibility enable interactive translate rotate vtkMRMLCrosshairNode\" |   Grep: \"IntersectingSlices\" \u2192 slicer-source"
+        },
+        {
+          "round": 2,
+          "phase": "search",
+          "message": "[Search] Round 2: |   Grep: \"setIntersectingSlicesInteractive|setIntersectingSlicesVisibility|IntersectingSlicesInteractiveCheckBox|intersectingSlices\" \u2192 slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx"
+        },
+        {
+          "round": 3,
+          "phase": "search",
+          "message": "[Search] Round 3: |   Grep: \"Translation|Rotation\" \u2192 slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx"
+        }
+      ],
+      "prompt_build_s": 0.0,
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nEnable slice intersection visibility and enable set interaction with Translate and Rotate.\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `PedicleScrewPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:PedicleScrewPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not fro",
+      "executor_ready": true,
+      "tool_count": 3,
+      "last_progress": {
+        "round": 3,
+        "phase": "search",
+        "message": "[Search] Round 3: |   Grep: \"Translation|Rotation\" \u2192 slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx"
+      },
+      "tool_loop_s": 32.86,
+      "total_tokens": 56896,
+      "total_api_time_s": 22.635,
+      "total_tool_time_s": 8.386,
+      "tool_names_called": [
+        "VectorSearch",
+        "Grep"
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "phase": "search",
+          "api_time_s": 3.127,
+          "tool_time_s": 5.149,
+          "round_time_s": 8.277,
+          "tools": [
+            "VectorSearch",
+            "Grep"
+          ],
+          "tokens": 3437
+        },
+        {
+          "round": 2,
+          "phase": "search",
+          "api_time_s": 4.708,
+          "tool_time_s": 1.739,
+          "round_time_s": 6.447,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 15454
+        },
+        {
+          "round": 3,
+          "phase": "search",
+          "api_time_s": 8.471,
+          "tool_time_s": 1.498,
+          "round_time_s": 9.969,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 18274
+        },
+        {
+          "round": 4,
+          "phase": "generate",
+          "api_time_s": 6.328,
+          "tool_time_s": 0.0,
+          "round_time_s": 6.328,
+          "tools": [],
+          "tokens": 19731
+        }
+      ],
+      "tool_calls_history": [
+        {
+          "tool": "VectorSearch",
+          "args": {
+            "query": "slice intersection visibility enable interactive translate rotate vtkMRMLCrosshairNode"
+          },
+          "result_preview": "VectorSearch: 10 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 661-667) [doc_example] similarity:0.784 boosted:1.019\n```markdown\n### Turn on slice intersections\n\n```python\nsliceDisplayNodes = slicer.util.getNodesByClass(\"vtkMRMLSliceDisplayNode\")\nfor sliceDisplayNode in sliceDisplayNodes:\n  sliceDisplayNode.SetIntersectingSlicesVisibility(1)\n```\n\n[2] slicer-source/Libs/MRML/Core/vtkMRMLSliceCompositeNode.cxx (lines 381-392) [mrml_definition] similarity:0.779 boosted:0.779\n```cpp\nvoid vtkMRMLSliceCompositeNode::SetSliceIntersectionVisibility(int visibility)\n{\n  vtkWarningMacro(\"SetSliceIntersectionVisibility method is deprecated. Use SetIntersectingSlicesVisibility method\"\n                  \" of vtkMRMLSliceDisplayNode object instead.\");\n  vtkMRMLSliceDisplayNode* sliceDisplayNode = this->GetSliceDisplayNode();\n  if (!sliceDisplayNode)\n  {\n    vtkWarningMacro(\"SetSliceIntersectionVisibility failed: no slice display node was found\");\n    return;\n  }\n  sliceDisplayNode->SetIntersectingSlicesVisibility(visibility != 0);\n}\n\n```\n\n[3] slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.cxx (lines 127-135) [mrml_definition] similarity:0.768 boosted:0.768\n```cpp\nvoid vtkMRMLSliceDisplayNode::SetIntersectingSlicesInteractiveModeEnabled(IntersectingSlicesInteractiveMode mode, bool enabled)\n{\n  switch (mode)\n  {\n    case vtkMRMLSliceDisplayNode::ModeTranslation: this->SetIntersectingSlicesTranslationEnabled(enabled); break;\n    case vtkMRMLSliceDisplayNode::ModeRotation: this->SetIntersectingSlicesRotationEnabled(enabled); break;\n    default: vtkErrorMacro(\"Unknown mode\"); break;\n  }\n}\n\n```\n\n[4] slicer-source/Libs/MRML/Core/vtkMRMLSliceCompositeNode.cxx (lines 367-378) [mrml_definition] similarity:0.761 boosted:0.761\n```cpp\nint vtkMRMLSliceCompositeNode::GetSliceIntersectionVisibility()\n{\n  vtkWarningMacro(\"GetSliceIntersectionVisibility method is deprecated. Use GetIntersectingSlicesVisibility method\"\n                  \"..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "IntersectingSlices",
+            "path": "slicer-source"
+          },
+          "result_preview": "Grep: 424 hit(s) in 21 file(s): slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx (71), slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionWidget.cxx (64), slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.cxx (53), slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.cxx (44), slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.h (40)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx",
+            "pattern": "setIntersectingSlicesInteractive|setIntersectingSlicesVisibility|IntersectingSlicesInteractiveCheckBox|intersectingSlices"
+          },
+          "result_preview": "Grep: 71 hit(s) in 1 file(s): slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx (71)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx",
+            "pattern": "Translation|Rotation"
+          },
+          "result_preview": "Grep: 24 hit(s) in 1 file(s): slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx (24)"
+        }
+      ],
+      "evidence_audit": {
+        "source_verification": {
+          "non_ui_result_files": [
+            "slicer-source/Docs/developer_guide/script_repository/gui.md",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceCompositeNode.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLDisplayNode.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.h",
+            "slicer-source",
+            "slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx",
+            "slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionWidget.cxx",
+            "slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.cxx",
+            "slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.cxx",
+            "slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionInteractionRepresentation.cxx",
+            "slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionWidget.h",
+            "slicer-source/Libs/MRML/Logic/vtkMRMLSliceLogic.cxx",
+            "slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.h",
+            "slicer-source/Base/QTGUI/qSlicerViewersToolBar_p.h",
+            "slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionRepresentation2D.cxx",
+            "slicer-source/Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.cxx",
+            "slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionInteractionRepresentationHelper.cxx",
+            "slicer-source/Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx",
+            "slicer-source/Modules/Loadable/SubjectHierarchy/Widgets/qSlicerSubjectHierarchyViewContextMenuPlugin.h"
+          ],
+          "source_type_counts": {
+            "doc_example": 4,
+            "mrml_definition": 11,
+            "source": 13,
+            "ui_implementation": 3,
+            "loadable_module": 1
+          }
+        },
+        "searches": {
+          "vector_queries": [
+            "slice intersection visibility enable interactive translate rotate vtkMRMLCrosshairNode"
+          ],
+          "grep_patterns": [
+            "IntersectingSlices",
+            "setIntersectingSlicesInteractive|setIntersectingSlicesVisibility|IntersectingSlicesInteractiveCheckBox|intersectingSlices",
+            "Translation|Rotation"
+          ],
+          "read_paths": []
+        }
+      },
+      "reasoning_chars": 7486,
+      "reasoning_preview": "[Round 1]\nLet me search for the relevant APIs for slice intersection visibility and interaction settings.\n\nThe operation is about:\n1. Enable slice intersection visibility\n2. Enable set interaction with Translate and Rotate\n\nThis relates to the \"Slice Intersections\" feature in the slice view toolbar. The API hints mention:\n- vtkMRMLCrosshairNode\n- IntersectingSlicesVisibility, IntersectingSlicesInteractive, IntersectingSlicesTranslation, IntersectingSlicesRotation\n\nThe crosshair node has properties:\n- `SetIntersectingSlicesEnabled(int)` \n- `SetIntersectingSlicesInteractive(int)`\n- `SetIntersectingSlicesTranslation(int)`\n- `SetIntersectingSlicesRotation(int)`\n\nLet me search the knowledge base to confirm.\n\n[Round 2]\nI have solid evidence. The vtkMRMLSliceDisplayNode has:\n- `SetIntersectingSlicesVisibility(bool)` / `GetIntersectingSlicesVisibility()`\n- `SetIntersectingSlicesInteractive(bool)` / `GetIntersectingSlicesInteractive()`\n- `SetIntersectingSlicesTranslationEnabled(bool)` / `GetIntersectingSlicesTranslationEnabled()`\n- `SetIntersectingSlicesRotationEnabled(bool)` / `GetIntersectingSlicesRotationEnabled()`\n\nThe operation is about slice intersections visibility and interaction with Translate and Rotate. This is the toolbar \"Slice Intersections\" feature. The operation description mentions \"sliceIntersectionsVisibilityCheckBox\", \"SetIntersectingSlicesEnabled\", \"vtkMRMLApplicationLogic\", \"IntersectingSlicesVisibility\", \"IntersectingSlicesInteractive\", \"IntersectingSlicesTranslation\", \"IntersectingSlicesRotation\", \"qSlicerViewersToolBar\".\n\nLet me check the qSlicerViewersToolBar.cxx to see how the checkbox maps to the slice display node, particularly whether the toolbar's setIntersectingSlicesInteractive also sets translation/rotation. Let me check the toolbar implementation for the interactive action and how it's connected.\n\nActually, let me check the qSlicerViewersToolBar.cxx around the setIntersectingSlicesInteractive and how the checkbox visibility is wired, to confirm what properties get set. Also check whether \"enable set interaction with Translate and Rotate\" means setting IntersectingSlicesTranslationEnabled and IntersectingSlicesRotationEnabled.\n\nLet me look at qSlicerViewersToolBar.cxx for the interactive function.\n\n[Round 3]\nI have strong evidence now. The vtkMRMLSliceDisplayNode exposes:\n- `SetIntersectingSlicesVisibility(bool)` / `GetIntersectingSlicesVisibility()`\n- `SetIntersectingSlicesInteractive(bool)` / `GetIntersectingSlicesInteractive()`\n- `SetIntersectingSlicesTranslationEnabled(bool)` / `GetIntersectingSlicesTranslationEnabled()`\n- `SetIntersectingSlicesRotationEnabled(bool)` / `GetIntersectingSlicesRotationEnabled()`\n\nThe operation: \"Enable slice intersection visibility and enable set interaction with Translate and Rotate.\"\n\nInterpretation: For each slice display node (the per-view slice display node), set:\n1. `SetIntersectingSlicesVisibility(True)` \u2014 enable slice intersection visibility\n2. `SetIntersectingSlicesInteractive(T",
+      "generated_code_preview": "# Enable slice intersection visibility and interaction with Translate and Rotate\n# for every slice display node in the scene (backing properties of the Slice\n# view toolbar \"Slice Intersections\" checkbox and \"Interaction / Translate /\n# Rotate\" options).\n\nsliceDisplayNodes = slicer.util.getNodesByClass(\"vtkMRMLSliceDisplayNode\")\nif not sliceDisplayNodes:\n    raise RuntimeError(\"STATE_NOT_APPLIED: no vtkMRMLSliceDisplayNode found in scene\")\n\nfor sliceDisplayNode in sliceDisplayNodes:\n    # Show intersections of the other slice planes in each slice viewer.\n    sliceDisplayNode.SetIntersectingSlicesVisibility(True)\n    if not sliceDisplayNode.GetIntersectingSlicesVisibility():\n        raise RuntimeError(\"STATE_NOT_APPLIED: IntersectingSlicesVisibility\")\n\n    # Show handles for slice intersection interaction.\n    sliceDisplayNode.SetIntersectingSlicesInteractive(True)\n    if not sliceDisplayNode.GetIntersectingSlicesInteractive():\n        raise RuntimeError(\"STATE_NOT_APPLIED: IntersectingSlicesInteractive\")\n\n    # Enable the Translate interaction handle.\n    sliceDisplayNode.SetIntersectingSlicesTranslationEnabled(True)\n    if not sliceDisplayNode.GetIntersectingSlicesTranslationEnabled():\n        raise RuntimeError(\"STATE_NOT_APPLIED: IntersectingSlicesTranslationEnabled\")\n\n    # Enable the Rotate interaction handle.\n    sliceDisplayNode.SetIntersectingSlicesRotationEnabled(True)\n    if not sliceDisplayNode.GetIntersectingSlicesRotationEnabled():\n        raise RuntimeError(\"STATE_NOT_APPLIED: IntersectingSlicesRotationEnabled\")"
+    },
+    {
+      "step": 12,
+      "key": "cb_step_12_1",
+      "description": "Disable the set interaction option for slice intersections.",
+      "keywords": [
+        "vtkMRMLCrosshairNode",
+        "slice intersection",
+        "SetInteractiveMode",
+        "disable"
+      ],
+      "category": "crosshair",
+      "final_state_intent": {
+        "mode": "set",
+        "state": false,
+        "confidence": "high",
+        "source": "disable"
+      },
+      "classification": {
+        "op_type": "slicer_op",
+        "evidence_type": "llm_semantic_decomposition",
+        "evidence_id": "",
+        "confidence": "high",
+        "interaction_kind": "none",
+        "node_class": "vtkMRMLCrosshairNode",
+        "slicer_op_category": "crosshair"
+      },
+      "search_policy": {
+        "requires_ui_first_when_ui_labeled": true,
+        "category_hints": [
+          "sliceIntersectionsVisibilityCheckBox",
+          "SetIntersectingSlicesEnabled",
+          "vtkMRMLApplicationLogic",
+          "IntersectingSlicesVisibility",
+          "IntersectingSlicesInteractive",
+          "IntersectingSlicesTranslation",
+          "IntersectingSlicesRotation",
+          "qSlicerViewersToolBar",
+          "vtkMRMLSliceDisplayNode",
+          "vtkMRMLSliceNode Modified"
+        ],
+        "category_hint_provenance": "generic_slicer_search_hint"
+      },
+      "status": "done",
+      "total_time_s": 125.98,
+      "code_chars": 622,
+      "tool_rounds": 14,
+      "api_calls": 15,
+      "error": null,
+      "progress_events": [
+        {
+          "round": 3,
+          "phase": "search",
+          "message": "[Search] Round 3: |   Grep: \"sliceIntersectionsVisibilityCheckBox|Set interaction|sliceIntersectionsInteractive\" \u2192 slicer-source"
+        },
+        {
+          "round": 4,
+          "phase": "search",
+          "message": "[Search] Round 4: |   Grep: \"SliceIntersections|SetInteraction|interactive|Intersections\" \u2192 slicer-source/Base/QTGUI/Resources/UI |   Grep: \"qSlicerSliceViewOptionsWidget|SliceViewOptions\" \u2192 slicer-source/Base/QTGUI"
+        },
+        {
+          "round": 5,
+          "phase": "search",
+          "message": "[Search] Round 5: |   Grep: \"Set interaction|SliceIntersections|setIntersectingSlicesInteractive\" \u2192 slicer-source/Libs/MRML/Widgets"
+        },
+        {
+          "round": 6,
+          "phase": "search",
+          "message": "[Search] Round 6: |   Grep: \"sliceViewOptions|SliceViewOptions|setInteractionCheckBox|InteractionCheckBox|interactiveCheckBox\" \u2192 slicer-source"
+        },
+        {
+          "round": 7,
+          "phase": "search",
+          "message": "[Search] Round 7: |   Grep: \"Intersect|interactive|interaction\" \u2192 slicer-source/Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx"
+        },
+        {
+          "round": 8,
+          "phase": "search",
+          "message": "[Search] Round 8: |   Grep: \"SliceIntersections|intersections|Set interaction|interaction\" \u2192 slicer-source/Libs/MRML/Widgets/Resources/UI"
+        },
+        {
+          "round": 9,
+          "phase": "search",
+          "message": "[Search] Round 9: |   Grep: \"setIntersectingSlicesInteractive|IntersectingSlicesInteractive|intersectionsInteractivity|sliceIntersectionsSetInteraction\" \u2192 slicer-source/Libs/MRML/Widgets"
+        },
+        {
+          "round": 10,
+          "phase": "search",
+          "message": "[Search] Round 10: |   Grep: \"Intersection|Set interaction|interaction|Intersections\" \u2192 slicer-source/Libs/MRML/Widgets/Resources/UI/qMRMLSliceControllerWidget.ui"
+        },
+        {
+          "round": 11,
+          "phase": "search",
+          "message": "[Search] Round 11: |   Grep: \"SliceViewOptions|sliceViewOptions|SetInteraction\" \u2192 slicer-source"
+        },
+        {
+          "round": 12,
+          "phase": "search+read",
+          "message": "[Search+Read] Round 12: |   Grep: \"Intersect|interactive|interaction|sliceIntersections\" \u2192 slicer-source/Libs/MRML/Widgets/qMRMLSliceVerticalControllerWidget.cxx |   ReadFile: slicer-source/Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx"
+        },
+        {
+          "round": 13,
+          "phase": "search",
+          "message": "[Search] Round 13: |   Grep: \"intersection|Intersection|interaction|Interaction\" \u2192 slicer-source/Base/QTGUI/Resources"
+        },
+        {
+          "round": 14,
+          "phase": "search+read",
+          "message": "[Search+Read] Round 14: |   Grep: \"IntersectingSlices|SetIntersectingSlicesEnabled|GetIntersectingSlicesEnabled\" \u2192 slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.h |   ReadFile: slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.cxx"
+        }
+      ],
+      "prompt_build_s": 0.0,
+      "prompt_user_preview": "Generate a Python code template for this 3D Slicer operation:\nDisable the set interaction option for slice intersections.\nEvery executable API call must use a receiver type derivable from retrieved source or wrapper evidence. Report uncertainty instead of inventing a method. Do not introduce unrelated UI, icon, toolbar, module-switching, or layout behavior.\nNever fabricate values that an extension DEFINES IN ITS SOURCE \u2014 a custom-layout ID or its XML, an `slicer.<Const>` the extension sets, a registered singleton tag, or a magic constant must come from the extension's source, not be guessed. If, after searching the extension source, you cannot find such a value, emit `raise RuntimeError(\"MISSING_EVIDENCE: <what>\")` instead of a placeholder. This does NOT apply to ordinary scene nodes referenced by name/role (a curve, segmentation, or volume the user created) \u2014 resolve those at runtime from the scene; never emit MISSING_EVIDENCE for them.\nThis operation belongs to the extension `PedicleScrewPlanner`. If it reproduces an artifact the extension REGISTERS IN ITS SOURCE (a custom layout + its ID/XML, or an `slicer.<Const>`), search `ext:PedicleScrewPlanner/` (the extension's own source, registered as a search root for Grep/ReadFile) for the real definition or a helper that performs it (for example a `setX`/`addX` function) and use that rather than re-registering or guessing one. Ordinary scene nodes referenced by name are resolved at runtime, not from source.\nSuggested API terms t",
+      "executor_ready": true,
+      "tool_count": 3,
+      "last_progress": {
+        "round": 14,
+        "phase": "search+read",
+        "message": "[Search+Read] Round 14: |   Grep: \"IntersectingSlices|SetIntersectingSlicesEnabled|GetIntersectingSlicesEnabled\" \u2192 slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.h |   ReadFile: slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.cxx"
+      },
+      "tool_loop_s": 123.47,
+      "total_tokens": 488654,
+      "total_api_time_s": 66.217,
+      "total_tool_time_s": 47.991,
+      "tool_names_called": [
+        "Grep",
+        "VectorSearch",
+        "ReadFile"
+      ],
+      "rounds": [
+        {
+          "round": 1,
+          "phase": "search",
+          "api_time_s": 4.214,
+          "tool_time_s": 5.449,
+          "round_time_s": 9.663,
+          "tools": [
+            "Grep",
+            "VectorSearch"
+          ],
+          "tokens": 3496
+        },
+        {
+          "round": 2,
+          "phase": "search",
+          "api_time_s": 5.762,
+          "tool_time_s": 2.968,
+          "round_time_s": 8.731,
+          "tools": [
+            "Grep",
+            "Grep"
+          ],
+          "tokens": 12861
+        },
+        {
+          "round": 3,
+          "phase": "search",
+          "api_time_s": 3.774,
+          "tool_time_s": 4.814,
+          "round_time_s": 8.587,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 16443
+        },
+        {
+          "round": 4,
+          "phase": "search",
+          "api_time_s": 3.466,
+          "tool_time_s": 0.998,
+          "round_time_s": 4.464,
+          "tools": [
+            "Grep",
+            "Grep"
+          ],
+          "tokens": 23564
+        },
+        {
+          "round": 5,
+          "phase": "search",
+          "api_time_s": 2.813,
+          "tool_time_s": 2.516,
+          "round_time_s": 5.329,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 23873
+        },
+        {
+          "round": 6,
+          "phase": "search",
+          "api_time_s": 3.991,
+          "tool_time_s": 2.693,
+          "round_time_s": 6.684,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 25947
+        },
+        {
+          "round": 7,
+          "phase": "search",
+          "api_time_s": 3.332,
+          "tool_time_s": 1.762,
+          "round_time_s": 5.094,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 27937
+        },
+        {
+          "round": 8,
+          "phase": "search",
+          "api_time_s": 2.692,
+          "tool_time_s": 4.555,
+          "round_time_s": 7.247,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 29800
+        },
+        {
+          "round": 9,
+          "phase": "search",
+          "api_time_s": 3.701,
+          "tool_time_s": 0.939,
+          "round_time_s": 4.64,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 36290
+        },
+        {
+          "round": 10,
+          "phase": "search",
+          "api_time_s": 4.078,
+          "tool_time_s": 1.704,
+          "round_time_s": 5.782,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 36624
+        },
+        {
+          "round": 11,
+          "phase": "search",
+          "api_time_s": 4.213,
+          "tool_time_s": 5.621,
+          "round_time_s": 9.833,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 37895
+        },
+        {
+          "round": 12,
+          "phase": "search+read",
+          "api_time_s": 3.943,
+          "tool_time_s": 7.407,
+          "round_time_s": 11.35,
+          "tools": [
+            "Grep",
+            "ReadFile"
+          ],
+          "tokens": 46805
+        },
+        {
+          "round": 13,
+          "phase": "search",
+          "api_time_s": 5.727,
+          "tool_time_s": 1.576,
+          "round_time_s": 7.302,
+          "tools": [
+            "Grep"
+          ],
+          "tokens": 52935
+        },
+        {
+          "round": 14,
+          "phase": "search+read",
+          "api_time_s": 3.945,
+          "tool_time_s": 4.989,
+          "round_time_s": 8.933,
+          "tools": [
+            "Grep",
+            "ReadFile"
+          ],
+          "tokens": 54119
+        },
+        {
+          "round": 15,
+          "phase": "generate",
+          "api_time_s": 10.568,
+          "tool_time_s": 0.0,
+          "round_time_s": 10.568,
+          "tools": [],
+          "tokens": 60065
+        }
+      ],
+      "tool_calls_history": [
+        {
+          "tool": "Grep",
+          "args": {
+            "pattern": "SetIntersectingSlicesInteractive",
+            "path": "slicer-source"
+          },
+          "result_preview": "Grep: 7 hit(s) in 6 file(s): slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx (2), slicer-source/Base/QTGUI/qSlicerViewersToolBar_p.h (1), slicer-source/Libs/MRML/Logic/vtkMRMLSliceLogic.cxx (1), slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.cxx (1), slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.h (1)"
+        },
+        {
+          "tool": "VectorSearch",
+          "args": {
+            "query": "disable set interaction option for slice intersections slice view controller"
+          },
+          "result_preview": "VectorSearch: 10 result(s)\n## Relevant code snippets from knowledge base:\n\n[1] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 1185-1209) [doc_example] similarity:0.684 boosted:0.889\n```markdown\n### Disable certain user interactions in slice views\n\nFor example, disable slice browsing using mouse wheel and keyboard shortcuts in the red slice viewer:\n\n```python\ninteractorObserver = slicer.app.layoutManager().sliceWidget(\"Red\").sliceView().interactorObserver()\ninteractorObserver.SetActionEnabled(interactorStyle.BrowseSlice, False)\n```\n\nHide all slice view controllers:\n\n```python\nlm = slicer.app.layoutManager()\nfor sliceViewName in lm.sliceViewNames():\n  lm.sliceWidget(sliceViewName).sliceController().setVisible(False)\n```\n\nHide all 3D view controllers:\n\n```python\nlm = slicer.app.layoutManager()\nfor viewIndex in range(slicer.app.layoutManager().threeDViewCount):\n  lm.threeDWidget(0).threeDController().setVisible(False)\n```\n```\n\n[2] slicer-source/Docs/developer_guide/script_repository/gui.md (lines 687-690) [doc_example] similarity:0.644 boosted:0.838\n```markdown\n# Disable slice annotations immediately\nsliceAnnotations = slicer.modules.DataProbeInstance.infoWidget.sliceAnnotations\nsliceAnnotations.sliceViewAnnotationsEnabled=False\nsliceAnnotations.updateSliceViewFromGUI()\n```\n\n[3] slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorLevelTracingEffect.py (lines 65-119) [effect_implementation] similarity:0.637 boosted:0.700\n```python\n    def processInteractionEvents(self, callerInteractor, eventId, viewWidget):\n        abortEvent = False\n\n        # Only allow for slice views\n        if viewWidget.className() != \"qMRMLSliceWidget\":\n            return abortEvent\n        # Get draw pipeline for current slice\n        pipeline = self.pipelineForWidget(viewWidget)\n        if pipeline is None:\n            return abortEvent\n\n        anyModifierKeyPressed = callerInteractor.GetShiftKey() or callerInteractor.GetControlKey() or callerInteractor..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Base/QTGUI",
+            "pattern": "Set interaction|sliceIntersectionsInteractive|intersectionSetInteractive"
+          },
+          "result_preview": "Grep: 1 hit(s) in 1 file(s): slicer-source/Base/QTGUI/qSlicerMouseModeToolBar.h (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Base/QTGUI",
+            "pattern": "IntersectingSlicesInteractive"
+          },
+          "result_preview": "Grep: 18 hit(s) in 2 file(s): slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx (16), slicer-source/Base/QTGUI/qSlicerViewersToolBar_p.h (2)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source",
+            "pattern": "sliceIntersectionsVisibilityCheckBox|Set interaction|sliceIntersectionsInteractive"
+          },
+          "result_preview": "Grep: 17 hit(s) in 12 file(s): slicer-source/Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.cxx (3), slicer-source/Libs/MRML/Logic/vtkMRMLSliceLogic.cxx (2), slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionInteractionRepresentation.cxx (2), slicer-source/Libs/MRML/Core/vtkMRMLAbstractViewNode.h (2), slicer-source/Base/QTGUI/qSlicerMouseModeToolBar.h (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Base/QTGUI/Resources/UI",
+            "pattern": "SliceIntersections|SetInteraction|interactive|Intersections"
+          },
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Base/QTGUI",
+            "pattern": "qSlicerSliceViewOptionsWidget|SliceViewOptions"
+          },
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Widgets",
+            "pattern": "Set interaction|SliceIntersections|setIntersectingSlicesInteractive"
+          },
+          "result_preview": "Grep: 3 hit(s) in 2 file(s): slicer-source/Libs/MRML/Widgets/Resources/qMRMLWidgets.qrc (2), slicer-source/Libs/MRML/Widgets/qMRMLPlotView.cxx (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source",
+            "pattern": "sliceViewOptions|SliceViewOptions|setInteractionCheckBox|InteractionCheckBox|interactiveCheckBox"
+          },
+          "result_preview": "Grep: 2 hit(s) in 2 file(s): slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.h (1), slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsDisplayNodeWidget.cxx (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx",
+            "pattern": "Intersect|interactive|interaction"
+          },
+          "result_preview": "Grep: 54 hit(s) in 1 file(s): slicer-source/Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx (54)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Widgets/Resources/UI",
+            "pattern": "SliceIntersections|intersections|Set interaction|interaction"
+          },
+          "result_preview": "Grep: 10 hit(s) in 5 file(s): slicer-source/Libs/MRML/Widgets/Resources/UI/qMRMLDisplayNodeWidget.ui (3), slicer-source/Libs/MRML/Widgets/Resources/UI/qMRMLSliceControllerWidget.ui (3), slicer-source/Libs/MRML/Widgets/Resources/UI/qMRMLPlotViewControllerWidget.ui (2), slicer-source/Libs/MRML/Widgets/Resources/UI/qMRMLEventLoggerWidget.ui (1), slicer-source/Libs/MRML/Widgets/Resources/UI/qMRMLNodeAttributeTableWidget.ui (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Widgets",
+            "pattern": "setIntersectingSlicesInteractive|IntersectingSlicesInteractive|intersectionsInteractivity|sliceIntersectionsSetInteraction"
+          },
+          "result_preview": "Grep: 0 hit(s) in 0 file(s): "
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Widgets/Resources/UI/qMRMLSliceControllerWidget.ui",
+            "pattern": "Intersection|Set interaction|interaction|Intersections"
+          },
+          "result_preview": "Grep: 3 hit(s) in 1 file(s): slicer-source/Libs/MRML/Widgets/Resources/UI/qMRMLSliceControllerWidget.ui (3)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source",
+            "pattern": "SliceViewOptions|sliceViewOptions|SetInteraction"
+          },
+          "result_preview": "Grep: 94 hit(s) in 44 file(s): slicer-source/Libs/MRML/Logic/vtkMRMLSliceLogic.cxx (6), slicer-source/Libs/MRML/Core/vtkMRMLAbstractViewNode.h (6), slicer-source/Libs/MRML/Logic/vtkMRMLViewLogic.cxx (4), slicer-source/Modules/Loadable/Markups/Widgets/qMRMLMarkupsToolBar.cxx (4), slicer-source/Modules/Loadable/Markups/Testing/Python/MarkupsInCompareViewersSelfTest.py (4)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Widgets/qMRMLSliceVerticalControllerWidget.cxx",
+            "pattern": "Intersect|interactive|interaction|sliceIntersections"
+          },
+          "result_preview": "Grep: 7 hit(s) in 1 file(s): slicer-source/Libs/MRML/Widgets/qMRMLSliceVerticalControllerWidget.cxx (7)"
+        },
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx",
+            "query": "setupSliceIntersectionMenu|SliceIntersections|intersections"
+          },
+          "result_preview": "/*==============================================================================\n\n  Program: 3D Slicer\n\n  Copyright (c) Kitware Inc.\n\n  See COPYRIGHT.txt\n  or http://www.slicer.org/copyright/copyright.txt for details.\n\n  Unless required by applicable law or agreed to in writing, software\n  distributed under the License is distributed on an \"AS IS\" BASIS,\n  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n  See the License for the specific language governing permissions and\n  limitations under the License.\n\n  This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc.\n  and was partially funded by NIH grant 3P41RR013218-12S1\n\n==============================================================================*/\n\n// Qt includes\n#include <QActionGroup>\n#include <QButtonGroup>\n#include <QDebug>\n#include <QGridLayout>\n#include <QHBoxLayout>\n#include <QLabel>\n#include <QMenu>\n#include <QMessageBox>\n#include <QPushButton>\n#include <QSpinBox>\n#include <QWidgetAction>\n\n// CTK includes\n#include <ctkDoubleSlider.h>\n#include <ctkDynamicSpacer.h>\n#include <ctkMessageBox.h>\n#include <ctkPopupWidget.h>\n#include <ctkSignalMapper.h>\n#include <ctkSliderWidget.h>\n#include <ctkDoubleSpinBox.h>\n\n// qMRML includes\n#include \"qMRMLSliceControllerWidget_p.h\"\n#include \"qMRMLSliderWidget.h\"\n\n// MRMLLogic includes\n#include <vtkMRMLSliceLayerLogic.h>\n\n// MRML includes\n#include <vtkMRMLApplicationLogic.h>\n#include <vtkMRMLLayoutNode.h>\n#include <vtkMRMLScalarVolumeDisplayNode.h>\n#include <vtkMRMLSegmentationNode.h>\n#include <vtkMRMLSegmentationDisplayNode.h>\n#include <vtkMRMLSelectionNode.h>\n#include <vtkMRMLScene.h>\n#include <vtkMRMLSliceCompositeNode.h>\n#include <vtkMRMLSliceDisplayNode.h>\n#include <vtkMRMLSliceViewDisplayableManagerFactory.h>\n#include <vtkMRMLUnitNode.h>\n\n// VTK includes\n#include <vtkMatrix4x4.h>\n#include <vtkNew.h>\n#include <vtkStringArray.h>\n#include <vtkImageReslice.h>\n\n//--------------------------------------------------------------..."
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Base/QTGUI/Resources",
+            "pattern": "intersection|Intersection|interaction|Interaction"
+          },
+          "result_preview": "Grep: 1 hit(s) in 1 file(s): slicer-source/Base/QTGUI/Resources/Icons/ExtensionIncompatible.svg (1)"
+        },
+        {
+          "tool": "Grep",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.h",
+            "pattern": "IntersectingSlices|SetIntersectingSlicesEnabled|GetIntersectingSlicesEnabled"
+          },
+          "result_preview": "Grep: 14 hit(s) in 1 file(s): slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.h (14)"
+        },
+        {
+          "tool": "ReadFile",
+          "args": {
+            "path": "slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.cxx",
+            "query": "SetIntersectingSlicesEnabled"
+          },
+          "result_preview": "//---------------------------------------------------------------------------\nvoid vtkMRMLApplicationLogic::ProcessMRMLNodesEvents(vtkObject* caller, unsigned long event, void* callData)\n{\n  if (vtkMRMLInteractionNode::SafeDownCast(caller) && event == vtkMRMLInteractionNode::EditNodeEvent)\n  {\n    if (callData != nullptr)\n    {\n      vtkMRMLNode* nodeToBeEdited = reinterpret_cast<vtkMRMLNode*>(callData);\n      this->EditNode(nodeToBeEdited);\n    }\n  }\n  else if (vtkMRMLInteractionNode::SafeDownCast(caller) && event == vtkMRMLInteractionNode::ShowViewContextMenuEvent)\n  {\n    this->InvokeEvent(ShowViewContextMenuEvent, callData);\n  }\n  else\n  {\n    this->Superclass::ProcessMRMLNodesEvents(caller, event, callData);\n  }\n}\n\n//----------------------------------------------------------------------------\nvoid vtkMRMLApplicationLogic::EditNode(vtkMRMLNode* node)\n{\n  // Observers in qSlicerCoreApplication listen for this event\n  this->InvokeEvent(EditNodeEvent, node);\n}\n\n//----------------------------------------------------------------------------\nvoid vtkMRMLApplicationLogic::SetModuleLogic(const char* moduleName, vtkMRMLAbstractLogic* moduleLogic)\n{\n  if (!moduleName)\n  {\n    vtkErrorMacro(\"AddModuleLogic: invalid module name.\");\n    return;\n  }\n  if (moduleLogic)\n  {\n    this->Internal->ModuleLogicMap[moduleName] = moduleLogic;\n  }\n  else\n  {\n    // If no logic is provided, erase the module-logic association.\n    this->Internal->ModuleLogicMap.erase(moduleName);\n  }\n}\n\n//----------------------------------------------------------------------------\nvtkMRMLAbstractLogic* vtkMRMLApplicationLogic::GetModuleLogic(const char* moduleName) const\n{\n  if (!moduleName)\n  {\n    vtkErrorMacro(\"GetModuleLogic: invalid module name\");\n    return nullptr;\n  }\n  // Check that the logic is registered.\n  if (this->Internal->ModuleLogicMap.count(moduleName) == 0)\n  {\n    return nullptr;\n  }\n  return this->Internal->ModuleLogicMap[moduleName];\n}\n\n//---------------------------------------------..."
+        }
+      ],
+      "evidence_audit": {
+        "source_verification": {
+          "non_ui_result_files": [
+            "slicer-source",
+            "slicer-source/Base/QTGUI/qSlicerViewersToolBar.cxx",
+            "slicer-source/Base/QTGUI/qSlicerViewersToolBar_p.h",
+            "slicer-source/Libs/MRML/Logic/vtkMRMLSliceLogic.cxx",
+            "slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLSliceDisplayNode.cxx",
+            "slicer-source/Docs/developer_guide/script_repository/gui.md",
+            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorLevelTracingEffect.py",
+            "slicer-source/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/SegmentEditorDrawEffect.py",
+            "slicer-source/Base/QTGUI",
+            "slicer-source/Base/QTGUI/qSlicerMouseModeToolBar.h",
+            "slicer-source/Modules/Loadable/Markups/qSlicerMarkupsModuleWidget.cxx",
+            "slicer-source/Libs/MRML/DisplayableManager/vtkMRMLSliceIntersectionInteractionRepresentation.cxx",
+            "slicer-source/Libs/MRML/Core/vtkMRMLAbstractViewNode.h",
+            "slicer-source/Libs/MRML/Widgets/qMRMLPlotView.cxx",
+            "slicer-source/Modules/Loadable/Markups/Widgets/qSlicerSimpleMarkupsWidget.h",
+            "slicer-source/Modules/Loadable/Markups/Widgets/qSlicerMarkupsPlaceWidget.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLMarkupsDisplayNode.h",
+            "slicer-source/Libs/MRML/Core/vtkMRMLPlotViewNode.h"
+          ],
+          "source_type_counts": {
+            "source": 19,
+            "mrml_definition": 14,
+            "doc_example": 6,
+            "effect_implementation": 2,
+            "loadable_module": 3,
+            "ui_implementation": 22,
+            "test_example": 1
+          }
+        },
+        "searches": {
+          "vector_queries": [
+            "disable set interaction option for slice intersections slice view controller"
+          ],
+          "grep_patterns": [
+            "SetIntersectingSlicesInteractive",
+            "Set interaction|sliceIntersectionsInteractive|intersectionSetInteractive",
+            "IntersectingSlicesInteractive",
+            "sliceIntersectionsVisibilityCheckBox|Set interaction|sliceIntersectionsInteractive",
+            "SliceIntersections|SetInteraction|interactive|Intersections",
+            "qSlicerSliceViewOptionsWidget|SliceViewOptions",
+            "Set interaction|SliceIntersections|setIntersectingSlicesInteractive",
+            "sliceViewOptions|SliceViewOptions|setInteractionCheckBox|InteractionCheckBox|interactiveCheckBox",
+            "Intersect|interactive|interaction",
+            "SliceIntersections|intersections|Set interaction|interaction"
+          ],
+          "read_paths": [
+            "slicer-source/Libs/MRML/Widgets/qMRMLSliceControllerWidget.cxx",
+            "slicer-source/Libs/MRML/Logic/vtkMRMLApplicationLogic.cxx"
+          ]
+        }
+      },
+      "reasoning_chars": 14768,
+      "reasoning_preview": "[Round 1]\nThe operation: \"Disable the set interaction option for slice intersections.\" This relates to the \"Set interaction\" checkbox in the slice intersections section of the slice view controller. Let me search for the relevant API.\n\nThe relevant API is likely `vtkMRMLSliceCompositeNode` or `vtkMRMLApplicationLogic` with `SetIntersectingSlicesInteractive` or the slice node's `SetIntersectingSlicesInteractive`. Let me search.\n\nActually, \"set interaction\" option for slice intersections \u2014 there's a \"Set interaction\" checkbox in the Slice intersections section of the slice view controller, which controls `mrmlSliceNode.SetIntersectingSlicesInteractive(...)`. Wait, let me think.\n\nThere are two properties: \"Slice Intersections\" visibility checkbox and \"Set interaction\" checkbox. The \"Set interaction\" checkbox in the Slice View Controller's \"Slice Intersections\" section controls `vtkMRMLSliceNode::SetIntersectingSlicesInteractive`. Also there might be `IntersectingSlicesInteractive` in slice node.\n\nLet me search the knowledge base.\n\n[Round 2]\nThe operation is \"Disable the set interaction option for slice intersections.\" This corresponds to the \"Set interaction\" checkbox in the Slice View Controller's \"Slice Intersections\" section. The suggested API terms include `SetIntersectingSlicesEnabled` and `vtkMRMLApplicationLogic`.\n\nLet me look at the \"Set interaction\" checkbox in the slice view controller. In `qSlicerSliceViewOptionsWidget` or the slice controller. Let me search for \"Set interaction\" text.\n\nActually the \"Set interaction\" checkbox in the Slice View Controller is found in `qSlicerSliceViewOptionsWidget` (the slice view options popup). Let me search for the checkbox name.\n\nThe relevant API in `vtkMRMLApplicationLogic` is `SetIntersectingSlicesEnabled(vtkMRMLApplicationLogic::IntersectingSlicesInteractive, enabled)`. But wait \u2014 is \"Set interaction\" the checkbox controlling `IntersectingSlicesInteractive`? Let me verify.\n\nThe slice view controller's Slice Intersections section has:\n- \"Slice Intersections\" visibility checkbox \u2192 `IntersectingSlicesVisibility`\n- \"Set interaction\" checkbox \u2192 `IntersectingSlicesInteractive`\n- \"Translate\" \u2192 `IntersectingSlicesTranslation`\n- \"Rotate\" \u2192 `IntersectingSlicesRotation`\n\nLet me search the slice view controller widget for the checkbox.\n\nThe checkboxes in the Slice View Options widget \u2014 let me search `qSlicerSliceViewOptionsWidget` and the `.ui` file for \"Set interaction\".\n\n[Round 3]\nNow I need to determine which UI control \"set interaction option for slice intersections\" maps to. The operation is described as \"the set interaction option for slice intersections\". The suggested API terms include `sliceIntersectionsVisibilityCheckBox`, `SetIntersectingSlicesEnabled`, `vtkMRMLApplicationLogic`, `IntersectingSlicesVisibility`, `IntersectingSlicesInteractive`, `IntersectingSlicesTranslation`, `IntersectingSlicesRotation`, `qSlicerViewersToolBar`.\n\nLet me find the slice view controller \"Slice Intersections\" section. T",
+      "generated_code_preview": "# Disable the \"Set interaction\" option for slice intersections.\n# This is the \"Interaction\" action in the Viewers toolbar / slice controller,\n# backed by vtkMRMLApplicationLogic::IntersectingSlicesInteractive\n# (which also keeps slice thick-slab interactive in sync, per the C++ implementation).\nappLogic = slicer.app.applicationLogic()\nappLogic.SetIntersectingSlicesEnabled(slicer.vtkMRMLApplicationLogic.IntersectingSlicesInteractive, False)\nif appLogic.GetIntersectingSlicesEnabled(slicer.vtkMRMLApplicationLogic.IntersectingSlicesInteractive):\n    raise RuntimeError(\"STATE_NOT_APPLIED: IntersectingSlicesInteractive\")"
+    }
+  ]
+}

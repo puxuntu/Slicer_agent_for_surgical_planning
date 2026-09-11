@@ -28,7 +28,7 @@ if current_scalar_volume_node_name:
         pass
 if current_scalar_volume_node is None:
     _nodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLScalarVolumeNode')
-    _keywords = ['currentscalarvolume', 'mandible']
+    _keywords = ['currentscalarvolume', 'mandible', 'used', 'background', 'model']
     for _i in range(_nodes.GetNumberOfItems()):
         _candidate = _nodes.GetItemAsObject(_i)
         _name = (_candidate.GetName() or '').lower()

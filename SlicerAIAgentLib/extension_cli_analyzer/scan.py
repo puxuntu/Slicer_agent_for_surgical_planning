@@ -516,6 +516,40 @@ class AnalyzerScanMixin:
             "page_files": page_files,
         }
 
+    # Combo classes that take SEVERAL answers at once (the user ticks a checkbox
+    # per row). Populated and read like a QComboBox, so nothing but the class
+    # distinguishes one -- a multi-select control reproduced as a single-pick
+    # dropdown silently drops every answer but one.
+    _MULTI_SELECT_COMBO_CLASSES = ("ctkCheckableComboBox",)
+
+    @classmethod
+    def _record_combo_default(cls, combo: Dict, prop: str, node) -> None:
+        """Record the option a combo is left showing when its page is built.
+
+        A GUI control answers its own question before anyone touches it, and that
+        answer is not cosmetic: the page reads ``self.sSelector.currentText`` on
+        exit whether or not the surgeon opened the dropdown. Recovering it is what
+        lets the panel start where the extension starts, instead of demanding a
+        pick the original never demanded.
+
+        Only a LITERAL argument is recorded -- ``setCurrentIndex(self._last)`` is
+        not a fact about the startup state. Nothing recorded means the reader falls
+        back to item 0, which is what Qt itself selects once a combo is populated,
+        so the common case (no explicit call at all) needs no evidence.
+
+        FIRST write wins: a combo is set up once and may be re-pointed later by a
+        handler, and a handler's value is a fact about a run rather than about the
+        control's default.
+        """
+        if prop == "currentText":
+            text = cls._ast_const_str(node)
+            if text is not None:
+                combo.setdefault("default_text", text)
+            return
+        index = cls._ast_const_int(node)
+        if index is not None:
+            combo.setdefault("default_index", index)
+
     @classmethod
     def _scan_wizard_pages(cls, wizard: Dict) -> Dict[str, Dict]:
         """Per-page widget inventory for a wizard module: combos (with their static
@@ -600,10 +634,17 @@ class AnalyzerScanMixin:
                             break
                     if not name:
                         continue
-                    if short in ("QComboBox", "ctkComboBox"):
+                    if short in ("QComboBox", "ctkComboBox") or short in cls._MULTI_SELECT_COMBO_CLASSES:
                         combos.setdefault(name, {
                             "attr": name, "widget_class": short,
                             "items": [], "label": "",
+                            # A CHECKABLE combo takes several answers at once. The
+                            # class is the only evidence of that -- it is populated
+                            # with addItems and read with checkedIndexes() exactly
+                            # like a single-pick combo -- so it is recorded here and
+                            # carried through to the runtime, which renders a
+                            # multi-select control instead of a one-of-N dropdown.
+                            "multi_select": short in cls._MULTI_SELECT_COMBO_CLASSES,
                         })
                     elif short == "QLabel":
                         args = st.value.args
@@ -626,6 +667,17 @@ class AnalyzerScanMixin:
                 if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     continue
                 for st in ast.walk(fn):
+                    if isinstance(st, ast.Assign):
+                        # combo.currentIndex = 0 / combo.currentText = 'L&R' --
+                        # PythonQt's property spelling of the two setters below.
+                        for _t in st.targets:
+                            if (isinstance(_t, ast.Attribute)
+                                    and _t.attr in ("currentIndex", "currentText")):
+                                _recv = _name_key(_t.value, fn.name)
+                                if _recv in combos:
+                                    cls._record_combo_default(
+                                        combos[_recv], _t.attr, st.value)
+                        continue
                     if not isinstance(st, ast.Call):
                         continue
                     fnc = st.func
@@ -660,6 +712,16 @@ class AnalyzerScanMixin:
                                         break
                         if items:
                             combos[recv]["items"] = items
+                    # combo.setCurrentIndex(2) / combo.setCurrentText('L&R') --
+                    # the control's own startup selection, which is what the
+                    # extension reads if the surgeon never touches it.
+                    elif (fnc.attr in ("setCurrentIndex", "setCurrentText")
+                          and recv in combos and st.args):
+                        cls._record_combo_default(
+                            combos[recv],
+                            "currentIndex" if fnc.attr == "setCurrentIndex"
+                            else "currentText",
+                            st.args[0])
                     # table headers + per-row combos
                     elif fnc.attr == "setHorizontalHeaderLabels" and recv in tables and st.args:
                         arg = st.args[0]
@@ -725,6 +787,28 @@ class AnalyzerScanMixin:
                     if seq[i] in labels and seq[i + 1] in combos \
                             and not combos[seq[i + 1]]["label"]:
                         combos[seq[i + 1]]["label"] = labels[seq[i]]
+            # Pair-literal pairing: the author wrote the label and its widget as a
+            # PAIR -- `fields = [(lText, self.lSelector)]`, `fields.append((sText,
+            # self.sSelector))` -- and laid the list out in a loop. The layout call
+            # is then `addWidget(widget, 1, column * 2)` over loop variables: the
+            # cell is not a literal and the names are neither the label's nor the
+            # combo's, so every rule above sees nothing and the combo keeps an empty
+            # label. That label is what the cookbook quotes are matched against, so
+            # the whole step degrades to a free-text box. The pair itself is the
+            # evidence. Runs LAST so a real layout call always wins, and fires only
+            # for a 2-element literal holding exactly one known label and one known
+            # combo, in either order, which admits no other reading.
+            for fn in cls_node.body:
+                if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for node in ast.walk(fn):
+                    if not isinstance(node, (ast.Tuple, ast.List)) or len(node.elts) != 2:
+                        continue
+                    first = _name_key(node.elts[0], fn.name)
+                    second = _name_key(node.elts[1], fn.name)
+                    for lname, wname in ((first, second), (second, first)):
+                        if lname in labels and wname in combos and not combos[wname]["label"]:
+                            combos[wname]["label"] = labels[lname]
 
             pages[class_name] = {
                 "combos": list(combos.values()),

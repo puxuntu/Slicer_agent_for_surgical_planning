@@ -27,7 +27,12 @@
     "cb_step_15",
     "cb_step_16",
     "cb_step_17",
-    "cb_step_18"
+    "cb_step_18",
+    "cb_step_19",
+    "cb_step_20",
+    "cb_step_21",
+    "cb_step_22",
+    "cb_step_23"
   ],
   "cookbook_driven": true,
   "cookbook_file": "PedicleScrewPlanner.md",
@@ -35,6 +40,7 @@
     "branch_op",
     "extension_op",
     "review_op",
+    "slicer_op",
     "user_choice",
     "user_interaction"
   ],
@@ -59,11 +65,15 @@
       "valid": true,
       "issues": []
     },
+    "cb_step_8": {
+      "valid": true,
+      "issues": []
+    },
     "cb_step_9": {
       "valid": true,
       "issues": []
     },
-    "cb_step_11": {
+    "cb_step_10": {
       "valid": true,
       "issues": []
     },
@@ -71,11 +81,7 @@
       "valid": true,
       "issues": []
     },
-    "cb_step_13": {
-      "valid": true,
-      "issues": []
-    },
-    "cb_step_15": {
+    "cb_step_14": {
       "valid": true,
       "issues": []
     },
@@ -83,20 +89,36 @@
       "valid": true,
       "issues": []
     },
+    "cb_step_17": {
+      "valid": true,
+      "issues": []
+    },
     "cb_step_18": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_20": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_21": {
+      "valid": true,
+      "issues": []
+    },
+    "cb_step_23": {
       "valid": true,
       "issues": []
     }
   },
-  "partial_valid_step_count": 12,
+  "partial_valid_step_count": 16,
   "validation_state": {
     "static_valid": true,
-    "api_probe_valid": true,
+    "api_probe_valid": false,
     "contract_valid": true,
     "prelude_valid": true,
     "contract_audit_valid": true,
     "workflow_state_valid": true,
-    "prelude_bytes_max": 1556,
+    "prelude_bytes_max": 2358,
     "overall_valid": true,
     "api_proof_valid": true,
     "api_inventory_complete": true,
@@ -106,9 +128,9 @@
     "generator_template_sync_valid": true
   },
   "api_proof_coverage": {
-    "total_calls": 92,
-    "state_changing_calls": 12,
-    "proven_calls": 87,
+    "total_calls": 130,
+    "state_changing_calls": 25,
+    "proven_calls": 125,
     "invalid_calls": 0,
     "blocking_unproven_calls": 0,
     "warning_unproven_reads": 5,

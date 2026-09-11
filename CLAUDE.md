@@ -54,6 +54,40 @@ python scripts/check_cranial_analysis.py --cases 10 # more
 # saved is the one way a read number can be wrong, and it happened here.
 python scripts/check_pelvic_analysis.py
 
+# LongBoneFractureReduction: the residual E = G . P^-1 over both kinds of case.
+# Runs the WHOLE analysis outside Slicer against the 64 saved runs, including
+# the reader that pulls the reduction pose out of an 8 KB ITK/HDF5 file without
+# h5py -- witnessed by the 7 annotated runs, which recorded that same pose
+# independently. The section that matters hands each simulated case the OTHER
+# ground truth (the simulator displaced one fragment, so it is D or D^-1
+# depending on which one the run moved) and requires the abutment verdict to
+# refuse it: 0.3-1.7 mm with the right matrix, 14.7-60.7 mm with the wrong one.
+python scripts/check_longbone_analysis.py
+
+# PedicleScrewPlanner: is each planned screw inside the pedicle, and in what
+# bone. Runs the WHOLE analysis outside Slicer against the two saved runs. The
+# sections that matter are the ones whose failure is a plausible millimetre: the
+# frame bridge (the run loads its CT CENTRED and the data set keeps the
+# scanner's origin, so plan geometry crosses between them through the voxel
+# index -- proved necessary, since without it no landmark lands in any
+# vertebra), the half-voxel debias on the distance field, and the graded span
+# (the planner puts the entry ON the cortex, so the wall around it is half
+# outside by construction -- a screw whose only protrusion is that must grade A).
+python scripts/check_pedicle_analysis.py
+
+# BoneReconstructionPlanner: how far the fibula segments are from the healthy
+# mandible they replace -- a ground truth that is PREDICTED, so the whole
+# analysis runs outside Slicer against the saved runs. The sections that matter
+# are the ones whose failure is a plausible millimetre: a Slicer plane-cut model
+# is PARTIALLY welded, which breaks vtkPolyDataToImageStencil (+4% on a mandible,
+# -38% on a fibula piece, both as plausible volumes) and made the completion
+# network predict a 45 cm3 blob instead of a 19 cm3 graft; the contour scan's
+# direction, pinned by a concave case where marching in from outside locks onto
+# the far side of the arch and calls it a 15 mm protrusion; and its half-voxel
+# start offset, without which two IDENTICAL masks read 0.25 mm apart.
+python scripts/check_mandible_analysis.py
+python scripts/check_mandible_analysis.py --predict   # also re-run the network
+
 # The ✍ Revise core: which template a step owns, whether a rewritten one may be
 # installed, and whether the original comes back. Sweeps every shipped package
 # and requires each of its 172 templates to validate against ITSELF -- a rule
@@ -89,6 +123,44 @@ python scripts/check_prelude_boundary.py
 # decomposition invented. When the bridge misses, nothing raises: the placeholder
 # default silently overwrites the mask the range step just committed.
 python scripts/check_range_choice_fill.py
+
+# A control answered with SEVERAL options must not be reproduced as a one-of-N
+# dropdown. Nothing about a ctkCheckableComboBox distinguishes it from a plain
+# combo except its CLASS -- same addItems in, checkedIndexes() out -- so the whole
+# mechanism hangs on that one fact, and every way of losing it is silent. Runs the
+# page scan over every extension and EXECUTES the emitted drive code against fake
+# Qt controls, including a plain decoy listing the same options and a control that
+# accepts the write and reports nothing ticked. Section 6 holds the other half of
+# the same form: a selector's DEFAULT, which the source control answers before
+# anyone touches it -- and the opposite case, a control that opens on a PROMPT and
+# must therefore stay unanswered.
+python scripts/check_multi_select_choice.py
+
+# The "Place a control point" button is a TOGGLE, so the generated step has to
+# click it the way the cookbook does -- and re-enabling an already-enabled place
+# widget succeeds, so a step that got the polarity wrong reports success and the
+# symptom lands on a LATER step, as a slice that will not rotate because every
+# click drops another point. Also holds the other half: a view-adjustment step
+# gives the views back to the mouse when it OPENS, not only when it is done.
+python scripts/check_place_mode_polarity.py
+
+# A control the extension reads as a COMPARISON (`checkState == qt.Qt.Checked`)
+# rather than an attribute truth test (`.checked`) is still a bound control. When
+# the scan cannot see it the step has no binding, falls through to free-form
+# generation, and ships a guessed spelling -- and the extension's read is an exact
+# string comparison, so `'true'` sets the parameter and changes nothing. Sweeps
+# every cookbook extension, EXECUTES the real emitter, and runs the spelling gate
+# over the shipped templates: exactly the one carrying the bug is refused.
+python scripts/check_toggle_state_binding.py
+
+# The two halves of "a self-correction should only ever be needed once". A
+# placeholder written INSIDE a string literal is never filled (the loader masks
+# strings), so the step runs with the brace text as its value -- and the
+# write-back that would persist the fix decided "this template has placeholders"
+# with a raw brace scan, which also matches every f-string interpolation, so it
+# refused for 82 of the 181 shipped templates and the fix was thrown away on
+# every run. Both are now measured with the LOADER'S OWN filler.
+python scripts/check_template_write_back.py
 ```
 
 Dependencies are in `requirements.txt` — `httpx`, `numpy`, `jsonschema` are explicit; `faiss-cpu`, `onnxruntime`, `transformers` are auto-installed at runtime. CMake installs these into Slicer's Python environment during extension setup.
@@ -881,6 +953,239 @@ and what makes a replay truncation put the earlier one back.
 `*_min`/`*_max` placeholder, the nearest preceding range choice must fill it, proven
 by filling the real template with the real loader.
 
+**One question, several answers.** A `user_choice` selector is normally one-of-N,
+but an extension may ask one that takes many -- PedicleScrewPlanner's
+"Instrumented Levels:" is a `ctkCheckableComboBox` where every level to instrument
+is ticked. Nothing about how such a control is filled or read distinguishes it
+from an ordinary combo (`addItems` in, `checkedIndexes()` out, and it *is* a
+QComboBox subclass), so the whole mechanism rests on its **Qt class** --
+`_MULTI_SELECT_WIDGET_CLASSES`, mirrored in `WorkflowRuntime` and
+`extension_cli_loader.choice_helpers` for the reason the node-class readers keep
+their two mirrors: the loader's half is baked into the code the step *executes*,
+so teaching only the runtime fixes what the panel shows and leaves what it does
+untouched.
+
+Three places had to learn it, and each failed *silently* on its own:
+
+- **The scan did not know the class**, so the control was absent from the page
+  inventory entirely -- and since the reconciler matches the cookbook's quoted
+  label against that inventory, the step shipped as a free-text box.
+- **The label never paired with the widget.** `_scan_wizard_pages` pairs a
+  `QLabel` with a combo from the page's own layout calls, and this page has none
+  to read: it builds `fields = [(lText, self.lSelector), ...]` and lays it out
+  with `for column, (label, widget) in enumerate(fields)`, so the `addWidget` call
+  names loop variables and its cell is `column * 2`, not a literal. The **pair
+  literal itself** is the pairing, and it is now read as such -- last, so a real
+  layout call always wins, and only for a 2-element literal holding exactly one
+  known label and one known combo. That one rule also recovered the labels of the
+  four ordinary combos beside it, which is why the whole step had degraded.
+- **The runtime would have rendered a dropdown**, which works, commits, and
+  instruments one level out of however many were ticked.
+
+`_reconcile_multi_choice` marks the rebuilt item `multi_select` and fires on a
+**lone** match when the control is multi-select -- there the alternative is not "a
+different control" but "this control as a dropdown". Only when it is the step's
+*only* quote, though: one match against several quotes means the scan missed the
+other controls, and rebuilding on that ships a form that asks one of the step's
+questions and never the rest. That is worse than the free-text box, so the gap is
+logged and the step passes through.
+
+At runtime the item routes through the **multi-selection form** -- the only
+renderer that can put a tick list on screen -- so `_multi_choice_items` returns a
+ONE-item list for a lone multi-select selector (and synthesizes it from
+`choice_info` for artifacts predating `choice_info_list`), and the panel reproduces
+the source's own `ctkCheckableComboBox`, falling back to a checkable `QListWidget`
+rather than ever to a dropdown. The commit is a **list**, and a selector with
+nothing ticked counts as unanswered -- the same rule the extension enforces in its
+own `validate()`.
+
+**The drive reads its answer back.** The emitted code sets every row Checked or
+Unchecked explicitly (so a re-drive on replay *replaces* rather than accumulates),
+identifies the control by class as well as by item set (a plain sibling listing
+the same options must never be the one ticked), and then re-reads
+`checkedIndexes()` -- because "setCheckState did not raise" is not evidence that
+the control was checkable, and a control showing tick boxes while reporting
+nothing ticked is exactly the miss `_mc_missed` exists to catch. `findChildren`
+matches `className()` **exactly**, so the checkable class has to be named in the
+search list; a QComboBox subclass is not found under `"QComboBox"`.
+
+**Voice accumulates and does not auto-confirm.** One utterance names one option,
+so a spoken pick is added to what is ticked rather than replacing it -- and the
+form must therefore not commit the moment every selector holds something, since
+after the first level one level is exactly what "answered" looks like. Such a step
+is committed by saying "done", which `ACTION_PROCEED` routes to the form's own
+Confirm (the generic Done records no selector and drives no control).
+
+**A selector starts where its SOURCE control starts.** A GUI control answers its
+own question before anyone touches it, and that answer is binding, not cosmetic:
+the ROI page opens on "L&R" / "Posterior" and `doStepProcessing` writes
+`sSelector.currentText` on exit whether or not the surgeon ever opened the
+dropdown. A reproduced panel that opens on `-- Select --` therefore demands a
+decision the original never demanded. So `_combo_default_option` carries the
+scanned control's own startup option into `choice_info_list[i]["default_value"]`
+and the panel pre-selects it, adding **no** placeholder row.
+
+The opposite mistake is worse, and is why this is not "pre-select item 0": the
+Measurements page opens on a PROMPT ("Choose the puncture site") whose handler
+`Helper.Screw` deletes and rebuilds the screw line, so a pre-selected value would
+silently move a screw an earlier loop iteration already fixed. One rule separates
+the two shapes without a second placeholder heuristic — the prompt row is already
+dropped from `options`, so a default that is **not among its own options** is
+withheld. A checkable combo (nothing ticked) and a combo whose items are computed
+at runtime (`live_items`) are withheld for the same reason.
+
+Where the default comes from is `setCurrentText` / `setCurrentIndex` (including
+PythonQt's `combo.currentIndex = 2` property spelling) with a LITERAL argument;
+first write wins, since a handler re-pointing the combo later states a fact about
+a run rather than about the control. Absent all of that it is item 0, which is what
+Qt itself selects once a combo is populated. The panel's two readers of "answered"
+have to agree: the confirm gate gives an unanswered selector no value, and the
+**voice** gate must ask the same question of the same thing — it reads the current
+TEXT, never `currentIndex <= 0`, which called a defaulted selector unanswered
+forever and left the form unable to confirm with nothing on screen to say why.
+
+### A fix that is applied once and thrown away every run
+
+Self-correction repairs a generated step at runtime, and
+`_persistGeneratedTemplateRepair` writes the working code back into the step's
+`.tpl` so the next run loads the fix instead of re-deriving it. When that
+write-back refuses, nothing tells anyone: the step self-corrects, advances,
+discards the fix, and does it again on the next run, forever. It refuses for two
+reasons, and **both** were firing.
+
+**The template really was broken, and could never work.** BoneReconstructionPlanner's
+`cb_step_12` searched every node name for `"{curve_name_keyword: mandible}"` — a
+placeholder written inside a **string literal**. The loader's filler masks string
+literals before it substitutes (deliberately: a template's prose must survive
+filling), so it never fills that one, and the dispatched code searches for the
+brace text itself. `MISSING_NODE` on every run, by construction — and the same
+shape ships in CranialImplantPlanning, where
+`AddNewNodeByClass(cls, "{curve_name: CuttingCurve}")` names its node
+`{curve_name: CuttingCurve}` and raises nothing at all.
+
+The blanket unresolved-placeholder rule cannot catch either, because both carry a
+**default** — and a default is precisely what makes a placeholder safe at
+dispatch, everywhere except inside a string, where it is never read.
+`TemplateReviser.inert_placeholders()` measures it with the loader's own filler
+and `validation_semantics._validate_placeholder_reachability` refuses it. The
+discriminator is the **string token's own prefix**, asked of Python and never of a
+regex: `f"role '{role}'"` is how every generated template reports an error, so
+flagging an f-string interpolation would refuse the common case to catch the rare
+one. Over the 181 shipped templates it reports exactly the two above.
+
+**And the write-back's own guard was measuring the wrong thing.** It refuses a
+template carrying placeholders because the corrected code is the *filled* code, so
+persisting it would freeze this run's `{side}` into the package — right, and the
+reason the guard exists. But it answered "does this template have placeholders?"
+with a raw brace scan, and a raw brace scan matches every f-string interpolation.
+The precondition block every generated step carries ends with
+`print(f"...: {_module_enter_error}")`, so the guard fired on **82 of the 181**
+shipped templates, of which only **13** contain anything the filler actually looks
+up. The write-back was dead for most of the cookbook. It now asks
+`fillable_placeholder_names()` — the same function ✍ Revise's closure check uses,
+for the same reason, documented one section down and never applied here.
+
+A brace span the filler never looks up expands to the same text on every run, so
+persisting it loses nothing; the escape/refill round trip is exact, which
+`check_template_write_back.py` proves against the real recorded corrections rather
+than assuming. What is still refused is what should be: `{side}`,
+`{initial_space}`, `{mandibular_segmentation_node_name}` — values a run supplies.
+
+### A checkbox the extension reads as a comparison
+
+An extension states the same fact about a checkbox in two spellings, and
+`_extract_ui_parameter_bindings` used to read only the first:
+
+```python
+if self.ui.showOriginalMandibleCheckBox.checked:              # an attribute test
+if self.ui.generateFibula...Button.checkState == qt.Qt.Checked:   # a COMPARISON
+```
+
+The second is not an eccentricity — it is what a control whose state is not a bool
+requires. BoneReconstructionPlanner's "Update fibula planes …" control is a
+`ctkCheckablePushButton` built in Python (so it is in no `.ui` file), read as
+`checkState == qt.Qt.Checked` and written as `checkState = 2`. A `Compare` node is
+not an `Attribute` chain, so the scan returned nothing, and **every consequence of
+that is silent**: no `ui_parameter_binding` on the step, so the deterministic
+toggle emitter never fires, so the step falls through to free-form generation,
+which is free to guess. It guessed `'true'`. The extension compares
+`GetParameter(role) == "True"`, so the parameter was set, the read was False
+forever, `onPlaneModifiedTimer` never started its timer — and the symptom surfaced
+two steps later and looked like a different feature: dragging a mandibular cut
+plane no longer recomputed the fibula.
+
+Three rules, and each is load-bearing on its own:
+
+- **Polarity is read, or nothing is recorded.** `_widget_state_test` handles the
+  attribute test, `not` of one, and the comparison in either operand order with
+  `==` / `!=` / `is` / `is not`, deciding the ON state from the compared value
+  (`2`, `True`, `qt.Qt.Checked` — and `0` / `qt.Qt.Unchecked` for OFF). Anything it
+  cannot decide — `Qt.PartiallyChecked`, a variable, a `BoolOp` — records **no**
+  binding, because a guessed polarity ships a step that clears the box the cookbook
+  asked to tick. The comparison form is admitted only for a two-state property
+  (`checked`, `checkState`, `visible`, `enabled`), so the rule never invents
+  boolean semantics for `currentIndex == 0`.
+- **The parameter's ON/OFF strings come from the source.** `true_value` /
+  `false_value` are what the extension itself writes, and the emitter now uses
+  them (`_parameter_state_string`) instead of hard-coding `'True'`. They are also
+  merged onto **one** role entry per (role, access, property): the if- and
+  else-branches are two `SetParameter` calls, and downstream reads `roles[0]`, so
+  appending the else branch as a second dict silently dropped every `false_value`.
+- **The control is driven on the property the source uses.** A second scan reads
+  the opposite direction — the extension writing its OWN control from the parameter
+  (`if GetParameter(role) == "True": self.ui.w.checkState = 2` / `else: = 0`) —
+  which pairs widget with role independently *and* states the exact write form.
+  `_widget_sync_lines` reproduces it, falling back to a Qt vocabulary
+  (`checked` → `True`, `checkState` → `qt.Qt.Checked`, and `import qt` emitted only
+  when a line needs it). This is not cosmetic: `ctkCheckablePushButton` is a
+  QPushButton subclass whose indicator is separate from the button's own checked
+  state, so `checked = True` raises nothing and ticks nothing — and an unticked
+  control is a **ratchet**, since every sibling wired on `stateChanged` re-runs
+  `updateParameterNodeFromGUI`, which reads this control and writes the parameter
+  back to `"False"`.
+
+**The spelling is enforced a second time, at validation**, because the emitter is
+not the only producer: free-form generation, self-correction and ✍ Revise all write
+templates. `validation_semantics._validate_parameter_state_spelling` refuses a
+literal `SetParameter(role, value)` whose value is not one of the strings the source
+compares that role against — for roles whose ON *and* OFF spellings were both
+recovered, and never for a non-literal value, which is not decidable there. Over
+the 37 shipped BoneReconstructionPlanner templates it refuses exactly one, the one
+that carries this bug. It is wired into the **per-template** gate only, where the
+error is named and repairable, and deliberately not into `_final_package_audit`:
+a rule that lives only in the late gate stamps `validation_failed` on a package
+whose every step validated.
+
+### A toggled button is clicked twice, and the second click is not the first
+
+A wizard's "Place a control point" button ARMS point placement and, clicked again,
+ENDS it. `_maybe_generate_wizard_template` emitted `setPlaceModeEnabled(True)` for
+both, and that defect is invisible where it is made: re-enabling an enabled place
+widget raises nothing, so the step succeeds and the run continues with the views
+still owned by the markup tool. The symptom surfaces on a **later** step and reads
+as a different bug — the loop's next iteration opens on "rotate the red slice" and
+every attempt to rotate it drops another control point.
+
+Polarity is read the way every other toggle in this pipeline reads it: the step's
+recorded `target_value`, falling back to `_infer_final_state_intent` over the step
+text (which now knows "inactivate", the cookbook's own word for the second click —
+not a prefixed spelling of "activate", since every true pattern is space-anchored).
+Both routes to the widget carry it, the direct call and the whole-representation
+search, because a fix applied to one of them lasts until the attribute moves. The
+disabling form additionally switches the interaction node to view-transform mode:
+that changes nothing when the place widget was reached, and when it was not, the
+alternative is a surgeon who cannot use the views at all.
+
+Two consequences elsewhere. `_reconcile_wizard_placement` defers a placement step
+to the extension's own widget only when the button before it ARMED that widget —
+after a disable there is nothing armed, and deferring would leave the step with no
+way to place anything. And the **view-adjustment pre-template releases the mouse**
+(`SwitchToViewTransformMode`), which the post-template already did: applying it
+only on Done is the same fix one step too late to help the person doing the
+adjusting, and it is why this could hide for so long — the run looks correct
+afterwards. A `module_tool_interaction` step must NOT release it: there the
+extension's own tool is holding the clicks on purpose.
+
 ### A node class is a lookup key, not prose
 
 `node_class` goes straight to `getNodesByClass` and to `qMRMLSubjectHierarchyTreeView.nodeTypes`,
@@ -1104,6 +1409,26 @@ Per-procedure analysis of the runs kept under `Experiments/<Extension>/`, behind
 Experiments section. `SlicerAIAgentLib/experiments/<name>.py` holds the numerics (Qt-free, so it runs
 and is checkable outside Slicer) and `<name>_panel.py` the button; a module registers itself with
 `@register_experiment_panel("<Extension>")`, and `_PANEL_MODULES` lists what to import.
+
+**`EXPERIMENT_PANELS` maps a procedure to a LIST of builders, and the section builds all of them.**
+Two modules can legitimately claim one procedure — one scoring its runs while another prepares its
+input — and a dict of one builder made the later import silently erase the earlier, so
+LongBoneFractureReduction's analysis panel did not exist and the section showed the other tool as if
+that were all there was. Nothing raised — an overwrite is a legal dict assignment, and which panel
+survived depended on the order of a tuple. Registration now appends (replacing in place on a module
+reload, keyed on `__module__` + `__qualname__`, so Reload does not stack duplicates), the builders run
+in `_PANEL_MODULES` order with a rule between them, and a failing builder no longer calls
+`_clearExperimentContent()` — that would delete an earlier panel's working widgets because a later one
+raised.
+
+**No shipped procedure claims two panels today**, which is why
+`scripts/check_longbone_analysis.py` §10 pins the property against *synthetic* builders driving the
+shipped registry code: an invariant nothing exercises is the one that rots. The module that used to
+be the second claimant — a DICOM→NRRD converter panel over `Test_data/<name>/Original`, registering
+for every entry of its own `DATASETS` — has been removed along with its `dicom_dataset` half. It only
+ever prepared **input** data, which is a step outside what this section is for, and the folder it read
+does not exist in this checkout, so it could only report a missing path in red directly beneath an
+analysis, where it read as a fault in the analysis.
 
 `run_timing.py` is shared by all of them: what a run folder looks like (`discover_cases`) and what
 its `Statistic/timing.txt` says (`parse_timing`, `parse_timing_steps`, `timing_sheet`) are properties
@@ -1390,6 +1715,197 @@ on its faces is expected and a truncated read looks exactly like a correct one. 
 in slabs with a one-plane halo instead (peak memory is a slab, not the 912 MB a case-0001 file
 unpacks to), and the centroid comes from per-axis marginal counts rather than `np.nonzero`, which
 over a half-full 32 MB slab would itself cost 380 MB.
+
+`longbone.py` scores a long-bone reduction from **one** rigid residual,
+`E = G · P⁻¹` — the transform still needed to carry the pipeline's reduced fragment onto the ground
+truth. `P` is the pose the run computed and `G` is the truth's; rotation, translation, the point
+error over the fragment's own surface and the clinical split are all readings of that single matrix.
+The whole module is about getting `P` and `G` from two populations that state them completely
+differently, and every way that can go wrong yields plausible millimetres rather than an error.
+
+- **`P` is read out of the run's own `.h5` transforms** — `Reduction Transform` composed with
+  `Reduction Base` — and Slicer's Python has no `h5py`, so `read_itk_affine` locates the twelve
+  doubles by their *properties* (a proper rotation) and requires **exactly one** match in the file.
+  It is not trusted: on the 7 annotated runs the pose it recovers equals the
+  `pose_before_annotation_ras` those runs recorded independently, to 6e-14, and that agreement is the
+  only licence for using it on the other 57. ITK's conventions are all three wrong-way-round
+  (from-parent, LPS, centre of rotation folded in), and each is undone explicitly.
+- **The composition order comes from `scene.mrml`, never from the file names.** `Reduction Base` is
+  the identity on every run saved so far, so composing the chain backwards is invisible today and
+  wrong the day a run has a real one — the check script builds that day.
+- **`G` is `D` or `D⁻¹`, and which is a property of the RUN.** An annotated case states `G` outright.
+  A simulated one has only the simulator's `displacement_matrix_ras` `D`, applied to **one** of the
+  two fragments: reducing that fragment undoes `D`, reducing the other applies `D` to it, because the
+  reference is whatever the run did not move. Across these 57 runs the surgeon moved the displaced
+  fragment 25 times and the fixed one 32, so this is not a constant that could be hard-coded. It is
+  decided by a 2×2 centroid assignment (the fixed fragment's centroid follows from the union's, since
+  the saved labelmap is binary and cannot tell them apart) and then **checked** by abutment:
+  a correct `G` closes the fracture, so `truth_fit_mm` is 0.3–1.7 mm with the right matrix and never
+  under 14.7 mm with the wrong one.
+- **The LPS/RAS frame is measured per case, not assumed.** An un-mirrored bone is the same bone on the
+  far side of the origin and still produces distances, so both frames are offered to a witness that
+  knows where the bone is — the annotation's own saved shape, or the simulator's recorded fragment
+  centroid — and neither fitting is a refusal.
+- **No shaft axis is inferred.** The clinical split (malrotation / angulation / shortening / offset)
+  needs the bone's axis, and the obvious estimate — the fragment's principal axis — disagrees with the
+  axis the simulator recorded by a median of 6.5° and up to 12.4°, which is larger than most of the
+  residual rotations it would be decomposing (a femoral head pulls it off the shaft). So those four
+  columns are reported only where the axis is a *recorded fact*, blank on the annotated cases, and
+  `pca_axis_vs_recorded_deg` carries the measurement that justifies the refusal into the workbook.
+  For the same reason the summary's pooled block drops any metric only one population carries: it
+  would be the simulated block reprinted under a name saying it covered everything.
+- **`initial_*` and `residual_fraction` sit beside the error, not in a footnote.** A 1 mm residual is
+  excellent on a fragment that was 40 mm out and unremarkable on one that was 3 mm out — the same
+  pairing `orbital.py` makes, for the same reason.
+
+Slicer-free, so `scripts/check_longbone_analysis.py` runs the entire analysis — reader, chain walk,
+role choice, verdicts and all 64 cases — outside Slicer, and asserts statically that the module
+contains no write and no delete.
+
+`pedicle.py` scores a pedicle screw plan against a per-vertebra ground truth: the
+**Gertzbein-Robbins** grade and the millimetres behind it, which wall the screw
+crosses and by how much it clears the others, how much of the implant is in bone,
+the pedicle width at the isthmus and the fill ratio against it, the depth left in
+front of the tip, and the bone the screw is gripping (path HU *inside* the
+cylinder it occupies, contact area per density band, trabecular HU with the
+cortex eroded off).
+
+The guide's own §3 is the constraint the whole module is shaped by: **no HU
+threshold separates "inside this vertebra" from "outside it"** on these scans,
+because trabecular marrow reads 0-100 HU while paraspinal muscle reads 40-60. So
+every positional claim is made against the label and only the density ones
+against the CT.
+
+Five things it enforces rather than assumes, each of which yields a plausible
+millimetre rather than an error:
+
+- **The plan and the ground truth are in different frames, and the bridge is a
+  property of the voxel GRID, not of a header.** The run loaded its CT centred
+  (`space origin` = minus half the extent) while the data set keeps the scanner's
+  origin; same sizes, same direction cosines, so the two index the same image and
+  a point crosses **through the voxel index**. The run's volume is found by
+  matching that grid, never by name -- `baselineROI.nrrd` sits in the same folder
+  and is a 0.245 mm resample of the same data. `entry_on_surface_mm` is the
+  independent witness that it worked: the planner puts the entry ON the bone
+  surface (`Helper.probeVolume`), so it is 0.1-0.9 mm on the saved runs, and a
+  screw beyond `ENTRY_SURFACE_LIMIT_MM` is reported unscored rather than scored
+  wrongly.
+- **Neither name is evidence, and one of them is actively wrong.** The level is
+  decided by voting the vertebra labels in a ball around the surgeon's own
+  `Isthmus-<N>` landmark, cross-checked against the level's anterior landmark; the
+  ball rather than a point probe because one real landmark sits one voxel outside
+  the label, where a point probe reports no vertebra at all. The **side** comes
+  from the screw's entry relative to that vertebra's own centroid -- `Helper.Pdata3`
+  calls index 1 of each `T` triple "left" and index 2 "right" without ever looking
+  at a coordinate, so on **both** saved runs every screw named `_L` is on the
+  patient's RIGHT. Since medial and lateral are defined against the midline,
+  taking the side from the name would invert exactly the distinction the safety
+  gate rests on.
+- **A screw is not breached where it crosses the entry cortex.** The wall within
+  about one radius of an entry placed on the surface is necessarily half outside:
+  +0.9 to +2.4 mm at 0 mm on the saved runs, which grades four of eight
+  otherwise-contained screws as B. The graded span therefore runs from the start
+  of the pedicle window (`isthmus - 5 mm`, and never nearer than one radius) to
+  the tip -- that stretch is also where a whole-vertebra label can least answer
+  the question, having no boundary between lamina, facet and transverse process.
+  Nothing is hidden: `breach_proximal_mm` is the worst point in the excluded
+  stretch and `graded_from_mm` says where the span begins.
+- **The distance field is debiased by half a voxel.** `EDT(outside) - EDT(inside)`
+  measures centre to centre, so its zero crossing is exactly on the voxel face but
+  every magnitude beyond one voxel is `h/2` too large -- +0.25 to +0.5 mm here. It
+  inflates a breach and, worse, inflates a *clearance* compared against a 1 mm
+  threshold. The correction inverts the relation exactly (slope 2 inside the
+  one-voxel band, offset 1 beyond it, continuous where they meet) and moved one
+  real screw from Grade C to Grade B.
+- **The width is reported twice**, for the reason `shoulder.py` reports two cone
+  denominators. `pedicle_width_mm` is the minimum caliper of the section
+  perpendicular to the trajectory (the anatomic width the 70-80% fill target
+  refers to) and `channel_width_mm` the narrowest chord of that section *through
+  the axis*. The caliper over-reads where the plane catches a neighbour, the chord
+  under-reads where the screw sits off-centre; they agree to about a millimetre on
+  the saved runs, and where they do not, the caliper is the one to distrust.
+
+`breach_direction` comes from the distance field's own gradient with the component
+along the screw projected out: a cylinder's **side** can only leave through a wall,
+and the axial part of the normal says how the surface tilts rather than which wall
+was crossed -- without the projection the anterolateral corner one real screw exits
+through is named "anterior", which is true of the bone and useless to a surgeon.
+Only a TIP CAP breach keeps the axis, and there `>=` decides the tie, because a
+screw out the front of the body protrudes through its wall and its cap by exactly
+the same amount.
+
+Not computed, and named as such in the workbook: **deviation from the pedicle axis**
+(§2.11) needs the pedicle segmented apart from the vertebra, and the only
+pedicle-shaped object here is the channel around the screw -- so the axis would be
+derived from the trajectory it is meant to judge. **Facet violation** (§2.10) and
+**cortical vs cancellous contact** (§2.8) need structures this ground truth does
+not carry; `contact_mm2_ge250` is the HU proxy for the second and is labelled as
+one. A circular number that looks like a measurement is worse than a blank column.
+
+Slicer-free, so `scripts/check_pedicle_analysis.py` runs the entire analysis --
+scene reader, bridge, distance field, breach, widths, phase split -- outside
+Slicer, and asserts statically that the module contains no write and no delete.
+
+`mandible.py` scores a fibula reconstruction against the **healthy mandible segment that used to
+fill the defect** — which is the whole problem, because that segment does not exist. It came out
+with the tumour, and what the surgeon removed (`Cut Mandible Pieces/Mandible Segment <n>`) is
+diseased bone, expanded or eroded by the lesion and therefore not the shape the plan is aiming at.
+So the ground truth is **predicted**: `mandible_repair.py` (vendored verbatim from
+`Test_data/.../Mandile_Reconstruction/deploy/`, with `Resources/Models/mandible_repair.onnx`,
+gitignored at 143 MB) completes `Cut Bones/Resected mandible` and returns the missing segment.
+Guo et al. do exactly this and for the stated reason — a mandible is not symmetric and a
+midline-crossing defect has no side to mirror — and, having no complete mandible for the plans they
+compare against, they score every one of them against their own Stage-I prediction. The prediction
+is cached as `Statistic/analysis/predicted_healthy_segment.stl` **inside the run** and the metrics
+are taken on that file, so the ground truth a reader can load beside the plan is the one that was
+scored; a hidden in-memory mask would be a second ground truth nobody can inspect.
+
+The three headline numbers are Guo et al. §4.2's, which are Nakao et al.'s: **Rv** volume ratio,
+**Ec** contour error (= Nakao's shape distance `Es`) and **Ep** maximum projection. Beside them:
+Dice, symmetric surface distance and HD95, the two 2 mm coverage shares, and Guo's own
+slice-weighted Dice objective (eqs. 4–5). Nakao's **`Er`** mirror-symmetric distance is **not**
+computed and the workbook says so — it needs the contralateral mandible and the mandibular
+coordinate system built from a tangent plane and a *located midline*, which is the step Guo et al.
+single out as unreliable; a guessed midline yields a number that looks like the paper's.
+
+Six things it enforces rather than assumes, each of which yields a plausible millimetre rather than
+an error when got wrong:
+
+- **A Slicer plane-cut model is PARTIALLY welded** — the cut wall and its cap meet at points stored
+  twice — so it is geometrically closed and topologically open. `vtkPolyDataToImageStencil` on one
+  over-fills the resected mandible by **4%** and under-fills a cut fibula segment by **38%**, both
+  as plausible volumes; on the reference case the inflated mandible then made the completion network
+  predict a 45 cm³ blob where the correct input gives 19 cm³. Ray parity treats each triangle
+  independently and is immune, so that is what is used — for the metrics *and* for the network's
+  input, which is the one deliberate change to the shipped `repair()` and is checked by reproducing
+  its graft bounds exactly.
+- **Swept along all three axes and unioned.** A ray whose crossing count comes out odd is skipped
+  rather than filled, so a genuine hole (one shipped run has a 44-edge one) silently costs the
+  columns through it; a sweep along another axis recovers them, and the union matches VTK's own
+  stencil to 0.001 cm³ on every piece. `open_edges` is reported per case for what remains.
+- **The contour scan walks AWAY from each sample**, outward until the fibula ends where it covers
+  the sample and inward until it begins where it does not. Nakao marches inward from a ring outside
+  the mandible, which finds the same crossing everywhere the geometry is not degenerate and, in a
+  concavity, locks onto the far side of the arch and reports it as a 15 mm protrusion.
+- **The crossing is read off the fibula's signed distance field, then debiased by half a voxel.**
+  A boolean lookup flips at the midplane between voxel centres, so it quantises to the step grid and
+  breaks ties whichever way `rint` rounds — a 2 mm gap read −1.75 mm on one side of a slab and
+  −2.00 on the other. And the scan starts at a surface voxel's *centre* while the surface it stands
+  for is half a voxel further out, so without `− spacing/2` two **identical** masks read 0.25 mm
+  apart and a 3.0 mm protrusion reads 3.25.
+- **`Ec` is meaningless without `contour_coverage_pct`.** It is averaged over the contour the fibula
+  actually reaches, and a fibula cannot reach the alveolar crest — coverage is ~50% on a correct
+  plan. Likewise `Rv` is ~25–30% on a correct single-barrel plan: read it against other plans, never
+  against 100.
+- **Storage file names in `scene.mrml` are URL-escaped**, and every model this procedure saves has
+  spaces in its name. Joining `fileName` verbatim gives a path that does not exist, and the only
+  symptom is a scene reporting no fibula pieces at all — which is how both real runs failed the
+  first time this ran. Roles come from the subject-hierarchy **folder**, never from the file name:
+  the transformed pieces are saved as `..._15.vtk` on one run and `..._4.vtk` on the next, that
+  suffix being the extension's own update counter.
+
+Slicer-free, so `scripts/check_mandible_analysis.py` runs the entire analysis — reader, voxeliser,
+contour scan, every metric — outside Slicer, and asserts statically that the module never deletes.
 
 `canonical_step_id` moved from `shoulder.py` into `run_timing.py` when this became the second phase
 split to need it — the run folder zero-pads step ids so they sort and the timing report does not, so

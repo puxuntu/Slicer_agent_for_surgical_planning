@@ -1,7 +1,11 @@
-# --- PedicleScrewPlanner: Manually click in the 2D views to add fiducial points. The total number of points added should be three times the value specified in '# to Instrument'. (Setup) ---
+# --- PedicleScrewPlanner: Manually adjust the rotation angle of the red slice. (Setup) ---
 import slicer
 
-# In-tool interaction: the active module tool/effect consumes the view
-# clicks itself; do NOT create a Markups node or enter placement mode.
-print("[PedicleScrewPlanner] Please Place fiducial landmarks by clicking in the 2D views; number of points equals three times the instrument count")
+# This step is a view adjustment, not a Markups placement: give the
+# views back to the mouse before the user starts adjusting.
+interactionNode = slicer.mrmlScene.GetNodeByID("vtkMRMLInteractionNodeSingleton")
+if interactionNode is not None:
+    interactionNode.SwitchToViewTransformMode()
+
+print("[PedicleScrewPlanner] Please Manually adjust the rotation angle of the red slice.")
 print("When finished, press the 'Done' button in the workflow panel.")

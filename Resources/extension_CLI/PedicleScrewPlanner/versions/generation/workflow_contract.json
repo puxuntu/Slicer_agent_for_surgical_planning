@@ -21,12 +21,12 @@
           "operation_id": "cb_step_1_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the input CT volume from the Spine CT section",
+          "description": "Select the CT volume for processing from the Spine CT section.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
-          "parameter_name": "choice_step_1",
+          "parameter_name": "ct_volume",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -72,7 +72,7 @@
           "operation_id": "cb_step_2_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Advance to the next step after loading the image volume",
+          "description": "Advance from the Load Image Volume page to the ROI definition workflow.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -123,7 +123,7 @@
           "operation_id": "cb_step_3_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Adjust the boundaries of the ROI in the 2D views",
+          "description": "Adjust the ROI boundaries to define the surgical region of interest.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -131,20 +131,20 @@
             "vtkMRMLMarkupsROINode",
             "handles",
             "Translate",
-            "Resize"
+            "resize"
           ],
           "parameter_name": "",
-          "node_class": "vtkMRMLMarkupsROINode",
-          "confidence": "high",
+          "node_class": "",
+          "confidence": "medium",
           "required": true
         }
       ],
       "parameter_roles": {},
       "interaction": {
         "interaction_kind": "view_adjustment",
-        "interaction_type": "roi",
-        "node_class": "vtkMRMLMarkupsROINode",
-        "placement_instructions": "",
+        "interaction_type": "generic",
+        "node_class": "",
+        "placement_instructions": "Manually adjust the boundaries of the ROI.",
         "interaction_owner": "",
         "placement_starter_method": "",
         "created_node_source": ""
@@ -176,7 +176,7 @@
     {
       "step_id": "cb_step_4",
       "index": 3,
-      "description": "Choose the \"1st Instrumented Level:\". Choose the \"# Sides:\". Choose the \"# to Instrument:\". Choose the \"Approach Direction:\".",
+      "description": "Choose the \"Instrumented Levels:\". Choose the \"# Sides:\". Choose the \"Approach Direction:\".",
       "operation_type": "user_choice",
       "depends_on": [
         "cb_step_3"
@@ -189,12 +189,12 @@
           "operation_id": "cb_step_4_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
+          "description": "Choose instrumented levels, number of sides, and approach direction.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
-          "parameter_name": "c_1st_instrumented_level",
+          "parameter_name": "instrumented_levels",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -203,7 +203,7 @@
           "operation_id": "cb_step_4_op_2",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
+          "description": "Choose instrumented levels, number of sides, and approach direction.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -217,21 +217,7 @@
           "operation_id": "cb_step_4_op_3",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
-          "extension_method_hint": "",
-          "extension_function_hint": "",
-          "slicer_op_category": "",
-          "slicer_api_keywords": [],
-          "parameter_name": "to_instrument",
-          "node_class": "",
-          "confidence": "high",
-          "required": true
-        },
-        {
-          "operation_id": "cb_step_4_op_4",
-          "operation_type": "user_choice",
-          "intent": "",
-          "description": "Define surgical parameters: instrumented level, number of sides, number to instrument, approach direction",
+          "description": "Choose instrumented levels, number of sides, and approach direction.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -282,7 +268,7 @@
           "operation_id": "cb_step_5_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Advance to the next step after defining surgical ROI",
+          "description": "Advance past the surgical ROI definition page to the next workflow page.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -320,8 +306,8 @@
     {
       "step_id": "cb_step_6",
       "index": 5,
-      "description": "Click the \"Place a control point\" button.",
-      "operation_type": "extension_op",
+      "description": "In the toolbar, turn on \"slice intersection visibility\". In the slice intersection interaction options, turn on \"set interaction\", then enable both \"Translate\" and \"Rotate\".",
+      "operation_type": "slicer_op",
       "depends_on": [
         "cb_step_5"
       ],
@@ -331,9 +317,135 @@
       "operations": [
         {
           "operation_id": "cb_step_6_op_1",
+          "operation_type": "slicer_op",
+          "intent": "",
+          "description": "Enable slice intersection visibility and enable set interaction with Translate and Rotate.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "crosshair",
+          "slicer_api_keywords": [
+            "vtkMRMLCrosshairNode",
+            "slice intersection",
+            "SetInteractiveMode",
+            "Translate",
+            "Rotate"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLCrosshairNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [
+          "slice_intersection_interaction",
+          "slice_intersection_visibility"
+        ],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_6_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_7",
+      "index": 6,
+      "description": "Manually adjust the rotation angle of the red slice.",
+      "operation_type": "user_interaction",
+      "depends_on": [
+        "cb_step_6"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_7_op_1",
+          "operation_type": "user_interaction",
+          "intent": "",
+          "description": "Rotate the red slice to the desired orientation.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [
+            "slice intersection",
+            "red slice",
+            "rotate",
+            "view"
+          ],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {
+        "interaction_kind": "view_adjustment",
+        "interaction_type": "generic",
+        "node_class": "",
+        "placement_instructions": "Manually adjust the rotation angle of the red slice.",
+        "interaction_owner": "",
+        "placement_starter_method": "",
+        "created_node_source": ""
+      },
+      "operation_model": {
+        "step_type": "user_interaction",
+        "op_types": [
+          "user_interaction"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": true,
+        "interaction_kinds": [
+          "view_adjustment"
+        ]
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "templates/cb_step_7_pre.py.tpl",
+        "post_template_file": "templates/cb_step_7_post.py.tpl",
+        "required": true,
+        "allow_instruction_only": true
+      }
+    },
+    {
+      "step_id": "cb_step_8",
+      "index": 7,
+      "description": "Click the \"Place a control point\" button to activate the point placement.",
+      "operation_type": "extension_op",
+      "depends_on": [
+        "cb_step_7"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_8_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Activate landmark placement mode by clicking 'Place a control point'",
+          "description": "Activate the control point placement mode.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -361,7 +473,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_6.py.tpl",
+        "template_file": "templates/cb_step_8.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -369,22 +481,22 @@
       }
     },
     {
-      "step_id": "cb_step_7",
-      "index": 6,
-      "description": "Manually click in the 2D views to add fiducial points. The total number of points added should be three times the value specified in '# to Instrument'.",
+      "step_id": "cb_step_9",
+      "index": 8,
+      "description": "Manually click in the 2D views to add fiducial points for one part of the spine.",
       "operation_type": "user_interaction",
       "depends_on": [
-        "cb_step_6"
+        "cb_step_8"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_7_op_1",
+          "operation_id": "cb_step_9_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Place fiducial landmarks by clicking in the 2D views; number of points equals three times the instrument count",
+          "description": "Place fiducial points in the 2D views for one spine part.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -392,7 +504,7 @@
             "vtkMRMLMarkupsFiducialNode",
             "place",
             "SetActiveListID",
-            "AddControlPoint"
+            "add control point"
           ],
           "parameter_name": "",
           "node_class": "vtkMRMLMarkupsFiducialNode",
@@ -405,7 +517,7 @@
         "interaction_kind": "module_tool_interaction",
         "interaction_type": "fiducial",
         "node_class": "vtkMRMLMarkupsFiducialNode",
-        "placement_instructions": "Place fiducial landmarks by clicking in the 2D views; number of points equals three times the instrument count",
+        "placement_instructions": "Manually click in the 2D views to add fiducial points for one part of the spine.",
         "interaction_owner": "",
         "placement_starter_method": "",
         "created_node_source": ""
@@ -428,18 +540,70 @@
       },
       "template_contract": {
         "template_file": "",
-        "pre_template_file": "templates/cb_step_7_pre.py.tpl",
-        "post_template_file": "templates/cb_step_7_post.py.tpl",
+        "pre_template_file": "templates/cb_step_9_pre.py.tpl",
+        "post_template_file": "templates/cb_step_9_post.py.tpl",
         "required": true,
         "allow_instruction_only": true
       }
     },
     {
-      "step_id": "cb_step_8",
-      "index": 7,
-      "description": "Set the Level/Side/Landmarks following the original selection widget.",
-      "operation_type": "user_choice",
+      "step_id": "cb_step_10",
+      "index": 9,
+      "description": "Click the \"Place a control point\" button to inactivate the point placement.",
+      "operation_type": "extension_op",
       "depends_on": [
+        "cb_step_9"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_10_op_1",
+          "operation_type": "extension_op",
+          "intent": "",
+          "description": "Deactivate the control point placement mode.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "extension_op",
+        "op_types": [
+          "extension_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_10.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_11",
+      "index": 10,
+      "description": "If all points are configured for all parts, jump to step 12. If not, jump to step 7.",
+      "operation_type": "branch_op",
+      "depends_on": [
+        "cb_step_10",
         "cb_step_7"
       ],
       "is_optional": false,
@@ -447,15 +611,124 @@
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_8_op_1",
-          "operation_type": "user_choice",
+          "operation_id": "cb_step_11_op_1",
+          "operation_type": "branch_op",
           "intent": "",
-          "description": "Select level, side, and landmarks for the current instrumented level",
+          "description": "Decide whether all spine parts have configured fiducial points; if not, repeat from step 7.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [],
-          "parameter_name": "choice_step_8",
+          "parameter_name": "all_points_configured",
+          "node_class": "",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "branch_op",
+        "op_types": [
+          "branch_op"
+        ],
+        "operation_intents": [],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": false,
+        "implementation_uses_slicer_api": false,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_12",
+      "index": 11,
+      "description": "In the slice intersection interaction options of the toolbar, turn off \"set interaction\".",
+      "operation_type": "slicer_op",
+      "depends_on": [
+        "cb_step_11"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_12_op_1",
+          "operation_type": "slicer_op",
+          "intent": "slice_intersection_interaction",
+          "description": "Disable the set interaction option for slice intersections.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "crosshair",
+          "slicer_api_keywords": [
+            "vtkMRMLCrosshairNode",
+            "slice intersection",
+            "SetInteractiveMode",
+            "disable"
+          ],
+          "parameter_name": "",
+          "node_class": "vtkMRMLCrosshairNode",
+          "confidence": "high",
+          "required": true
+        }
+      ],
+      "parameter_roles": {},
+      "interaction": {},
+      "operation_model": {
+        "step_type": "slicer_op",
+        "op_types": [
+          "slicer_op"
+        ],
+        "operation_intents": [
+          "slice_intersection_interaction"
+        ],
+        "invokes_extension_method": false,
+        "invokes_extension_function": false,
+        "invokes_slicer_api": true,
+        "implementation_uses_slicer_api": true,
+        "allow_module_switch": false,
+        "produces_interaction_state": false,
+        "interaction_kinds": []
+      },
+      "template_contract": {
+        "template_file": "templates/cb_step_12_slicer.py.tpl",
+        "pre_template_file": "",
+        "post_template_file": "",
+        "required": true,
+        "allow_instruction_only": false
+      }
+    },
+    {
+      "step_id": "cb_step_13",
+      "index": 12,
+      "description": "Set the Level/Side/Landmarks following the original selection widget.",
+      "operation_type": "user_choice",
+      "depends_on": [
+        "cb_step_12"
+      ],
+      "is_optional": false,
+      "method_name": "",
+      "extension_function_name": "",
+      "operations": [
+        {
+          "operation_id": "cb_step_13_op_1",
+          "operation_type": "user_choice",
+          "intent": "",
+          "description": "Set the level, side, and landmarks according to the original selection widget.",
+          "extension_method_hint": "",
+          "extension_function_hint": "",
+          "slicer_op_category": "",
+          "slicer_api_keywords": [],
+          "parameter_name": "choice_step_13",
           "node_class": "",
           "confidence": "high",
           "required": true
@@ -486,22 +759,22 @@
       }
     },
     {
-      "step_id": "cb_step_9",
-      "index": 8,
+      "step_id": "cb_step_14",
+      "index": 13,
       "description": "Click the \"Next\" button in the \"3. Place the Landmarks\" page.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_8"
+        "cb_step_13"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_9_op_1",
+          "operation_id": "cb_step_14_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Advance to the next step after placing landmarks",
+          "description": "Advance past the Place the Landmarks page to the next workflow page.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -529,7 +802,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_9.py.tpl",
+        "template_file": "templates/cb_step_14.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -537,22 +810,22 @@
       }
     },
     {
-      "step_id": "cb_step_10",
-      "index": 9,
+      "step_id": "cb_step_15",
+      "index": 14,
       "description": "Choose the \"Choose the puncture site\". Choose the \"Select screw diametermm\".",
       "operation_type": "user_choice",
       "depends_on": [
-        "cb_step_9"
+        "cb_step_14"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_10_op_1",
+          "operation_id": "cb_step_15_op_1",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the puncture site and screw diameter",
+          "description": "Choose the puncture site and screw diameter.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -563,10 +836,10 @@
           "required": true
         },
         {
-          "operation_id": "cb_step_10_op_2",
+          "operation_id": "cb_step_15_op_2",
           "operation_type": "user_choice",
           "intent": "",
-          "description": "Select the puncture site and screw diameter",
+          "description": "Choose the puncture site and screw diameter.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -602,43 +875,43 @@
       }
     },
     {
-      "step_id": "cb_step_11",
-      "index": 10,
+      "step_id": "cb_step_16",
+      "index": 15,
       "description": "Manually adjust the start and end position of puncture site in 2D views.",
       "operation_type": "user_interaction",
       "depends_on": [
-        "cb_step_10"
+        "cb_step_15"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_11_op_1",
+          "operation_id": "cb_step_16_op_1",
           "operation_type": "user_interaction",
           "intent": "",
-          "description": "Adjust the start and end positions of the puncture site in the 2D views",
+          "description": "Adjust the start and end positions of the puncture site in the 2D views.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
           "slicer_api_keywords": [
             "vtkMRMLMarkupsLineNode",
-            "handles",
+            "start/end points",
             "Translate",
-            "start end"
+            "adjust"
           ],
           "parameter_name": "",
-          "node_class": "vtkMRMLMarkupsLineNode",
-          "confidence": "high",
+          "node_class": "",
+          "confidence": "medium",
           "required": true
         }
       ],
       "parameter_roles": {},
       "interaction": {
         "interaction_kind": "view_adjustment",
-        "interaction_type": "line",
-        "node_class": "vtkMRMLMarkupsLineNode",
-        "placement_instructions": "",
+        "interaction_type": "generic",
+        "node_class": "",
+        "placement_instructions": "Manually adjust the start and end position of the puncture site in the 2D views.",
         "interaction_owner": "",
         "placement_starter_method": "",
         "created_node_source": ""
@@ -661,29 +934,29 @@
       },
       "template_contract": {
         "template_file": "",
-        "pre_template_file": "templates/cb_step_11_pre.py.tpl",
-        "post_template_file": "templates/cb_step_11_post.py.tpl",
+        "pre_template_file": "templates/cb_step_16_pre.py.tpl",
+        "post_template_file": "templates/cb_step_16_post.py.tpl",
         "required": true,
         "allow_instruction_only": true
       }
     },
     {
-      "step_id": "cb_step_12",
-      "index": 11,
+      "step_id": "cb_step_17",
+      "index": 16,
       "description": "Click the \"Update\" button.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_11"
+        "cb_step_16"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_12_op_1",
+          "operation_id": "cb_step_17_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Update the screw plan after adjusting the puncture site",
+          "description": "Apply the updated puncture site settings with the Update button.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -711,7 +984,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_12.py.tpl",
+        "template_file": "templates/cb_step_17.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -719,22 +992,22 @@
       }
     },
     {
-      "step_id": "cb_step_13",
-      "index": 12,
+      "step_id": "cb_step_18",
+      "index": 17,
       "description": "Click the \"OK\" button.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_12"
+        "cb_step_17"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_13_op_1",
+          "operation_id": "cb_step_18_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Confirm the screw adjustment by clicking OK",
+          "description": "Confirm and close the screw adjustment dialog with OK.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -762,7 +1035,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_13.py.tpl",
+        "template_file": "templates/cb_step_18.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -770,23 +1043,23 @@
       }
     },
     {
-      "step_id": "cb_step_14",
-      "index": 13,
-      "description": "If every puncture site is configured, jump to step 15. If not, jump to step 10.",
+      "step_id": "cb_step_19",
+      "index": 18,
+      "description": "If every puncture site is configured, jump to step 20. If not, jump to step 15.",
       "operation_type": "branch_op",
       "depends_on": [
-        "cb_step_13",
-        "cb_step_10"
+        "cb_step_18",
+        "cb_step_15"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_14_op_1",
+          "operation_id": "cb_step_19_op_1",
           "operation_type": "branch_op",
           "intent": "",
-          "description": "Check if all puncture sites are configured and jump accordingly",
+          "description": "Decide whether every puncture site is configured; if not, repeat from step 15.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -822,22 +1095,22 @@
       }
     },
     {
-      "step_id": "cb_step_15",
-      "index": 14,
+      "step_id": "cb_step_20",
+      "index": 19,
       "description": "Click the \"Next\" button in the \"4. Adjust Screws\" page.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_14"
+        "cb_step_19"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_15_op_1",
+          "operation_id": "cb_step_20_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Advance to the next step after adjusting screws",
+          "description": "Advance past the Adjust Screws page to the next workflow page.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -865,7 +1138,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_15.py.tpl",
+        "template_file": "templates/cb_step_20.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -873,22 +1146,22 @@
       }
     },
     {
-      "step_id": "cb_step_16",
-      "index": 15,
+      "step_id": "cb_step_21",
+      "index": 20,
       "description": "Click the \"Grade Screws\" button.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_15"
+        "cb_step_20"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_16_op_1",
+          "operation_id": "cb_step_21_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Trigger screw grading",
+          "description": "Run screw grading with the Grade Screws button.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -916,7 +1189,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_16.py.tpl",
+        "template_file": "templates/cb_step_21.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -924,22 +1197,22 @@
       }
     },
     {
-      "step_id": "cb_step_17",
-      "index": 16,
+      "step_id": "cb_step_22",
+      "index": 21,
       "description": "Review the generated Grade Screws output Table following the original results table.",
       "operation_type": "review_op",
       "depends_on": [
-        "cb_step_16"
+        "cb_step_21"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_17_op_1",
+          "operation_id": "cb_step_22_op_1",
           "operation_type": "review_op",
           "intent": "",
-          "description": "Review the generated screw grading results table",
+          "description": "Review the generated Grade Screws output table.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -975,22 +1248,22 @@
       }
     },
     {
-      "step_id": "cb_step_18",
-      "index": 17,
+      "step_id": "cb_step_23",
+      "index": 22,
       "description": "Click the \"Next\" button in the \"Grading Step\" page.",
       "operation_type": "extension_op",
       "depends_on": [
-        "cb_step_17"
+        "cb_step_22"
       ],
       "is_optional": false,
       "method_name": "",
       "extension_function_name": "",
       "operations": [
         {
-          "operation_id": "cb_step_18_op_1",
+          "operation_id": "cb_step_23_op_1",
           "operation_type": "extension_op",
           "intent": "",
-          "description": "Advance to the next step after grading",
+          "description": "Advance past the Grading Step page to finish the workflow.",
           "extension_method_hint": "",
           "extension_function_hint": "",
           "slicer_op_category": "",
@@ -1018,7 +1291,7 @@
         "interaction_kinds": []
       },
       "template_contract": {
-        "template_file": "templates/cb_step_18.py.tpl",
+        "template_file": "templates/cb_step_23.py.tpl",
         "pre_template_file": "",
         "post_template_file": "",
         "required": true,
@@ -1041,7 +1314,12 @@
       "cb_step_16",
       "cb_step_17",
       "cb_step_18",
+      "cb_step_19",
       "cb_step_2",
+      "cb_step_20",
+      "cb_step_21",
+      "cb_step_22",
+      "cb_step_23",
       "cb_step_3",
       "cb_step_4",
       "cb_step_5",

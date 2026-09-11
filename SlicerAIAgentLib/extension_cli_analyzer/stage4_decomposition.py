@@ -2260,6 +2260,25 @@ class AnalyzerStage4DecompositionMixin:
                 "place_attr": place_attr,
             }
 
+    @staticmethod
+    def _wizard_place_enables(sub_op: Dict[str, Any],
+                              stage: Dict[str, Any]) -> bool:
+        """Whether a wizard place-button step ARMS placement or ends it.
+
+        The same button does both -- the cookbook clicks it once to activate and
+        again to inactivate -- so "this step touches the place widget" is not the
+        same question as "placement is on after it". Read from the recorded
+        target_value, falling back to the step text, which is the two-layer rule
+        every other toggle in this pipeline uses.
+        """
+        state = sub_op.get("target_value")
+        if state is None:
+            cb_step = (stage or {}).get("cookbook_step")
+            text = (_text_or_empty(sub_op.get("description"))
+                    or _text_or_empty(getattr(cb_step, "description", "")))
+            state = _infer_final_state_intent(text).get("state")
+        return state is not False
+
     def _reconcile_wizard_placement(self, sub_op: Dict[str, Any], stages: List[Dict[str, Any]]) -> None:
         """Reclassify a markup-placement step that follows a wizard place-button
         activation as an in-tool interaction (module_tool_interaction).
@@ -2291,6 +2310,12 @@ class AnalyzerStage4DecompositionMixin:
             if prev_sub.get("wizard_nav"):
                 return  # crossed a page boundary before finding a place button
             if prev_sub.get("wizard_place_button"):
+                if self._wizard_place_enables(prev_sub, prev) is False:
+                    # That step TURNED PLACEMENT OFF ("click it again to
+                    # inactivate"). Nothing is armed, so deferring to the
+                    # extension's widget would leave this step with no way to
+                    # place anything at all -- it keeps its own markup contract.
+                    return
                 sub_op["interaction_kind"] = "module_tool_interaction"
                 sub_op["creates_node"] = False
                 sub_op["requires_place_mode"] = False
@@ -2411,6 +2436,47 @@ class AnalyzerStage4DecompositionMixin:
         t = re.sub(r"\s+", " ", str(text or "")).strip().strip(":").strip()
         return t.casefold()
 
+    @staticmethod
+    def _combo_default_option(combo: Dict[str, Any],
+                              options: List[str]) -> Optional[str]:
+        """The option a scanned combo already shows, or None if it shows a prompt.
+
+        The extension answers its own question before the surgeon arrives: the ROI
+        page's "# Sides" opens on "L&R" and its "Approach Direction" on "Posterior",
+        and ``doStepProcessing`` writes ``currentText`` on exit whether or not either
+        was touched. A reproduced panel that opens on "-- Select --" therefore asks
+        for a decision the original never asked for -- so the default is carried into
+        the artifact and the panel starts where the extension starts.
+
+        None is the answer whenever the source control does NOT start on a real
+        option, and that is the case worth being careful about:
+
+        - the first item is a PROMPT ("Choose the puncture site"), which the caller
+          has already dropped from ``options`` -- so the membership test below is
+          what separates the two shapes, without needing a second placeholder rule;
+        - the control is CHECKABLE, which starts with nothing ticked;
+        - the items are computed at runtime (``options`` empty -> ``live_items``).
+
+        There the panel must keep its own placeholder: an unanswered selector is the
+        state the extension is in, and pre-selecting an arbitrary first option would
+        commit a value nobody chose.
+        """
+        if not options or combo.get("multi_select"):
+            return None
+        items = [str(i) for i in (combo.get("items") or [])]
+        if not items:
+            return None
+        text = combo.get("default_text")
+        if not text:
+            index = combo.get("default_index")
+            if not isinstance(index, int) or not (0 <= index < len(items)):
+                # Qt selects item 0 as soon as a combo is populated, so an absent
+                # (or unreadable) explicit call is not an absent default.
+                index = 0
+            text = items[index]
+        text = str(text)
+        return text if text in options else None
+
     def _reconcile_multi_choice(self, sub_ops: List[Dict[str, Any]], cb_desc: str) -> List[Dict[str, Any]]:
         """Align a user_choice step's items with the wizard page combos the cookbook
         quotes -- deterministically, from the scanned widget inventory.
@@ -2425,8 +2491,12 @@ class AnalyzerStage4DecompositionMixin:
         (placeholder row dropped), and the combo recorded as ``wizard_combo`` so
         the runtime can drive the live widget. A combo whose items are only its
         placeholder is dynamic -> ``live_items`` (the runtime enumerates the live
-        widget). Fires only when >=2 combos match; otherwise the sub-ops pass
-        through untouched, so classic extensions and single-choice steps are
+        widget); a CHECKABLE combo is one selector taking SEVERAL answers, so it is
+        marked ``multi_select`` and the runtime renders a tick list rather than a
+        one-of-N dropdown. Fires when >=2 combos match, or when the step's single
+        quoted label matches a multi-select control (which a one-of-N dropdown would
+        silently reduce to one answer); otherwise the sub-ops pass through
+        untouched, so classic extensions and ordinary single-choice steps are
         byte-identical.
         """
         wizard = getattr(self, "_wizard", {}) or {}
@@ -2434,7 +2504,7 @@ class AnalyzerStage4DecompositionMixin:
         if not wizard.get("present") or not pages:
             return sub_ops
         quotes = re.findall(r'["“]([^"”]+)["”]', str(cb_desc or ""))
-        if len(quotes) < 2:
+        if not quotes:
             return sub_ops
         matched = []
         seen_attrs = set()
@@ -2461,7 +2531,27 @@ class AnalyzerStage4DecompositionMixin:
                     break
             if hit:
                 matched.append((quote, hit[0], hit[1]))
-        if len(matched) < 2:
+        # A lone match is normally not enough evidence to rebuild the step -- the
+        # sub-op the LLM emitted may be about something else entirely. A lone
+        # MULTI-SELECT match is, because there the alternative is not "a different
+        # control" but "the same control reproduced as a one-of-N dropdown", which
+        # silently discards every answer after the first.
+        #
+        # But only when it is the step's ONLY quote. One match against several
+        # quotes means the scan did not find the other controls, and rebuilding on
+        # that would ship a form that answers one of the step's questions and never
+        # asks the rest -- a step that looks right and is quietly incomplete, which
+        # is worse than the free-text box the pass-through leaves. The gap is
+        # logged instead, because it is a scan gap and belongs where it can be fixed.
+        lone_multi = (len(matched) == 1 and matched[0][2].get("multi_select"))
+        if len(matched) < 2 and not (lone_multi and len(quotes) == 1):
+            if lone_multi:
+                logger.warning(
+                    "[stage4] step text quotes %d labels but only the multi-select "
+                    "control %r was found on the wizard pages -- leaving the step "
+                    "as decomposed rather than rebuilding it around one selector.",
+                    len(quotes), matched[0][2].get("attr"),
+                )
             return sub_ops
         base = dict(sub_ops[0])
         rebuilt = []
@@ -2481,7 +2571,7 @@ class AnalyzerStage4DecompositionMixin:
                 "question": label.rstrip(":"),
                 "choices": [{"label": o, "value": o} for o in options],
                 "parameter_name": self._choice_param_slug(label),
-                "default_value": None,
+                "default_value": self._combo_default_option(combo, options),
                 "value_kind": "",
                 "widget_name": combo.get("attr"),
                 "widget_class": combo.get("widget_class", ""),
@@ -2491,6 +2581,12 @@ class AnalyzerStage4DecompositionMixin:
                     "label": label,
                 },
             })
+            if combo.get("multi_select"):
+                # A checkable combo takes SEVERAL of its options at once. The
+                # runtime renders a tick list and commits a LIST of values; the
+                # extension is driven by ticking those same rows.
+                so["multi_select"] = True
+                so["value_kind"] = "multi_select"
             if not options:
                 # Placeholder-only: the real items are computed at runtime -- the
                 # panel enumerates them from the LIVE widget.

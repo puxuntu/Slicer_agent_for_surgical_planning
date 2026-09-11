@@ -1,31 +1,26 @@
-"""
-Enable slice intersection visibility and interaction (Translate and Rotate)
-"""
+# Show slice intersections in the views and enable interactive translation/rotation.
+# This mirrors the "Slice intersections" toolbar/context-menu toggle and the
+# Interaction > Translate / Rotate options, which are implemented through
+# vtkMRMLApplicationLogic::SetIntersectingSlicesEnabled(operation, enabled).
+# (Base/QTGUI/qSlicerViewersToolBar.cxx, qSlicerSubjectHierarchyViewContextMenuPlugin.cxx)
 
 appLogic = slicer.app.applicationLogic()
+if not appLogic:
+    raise RuntimeError("STATE_NOT_APPLIED: applicationLogic unavailable")
 
-# Enable slice intersection visibility (show intersection lines in slice views)
-appLogic.SetIntersectingSlicesEnabled(
-    slicer.vtkMRMLApplicationLogic.IntersectingSlicesVisibility, True)
+appLogicClass = slicer.vtkMRMLApplicationLogic
+operations = {
+    "IntersectingSlicesVisibility": appLogicClass.IntersectingSlicesVisibility,
+    "IntersectingSlicesInteractive": appLogicClass.IntersectingSlicesInteractive,
+    "IntersectingSlicesTranslation": appLogicClass.IntersectingSlicesTranslation,
+    "IntersectingSlicesRotation": appLogicClass.IntersectingSlicesRotation,
+}
 
-# Enable slice intersection interaction (show handles)
-appLogic.SetIntersectingSlicesEnabled(
-    slicer.vtkMRMLApplicationLogic.IntersectingSlicesInteractive, True)
+# Show slice intersections and enable interaction with translation + rotation.
+for name, operation in operations.items():
+    appLogic.SetIntersectingSlicesEnabled(operation, True)
 
-# Enable translation interaction handles
-appLogic.SetIntersectingSlicesEnabled(
-    slicer.vtkMRMLApplicationLogic.IntersectingSlicesTranslation, True)
-
-# Enable rotation interaction handles
-appLogic.SetIntersectingSlicesEnabled(
-    slicer.vtkMRMLApplicationLogic.IntersectingSlicesRotation, True)
-
-# Read back and verify all states were applied
-if not appLogic.GetIntersectingSlicesEnabled(slicer.vtkMRMLApplicationLogic.IntersectingSlicesVisibility):
-    raise RuntimeError("STATE_NOT_APPLIED: IntersectingSlicesVisibility")
-if not appLogic.GetIntersectingSlicesEnabled(slicer.vtkMRMLApplicationLogic.IntersectingSlicesInteractive):
-    raise RuntimeError("STATE_NOT_APPLIED: IntersectingSlicesInteractive")
-if not appLogic.GetIntersectingSlicesEnabled(slicer.vtkMRMLApplicationLogic.IntersectingSlicesTranslation):
-    raise RuntimeError("STATE_NOT_APPLIED: IntersectingSlicesTranslation")
-if not appLogic.GetIntersectingSlicesEnabled(slicer.vtkMRMLApplicationLogic.IntersectingSlicesRotation):
-    raise RuntimeError("STATE_NOT_APPLIED: IntersectingSlicesRotation")
+# Verify the state took effect.
+for name, operation in operations.items():
+    if not appLogic.GetIntersectingSlicesEnabled(operation):
+        raise RuntimeError("STATE_NOT_APPLIED: %s" % name)

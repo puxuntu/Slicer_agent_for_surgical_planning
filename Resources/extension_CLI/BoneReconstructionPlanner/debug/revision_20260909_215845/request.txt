@@ -1,0 +1,1 @@
+do not show the decimatedMandible model in this step

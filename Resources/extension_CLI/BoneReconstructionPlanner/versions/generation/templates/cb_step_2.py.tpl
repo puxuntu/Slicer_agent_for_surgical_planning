@@ -28,7 +28,7 @@ if mandibular_segmentation_node_name:
         pass
 if mandibular_segmentation_node is None:
     _nodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode')
-    _keywords = ['mandibularsegmentation', 'mandibular']
+    _keywords = ['mandibularsegmentation', 'mandibular', 'that', 'contains', 'mandible']
     for _i in range(_nodes.GetNumberOfItems()):
         _candidate = _nodes.GetItemAsObject(_i)
         _name = (_candidate.GetName() or '').lower()

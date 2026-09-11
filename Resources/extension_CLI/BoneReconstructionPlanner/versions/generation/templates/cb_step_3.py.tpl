@@ -28,7 +28,7 @@ if fibula_segmentation_node_name:
         pass
 if fibula_segmentation_node is None:
     _nodes = slicer.mrmlScene.GetNodesByClass('vtkMRMLSegmentationNode')
-    _keywords = ['fibulasegmentation', 'fibula']
+    _keywords = ['fibulasegmentation', 'fibula', 'that', 'contains']
     for _i in range(_nodes.GetNumberOfItems()):
         _candidate = _nodes.GetItemAsObject(_i)
         _name = (_candidate.GetName() or '').lower()

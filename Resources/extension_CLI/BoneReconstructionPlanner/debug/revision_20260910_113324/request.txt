@@ -1,0 +1,1 @@
+in this step, set the layout as "Conventional", not "Four up"

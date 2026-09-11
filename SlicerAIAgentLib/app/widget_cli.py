@@ -803,7 +803,15 @@ class WidgetCLIMixin:
             item = form.takeAt(0)
             widget = item.widget() if item else None
             if widget is not None:
-                widget.setParent(None)
+                # hide() and NOT setParent(None): a parented QWidget is owned by
+                # C++, while setParent(None) hands ownership to the PythonQt
+                # wrapper -- which is dropped on the next iteration and deletes
+                # the C++ object, after which the queued DeferredDelete fires on
+                # a freed pointer and takes Slicer down with no traceback. The
+                # hide is what setParent was really buying: DeferredDelete runs
+                # on the next event-loop turn, and until then the row would still
+                # paint under the one replacing it.
+                widget.hide()
                 widget.deleteLater()
         self._stepInstrButtonFields = {}
         spec = self._editorStepButtonSpec(self._workflowStepById(step_id))

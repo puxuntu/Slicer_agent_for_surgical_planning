@@ -711,6 +711,12 @@ class AnalyzerValidationContractsMixin:
         effect_contract = self._validate_parameter_effect_application(code)
         result["errors"].extend(effect_contract.get("errors", []))
         result["warnings"].extend(effect_contract.get("warnings", []))
+        # ...and a boolean parameter must carry the extension's own ON/OFF
+        # spelling: the read is an exact string comparison, so a near miss is a
+        # write that succeeds and does nothing.
+        spelling_contract = self._validate_parameter_state_spelling(code)
+        result["errors"].extend(spelling_contract.get("errors", []))
+        result["warnings"].extend(spelling_contract.get("warnings", []))
         # A parameter this step's method takes from an EARLIER user_choice is bound
         # by the runtime, not by the generator: `_build_format_kwargs` merges the
         # recorded answers into the fill kwargs, so `{side}` resolves before
@@ -731,6 +737,13 @@ class AnalyzerValidationContractsMixin:
                 "Required template contains unresolved placeholders: "
                 + ", ".join(unresolved_placeholders)
             )
+        # ...and the placeholder that is never unresolved because it is never
+        # resolved at all: one written inside a string literal, which the filler
+        # masks. It carries a default, so the rule above passes it; it fills to
+        # nothing, so the step runs with the braces as its value.
+        reachability = self._validate_placeholder_reachability(raw_code)
+        result["errors"].extend(reachability.get("errors", []))
+        result["warnings"].extend(reachability.get("warnings", []))
         # ...and the converse. A template that calls the method WITHOUT its bound
         # parameter has sourced that argument somewhere else — in practice off the
         # logic object, where the attribute of that name is the method's own output

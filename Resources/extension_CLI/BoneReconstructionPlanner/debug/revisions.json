@@ -1,0 +1,27 @@
+[
+  {
+    "label": "revision_20260909_215845",
+    "time": "2026-09-09T21:58:45",
+    "step_id": "cb_step_31",
+    "request": "do not show the decimatedMandible model in this step",
+    "summary": "Hide the decimatedMandible model display while this step is active and restore its previous visibility afterwards.",
+    "applied": [
+      "templates/cb_step_31_post.py.tpl",
+      "templates/cb_step_31_pre.py.tpl"
+    ],
+    "backup": "versions/revision_20260909_215845",
+    "rounds": 1
+  },
+  {
+    "label": "revision_20260910_113324",
+    "time": "2026-09-10T11:33:24",
+    "step_id": "cb_step_10",
+    "request": "in this step, set the layout as \"Conventional\", not \"Four up\"",
+    "summary": "Switch the application to the Conventional layout when this view-adjustment step opens, instead of leaving the Four up layout.",
+    "applied": [
+      "templates/cb_step_10_pre.py.tpl"
+    ],
+    "backup": "versions/revision_20260910_113324",
+    "rounds": 1
+  }
+]

@@ -436,6 +436,24 @@ def unfillable_placeholders(text: str) -> list:
     return _survivors(text)[1]
 
 
+def inert_placeholders(text: str) -> list:
+    """Placeholders sitting inside a PLAIN string literal, which never fill.
+
+    Empty for a healthy template. Non-empty means the template ships text that
+    looks like a parameter and is not one: the loader masks string literals, so
+    ``"{curve_name: CuttingCurve}"`` is left exactly as written and the step
+    names its node ``{curve_name: CuttingCurve}``. Nothing raises -- the code is
+    valid Python and the string is a perfectly good string -- so the failure
+    lands wherever something later looks for the name that was meant.
+
+    Distinguished from an f-string interpolation by asking Python for the token's
+    own prefix, never by a regex: ``f"role '{role}'"`` is how every generated
+    template reports an error, and flagging that would refuse the common case to
+    catch the rare one.
+    """
+    return _survivors(text)[2]
+
+
 def surviving_placeholder_names(text: str) -> set:
     """Every ``{name}`` the loader leaves untouched — interpolations included.
 
@@ -447,17 +465,22 @@ def surviving_placeholder_names(text: str) -> set:
 
 
 def _survivors(text):
-    """``(all survivors, trapped survivors)`` for one template.
+    """``(all survivors, trapped, inert)`` for one template.
 
     A *survivor* is a ``{name}`` still present after the loader filled the
-    template. It is *trapped* when it is a survivor that Python does not consider
-    part of a string literal — i.e. the mask swallowed it by accident rather than
-    because it is an f-string interpolation.
+    template, split three ways by where it sits:
+
+    * **trapped** -- outside any string literal, so the filler's mask swallowed
+      it by accident (typically an unbalanced apostrophe in a prose comment);
+    * **inert** -- inside a PLAIN string literal, so it will never be filled and
+      the braces reach the executor as part of the string's value;
+    * neither -- inside an f-string, where the braces are Python's own
+      interpolation and the filler is right to leave them alone.
     """
     text = text or ""
     names = placeholder_names(text)
     if not names:
-        return set(), []
+        return set(), [], []
 
     scan_text, mask_spans = text, None
     try:
@@ -474,7 +497,7 @@ def _survivors(text):
                       for match in _FILLER_STRING_MASK_RE.finditer(text)]
 
     strings = _real_string_spans(scan_text)
-    all_survivors, trapped = set(), set()
+    all_survivors, trapped, inert = set(), set(), set()
     for match in _PLACEHOLDER_RE.finditer(scan_text):
         name = match.group(1)
         if name not in names:
@@ -484,10 +507,19 @@ def _survivors(text):
                 s <= start < e for s, e in mask_spans):
             continue
         all_survivors.add(name)
-        if strings is not None and any(s <= start < e for s, e in strings):
-            continue  # an f-string interpolation: Python's, not the filler's
+        if strings is not None:
+            enclosing = [span for span in strings if span[0] <= start < span[1]]
+            if enclosing:
+                # Inside a string literal. If that literal is an f-string the
+                # braces are Python's own interpolation and the filler is right
+                # to leave them; if it is a PLAIN string they are a placeholder
+                # that will never be substituted, and the step runs with the
+                # brace text as its value.
+                if not any(span[2] for span in enclosing):
+                    inert.add(name)
+                continue
         trapped.add(name)
-    return all_survivors, sorted(trapped)
+    return all_survivors, sorted(trapped), sorted(inert)
 
 
 def _real_string_spans(text):
@@ -523,16 +555,33 @@ def _real_string_spans(text):
     try:
         for token in tokenize.generate_tokens(io.StringIO(text).readline):
             if token.type == tokenize.STRING:
-                spans.append((offset(token.start), offset(token.end)))
+                spans.append((offset(token.start), offset(token.end),
+                              _is_fstring_token(token.string)))
             elif fstring_start is not None and token.type == fstring_start:
                 open_fstring = offset(token.start)
             elif (fstring_end is not None and token.type == fstring_end
                   and open_fstring is not None):
-                spans.append((open_fstring, offset(token.end)))
+                spans.append((open_fstring, offset(token.end), True))
                 open_fstring = None
     except Exception:
         return None
     return spans
+
+
+def _is_fstring_token(token_text):
+    """Whether a STRING token's own text carries an ``f`` prefix.
+
+    The difference decides whether ``{name}`` inside it is Python's business or
+    ours. ``f"role '{role}'"`` interpolates a local at runtime and is correct;
+    ``"{curve_name: CuttingCurve}"`` is a placeholder the filler will never
+    substitute, so the string reaches the executor with the braces still in it.
+    """
+    prefix = ""
+    for character in token_text or "":
+        if character in "\'\"":
+            break
+        prefix += character
+    return "f" in prefix.lower()
 
 
 def validate_revision(original_text: str, new_text: str,

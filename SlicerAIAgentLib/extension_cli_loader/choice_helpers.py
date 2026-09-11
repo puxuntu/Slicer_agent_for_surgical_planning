@@ -353,13 +353,98 @@ def _norm_anchor_text(text) -> str:
     return str(text or "").strip().rstrip(":").strip().lower()
 
 
+#: Qt classes of a control answered with SEVERAL of its options at once (a tick
+#: per answer). Mirrors ``WorkflowRuntime._MULTI_SELECT_WIDGET_CLASSES`` -- the
+#: two mirrors this codebase deliberately keeps, for the reason the node-class
+#: readers keep theirs: this half is baked into the code the step EXECUTES, so
+#: teaching only the runtime half fixes what the panel shows and leaves what it
+#: does untouched.
+_MULTI_SELECT_WIDGET_CLASSES = ("ctkCheckableComboBox",)
+
+#: Combo classes searched when mirroring a pick onto the extension's own control.
+#: The checkable one is searched too or a tick list would find nothing to drive --
+#: ``slicer.util.findChildren`` matches ``className()`` EXACTLY, so a subclass of
+#: QComboBox is not found under "QComboBox".
+_COMBO_SEARCH_CLASSES = ("ctkComboBox", "QComboBox", "ctkCheckableComboBox")
+
+
+def _item_is_multi_select(item) -> bool:
+    """True when one choice item is answered with SEVERAL of its options. Mirrors
+    ``WorkflowRuntime._item_is_multi_select``: the explicit flag the wizard
+    reconciler records, or the source control's own Qt class (which is all a
+    classic extension's ``.ui`` inventory yields)."""
+    if not isinstance(item, dict):
+        return False
+    if item.get("multi_select"):
+        return True
+    return str(item.get("widget_class") or "").strip() in _MULTI_SELECT_WIDGET_CLASSES
+
+
 def _multi_choice_items_for_step(ctx: _WorkflowContext) -> List[Dict]:
-    """The step's multi-selection items ([] for single-choice steps). Mirrors
-    WorkflowRuntime._multi_choice_items over the loader's ctx."""
-    items = (ctx.target_step or {}).get("choice_info_list")
-    if not isinstance(items, list) or len(items) < 2:
-        return []
-    return [i for i in items if isinstance(i, dict) and i.get("parameter_name")]
+    """The step's multi-selection items ([] for ordinary single-choice steps).
+    Mirrors WorkflowRuntime._multi_choice_items over the loader's ctx, including
+    the lone multi-select selector: the panel renders that one through the same
+    form and commits the same {param: value} dict, so the commit path must
+    recognize it or the list answer arrives at the single-choice recorder."""
+    step = ctx.target_step or {}
+    items = step.get("choice_info_list")
+    if not isinstance(items, list) or not items:
+        single = step.get("choice_info")
+        items = [single] if _item_is_multi_select(single) else []
+    items = [i for i in items if isinstance(i, dict) and i.get("parameter_name")]
+    if len(items) >= 2 or any(_item_is_multi_select(i) for i in items):
+        return items
+    return []
+
+
+def _multi_select_drive_lines(pick: Dict, targets: List[str],
+                              options: List[str], param: str) -> List[str]:
+    """Emitted lines that tick ``targets`` (and untick everything else) on the
+    extension's own checkable combo. Split out of the drive builder because a tick
+    list shares none of the single-pick body: no setCurrentText, no 'activated',
+    and a post-condition that has to be read back rather than assumed.
+
+    The control is identified by CONTENT like every other pick (the live combo
+    whose items contain all the recorded options) and, when the pipeline recorded
+    it, additionally by class -- so a plain sibling combo listing the same options
+    can never be the one that gets ticked.
+    """
+    widget_class = str(pick.get("widget_class") or "").strip()
+    return [
+        "_mc_targets = %r" % (targets,),
+        "_mc_opts = %r" % (options,),
+        "_mc_cls = %r" % (widget_class,),
+        "_mc_hit = False",
+        "for _mc_w in _mc_combos:",
+        "    if _mc_cls and _mc_w.className() != _mc_cls:",
+        "        continue",
+        "    _mc_items = [_mc_w.itemText(_mc_i) for _mc_i in range(_mc_w.count)]",
+        "    if not (_mc_opts and all(_mc_o in _mc_items for _mc_o in _mc_opts)):",
+        "        continue",
+        "    if not all(_mc_t in _mc_items for _mc_t in _mc_targets):",
+        "        continue",
+        "    _mc_model = _mc_w.model()",
+        "    for _mc_i in range(_mc_w.count):",
+        "        _mc_state = qt.Qt.Checked if _mc_items[_mc_i] in _mc_targets else qt.Qt.Unchecked",
+        "        try:",
+        "            _mc_w.setCheckState(_mc_model.index(_mc_i, 0), _mc_state)",
+        "        except Exception:",
+        # A control whose check state lives only in the model (no ctk helper API):
+        # writing the role directly reaches the same place setCheckState does.
+        "            try:",
+        "                _mc_model.setData(_mc_model.index(_mc_i, 0), _mc_state, qt.Qt.CheckStateRole)",
+        "            except Exception:",
+        "                pass",
+        # Read the answer back the way the extension itself reads it.
+        "    try:",
+        "        _mc_done = [str(_mc_model.data(_mc_ix)) for _mc_ix in _mc_w.checkedIndexes()]",
+        "        _mc_hit = all(_mc_t in _mc_done for _mc_t in _mc_targets)",
+        "    except Exception:",
+        "        _mc_hit = False",
+        "    break",
+        "if not _mc_hit:",
+        "    _mc_missed.append(%r)" % (param,),
+    ]
 
 
 def _build_multi_choice_drive_code(ctx: _WorkflowContext, picks: List[Dict]) -> str:
@@ -372,6 +457,15 @@ def _build_multi_choice_drive_code(ctx: _WorkflowContext, picks: List[Dict]) -> 
     for combos on wizard page objects (which have no .ui and mangled attrs).
     setCurrentText alone does not fire ctk/Qt 'activated' handlers, so the signal
     is invoked as a callable afterwards (a PythonQt signal emit), fail-soft.
+
+    A MULTI-SELECT pick carries a list and is applied by ticking rows instead:
+    every option is set Checked or Unchecked explicitly, so the control ends in
+    exactly the state the surgeon left in the panel rather than accumulating on
+    whatever it already held. The result is then read back with
+    ``checkedIndexes()`` -- the same call the extension itself reads the answer
+    with -- because "setCheckState did not raise" is not evidence that the control
+    was checkable, and a control that shows tick boxes and reports nothing ticked
+    is exactly the silent miss ``_mc_missed`` exists to catch.
     CodeValidator-safe: only slicer/method calls, no getattr/globals.
     """
     module_name = str((ctx.metadata or {}).get("extension_module_name") or "").strip() \
@@ -392,7 +486,7 @@ def _build_multi_choice_drive_code(ctx: _WorkflowContext, picks: List[Dict]) -> 
         # findChildren(None) silently scans the WHOLE application window --
         # never search when the module widget could not be resolved.
         "if _mc_root is not None:",
-        "    for _mc_cls in ('ctkComboBox', 'QComboBox'):",
+        "    for _mc_cls in " + repr(_COMBO_SEARCH_CLASSES) + ":",
         "        try:",
         "            for _mc_w in slicer.util.findChildren(_mc_root, className=_mc_cls):",
         "                if _mc_w not in _mc_combos:",
@@ -402,10 +496,16 @@ def _build_multi_choice_drive_code(ctx: _WorkflowContext, picks: List[Dict]) -> 
         "_mc_missed = []",
     ]
     for pick in picks:
-        value = str(pick.get("value", ""))
         options = [str(o) for o in (pick.get("options") or [])]
         anchor = _norm_anchor_text(pick.get("anchor"))
         param = str(pick.get("param") or "")
+        if pick.get("multi_select"):
+            targets = [str(v) for v in (pick.get("value") or [])]
+            if not targets:
+                continue
+            lines.extend(_multi_select_drive_lines(pick, targets, options, param))
+            continue
+        value = str(pick.get("value", ""))
         if not value:
             continue
         lines.extend([
@@ -485,11 +585,21 @@ def _record_multi_choice_and_advance(
             # For a dynamic (live-items) combo the placeholder row restates the
             # question -- the anchor that identifies the combo among its siblings.
             "anchor": str(item.get("question") or ""),
+            # A multi-select answer is a LIST and is applied by ticking rows, so
+            # the drive builder needs to know before it looks at the value: an
+            # empty list and an unanswered selector are the same falsy thing.
+            "multi_select": _item_is_multi_select(item),
+            "widget_class": str(item.get("widget_class") or ""),
         })
 
     ctx.done.add(ctx.workflow_step)
     next_step = _find_next_step_local(ctx.workflow_graph, ctx.done)
-    summary = ", ".join(f"{p}={values[p]}" for p in
+    def _shown(value):
+        # A multi-select answer is a list; ", ".join reads far better in the panel
+        # message than a Python list repr.
+        return ", ".join(str(v) for v in value) if isinstance(value, list) else value
+
+    summary = ", ".join(f"{p}={_shown(values[p])}" for p in
                         [i.get("parameter_name") for i in items]
                         if p in values)
     result = {
