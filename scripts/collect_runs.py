@@ -33,12 +33,48 @@ COLUMNS = [
     "condition", "extension", "subject", "step_id", "attempt", "status",
     "operation_type", "exec_seconds", "code_chars",
     "gen_seconds", "prompt_chars", "tokens", "cost",
-    "tool_rounds", "tool_calls", "started", "error", "folder",
+    "tool_rounds", "tool_calls",
+    # What the PERSON did, from PlanningRecorder. Present for both arms of the
+    # user study and empty for a run recorded before it existed -- appended
+    # rather than interleaved, so a reader scanning the older columns finds
+    # them where they have always been.
+    "wall_seconds", "active_seconds", "compute_seconds", "idle_seconds",
+    "away_seconds", "clicks", "clicks_3d", "clicks_2d", "clicks_panel",
+    "clicks_other",
+    "started", "error", "folder",
 ]
 
 #: Report order: the system under test first, then the baselines in their
-#: numbered order, so a printed table reads the way the comparison is stated.
-CONDITION_ORDER = ["pipeline", "pure_llm", "online_only", "claude_code"]
+#: numbered order, then the user study's unaided comparison arm, so a printed
+#: table reads the way the comparison is stated.
+CONDITION_ORDER = ["pipeline", "pure_llm", "online_only", "claude_code", "manual"]
+
+#: The four operating buckets, summed into one ``active`` column. Mirrors
+#: ``PlanningRecorder.TARGET_KINDS``; a literal rather than an import because
+#: this script has to run against a copied ``logs/`` with no library beside it.
+_ACTIVE_STATES = ("view_3d", "view_2d", "panel", "other")
+
+
+def _interaction_columns(totals, counts):
+    """The eight interaction cells from one ``totals``/``counts`` pair."""
+    totals = totals or {}
+    counts = counts or {}
+    if not totals and not counts:
+        return {}
+    active = sum(float(totals.get(state) or 0.0) for state in _ACTIVE_STATES)
+    return {
+        "active_seconds": round(active, 2),
+        "compute_seconds": round(float(totals.get("compute") or 0.0), 2),
+        "idle_seconds": round(float(totals.get("idle") or 0.0), 2),
+        "away_seconds": round(float(totals.get("away") or 0.0), 2),
+        "clicks": int(counts.get("clicks_total") or 0),
+        "clicks_3d": int(counts.get("clicks_view_3d") or 0),
+        "clicks_2d": int(counts.get("clicks_view_2d") or 0),
+        "clicks_panel": int(counts.get("clicks_panel") or 0),
+        # The fourth target: anywhere else in Slicer. Without it the three
+        # named columns look like they should sum to `clicks` and do not.
+        "clicks_other": int(counts.get("clicks_other") or 0),
+    }
 
 
 def _read_json(path):
@@ -82,6 +118,8 @@ def collect(logs_dir):
             continue  # not a run folder (or an interrupted one with no manifest)
 
         totals = manifest.get("totals") or {}
+        interaction = manifest.get("interaction") or {}
+        by_label = interaction.get("by_label") or {}
         condition = manifest.get("condition", "")
         base = {
             "condition": condition,
@@ -104,7 +142,12 @@ def collect(logs_dir):
                 "prompt_chars": totals.get("prompt_chars", ""),
                 "tokens": totals.get("tokens", ""),
                 "cost": totals.get("cost", ""),
+                "wall_seconds": interaction.get("wall_seconds", ""),
             })
+            # An unaided comparison-arm run is one row by construction -- it has
+            # no steps -- so the session's own interaction figures are the row's.
+            row.update(_interaction_columns(interaction.get("totals"),
+                                            interaction.get("counts")))
             yield row
             continue
 
@@ -123,8 +166,15 @@ def collect(logs_dir):
                 "operation_type": step.get("operation_type", ""),
                 "exec_seconds": step.get("seconds", execution.get("seconds", "")),
                 "code_chars": step.get("code_chars", ""),
+                "wall_seconds": step.get("wall_seconds", ""),
                 "error": (step.get("error") or "").replace("\n", " ")[:200],
             })
+            # Keyed on the step id, matching `steps[]` -- so a step re-visited
+            # by a loop iteration or a replay re-run carries its ACCUMULATED
+            # interaction, the same way its wall clock is accumulated.
+            entry = by_label.get(str(step.get("step_id") or "")) or {}
+            row.update(_interaction_columns(entry.get("totals"),
+                                            entry.get("counts")))
             if one_step:
                 row.update({
                     "gen_seconds": totals.get("generation_seconds", ""),

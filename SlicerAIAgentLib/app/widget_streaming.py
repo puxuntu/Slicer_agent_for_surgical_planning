@@ -867,6 +867,14 @@ class WidgetStreamingMixin:
         # runtime's own workflow_started event lands in the right run folder.
         # This also resets _roleTrace, so the decision event is recorded after.
         self._beginWorkflowRouterTurn(prompt, decision)
+        # Start measuring what the person does. HERE, once the run folder and
+        # manifest exist and before the first step is dispatched, so the whole
+        # workflow is inside the recorded window. It deliberately does NOT cover
+        # the routing call that precedes it: the report's own split already
+        # names that as startup, and a recorder started before the decision
+        # would have nothing to attribute its events to if the request were
+        # refused.
+        self._startInteractionRecording()
         # Now that the folder exists (it is named after the decision), flush the
         # routing call into it. This is the ONLY model call a guided run makes,
         # so without it the run has no record of the evidence behind its choice.
@@ -1353,6 +1361,12 @@ class WidgetStreamingMixin:
                 operation_type=(meta or {}).get("operation_type"),
                 description=" ".join(str((meta or {}).get("description") or "").split()) or None,
             )
+        # Attribute the input that follows to this step. Beside open_step rather
+        # than anywhere else so the two clocks agree on where a step begins;
+        # a mark placed at, say, the panel repaint would charge the step's first
+        # second to its predecessor.
+        if step_id:
+            self._markInteractionStep(step_id)
 
         self._setAgentStatus("Workflow", f"Running {step_id or 'current step'}...")
         if self._workflowRuntime and self._workflowRuntime.session:

@@ -2152,6 +2152,268 @@ and call no model at all. So reasoning only appears when self-correction fires, 
 `onlineOnly` / `pureLLM` baseline folder. `00_router/call.json` records the flags and states this,
 so the absence is answerable from the artifacts alone.
 
+### What the PERSON did: the user-study instrument
+
+**`SlicerAIAgentLib/PlanningRecorder.py` measures a planning session from Slicer's own input
+events, and the same file runs in both arms of the user study.** `RunLog`'s three clocks divide a
+step between the machine and "the user" (`wall`, `exec`, `wait`), which is as far as a step clock can
+see: a `user_interaction` step's `wait` is one number covering reading the instruction, deciding,
+dragging the plane, and the pause before Done. A learning curve is made of the difference between
+those. And the comparison arm — the extension's own GUI, driven by hand — has no steps at all, so it
+produced no clock of any kind.
+
+**Seven states, disjoint, summing to the session's wall clock**, in this precedence:
+`away` (Slicer is not the active window) > `compute` (the Qt main thread was blocked) >
+`view_3d` / `view_2d` / `panel` / `other` (inside a burst of input landing there) > `idle`.
+**`panel` is THIS extension's panel and `other` is the rest of Slicer** — other modules, other
+extensions, the toolbars, the menus, the data probe, the Python console. That distinction is the
+point of the pair: matching `panel` by class name counted every module's frame (they all carry
+`qSlicerWidget`), so a participant who opened Volumes to set a window level had those clicks booked
+as operating the procedure's own panel — which flatters the comparison arm exactly where a learning
+curve should show hunting through modules falling away. The owning widget is therefore passed in:
+`addRecorderPanel` takes the host module widget's own frame, and the guided arm passes the agent's.
+`_widget_is_inside` asks Qt's `isAncestorOf` first (no identity comparison, since PythonQt can hand
+out a fresh wrapper for one C++ object) and walks the chain for the root itself, which
+`isAncestorOf` excludes. With no owner named, the old class-name rule remains as a fallback.
+Totality is the property that makes the split checkable rather than a set of overlapping estimates,
+and `render_interaction_sections` **prints a warning** when the seven do not sum — a residual is a
+bug, and hiding it would make the report quietly contradict itself.
+
+**Span reconstruction is a pure function of the recorded event list** (`partition()`). The filter
+appends `(kind, time, target)` and nothing else; every rule lives in `snapshot()`. So the derivation
+is testable outside Slicer, and a rule can be revisited later against sessions already recorded —
+which is why `interaction.json` keeps the spans beside the manifest's aggregate.
+
+Five constants are judgement calls, and three of them fail *silently* when wrong:
+
+- **`BLOCK_THRESHOLD_S = 0.5` is generous on purpose.** Shorter and it reclassifies *stuttery
+  interaction* as computation: dragging a mandibular cut plane re-clips the fibula on a 50 ms
+  coalescing timer, so the main thread is repeatedly busy for a few hundred milliseconds while the
+  person is plainly still dragging. `compute` beating activity is only safe because of this.
+- **A heartbeat gap is CUT at every input delivery** (`_unattended_stretches`), and only the
+  stretches with nothing delivered in them — each still longer than the threshold — are the
+  machine's. Delivering an event IS the main thread turning over, so the thread was alive at every
+  timestamp inside a gap and can only have been blocked between them. One rule then answers both
+  cases: a click that starts a four-second computation leaves one four-second stretch, and a drag
+  whose render blocks in bursts leaves only stretches under the threshold and contributes no compute.
+  This replaced an all-or-nothing verdict on the whole gap, which failed in the direction that
+  mattered — a gap runs from the last tick before the block to the first tick *after* it, so its
+  trailing edge is up to one heartbeat later, and on Windows the timer message is delivered only once
+  the queue is otherwise empty, so everything queued during the block flushes into that sliver. One
+  click before and one release after was enough to hand a whole computation back to the person: one
+  real unaided run reported **0.0 s** of algorithm time for a procedure the guided arm measured at
+  **24.8 s**. Both edges of a stretch are open, since the click that starts a computation and the
+  release that flushes after it are neither of them evidence that the thread was alive in between. A
+  busy-cursor stretch is never cut this way: there the extension has said outright that it is
+  working, and a surgeon clicking at a busy application is not operating it.
+- **A busy cursor makes a live heartbeat count as compute.** Several study extensions drive a
+  progress dialog, which keeps timers alive, so a heartbeat-gap rule alone would put their algorithm
+  time in `idle` and read as the participant sitting and thinking. Only `overrideCursor` is used,
+  never "a modal window is up": a progress dialog and a confirmation dialog are both modal and the
+  second is a person deciding.
+- **`BURST_PAD_S = 0.25`.** Without it an isolated click is one zero-duration event, so a step
+  answered with one button press reads as 100% idle — and the comparison arm is mostly button
+  presses. A burst also ends on a **target change**, so "clicked Apply, then dragged in 3D" is not
+  reported entirely as one or the other.
+- **Hover is not recorded** (`RECORD_HOVER = False`). Parking the pointer over the 3D view while
+  thinking is thinking; recording it would make `idle` unreachable for anyone who does not move
+  their hand away.
+- **`classify_widget` matches `className()` by SUBSTRING up the parent chain.** Slicer nests its
+  views several layers deep and the receiver of a mouse event is whichever layer holds focus, so an
+  exact list would enumerate implementation detail and go wrong on the next release — as "every
+  click is `other`", which looks like a participant who never touched a view. The name is read three
+  ways (`className()`, `metaObject().className()`, the Python type) for the same reason.
+- **The chain alone is not enough, and the failure is exactly that "every click is `other`".** Qt
+  delivers a mouse event to the `QWidgetWindow` FIRST and to the widget second, and an
+  application-wide filter sees both — but a window's parents are windows, so the chain from the
+  first delivery cannot reach the view. Once repeat deliveries were suppressed, that first one was
+  the one kept, and the whole 3D / slice / panel split sat at zero while the total rose. So
+  `_resolve_target` asks the chain and then, only when it answered nothing, the widget under the
+  **pointer** (`QApplication.widgetAt`) — a hit test, so the common case still costs one walk. And
+  `_upgrade_target` lets a later delivery of the same physical event correct an `other` that was
+  already counted, rewriting the recorded EVENT as well as the counter, since the event's target is
+  what the time attribution reads. Motion is the larger half: moves are not deduplicated, so the
+  first delivery decides the bucket, and a drag filed under `other` moves seconds rather than units.
+  The panel's status line shows an `elsewhere` figure so that this failure says so on screen instead
+  of looking like nothing was clicked.
+
+**The heartbeat is a SPAN extended in place, not one event per tick.** At 10 Hz the points alone
+would be 36,000 entries an hour, a list that grows with the clock rather than with anything that
+happened. `_alive_spans` accepts both forms and `check_planning_recorder.py` §7 proves they yield
+the same partition, so the compaction is demonstrated rather than asserted. For the same reason the
+panel's once-a-second status line calls **`live_summary()`** (counters only, O(1)) and never
+`snapshot()`, which re-derives the whole partition: an hour in, that would be hundreds of
+milliseconds of main-thread work per second, i.e. the recorder charging the participant compute
+time for the act of watching the clock.
+
+**A Settings checkbox puts a live readout at the foot of the panel.**
+`showInteractionCounter` adds one line under everything else in the agent's module panel: elapsed
+time, total clicks, and the four targets split out, refreshed once a second. It sits at the **bottom
+of the whole panel, not inside Settings**, because Settings is collapsed for almost all of a session
+and a counter that collapses with it cannot be watched, which is the only thing it is for.
+
+It works with **no workflow running**, and that is the part worth stating: the run recorder exists
+only between a router decision and Exit, so a checkbox that showed nothing until a procedure started
+would look broken at exactly the moment somebody is verifying the instrument. An enabled counter
+with no run in flight therefore owns a **preview** recorder — same class, same classification,
+written nowhere — and the readout says which of the two is feeding it. `_syncInteractionCounter`
+guarantees there is never more than one: two application-wide filters would each see every click and
+**double** every number in the run's record, silently, in the arm the study compares against. So the
+preview stands down in `_startInteractionRecording` before the run's recorder goes up, and
+`_teardownInteractionCounter` (called from `cleanup`) stops it and its timer, both of which outlive
+the widget across a module reload. The refresh reads `live_summary()` and never `snapshot()`, for
+the reason the comparison arm's status line does.
+
+**Clicks are counted only while the Slicer main window is active.** The filter is installed on our
+own `QApplication`, so another application's clicks could never reach it; the gate is for time —
+alt-tabbing to a browser is `away`, and its minutes must not land in `idle`.
+
+**One physical event reaches an application-wide filter MORE THAN ONCE, and both consequences are
+defects.** The filter runs once per *delivery*, and Slicer's VTK views re-dispatch a mouse event to
+a second object — so one press-and-drag rotating a 3D model counted several clicks. That half is
+visible. The other half was not: the button state was a **counter**, incremented per press and
+decremented per release, so N deliveries of one press against one release left it stuck at N−1 for
+the rest of the session — and `_on_move` gates on it, so from the first duplicated press onward
+every *hover* was recorded as a drag. The session's idle time would have been absorbed into
+3D-view interaction, which is precisely the quantity a learning curve is made of, and the report
+would have looked entirely normal.
+
+Two independent fixes, because either alone leaves a real defect. `_is_duplicate_delivery` counts a
+physically identical event once — exactly, via Qt's `timestamp()`, which two deliveries of one event
+share and two real clicks never do; and where PythonQt does not expose it, by an identical
+(type, button, screen position) inside `DUPLICATE_WINDOW_S` (50 ms), which no hand can produce
+twice. And `_read_button_mask` takes the held-button set from the event's own `buttons()` rather
+than counting, so it cannot drift however the deliveries are shaped. Every suppression is counted
+(`clicks_duplicate_suppressed`) and printed when non-zero: a fix that silently discards input is
+indistinguishable from one that discards too much. `check_planning_recorder.py` §9 drives the real
+filter with the same event delivered one, two and four times and requires one click, one drag, an
+unstuck mask, a surviving double click, and two same-pixel clicks seconds apart staying two.
+
+**Guided arm: armed by the FIRST KEYSTROKE, stopped by Exit, then cleared.**
+`onPromptTextChanged` calls `_armInteractionRecordingOnInput`, so the clock starts at the first
+character in the prompt box. It used to start at the router's decision, which is several seconds
+later: reading the panel, deciding what to ask for and typing the request are all part of the trial,
+and the comparison arm's **Start** button covers exactly that. Measuring the two arms from different
+points is the one thing that makes their totals incomparable, and it flattered this one by however
+long a request takes to compose.
+
+Three things hold that together, and each fails on its own. `_startInteractionRecording` is
+**idempotent** — it is now reached from the keystroke *and* from `_applyRouterDecision`, and
+restarting on the second would discard everything measured before Send; the router's call stays as
+the fallback for a request that never passed through the keyboard, which is what a spoken one is.
+`_prepareCleanRuntime` no longer drops a **running** recorder, since from the first keystroke onward
+the one it finds there is the current request's rather than residue — which leaves the leak it
+guarded (a run that never reached a teardown) to `cleanup`, where the module reload that causes it
+already goes. And `_stopInteractionRecording` **drops** the recorder after snapshotting it into the
+manifest, so the finished request's figures do not sit in the live counter while the next one is
+being composed; the next keystroke builds a fresh recorder from zero.
+
+One consequence the report states rather than hides: the recorded window is **longer** than
+`TOTAL RUN TIME`, which is anchored to the Send click. The INTERACTION section prints the difference
+and why, because a reader who adds the seven states up and finds more than the total is owed the
+reason.
+
+`_markInteractionStep` sits beside `manifest.open_step` so the two clocks agree on where a step
+begins; `_stopInteractionRecording` is **step 1b of `_resetGuidedSession`**, before the teardown —
+the scene write alone is tens of seconds and charging it to the participant would put a minute of
+"idle" on every run, growing with the size of the scene. The snapshot goes into
+`manifest["interaction"]` there, which is before `_saveRunStatistics` reads it: `build_run_statistics`
+is a pure function of the manifest and has to stay one. `_prepareCleanRuntime` drops a stale
+recorder, because the event filter and the 100 ms timer live as long as the **process** and a run
+that ended without a teardown would leak both. Per-step attribution is `by_label`, keyed on the step
+id, so a loop iteration or a replay re-run **accumulates** — matching `steps[]`, not `timeline`.
+
+**Comparison arm.** `addRecorderPanel(self, "<Procedure>")` in `setup()` and `stopRecorderPanel(self)`
+in `cleanup()` is the entire diff in each of the four study extensions
+(OrbitalFractureReconstruction, ZygomaticImplantPlanner, BoneReconstructionPlanner,
+PedicleScrewPlanner, under `../External_extensions`). The section **inserts itself at index 0**
+of the module panel rather than appending, so it is the first thing the operator sees and where
+the call sits in a host `setup()` does not matter -- two of the four fill the panel's whole height
+before it is reached, and an instrument that has to be scrolled for is one found un-started at the
+end of a session. Which four is the study's choice, not a
+property of the recorder, and the list lives in exactly one place --
+`check_planning_recorder.py::STUDY_EXTENSIONS`. An extension dropped from the study is
+**reverted**, never left instrumented: a vendored copy the check script no longer names is a
+copy nothing compares against the canonical one, and a drifted copy records happily and
+produces numbers the other arm cannot be compared with. Start / Stop / Save run, and **nothing reaches
+`logs/` until Save**: Start only *names* the folder (from the subject the scene shows at the start
+and the clock at the start, so the stamp says when the trial began rather than when it was saved),
+Stop only stops the hooks, and `write_all` creates and writes the whole thing. An abandoned or
+mis-started trial therefore leaves no folder to find and delete, which is what the study's organiser
+asked for. The cost is the other half and is why it is said out loud: a forgotten Save now loses the
+whole trial and not merely its scene. So `PlanningRunRecord.unsaved` is a property the panel reads,
+the status line says **NOT SAVED** in those words for as long as it is true, starting a new run on
+top of a finished unsaved one **asks first**, and a module teardown with an unsaved run logs a
+warning rather than quietly writing one.
+
+**Closing the scene ends the trial and does not zero it.** The case is gone, so continuing to
+measure would charge the next case's minutes to this trial — and the guided arm already ends its
+session on `EndCloseEvent`, so without this the comparison arm would be the only one whose clock ran
+across two cases. It **stops**, deliberately, rather than resetting: nothing is written before Save,
+so zeroing here would destroy a trial held only in memory, at the one moment nobody is watching the
+panel. The counters return to zero on the next **Start**, which builds a fresh record — which is
+where that belongs. A run already stopped is left untouched, so closing the scene between Stop and
+Save cannot lose it either. The observer is removed in `shutdown()`: a VTK observer holding a bound
+method keeps the panel alive and would fire into a torn-down one after a module reload. The scene is written *first* inside `write_all` so the
+manifest and the report can name what landed, and its failure is not fatal — a scene that cannot be
+written still leaves the measurement, with the reason in the report. The run
+folder is `logs/<Procedure>_<subject>_<condition>_<stamp>/` with the guided arm's own two children
+(`runtime/` + `Statistic/`) and the same file names, so `scripts/collect_runs.py` and the
+per-procedure analyses read both arms with no special case; `steps` is present and **empty on
+purpose**, so a reader sees that this arm has no step structure rather than wondering whether the
+field failed to write. Condition token `manual`, declared in **both** `RunLog.CONDITION_MANUAL` and
+`PlanningRecorder.CONDITION_MANUAL` — the vendored file cannot import the library — and a mismatch
+would put the two arms in folders no analysis pairs up.
+
+**And into the SAME `logs/` — the agent's own, which the recorder finds for itself.** Two arms in
+two directories is a comparison nobody can run, and its only symptom is a folder that does not fill
+up. `resolve_logs_root()` tries the `SlicerAIAgent/studyLogRoot` setting, then the **installed**
+agent module's directory (definitionally where the pipeline writes, since `SLICER_AI_AGENT_ROOT` is
+derived the same way), then `agent_checkout_root()`, and only then a different directory — which is
+labelled `NO AGENT FOUND` in the panel, because that is the one answer meaning the arms will split.
+`agent_checkout_root` searches for the directory holding **`SlicerAIAgent.py`**, never for a folder
+called `Slicer_agent`: three named relative routes cover the five places the file is vendored and
+cost nothing, then a bounded walk tries each ancestor and its immediate children, and **every**
+candidate is confirmed by that file's presence, so a wrong guess is never accepted and a checkout
+cloned under another name still resolves. The panel prints the path *and* which source won.
+
+**`PlanningRecorder.py` is VENDORED, byte-identical, in five places**, because the comparison arm
+has to keep recording on a machine where the agent is not installed: an instrument that stops
+working when the thing it measures against is absent is not an instrument. It is also the **one**
+implementation of `save_scene_flat` — `_saveSceneFlat` now delegates to it — since that function
+mirrors `qSlicerSaveDataDialogPrivate` in detail and every detail is a saved scene that silently
+does not reload. `scripts/check_planning_recorder.py` asserts the copies are identical, proves the
+partition, and refuses the two wirings that both parse: a `def cleanup` nested inside `setup` (never
+runs, so the filter outlives the session) and a bare statement in a class body (runs at import with
+no `self`, so the module does not load). Both were produced while writing this.
+
+```bash
+python scripts/check_planning_recorder.py   # before every study session
+```
+
+**The guided report splits all four targets PER STEP**, in two tables — where the TIME went and
+where the CLICKS landed — measured over each step's **own visit windows**, from `timeline`
+intersected with `interaction.spans` and `interaction.input_events`. Not `by_label`: a label window
+runs from one step being marked to the NEXT, so the labels tile the whole recording, gaps between
+steps and the wait for Exit included, while a step's wall clock does not. Reading those against the
+wall inflated every row — 9.9 s over 114 s on the run it was found on, and 7x on the last step —
+under a header claiming they summed. They now do, which is why `away` is a column: leaving it out
+would be the same defect in miniature. `input_events` carries the clicks (not the pointer motion,
+which is the bulk) precisely so a caller can attribute them to a window of its own choosing. That is the pipeline's distinguishing detail and the one thing the
+comparison arm cannot say: which step the surgeon spent their 3D time in, and which step they spent
+hunting elsewhere in Slicer. Both were pooled — one `active` column and one click total — until the
+tables were split. Two tables rather than one, because twelve columns do not fit; neither repeats
+the `type` column, since `PER-STEP TIMING` lists the same step ids directly above and already names
+each one's type. The clicks table shows `wheel` and **not** `drags`: a drag is a GESTURE, tallied
+only at its release into the run-level counters, so `slice_totals` never sees one and a per-step
+drag column would have been a column of zeros.
+
+`scripts/collect_runs.py` carries the split into the comparison table for both arms:
+`wall_seconds`, `active_seconds`, `compute_seconds`, `idle_seconds`, `away_seconds`, `clicks`,
+`clicks_3d`, `clicks_2d`, `clicks_panel`, `clicks_other` — appended after the existing columns,
+empty for runs recorded before the instrument existed. The fourth click column is there because
+without it the three named ones look like they should sum to `clicks` and do not.
+
 ## Coding Conventions
 
 - 4-space indentation. PascalCase filenames matching primary class/responsibility.

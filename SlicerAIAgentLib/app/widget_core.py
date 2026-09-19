@@ -40,6 +40,11 @@ class WidgetCoreMixin:
         # _relaxContentWidth, which sweeps its status label.
         self._setupReviseControls()
 
+        # Live interaction counters -- BEFORE _relaxContentWidth so its label
+        # is swept by it, and last among the sections so the readout it adds to
+        # self.layout lands at the foot of the whole panel.
+        self._setupInteractionCounter()
+
         # Keep the module from forcing the panel wider when first opened.
         self._relaxContentWidth()
 
@@ -306,6 +311,20 @@ class WidgetCoreMixin:
     def cleanup(self):
         self.disconnect()
         self._teardownBaselineMcp()
+        # Both recorders install an application-wide event filter, which
+        # outlives this widget on a reload. The run's one is stopped here rather
+        # than in `_prepareCleanRuntime`, which can no longer touch it: from the
+        # first keystroke onward a running recorder there is the CURRENT
+        # request's.
+        self._teardownInteractionCounter()
+        runRecorder = getattr(self, "_interactionRecorder", None)
+        if runRecorder is not None:
+            try:
+                runRecorder.stop()
+            except Exception:
+                logger.debug("Stopping the run recorder on cleanup failed",
+                             exc_info=True)
+            self._interactionRecorder = None
         # A daemon capture thread survives a module reload and would keep
         # posting events into a widget that no longer exists.
         self._teardownVoice()

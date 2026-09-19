@@ -47,6 +47,13 @@ CONDITION_PURE_LLM = "pure_llm"
 CONDITION_ONLINE_ONLY = "online_only"
 CONDITION_CLAUDE_CODE = "claude_code"
 
+#: The user study's comparison arm: the extension's own GUI, driven by hand,
+#: with no agent. Written by ``PlanningRecorder`` rather than by this module --
+#: that file is vendored into the four study extensions and cannot import this
+#: one -- so the token is declared in BOTH places and the two must agree, or the
+#: two arms land in folders no analysis pairs up.
+CONDITION_MANUAL = "manual"
+
 #: Short token used in the folder name. camelCase so it stays readable inside a
 #: long underscore-joined name without being mistaken for a separate field.
 CONDITION_SLUGS = {
@@ -54,6 +61,7 @@ CONDITION_SLUGS = {
     CONDITION_PURE_LLM: "pureLLM",
     CONDITION_ONLINE_ONLY: "onlineOnly",
     CONDITION_CLAUDE_CODE: "claudeCode",
+    CONDITION_MANUAL: "manual",
 }
 
 #: Written into every manifest so a folder explains itself without the reader
@@ -70,6 +78,10 @@ CONDITION_LABELS = {
     ),
     CONDITION_CLAUDE_CODE: (
         "Baseline 3: external Claude Code + Slicer skill over MCP"
+    ),
+    CONDITION_MANUAL: (
+        "User study comparison arm: the extension's own GUI and its published "
+        "tutorial, unaided"
     ),
 }
 
@@ -914,6 +926,38 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
     out.append(f"   runtime overhead             : {_fmt_duration(machine_overhead)}"
                "   (dispatch + panel render on automated steps)")
     out.append("")
+    # What the PERSON was doing inside that wall clock. The split above divides
+    # the run between the machine and "the user", which is as far as the step
+    # clocks can see: a user_interaction step's wait is one number covering
+    # reading the instruction, deciding, dragging, and the pause before Done. A
+    # learning curve is made of the difference between those, so the recorder
+    # measures them from Slicer's own input events -- the same measurement the
+    # unaided comparison arm records, which is what makes the two comparable.
+    # Imported here rather than at module scope because PlanningRecorder is
+    # VENDORED into the four study extensions and must stay importable with no
+    # SlicerAIAgentLib on the path; a top-level import in either direction would
+    # make the two files a cycle.
+    from SlicerAIAgentLib import PlanningRecorder
+    interaction = manifest.get("interaction") or {}
+    if interaction.get("recorded"):
+        out.append(thin)
+        out.append(" INTERACTION")
+        out.append(thin)
+        # The window is NOT the TOTAL RUN TIME above it. Recording is armed by
+        # the first character typed into the prompt box -- composing the request
+        # is part of the trial, and the comparison arm's clock covers the
+        # equivalent -- while TOTAL RUN TIME is anchored to the Send click. So
+        # the seven states below sum to something slightly LONGER, and a reader
+        # who adds them up is owed the reason rather than left to find it.
+        recorded = float(interaction.get("wall_seconds") or 0.0)
+        if total is not None and recorded > float(total) + 0.5:
+            out.append(f" Recorded window: {_fmt_duration(recorded)} -- it is armed by the")
+            out.append(f" FIRST KEYSTROKE in the prompt box and stopped by Exit, so it opens")
+            out.append(f" {_fmt_duration(recorded - float(total))} before the TOTAL RUN TIME above,")
+            out.append(" which is anchored to the Send click. The comparison arm's clock")
+            out.append(" covers the same span, from its own Start button.")
+            out.append("")
+        out.extend(PlanningRecorder.render_interaction_sections(interaction))
     totals = manifest.get("totals") or {}
     out.append(f" Steps recorded: {len(steps)}   ok: {manifest.get('steps_ok', 0)}"
                f"   failed: {manifest.get('steps_failed', 0)}"
@@ -1063,6 +1107,113 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
             count, wall, execs = by_type[key]
             out.append(f" {key:<18} {int(count):>6} {_fmt_seconds(wall, 10)} "
                        f"{_fmt_seconds(execs, 10)} {_fmt_seconds(wall - execs, 10)}")
+        out.append("")
+
+    # Per-step interaction. Keyed on the step id the recorder was marked with,
+    # so a step re-visited by a loop or a replay re-run accumulates into one row
+    # -- matching `steps[]` above rather than the timeline, which is per visit.
+    # The step's OWN visits, from the timeline -- not `by_label`, whose windows
+    # run from one step being MARKED to the next and therefore tile the whole
+    # recording, gaps and the wait for Exit included. Reading those against a
+    # wall clock that excludes them inflated every row (9.9 s over 114 s on the
+    # run this was found on, and 7x on the last step).
+    spans = (interaction.get("spans") or []) if interaction else []
+    input_events = (interaction.get("input_events") or []) if interaction else []
+
+    def _visit_windows(step):
+        step_id = str(step.get("step_id") or "")
+        windows = [[float(row["opened_epoch"]), float(row["completed_epoch"])]
+                   for row in (manifest.get("timeline") or [])
+                   if row.get("kind") == "step"
+                   and str(row.get("step_id") or "") == step_id
+                   and row.get("opened_epoch") and row.get("completed_epoch")]
+        if windows:
+            return windows
+        # Runs recorded before the timeline existed: the aggregate span. A step
+        # visited more than once then reads as one window, which over-counts the
+        # loop's siblings -- so it is the fallback, never the first choice.
+        if step.get("opened_epoch") and step.get("completed_epoch"):
+            return [[float(step["opened_epoch"]), float(step["completed_epoch"])]]
+        return []
+
+    rows = []
+    if spans:
+        for step in steps:
+            windows = _visit_windows(step)
+            if not windows:
+                continue
+            rows.append((step, {
+                "totals": PlanningRecorder.totals_in_windows(spans, windows),
+                "counts": PlanningRecorder.counts_in_windows(input_events, windows),
+            }))
+    if rows:
+        # Two tables, not one: twelve columns would not fit, and the two answer
+        # different questions -- how long a step took the surgeon and where, and
+        # how much they had to click to get through it. Neither repeats the
+        # `type` column, since the step ids are the ones PER-STEP TIMING lists
+        # directly above and that table already names each one's type.
+        out.append(thin)
+        out.append(" PER-STEP INTERACTION -- where the TIME went")
+        out.append(thin)
+        out.append(" The four operating buckets, then the machine, then thinking:")
+        out.append("   3D / slice  the surgeon driving a view")
+        out.append("   panel       driving THIS extension's own panel")
+        out.append("   elsewhere   anywhere else in Slicer -- other modules,")
+        out.append("               other extensions, toolbars, menus")
+        out.append("   compute     the main thread blocked, i.e. code running")
+        out.append("   idle        reading, deciding, waiting")
+        out.append("   away        Slicer was not the active window")
+        out.append(" These seven SUM to the step's wall clock: they are measured")
+        out.append(" over the step's own visits, so a step entered twice by a loop")
+        out.append(" carries both and the gaps between steps belong to neither.")
+        out.append("")
+        header = (f" {'#':>3} {'step_id':<14} {'wall':>8} {'3D':>8} {'slice':>8} "
+                  f"{'panel':>8} {'elsewhere':>9} {'compute':>8} {'idle':>8} "
+                  f"{'away':>8}")
+        out.append(header)
+        out.append(" " + "-" * (len(header) - 1))
+        for step, entry in rows:
+            totals = entry.get("totals") or {}
+            out.append(
+                f" {int(step.get('index', 0)):>3} "
+                f"{str(step.get('step_id', ''))[:14]:<14} "
+                f"{_fmt_seconds(_wall(step), 8)} "
+                f"{_fmt_seconds(totals.get(PlanningRecorder.TARGET_VIEW_3D), 8)} "
+                f"{_fmt_seconds(totals.get(PlanningRecorder.TARGET_VIEW_2D), 8)} "
+                f"{_fmt_seconds(totals.get(PlanningRecorder.TARGET_PANEL), 8)} "
+                f"{_fmt_seconds(totals.get(PlanningRecorder.TARGET_OTHER), 9)} "
+                f"{_fmt_seconds(totals.get(PlanningRecorder.STATE_COMPUTE), 8)} "
+                f"{_fmt_seconds(totals.get(PlanningRecorder.STATE_IDLE), 8)} "
+                f"{_fmt_seconds(totals.get(PlanningRecorder.STATE_AWAY), 8)}"
+            )
+        out.append("")
+
+        out.append(thin)
+        out.append(" PER-STEP INTERACTION -- where the CLICKS landed")
+        out.append(thin)
+        out.append(" Counted only while Slicer was the active window. The four")
+        out.append(" columns after the total sum to it.")
+        out.append("")
+        header = (f" {'#':>3} {'step_id':<14} {'clicks':>8} {'3D':>8} {'slice':>8} "
+                  f"{'panel':>8} {'elsewhere':>9} {'wheel':>8} {'keys':>8}")
+        out.append(header)
+        out.append(" " + "-" * (len(header) - 1))
+        for step, entry in rows:
+            counts = entry.get("counts") or {}
+
+            def _count(key):
+                return int(counts.get(key, 0) or 0)
+
+            out.append(
+                f" {int(step.get('index', 0)):>3} "
+                f"{str(step.get('step_id', ''))[:14]:<14} "
+                f"{_count('clicks_total'):>8} "
+                f"{_count('clicks_' + PlanningRecorder.TARGET_VIEW_3D):>8} "
+                f"{_count('clicks_' + PlanningRecorder.TARGET_VIEW_2D):>8} "
+                f"{_count('clicks_' + PlanningRecorder.TARGET_PANEL):>8} "
+                f"{_count('clicks_' + PlanningRecorder.TARGET_OTHER):>9} "
+                f"{_count('wheel_notches'):>8} {_count('keys'):>8}"
+            )
         out.append("")
 
     out.append(thin)

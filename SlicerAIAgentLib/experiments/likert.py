@@ -734,127 +734,165 @@ TASKS: List[Dict[str, Any]] = [
         "extension": "PelvicFracturePlanning",
         "title_en": "Pelvic fracture reduction planning",
         "title_zh": "骨盆骨折复位规划",
-        "unit": "One pelvis with all reduced fragments (worst fragment).",
-        "materials": "3D of the reduced pelvis from front, inlet and outlet; the "
-                     "injured hemipelvis mirrored onto the intact one; axial and "
-                     "coronal through the acetabulum.",
+        "unit": "One pelvis: every reduced fragment and every planned screw "
+                "(worst element).",
+        "materials": "3D of the reduced pelvis from front, inlet and outlet, with the "
+                     "screws in place; the injured side against the uninjured one; "
+                     "axial and coronal slices through each fracture line; one "
+                     "reformat along each screw.",
         "comparator": "Yes - the surgeon's own annotated reduction is recorded "
                       "for every annotated piece.",
         "runs_available": 77,
         "sample_n": 20,
-        "quant": "Displacement mm, rotation deg, point error over the fragment "
-                 "surface, read from the recorded transform.",
-        "gap": "The recorded transform is exact and clinically mute: it cannot "
-               "say whether the residual is at the acetabular dome or the iliac "
-               "wing, and those differ by a hip replacement.",
+        "quant": "Per fragment: displacement mm, rotation deg and point error over "
+                 "the fragment surface, read from the recorded transform. Nothing "
+                 "at all about the screws.",
+        "gap": "The recorded transform is exact and clinically mute - it cannot "
+               "say whether the residual sits on a weight-bearing surface or on "
+               "an iliac wing. And half the procedure is unmeasured: the 262 "
+               "screws planned across these runs carry no number of any kind.",
         "items": [
             {
                 "id": "P1",
                 "scale": SCALE_A,
-                "dimension_en": "Sacroiliac joint",
-                "dimension_zh": "骶髂关节",
-                "question_en": "The sacroiliac joint is reduced and congruent",
-                "question_zh": "骶髂关节已复位且对合一致",
-                "anchor5": "A congruent SI joint with no residual diastasis or step.",
-                "why": "The articular surface these cases actually contain: "
-                       "every scored piece is an ilium or a sacrum, so the SI "
-                       "joint is where a millimetre matters. Piece displacement "
-                       "runs to 11.8 mm and rotation to 13.4 degrees across the "
-                       "cohort.",
-                "quant": "Localises displacement_mm (median 1.7, max 11.8).",
+                "dimension_en": "Fragment identification",
+                "dimension_zh": "骨块划分",
+                "question_en": "The bone is divided into the fragments this fracture "
+                               "actually has - nothing wrongly split, nothing wrongly "
+                               "merged",
+                "question_zh": "骨块的划分与该骨折的实际情况一致——无错误分割，也无错误合并",
+                "anchor5": "The pieces on screen are the pieces on the CT.",
+                "why": "Steps 4 to 9 decide the fragment set: the pipeline "
+                       "segments the fractures, the surgeon unticks pieces and "
+                       "can cut one by hand. Every run here ends with 4 to 7 "
+                       "pieces and every single one of the 77 needed an extra "
+                       "manual split, so this is a decision taken on every case. "
+                       "The analysis then scores each piece against its own "
+                       "recorded transform and never asks whether the set of "
+                       "pieces was right.",
+                "quant": "Not measured: pieces are paired by name, and only the "
+                         "ones the surgeon annotated are scored.",
             },
             {
                 "id": "P2",
                 "scale": SCALE_A,
-                "dimension_en": "Sacral fracture and foramina",
-                "dimension_zh": "骶骨骨折与骶孔",
-                "question_en": "Where the sacrum is fractured, it is reduced without a "
-                               "step across a neural foramen (leave blank if the sacrum "
-                               "is intact)",
-                "question_zh": "若骶骨骨折，复位后未在骶孔处遗留台阶（骶骨完整请留空）",
-                "anchor5": "The foraminal lines are continuous and the roots are not "
-                           "narrowed.",
-                "why": "A quarter of the scored pieces in these runs are sacral. "
-                       "A step at a transforaminal fracture compresses the "
-                       "sacral roots, and a rigid-body error over the whole "
-                       "sacrum reports it as a millimetre or two.",
-                "quant": "Not localised; displacement_mm is measured at one "
-                         "reference point.",
+                "dimension_en": "Fragment position",
+                "dimension_zh": "骨块位置",
+                "question_en": "Every displaced fragment is back in its anatomical "
+                               "position",
+                "question_zh": "每一移位骨块均已回到其解剖位置",
+                "anchor5": "The pelvis is assembled; there is no piece you would "
+                           "move further.",
+                "why": "Cases here carry one to four annotated fragments and the "
+                       "recorded error runs to 11.8 mm and 13.4 degrees. The "
+                       "analysis scores each fragment against its own transform, "
+                       "one at a time, and never asks whether the assembled "
+                       "pelvis is right.",
+                "quant": "displacement_mm / rotation_deg, per fragment.",
             },
             {
                 "id": "P3",
                 "scale": SCALE_A,
-                "dimension_en": "Cortical continuity",
-                "dimension_zh": "皮质连续性",
-                "question_en": "The main fracture lines show continuous cortex",
-                "question_zh": "主要骨折线处皮质连续",
-                "anchor5": "The lines you read on a postoperative film - arcuate, "
-                           "iliopectineal - are continuous.",
+                "dimension_en": "Fracture apposition",
+                "dimension_zh": "骨折端对合",
+                "question_en": "The fracture lines are closed - cortical continuity "
+                               "restored, and any residual gap or step is acceptable for "
+                               "what that line crosses",
+                "question_zh": "骨折线闭合——皮质连续性恢复，残余间隙或台阶对该骨折线所经部位而言可接受",
+                "anchor5": "Continuous cortex along every fracture line, with "
+                           "nothing you would go back and revise.",
                 "why": "How reduction is actually judged intra-operatively and "
-                       "on follow-up films; it is a line, not a volume.",
-                "quant": "Not measured anywhere.",
+                       "on follow-up films, and it is a line rather than a "
+                       "volume. The tolerance is not one number: the same 2 mm "
+                       "is acceptable on an iliac wing and a revision on a "
+                       "weight-bearing surface, so the question carries that "
+                       "distinction instead of a threshold.",
+                "quant": "Localises point_error_max_mm, which says how far but "
+                         "never where.",
             },
             {
                 "id": "P4",
                 "scale": SCALE_A,
-                "dimension_en": "Ring symmetry",
-                "dimension_zh": "骨盆环对称",
-                "question_en": "The pelvic ring is symmetric with the uninjured side - "
-                               "no residual rotation or vertical migration",
-                "question_zh": "骨盆环与健侧对称——无残余旋转或垂直移位",
-                "anchor5": "Symmetric on inlet and outlet views.",
-                "why": "Vertical and rotational malreduction drives leg-length "
+                "dimension_en": "Pelvic shape",
+                "dimension_zh": "骨盆形态",
+                "question_en": "The overall shape of the pelvic ring is restored - no "
+                               "residual rotation or vertical migration of a hemipelvis",
+                "question_zh": "骨盆环整体形态已恢复——半骨盆无残余旋转或垂直移位",
+                "anchor5": "Symmetric on inlet and outlet views, or restored to "
+                           "normal proportions where both sides are injured.",
+                "why": "Rotational and vertical malreduction drives leg-length "
                        "discrepancy and sitting imbalance. Residual rotation "
-                       "reaches 13.4 degrees here, and it is a whole-pelvis "
-                       "judgement no per-piece transform makes.",
+                       "reaches 13.4 degrees across these runs, and it is a "
+                       "whole-pelvis judgement that no per-fragment transform "
+                       "makes.",
                 "quant": "Complements rotation_deg (median 2.7, max 13.4).",
             },
             {
                 "id": "P5",
                 "scale": SCALE_A,
-                "dimension_en": "Every piece",
-                "dimension_zh": "各骨块",
-                "question_en": "Every displaced piece has been reduced - none left where "
-                               "it was, none moved to the wrong place",
-                "question_zh": "每一移位骨块均已复位——既无遗留于移位状态者，也无被复位到错误位置者",
-                "anchor5": "The whole pelvis is assembled, with every piece where it "
-                           "belongs.",
-                "why": "Cases here carry one to four pieces. The analysis scores "
-                       "each piece against its own recorded transform, one at a "
-                       "time, and never asks whether the assembled pelvis is "
-                       "right.",
-                "quant": "pieces_annotated (1 to 4 per case).",
+                "dimension_en": "Screw containment",
+                "dimension_zh": "螺钉骨内包容",
+                "question_en": "Each screw stays inside bone along its length - no "
+                               "perforation into a joint, the pelvic cavity or a "
+                               "neurovascular corridor",
+                "question_zh": "每枚螺钉全长位于骨内——未穿入关节、盆腔或神经血管通道",
+                "anchor5": "Every screw within its corridor, with a margin you would "
+                           "accept on a postoperative CT.",
+                "why": "The safety question of the screw half, and that half is "
+                       "scored NOWHERE: pelvic.py names screws once, in the "
+                       "timing map. These 77 runs plan 262 screws and carry no "
+                       "number about any of them.",
+                "quant": "Not measured anywhere; the analysis scores only the "
+                         "reduction.",
             },
             {
                 "id": "P6",
                 "scale": SCALE_A,
-                "dimension_en": "Fixation corridors",
-                "dimension_zh": "固定通道",
-                "question_en": "The reduced position leaves usable corridors for the "
-                               "fixation I would plan",
-                "question_zh": "复位后的位置为我会采用的固定方式留出了可用的通道",
-                "anchor5": "An iliosacral screw, an anterior column screw or a plate "
-                           "could be placed in this position.",
-                "why": "A ring reduction exists to be held, usually by an "
-                       "iliosacral screw whose corridor is a few millimetres "
-                       "wide. A position that closes that corridor is undone at "
-                       "the next step, and no metric looks for a corridor.",
+                "dimension_en": "Fixation across the fracture",
+                "dimension_zh": "跨骨折固定",
+                "question_en": "Each screw crosses the fracture it is meant to hold, "
+                               "with purchase in the bone on both sides of it",
+                "question_zh": "每枚螺钉均跨过其所要固定的骨折线，并在骨折线两侧骨质中获得把持",
+                "anchor5": "Every screw engages both fragments; none stops short of "
+                           "the fracture or runs alongside it.",
+                "why": "A screw that does not cross the fracture holds nothing, "
+                       "and a plan can look correct in a 3D view while doing "
+                       "exactly that. Nothing in the pipeline checks that a "
+                       "planned screw and the fracture it is for actually meet.",
                 "quant": "Not measured anywhere.",
             },
             {
                 "id": "P7",
                 "scale": SCALE_A,
-                "dimension_en": "Achievable",
-                "dimension_zh": "可实现",
-                "question_en": "This reduction is physically achievable - no pieces "
-                               "sitting inside each other",
-                "question_zh": "该复位在物理上可以实现——骨块之间无相互嵌插",
-                "anchor5": "You could reach this position with standard manoeuvres "
-                           "and clamps.",
-                "why": "Each piece is moved by its own transform, so two pieces "
-                       "can be placed into the same space while both transform "
-                       "errors stay small and the plan is nonsense.",
-                "quant": "Not measured; per-piece errors are independent.",
+                "dimension_en": "Screw size and number",
+                "dimension_zh": "螺钉尺寸与数量",
+                "question_en": "The number of screws, and each one's length and "
+                               "diameter, suit the fragments being held",
+                "question_zh": "螺钉数量及每枚的长度与直径，与所固定的骨块相适应",
+                "anchor5": "The construct you would have planned yourself for this "
+                           "fracture.",
+                "why": "The extension decides this: these runs plan 1 to 7 "
+                       "screws per case at 36 to 191 mm. Whether that is enough "
+                       "fixation, or more than the fracture needs, is a "
+                       "judgement no number in the workbook makes.",
+                "quant": "Not measured anywhere.",
+            },
+            {
+                "id": "P8",
+                "scale": SCALE_A,
+                "dimension_en": "Insertion feasibility",
+                "dimension_zh": "置入可行性",
+                "question_en": "Each screw can be inserted along its planned trajectory "
+                               "through the approach you would use, without colliding "
+                               "with another screw",
+                "question_zh": "每枚螺钉均可经你会采用的入路沿其规划路径置入，且与其他螺钉互不碰撞",
+                "anchor5": "Every entry reachable, every trajectory drillable, no "
+                           "two screws meeting.",
+                "why": "Pelvic screws go down corridors a few millimetres wide, "
+                       "often percutaneously. A trajectory that cannot be "
+                       "reached from outside the skin, or that runs into a screw "
+                       "placed before it, is a drawing rather than a plan.",
+                "quant": "Not measured anywhere.",
             },
         ],
     },

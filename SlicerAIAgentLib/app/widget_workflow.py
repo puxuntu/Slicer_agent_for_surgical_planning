@@ -1136,182 +1136,350 @@ class WidgetWorkflowMixin:
     def _saveSceneFlat(self, directory, progress=None):
         """Save the scene as ONE flat folder: ``scene.mrml`` beside every node's file.
 
-        This is what File > Save Data produces with every row pointed at one
-        directory, which is the layout asked for. ``slicer.util.saveScene(<dir>)``
-        cannot give it: a directory path routes to
-        ``qSlicerSceneWriter::writeToDirectory`` ->
-        ``SaveSceneToSlicerDataBundleDirectory``, which builds ``Data/`` and
-        ``private/`` subfolders.
-
-        Mirrors ``qSlicerSaveDataDialogPrivate`` exactly: skip nodes that are not
-        storable, are hidden from editors, or are not ``SaveWithScene``; give
-        each remaining node a default storage node and skip it if it does not
-        need one (it is stored inside the scene); name its file
-        ``<sanitised node name>.<default write extension>``; and save the nodes
-        FIRST, the scene last, so the ``.mrml`` records the paths the nodes were
-        just written to.
-
-        Every mutation it makes to the live scene -- storage-node file names, the
-        scene URL and root directory, and the storable-modified flags that
-        writing clears -- is undone afterwards, so the surgeon's own File > Save
-        Data still offers their chosen directory and still shows their work as
-        unsaved. Returns ``(files_written, note)``.
-
-        ``progress(done, total, name)`` is called once per candidate node -- on
-        the FULL storable list, including the ones filtered out below, so the bar
-        advances monotonically instead of stalling through a run of skipped
-        nodes. Optional and never allowed to fail the save.
+        Delegates to ``PlanningRecorder.save_scene_flat``, which is the single
+        implementation. It moved there because the user study's comparison arm
+        saves the same layout from inside four third-party extensions, and a
+        second copy of this would be a second thing to keep correct: it mirrors
+        ``qSlicerSaveDataDialogPrivate`` in detail (root directory set before the
+        first node is written, storage-node file lists and the scene's
+        storable-modified flags restored afterwards) and every one of those
+        details is a saved scene that silently does not reload when it is
+        dropped. See that function for the reasoning.
         """
-        scene = slicer.mrmlScene
-        original_url = scene.GetURL()
-        original_root = scene.GetRootDirectory()
-        restore = {}          # storage node ID -> (node, name, [list], URI, crop)
-        used_names = set()
-        written, skipped, failed = 0, 0, []
-        try:
-            # The root directory FIRST, before a single node is written. Every
-            # path a storage node records while writing is relativised against
-            # scene->GetRootDirectory() AS IT STANDS AT THAT MOMENT, not against
-            # the .mrml written afterwards: vtkMRMLVolumeArchetypeStorageNode::
-            # UpdateFileList (called unconditionally from WriteDataInternal)
-            # stores its file-list entries relative to it, and
-            # vtkMRMLStorageNode::WriteXML writes an already-relative entry out
-            # verbatim. Leave the user's own root in place and a volume's
-            # fileListMember paths end up relative to THEIR folder while the
-            # scene resolves them from this one -- so the saved scene does not
-            # reload. Both references set it first for exactly this reason
-            # (qSlicerSaveDataDialogPrivate::save, and
-            # vtkMRMLScene::SaveSceneToSlicerDataBundleDirectory). The `finally`
-            # below puts the user's root back.
-            scene.SetRootDirectory(str(directory).replace("\\", "/"))
-            nodes = scene.GetNodesByClass("vtkMRMLStorableNode")
-            nodes.UnRegister(None)
-            candidates = nodes.GetNumberOfItems()
-            for index in range(candidates):
-                node = nodes.GetItemAsObject(index)
-                if progress is not None:
-                    try:
-                        progress(index, candidates,
-                                 (node.GetName() if node is not None else "") or "")
-                    except Exception:
-                        logger.debug("Scene-save progress callback failed", exc_info=True)
-                if node is None or node.GetHideFromEditors() or not node.GetSaveWithScene():
-                    skipped += 1
-                    continue
-                storage = node.GetStorageNode()
-                if storage is None:
-                    if not node.AddDefaultStorageNode():
-                        skipped += 1
-                        continue
-                    storage = node.GetStorageNode()
-                if storage is None:
-                    skipped += 1      # no storage node needed: lives in the scene
-                    continue
-                # The dialog drops nodes with no writer rather than listing them;
-                # without this they would be reported as save failures.
-                try:
-                    if slicer.app.coreIOManager().fileWriterFileType(node) == "NoFile":
-                        skipped += 1
-                        continue
-                except Exception:
-                    logger.debug("fileWriterFileType probe failed", exc_info=True)
-                name = self._safeFileName(node.GetName() or node.GetID() or "node")
-                extension = storage.GetDefaultWriteFileExtension() or ""
-                if extension and not extension.startswith("."):
-                    extension = "." + extension
-                candidate = f"{name}{extension}"
-                # Two nodes may share a name; the dialog would collide and warn,
-                # and a silent overwrite here would lose one of them.
-                suffix = 1
-                while candidate.lower() in used_names:
-                    suffix += 1
-                    candidate = f"{name}_{suffix}{extension}"
-                used_names.add(candidate.lower())
-                # Writing mutates more than the file name, so snapshot all of
-                # it: a volume write runs UpdateFileList, which RESETS the
-                # storage node's file-name list and repopulates it with paths
-                # into this folder (so a DICOM series' original slice list would
-                # be destroyed, and the bogus entries would later be written
-                # into the surgeon's OWN .mrml as fileListMember);
-                # qSlicerNodeWriter::write clears the URI; and the segmentation
-                # writer forces CropToMinimumExtent off because
-                # slicer.util.saveNode supplies no such property. Keyed by
-                # storage node so two storables sharing one cannot record each
-                # other's already-repointed path.
-                key = storage.GetID()
-                if key not in restore:
-                    restore[key] = (
-                        storage,
-                        storage.GetFileName(),
-                        [storage.GetNthFileName(i)
-                         for i in range(storage.GetNumberOfFileNames())],
-                        storage.GetURI(),
-                        (storage.GetCropToMinimumExtent()
-                         if hasattr(storage, "GetCropToMinimumExtent") else None),
-                    )
-                path = os.path.join(directory, candidate)
-                try:
-                    if slicer.util.saveNode(node, path):
-                        written += 1
-                    else:
-                        failed.append(candidate)
-                except Exception as exc:
-                    logger.debug("Saving node %s failed: %s", candidate, exc, exc_info=True)
-                    failed.append(candidate)
-            # The scene last, so the .mrml records the paths the nodes were just
-            # written to. writeToMRML re-asserts the URL and root directory that
-            # were already set above.
-            scene_path = os.path.join(directory, self.SCENE_FILE_NAME)
-            if progress is not None:
-                try:
-                    progress(candidates, candidates, self.SCENE_FILE_NAME)
-                except Exception:
-                    logger.debug("Scene-save progress callback failed", exc_info=True)
-            if not slicer.util.saveScene(scene_path):
-                failed.append(self.SCENE_FILE_NAME)
-        finally:
-            for storage, name, name_list, uri, crop in restore.values():
-                try:
-                    # Same order as the reference restore pass: reset the list,
-                    # put the primary name back, then re-add each member.
-                    storage.ResetFileNameList()
-                    storage.SetFileName(name)
-                    for extra in name_list:
-                        if extra is not None:
-                            storage.AddFileName(extra)
-                    storage.SetURI(uri)
-                    if crop is not None:
-                        storage.SetCropToMinimumExtent(crop)
-                except Exception:
-                    logger.debug("Restoring a storage node's save state failed",
-                                 exc_info=True)
-            try:
-                scene.SetURL(original_url)
-                scene.SetRootDirectory(original_root)
-                # Writing every node stamps its StoredTime, which clears
-                # GetModifiedSinceRead() scene-wide -- the surgeon's own work
-                # would then show as "Not Modified" in File > Save Data and
-                # Slicer would not warn about it on quit, while the only copy on
-                # disk sat in logs/. Slicer's MRB writer does the same restore
-                # for the same reason (qSlicerSceneWriter::writeToMRB).
-                scene.SetStorableNodesModifiedSinceRead()
-            except Exception:
-                logger.debug("Restoring scene save state failed", exc_info=True)
-
-        note = f"{written} node file(s) + {self.SCENE_FILE_NAME}"
-        if skipped:
-            note += f", {skipped} node(s) stored inside the scene"
-        if failed:
-            note += f". FAILED: {', '.join(failed[:6])}"
-        return written, note
+        from SlicerAIAgentLib import PlanningRecorder
+        return PlanningRecorder.save_scene_flat(
+            directory, scene_file_name=self.SCENE_FILE_NAME, progress=progress)
 
     @staticmethod
     def _safeFileName(name):
-        """Slicer's own filename rule (qSlicerCoreIOManager::fileNameRegularExpression)."""
-        allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-                      "0123456789 -_.()$!~#'%^{}")
-        cleaned = "".join(ch for ch in str(name or "") if ch in allowed).strip()
-        return cleaned[:255] or "node"
+        """Slicer's own filename rule. One implementation, in PlanningRecorder."""
+        from SlicerAIAgentLib import PlanningRecorder
+        return PlanningRecorder.safe_file_name(name)
+
+    # ------------------------------------------------------------------
+    # User-study interaction recording
+    #
+    # The three clocks in RunLog answer "how long did step 7 take" and split it
+    # into machine time and "the user". A learning curve needs the inside of
+    # that second half: whether the surgeon spent 40 s dragging a plane or 40 s
+    # reading the instruction and deciding are different facts about how the
+    # interface is being learnt, and the step clocks cannot tell them apart.
+    #
+    # So a recorder measures the session from Slicer's own input events, and it
+    # is deliberately the SAME recorder the comparison arm runs inside the four
+    # unaided extensions -- one instrument, so the two arms' numbers are
+    # comparable by construction rather than by two implementations agreeing.
+    # Everything it produces is additive: nothing here changes what the runtime
+    # does, and a recorder that fails to start leaves the run untouched.
+    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Live interaction counter (Settings checkbox -> foot of the panel)
+    #
+    # The readout goes at the bottom of the MODULE PANEL, not inside Settings:
+    # Settings is collapsed for almost all of a session, and a counter that
+    # disappears with it cannot be watched, which is the whole point of it.
+    # ------------------------------------------------------------------
+    INTERACTION_COUNTER_KEY = "showInteractionCounter"
+
+    def _setupInteractionCounter(self):
+        """One checkbox in Settings, one label at the foot of the panel."""
+        self._interactionCounterBox = None
+        self._interactionCounterLabel = None
+        self._interactionCounterTimer = None
+        self._previewInteractionRecorder = None
+        try:
+            enabled = self._interactionCounterSetting()
+
+            box = qt.QCheckBox("Show live mouse/interaction counters")
+            box.setToolTip(
+                "Show a live count of mouse clicks, split by where they land "
+                "(3D view, slice view, this panel, elsewhere in Slicer), at the "
+                "bottom of this module panel. Works with or without a guided "
+                "workflow running; it records nothing to disk on its own.")
+            box.setChecked(enabled)
+            box.connect("toggled(bool)", self._onInteractionCounterToggled)
+            self._interactionCounterBox = box
+
+            form = self.ui.findChild(qt.QFormLayout, "settingsFormLayout") \
+                if getattr(self, "ui", None) is not None else None
+            if form is not None:
+                form.addRow("", box)
+            else:
+                # The section could not be found, so the checkbox goes beside
+                # its own readout -- an unreachable setting is worse than one
+                # in the wrong place.
+                self.layout.addWidget(box)
+
+            label = qt.QLabel("")
+            label.setWordWrap(True)
+            label.setStyleSheet("color: gray;")
+            label.setVisible(False)
+            # self.layout is the module panel's own layout and self.ui was added
+            # to it whole, so appending here is the foot of everything.
+            self.layout.addWidget(label)
+            self._interactionCounterLabel = label
+
+            timer = qt.QTimer()
+            timer.setInterval(1000)
+            timer.connect("timeout()", self._refreshInteractionCounter)
+            self._interactionCounterTimer = timer
+
+            self._onInteractionCounterToggled(enabled)
+        except Exception:
+            logger.warning("The interaction counter could not be built",
+                           exc_info=True)
+
+    def _interactionCounterSetting(self):
+        try:
+            settings = qt.QSettings()
+            settings.beginGroup("SlicerAIAgent")
+            value = settings.value(self.INTERACTION_COUNTER_KEY, False)
+            settings.endGroup()
+            # QSettings returns strings on some platforms, so "false" must not
+            # read as True the way a non-empty string otherwise would.
+            if isinstance(value, str):
+                return value.strip().lower() in ("1", "true", "yes")
+            return bool(value)
+        except Exception:
+            logger.debug("Reading the interaction-counter setting failed",
+                         exc_info=True)
+            return False
+
+    def _onInteractionCounterToggled(self, checked):
+        checked = bool(checked)
+        try:
+            settings = qt.QSettings()
+            settings.beginGroup("SlicerAIAgent")
+            settings.setValue(self.INTERACTION_COUNTER_KEY, checked)
+            settings.endGroup()
+        except Exception:
+            logger.debug("Saving the interaction-counter setting failed",
+                         exc_info=True)
+        label = getattr(self, "_interactionCounterLabel", None)
+        if label is not None:
+            label.setVisible(checked)
+        timer = getattr(self, "_interactionCounterTimer", None)
+        if timer is not None:
+            timer.start() if checked else timer.stop()
+        self._syncInteractionCounter()
+        if checked:
+            self._refreshInteractionCounter()
+
+    def _syncInteractionCounter(self):
+        """Own AT MOST ONE preview recorder, and never beside a real run.
+
+        Two application-wide event filters would each see every click, so a
+        preview left running under a guided run would double every number in
+        that run's record -- silently, and in the arm the whole study compares
+        against.
+        """
+        try:
+            enabled = bool(getattr(self, "_interactionCounterBox", None)
+                           and self._interactionCounterBox.checked)
+            run = getattr(self, "_interactionRecorder", None)
+            run_live = run is not None and run.running
+            preview = getattr(self, "_previewInteractionRecorder", None)
+
+            if enabled and not run_live:
+                if preview is None or not preview.running:
+                    from SlicerAIAgentLib import PlanningRecorder
+                    preview = PlanningRecorder.InputRecorder()
+                    preview.start(label="preview",
+                                  panel_root=getattr(self, "parent", None))
+                    self._previewInteractionRecorder = preview
+                return
+
+            if preview is not None:
+                preview.stop()
+                self._previewInteractionRecorder = None
+        except Exception:
+            logger.debug("Interaction-counter sync failed", exc_info=True)
+
+    def _liveInteractionRecorder(self):
+        """The run's recorder while one is running, else the preview."""
+        run = getattr(self, "_interactionRecorder", None)
+        if run is not None and run.running:
+            return run, "this run"
+        preview = getattr(self, "_previewInteractionRecorder", None)
+        if preview is not None and preview.running:
+            return preview, "preview, not recorded"
+        return None, ""
+
+    def _refreshInteractionCounter(self):
+        """One second of work per second, and it must stay that way.
+
+        `live_summary()` reads counters only. `snapshot()` re-derives the whole
+        partition, which an hour into a session is hundreds of milliseconds --
+        the counter would then charge the surgeon compute time for being
+        watched.
+        """
+        label = getattr(self, "_interactionCounterLabel", None)
+        if label is None or not label.visible:
+            return
+        try:
+            self._syncInteractionCounter()
+            recorder, origin = self._liveInteractionRecorder()
+            if recorder is None:
+                label.setText("Interaction counters: not running.")
+                return
+            from SlicerAIAgentLib import PlanningRecorder
+            summary = recorder.live_summary()
+            counts = summary.get("counts") or {}
+            seconds = float(summary.get("seconds") or 0.0)
+
+            def _n(key):
+                return int(counts.get(key, 0) or 0)
+
+            label.setText(
+                "Interaction (%s)  %02d:%02d   %d clicks: "
+                "%d in 3D, %d in slices, %d on this panel, %d elsewhere   |   "
+                "%d drags, %d wheel, %d keys"
+                % (origin, int(seconds // 60), int(seconds % 60),
+                   _n("clicks_total"),
+                   _n("clicks_" + PlanningRecorder.TARGET_VIEW_3D),
+                   _n("clicks_" + PlanningRecorder.TARGET_VIEW_2D),
+                   _n("clicks_" + PlanningRecorder.TARGET_PANEL),
+                   _n("clicks_" + PlanningRecorder.TARGET_OTHER),
+                   _n("drags"), _n("wheel_notches"), _n("keys")))
+        except Exception:
+            logger.debug("Refreshing the interaction counter failed", exc_info=True)
+
+    def _teardownInteractionCounter(self):
+        """Stop the timer and the preview. The run's own recorder is not ours."""
+        timer = getattr(self, "_interactionCounterTimer", None)
+        if timer is not None:
+            try:
+                timer.stop()
+            except Exception:
+                logger.debug("Stopping the counter timer failed", exc_info=True)
+        self._interactionCounterTimer = None
+        preview = getattr(self, "_previewInteractionRecorder", None)
+        if preview is not None:
+            try:
+                preview.stop()
+            except Exception:
+                logger.debug("Stopping the preview recorder failed", exc_info=True)
+            self._previewInteractionRecorder = None
+
+    def _armInteractionRecordingOnInput(self):
+        """The first character in the prompt box starts the clock.
+
+        Reading the panel, deciding what to ask for and typing the request are
+        all part of the trial, and the comparison arm's clock starts when the
+        operator presses Start -- before any of that. Starting at the router's
+        decision instead measured the two arms from different points, and
+        flattered this one by however long a request takes to compose.
+
+        Idempotent through `_startInteractionRecording`, so every later
+        keystroke is free and a request already being recorded is untouched.
+        """
+        try:
+            if not self.promptInput.toPlainText().strip():
+                return
+        except Exception:
+            return
+        recorder = getattr(self, "_interactionRecorder", None)
+        if recorder is not None and recorder.running:
+            return
+        self._startInteractionRecording()
+
+    def _startInteractionRecording(self):
+        """Begin recording, unless it is already running. Never fatal.
+
+        IDEMPOTENT, and that is the whole contract: it is reached from the first
+        keystroke and again from `_applyRouterDecision`, and restarting on the
+        second would discard everything measured before Send. The second call is
+        the fallback for a request that never passed through the keyboard --
+        a spoken one.
+        """
+        try:
+            from SlicerAIAgentLib import PlanningRecorder
+        except Exception:
+            logger.debug("PlanningRecorder unavailable", exc_info=True)
+            return
+        try:
+            recorder = getattr(self, "_interactionRecorder", None)
+            if recorder is not None and recorder.running:
+                return
+            preview = getattr(self, "_previewInteractionRecorder", None)
+            if preview is not None:
+                # Two application-wide filters would each see every click and
+                # DOUBLE this run's counts, in the arm the study compares
+                # against. The counter keeps displaying, now from the run.
+                preview.stop()
+                self._previewInteractionRecorder = None
+            self._interactionRecorder = PlanningRecorder.InputRecorder()
+            # OUR widget, so `panel` means the agent's own panel rather
+            # than any module panel. Without it a surgeon who opened
+            # Volumes mid-run would have those clicks counted here, and
+            # the comparison arm measures the same thing the same way.
+            self._interactionRecorder.start(
+                label="", panel_root=getattr(self, "parent", None))
+            logger.info("[Study] interaction recording started (hook=%s)",
+                        self._interactionRecorder.hook)
+        except Exception:
+            logger.warning("Interaction recording could not start", exc_info=True)
+            self._interactionRecorder = None
+
+    def _markInteractionStep(self, step_id):
+        """Attribute what follows to this step.
+
+        Called from the same place the manifest's step clock opens, so the two
+        agree on where a step begins. A step re-visited by a loop iteration or a
+        replay re-run marks the same label again and its numbers ACCUMULATE,
+        which matches ``steps[]`` in the manifest (per step) rather than
+        ``timeline`` (per visit) -- and is why the report's per-step interaction
+        table is keyed on ``steps[]``.
+        """
+        recorder = getattr(self, "_interactionRecorder", None)
+        if recorder is None or not recorder.running:
+            return
+        try:
+            recorder.mark(str(step_id or ""))
+        except Exception:
+            logger.debug("Marking the interaction step failed", exc_info=True)
+
+    def _stopInteractionRecording(self):
+        """Stop, and put the snapshot in the manifest.
+
+        The snapshot has to land BEFORE ``_saveRunStatistics`` runs, because
+        ``build_run_statistics`` is a pure function of the manifest -- which is
+        what lets the same report be re-derived later from ``run_manifest.json``
+        alone, and would stop being true if the interaction figures came from
+        anywhere else.
+        """
+        recorder = getattr(self, "_interactionRecorder", None)
+        if recorder is None:
+            return
+        try:
+            recorder.stop()
+            snapshot = recorder.snapshot()
+        except Exception:
+            logger.warning("Stopping the interaction recording failed", exc_info=True)
+            return
+        try:
+            manifest = self._runManifest()
+            if manifest is not None:
+                manifest.update(interaction=snapshot)
+        except Exception:
+            logger.debug("Recording the interaction snapshot failed", exc_info=True)
+        # A copy of its own, beside the manifest: the manifest keeps the
+        # aggregate a reader wants, and this keeps the spans behind it, which is
+        # what makes a different partition rule checkable against sessions that
+        # have already been run.
+        try:
+            from SlicerAIAgentLib import RunLog
+            log_dir = getattr(self, "_currentLogDir", "")
+            if log_dir:
+                RunLog.write_json(os.path.join(log_dir, "interaction.json"), snapshot)
+        except Exception:
+            logger.debug("Writing interaction.json failed", exc_info=True)
+        # Dropped, not merely stopped. The manifest already holds the snapshot,
+        # and leaving the object in place would show the finished request's
+        # figures in the live counter until the next one started -- numbers for
+        # a trial that is over, on screen while the next is being set up.
+        self._interactionRecorder = None
+        self._syncInteractionCounter()
 
     # ------------------------------------------------------------------
     # "Working..." dialog for the Exit teardown
@@ -1636,6 +1804,19 @@ class WidgetWorkflowMixin:
         #    API) cannot be cancelled, so it is fenced instead: each continuation
         #    compares the epoch it captured against this one and drops out.
         self._guidedSessionEpoch = getattr(self, "_guidedSessionEpoch", 0) + 1
+
+        # 1b. Stop measuring. FIRST, because everything below is teardown --
+        #     the scene write alone is tens of seconds on a segmented CT -- and
+        #     charging it to the participant would put a minute of "idle" on
+        #     every run, growing with the size of the scene rather than with
+        #     anything they did. The snapshot goes into the manifest here, which
+        #     is before _saveRunStatistics reads it in step 5b; build_run_
+        #     statistics is a pure function of the manifest and has to stay one.
+        try:
+            self._stopInteractionRecording()
+        except Exception:
+            logger.debug("Stopping interaction recording on exit failed",
+                         exc_info=True)
 
         # 2. Events already queued by a worker belong to the session being
         #    closed; draining them stops them being applied to the next one.
@@ -2064,6 +2245,22 @@ class WidgetWorkflowMixin:
                     setattr(self, attr, list(value) if isinstance(value, list) else value)
             except Exception:
                 logger.debug("Resetting %s failed", attr, exc_info=True)
+
+        # 6b. The interaction recorder installs an application-wide event
+        #     filter and a 100 ms timer, both of which live as long as the
+        #     PROCESS. A run that ended without a teardown -- a module Reload, a
+        #     session killed mid-workflow -- would leave them running, appending
+        #     to an event list nobody will ever read and costing every event in
+        #     the application a Python call. This is the only place that covers
+        #     that, which is exactly what this method is for.
+        # A RUNNING recorder here belongs to the request being started -- it
+        # was armed by the first keystroke, several seconds before this. Only a
+        # stopped one is residue. The leak this used to guard (a run that never
+        # reached a teardown) is handled in `cleanup`, where the module reload
+        # that causes it already goes.
+        recorder = getattr(self, "_interactionRecorder", None)
+        if recorder is not None and not recorder.running:
+            self._interactionRecorder = None
 
         # 7. Live Slicer state a previous run may have left switched on. The
         #    teardown does this too; repeating it here is what covers a run that

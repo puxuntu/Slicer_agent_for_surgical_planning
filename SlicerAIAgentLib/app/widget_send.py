@@ -200,6 +200,15 @@ class WidgetSendMixin:
     def onPromptTextChanged(self):
         hasText = bool(self.promptInput.toPlainText().strip())
         self._setSendEnabled(hasText)
+        # The user-study clock starts here, at the first character, so that it
+        # covers composing the request the way the comparison arm's Start button
+        # covers everything the participant does. The baseline and revise mixins
+        # both override this method and call super(), so hooking the base one
+        # is what makes every path through the box arm it.
+        try:
+            self._armInteractionRecordingOnInput()
+        except Exception:
+            logger.debug("Arming the interaction recorder failed", exc_info=True)
 
     def generateResponse(self, prompt):
         """Legacy non-streaming path (kept for backward compatibility)."""
