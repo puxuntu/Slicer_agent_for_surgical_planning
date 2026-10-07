@@ -28,7 +28,7 @@ import qt
 import slicer
 
 from ..app.widget_experiments import register_experiment_panel
-from . import pedicle
+from . import pedicle, run_timing
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,15 @@ logger = logging.getLogger(__name__)
 @register_experiment_panel(pedicle.EXTENSION_NAME)
 def build_panel(widget, layout, extension):
     root = _repository_root()
-    experiment_dir = os.path.join(root, pedicle.EXPERIMENT_DIR)
+    # Resolved, never joined: the folder may sit under a tier
+    # (Experiments/1_Quanti_Eva/<Ext>/) whose name belongs to the
+    # study and has already changed once.
+    experiment_dir = run_timing.resolve_experiment_dir(
+        root, pedicle.EXPERIMENT_DIR)
+    # What the prose below should NAME -- the resolved location,
+    # so "no cases found" never sends a reader to the wrong folder.
+    shown_dir = run_timing.experiment_dir_label(
+        root, pedicle.EXPERIMENT_DIR)
 
     intro = qt.QLabel(
         "Scores every planned screw in every run under <code>{runs}</code> "
@@ -59,7 +67,7 @@ def build_panel(widget, layout, extension):
         "Two tabs are written beside the runs: <b>Screw accuracy</b> and "
         "<b>Timing</b> (t₀ load, t₁ ROI and levels, t₂ landmarks, t₃ plan the "
         "screws, t₄ grade)."
-        .format(runs=os.path.join(pedicle.EXPERIMENT_DIR, pedicle.RUNS_SUBDIR))
+        .format(runs=os.path.join(shown_dir, pedicle.RUNS_SUBDIR))
     )
     intro.setWordWrap(True)
     intro.setTextFormat(qt.Qt.RichText)

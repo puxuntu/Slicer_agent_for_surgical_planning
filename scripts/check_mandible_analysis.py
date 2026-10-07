@@ -50,9 +50,11 @@ import numpy as np                                            # noqa: E402
 
 from SlicerAIAgentLib.experiments import geometry_io           # noqa: E402
 from SlicerAIAgentLib.experiments import mandible              # noqa: E402
+from SlicerAIAgentLib.experiments import run_timing        # noqa: E402
 
 FAILURES = []
-EXPERIMENT_ROOT = os.path.join(ROOT, mandible.EXPERIMENT_DIR)
+EXPERIMENT_ROOT = run_timing.resolve_experiment_dir(
+    ROOT, mandible.EXPERIMENT_DIR)
 PREDICT = "--predict" in sys.argv
 
 

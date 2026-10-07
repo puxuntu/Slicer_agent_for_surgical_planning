@@ -950,12 +950,25 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
         # the seven states below sum to something slightly LONGER, and a reader
         # who adds them up is owed the reason rather than left to find it.
         recorded = float(interaction.get("wall_seconds") or 0.0)
+        held = float(interaction.get("paused_seconds") or 0.0)
         if total is not None and recorded > float(total) + 0.5:
             out.append(f" Recorded window: {_fmt_duration(recorded)} -- it is armed by the")
             out.append(f" FIRST KEYSTROKE in the prompt box and stopped by Exit, so it opens")
             out.append(f" {_fmt_duration(recorded - float(total))} before the TOTAL RUN TIME above,")
             out.append(" which is anchored to the Send click. The comparison arm's clock")
             out.append(" covers the same span, from its own Start button.")
+            out.append("")
+        elif held > 0 and total is not None:
+            # The other direction, and it only happens for one reason. Without
+            # this a reader meets a recorded window SHORTER than the run and no
+            # explanation -- which looks like the instrument stopped early.
+            pauses = int(interaction.get("pause_count") or 0)
+            out.append(f" Recorded window: {_fmt_duration(recorded)} -- shorter than the")
+            out.append(f" TOTAL RUN TIME above because the operator PAUSED the recording")
+            out.append(f" {pauses} time{'' if pauses == 1 else 's'} for"
+                       f" {_fmt_duration(held)} in total. That time is excluded from")
+            out.append(" every figure below, and from the per-step tables, which carry a")
+            out.append(" 'paused' column so their rows still sum to each step's wall clock.")
             out.append("")
         out.extend(PlanningRecorder.render_interaction_sections(interaction))
     totals = manifest.get("totals") or {}
@@ -1119,6 +1132,10 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
     # run this was found on, and 7x on the last step).
     spans = (interaction.get("spans") or []) if interaction else []
     input_events = (interaction.get("input_events") or []) if interaction else []
+    # The pauses, so a step the operator paused inside still has a row that
+    # sums. Without them the paused seconds would fall into `idle`, which is
+    # `totals_in_windows`' remainder -- and read as the surgeon thinking.
+    paused_spans = (interaction.get("paused_spans") or []) if interaction else []
 
     def _visit_windows(step):
         step_id = str(step.get("step_id") or "")
@@ -1143,9 +1160,14 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
             if not windows:
                 continue
             rows.append((step, {
-                "totals": PlanningRecorder.totals_in_windows(spans, windows),
+                "totals": PlanningRecorder.totals_in_windows(spans, windows,
+                                                             paused_spans),
                 "counts": PlanningRecorder.counts_in_windows(input_events, windows),
+                "paused": PlanningRecorder.paused_in_windows(paused_spans, windows),
             }))
+    # The column exists only when it has something to say, so an uninterrupted
+    # run's report is byte-for-byte the one it was before pausing existed.
+    any_paused = any(float(entry.get("paused") or 0.0) > 0.0 for _step, entry in rows)
     if rows:
         # Two tables, not one: twelve columns would not fit, and the two answer
         # different questions -- how long a step took the surgeon and where, and
@@ -1163,13 +1185,17 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
         out.append("   compute     the main thread blocked, i.e. code running")
         out.append("   idle        reading, deciding, waiting")
         out.append("   away        Slicer was not the active window")
-        out.append(" These seven SUM to the step's wall clock: they are measured")
+        if any_paused:
+            out.append("   paused      the operator suspended the recording")
+            out.append(" These EIGHT sum to the step's wall clock: they are measured")
+        else:
+            out.append(" These seven SUM to the step's wall clock: they are measured")
         out.append(" over the step's own visits, so a step entered twice by a loop")
         out.append(" carries both and the gaps between steps belong to neither.")
         out.append("")
         header = (f" {'#':>3} {'step_id':<14} {'wall':>8} {'3D':>8} {'slice':>8} "
                   f"{'panel':>8} {'elsewhere':>9} {'compute':>8} {'idle':>8} "
-                  f"{'away':>8}")
+                  f"{'away':>8}" + (f" {'paused':>8}" if any_paused else ""))
         out.append(header)
         out.append(" " + "-" * (len(header) - 1))
         for step, entry in rows:
@@ -1185,6 +1211,7 @@ def build_run_statistics(manifest: Dict[str, Any], exit_epoch: float,
                 f"{_fmt_seconds(totals.get(PlanningRecorder.STATE_COMPUTE), 8)} "
                 f"{_fmt_seconds(totals.get(PlanningRecorder.STATE_IDLE), 8)} "
                 f"{_fmt_seconds(totals.get(PlanningRecorder.STATE_AWAY), 8)}"
+                + (f" {_fmt_seconds(entry.get('paused'), 8)}" if any_paused else "")
             )
         out.append("")
 

@@ -128,8 +128,16 @@ def check_fixtures(cranial, verbose):
 # ---------------------------------------------------------------------------
 
 def _case_dirs(limit):
-    pattern = os.path.join(ROOT, "Experiments", "CranialImplantPlanning",
-                           "Overall_Performance", "*", "Statistic", "scene")
+    # Resolved, not joined: the collection is grouped into tiers
+    # (Experiments/1_Quanti_Eva/<Ext>/) whose names are the study's to
+    # choose. A hand-joined flat path finds nothing and every real-data
+    # section below then SKIPs -- which prints as a pass.
+    cranial = importlib.import_module("SlicerAIAgentLib.experiments.cranial")
+    run_timing = importlib.import_module(
+        "SlicerAIAgentLib.experiments.run_timing")
+    pattern = os.path.join(
+        run_timing.resolve_experiment_dir(ROOT, cranial.EXPERIMENT_DIR),
+        cranial.RUNS_SUBDIR, "*", "Statistic", "scene")
     return sorted(glob.glob(pattern))[:limit]
 
 

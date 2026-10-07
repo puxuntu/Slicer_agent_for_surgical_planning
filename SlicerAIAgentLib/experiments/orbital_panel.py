@@ -18,7 +18,7 @@ import qt
 import slicer
 
 from ..app.widget_experiments import register_experiment_panel
-from . import orbital
+from . import orbital, run_timing
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,15 @@ logger = logging.getLogger(__name__)
 @register_experiment_panel(orbital.EXTENSION_NAME)
 def build_panel(widget, layout, extension):
     root = _repository_root()
-    experiment_dir = os.path.join(root, orbital.EXPERIMENT_DIR)
+    # Resolved, never joined: the folder may sit under a tier
+    # (Experiments/1_Quanti_Eva/<Ext>/) whose name belongs to the
+    # study and has already changed once.
+    experiment_dir = run_timing.resolve_experiment_dir(
+        root, orbital.EXPERIMENT_DIR)
+    # What the prose below should NAME -- the resolved location,
+    # so "no cases found" never sends a reader to the wrong folder.
+    shown_dir = run_timing.experiment_dir_label(
+        root, orbital.EXPERIMENT_DIR)
 
     intro = qt.QLabel(
         "Scores every run under <code>{runs}</code> against the surgeon's ground "
@@ -40,8 +48,8 @@ def build_panel(widget, layout, extension):
         "each case's <code>Statistic/scene/</code> (0–{mm:.0f} mm, green→red, the "
         "same scale on every case): open <code>ErrorMaps.mrml</code> for just "
         "those, or the run's own <code>scene.mrml</code>, which they are added to."
-        .format(runs=os.path.join(orbital.EXPERIMENT_DIR, orbital.RUNS_SUBDIR),
-                data=os.path.join(orbital.EXPERIMENT_DIR, orbital.DATASET_SUBDIR),
+        .format(runs=os.path.join(shown_dir, orbital.RUNS_SUBDIR),
+                data=os.path.join(shown_dir, orbital.DATASET_SUBDIR),
                 mm=orbital.COLOR_MAX_MM)
     )
     intro.setWordWrap(True)

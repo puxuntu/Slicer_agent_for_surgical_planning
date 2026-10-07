@@ -38,11 +38,13 @@ sys.modules["slicer"].util = types.ModuleType("slicer.util")
 import numpy as np                                            # noqa: E402
 
 from SlicerAIAgentLib.experiments import shoulder             # noqa: E402
+from SlicerAIAgentLib.experiments import run_timing        # noqa: E402
 from SlicerAIAgentLib.experiments import volume_io            # noqa: E402
 
 FAILURES = []
 
-EXPERIMENT_ROOT = os.path.join(ROOT, shoulder.EXPERIMENT_DIR)
+EXPERIMENT_ROOT = run_timing.resolve_experiment_dir(
+    ROOT, shoulder.EXPERIMENT_DIR)
 
 
 def check(label, condition):

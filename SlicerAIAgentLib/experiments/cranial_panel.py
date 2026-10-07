@@ -18,7 +18,7 @@ import qt
 import slicer
 
 from ..app.widget_experiments import register_experiment_panel
-from . import cranial
+from . import cranial, run_timing
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,15 @@ logger = logging.getLogger(__name__)
 @register_experiment_panel(cranial.EXTENSION_NAME)
 def build_panel(widget, layout, extension):
     root = _repository_root()
-    experiment_dir = os.path.join(root, cranial.EXPERIMENT_DIR)
+    # Resolved, never joined: the folder may sit under a tier
+    # (Experiments/1_Quanti_Eva/<Ext>/) whose name belongs to the
+    # study and has already changed once.
+    experiment_dir = run_timing.resolve_experiment_dir(
+        root, cranial.EXPERIMENT_DIR)
+    # What the prose below should NAME -- the resolved location,
+    # so "no cases found" never sends a reader to the wrong folder.
+    shown_dir = run_timing.experiment_dir_label(
+        root, cranial.EXPERIMENT_DIR)
 
     intro = qt.QLabel(
         "Scores every run under <code>{runs}</code> against the surgeon's "
@@ -40,7 +48,7 @@ def build_panel(widget, layout, extension):
         "case's <code>Statistic/scene/</code> (0–{mm:.0f} mm, green→red, the same "
         "scale on every case): open <code>ErrorMaps.mrml</code> for just that, or "
         "the run's own <code>scene.mrml</code>, which it is added to."
-        .format(runs=os.path.join(cranial.EXPERIMENT_DIR, cranial.RUNS_SUBDIR),
+        .format(runs=os.path.join(shown_dir, cranial.RUNS_SUBDIR),
                 t=cranial.BORDER_DISTANCE_VOXELS, mm=cranial.COLOR_MAX_MM)
     )
     intro.setWordWrap(True)

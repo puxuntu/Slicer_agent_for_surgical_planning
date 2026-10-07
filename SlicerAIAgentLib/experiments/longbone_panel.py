@@ -24,7 +24,7 @@ import qt
 import slicer
 
 from ..app.widget_experiments import register_experiment_panel
-from . import longbone
+from . import longbone, run_timing
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,15 @@ logger = logging.getLogger(__name__)
 @register_experiment_panel(longbone.EXTENSION_NAME)
 def build_panel(widget, layout, extension):
     root = _repository_root()
-    experiment_dir = os.path.join(root, longbone.EXPERIMENT_DIR)
+    # Resolved, never joined: the folder may sit under a tier
+    # (Experiments/1_Quanti_Eva/<Ext>/) whose name belongs to the
+    # study and has already changed once.
+    experiment_dir = run_timing.resolve_experiment_dir(
+        root, longbone.EXPERIMENT_DIR)
+    # What the prose below should NAME -- the resolved location,
+    # so "no cases found" never sends a reader to the wrong folder.
+    shown_dir = run_timing.experiment_dir_label(
+        root, longbone.EXPERIMENT_DIR)
 
     intro = qt.QLabel(
         "Scores every run under <code>{runs}</code> from one rigid residual, "
@@ -55,7 +63,7 @@ def build_panel(widget, layout, extension):
         "<b>Timing</b> (t₀ input, t₁/t₂ segment the two fragments, t₃ 3D "
         "reconstruction, t₄ detect + initialise, t₅ hand pre-alignment, t₆ the "
         "reduction itself)."
-        .format(runs=os.path.join(longbone.EXPERIMENT_DIR,
+        .format(runs=os.path.join(shown_dir,
                                   longbone.RUNS_SUBDIR))
     )
     intro.setWordWrap(True)

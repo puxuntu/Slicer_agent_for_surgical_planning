@@ -27,6 +27,7 @@ sys.modules["slicer"].util = types.ModuleType("slicer.util")
 import numpy as np                                            # noqa: E402
 
 from SlicerAIAgentLib.experiments import orbital              # noqa: E402
+from SlicerAIAgentLib.experiments import run_timing           # noqa: E402
 
 FAILURES = []
 
@@ -223,7 +224,8 @@ def check_splicer():
 # ---------------------------------------------------------------------------
 
 def check_discovery():
-    experiment_root = os.path.join(ROOT, orbital.EXPERIMENT_DIR)
+    experiment_root = run_timing.resolve_experiment_dir(
+        ROOT, orbital.EXPERIMENT_DIR)
     if not os.path.isdir(os.path.join(experiment_root, orbital.RUNS_SUBDIR)):
         print("SKIP  no Experiments tree here -- discovery not checked")
         return
@@ -557,8 +559,9 @@ def check_crop():
           orbital.crop_bounds((4, 4, 4), np.nonzero(np.zeros((4, 4, 4))), 2) is None)
 
     # And the real payoff, on the case that crashed.
-    gt = os.path.join(ROOT, orbital.EXPERIMENT_DIR, orbital.DATASET_SUBDIR,
-                      "068", "068_Label.nii.gz")
+    gt = os.path.join(
+        run_timing.resolve_experiment_dir(ROOT, orbital.EXPERIMENT_DIR),
+        orbital.DATASET_SUBDIR, "068", "068_Label.nii.gz")
     if os.path.isfile(gt):
         import gzip
         import struct

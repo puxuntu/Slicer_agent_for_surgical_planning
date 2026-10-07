@@ -58,11 +58,13 @@ sys.modules["slicer"].util = types.ModuleType("slicer.util")
 import numpy as np                                            # noqa: E402
 
 from SlicerAIAgentLib.experiments import pelvic               # noqa: E402
+from SlicerAIAgentLib.experiments import run_timing        # noqa: E402
 from SlicerAIAgentLib.experiments import segmentation_io      # noqa: E402
 
 FAILURES = []
 
-EXPERIMENT_ROOT = os.path.join(ROOT, pelvic.EXPERIMENT_DIR)
+EXPERIMENT_ROOT = run_timing.resolve_experiment_dir(
+    ROOT, pelvic.EXPERIMENT_DIR)
 SCRATCH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "_check_pelvic_tmp")
 

@@ -21,7 +21,7 @@ import qt
 import slicer
 
 from ..app.widget_experiments import register_experiment_panel
-from . import shoulder
+from . import shoulder, run_timing
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,15 @@ logger = logging.getLogger(__name__)
 @register_experiment_panel(shoulder.EXTENSION_NAME)
 def build_panel(widget, layout, extension):
     root = _repository_root()
-    experiment_dir = os.path.join(root, shoulder.EXPERIMENT_DIR)
+    # Resolved, never joined: the folder may sit under a tier
+    # (Experiments/1_Quanti_Eva/<Ext>/) whose name belongs to the
+    # study and has already changed once.
+    experiment_dir = run_timing.resolve_experiment_dir(
+        root, shoulder.EXPERIMENT_DIR)
+    # What the prose below should NAME -- the resolved location,
+    # so "no cases found" never sends a reader to the wrong folder.
+    shown_dir = run_timing.experiment_dir_label(
+        root, shoulder.EXPERIMENT_DIR)
 
     intro = qt.QLabel(
         "Scores every run under <code>{runs}</code> against the four measures of "
@@ -51,7 +59,7 @@ def build_panel(widget, layout, extension):
         "Two tabs are written beside the runs: <b>Metrics</b> and <b>Timing</b> "
         "(t₁ bone reconstruction, t₂ reference point and baseplate pose, "
         "t₃ automatic planning, and the total)."
-        .format(runs=os.path.join(shoulder.EXPERIMENT_DIR, shoulder.RUNS_SUBDIR))
+        .format(runs=os.path.join(shown_dir, shoulder.RUNS_SUBDIR))
     )
     intro.setWordWrap(True)
     intro.setTextFormat(qt.Qt.RichText)

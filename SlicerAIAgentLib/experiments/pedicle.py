@@ -92,6 +92,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from . import geometry_io, segmentation_io, volume_io
+from . import run_timing
 from .run_timing import (canonical_step_id, collect_timing,
                          discover_cases as _discover_cases, timing_sheet)
 
@@ -2059,17 +2060,23 @@ def discover_cases(experiment_root: str) -> List[Dict[str, str]]:
 
 
 def build_report(experiment_root: str, progress=None,
-                 with_density: bool = True) -> Dict[str, Any]:
-    """Analyse every run. Fail-soft per case, so one bad scene costs one case."""
-    cases = discover_cases(experiment_root)
+                 with_density: bool = True,
+                 cases: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    """Analyse every run. Fail-soft per case, so one bad scene costs one case.
+
+    ``cases`` is an explicit run set (the user-study evaluation passes one per
+    Results folder); by default the runs under ``Overall_Performance`` are used.
+    """
+    searched = experiment_root if cases is not None else os.path.join(
+        experiment_root, RUNS_SUBDIR)
+    cases = discover_cases(experiment_root) if cases is None else list(cases)
     rows: List[Dict[str, Any]] = []
     levels: List[Dict[str, Any]] = []
     files: Dict[str, Dict[str, Any]] = {}
     failed: List[str] = []
     log: List[str] = []
     if not cases:
-        log.append("No runs found under %s."
-                   % os.path.join(experiment_root, RUNS_SUBDIR))
+        log.append("No runs found under %s." % searched)
     if not with_density:
         log.append("Density is OFF: the CT is not read, so path HU, contact "
                    "area, surface percentiles and trabecular HU are blank. Every "
@@ -2168,7 +2175,8 @@ def run_analysis(repository_root: str, progress=None,
     """Analyse every run and write the workbook. Returns the report + its path."""
     from .workbook import write_workbook                      # noqa: PLC0415
 
-    experiment_root = os.path.join(repository_root, EXPERIMENT_DIR)
+    experiment_root = run_timing.resolve_experiment_dir(
+        repository_root, EXPERIMENT_DIR)
     report = build_report(experiment_root, progress=progress,
                           with_density=with_density)
     output = os.path.join(experiment_root, RUNS_SUBDIR, WORKBOOK_NAME)

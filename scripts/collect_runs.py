@@ -41,6 +41,11 @@ COLUMNS = [
     "wall_seconds", "active_seconds", "compute_seconds", "idle_seconds",
     "away_seconds", "clicks", "clicks_3d", "clicks_2d", "clicks_panel",
     "clicks_other",
+    # Time the operator suspended the recording for: already EXCLUDED from
+    # wall_seconds and from every bucket beside it, and carried here so a
+    # trial that ran short because it was interrupted says so rather than
+    # looking like a fast one.
+    "paused_seconds",
     "started", "error", "folder",
 ]
 
@@ -55,7 +60,7 @@ CONDITION_ORDER = ["pipeline", "pure_llm", "online_only", "claude_code", "manual
 _ACTIVE_STATES = ("view_3d", "view_2d", "panel", "other")
 
 
-def _interaction_columns(totals, counts):
+def _interaction_columns(totals, counts, interaction=None):
     """The eight interaction cells from one ``totals``/``counts`` pair."""
     totals = totals or {}
     counts = counts or {}
@@ -74,6 +79,8 @@ def _interaction_columns(totals, counts):
         # The fourth target: anywhere else in Slicer. Without it the three
         # named columns look like they should sum to `clicks` and do not.
         "clicks_other": int(counts.get("clicks_other") or 0),
+        "paused_seconds": round(float((interaction or {}).get("paused_seconds")
+                                      or 0.0), 2),
     }
 
 
@@ -147,7 +154,8 @@ def collect(logs_dir):
             # An unaided comparison-arm run is one row by construction -- it has
             # no steps -- so the session's own interaction figures are the row's.
             row.update(_interaction_columns(interaction.get("totals"),
-                                            interaction.get("counts")))
+                                            interaction.get("counts"),
+                                            interaction))
             yield row
             continue
 
@@ -174,7 +182,7 @@ def collect(logs_dir):
             # interaction, the same way its wall clock is accumulated.
             entry = by_label.get(str(step.get("step_id") or "")) or {}
             row.update(_interaction_columns(entry.get("totals"),
-                                            entry.get("counts")))
+                                            entry.get("counts"), entry))
             if one_step:
                 row.update({
                     "gen_seconds": totals.get("generation_seconds", ""),

@@ -29,7 +29,7 @@ import qt
 import slicer
 
 from ..app.widget_experiments import register_experiment_panel
-from . import mandible
+from . import mandible, run_timing
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,15 @@ logger = logging.getLogger(__name__)
 @register_experiment_panel(mandible.EXTENSION_NAME)
 def build_panel(widget, layout, extension):
     root = _repository_root()
-    experiment_dir = os.path.join(root, mandible.EXPERIMENT_DIR)
+    # Resolved, never joined: the folder may sit under a tier
+    # (Experiments/1_Quanti_Eva/<Ext>/) whose name belongs to the
+    # study and has already changed once.
+    experiment_dir = run_timing.resolve_experiment_dir(
+        root, mandible.EXPERIMENT_DIR)
+    # What the prose below should NAME -- the resolved location,
+    # so "no cases found" never sends a reader to the wrong folder.
+    shown_dir = run_timing.experiment_dir_label(
+        root, mandible.EXPERIMENT_DIR)
 
     intro = qt.QLabel(
         "Scores the fibula reconstruction in every run under "
@@ -62,7 +70,7 @@ def build_panel(widget, layout, extension):
         "than approximating it.<br>"
         "Two tabs are written beside the runs: <b>Reconstruction accuracy</b> "
         "and <b>Timing</b>."
-        .format(runs=os.path.join(mandible.EXPERIMENT_DIR, mandible.RUNS_SUBDIR),
+        .format(runs=os.path.join(shown_dir, mandible.RUNS_SUBDIR),
                 model=mandible.MODEL_RELATIVE, stl=mandible.GT_STL_NAME)
     )
     intro.setWordWrap(True)

@@ -68,10 +68,12 @@ sys.modules["slicer"].util = types.ModuleType("slicer.util")
 import numpy as np                                            # noqa: E402
 
 from SlicerAIAgentLib.experiments import longbone             # noqa: E402
+from SlicerAIAgentLib.experiments import run_timing        # noqa: E402
 
 FAILURES = []
 
-EXPERIMENT_ROOT = os.path.join(ROOT, longbone.EXPERIMENT_DIR)
+EXPERIMENT_ROOT = run_timing.resolve_experiment_dir(
+    ROOT, longbone.EXPERIMENT_DIR)
 SCRATCH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "_check_longbone_tmp")
 
@@ -618,6 +620,90 @@ def _cleanup():
         shutil.rmtree(SCRATCH, ignore_errors=True)
 
 
+def check_experiment_dir_resolution():
+    section("11. the Experiments folder is FOUND, flat or under a tier")
+    # Every module declares the flat spelling, "Experiments/<Ext>". The
+    # collection has since been grouped into tiers -- and the first has already
+    # been renamed once, 1_QuantitativeEvaluation -> 1_Quanti_Eva. When the
+    # join misses, nothing raises: discover_cases() returns [], every panel
+    # prints "No cases found", and every real-data section of every checker
+    # SKIPs, which prints as a pass. All eight procedures were in that state.
+    #
+    # So the thing resolved for is the EXTENSION's own folder, which cannot be
+    # renamed without breaking far more. Driven here against a synthetic tree,
+    # because the layout on any one machine is not the invariant.
+    import shutil                                             # noqa: PLC0415
+    import tempfile                                           # noqa: PLC0415
+
+    from SlicerAIAgentLib.experiments import run_timing as rt  # noqa: PLC0415
+
+    base = tempfile.mkdtemp(prefix="expdir_")
+    try:
+        leaf = "LongBoneFractureReduction"
+        declared = os.path.join("Experiments", leaf)
+
+        # (a) Nothing there at all: the flat path comes back, so a caller's
+        # error message still names somewhere rather than "".
+        expected = os.path.join(base, declared)
+        check("an absent tree resolves to the declared flat path",
+              rt.resolve_experiment_dir(base, declared) == expected)
+
+        # (b) Flat, the historical layout.
+        os.makedirs(expected)
+        check("a flat Experiments/<Ext> is found",
+              rt.resolve_experiment_dir(base, declared) == expected)
+
+        # (c) Flat WINS over a tier, so a checkout that never moved is
+        # unaffected by any of this.
+        tiered = os.path.join(base, "Experiments", "1_Quanti_Eva", leaf)
+        os.makedirs(tiered)
+        check("a flat folder still wins when a tier also has one",
+              rt.resolve_experiment_dir(base, declared) == expected)
+
+        # (d) Tier only -- the live layout.
+        shutil.rmtree(expected)
+        check("a tiered Experiments/<tier>/<Ext> is found",
+              rt.resolve_experiment_dir(base, declared) == tiered)
+        check("...and the label names where it really is, not the declaration",
+              rt.experiment_dir_label(base, declared)
+              == os.path.join("Experiments", "1_Quanti_Eva", leaf))
+
+        # (e) The tier's NAME is never matched on: that is the whole point,
+        # since it is the study's to choose and has changed before.
+        renamed = os.path.join(base, "Experiments", "9_Whatever_The_Study_Calls_It")
+        os.makedirs(os.path.join(renamed, leaf))
+        shutil.rmtree(os.path.join(base, "Experiments", "1_Quanti_Eva"))
+        check("a tier renamed to anything at all still resolves",
+              rt.resolve_experiment_dir(base, declared)
+              == os.path.join(renamed, leaf))
+
+        # (f) Only ONE level deep. A full walk would descend into the runs --
+        # tens of gigabytes -- and could match a folder inside a saved scene.
+        shutil.rmtree(renamed)
+        buried = os.path.join(base, "Experiments", "a", "b", leaf)
+        os.makedirs(buried)
+        check("a folder two tiers down is NOT found (the walk is bounded)",
+              rt.resolve_experiment_dir(base, declared) == expected)
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+    # And the wiring: no reader may join the declared constant by hand again.
+    import glob as _glob                                      # noqa: PLC0415
+
+    offenders = []
+    for path in (_glob.glob(os.path.join(ROOT, "SlicerAIAgentLib",
+                                         "experiments", "*.py"))
+                 + _glob.glob(os.path.join(ROOT, "scripts", "check_*.py"))):
+        text = io.open(path, encoding="utf-8").read()
+        for needle in ("os.path.join(repository_root, EXPERIMENT_DIR",
+                       ".EXPERIMENT_DIR)"):
+            if needle in text and "resolve_experiment_dir" not in text:
+                offenders.append(os.path.basename(path))
+                break
+    check("no module joins EXPERIMENT_DIR by hand (%s)"
+          % (", ".join(sorted(set(offenders))) or "none"), not offenders)
+
+
 def main():
     try:
         check_transform_reader()
@@ -630,6 +716,7 @@ def main():
         check_full_sweep()
         check_read_only()
         check_panel_registration()
+        check_experiment_dir_resolution()
     finally:
         _cleanup()
 

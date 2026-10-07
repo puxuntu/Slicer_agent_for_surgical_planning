@@ -67,6 +67,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from . import orbital
+from . import run_timing
 from .run_timing import collect_timing, discover_cases as _discover_cases, timing_sheet
 
 logger = logging.getLogger(__name__)
@@ -820,7 +821,8 @@ def run_analysis(repository_root: str, write_scenes: bool = True,
     """Score every case and write the workbook beside the runs."""
     from .workbook import write_workbook                        # noqa: PLC0415
 
-    experiment_root = os.path.join(repository_root, EXPERIMENT_DIR)
+    experiment_root = run_timing.resolve_experiment_dir(
+        repository_root, EXPERIMENT_DIR)
     report = build_report(experiment_root, write_scenes=write_scenes,
                           progress=progress)
     output = os.path.join(experiment_root, RUNS_SUBDIR, WORKBOOK_NAME)

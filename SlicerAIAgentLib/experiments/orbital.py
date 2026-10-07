@@ -44,6 +44,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from . import run_timing
 from .run_timing import collect_timing, discover_cases as _discover_cases, timing_sheet
 
 logger = logging.getLogger(__name__)
@@ -1248,14 +1249,20 @@ def definition_rows(pairs: Sequence[Tuple[str, str]]) -> List[Dict[str, Any]]:
 
 
 def build_report(experiment_root: str, write_scenes: bool = True,
-                 progress=None) -> Dict[str, Any]:
-    """Analyse every case. Fail-soft per case, so one bad scene costs one row."""
-    cases = discover_cases(experiment_root)
+                 progress=None,
+                 cases: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    """Analyse every case. Fail-soft per case, so one bad scene costs one row.
+
+    ``cases`` is an explicit run set (the user-study evaluation passes one per
+    Results folder); by default the runs under ``Overall_Performance`` are used.
+    """
+    searched = experiment_root if cases is not None else os.path.join(
+        experiment_root, RUNS_SUBDIR)
+    cases = discover_cases(experiment_root) if cases is None else list(cases)
     rows: List[Dict[str, Any]] = []
     log: List[str] = []
     if not cases:
-        log.append("No cases found under %s."
-                   % os.path.join(experiment_root, RUNS_SUBDIR))
+        log.append("No cases found under %s." % searched)
 
     # ONCE, and only when scenes are written: saveScene serialises whatever is
     # in the scene, so it must hold nothing but this case's nodes. Each case
@@ -1346,7 +1353,8 @@ def run_analysis(repository_root: str, write_scenes: bool = True,
     """Analyse every case and write the workbook. Returns the report + its path."""
     from .workbook import write_workbook                      # noqa: PLC0415
 
-    experiment_root = os.path.join(repository_root, EXPERIMENT_DIR)
+    experiment_root = run_timing.resolve_experiment_dir(
+        repository_root, EXPERIMENT_DIR)
     report = build_report(experiment_root, write_scenes=write_scenes,
                           progress=progress)
     output = os.path.join(experiment_root, RUNS_SUBDIR, WORKBOOK_NAME)

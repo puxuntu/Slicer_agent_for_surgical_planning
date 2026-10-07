@@ -360,6 +360,7 @@ def pair_by_entry(agentic: List[Dict[str, Any]], manual: List[Dict[str, Any]],
 # so this module's callers (and its own build_report below) are unchanged.
 # ---------------------------------------------------------------------------
 
+from . import run_timing
 from .run_timing import (                                     # noqa: E402
     STEP_TIMING_COLUMNS,
     TIMING_COLUMNS,
@@ -502,21 +503,33 @@ def _mean(values: List[float]) -> Optional[float]:
     return round(sum(values) / len(values), 4) if values else None
 
 
-def build_report(experiment_root: str, sample_rate: int = SAMPLE_RATE
+def build_report(experiment_root: str, sample_rate: int = SAMPLE_RATE,
+                 progress=None, cases: Optional[List[Dict[str, str]]] = None
                  ) -> Dict[str, Any]:
     """Analyse every case and return the sheets plus a human-readable log.
 
     Fail-soft per case: one unreadable scene must not cost the other cases their
     numbers, so its error is recorded as a row in the log and the rest continue.
+
+    ``cases`` is an explicit run set (the user-study evaluation passes one per
+    Results folder); by default the runs under ``Overall_Performance`` are used.
+    ``progress(index, total, label)`` is called before each case.
     """
-    cases = discover_cases(experiment_root)
+    searched = experiment_root if cases is not None else os.path.join(
+        experiment_root, RUNS_SUBDIR)
+    cases = discover_cases(experiment_root) if cases is None else list(cases)
     bic_rows: List[Dict[str, Any]] = []
     log: List[str] = []
     if not cases:
-        log.append("No cases found under %s." % os.path.join(experiment_root, RUNS_SUBDIR))
+        log.append("No cases found under %s." % searched)
 
-    for case in cases:
+    for index, case in enumerate(cases):
         label = case["subject"] or case["run"]
+        if progress is not None:
+            try:
+                progress(index, len(cases), label)
+            except Exception:
+                logger.debug("Progress callback failed", exc_info=True)
         try:
             result = analyse_case(case, sample_rate=sample_rate)
         except Exception as exc:
@@ -624,7 +637,8 @@ def run_analysis(repository_root: str, sample_rate: int = SAMPLE_RATE
     """
     from .workbook import write_workbook                     # noqa: PLC0415
 
-    experiment_root = os.path.join(repository_root, EXPERIMENT_DIR)
+    experiment_root = run_timing.resolve_experiment_dir(
+        repository_root, EXPERIMENT_DIR)
     report = build_report(experiment_root, sample_rate=sample_rate)
     output = os.path.join(experiment_root, RUNS_SUBDIR, WORKBOOK_NAME)
     written, notes = write_workbook(output, report["sheets"])

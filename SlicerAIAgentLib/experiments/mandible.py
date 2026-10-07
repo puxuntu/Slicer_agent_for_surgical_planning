@@ -110,6 +110,7 @@ from urllib.parse import unquote
 import numpy as np
 
 from . import geometry_io
+from . import run_timing
 from .run_timing import (collect_timing, discover_cases as _discover_cases,
                          timing_sheet)
 
@@ -1188,8 +1189,36 @@ def summary_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 def discover_cases(experiment_root: str) -> List[Dict[str, str]]:
-    """One entry per run folder that was exited with "save"."""
-    return _discover_cases(experiment_root, RUNS_SUBDIR, DATASET_SUBDIR)
+    """One entry per run folder that was exited with "save", in CASE ORDER.
+
+    The shared discovery sorts by folder name, which is right for a subject id
+    that is not a number -- and wrong for this procedure, whose subjects are
+    `Case1 … Case40`: as text `Case10` precedes `Case2`, so the workbook reads
+    1, 10, 11, …, 2, 20, … A reader scanning for case 7 finds it two thirds of
+    the way down, and two cases that belong side by side are pages apart.
+
+    Sorted HERE rather than in `run_timing`, because it is a property of this
+    procedure's subject naming and not of what a run folder is -- the other
+    seven number their subjects differently (`051`, `10250_L`, `1_304`), and a
+    zero-padded or compound id already sorts correctly as text.
+
+    Every sheet inherits this: `build_report` appends one row per case in this
+    order and hands the same list to `collect_timing`, so the per-run,
+    per-segment, per-run-timing and per-step blocks all follow it.
+
+    A subject that is not `Case<N>` keeps its place among its own kind rather
+    than being dropped or crashing the sort: the key puts unparseable ids last,
+    ordered by name, which is what the shared discovery would have done.
+    """
+    cases = _discover_cases(experiment_root, RUNS_SUBDIR, DATASET_SUBDIR)
+
+    def by_case_number(case: Dict[str, str]):
+        match = re.fullmatch(r"[Cc]ase(\d+)", str(case.get("subject") or "").strip())
+        if match:
+            return (0, int(match.group(1)), "")
+        return (1, 0, str(case.get("subject") or case.get("run") or ""))
+
+    return sorted(cases, key=by_case_number)
 
 
 def case_is_scorable(case: Dict[str, str]) -> bool:
@@ -1203,20 +1232,30 @@ def case_is_scorable(case: Dict[str, str]) -> bool:
     return bool(folders.get(FIBULA_FOLDER)) and (bool(stump) or os.path.isfile(cached))
 
 
-def build_report(repository_root: str, progress=None, recompute: bool = False
-                 ) -> Dict[str, Any]:
-    """Analyse every run. Fail-soft per case, so one bad scene costs one case."""
-    experiment_root = os.path.join(repository_root, EXPERIMENT_DIR)
+def build_report(repository_root: str, progress=None, recompute: bool = False,
+                 cases: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    """Analyse every run. Fail-soft per case, so one bad scene costs one case.
+
+    ``cases`` is an explicit run set (the user-study evaluation passes one per
+    Results folder); by default the runs under ``Overall_Performance`` are used.
+    ``repository_root`` is still what locates the shape-completion model.
+    """
     model = model_path(repository_root)
-    cases = discover_cases(experiment_root)
+    if cases is None:
+        experiment_root = run_timing.resolve_experiment_dir(
+            repository_root, EXPERIMENT_DIR)
+        searched = os.path.join(experiment_root, RUNS_SUBDIR)
+        cases = discover_cases(experiment_root)
+    else:
+        cases = list(cases)
+        searched = os.path.dirname(cases[0]["run_dir"]) if cases else "the given run set"
     rows: List[Dict[str, Any]] = []
     segments: List[Dict[str, Any]] = []
     failed: List[str] = []
     log: List[str] = []
 
     if not cases:
-        log.append("No runs found under %s."
-                   % os.path.join(experiment_root, RUNS_SUBDIR))
+        log.append("No runs found under %s." % searched)
     if not os.path.isfile(model):
         log.append("[!] the shape-completion model is missing (%s), so no ground "
                    "truth can be predicted. Only runs with a cached "
@@ -1287,7 +1326,9 @@ def run_analysis(repository_root: str, progress=None, recompute: bool = False
     from .workbook import write_workbook                     # noqa: PLC0415
 
     report = build_report(repository_root, progress=progress, recompute=recompute)
-    output = os.path.join(repository_root, EXPERIMENT_DIR, RUNS_SUBDIR, WORKBOOK_NAME)
+    output = os.path.join(
+        run_timing.resolve_experiment_dir(repository_root, EXPERIMENT_DIR),
+        RUNS_SUBDIR, WORKBOOK_NAME)
     written, notes = write_workbook(output, report["sheets"])
     report["workbook"] = written
     report["log"].extend(notes)

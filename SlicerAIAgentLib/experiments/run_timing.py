@@ -217,6 +217,68 @@ def subject_from_run(run_dir: str) -> str:
     return parts[1] if len(parts) >= 4 else ""
 
 
+def resolve_experiment_dir(repository_root: str, experiment_dir: str) -> str:
+    """Absolute path to one procedure's Experiments folder, wherever it sits.
+
+    ``experiment_dir`` is the flat spelling every module declares,
+    ``Experiments/<Folder>``. The collection has since been grouped into tiers
+    (``1_Quanti_Eva``, ``2_Quali_Eva``, ``3_User_Study``), and those names are
+    an organisational choice the analysis has no opinion about -- the first has
+    already been renamed once, from ``1_QuantitativeEvaluation``. Hardcoding
+    the current spelling in nine modules would be a rule with one instance
+    whose failure mode is silent: every panel reports "No cases found", which
+    is indistinguishable from a study nobody has run yet.
+
+    So what is searched for is the EXTENSION's own folder, which cannot be
+    renamed without breaking far more than this. The flat location wins when it
+    exists; otherwise ONE level of tier folder, in name order. Only one level,
+    deliberately: a full walk would descend into the runs themselves -- tens of
+    gigabytes -- and could match a folder inside somebody's saved scene.
+
+    When nothing exists the flat path is returned unchanged, so a caller's
+    error message still names a sensible location instead of an empty string.
+    """
+    flat = os.path.join(repository_root, experiment_dir)
+    if os.path.isdir(flat):
+        return flat
+    parent, leaf = os.path.split(experiment_dir)
+    if not leaf:
+        return flat
+    base = os.path.join(repository_root, parent)
+    try:
+        tiers = sorted(os.listdir(base))
+    except OSError:
+        return flat
+    matches = [os.path.join(base, tier, leaf) for tier in tiers
+               if os.path.isdir(os.path.join(base, tier, leaf))]
+    if not matches:
+        return flat
+    if len(matches) > 1:
+        # Named rather than resolved silently: two tiers holding the same
+        # procedure means one of them is a copy, and scoring the wrong one
+        # produces a complete, plausible workbook off stale data.
+        logger.warning(
+            "%s exists under %d tiers (%s); using %s", leaf, len(matches),
+            ", ".join(os.path.basename(os.path.dirname(m)) for m in matches),
+            matches[0])
+    return matches[0]
+
+
+def experiment_dir_label(repository_root: str, experiment_dir: str) -> str:
+    """The resolved folder relative to the checkout, for a panel's own prose.
+
+    A panel that says "no cases under Experiments/<X>" while the data sits in
+    ``Experiments/1_Quanti_Eva/<X>`` sends the reader to the wrong place, so
+    the label is derived from the same resolution the analysis uses rather
+    than from the declared constant.
+    """
+    resolved = resolve_experiment_dir(repository_root, experiment_dir)
+    try:
+        return os.path.relpath(resolved, repository_root)
+    except ValueError:                      # different drive on Windows
+        return resolved
+
+
 def discover_cases(experiment_root: str, runs_subdir: str,
                    dataset_subdir: str) -> List[Dict[str, str]]:
     """One entry per run folder under ``runs_subdir``, oldest name first.
@@ -225,8 +287,18 @@ def discover_cases(experiment_root: str, runs_subdir: str,
     been exited with "save". A run without one produced no geometry to score and
     is skipped silently rather than reported as a failure.
     """
-    runs_dir = os.path.join(experiment_root, runs_subdir)
-    dataset_dir = os.path.join(experiment_root, dataset_subdir)
+    return discover_runs(os.path.join(experiment_root, runs_subdir),
+                         os.path.join(experiment_root, dataset_subdir))
+
+
+def discover_runs(runs_dir: str, dataset_dir: str) -> List[Dict[str, str]]:
+    """``discover_cases`` for two explicit folders rather than one root.
+
+    The user study keeps its runs in ``Results/<arm><procedure><participant>/``
+    and its data in ``Dataset/<procedure>/`` -- not siblings under one root with
+    fixed names -- so it names both. Every analysis consumes only the records
+    this returns, which is what lets it reuse them unchanged.
+    """
     cases: List[Dict[str, str]] = []
     if not os.path.isdir(runs_dir):
         return cases

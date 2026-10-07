@@ -67,6 +67,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from . import segmentation_io
+from . import run_timing
 from .run_timing import (canonical_step_id, collect_timing,
                          discover_cases as _discover_cases, timing_sheet)
 
@@ -1140,7 +1141,8 @@ def run_analysis(repository_root: str, progress=None,
     """Analyse every case and write the workbook. Returns the report + its path."""
     from .workbook import write_workbook                      # noqa: PLC0415
 
-    experiment_root = os.path.join(repository_root, EXPERIMENT_DIR)
+    experiment_root = run_timing.resolve_experiment_dir(
+        repository_root, EXPERIMENT_DIR)
     report = build_report(experiment_root, progress=progress, verify=verify)
     output = os.path.join(experiment_root, RUNS_SUBDIR, WORKBOOK_NAME)
     written, notes = write_workbook(output, report["sheets"])

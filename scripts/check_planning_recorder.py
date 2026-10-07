@@ -89,6 +89,13 @@ WHAT IT PROVES
     points -- the comparison arm's Start button covers composing the request and
     this one did not -- which flattered the guided arm by exactly that time.
 
+15. **A paused interval is in NO bucket, and makes no compute.** Pausing stops
+    the heartbeat, so every pause leaves a gap with nothing delivered in it --
+    which is precisely the signature of a blocked main thread. Un-handled, a
+    twenty-minute break reads as twenty minutes of algorithm time; handled only
+    by clipping the result, it still reads as `idle`, which is the partition's
+    remainder. Both are plausible numbers, never errors.
+
     python scripts/check_planning_recorder.py
 """
 
@@ -1481,6 +1488,166 @@ def section_14_typing_arms_the_clock(pr):
             sys.modules["qt"] = saved_qt
 
 
+def section_15_pause_leaves_no_trace(pr):
+    """A paused interval is in NO bucket, and makes no phantom compute.
+
+    Pause is the operator saying that what follows is not part of the trial.
+    Two things have to hold for that to mean anything, and each fails as a
+    plausible number rather than an error:
+
+    * the interval must leave every state, INCLUDING ``idle`` -- which is the
+      remainder of the partition, so anything not explicitly removed lands
+      there and reads as the participant thinking about the task; and
+    * it must not become ``compute``. Pausing stops the heartbeat, so every
+      pause leaves a gap with nothing delivered in it, which is the exact
+      signature of a blocked main thread. A twenty-minute break would
+      otherwise be reported as twenty minutes of algorithm time.
+
+    Drives the real recorder with a fake clock, and the real ``partition`` over
+    a hand-written event list, so both the lifecycle and the arithmetic are the
+    shipped ones.
+    """
+    print("\n15. A pause leaves no trace in the measurement")
+    saved_time = pr.time.time
+    # Each section installs and restores its own `qt`: an earlier one removing
+    # a stub a later one relied on is how this script last broke.
+    saved_qt = sys.modules.get("qt")
+    sys.modules.setdefault("qt", types.ModuleType("qt"))
+    clock = _Clock()
+    pr.time.time = clock
+    try:
+        rec = pr.InputRecorder()
+        rec._install_filter = lambda: None
+        rec._start_heartbeat = lambda: None
+        rec._main_window_active = lambda: True
+        rec._override_cursor_set = lambda: False
+
+        def beat(seconds, step=0.1):
+            end = clock.now + seconds
+            while clock.now < end - 1e-9:
+                clock.advance(step)
+                rec._on_tick()
+
+        rec.start(label="trial")
+        beat(3.0)
+        rec._append("click", pr.TARGET_PANEL)
+        rec._bump("clicks_total")
+        beat(2.0)
+
+        check("pause() reports that it took effect", rec.pause() is True)
+        check("...the trial is paused but NOT over",
+              rec.paused and rec.running)
+        frozen = rec.live_summary()["seconds"]
+        clock.advance(600.0)          # ten minutes away from the desk
+        check("a second pause() is a no-op", rec.pause() is False)
+        check("the live clock FREEZES rather than counting excluded time",
+              abs(rec.live_summary()["seconds"] - frozen) < 1e-6,
+              "%.1f -> %.1f" % (frozen, rec.live_summary()["seconds"]))
+        check("resume() reports that it took effect", rec.resume() is True)
+        check("a second resume() is a no-op", rec.resume() is False)
+        beat(5.0)
+        rec.stop()
+
+        snap = rec.snapshot()
+        states = snap["totals"]
+        summed = sum(float(states[s]) for s in pr.ALL_STATES)
+        check("the raw clock is kept", abs(snap["elapsed_seconds"] - 610.0) < 0.2,
+              "%.1f s" % snap["elapsed_seconds"])
+        check("the pause is counted", abs(snap["paused_seconds"] - 600.0) < 0.2,
+              "%.1f s" % snap["paused_seconds"])
+        check("wall_seconds EXCLUDES it", abs(snap["wall_seconds"] - 10.0) < 0.2,
+              "%.1f s" % snap["wall_seconds"])
+        check("the seven still sum to wall_seconds",
+              abs(summed - snap["wall_seconds"]) < 0.05,
+              "%.3f vs %.3f" % (summed, snap["wall_seconds"]))
+        check("the stopped heartbeat did NOT become compute",
+              float(states[pr.STATE_COMPUTE]) < 0.05,
+              "compute %.2f s" % states[pr.STATE_COMPUTE])
+        check("...nor did it land in idle",
+              float(states[pr.STATE_IDLE]) <= 10.05,
+              "idle %.2f s" % states[pr.STATE_IDLE])
+        check("the click before the pause survived it",
+              snap["counts"].get("clicks_total") == 1, snap["counts"])
+
+        # The event filter must decline everything while paused, or the
+        # counters would move under a clock that is not.
+        rec2 = pr.InputRecorder()
+        rec2._install_filter = lambda: None
+        rec2._start_heartbeat = lambda: None
+        rec2._main_window_active = lambda: True
+        rec2._override_cursor_set = lambda: False
+        rec2.start(label="trial")
+        rec2._button_down = 1          # a button held when the pause lands
+        rec2.pause()
+        seen = []
+        rec2._on_button = lambda *a, **k: seen.append(a)
+        rec2._on_move = lambda *a, **k: seen.append(a)
+        rec2._handle(None, object())
+        check("the filter records NOTHING while paused", not seen)
+        check("...and the held-button mask is cleared, so the first move after"
+              " a resume is not a drag", rec2._button_down == 0)
+
+        # `partition` itself, over an explicit event list: the same rule has to
+        # hold for a session read back off disk, not only for a live recorder.
+        events = [["tick", 0.0, False], ["tick", 0.1, False],
+                  ["click", 0.15, pr.TARGET_VIEW_3D],
+                  ["tick", 0.2, False],
+                  # nothing between 0.2 and 30.2: the pause
+                  ["tick", 30.2, False], ["tick", 30.3, False]]
+        without = pr.partition(events, 0.0, 30.3)
+        withpause = pr.partition(events, 0.0, 30.3, [[0.2, 30.2]])
+        check("the same gap IS compute when it was not a pause",
+              pr._total(without[pr.STATE_COMPUTE]) > 29.0,
+              "%.1f s" % pr._total(without[pr.STATE_COMPUTE]))
+        check("...and is nothing at all when it was",
+              pr._total(withpause[pr.STATE_COMPUTE]) < 0.05,
+              "%.2f s" % pr._total(withpause[pr.STATE_COMPUTE]))
+        total = sum(pr._total(withpause[s]) for s in pr.ALL_STATES)
+        check("the paused partition sums to the ACTIVE window",
+              abs(total - 0.3) < 0.05, "%.2f s of an expected 0.30" % total)
+
+        # A window handed to the per-step reader must not absorb the pause
+        # into its idle remainder either -- that is the guided report's rows.
+        spans = [[round(a, 3), round(b, 3), state]
+                 for state in pr.ALL_STATES for a, b in withpause[state]
+                 if state != pr.STATE_IDLE]
+        step_window = [[0.0, 30.3]]
+        totals = pr.totals_in_windows(spans, step_window, [[0.2, 30.2]])
+        held = pr.paused_in_windows([[0.2, 30.2]], step_window)
+        check("a step's row excludes the pause from idle",
+              float(totals[pr.STATE_IDLE]) < 0.35,
+              "idle %.2f s" % totals[pr.STATE_IDLE])
+        check("...and the row plus its paused column sums to the step's wall",
+              abs(sum(float(totals[s]) for s in pr.ALL_STATES) + held - 30.3) < 0.05,
+              "%.2f + %.2f vs 30.30"
+              % (sum(float(totals[s]) for s in pr.ALL_STATES), held))
+
+        # Both UIs must offer it, and call it the same thing.
+        panel_src = io.open(CANONICAL, encoding="utf-8").read()
+        for needle, label in ((".pause()", "the panel calls pause()"),
+                              (".resume()", "the panel calls resume()"),
+                              ("PAUSE_TEXT", "the caption is a named constant"),
+                              ("RESUME_TEXT", "so is its other state")):
+            check("comparison arm: " + label, needle in panel_src)
+        agent_src = io.open(os.path.join(ROOT, "SlicerAIAgentLib", "app",
+                                         "widget_workflow.py"),
+                            encoding="utf-8").read()
+        for needle, label in (("_onInteractionPauseClicked", "has a pause handler"),
+                              ("RESUME_TEXT", "and the same two captions")):
+            check("guided arm: " + label, needle in agent_src)
+        check("the two arms spell the button the same way",
+              'PAUSE_TEXT = "Pause"' in panel_src
+              and 'PAUSE_TEXT = "Pause"' in agent_src
+              and 'RESUME_TEXT = "Resume"' in panel_src
+              and 'RESUME_TEXT = "Resume"' in agent_src)
+    finally:
+        pr.time.time = saved_time
+        if saved_qt is None:
+            sys.modules.pop("qt", None)
+        else:
+            sys.modules["qt"] = saved_qt
+
+
 def main():
     print("Checking the user-study interaction recorder")
     print("=" * 70)
@@ -1499,6 +1666,7 @@ def main():
     section_12_whose_panel(pr)
     section_13_scene_close(pr)
     section_14_typing_arms_the_clock(pr)
+    section_15_pause_leaves_no_trace(pr)
 
     print()
     if FAILURES:

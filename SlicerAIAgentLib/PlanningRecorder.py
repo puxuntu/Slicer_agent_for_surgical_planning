@@ -136,6 +136,17 @@ STATE_IDLE = "idle"
 #: is how a reader scans them: what was not the session, then what was.
 ALL_STATES = (STATE_AWAY, STATE_COMPUTE) + TARGET_KINDS + (STATE_IDLE,)
 
+#: Paused time is NOT an eighth state. A pause is the operator declaring that
+#: what follows is not part of the trial -- an interruption, a question, a
+#: phone call -- so it is REMOVED FROM THE SESSION rather than bucketed inside
+#: it: the seven states sum to ``wall_seconds``, and ``wall_seconds`` is the
+#: elapsed clock MINUS the pauses. The raw clock is still reported
+#: (``elapsed_seconds``) beside ``paused_seconds``, so the two reconcile and
+#: nothing is silently lost -- but the figure every analysis reads is the
+#: active one, which is what "the paused time is not recorded" has to mean if
+#: two arms are to be compared on it.
+STATE_PAUSED = "paused"
+
 #: Qt class-name fragments that identify a view. Matched as substrings of
 #: ``className()`` walking up the parent chain, never against an exact list:
 #: Slicer wraps its views in several layers (``qMRMLSliceWidget`` holds a
@@ -297,7 +308,8 @@ def _alive_spans(events: Sequence[Sequence[Any]]) -> List[List[Any]]:
     return spans
 
 
-def _blocked_from_ticks(events: Sequence[Sequence[Any]]) -> List[List[float]]:
+def _blocked_from_ticks(events: Sequence[Sequence[Any]],
+                        paused: Sequence[Sequence[float]] = ()) -> List[List[float]]:
     """The ``compute`` intervals: the main thread was busy running something.
 
     Two producers, and the second is not redundant. (a) A gap between two alive
@@ -317,12 +329,25 @@ def _blocked_from_ticks(events: Sequence[Sequence[Any]]) -> List[List[float]]:
     busy-cursor intervals are NOT cut that way: there the extension has said
     outright that it is working, and a surgeon clicking at a busy application is
     not operating it.
+
+    A gap is ALSO cut at every pause, and that is not the same rule wearing a
+    second hat. Pausing stops the heartbeat, so every pause leaves a gap with
+    nothing delivered in it -- which is the exact signature of a blocked main
+    thread. Clipping the *result* against the session would not be enough
+    either: the stretch runs from the last tick before the pause to the first
+    after the resume, so its two ends survive the clip as slivers of up to one
+    heartbeat each, and a session paused twenty times would accumulate seconds
+    of compute out of nothing but the operator's thumb. Cutting the gap here,
+    before the threshold is applied, is what makes a pause contribute exactly
+    zero -- and it leaves a real block that happens to contain a pause measured
+    over its active parts only, which is the same answer for the same reason.
     """
     spans = _alive_spans(events)
     out: List[List[float]] = [[span[0], span[1]] for span in spans if span[2]]
     stamps = sorted(float(e[1]) for e in events if e[0] in _INPUT_KINDS)
     for previous, span in zip(spans, spans[1:]):
-        out.extend(_unattended_stretches(previous[1], span[0], stamps))
+        for low, high in _subtract([[previous[1], span[0]]], paused):
+            out.extend(_unattended_stretches(low, high, stamps))
     return _merge([(a, b) for a, b in out])
 
 
@@ -387,8 +412,8 @@ def _away_from_events(events: Sequence[Sequence[Any]],
     return _intersect(_merge([(a, b) for a, b in out]), [[start, stop]])
 
 
-def partition(events: Sequence[Sequence[Any]], start: float,
-              stop: float) -> Dict[str, List[List[float]]]:
+def partition(events: Sequence[Sequence[Any]], start: float, stop: float,
+              paused: Sequence[Sequence[float]] = ()) -> Dict[str, List[List[float]]]:
     """The seven disjoint state intervals, in precedence order.
 
     ``away`` beats everything: nothing that happened while the window was
@@ -400,11 +425,17 @@ def partition(events: Sequence[Sequence[Any]], start: float,
     what makes this safe -- see its comment: the case it must not steal is a
     drag that keeps the main thread intermittently busy, and those gaps are
     individually far shorter than the threshold.
+
+    ``paused`` is cut out of the SESSION before any of that, so the seven still
+    sum -- to the active window rather than to the raw clock. Every state is
+    derived by intersecting with ``session``, so removing the pauses there is
+    the whole change: no bucket can contain paused time, whatever produced it.
     """
-    session = [[float(start), float(stop)]]
+    session = _subtract([[float(start), float(stop)]], paused)
     away = _intersect(session, _away_from_events(events, start, stop))
     taken = list(away)
-    compute = _subtract(_intersect(session, _blocked_from_ticks(events)), taken)
+    compute = _subtract(_intersect(session, _blocked_from_ticks(events, paused)),
+                        taken)
     taken = _merge([(a, b) for a, b in taken + compute])
 
     out: Dict[str, List[List[float]]] = {STATE_AWAY: away, STATE_COMPUTE: compute}
@@ -499,11 +530,33 @@ class InputRecorder:
         #: in `_events`, which is what makes extending it free.
         self._alive: Optional[List[Any]] = None
         self._was_active = True
+        #: Closed pause intervals, and the one currently open. Time inside them
+        #: is removed from the session -- see `STATE_PAUSED`.
+        self._paused: List[List[float]] = []
+        self._pause_started: Optional[float] = None
 
     # -- lifecycle ------------------------------------------------------
     @property
     def running(self) -> bool:
         return self._started is not None and self._stopped is None
+
+    @property
+    def paused(self) -> bool:
+        """Running, but deliberately not measuring."""
+        return self.running and self._pause_started is not None
+
+    def paused_spans(self, now: Optional[float] = None) -> List[List[float]]:
+        """Every pause, with an open one closed at ``now`` for the arithmetic."""
+        out = [[float(a), float(b)] for a, b in self._paused]
+        if self._pause_started is not None:
+            end = float(self._stopped if self._stopped is not None
+                        else (now if now is not None else time.time()))
+            if end > self._pause_started:
+                out.append([float(self._pause_started), end])
+        return _merge([(a, b) for a, b in out])
+
+    def paused_seconds(self, now: Optional[float] = None) -> float:
+        return _total(self.paused_spans(now))
 
     @property
     def hook(self) -> str:
@@ -526,6 +579,8 @@ class InputRecorder:
         self._started = time.time()
         self._stopped = None
         self._alive = None
+        self._paused = []
+        self._pause_started = None
         self._was_active = self._main_window_active()
         self.mark(label)
         try:
@@ -544,11 +599,78 @@ class InputRecorder:
         self._append("focus", self._was_active)
         return True
 
+    def pause(self) -> bool:
+        """Stop measuring without ending the trial. Idempotent; never raises.
+
+        Everything stops: the filter declines every event, the heartbeat is
+        stopped, and the interval is removed from the session, so a pause
+        contributes to no bucket and no counter. What it is FOR is the
+        interruption a study session cannot avoid -- a question, a phone call,
+        the next participant arriving -- which would otherwise land in ``idle``
+        and read as the person thinking about the task.
+
+        Three things are torn down rather than left to resume:
+
+        * the open alive span, so the resume opens a NEW one and the boundary
+          is never a heartbeat gap to be read as a block (and the gap itself is
+          cut in ``_blocked_from_ticks``, which is the belt to this braces);
+        * the held-button mask, since a button pressed before the pause and
+          released after it would otherwise leave the mask stuck -- the same
+          defect duplicate deliveries used to cause, where every later hover
+          was recorded as a drag;
+        * the last pointer position, so the first move after the resume does
+          not book the whole distance the mouse travelled while paused.
+        """
+        if not self.running or self._pause_started is not None:
+            return False
+        self._pause_started = time.time()
+        self._alive = None
+        self._button_down = 0
+        self._last_pos = None
+        try:
+            if self._timer is not None:
+                self._timer.stop()
+        except Exception:
+            logger.debug("Pausing the heartbeat failed", exc_info=True)
+        return True
+
+    def resume(self) -> bool:
+        """Continue the same trial. The paused interval stays excluded."""
+        if not self.running or self._pause_started is None:
+            return False
+        now = time.time()
+        if now > self._pause_started:
+            self._paused.append([float(self._pause_started), float(now)])
+        self._pause_started = None
+        try:
+            if self._timer is not None:
+                self._timer.start()
+            else:
+                self._start_heartbeat()
+        except Exception:
+            logger.warning("Restarting the heartbeat after a pause failed",
+                           exc_info=True)
+        # Re-state the focus rather than assume it survived. The participant
+        # may have alt-tabbed away during the pause and still be away now, and
+        # `_away_from_events` only ever sees transitions -- so a pause that
+        # swallowed the WindowDeactivate would leave the time after it credited
+        # to the session.
+        self._was_active = self._main_window_active()
+        self._append("focus", self._was_active)
+        return True
+
     def stop(self) -> None:
         """Remove the filter and the heartbeat. Keeps every recorded event."""
         if self._started is None or self._stopped is not None:
             return
         self._stopped = time.time()
+        # A run stopped while paused closes its pause at the stop, so the open
+        # interval never has to be guessed at by a later reader of the events.
+        if self._pause_started is not None:
+            if self._stopped > self._pause_started:
+                self._paused.append([float(self._pause_started),
+                                     float(self._stopped)])
+            self._pause_started = None
         try:
             if self._filter is not None and self._app is not None:
                 self._app.removeEventFilter(self._filter)
@@ -690,7 +812,10 @@ class InputRecorder:
         entries an hour, which is a list that grows with the clock rather than
         with anything the participant did.
         """
-        if not self.running:
+        if not self.running or self._pause_started is not None:
+            # The timer is stopped by `pause()`, so this is the belt to that
+            # braces -- a tick already queued when the pause landed must not
+            # extend a span across it.
             return
         now = time.time()
         busy = self._override_cursor_set()
@@ -716,6 +841,11 @@ class InputRecorder:
         import qt
 
         if not self.running:
+            return
+        if self._pause_started is not None:
+            # Nothing at all is recorded while paused -- not the click on the
+            # Resume button either, which is why this returns before the
+            # counters and not merely before the time attribution.
             return
         kind = event.type()
         if kind == qt.QEvent.KeyPress:
@@ -940,7 +1070,9 @@ class InputRecorder:
         stop = float(self._stopped if self._stopped is not None
                      else (now if now is not None else time.time()))
         start = float(self._started)
-        spans = partition(self._events, start, stop)
+        paused = self.paused_spans(stop)
+        paused_total = _total(paused)
+        spans = partition(self._events, start, stop, paused)
         payload: Dict[str, Any] = {
             "schema": SCHEMA,
             "recorded": True,
@@ -948,7 +1080,16 @@ class InputRecorder:
             "started_epoch": round(start, 3),
             "stopped_epoch": round(stop, 3),
             "running": self.running,
-            "wall_seconds": round(stop - start, 3),
+            "paused": self.paused,
+            # The ACTIVE window: the clock minus the pauses. This is the figure
+            # every analysis reads and the one the seven states sum to, so a
+            # paused trial is comparable with an uninterrupted one. The raw
+            # clock is beside it rather than gone.
+            "wall_seconds": round(stop - start - paused_total, 3),
+            "elapsed_seconds": round(stop - start, 3),
+            "paused_seconds": round(paused_total, 3),
+            "pause_count": len(paused),
+            "paused_spans": [[round(a, 3), round(b, 3)] for a, b in paused],
             "settings": {
                 "heartbeat_ms": HEARTBEAT_MS,
                 "block_threshold_s": BLOCK_THRESHOLD_S,
@@ -974,7 +1115,7 @@ class InputRecorder:
             for event in self._events
             if event[0] in _REPORTED_INPUT_KINDS and start <= float(event[1]) <= stop
         ]
-        payload["by_label"] = self._by_label(start, stop)
+        payload["by_label"] = self._by_label(start, stop, paused)
         return payload
 
     def live_summary(self) -> Dict[str, Any]:
@@ -988,16 +1129,26 @@ class InputRecorder:
         participant compute time for the act of watching the clock.
         """
         if self._started is None:
-            return {"recorded": False, "seconds": 0.0, "counts": {}}
+            return {"recorded": False, "seconds": 0.0, "counts": {},
+                    "paused": False, "paused_seconds": 0.0}
         stop = self._stopped if self._stopped is not None else time.time()
+        paused = self.paused_seconds(stop)
         return {
             "recorded": True,
             "running": self.running,
-            "seconds": round(float(stop) - float(self._started), 3),
+            "paused": self.paused,
+            # Active, so the readout FREEZES while paused instead of counting
+            # time the report will not contain. A clock that keeps running on
+            # screen and then does not appear in the record is the one way this
+            # feature could mislead the person operating it.
+            "seconds": round(float(stop) - float(self._started) - paused, 3),
+            "elapsed_seconds": round(float(stop) - float(self._started), 3),
+            "paused_seconds": round(paused, 3),
             "counts": dict(self._counts),
         }
 
-    def _by_label(self, start: float, stop: float) -> Dict[str, Any]:
+    def _by_label(self, start: float, stop: float,
+                  paused: Sequence[Sequence[float]] = ()) -> Dict[str, Any]:
         """Per-label totals, from the event-index ranges ``mark()`` recorded.
 
         NOTE the window: a label runs from the moment it was set to the moment
@@ -1025,11 +1176,19 @@ class InputRecorder:
             if window_end <= window_start:
                 continue
             entry = out.setdefault(label, {"seconds": 0.0, "visits": 0,
+                                           "paused_seconds": 0.0,
                                            "totals": {s: 0.0 for s in ALL_STATES},
                                            "counts": {}})
             entry["visits"] += 1
-            entry["seconds"] = round(entry["seconds"] + window_end - window_start, 3)
-            sliced = self.slice_totals(window_start, window_end, start, stop)
+            # ACTIVE seconds, so a phase's own wall clock still equals the sum
+            # of its seven buckets when the operator paused inside it -- and
+            # the paused figure beside it, so a phase that reads short can say
+            # why instead of looking like a fast one.
+            held = _total(_intersect(paused, [[window_start, window_end]]))
+            active = window_end - window_start - held
+            entry["seconds"] = round(entry["seconds"] + active, 3)
+            entry["paused_seconds"] = round(entry["paused_seconds"] + held, 3)
+            sliced = self.slice_totals(window_start, window_end, start, stop, paused)
             for state, value in sliced["totals"].items():
                 entry["totals"][state] = round(entry["totals"][state] + value, 3)
             for key, value in sliced["counts"].items():
@@ -1038,12 +1197,16 @@ class InputRecorder:
 
     def slice_totals(self, window_start: float, window_end: float,
                      start: Optional[float] = None,
-                     stop: Optional[float] = None) -> Dict[str, Any]:
+                     stop: Optional[float] = None,
+                     paused: Optional[Sequence[Sequence[float]]] = None
+                     ) -> Dict[str, Any]:
         """The partition and the click counts restricted to one time window."""
         start = float(self._started if start is None else start)
         stop = float(stop if stop is not None else
                      (self._stopped if self._stopped is not None else time.time()))
-        spans = partition(self._events, start, stop)
+        if paused is None:
+            paused = self.paused_spans(stop)
+        spans = partition(self._events, start, stop, paused)
         window = [[max(window_start, start), min(window_end, stop)]]
         totals = {state: _total(_intersect(spans[state], window))
                   for state in ALL_STATES}
@@ -1096,8 +1259,22 @@ def _widget_is_inside(root, widget) -> bool:
     return False
 
 
+def paused_in_windows(paused: Sequence[Sequence[float]],
+                      windows: Sequence[Sequence[float]]) -> float:
+    """How much of ``windows`` the operator had the recorder paused for.
+
+    The counterpart to ``totals_in_windows``, which reports the seven states
+    over the ACTIVE part of a window only. A caller that prints both gets a row
+    that sums to the window it named; one that prints only the seven is
+    reporting a shorter row and must say so.
+    """
+    return _total(_intersect([[float(a), float(b)] for a, b in paused or []],
+                             [[float(a), float(b)] for a, b in windows]))
+
+
 def totals_in_windows(spans: Sequence[Sequence[Any]],
-                      windows: Sequence[Sequence[float]]) -> Dict[str, float]:
+                      windows: Sequence[Sequence[float]],
+                      paused: Sequence[Sequence[float]] = ()) -> Dict[str, float]:
     """Seconds per state inside ``windows``, with ``idle`` as the remainder.
 
     ``spans`` carries every state except ``idle`` -- idle is what is left when
@@ -1105,8 +1282,15 @@ def totals_in_windows(spans: Sequence[Sequence[Any]],
     windows exactly rather than approximately. A caller can therefore hand this
     any window it likes (a step's visits, a phase, a whole run) and get a
     partition of that window rather than of the recorder's own labelling.
+
+    ``idle`` being the remainder is exactly why ``paused`` has to be named
+    here. Every other state is read off ``spans``, which already excludes the
+    pauses -- so a pause inside the window would fall out of the subtraction
+    and be reported as the surgeon sitting and thinking, which is the one
+    reading a pause exists to prevent.
     """
-    merged = _merge([(float(a), float(b)) for a, b in windows])
+    merged = _subtract(_merge([(float(a), float(b)) for a, b in windows]),
+                       [[float(a), float(b)] for a, b in paused or []])
     span_total = _total(merged)
     out = {state: 0.0 for state in ALL_STATES}
     grouped: Dict[str, List[List[float]]] = {}
@@ -1268,6 +1452,21 @@ def render_interaction_sections(interaction: Optional[Dict[str, Any]]) -> List[s
         # evidence of a bug rather than of rounding -- printed, never hidden.
         out.append(f"   [!] the seven sum to {measured:.1f} s, "
                    f"not the {float(wall):.1f} s recorded")
+    paused_seconds = float(interaction.get("paused_seconds") or 0.0)
+    if paused_seconds > 0:
+        # Stated rather than merely subtracted. A reader comparing this run's
+        # duration against the clock on the wall is owed the difference, and an
+        # organiser reading a suspiciously short trial is owed the count.
+        pauses = int(interaction.get("pause_count") or 0)
+        elapsed = float(interaction.get("elapsed_seconds") or 0.0)
+        out.append("")
+        out.append(f"   paused by the operator                    : "
+                   f"{_fmt(paused_seconds)}"
+                   f"   ({pauses} pause{'' if pauses == 1 else 's'})")
+        out.append(f"   -- EXCLUDED from every figure above. {_fmt(elapsed)} "
+                   f"elapsed on the clock;")
+        out.append(f"      the seven states sum to the {_fmt(wall)} that was "
+                   f"actually measured.")
     out.append("")
     out.append(" Input, counted only while Slicer was the active window:")
     out.append(f"   mouse clicks                              : "
@@ -1859,8 +2058,18 @@ class PlanningRunRecord:
             # arms side by side sees that this arm has no step structure rather
             # than wondering whether the field failed to write.
             "steps": [],
-            "interaction": {"totals": totals, "counts": counts,
-                            "hook": (interaction or {}).get("hook")},
+            "interaction": {
+                "totals": totals, "counts": counts,
+                "hook": (interaction or {}).get("hook"),
+                # Carried into the manifest, not left only in interaction.json:
+                # `collect_runs.py` reads the manifest, and a trial whose wall
+                # clock is short because it was paused must be able to say so
+                # in the comparison table.
+                "wall_seconds": (interaction or {}).get("wall_seconds"),
+                "elapsed_seconds": (interaction or {}).get("elapsed_seconds"),
+                "paused_seconds": (interaction or {}).get("paused_seconds"),
+                "pause_count": (interaction or {}).get("pause_count"),
+            },
             "scene": {"directory": self.saved_scene_dir or None,
                       "note": self.scene_note or None},
         }
@@ -1911,6 +2120,16 @@ class PlanningRunRecord:
         out.append(f" Recording stopped : {_clock(self.stopped_epoch)}")
         out.append(f" TOTAL RUN TIME    : "
                    f"{_fmt((interaction or {}).get('wall_seconds'))}")
+        _paused = float((interaction or {}).get("paused_seconds") or 0.0)
+        if _paused > 0:
+            # On the headline, not in a footnote: this is the one line that
+            # explains why the stop and start times above do not subtract to
+            # the total beside them.
+            _pauses = int((interaction or {}).get("pause_count") or 0)
+            out.append(f" PAUSED (excluded) : {_fmt(_paused)}"
+                       f"   ({_pauses} pause{'' if _pauses == 1 else 's'};"
+                       f" {_fmt((interaction or {}).get('elapsed_seconds'))}"
+                       f" elapsed)")
         out.append("")
         out.append(" This arm has no step structure: the participant drove the")
         out.append(" extension's own GUI, so there is nothing to tabulate per step.")
@@ -1997,9 +2216,16 @@ def stopRecorderPanel(widget) -> None:
 
 
 class _RecorderPanel:
-    """Start / Stop / Save, a live status line, and where the data is going."""
+    """Start / Pause / Stop / Save, a live status line, and where the data goes."""
 
     TITLE = "Session recording (user study)"
+
+    #: The pause button's two captions. "Resume", never "Restart": the button
+    #: continues the SAME trial, and next to a "Start recording" button the
+    #: word restart reads as beginning again -- which would throw the trial
+    #: away, since nothing is on disk until Save.
+    PAUSE_TEXT = "Pause"
+    RESUME_TEXT = "Resume"
 
     def __init__(self, widget, procedure: str, collapsed: bool = False):
         import ctk
@@ -2038,6 +2264,12 @@ class _RecorderPanel:
         self._startButton.toolTip = (
             "Open a run folder and begin measuring. Clicks are counted only "
             "while Slicer is the active window.")
+        self._pauseButton = qt.QPushButton(self.PAUSE_TEXT)
+        self._pauseButton.toolTip = (
+            "Suspend the measurement for an interruption. Nothing is counted "
+            "and no time accumulates while paused, and the paused interval is "
+            "excluded from every figure in the report. The trial continues "
+            "where it left off when you press Resume.")
         self._stopButton = qt.QPushButton("Stop")
         self._stopButton.toolTip = (
             "Stop measuring. Nothing is written yet -- press 'Save run' to "
@@ -2046,7 +2278,8 @@ class _RecorderPanel:
         self._saveButton.toolTip = (
             "Write the whole trial: the scene, the manifest, interaction.json "
             "and timing.txt. NOTHING reaches logs/ until this is pressed.")
-        for button in (self._startButton, self._stopButton, self._saveButton):
+        for button in (self._startButton, self._pauseButton,
+                       self._stopButton, self._saveButton):
             row.addWidget(button)
         layout.addLayout(row)
 
@@ -2060,6 +2293,7 @@ class _RecorderPanel:
         layout.addWidget(self._pathLabel)
 
         self._startButton.connect("clicked(bool)", self.onStart)
+        self._pauseButton.connect("clicked(bool)", self.onPause)
         self._stopButton.connect("clicked(bool)", self.onStop)
         self._saveButton.connect("clicked(bool)", self.onSave)
 
@@ -2111,10 +2345,31 @@ class _RecorderPanel:
             logger.warning("Starting the study recording failed", exc_info=True)
         self._refresh()
 
+    def onPause(self, _checked=False):
+        """One button for both directions, because they are one decision.
+
+        Two buttons would leave a disabled Resume sitting beside an enabled
+        Pause for the whole of an uninterrupted session, and the state the
+        operator needs to read off this panel is *which* one is live -- which a
+        caption says and a pair of buttons only implies.
+        """
+        if self._record is None or not self._record.recorder.running:
+            return
+        try:
+            if self._record.recorder.paused:
+                self._record.recorder.resume()
+            else:
+                self._record.recorder.pause()
+        except Exception:
+            logger.warning("Pausing the study recording failed", exc_info=True)
+        self._refresh()
+
     def onStop(self, _checked=False):
         if self._record is None:
             return
         try:
+            # `end()` -> `recorder.stop()` closes an open pause at the stop, so
+            # stopping while paused needs no special case here.
             self._record.end()
         except Exception:
             logger.warning("Stopping the study recording failed", exc_info=True)
@@ -2210,8 +2465,12 @@ class _RecorderPanel:
     def _refresh(self, keep_status: bool = False):
         try:
             running = self._record is not None and self._record.recorder.running
+            paused = self._record is not None and self._record.recorder.paused
             started = self._record is not None and self._record.started_epoch
             self._startButton.setEnabled(not running)
+            self._pauseButton.setEnabled(bool(running))
+            self._pauseButton.setText(self.RESUME_TEXT if paused
+                                      else self.PAUSE_TEXT)
             self._stopButton.setEnabled(bool(running))
             self._saveButton.setEnabled(bool(started))
             if self._record is None:
@@ -2240,9 +2499,18 @@ class _RecorderPanel:
             summary = self._record.recorder.live_summary()
             counts = summary.get("counts") or {}
             seconds = float(summary.get("seconds") or 0.0)
-            state = ("Recording" if running
-                     else ("Stopped - NOT SAVED" if self._record.unsaved
-                           else "Saved"))
+            if paused:
+                # Loud, because a pause nobody notices is a trial whose whole
+                # second half is missing -- and the frozen clock beside it is
+                # not, on its own, distinguishable from a stalled panel.
+                state = "PAUSED - not measuring"
+            else:
+                state = ("Recording" if running
+                         else ("Stopped - NOT SAVED" if self._record.unsaved
+                               else "Saved"))
+            held = float(summary.get("paused_seconds") or 0.0)
+            if held > 0:
+                state += f" (paused {int(held // 60):02d}:{int(held % 60):02d} so far)"
             self._statusLabel.setText(
                 f"{state}  -  {int(seconds // 60):02d}:{int(seconds % 60):02d}  -  "
                 f"{int(counts.get('clicks_total', 0))} clicks "

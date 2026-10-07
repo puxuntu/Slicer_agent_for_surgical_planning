@@ -1181,10 +1181,18 @@ class WidgetWorkflowMixin:
     # ------------------------------------------------------------------
     INTERACTION_COUNTER_KEY = "showInteractionCounter"
 
+    #: Same two captions, same reasoning, as the comparison arm's panel -- see
+    #: `PlanningRecorder._RecorderPanel`. The two arms are read side by side,
+    #: so a control that does one thing must not be named two ways.
+    PAUSE_TEXT = "Pause"
+    RESUME_TEXT = "Resume"
+
     def _setupInteractionCounter(self):
-        """One checkbox in Settings, one label at the foot of the panel."""
+        """One checkbox in Settings, one readout at the foot of the panel."""
         self._interactionCounterBox = None
         self._interactionCounterLabel = None
+        self._interactionCounterRow = None
+        self._interactionPauseButton = None
         self._interactionCounterTimer = None
         self._previewInteractionRecorder = None
         try:
@@ -1210,13 +1218,34 @@ class WidgetWorkflowMixin:
                 # in the wrong place.
                 self.layout.addWidget(box)
 
+            # The readout and its Pause button are ONE row, so the control sits
+            # beside the numbers it freezes -- a pause button elsewhere in the
+            # panel would leave the operator reading a stopped clock with no
+            # visible reason for it.
+            row = qt.QWidget()
+            rowLayout = qt.QHBoxLayout(row)
+            rowLayout.setContentsMargins(0, 0, 0, 0)
+
             label = qt.QLabel("")
             label.setWordWrap(True)
             label.setStyleSheet("color: gray;")
-            label.setVisible(False)
+            rowLayout.addWidget(label, 1)
+
+            pause = qt.QPushButton(self.PAUSE_TEXT)
+            pause.setToolTip(
+                "Suspend the measurement for an interruption. Nothing is "
+                "counted and no time accumulates while paused, and the paused "
+                "interval is excluded from every figure in this run's report. "
+                "Press Resume to continue the same recording.")
+            pause.connect("clicked(bool)", self._onInteractionPauseClicked)
+            rowLayout.addWidget(pause, 0)
+            self._interactionPauseButton = pause
+
+            row.setVisible(False)
             # self.layout is the module panel's own layout and self.ui was added
             # to it whole, so appending here is the foot of everything.
-            self.layout.addWidget(label)
+            self.layout.addWidget(row)
+            self._interactionCounterRow = row
             self._interactionCounterLabel = label
 
             timer = qt.QTimer()
@@ -1255,9 +1284,9 @@ class WidgetWorkflowMixin:
         except Exception:
             logger.debug("Saving the interaction-counter setting failed",
                          exc_info=True)
-        label = getattr(self, "_interactionCounterLabel", None)
-        if label is not None:
-            label.setVisible(checked)
+        row = getattr(self, "_interactionCounterRow", None)
+        if row is not None:
+            row.setVisible(checked)
         timer = getattr(self, "_interactionCounterTimer", None)
         if timer is not None:
             timer.start() if checked else timer.stop()
@@ -1305,6 +1334,32 @@ class WidgetWorkflowMixin:
             return preview, "preview, not recorded"
         return None, ""
 
+    def _onInteractionPauseClicked(self, _checked=False):
+        """Pause or resume whichever recorder is feeding the readout.
+
+        The run's recorder while a request is in flight, the preview otherwise
+        -- the same object the numbers above the button come from, so the
+        control can never freeze one while displaying the other.
+
+        Deliberately NOT undone by typing: `_armInteractionRecordingOnInput`
+        only ever starts a recorder that is not running, and a paused one is
+        running, so a paused session stays paused until this button says
+        otherwise. That is what the operator asked for, and it is why the
+        readout says PAUSED in capitals rather than merely stopping.
+        """
+        try:
+            recorder, _origin = self._liveInteractionRecorder()
+            if recorder is None:
+                return
+            if recorder.paused:
+                recorder.resume()
+            else:
+                recorder.pause()
+        except Exception:
+            logger.warning("Pausing the interaction recording failed",
+                           exc_info=True)
+        self._refreshInteractionCounter()
+
     def _refreshInteractionCounter(self):
         """One second of work per second, and it must stay that way.
 
@@ -1313,34 +1368,50 @@ class WidgetWorkflowMixin:
         the counter would then charge the surgeon compute time for being
         watched.
         """
+        row = getattr(self, "_interactionCounterRow", None)
         label = getattr(self, "_interactionCounterLabel", None)
-        if label is None or not label.visible:
+        button = getattr(self, "_interactionPauseButton", None)
+        if row is None or label is None or not row.visible:
             return
         try:
             self._syncInteractionCounter()
             recorder, origin = self._liveInteractionRecorder()
             if recorder is None:
                 label.setText("Interaction counters: not running.")
+                if button is not None:
+                    button.setEnabled(False)
+                    button.setText(self.PAUSE_TEXT)
                 return
             from SlicerAIAgentLib import PlanningRecorder
             summary = recorder.live_summary()
             counts = summary.get("counts") or {}
             seconds = float(summary.get("seconds") or 0.0)
+            paused = bool(summary.get("paused"))
+            held = float(summary.get("paused_seconds") or 0.0)
+            if button is not None:
+                button.setEnabled(True)
+                button.setText(self.RESUME_TEXT if paused else self.PAUSE_TEXT)
 
             def _n(key):
                 return int(counts.get(key, 0) or 0)
 
+            # The elapsed figure is the ACTIVE one, so it stops moving while
+            # paused; the prefix is what tells the operator that a clock which
+            # has stopped changing is doing so on purpose.
+            prefix = "PAUSED - not measuring" if paused else "Interaction (%s)" % origin
+            held_text = ("   [paused %02d:%02d so far, excluded]"
+                         % (int(held // 60), int(held % 60))) if held > 0 else ""
             label.setText(
-                "Interaction (%s)  %02d:%02d   %d clicks: "
+                "%s  %02d:%02d   %d clicks: "
                 "%d in 3D, %d in slices, %d on this panel, %d elsewhere   |   "
-                "%d drags, %d wheel, %d keys"
-                % (origin, int(seconds // 60), int(seconds % 60),
+                "%d drags, %d wheel, %d keys%s"
+                % (prefix, int(seconds // 60), int(seconds % 60),
                    _n("clicks_total"),
                    _n("clicks_" + PlanningRecorder.TARGET_VIEW_3D),
                    _n("clicks_" + PlanningRecorder.TARGET_VIEW_2D),
                    _n("clicks_" + PlanningRecorder.TARGET_PANEL),
                    _n("clicks_" + PlanningRecorder.TARGET_OTHER),
-                   _n("drags"), _n("wheel_notches"), _n("keys")))
+                   _n("drags"), _n("wheel_notches"), _n("keys"), held_text))
         except Exception:
             logger.debug("Refreshing the interaction counter failed", exc_info=True)
 
@@ -1438,6 +1509,193 @@ class WidgetWorkflowMixin:
             recorder.mark(str(step_id or ""))
         except Exception:
             logger.debug("Marking the interaction step failed", exc_info=True)
+
+    #: Node-name prefixes each procedure treats as a WORKING AID rather than a
+    #: result, hidden in the scene the run leaves behind.
+    #:
+    #: The mechanism is generic -- prefix match, applied by `_applySaveVisibilityPolicy`
+    #: -- and the table is the study's presentation choice, which is why it is
+    #: DATA in one place and not a rule inside the saver. Adding a procedure is
+    #: one line; a procedure absent from the table has nothing hidden, which is
+    #: the behaviour every other one had before this existed.
+    #:
+    #: BoneReconstructionPlanner registers the mandible ONTO the fibula to work
+    #: out where to cut, leaving `Transformed Mandible <n>` (the remaining
+    #: mandible halves) and `Transformed Mandible Segment <n>` (the resected
+    #: specimen) sitting on top of the fibula. Both are how the planner thinks,
+    #: not what it produced -- and since no node in a saved BRP scene is
+    #: restricted to one 3D view, they land in the fibula view as a pile of
+    #: mandible over the bone the reader is trying to look at. The graft itself
+    #: (`Transformed Fibula Segment <n>`) is the result and is NOT matched by
+    #: this prefix; that distinction is the whole reason the key is
+    #: "Transformed Mandible" and not "Transformed".
+    #: The mandible side is the same story told twice. `Mandible <n>` is a
+    #: point-for-point COPY of `decimatedMandible` (identical vertex count --
+    #: BRP makes one per cut as input to the dynamic modeler) and
+    #: `Mandible Segment <n>` is another whole-mandible surface with cut caps.
+    #: A 2-segment plan therefore stacks four full mandibles on the remnant and
+    #: a 3-segment plan stacks six, all coincident: they z-fight, and the more
+    #: segments a plan has the worse it looks -- which is why the fault reads
+    #: as "this case is wrong" rather than as something every case does.
+    #: `Resected mandible` (the actual remnant, ~4.5 k points against ~8 k) and
+    #: `Transformed Fibula Segment <n>` (the graft) are what the view is for,
+    #: and the trailing SPACE in "Mandible " is what keeps this away from
+    #: `MandibleSegmentation`, `mandibularCurve` and `decimatedMandible`.
+    SAVE_HIDDEN_NODE_PREFIXES = {
+        "BoneReconstructionPlanner": ("Transformed Mandible", "Mandible "),
+    }
+
+    def _applySaveVisibilityPolicy(self, procedure):
+        """Hide this procedure's working aids, just before the scene is written.
+
+        Applied AFTER `_restorePresentationState`, and the order is the point:
+        the restore undoes what the teardown changed by ACCIDENT, and this
+        applies what the study decided ON PURPOSE. Doing it the other way round
+        would let the restore put the aids back.
+
+        Live-scene only and only at save time -- the operator keeps whatever
+        they had on screen while they worked, and Exit closes the scene
+        immediately afterwards, so nothing they can still look at is altered.
+        """
+        prefixes = self.SAVE_HIDDEN_NODE_PREFIXES.get(str(procedure or ""))
+        if not prefixes:
+            return []
+        hidden = []
+        try:
+            import slicer
+            for node in slicer.util.getNodesByClass("vtkMRMLDisplayableNode"):
+                name = node.GetName() or ""
+                if not name.startswith(tuple(prefixes)):
+                    continue
+                display = getattr(node, "GetDisplayNode", lambda: None)()
+                if display is None or not display.GetVisibility():
+                    continue
+                display.SetVisibility(False)
+                hidden.append(name)
+        except Exception:
+            logger.debug("Applying the save visibility policy failed", exc_info=True)
+        if hidden:
+            logger.info("[Exit] %s: hid %d working-aid node(s) before saving: %s",
+                        procedure, len(hidden), ", ".join(sorted(hidden)))
+        return hidden
+
+    def _clearMaximizedViewForSave(self):
+        """Un-maximize before the scene is written. Generic: every procedure.
+
+        Double-clicking a view maximizes it, and Slicer stores that on the
+        layout node as a `MaximizedView` reference. It sits ON TOP of
+        `currentViewArrangement`, so a scene can record the procedure's own
+        layout -- BoneReconstructionPlanner's is 101, two 3D views beside the
+        slice -- and still open showing a single view, because one view is
+        maximized over it. The saved arrangement looks right to anyone
+        inspecting the file, which is what makes this hard to see: three of the
+        37 saved BRP runs were in that state and the layout id was 101 in all
+        of them.
+
+        Transient UI state, not a result, and not procedure-specific -- an
+        operator can maximize a view in any of them -- so unlike
+        `SAVE_HIDDEN_NODE_PREFIXES` this needs no table. Returns the view it
+        un-maximized, or "".
+        """
+        try:
+            import slicer
+            layout = slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLLayoutNode")
+            if layout is None:
+                return ""
+            getter = getattr(layout, "GetMaximizedViewNode", None)
+            setter = getattr(layout, "SetMaximizedViewNode", None)
+            if getter is None or setter is None:
+                return ""                     # older/newer API: leave it alone
+            view = getter()
+            if view is None:
+                return ""
+            name = view.GetName() or view.GetID() or "a view"
+            setter(None)
+            logger.info("[Exit] un-maximized %s so the saved scene reopens in "
+                        "the full layout", name)
+            return name
+        except Exception:
+            logger.debug("Clearing the maximized view failed", exc_info=True)
+            return ""
+
+    def _capturePresentationState(self):
+        """Every display node's visibility, as the operator left it at Exit.
+
+        The scene is written several teardown steps AFTER the Exit click --
+        placement mode is left, the threshold preview is dropped, the
+        interaction manager deletes what it created, and the replay timeline is
+        cleared (which restores the live scene when the user was mid-preview).
+        None of those flips visibility on a node that survives to be saved
+        today; they remove nodes, and a removed node cannot be restored here
+        because it is gone from the scene.
+
+        So this is a GUARD, not a repair: it makes "the saved scene is the one
+        that was on screen when Exit was pressed" true by construction instead
+        of true by the absence of a counter-example. The failure it forecloses
+        is silent -- a reopened scene showing something the surgeon had hidden
+        looks like a planning mistake, not like a teardown side effect, and the
+        saved file is the only record either way.
+
+        Visibility only. Colour, opacity and transforms are not touched, so a
+        teardown that legitimately changes one is left alone.
+        """
+        state = {}
+        try:
+            import slicer
+            for node in slicer.util.getNodesByClass("vtkMRMLDisplayNode"):
+                entry = {}
+                for getter in ("GetVisibility", "GetVisibility2D", "GetVisibility3D"):
+                    fn = getattr(node, getter, None)
+                    if fn is None:
+                        continue
+                    try:
+                        entry[getter] = fn()
+                    except Exception:
+                        pass
+                if entry:
+                    state[node.GetID()] = entry
+        except Exception:
+            logger.debug("Capturing the presentation state failed", exc_info=True)
+        return state
+
+    def _restorePresentationState(self, state):
+        """Put back any visibility the teardown moved. Returns what it changed.
+
+        A node the teardown DELETED is skipped -- it is not in the scene, and
+        re-creating it would save geometry the run no longer has. Only a value
+        that actually differs is written, so this fires no modified events on
+        the common path where nothing moved.
+        """
+        restored = []
+        if not state:
+            return restored
+        try:
+            import slicer
+            for node_id, entry in state.items():
+                node = slicer.mrmlScene.GetNodeByID(node_id)
+                if node is None:
+                    continue                      # deleted by the teardown
+                for getter, was in entry.items():
+                    setter = getattr(node, getter.replace("Get", "Set", 1), None)
+                    reader = getattr(node, getter, None)
+                    if setter is None or reader is None:
+                        continue
+                    try:
+                        if reader() != was:
+                            setter(was)
+                            restored.append("%s.%s" % (node.GetName(), getter[3:]))
+                    except Exception:
+                        pass
+        except Exception:
+            logger.debug("Restoring the presentation state failed", exc_info=True)
+        if restored:
+            # Said out loud: if this ever fires, a teardown step is changing
+            # what the surgeon left on screen, and that is worth knowing about
+            # rather than quietly correcting on every run.
+            logger.warning("[Exit] the teardown changed %d display value(s) "
+                           "before the scene was written; restored: %s",
+                           len(restored), ", ".join(sorted(restored)[:12]))
+        return restored
 
     def _stopInteractionRecording(self):
         """Stop, and put the snapshot in the manifest.
@@ -1799,6 +2057,19 @@ class WidgetWorkflowMixin:
         import time as _time
         exit_epoch = _time.time()
 
+        # 0b. What the operator is LOOKING AT, captured before any teardown
+        #     step can touch the scene. The scene is not written until step 5b,
+        #     and everything between here and there is demolition. Re-applied
+        #     just before the write, so "reopening shows what Exit showed" is a
+        #     property of the code rather than of which teardown steps happen
+        #     not to change display state this release. Only taken when the run
+        #     is being saved -- there is nothing to protect otherwise.
+        presentation = self._capturePresentationState() if save else {}
+        #     The procedure is read HERE too, for the same reason: step 6
+        #     clears the workflow mirrors, so by the time the scene is written
+        #     there is nothing left to ask which procedure this run was.
+        procedure = str((self._currentWorkflowUiState or {}).get("extension_name") or "")
+
         # 1. Invalidate everything already in flight. Deferred work (a QTimer
         #    auto-advance, a self-correction thread that is still waiting on the
         #    API) cannot be cancelled, so it is fenced instead: each continuation
@@ -1908,6 +2179,28 @@ class WidgetWorkflowMixin:
             #     is sealed and complete, but _currentLogDir and
             #     _currentRunManifest are still set — step 7 below drops both.
             if save:
+                # The last thing before the write: put back any visibility the
+                # demolition above moved. See _capturePresentationState -- this
+                # is a no-op whenever the teardown behaved, and it logs loudly
+                # when it was not.
+                try:
+                    self._restorePresentationState(presentation)
+                except Exception:
+                    logger.debug("Presentation restore before save failed",
+                                 exc_info=True)
+                # ...then the deliberate one. Order matters: the restore above
+                # undoes what the teardown changed by accident, and this hides
+                # what the study decided should not be in a saved result.
+                try:
+                    self._applySaveVisibilityPolicy(procedure)
+                except Exception:
+                    logger.debug("Save visibility policy failed", exc_info=True)
+                # ...and the layout, for the same reason: a view left maximized
+                # reopens as one panel over the procedure's own arrangement.
+                try:
+                    self._clearMaximizedViewForSave()
+                except Exception:
+                    logger.debug("Clearing the maximized view failed", exc_info=True)
                 saved_ok = False
                 try:
                     saved_ok = self._saveRunStatistics(exit_epoch, progress=progress)
