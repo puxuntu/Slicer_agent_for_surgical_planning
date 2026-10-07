@@ -1,2426 +1,1403 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) when working in this repository.
+
+> **Scope rule for this file:** architecture, and invariants that are easy to get wrong. Not a
+> changelog. Nearly every rule below exists because its failure mode is a *plausible wrong result or
+> a silently skipped step*, never an exception — the reasoning behind each one is in git history and
+> in the `scripts/check_*.py` that enforces it.
 
 ## Project Overview
 
-SlicerAIAgent is a 3D Slicer scripted extension that embeds an AI-powered agent. Users type natural-language requests, and the system generates, validates, and auto-executes Python code within Slicer's scene. Pipeline: dense vector retrieval → autonomous tool calling → structured planning → AST-based security validation → safe execution → automatic self-correction.
+SlicerAIAgent is a 3D Slicer scripted extension embedding an AI agent. A natural-language request is
+routed to a **generated CLI workflow** — a procedure compiled offline from a third-party extension's
+source plus its written cookbook — which then drives the scene step by step. Runtime pipeline:
+route → dispatch a validated template per step → AST security validation → execute in Slicer's
+`__main__` → self-correct on failure.
 
-## Build & Test Commands
+## Build & Test
 
 ```bash
-# Configure against a local Slicer build
 cmake -S . -B build -DSlicer_DIR=/path/to/Slicer-build
 cmake --build build
 
-# Build/refresh the FAISS vector index (requires knowledge base in Resources/Skills/slicer-skill-full/)
-python scripts/build_rag.py
-
-# Comparison table across all four conditions, derived from logs/
-python scripts/collect_runs.py                  # summary + logs/runs_index.csv
+python scripts/build_rag.py                     # FAISS index (needs Resources/Skills/slicer-skill-full/)
+python scripts/collect_runs.py                  # cross-condition table -> logs/runs_index.csv
 python scripts/collect_runs.py --step cb_step_9 # one step under every condition
-
-# Voice matcher: fixed cases + every option of every shipped package. Runs
-# OUTSIDE Slicer (the matcher is Qt-free), so it is checkable on every change.
-python scripts/check_voice_commands.py
-
-# "Run 2 starts where run 1 started": the __main__ residue ledger that keeps a
-# second guided run in one Slicer process from inheriting the first one's
-# objects. Stubs slicer/qt/vtk, so it also runs outside Slicer.
-python scripts/check_runtime_reset.py
-
-# OrbitalFractureReconstruction experiment analysis: the surface-distance
-# statistics, the improvement pairing, and the MRML splicer that edits a run's
-# saved scene.mrml in place (backup, idempotency, id collisions).
-python scripts/check_orbital_analysis.py
-
-# ReverseShoulderArthroplasty experiment analysis. That module is Slicer-free,
-# so this runs the WHOLE thing against the two real saved runs: the angles, the
-# NRRD reader, the bone-density integral against the score the planner logged at
-# the time, both cone denominators, and the t1/t2/t3 phase split.
-python scripts/check_rsa_analysis.py
-
-# CranialImplantPlanning DSC/HD95/bDSC. Runs the metrics against real cases and
-# proves the cropped metric window reproduces a full-volume computation bit for
-# bit -- a 5x speed-up that would otherwise be a silent approximation.
-python scripts/check_cranial_analysis.py            # 3 cases
-python scripts/check_cranial_analysis.py --cases 10 # more
-
-# PelvicFracturePlanning reduction error, which is READ out of each run's
-# recorded annotation transform rather than estimated. The whole analysis runs
-# outside Slicer, and the section that matters builds a STALE record -- a
-# ground truth moved one way, a record saying another -- and requires it to be
-# refused: an internally perfect record written before its ground truth was last
-# saved is the one way a read number can be wrong, and it happened here.
-python scripts/check_pelvic_analysis.py
-
-# LongBoneFractureReduction: the residual E = G . P^-1 over both kinds of case.
-# Runs the WHOLE analysis outside Slicer against the 64 saved runs, including
-# the reader that pulls the reduction pose out of an 8 KB ITK/HDF5 file without
-# h5py -- witnessed by the 7 annotated runs, which recorded that same pose
-# independently. The section that matters hands each simulated case the OTHER
-# ground truth (the simulator displaced one fragment, so it is D or D^-1
-# depending on which one the run moved) and requires the abutment verdict to
-# refuse it: 0.3-1.7 mm with the right matrix, 14.7-60.7 mm with the wrong one.
-python scripts/check_longbone_analysis.py
-
-# PedicleScrewPlanner: is each planned screw inside the pedicle, and in what
-# bone. Runs the WHOLE analysis outside Slicer against the two saved runs. The
-# sections that matter are the ones whose failure is a plausible millimetre: the
-# frame bridge (the run loads its CT CENTRED and the data set keeps the
-# scanner's origin, so plan geometry crosses between them through the voxel
-# index -- proved necessary, since without it no landmark lands in any
-# vertebra), the half-voxel debias on the distance field, and the graded span
-# (the planner puts the entry ON the cortex, so the wall around it is half
-# outside by construction -- a screw whose only protrusion is that must grade A).
-python scripts/check_pedicle_analysis.py
-
-# BoneReconstructionPlanner: how far the fibula segments are from the healthy
-# mandible they replace -- a ground truth that is PREDICTED, so the whole
-# analysis runs outside Slicer against the saved runs. The sections that matter
-# are the ones whose failure is a plausible millimetre: a Slicer plane-cut model
-# is PARTIALLY welded, which breaks vtkPolyDataToImageStencil (+4% on a mandible,
-# -38% on a fibula piece, both as plausible volumes) and made the completion
-# network predict a 45 cm3 blob instead of a 19 cm3 graft; the contour scan's
-# direction, pinned by a concave case where marching in from outside locks onto
-# the far side of the arch and calls it a 15 mm protrusion; and its half-voxel
-# start offset, without which two IDENTICAL masks read 0.25 mm apart.
-python scripts/check_mandible_analysis.py
-python scripts/check_mandible_analysis.py --predict   # also re-run the network
-
-# The ✍ Revise core: which template a step owns, whether a rewritten one may be
-# installed, and whether the original comes back. Sweeps every shipped package
-# and requires each of its 172 templates to validate against ITSELF -- a rule
-# that rejects a working template would reject the model's faithful rewrite too.
-python scripts/check_template_revision.py
-
-# The generated-CLI emitter must agree with its OWN validator. The handler-drive
-# template and the api proof both read the scanned handler arity, so a call the
-# emitter writes and the prover then blocks is unrepairable by construction --
-# no rung can rewrite code the generator just produced. Also cross-checks every
-# shipped [source drive] template against the installed extension's source.
-python scripts/check_handler_drive.py
-
-# A placement the EXTENSION armed must not be re-armed by the runtime. Slicer's
-# module template puts GUI actions on the widget, so the handler behind "click
-# Manually separate" is what creates the markup, points the active list at it and
-# observes the click -- a generated interaction step that creates its own node
-# steals the click and the extension's follow-on behaviour never happens, silently.
-python scripts/check_placement_starter.py
-
-# A self-correction is fixed against the DISPATCHED code -- prelude included --
-# so persisting it back into the .tpl means cutting the prelude off first. The
-# boundary is an explicit end marker emitted by the prelude itself, because the
-# old "scan for the template's import slicer" heuristic silently failed for any
-# template lacking one, and the write-back then refused on every run: the step
-# self-corrected, advanced, threw the fix away, and did it again next run.
-python scripts/check_prelude_boundary.py
-
-# A range the user chose must reach the step that consumes it. The range step and
-# the step that spends it are named INDEPENDENTLY -- the Segment Editor driver
-# builds its Threshold-apply block from the effect alone, so it can only write the
-# generic {threshold_min}, while the choice carries whatever parameter_name the
-# decomposition invented. When the bridge misses, nothing raises: the placeholder
-# default silently overwrites the mask the range step just committed.
-python scripts/check_range_choice_fill.py
-
-# A control answered with SEVERAL options must not be reproduced as a one-of-N
-# dropdown. Nothing about a ctkCheckableComboBox distinguishes it from a plain
-# combo except its CLASS -- same addItems in, checkedIndexes() out -- so the whole
-# mechanism hangs on that one fact, and every way of losing it is silent. Runs the
-# page scan over every extension and EXECUTES the emitted drive code against fake
-# Qt controls, including a plain decoy listing the same options and a control that
-# accepts the write and reports nothing ticked. Section 6 holds the other half of
-# the same form: a selector's DEFAULT, which the source control answers before
-# anyone touches it -- and the opposite case, a control that opens on a PROMPT and
-# must therefore stay unanswered.
-python scripts/check_multi_select_choice.py
-
-# The "Place a control point" button is a TOGGLE, so the generated step has to
-# click it the way the cookbook does -- and re-enabling an already-enabled place
-# widget succeeds, so a step that got the polarity wrong reports success and the
-# symptom lands on a LATER step, as a slice that will not rotate because every
-# click drops another point. Also holds the other half: a view-adjustment step
-# gives the views back to the mouse when it OPENS, not only when it is done.
-python scripts/check_place_mode_polarity.py
-
-# A control the extension reads as a COMPARISON (`checkState == qt.Qt.Checked`)
-# rather than an attribute truth test (`.checked`) is still a bound control. When
-# the scan cannot see it the step has no binding, falls through to free-form
-# generation, and ships a guessed spelling -- and the extension's read is an exact
-# string comparison, so `'true'` sets the parameter and changes nothing. Sweeps
-# every cookbook extension, EXECUTES the real emitter, and runs the spelling gate
-# over the shipped templates: exactly the one carrying the bug is refused.
-python scripts/check_toggle_state_binding.py
-
-# The two halves of "a self-correction should only ever be needed once". A
-# placeholder written INSIDE a string literal is never filled (the loader masks
-# strings), so the step runs with the brace text as its value -- and the
-# write-back that would persist the fix decided "this template has placeholders"
-# with a raw brace scan, which also matches every f-string interpolation, so it
-# refused for 82 of the 181 shipped templates and the fix was thrown away on
-# every run. Both are now measured with the LOADER'S OWN filler.
-python scripts/check_template_write_back.py
 ```
 
-Dependencies are in `requirements.txt` — `httpx`, `numpy`, `jsonschema` are explicit; `faiss-cpu`, `onnxruntime`, `transformers` are auto-installed at runtime. CMake installs these into Slicer's Python environment during extension setup.
+Dependencies are in `requirements.txt` (`httpx`, `numpy`, `jsonschema` explicit; `faiss-cpu`,
+`onnxruntime`, `transformers` auto-installed at runtime). CMake installs them into Slicer's Python.
 
-Tests run from **within Slicer's Python console** (they import `slicer`, `vtk`, `qt`, `ctk`):
+Unit tests import `slicer`/`vtk`/`qt`/`ctk`, so they run **inside Slicer's Python console**:
 
 ```python
 import unittest
-# Run all tests
 suite = unittest.TestLoader().loadTestsFromName("SlicerAIAgentTest")
-unittest.TextTestRunner(verbosity=2).run(suite)
-
-# Run a single test
-suite = unittest.TestLoader().loadTestsFromName("SlicerAIAgentTest.SlicerAIAgentTest.test_CodeValidator")
 unittest.TextTestRunner(verbosity=2).run(suite)
 ```
 
-Tests live in `Testing/SlicerAIAgentTest.py` and also inline at the bottom of `SlicerAIAgent.py` (class `SlicerAIAgentLogicTest`). Clear the MRML scene between tests when scene state is involved.
+Tests live in `Testing/SlicerAIAgentTest.py` and inline at the bottom of `SlicerAIAgent.py`
+(`SlicerAIAgentLogicTest`). Clear the MRML scene between tests that touch scene state.
+
+### Checkers that run outside Slicer
+
+Each `scripts/check_*.py` stubs or avoids `slicer`/`qt`/`vtk`, so it is runnable on every change.
+
+| script | guards |
+|---|---|
+| `check_planning_recorder.py` | user-study instrument: partition totality, duplicate deliveries, vendored copies identical. **Run before every study session.** |
+| `check_voice_commands.py` | voice matcher over fixed cases + every option of every shipped package |
+| `check_runtime_reset.py` | run 2 starts where run 1 started (the `__main__` residue ledger) |
+| `check_template_revision.py` | Revise: template ownership, install gate, restore; every template validates against itself |
+| `check_template_write_back.py` | placeholders inside string literals; the write-back's placeholder guard |
+| `check_prelude_boundary.py` | write-back cuts the injected prelude at its own end marker |
+| `check_handler_drive.py` | the CLI emitter agrees with its own validator (handler arity) |
+| `check_placement_starter.py` | a placement the extension armed is not re-armed by the runtime |
+| `check_range_choice_fill.py` | a range the user chose reaches the step that spends it |
+| `check_multi_select_choice.py` | a multi-answer control is not rendered as a one-of-N dropdown; selector defaults |
+| `check_place_mode_polarity.py` | the place-point button is a toggle; view steps release the mouse on open |
+| `check_toggle_state_binding.py` | a checkbox read as `checkState == qt.Qt.Checked` is still a bound control |
+| `check_orbital_analysis.py` | orbital surface distance, improvement pairing, in-place `scene.mrml` splicer |
+| `check_rsa_analysis.py` | shoulder angles, NRRD reader, density integral vs the logged score, both cone denominators |
+| `check_cranial_analysis.py` | DSC/HD95/bDSC; the cropped metric window reproduces the full volume bit for bit |
+| `check_pelvic_analysis.py` | reduction error read from the recorded transform; a **stale** record must be refused |
+| `check_longbone_analysis.py` | the rigid residual over 64 runs; the wrong ground truth must fail abutment |
+| `check_pedicle_analysis.py` | screw-in-pedicle grading: frame bridge, half-voxel debias, graded span |
+| `check_mandible_analysis.py` | fibula vs *predicted* healthy mandible; partially-welded cut models, contour scan |
+| `check_user_study_eval.py` | user-study evaluation: folder discovery, performed order, `cases=` hand-off, Run set + Interaction sheets |
 
 ## Architecture
 
+### Entry point and structure
+
+- `SlicerAIAgent.py` (~3600 lines) — `SlicerAIAgent` (metadata), `SlicerAIAgentWidget` (Qt UI,
+  streaming queue, execution dispatch, self-correction, CLI generator UI), `SlicerAIAgentLogic`
+  (LLM client, tool dispatch, scene context, snapshot/verification, background streaming).
+- `SlicerAIAgentLib/` — the library; `app/widget_*.py` are Qt mixins composed into the widget.
+- `Resources/Skills/slicer-skill-full/` — submodule, the Slicer knowledge base (clone `--recursive`).
+- `Resources/Code_RAG/` — FAISS index + ONNX embedding model, built by `scripts/build_rag.py`.
+- `Resources/extension_CLI/<Ext>/` — `manifest.json`, `code_generators.json`, `workflow.json`,
+  `step_instructions.json`, `prompt_fragment.md`, `templates/*.tpl` (`{placeholder}` syntax).
+- `Resources/Prompts/*.md` — every prompt.
+
+| Module | Role |
+|---|---|
+| `LLMClient.py` | OpenAI-compatible **and** native Anthropic APIs. Streaming, tool calling, token tracking, query decomposition, system-prompt assembly. |
+| `WorkflowRouter.py` | First-turn router: one tool-free call over a compact workflow catalog. |
+| `WorkflowOrchestrator.py` / `WorkflowRuntime` | Step state machine: dispatch, interaction completion, repeat blocks, checkpoints, cancellation. |
+| `ExtensionCLIAnalyzer.py` | 11-stage LLM pipeline generating schemas, templates and the workflow graph from an extension's source. |
+| `ExtensionCLILoader.py` | Discovery and dynamic load of generated packages; `dispatch_workflow_step()`. |
+| `SafeExecutor.py` | Execution in `__main__`: output capture, VTK error interception, timeout, scene rollback, introduced-globals ledger. |
+| `CodeValidator.py` | AST security validation: blocked/allowed modules, blocked functions, destructive-op detection. |
+| `InteractionManager.py` | Markup node creation, placement mode, VTK observers with debounce timers. |
+| `TemplateReviser.py` | Revise core (Qt-free): template ownership, install gate, reply parsing, snapshot-before-write. |
+| `BaselineRunner.py` / `BaselineMCPServer.py` | Baseline harness core and its MCP transports. |
+| `PlanningRecorder.py` | User-study instrument. **Vendored byte-identical in five places**; the one implementation of `save_scene_flat`. |
+| `RunLog.py` | Run-folder naming, fail-soft artifact writers, `RunManifest`, `build_run_statistics()`. |
+| `PromptLibrary.py` | The only reader of `Resources/Prompts/`. |
+| `SkillTools.py` / `SkillIndexer.py` | ripgrep + tree-sitter tool executor; chunking, ONNX embedding, FAISS. |
+| `voice/` | Qt-free voice half (`audio`, `asr_client`, `tts_client`, `grammar`, `commands`); Qt half is `app/widget_voice.py`. |
+| `experiments/` | Per-procedure analysis (Qt-free numerics + `_panel.py` Qt half). |
+
+### Threading
+
+HTTP I/O runs on a background thread; events reach the Qt main thread through `_streamQueue`, polled
+every 50 ms by a `QTimer`. **All MRML and UI access is on the Qt main thread.**
+
+Draining that queue pumps the Qt event loop, and so does executing template code — so any handler
+reachable from the drain needs a re-entrancy guard or a `QTimer.singleShot(0, ...)` deferral.
+
 ### Guided-only runtime
 
-**Every request either enters a generated-CLI workflow or is refused.** `WorkflowRouter.GUIDED_ONLY_MODE`
-(True) makes the router's decision final: on a match the workflow starts, and on anything else
-`_refuseUnsupportedRequest` shows a modal saying why and hands the prompt back — the traditional
-search-and-generate turn below it in `onSendButtonClicked` is never reached. The point is that the
-system's claim is that a validated, offline-analysed procedure drives the scene; a silent fallback to
-improvised code was both an unmeasured escape hatch in every evaluation and an unreviewed code path in
-a surgical context. `GUIDED_ONLY_MODE = False` restores the fall-through in one line.
+`WorkflowRouter.GUIDED_ONLY_MODE = True` makes the router's decision final: on a match the workflow
+starts; on anything else `_refuseUnsupportedRequest` shows a **modal** (not a chat line — the request
+is over) and the traditional search-and-generate turn is never reached. `= False` restores it.
 
-The refusal is a **dialog**, not a chat line, because it *ends* the request: a chat line inside the
-collapsed Debug group would leave the user waiting for a scene that is never going to change. Seven
-causes reach it and only two are about the request — the rest mean the install is unconfigured
-(`no_api_key`, `no_workflows`, `no_client`, `router_disabled`) or a package is broken (`start_failed`,
-`no_first_step`), so `_handleWorkflowRouterTurnIfNeeded` records the cause in `_lastRouterRejection`
-and `_refusalMessage` gives each its own remedy. The full agent turn used to paper over all seven
-identically, which is exactly why they now have to be told apart. A near miss reports the workflow the
-router named (`RouterDecision.rejected_extension`) and its confidence, so "say it the way the procedure
-says it" is actionable; the dialog's detail pane lists every installed workflow.
+The claim under test is that a validated, offline-analysed procedure drives the scene; a silent
+fallback to improvised code is an unmeasured escape hatch and an unreviewed code path.
 
-Consequences elsewhere: **queueing is gone** — `ROUTE_WORKFLOW_CONFLICT` used to defer a request until
-the workflow ended and then replay it as a traditional turn, which would now promise an answer that
-never comes, so it is refused immediately instead (and `_flushQueuedWorkflowPrompts`, the one path that
-could start a turn with no user click, is inert). **Refusals are logged**: `logs/refused_pipeline_<stamp>/`
-with the `00_router/` call and a manifest sealed `refused`, because the declined routing call used to be
-flushed by the very turn that no longer exists — the most common outcome would otherwise be the only
-unlogged one. A refusal raised *during* a workflow gets no folder (it would repoint the running run's
-`_currentLogDir`) and is recorded as an event of the run it interrupted. **Self-correction and the three
-baselines are untouched**: both are scoped to a step of a workflow that already started, which is not
-what this flag is about.
-
-### Exiting a guided workflow
-
-**One Exit button, at the right end of the replay row, replaces the per-step Cancel button.** The row
-reads `[◀] [progress] [▶] [▷ run from here] [⚖] [✕ exit]`, so Exit sits immediately right of "Run from
-here" whenever the baseline toggle is hidden — which it is on every step the pipeline does not answer
-with generated code. Anchored to the row's right edge rather than to a neighbour, so it does not shift
-as ⚖ appears and disappears, and icon-only like the rest of that row (a text label adds its width to
-the row's minimum and can force the module panel wider — see `_applyWidthSafeLabels`). Unlike the
-stepper buttons it is **not** driven by `_updateReplayControls`: it is available whenever the panel is
-up, including where replay is not. Cancel was a
-workflow *action* (`user_action="cancel"` through the runtime), so it only worked where the runtime
-could take an action and was hidden exactly where a user most needs a way out — a completed run, a step
-with no controls, the panel a dispatch error leaves behind. `_resetGuidedSession()` is a **local** reset
-instead: it never asks the runtime for permission, so it works in all of those states, and it is what
-the runtime's own `cancelled` result and `onSceneEndClose` now funnel through, so the ways a session can
-end cannot drift apart. Closing the scene matters especially: with no traditional turn left, a session
-still marked active would keep the prompt box and Send switched off with no escape.
-
-The teardown order is load-bearing, and each step of it is commented in
-`widget_workflow.py::_resetGuidedSession`. The three that are easy to get wrong:
-
-- `_clearCompletedWorkflowState(clear_replay=True)` runs **while `runtime.session` is still non-None** —
-  `clear_checkpoints()` is a no-op once it is None, and it is what restores the live scene if the user
-  was mid-replay-preview and deletes the hidden `vtkMRMLSceneViewNode` snapshots.
-- `reset_workflow_state(**None**)` clears the module-global mirrors for **all** extensions.
-  `start_for_extension` only resets its own, so a per-extension reset here would leave the *next*
-  procedure inheriting this one's completions, choices and loop counters.
-- **`_guidedSessionEpoch`** fences work already in flight. A self-correction round-trip is a background
-  thread and the auto-advance is a `QTimer.singleShot`; neither can be cancelled, so each captures the
-  epoch and `_guidedSessionAlive()` drops it when it no longer matches. Without it a repair can land
-  half a minute after Exit and execute code into a scene the user has left.
-
-Exit **closes the scene** (`EXIT_CLOSES_SCENE`), on both answers. It used not to, on the principle
-that closing a panel is not consent to delete data; the principle stands and the dialog now asks for
-the deletion in those words. What changed is that leaving the scene up was itself unsafe: the next
-procedure loads its own data, so a scene still holding the last run's nodes offers them to any step
-that looks a node up by name, and — see the extension-lifecycle section below — closing the scene is
-the only thing that reliably re-binds the driven extension. "Remember to close the scene" was a
-manual step whose omission silently changed the next run, which is the definition of a step that
-should not be manual. `_closeSceneOnExit` is `Clear(0)` + `SetURL("")`, i.e.
-`qSlicerMainWindow::on_FileCloseSceneAction_triggered` minus its `confirmCloseScene()` prompt — not
-reproduced, because a second modal asking what the Exit dialog just asked is how a confirmation stops
-being read.
-
-Three fences on that, each guarding a different way it could destroy something the user did not agree
-to lose. It runs **last** (the save writes the scene, `clear_checkpoints` restores from its sceneview
-snapshots, and the interaction/threshold teardown removes observers from nodes that must still
-exist) and **after `runtime.session = None`**, so the `EndCloseEvent` it fires reaches `onSceneEndClose`
-and does the one thing wanted there — dropping the entered-module cache — without re-entering the
-teardown. It is withdrawn when a requested save did not land: `_saveRunStatistics` now returns a
-**positive** check (the `.mrml` exists *and* a node was written) rather than "nothing raised", because
-nothing in that path raises — a node that cannot be written appends its name to a human-readable
-note. And a `close_scene` parameter carries the distinction `reason` cannot: `_askExitChoice` falls
-back to a full exit when the dialog could not be *shown*, and an assumed answer is enough to close a
-panel but not to discard a scene. Voice never closes it either (`ACTION_EXIT` passes
-`close_scene=False`) — routing voice through the dialog was rejected because the push-to-talk key is
-Space, a modal stands the key filter down, and Space activates a `QMessageBox`'s default button, so
-trying to say "no, cancel" would confirm the exit.
-
-Exit refuses (and changes nothing) while a baseline run or a stream is in flight, since tearing the
-session out from under either would orphan its record.
+Seven causes reach the refusal and only two are about the request — the rest mean the install is
+unconfigured (`no_api_key`, `no_workflows`, `no_client`, `router_disabled`) or a package is broken
+(`start_failed`, `no_first_step`), so `_lastRouterRejection` records the cause and `_refusalMessage`
+gives each its own remedy. Consequences: queueing is gone (a deferred request would promise a reply
+that can never come); refusals are logged to `logs/refused_pipeline_<stamp>/`; a refusal raised
+*during* a run gets no folder (it would repoint `_currentLogDir`) and becomes an event of that run.
 
 ### A run must start where the first run started
 
-**`_prepareCleanRuntime` returns the process to a freshly-launched state, and it runs on the way IN.**
-Called from `_applyRouterDecision` before `start_for_extension` (and again from `_resetGuidedSession`,
-so the two can never drift apart). Entry is the only point every run passes through — the previous one
-may have ended in a cancel, a scene close, a module Reload, or not ended at all — and it is placed
-before `_beginWorkflowRouterTurn`, which creates the run folder and manifest that this clears.
+`_prepareCleanRuntime` returns the process to a freshly-launched state and runs **on the way in**
+(from `_applyRouterDecision` before `start_for_extension`, and from `_resetGuidedSession` so the two
+cannot drift). Entry is the only point every run passes through. Nothing raises when this is wrong —
+the workflow just behaves differently on run 2 — so the state is **enumerated explicitly**:
 
-The failure it exists for is silent by construction: nothing raises, the workflow simply behaves
-differently on the second run than on the first, so the state is **enumerated explicitly** rather than
-discovered. The worst of it, and what motivated the method:
+- **`__main__` residue.** Templates reach their extension through `try: logic = _<ext>_logic` /
+  `except NameError: ...` and pass node IDs as `_<ext>_<step>_id`. That namespace's lifetime is the
+  **process**, so run 2 reused run 1's logic object with its stale node attributes, and a guard like
+  `if self.fullBoneNode is not None:` read "already done" while the scene said otherwise. The
+  extension's own scene-close reset cannot reach it — that resets `widget.logic`, and the templates
+  hold a second, independent instance. `SafeExecutor` keeps a **class-level** ledger (one `__main__`
+  per process) of names its `exec` calls introduced, diffed on the main thread, and
+  `clearIntroducedGlobals()` unbinds exactly those.
+- **"this module is entered" lives in two places** — `_invisiblyEnteredModules` and
+  `WorkflowRuntime._entered_modules` (the second gates the wizard-page probe).
+- **`_lastSliceFitLayout`** skips the slice fit when run 2 opens on run 1's layout; its `"__unset__"`
+  sentinel is what makes a fresh launch always fit.
+- **`_lastCorrectionError`** is quoted into the next repair prompt.
 
-> Every generated template reaches its extension through `try: logic = _<ext>_logic` /
-> `except NameError: logic = <Ext>Logic()`, and hands node IDs forward the same way
-> (`_<ext>_<step>_id`). That is the intended channel from step N to step N+1 — but the namespace it
-> lives in is `__main__`, whose lifetime is the **process**, so it was also an unintended channel from
-> run 1 to run 2. A freshly launched Slicer takes the `except NameError` branch; a second run in the
-> same session did not, reusing the previous run's logic object with its stale node attributes. An
-> extension guard like `if self.fullBoneNode is not None:` then reads "that stage is already done"
-> while the scene says otherwise, and the step reveals, skips or recomputes against a patient's data
-> that is no longer there. Note the extension's own scene-close reset cannot reach it: that resets
-> `widget.logic`, and the templates hold a **second, independent** instance — so an extension whose
-> reset looks correct in review still leaks under this runtime.
+It runs **after** `orchestrator.cancel_workflow`, never before — that call reads the state this
+empties (the interaction manager's created-node list, which it uses to *delete* those nodes).
 
-`SafeExecutor` therefore keeps a ledger of the names its `exec` calls introduced into `__main__`,
-diffed around each call **on the main thread** (so it can only ever contain names our own code bound —
-the user cannot type into the console while the main thread is inside `exec`), and
-`clearIntroducedGlobals()` unbinds exactly those. It is **class-level**: `__main__` is one dict per
-process, so the ledger of what we put in it has to be one too — more than one `SafeExecutor` is
-built per session (the runtime's own, and the CLI generation api-probe's) and they all write to the
-same namespace. A name that merely *predates* us, or one a step rebound, is never removed.
+`RESET_EXTENSION_MODULE_ON_START` rebuilds the driven extension's widget via
+`slicer.util.reloadScriptedModule` — the only generic way to clear what the runtime cannot enumerate,
+including the state of its Qt controls (which matters because the runtime drives those controls
+precisely because the handlers read them at click time). Gated on `hasattr(slicer.modules, …)`,
+never fatal.
 
-The rest of the method is the same shape — state whose natural lifetime is the process while the thing
-it describes has the lifetime of a run. The ones that are not obvious: **"this module is entered" is
-held in two independent places** (`_invisiblyEnteredModules` and `WorkflowRuntime._entered_modules`,
-the second of which gates the wizard-page probe, so on run 2 it answered True where a fresh launch
-answers False); `_lastSliceFitLayout` **skips** the slice fit when run 2 opens on the layout run 1
-ended on, its `"__unset__"` sentinel being exactly what makes a fresh launch always fit; and
-`_lastCorrectionError` is quoted into the next repair prompt. `_prepareCleanRuntime` runs **after**
-`orchestrator.cancel_workflow`, never before — that call reads the state this empties (its workflow
-entry, and the interaction manager's created-node list, which it uses to *delete* those nodes), so
-clearing first would turn it into a silent no-op and change what Exit does to the scene.
+### The extension's lifecycle is the runtime's responsibility
 
-**`RESET_EXTENSION_MODULE_ON_START` rebuilds the driven extension's module widget**
-(`slicer.util.reloadScriptedModule`, which is what Slicer's own Reload button runs: re-import,
-`cleanup()`, new widget through `setup()`). It is the only generic way to clear what the runtime
-cannot enumerate — the extension's own widget/logic attributes, and the state of its Qt controls,
-which matters because the runtime drives those controls precisely *because* the extension's handlers
-read them at click time, so a combobox left on run 1's answer is an answer run 2 never gave. Gated on
-`hasattr(slicer.modules, name.lower())`: the CLI package name is the module name by convention, not by
-guarantee, and `reloadScriptedModule` fails on a C++ module with an unrelated-looking path error.
-Never fatal — a module that will not reload leaves the previous widget in place, which is exactly the
-old behaviour.
-
-`python scripts/check_runtime_reset.py` proves the core of this outside Slicer (it stubs
-`slicer`/`qt`/`vtk`), including the bug and its fix as a two-line `exec`.
-
-**The extension's own lifecycle is the runtime's responsibility, because the runtime bypasses it.**
 A generated step carries a `# precondition:begin … selectModule('<Ext>') … precondition:end` block
 whose only purpose is to fire the extension's `enter()`. `_prepareGeneratedStepCode` **strips** it and
-calls `_ensureModuleEnteredInvisibly()` instead: entering for real would make the extension the active
-module, and SafeExecutor's restore would then fire its `exit()`, which hides plane handles and locks
-planes (BoneReconstructionPlanner) — breaking every later interactive step. So `enter()` is fired on
-the widget directly and the module is never made active.
+calls `_ensureModuleEnteredInvisibly()` instead: entering for real makes the extension the active
+module, and SafeExecutor's restore then fires its `exit()`, which hides plane handles and locks planes
+— breaking every later interactive step.
 
-That has a consequence the cache originally got wrong. `enter()` is not one-off initialisation; it is
-the extension **binding itself to the current scene** — parameter node, selectors, markup observers.
-Slicer's own recovery from a scene close is `onSceneEndClose: if self.parent.isEntered:
-self.initializeParameterNode()`, and `isEntered` is False *by construction* here. So after
-File ▸ Close Scene the extension is permanently unbound, and a cache that said "entered once per
-session" made the next run drive its handlers with `self._parameterNode is None` —
-`'NoneType' object has no attribute 'inputFiducials'` at the first `extension_op` step. It is generic
-to Slicer's module template, not to one extension (3 of the 7 cookbook extensions are template-shaped).
+`enter()` is not one-off initialisation; it is the extension **binding itself to the current scene**.
+Slicer's own recovery from a scene close is `onSceneEndClose: if self.parent.isEntered: …`, and
+`isEntered` is False by construction here — so the cache is **per scene, not per session**.
+`_invalidateInvisibleModuleEntries()` clears it on `onSceneEndClose`, and `_moduleWidgetNeedsReentry()`
+re-enters when a cached module looks unbound, keyed on the shape Slicer's module template mandates
+(`_parameterNode` absent or stale), never on an extension's identity, failing open.
 
-The cache is therefore **per scene, not per session**: `_invalidateInvisibleModuleEntries()` clears it
-on `onSceneEndClose`, and `_ensureModuleEnteredInvisibly` additionally re-enters when a cached module
-*looks* unbound — `_moduleWidgetNeedsReentry()` keys on the shape the module template mandates
-(`_parameterNode` absent, or pointing at a node no longer in the scene), never on an extension's
-identity, and fails open. Re-entry recovers the binding correctly rather than merely avoiding the
-crash: `initializeParameterNode()` ends in `_onInputsChanged()`, which reads the selector widgets the
-earlier `user_choice` steps already drove, so the recovered parameter node holds the nodes the user
-actually picked.
+### Exiting a guided workflow
 
-### Voice control
+One Exit button at the right end of the replay row `[back][progress][fwd][run-from-here][balance][exit]`
+— anchored to the row's right edge, icon-only (a text label can force the module panel wider), and
+**not** driven by `_updateReplayControls`: available whenever the panel is up. The Cancel it replaced
+was a workflow *action* through the runtime, so it was hidden exactly where a user most needs a way
+out (a completed run, a step with no controls, the panel a dispatch error leaves behind).
 
-**One microphone button above Send arms the feature; the SPACE BAR gates capture.** Hold Space,
-speak, release — the key is the detector, and nothing is transmitted unless somebody is holding it
-down. That removes an entire class of failure the energy detector has (a sentence chopped at a pause
-because the speaker's level sat close to the threshold, or never triggered because it sat under it)
-and is a stronger privacy property than any amount of matching discipline.
+`_resetGuidedSession()` is a **local** reset — it never asks the runtime for permission, and the
+runtime's own `cancelled` result and `onSceneEndClose` funnel through it. Three ordering rules:
 
-**The original always-on mode is still there**, behind `voicePushToTalk` in Settings, for hands-free
-use where a key is not reachable — it keeps the energy detector, the room calibration and the
-adaptive floor. Everything below applies to both.
+- `_clearCompletedWorkflowState(clear_replay=True)` runs **while `runtime.session` is still
+  non-None** — `clear_checkpoints()` is a no-op once it is None, and it restores the live scene from
+  the hidden `vtkMRMLSceneViewNode` snapshots and deletes them.
+- `reset_workflow_state(None)` clears the mirrors for **all** extensions; a per-extension reset would
+  leave the next procedure inheriting this one's completions, choices and loop counters.
+- **`_guidedSessionEpoch`** fences work in flight. A self-correction round trip is a thread and
+  auto-advance is a `singleShot`; neither can be cancelled, so each captures the epoch and
+  `_guidedSessionAlive()` drops it on mismatch — otherwise a repair lands after Exit and executes into
+  a scene the user has left.
 
-**Space is the one talk key Slicer already uses**, so the binding is a setting (`voicePttKey`) with
-F4 and F8 offered beside it — both verified unbound anywhere in Slicer 5.10. Bare Space is
-`qMRMLSegmentEditorWidget`'s "swap the last two effects", live whenever Segment Editor is entered,
-which several cookbook steps do. While voice is armed on Space that toggle stops working, silently;
-choosing F4 avoids the collision entirely. **Ctrl+Shift+Space (markups Place mode) is never
-intercepted** whatever the setting, because the filter compares the modifier bits and not just the
-key — matching on the key alone would break control-point placement application-wide.
+Exit **closes the scene** (`EXIT_CLOSES_SCENE`) on both answers, and the dialog asks for that deletion
+in those words. Leaving it up is unsafe: the next procedure loads its own data, so a scene holding the
+last run's nodes offers them to any step that looks a node up by name — and closing the scene is the
+only thing that reliably re-binds the driven extension. Three fences: it runs **last** and **after
+`runtime.session = None`** (so its `EndCloseEvent` does not re-enter the teardown); it is withdrawn
+when a requested save did not land (`_saveRunStatistics` returns a **positive** check — the `.mrml`
+exists *and* a node was written — because nothing in that path raises); and `close_scene` is a separate
+parameter from `reason`, since `_askExitChoice` falls back to a full exit when the dialog could not be
+*shown*, and an assumed answer may close a panel but not discard a scene. Voice never closes it —
+push-to-talk is Space, a modal stands the key filter down, and Space activates a message box's default
+button, so saying "no, cancel" would confirm the exit.
 
-The key is taken over **only while a session is armed**, and given back on every teardown path: it is
-a global hook, so leaking it would keep stealing the key from the rest of Slicer. Five gates decide
-each event, and each one is a defect if it is missing: focus is not a text entry (the prompt box is
-directly under the button, and Slicer's Python console is a `QTextEdit`); no modal or popup is up
-(the Exit-confirmation dialog is modal and Space activates its default button); the main window is
-active; the modifiers match exactly; and a session is actually armed.
+Exit refuses while a baseline run, a stream, or a revision is in flight.
 
-Two Qt details the first implementation got wrong. **Auto-repeat is swallowed only while we own the
-hold** — returning True unconditionally ate every repeat of a key we had *declined*, so holding Space
-in the prompt box typed one space and then went dead. And **`QEvent.ShortcutOverride` must be
-accepted**, because Qt resolves shortcuts before it delivers key events: a KeyPress-only filter loses
-to any existing `QShortcut` on the same key, which is exactly Segment Editor's Space. A `_held`
-boolean is the real state rather than `isAutoRepeat()`, since Windows repeats KeyPress only while X11
-can synthesise release/press pairs. `WindowDeactivate` ends a hold, because the release is not
-guaranteed to arrive — alt-tabbing mid-utterance would otherwise leave the microphone open.
+**Saving is a separate decision**: *Exit and save* / *Exit without saving* / *Cancel*, because a Yes/No
+dialog welds two independent decisions together and saving writes hundreds of megabytes. The answer is
+read back as a **button role**, never identity or position — Qt reorders by platform and PythonQt can
+return a fresh wrapper, so `clickedButton() is save` may be False for the button just clicked.
+"Without saving" **deletes** the run folder (artifacts are written incrementally; there is no "don't
+write it"), gated on a containment check on the **resolved** path, with `_releaseRunLogDir()` first
+because the writers `makedirs(exist_ok=True)`.
 
-**The key hook has two implementations and picks one at arm time, by proof.** The correct one is an
-application-wide `QObject` event filter (a `QShortcut` cannot be used: Qt has no release signal, and
-push-to-talk is *defined* by the release). But PythonQt cannot always dispatch a C++ virtual to a
-Python override, and a filter that is never called presents as "the key does nothing", which is
-indistinguishable from a dozen other faults. So arming sends one synthetic key event through the
-filter and checks it was seen; if it was not, the hook falls back to polling the OS key state at
-30 ms. `_voice_debug` says which is live.
+The save blocks the main thread behind a modal progress dialog calling `processEvents()`, which is why
+`_resetGuidedSession` opens with a `_guidedExitInProgress` guard.
 
-Four things stop a mis-recognition from driving the scene:
+### Agent pipeline (non-guided path)
 
-1. **The matcher declines by default.** An utterance resolves only against the *closed vocabulary the
-   step on screen actually offers* — its own option labels, the live node/segment names, the fixed
-   verbs — and anything below `ACCEPT_SCORE` (0.62) becomes `ACTION_NONE`. Fixed verbs match the
-   **whole** utterance, never a substring, because "we're done with the previous patient" containing
-   the word "done" would otherwise advance a step. Free text is the one family where a bare sentence
-   is never taken: it needs a "set" / "enter" lead-in, or a free-text step would record whatever the
-   recogniser produced as the parameter value.
-2. **The mic is muted while the app speaks.** Synthesized guidance goes out of the speakers and
-   straight back into the input, and the words the app just spoke are precisely the words most likely
-   to match the step's own labels. Pressing the key **cuts the announcement and unmutes** — without
-   that barge-in, push-to-talk would sit behind up to twenty seconds of speech and the key would
-   start a recording of silence. In the always-on mode the **unmute happens on the speak thread, not
-   in the queue handler** — Exit drains `_streamQueue` wholesale, so a `voice_speech_done` event in
-   flight when the user exits is never delivered and the microphone would stay muted for the rest of
-   the session.
-3. **Every committing action is announced, naming the label and not the value** ("Selecting Red
-   box."). Be precise about what that buys: the line is *enqueued* before the action is applied, but
-   synthesis is a network round trip, so it is heard a second or so after the scene has already
-   changed. It makes a mis-hearing audible at the moment it happens instead of three steps later; it
-   is **not** a veto. Naming the label is what makes it work at all — a surgeon who said "left" hears
-   "Selecting Blue box" and can act on the mismatch, which is exactly where the orbital step's label
-   and value deliberately differ.
-4. An optional **confirm mode**, which *is* a veto: it arms the action and waits for "yes". The step
-   the command was resolved against is stored with it, because the workflow can move on while the
-   user is deciding and a later "yes" would otherwise commit a value the new step never offered.
+Reached only with `GUIDED_ONLY_MODE = False`; self-correction uses the same assembly and is always live.
 
-Push-to-talk removes the worst of the residual risk that the hot mic carried — a bare "next" or
-"done" said to a colleague no longer reaches the matcher at all, because nobody was holding the key.
-The vocabulary hardening earned under the always-on design is kept, both because that mode is still
-selectable and because a mis-recognition inside a held key is still possible: "ready" and "go ahead"
-are absent from the advance vocabulary, and "right"/"ok"/"okay" from the confirm vocabulary — "right"
-is also the *value* of an option on the orbital step, so accepting it as assent would let a surgeon
-correcting the side confirm the wrong one instead.
+1. `onSendButtonClicked()` → background `_backgroundStream()`.
+2. `decomposeQuery()` splits the prompt; `VectorRetriever` searches FAISS.
+3. Tool loop — `Grep`, `ReadFile`, `VectorSearch`, `GetNodeProperties` plus the dynamic CLI tools,
+   dispatched in parallel. `SearchSymbol` and `GenerateSegmentationCode` are *implemented but
+   registered in no schema* — wire them in or treat them as dead code; **do not describe them as
+   available**.
+4. `agent_plan` JSON (with `expected_scene_change`) then a fenced Python block.
+5. `CodeValidator` AST checks.
+6. `SafeExecutor.execute()` in `__main__` on the main thread; scene rollback on failure.
+7. `verifySceneAgainstPlan()` compares before/after snapshots. Checks: `node_exists`,
+   `node_count_delta`, `node_modified`, `node_has_display`, `node_has_content`, `node_name_matches`,
+   `layout_changed`, `selection_changed`, `module_entered`, `property_true`, `not_checked`.
+8. Self-correction — isolated retry loop (up to 5) via `chatWithToolsIsolated()`, which does not write
+   `conversation_history`.
 
-**Every action goes through the widget method the mouse would have called** — `_onWorkflowDoneClicked`,
-`_commitWorkflowChoice`, `_onWorkflowRangeSelected` — and never through `WorkflowRuntime.run_step`.
-A second, unreviewed way to drive the runtime is exactly what a guided-only runtime exists to
-prevent, and each of the three shortcuts loses something: `_onWorkflowDoneClicked` also runs
-`_interactionManager.cleanup()`; `_onWorkflowRangeSelected` also runs `_commitThresholdToSegment`
-(the segment write later steps depend on) and `_clearThresholdPreview`; and the scalar slider,
-segment-name picker and multi-choice form each drive the **extension's own** control first so its
-connected handler fires.
+### Prompts
 
-**`grammar.py` is a mirror of the panel's render branch and must be changed with it.**
-`_family_for_state` takes `_renderWorkflowChoices`' branches in the panel's order, not alphabetically
-— a segments-table step also carries a `node_class`, a range step also carries a `parameter_name`, so
-only the panel's order lands on the control the user is looking at. And the choice value is
-**what the button would send, not what the artifact declares**: the render loop coerces a Yes/No
-*label* to `True`/`False` regardless of the declared value, so the panel state's `"true"` string and
-PedicleScrewPlanner `cb_step_14`'s `"done"` both leave as booleans. Reading `choices[i]["value"]`
-straight out of the state would make speaking and clicking disagree, and on a repeat block the string
-never equals the boolean `exit_value`, so the loop could not exit.
+**Every prompt is a file in `Resources/Prompts/*.md`, never a Python string** — a prompt is an
+experimental variable, so it must be editable, diffable and citable without touching code.
+`PromptLibrary.py` is the only reader; the only prompt text left in Python is a one-line fallback per
+loader.
 
-**A positional pick is matched as a WHOLE utterance, never by finding an ordinal in a sentence.**
-This is the single most dangerous path in the feature and it took two attempts to get right. The
-ordinal branch is reached exactly when label matching has failed — which is the state ordinary
-conversation is in — so "just a second" selected option two, and on the orbital step option two is
-the other side of the head. Token filtering does not rescue the loose form: "just a second" and "that
-was the last one" both survive a stopword filter and both contain a perfectly good ordinal. So
-`_ordinal_index` is a lookup against an enumerated phrase table ("the first one", "option two", "the
-last one", …) and nothing else. Nothing is lost — every option's label is read aloud in the prompt,
-so saying the label is always available and always safer.
+| purpose | file |
+|---|---|
+| opening turn | `workflow_router_prompt.md` — ~6 KB, tool-free, temperature 0, thinking off, no retrieval |
+| general request | `system_prompt.md`, assembled by `_buildSystemPrompt()` |
+| self-correction | same assembly, deliberately long — repair needs the whole trajectory |
+| a step that ran and misbehaved | `template_revision_prompt.md`, scoped to one step |
+| baselines | `baseline_pure_llm_prompt.md`, `baseline_online_only_prompt.md` |
+| voice tier 2 | `voice_command_prompt.md` |
 
-Two scoring rules underneath it. `match_score` scores over a small cross product of spellings —
-verbatim, carrier words removed, numerals spelled out, number words digitised — because "the blue one
-please" only reaches its label once the filler is gone, and "fragment one" only beats "Fragment 2"
-once the numeral forms line up. And `_match_score_one` **takes the max of its heuristics** rather than
-returning from the first that fires: token overlap is the weakest signal and fires most often, so an
-early return there hid a much stronger character-level match.
+The router replaced a **140,611-character** system prompt that existed to emit one tool call. Its
+catalog is built from the workflow graphs: name, step count, and seven step descriptions **spread
+evenly across** the procedure — the head names the inputs, the tail names the goal, which is what
+separates nine procedures that all open with the same Segment Editor boilerplate. Unknown name,
+confidence < 0.6, `null`, a malformed reply or an API failure all return False. The prompt says a
+refusal is the intended outcome for an uncovered request — telling the model a `null` falls through to
+a coding agent that no longer exists biases it toward over-matching.
 
-**An idle hot microphone does not talk to the router.** With no workflow running there is no closed
-vocabulary to match against, so every sentence would become a routing LLM call and, on a non-match
-under `GUIDED_ONLY_MODE`, a modal refusal. A spoken request must open like one ("plan …", "start …")
-and be at least three words; everything else is reported and dropped.
+Two independent ablation flags:
 
-**Nothing the microphone hears is written to disk by default.** `VOICE_LOG_TRANSCRIPTS` is False, and
-that is a privacy decision rather than a performance one: run folders are copied, shared and attached
-to papers, and most of what an always-on theatre microphone transcribes is conversation about a
-patient. The ASR artifact and `role_trace.json` both record durations, byte counts, detected language
-and the resolved **action** — enough to evidence what the feature did — and withhold the utterance.
-Audio bytes are never persisted at all. Flip the constant for an evaluation that needs the text.
-
-**A failure streak stops the session.** A wrong region, a bad key or a model id that does not exist
-there fails *every* utterance identically, and the status line it writes lives in a collapsed group —
-so the symptom would be a microphone that looks alive and never acts. Three consecutive failures stop
-listening and raise a dialog naming the three settings to check.
-
-**Two tiers, and the second is only for the uncertain, not for the empty.** A sentence that matched
-*nothing* is far more likely to be conversation than a paraphrase, so sending it to a model mostly
-buys a confident-sounding wrong answer. An *ambiguous* result does not go to the model either — two
-options fitting equally well is a question for the surgeon, not a coin flip delegated to a second
-opinion. The fallback (`Resources/Prompts/voice_command_prompt.md`, one small call over the low-level
-request path like `WorkflowRouter._call`, so it writes no `conversation_history`) is offered the
-step's options as the only candidates and must return an **index** — the value that reaches the
-runtime is read out of the grammar by that index, so the model can rename an option but never
-introduce one. The tiers run on **different threads**, which is why `resolve_llm` exists beside
-`resolve`: tier 1 is pure computation and belongs beside the panel it reads, tier 2 is an HTTP round
-trip that would freeze Slicer there, and its answer is re-checked against the live `current_step`
-before it is applied because the workflow can move on while the model is answering.
-
-**Three fences, and they are not interchangeable.** `_guidedSessionEpoch` (captured per *utterance*,
-not at listen time, so a sentence spoken after one workflow ends and another begins belongs to the
-one it was spoken in) retires work against an exited workflow. `_voiceSessionSeq` is a **microphone**
-session token: `MicListener.stop()` emits a final `stopped` state that lands in `_streamQueue` and is
-handled up to 50 ms later, by which time the user may have clicked the button back on — without the
-token that stale event tears down the session that just started, and the mic appears to refuse to
-stay on. And `_voiceHandlingTranscript` is a **re-entrancy** guard: `_drainStreamQueue` pumps the Qt
-event loop, and so does applying a command (`_runWorkflowStepDirect` executes template code), so a
-second utterance arriving mid-dispatch would be handled *inside* the first and dispatch the step
-twice. It is parked and replayed at top level instead.
-
-**Speech is announced once per step OCCURRENCE, not per repaint.** `_updateWorkflowPanel` runs
-several times per opening and a repeat block re-visits the same step id, so `_voiceAnnounceKey` uses
-`(workflow_id, step_id, len(completed_instances), family, status)` — the same key shape the sole-node
-auto-select uses, for the same reason. Automated steps are never spoken (they are dispatched and gone
-before a sentence could finish), and a node-pick step that is about to auto-answer itself is
-deliberately silent — the prompt would be answered by the runtime before the user finished hearing it.
-
-**The API.** `qwen3-asr-flash` and `qwen3-tts-flash` over DashScope's *native* multimodal-generation
-endpoint, via `urllib` — not `httpx`, which is in `requirements.txt` but imported by no project code
-and unproven inside Slicer's Python. The OpenAI-compatible mode **does not exist for ASR in the US
-region**, and model ids are region-suffixed (`qwen3-asr-flash-us`), so the region selector is not
-cosmetic: getting it wrong is a 404 that reads like a bad key. Speech-out derives its endpoint from
-the speech-in region so one key cannot be paired with a mismatched host. The speech key is its own
-QSettings entry — the agent's `apiKey` is only a DashScope key when the user happens to have selected
-provider "Qwen", and even then it points at the *chat* endpoint. `voiceRegion` is applied **before**
-the other voice settings in `_loadVoiceSettings`, because its change handler rewrites the model list
-and the endpoint — the same ordering trap `loadSettings` already has with provider/baseUrl.
-
-`sounddevice` is the only binary wheel the project adds, installed at runtime on first listen and
-degrading to a named reason rather than an ImportError; `audio.py` imports cleanly with no backend
-present. TTS audio comes back as a **URL**, not inline, and there is no documented way to request a
-container, so the bytes are sniffed and `SpeechResult.audio_format` is reported — WAV decodes with
-the stdlib `wave` module, anything else needs a codec that is deliberately never auto-installed.
-
-Captured audio is **never persisted**: the artifact writers record duration and byte counts, because
-run folders are copied, shared and analysed and patient-room speech must not travel with them.
-
-### Revising a step's template at runtime (the ✍ button)
-
-**A generated step can pass every check and still be wrong, and the only detector is a person.**
-It runs, raises nothing, and reconstructs the wrong orbit, shows the curve in the wrong view, or
-leaves a node the next step cannot find. Self-correction cannot see it (it fires on a raised error),
-static validation cannot see it (the code is valid), and the api-probe cannot see it (the method
-exists). So the trigger is a **button next to the microphone**: step to the step with ◀, press ✍,
-say what should have happened, press Send. `SlicerAIAgentLib/TemplateReviser.py` is the Qt-free
-core and `app/widget_revise.py` the Qt half, splitting the same way `BaselineRunner` /
-`widget_baseline` do — and for the same reason, `scripts/check_template_revision.py`.
-
-This **replaced** the "Function-level errors" box and its `Repair Generated CLI` button. That path
-took free-form sentences in the generator panel, asked an LLM which of 27 steps each one meant
-(`_map_description_to_step`), and repaired blind; the fix could not be tried without re-running the
-whole procedure. Pointing at the step instead removes the classification entirely — and, because
-the step is *open*, lets the revision be given things a whole-package repair has no access to: the
-code that was actually dispatched (template filled with this run's real values), what it printed,
-the live scene, the answers the user already gave, and the previous revisions of the same step. The
-deleted button was also the only trigger of the **live-execution validation gate**
-(`live_validate_templates` → `repair_live_failures`), which is therefore gone too; generated
-packages are now validated statically only, and `manifest["live_validation"]` is no longer written.
-
-**The TEMPLATE is rewritten, not the filled code — which is what makes this stronger than the
-write-back it sits beside.** `_persistGeneratedTemplateRepair` persists a runtime self-correction by
-escaping every brace and saving the *filled* code, so it must refuse any template carrying a
-placeholder: freezing this run's `{side}` into the package would make every later run reconstruct
-whichever side this one happened to pick. A revision edits the template source, so it has no such
-limit. What replaces that guard is **placeholder closure**: the revised template may drop a
-placeholder and may re-default one it already has, but may not introduce a name the original lacked.
-The original demonstrably fills at dispatch, so its placeholder set *is* what the runtime can supply
-here; a new bare `{name}` raises `KeyError` inside the loader, and the symptom is a step that
-silently never executes rather than an error anyone reads.
-
-Four checks decide whether a rewrite may be installed, and three of them exist because the failure is
-otherwise invisible:
-
-- **Placeholder closure**, above — measured over `fillable_placeholder_names()`, not over a brace
-  scan. A raw scan also matches every **f-string interpolation** (`print(f"failed: {exc}")`), which
-  the loader is right to leave alone because it sits inside a real string literal; counting those as
-  placeholders would refuse any revision that adds an f-string, and f-strings are how every generated
-  template reports an error. Note the defaulted form `{name: default}` is *not* an escape hatch: it
-  is the same six characters as the dict literal `{key: 1}`, which the filler also replaces with the
-  default (`d = {key: 1}` fills to `d = 1`). Refusing both readings with one message is the only rule
-  that is not a coin flip — a name nothing can fill is a constant in disguise anyway.
-- **The filler, run for real.** `unfillable_placeholders()` calls `templates._fill_template` itself
-  with sample values and looks for `{name}` survivors, rather than re-deriving its rules: a copy would
-  have to reproduce both the mask regex *and* its containment test (the filler checks only where a
-  placeholder BEGINS, over a buffer in which every `{{` has been swapped for a longer sentinel), and a
-  copy that drifted would answer confidently about a different string than the loader processes. A
-  survivor is then split by asking **Python**: inside a real STRING token it is an interpolation,
-  outside one it is trapped — by an *unbalanced* apostrophe, typically one in a prose comment, which
-  opens a mask span running to the next quote anywhere in the file. Counting apostrophes would have
-  been a proxy that rejects `node.SetName('Result')`, i.e. most correct answers.
-- **Syntax and CodeValidator**, both on a `sample_fill()`ed copy — a template is not valid Python
-  until its placeholders are substituted.
-- **Scope.** `parse_reply` resolves the model's paths against the step's own template list and drops
-  anything else, so a model that decides to also fix step 14 cannot. A JSON reply whose `templates`
-  key is misspelled is a *correctable* error, never a fall-through to the single-block shape: that
-  shape would install the JSON document itself as the template, and nothing downstream would object —
-  a JSON object is a valid Python dict-literal expression, so it parses, imports nothing, and has no
-  placeholders to close. The step would then raise nothing, print nothing and do nothing, i.e. the one
-  feature whose job is to fix silently-wrong steps would have manufactured one.
-
-**The reply must be FENCED, and that is a correctness constraint rather than a formatting
-preference.** `llm_client._runToolLoop` ends a round only when `_extractCode` finds a fenced block.
-A prompt asking for bare JSON therefore produces a loop that can never accept a correct answer: it
-burns all `TOOL_ROUNDS`, gets a hard-coded "you did not produce code" nudge each time, then a forced
-final call demanding an `agent_plan` + `python` pair — which `parse_reply` reports as ambiguous, and
-the retry ladder repeats the whole thing. So the prompt mandates a single ` ```json ` block and says
-why, and `check_template_revision.py` asserts both.
-
-A rejection is fed back verbatim and the agent gets `MAX_ROUNDS` (3) attempts; the checks are
-deterministic, so the retry message is evidence rather than an opinion. The call is
-`chatWithToolsIsolated` with the built-in search tools and the generated-CLI schemas **stripped by
-identity** — the same shape self-correction uses, so a revision can read the extension's source
-through `ext:` before it writes a call but cannot dispatch a workflow step while deciding.
-
-**The original is kept, and the promise is checked rather than assumed.** `versions/revision_<ts>/`
-is the package BEFORE the write — the direction `runtime_fix_<ts>` uses, and deliberately not
-`repair_NNN`, which archives the *result*; putting a pre-image under that prefix would make
-`versions/` mean two opposite things. `cli_artifacts.snapshot_package_version` has no logger and
-returns `None` on failure, so `apply_revision` refuses to write at all when the snapshot did not
-land: "the original is saved" must not be a claim resting on a call whose result was never read. The
-round's request, reply, messages, per-template before/after and unified diff go to
-`debug/revision_<ts>/`, every revision is indexed in `debug/revisions.json` (under `debug/`, which
-survives a regeneration, not at the package root, which is wiped by one), and the run folder gets its
-own copy under `<step>/revision_<n>/` so a run stays self-contained.
-
-Three traps that cost a bug each:
-
-- **The header strip must not be greedy.** Each rewrite prepends `# [revised] …` naming its backup,
-  and the model is shown the template *with* that header, so it reproduces one. Stripping "the
-  header and every comment line after it" ate the `# precondition:begin … precondition:end` block on
-  the second revision of a step — the runtime's only marker for firing the extension's `enter()`,
-  whose absence breaks every later interactive step and raises nothing. The continuation lines are
-  enumerated instead.
-- **The header is validated too, because it is written after validation.** It carries the surgeon's
-  own sentence into a comment at the top of an executable template, so "the model shouldn't be on
-  the left orbit" would put an unbalanced apostrophe above the code and swallow the placeholder
-  below — the exact defect the validator refuses in the model's output, entering through the door
-  beside it. `_header_safe` strips quote characters, and `apply_revision` re-measures the assembled
-  file against the body and refuses to write that template if the header trapped anything.
-- **The loader cache is NOT invalidated.** Template *content* is opened fresh on every dispatch, so
-  the next ▷ already picks the rewrite up; and `invalidate_cache()` mid-run re-reads every manifest
-  and drops any package failing the status gate — possibly the one the surgeon is standing in.
-- **Eligibility is memoised per (package, step).** It reads two JSON files and is consulted from
-  `_guidedWorkflowOwnsInput`, which every `_setSendEnabled` calls — roughly eight reads per repaint
-  while armed. Safe to cache because a revision rewrites template content, never the generator's
-  step→file mapping; the template *text* is re-read on every run and is not cached.
-
-**Shared seams with the baseline harness, copied rather than approximated**: the mixin sits ahead of
-`WidgetSendMixin` in the MRO and overrides Send with one `if not engaged: super()` guard;
-`_guidedWorkflowOwnsInput` learns about it or the guided workflow keeps the box switched off and the
-mode looks dead; intent (`_reviseActive`) and engagement (`_reviseEngaged`) stay two things, and busy
-is always engaged so the row cannot vanish under a running revision; the debug write context moves
-for the duration and is handed back on every exit path. The two modes are **mutually exclusive in
-both directions** — each toggle disengages the other and refuses while the other is busy, and each
-one's Send-restore is guarded on the other's flag. One-directional exclusivity is not enough and
-fails silently: with both armed, the panel repaints Send purple (revise's sync runs last) while
-`onSendButtonClicked` still routes to baseline (which precedes revise in the MRO), so a button
-reading "Revise step" starts a baseline whose first act is a rewind that deletes every downstream
-node. ✍ is also disabled while a baseline runs, because that run has repointed `_currentLogDir` and
-`_currentRunManifest` at its own folder and a revision started underneath it would file its record
-against the wrong run. Exit and the three replay controls refuse while a revision is in flight, and
-the reply carries `_guidedSessionEpoch` so one that lands after Exit is dropped instead of writing a
-template for a procedure nobody is in. Exit tears the mode down **before** `_prepareCleanRuntime`,
-which clears `_reviseActive` as a raw attribute write — after that the self-healing repaint path
-finds nothing to heal and the status row is left parked above the prompt box.
-
-**The revised step is re-run automatically, and the scene is always put back first.** A step can be
-revised from three states and only one of them has a committed checkpoint, so there are three ways in:
-*scrubbed back to it* (`preview_index` set) and *completed and left behind* (its last checkpoint —
-last, because a repeat block re-visits a step) both go through `_rerunFromCheckpoint`; **standing in
-it** — an interactive step waiting for Done, or one that just ran — has no committed checkpoint,
-because those are recorded on completion. That case is what `rollback_failed_step` is for: it
-restores from the *pending* checkpoint, the scene view and node set captured when the step opened, and
-deliberately keeps it so the retry starts from the identical state. Named for the failure it was
-written for, but this is the same situation — an attempt being thrown away and tried again. Without
-it, revising the step you are standing in dead-ended in "no scene state to restore" with ▷ greyed out,
-which is the state a real run landed in.
-
-Never re-dispatch on top of the existing scene: a PRE template that creates a node would create a
-second one, after which the POST template's "last node of this class" picks the wrong one. That is
-silently wrong, which is worse than losing an in-progress manual adjustment on a step the user is
-re-running anyway. The re-run is deferred with `QTimer.singleShot(0, …)` because it is reached from
-inside `_drainStreamQueue` and executing template code pumps the Qt event loop — the 50 ms drain timer
-would otherwise fire again and handle a second event inside this one. `_rerunFromCheckpoint`'s own
-confirmation still stands: it asks before a rewind that would delete nodes the workflow did not create.
-
-**A template the agent returns verbatim is not written.** It is asked for the complete file for every
-template the step owns, so it routinely echoes back the one it did not touch; writing that would stamp
-a header on it and report an untouched file as revised (a real run produced exactly that, with an
-"identical to the original" warning attached). `apply_revision` compares bodies with both headers
-stripped, skips the unchanged ones, and says so — and when every template comes back unchanged that is
-an error naming them, not a silent success.
-
-Three things about the button itself. ✍ is **text**, not a `:/Icons/` resource: `qt.QIcon` on an
-unregistered path returns a NULL icon rather than raising, which renders as an empty button — the
-same reason the baseline toggle is a bare "⚖". It carries U+FE0E (variation selector-15) so Windows
-font fallback does not reach Segoe UI Emoji and draw a colour cartoon hand among monochrome glyphs.
-And it is **visible from panel build**, disabled with the reason in its tooltip, because
-`_updateReviseControls` runs only on a workflow-panel repaint: a button that starts hidden did not
-exist at all until a procedure started, which reads as a missing feature rather than an unavailable
-one.
-
-Its stylesheet needs an explicit `:disabled` rule, and that is not decoration: a stylesheet `color`
-REPLACES the widget's palette for every state, so a red glyph stays vivid red while the button is
-unclickable — and this button spends most of its life disabled (no procedure running, a step with no
-template, a baseline or a revision in flight).
-
-### Entry Point and Module Structure
-
-- `SlicerAIAgent.py` (~3600 lines) — Contains three Slicer-standard classes plus the bulk of runtime logic:
-  - `SlicerAIAgent` — Module metadata.
-  - `SlicerAIAgentWidget` — Qt UI, streaming queue, tool loop orchestration, execution dispatch, self-correction, and Extension CLI generator UI.
-  - `SlicerAIAgentLogic` — LLM client management, tool dispatch (`_executeTool`), scene context building, code execution, scene snapshot/verification, vector index warmup, and the background streaming entry point.
-- `SlicerAIAgentLib/` — Core library package with all supporting modules.
-- `Resources/` — UI files, icons, system prompt, knowledge base, FAISS vector index, and generated extension CLI tools.
-  - `Resources/Skills/slicer-skill-full/` — Git submodule containing the full Slicer knowledge base (source, extensions, dependencies, project-week docs). Gitignored from the main repo; clone with `--recursive` or init manually.
-  - `Resources/Code_RAG/` — FAISS vector index + ONNX embedding model (`jina-embeddings-v2-base-code` under `models/`). Generated by `scripts/build_rag.py`.
-  - `Resources/extension_CLI/` — Per-extension directories with `manifest.json`, `code_generators.json`, `prompt_fragment.md`, and `templates/*.tpl` files. Template syntax uses `{placeholder}` variables substituted at runtime.
-
-### Agent Pipeline (runtime flow)
-
-1. **User input** → `SlicerAIAgentWidget.onSendButtonClicked()` → background thread via `_backgroundStream()`.
-2. **Pre-Retrieval** — `LLMClient.decomposeQuery()` breaks complex prompts into sub-queries; `VectorRetriever` searches FAISS index (`SkillIndexer.py`).
-3. **Tool-Calling Loop** — LLM has **four** built-in tools (`Grep`, `ReadFile`, `VectorSearch` from `get_skill_tools()`, plus `GetNodeProperties` from `get_scene_tools()`) alongside the dynamically loaded extension CLI tools. `SkillToolExecutor` dispatches via ripgrep/tree-sitter. Multiple tool calls execute in parallel via `ThreadPoolExecutor`. `SearchSymbol` is *implemented* (`skill_tools/symbols.py`, dispatchable, memoized) but **not registered in any tool schema**, so the model is never offered it — confirmed in `messages_sent.json` of an online-only baseline, which lists exactly four. `GenerateSegmentationCode` is likewise unregistered. Either wire them into `get_skill_tools()` or treat them as dead code; do not describe them as available.
-4. **Plan + Code Generation** — LLM outputs `agent_plan` JSON (with `expected_scene_change` checks) then a Python code block. Tool loop terminates when executable code is detected.
-5. **Validation** — `CodeValidator` performs AST-based security checks (blocked modules/functions, destructive op detection).
-6. **Execution** — `SafeExecutor.execute()` runs code in Slicer's `__main__` namespace via `qt.QTimer.singleShot()` on the Qt main thread. Scene rollback on failure.
-7. **Scene Verification** — If `agent_plan` includes `expected_scene_change`, `SlicerAIAgentLogic.verifySceneAgainstPlan()` compares before/after scene snapshots and triggers self-correction if expectations aren't met.
-8. **Self-Correction** — Isolated retry loop (up to 5 attempts) via `chatWithToolsIsolated()`, which does not pollute user conversation history.
-
-### Threading Model
-
-HTTP I/O runs in a background `threading.Thread`. Events are marshaled to Qt main thread via a `queue.Queue` (`_streamQueue`) polled every 50ms by a `QTimer`. All MRML scene access and UI updates must happen on the Qt main thread. Vector index warmup also runs in a background thread on startup.
-
-### Prompt & Context Management
-
-**Every prompt lives in `Resources/Prompts/*.md`, never as a Python string.** A prompt is an
-experimental variable of this system, so it must be editable, diffable and citable without touching
-code. `SlicerAIAgentLib/PromptLibrary.py` is the only module that reads that directory (mtime-aware
-cache, so an edit applies on the next call; `{{PLACEHOLDER}}` substitution via `render()`). The only
-prompt text left in Python is a one-line fallback per loader, for surviving a missing file.
-`Resources/Prompts/README.md` is the index. Five prompt paths, each sized to its job:
-
-**1. Opening turn → `workflow_router_prompt.md` (~6 KB, one tool-free call).**
-Once a generated-CLI workflow starts, every step is dispatched by `WorkflowRuntime` — the LLM is out
-of the loop. So the only decision it makes on turn 1 is *which workflow the request means*. Making
-that decision through the full agent turn cost **140,611 characters** of system prompt (33 KB manual
-+ 72 KB retrieval snippets, including whole markdown files + 41 KB of CLI fragments + scene) to emit
-one tool call. `WorkflowRouter` does it with ~6,200: the router prompt plus a catalog built from the
-workflow graphs (name, step count, seven step descriptions **spread evenly across** the procedure —
-the head names the inputs, the tail names the goal, which is what separates nine procedures that all
-open with the same Segment Editor boilerplate). Temperature 0, thinking off, no tools, no retrieval,
-no `conversation_history` write. On a match it calls `start_for_extension()` + `_runWorkflowStepDirect()`.
-Unknown name, confidence < `DEFAULT_CONFIDENCE_THRESHOLD` (0.6), `null`, a malformed reply or an API
-failure all return False. Under `GUIDED_ONLY_MODE` (see "Guided-only runtime") that False is a
-**refusal**, not a fall-through — so the router prompt says so in those words: telling the model that
-a `null` is handled by a coding agent that no longer exists is a false statement about the
-consequence of its own decision, which is exactly the kind of thing that biases it toward
-over-matching. It is told instead that a refusal is the intended outcome for an uncovered request and
-that its named near miss is shown to the user. `ROUTER_ENABLED = False` restores the pre-router
-behaviour in one line (and under guided-only means every request is refused, which the dialog says).
-
-**2. General Slicer requests → `system_prompt.md`, unchanged.** Reached only with
-`GUIDED_ONLY_MODE = False`; self-correction (path 3) uses the same assembly and is always live. `_buildSystemPrompt()` assembles it
-from the template + platform info + role protocol + output format + `## RELEVANT KNOWLEDGE BASE
-SNIPPETS` (dense pre-retrieval) + `## CURRENT SLICER SCENE` + the extension CLI sections +
-`## ACTIVE WORKFLOW`. Extension source is searchable via the `ext:` prefix (`ext:VoxTell/`).
-
-**3. Self-correction → deliberately long.** Repair needs the whole history: the full system prompt,
-the original user prompt, the prior tool trajectory, the failed plan + code, the error, live
-`ApiSanityChecker` attribute evidence, core-UI control evidence, the workflow state, and the search
-tools. Kept as-is except for one fix: a repair inside a running workflow already strips the generated
-CLI tool *schemas* from its tool list (`_filtered_repair_tools`), so `suppress_cli_tool_fragments`
-now also strips their *descriptions* — ~42 KB per correction turn spent describing tools that are not
-there, and inviting a call that arrives as text and parses to no code. The `ext:` source paths stay:
-searching the extension's own source is exactly what a repair needs. Two independent ablation flags:
-
-| flag | CLI tool fragments | `ext:` source paths | cookbook block | used by |
+| flag | CLI fragments | `ext:` source | cookbook | used by |
 |---|---|---|---|---|
-| *(none)* | ✅ | ✅ | ✅ | normal turns |
-| `suppress_cli_tool_fragments` | ❌ | ✅ | ❌ | self-correction during a workflow |
-| `suppress_extension_cli` | ❌ | ❌ | ❌ | online-only baseline |
+| *(none)* | yes | yes | yes | normal turns |
+| `suppress_cli_tool_fragments` | no | yes | no | self-correction during a workflow |
+| `suppress_extension_cli` | no | no | no | online-only baseline |
 
-**4. A step that RAN and misbehaved → `template_revision_prompt.md`.** The counterpart to path 3,
-and the division is what each one can be given: self-correction repairs the *filled code* of a step
-that raised, so it needs the whole trajectory; a revision rewrites the *template* of a step that did
-not raise, so it is scoped to one step and carries that step's template source, its dispatched code,
-its output, the live scene and the user's own description. It is offered the same search tools with
-the CLI schemas stripped, and the validator's blocked lists are rendered into the prompt rather than
-restated in it — a prompt describing a blocked list that has since changed teaches a rule the
-executor does not enforce. See "Revising a step's template at runtime".
+A repair inside a workflow already strips the CLI tool *schemas*, so it strips their *descriptions*
+too — ~42 KB per turn describing tools that are not there, and inviting a call that arrives as text and
+parses to no code. The `ext:` paths stay: searching the extension's source is what a repair needs.
 
-**5. Baselines → see "Baseline prompt & context" below.**
+## Generated CLI pipeline
 
-### Dual API Support
+`ExtensionCLIAnalyzer.py` analyses an extension's source and generates tool schemas, templates and a
+workflow graph under `Resources/extension_CLI/`. A package that fails validation is auto-revised by
+`_autoReviseCli`; one that validates but *behaves* wrongly is fixed at runtime by Revise.
 
-`LLMClient` handles both OpenAI-compatible APIs and native Anthropic Messages API:
-- OpenAI-compatible: Kimi, DeepSeek, OpenAI, Qwen — standard chat completions with streaming.
-- Anthropic native: Claude — message conversion (`_convertMessagesForClaude`, `_convertToolsForClaude`), response normalization (`_normalizeClaudeResponse`), extended thinking support.
+**Do not hand-patch `Resources/extension_CLI/*`.** Fix the generator; the user regenerates. Fixes must
+be generic mechanisms, verified against a second cookbook extension — never extension-specific rules.
 
-### Scene Verification System
+> **The two mirrors.** `WorkflowRuntime` and `extension_cli_loader.choice_helpers` deliberately keep
+> parallel copies of the node-class readers, `_NONSPECIFIC_NODE_CLASSES`, the family predicates and
+> `_MULTI_SELECT_WIDGET_CLASSES`. The loader's half is baked into the code a step *executes*, the
+> runtime's half into what the panel *shows*. **Teach both, always.**
 
-`SlicerAIAgentLogic` includes a scene snapshot/verification subsystem:
-- `buildSceneSnapshot()` captures all MRML node states before execution.
-- `verifySceneAgainstPlan()` checks `expected_scene_change` entries from the agent plan.
-- Supported check types: `node_exists`, `node_count_delta`, `node_modified`, `node_has_display`, `node_has_content`, `node_name_matches`, `layout_changed`, `selection_changed`, `module_entered`, `property_true`, `not_checked`.
+**Placeholder closure is enforced in TWO independent places** — `validation_contracts` per template,
+and `contract_audit._final_package_audit` over the shipped artifacts as the authoritative final gate
+(so a template rewritten later cannot ship on a stale verdict). Carving a rule out of only the first
+gives a package whose every step validates and which the second then stamps `validation_failed` — and
+`status` is what the loader cache and `build_extension_catalog()` gate on, so the procedure **silently
+disappears from the router's catalog**. Hence `_bound_choice_placeholders(gen)` lives once, in
+`validation_semantics`, and both gates call it. `_fill_remaining_placeholders` fills from a real option
+rather than `""`, or validation would check `segmentOrbits("")`, which the extension rejects by design.
 
-### Key Library Modules (`SlicerAIAgentLib/`)
+### Where a `user_choice`'s answer goes
 
-| Module | Role |
-|--------|------|
-| `LLMClient.py` | HTTP client for OpenAI-compatible and Anthropic native APIs. Streaming, tool calling, token tracking, query decomposition, history compression, system prompt assembly. |
-| `SkillTools.py` | Tool executor — ripgrep search (`_grep_rg_aggregate`), tree-sitter AST slicing (`_slice_by_ast_boundary`), smart file reading (`_readfile` with markdown heading slices and test-method slices), vector search. |
-| `SkillIndexer.py` | Dense retrieval: chunking (AST-aware for Python/C++, heading-based for Markdown), ONNX embedding (jina-embeddings-v2-base-code), FAISS indexing, incremental rebuild. |
-| `ExtensionCLIAnalyzer.py` | 11-stage LLM pipeline (8 original + 3 interactive stages 4.5–4.9) for analyzing Slicer extensions and generating tool schemas, code templates, and workflow graphs. |
-| `ExtensionCLILoader.py` | Auto-discovery and dynamic loading of extension CLI tools from `Resources/extension_CLI/*/`. Includes `dispatch_workflow_step()` for interactive workflows. |
-| `SafeExecutor.py` | Sandboxed execution in Slicer's `__main__` namespace, stdout/stderr capture, VTK error interception (`vtkOutputWindow` swap), timeout, scene rollback. |
-| `SceneTools.py` | Structured MRML scene introspection (`buildSceneSummary`, `getNodeProperties`). |
-| `CodeValidator.py` | AST-based security validation via `CodeAnalysisVisitor`: blocked modules/functions, allowed modules, destructive operation detection. |
-| `ConversationStore.py` | Conversation history persistence (in-memory + Slicer settings + JSON export). |
-| `SlicerCodeTemplates.py` | Reusable code patterns for common Slicer operations. |
-| `InteractionManager.py` | Low-level Slicer 3D interaction: markup node creation, placement mode entry/exit, VTK observer management with debounce timers. |
-| `WorkflowOrchestrator.py` | Runtime state machine for guided interactive workflows: step execution, interaction completion, workflow cancellation, prompt fragment generation. |
-| `PromptLibrary.py` | The only reader of `Resources/Prompts/`. mtime-aware cache, `{{PLACEHOLDER}}` rendering, per-file fallback. |
-| `RunLog.py` | Run-folder naming (`<stamp>_<condition>_<procedure>[_<step>][_a<n>]`), fail-soft artifact writers, `RunManifest`. |
-| `TemplateReviser.py` | The ✍ Revise core, Qt-free: which template files a step owns, whether a rewritten one may be installed (placeholder closure, the filler's string mask, syntax, CodeValidator), reply parsing, and the snapshot-before-write apply/restore. |
-| `WorkflowRouter.py` | Fast first-turn router: one tool-free call over a compact workflow catalog, deciding which guided workflow a request means (or none). |
-| `voice/` | Voice control, Qt-free half: `audio` (always-on capture with energy VAD, playback), `asr_client` / `tts_client` (qwen3-asr-flash / qwen3-tts-flash over DashScope), `grammar` (the step reduced to the utterances it accepts), `commands` (transcript → one action). The Qt half is `app/widget_voice.py`. |
+Two binding channels, and an extension may use either:
 
-### Extension CLI Pipeline
+1. **The parameter node** — `SetParameter("role", …)`, surfaced as `choice_bindings[step]`.
+2. **The control itself** — the handler reads it at click time
+   (`self.logic.segmentOrbits(self._currentSide())`). No parameter role, so for those extensions the
+   channel was empty: the answer was recorded and reached nothing, and the run used the factory
+   default. `scan._scan_value_controls` recovers the control's **items**, the **reader** mapping state
+   to value (a ternary/if-else return over a literal comparison), and the **consumers**
+   `(method, arg_index)`; `_widget_state_choice_binding` names the parameter against the AST signature.
 
-`ExtensionCLIAnalyzer.py` analyzes third-party Slicer extension source code via LLM and generates tool schemas + code templates under `Resources/extension_CLI/`. The Widget includes a generator UI (`_setupExtensionCLIGenerator`) for analyzing and generating CLI tools (in parallel, one tab per extension), deleting them, and editing per-step clinical instructions. It no longer offers a repair action: a package that fails validation is auto-revised by `_autoReviseCli` on the spot, and a step that validates but *behaves* wrongly is fixed at runtime by ✍ Revise, on the step in front of the user. At runtime, `ExtensionCLILoader.py` discovers and loads these as additional LLM tools. Extension source code is exposed to the LLM via the `ext:` path prefix.
+Three silent failures:
 
-### Where a user_choice's answer goes
+- **The options are the control's own, not the cookbook's paraphrase.** The orbital panel asks for the
+  fractured *side* but offers "Red box" / "Blue box" — deliberately, because the boxes are drawn over
+  the orbits and picking a colour is unambiguous where "left" is not.
+- **The index→value map inverts without a symptom.** Item 0 is the RED box = the patient's **right**
+  orbit, so an authored `[Left=left, Right=right]` list picks the healthy side. The run completes and
+  reports success, on the wrong orbit. Only the extension's own reader knows the mapping.
+- **A `.ui` file is evidence only if the widget loads it** (`_scan_ui_is_live`; vacuously true when
+  there is no `.ui`, so wizard modules skip the demotion path). A module that moved to building its
+  panel in code keeps the file, which then describes a GUI that does not exist while still parsing and
+  still carrying matching widget names.
 
-**An extension keeps a GUI setting in one of two places, and both are binding
-channels.** The long-standing one is the **parameter node** —
-`parameterNode.SetParameter("role", …)`, found by
-`parameter_metadata._extract_parameter_roles_from_source`, surfaced as
-`choice_bindings[step]` and applied by
-`choice_helpers._build_choice_parameter_update_code`. The other is the **control
-itself**: the handler reads it at click time
-(`self.logic.segmentOrbits(self._currentSide())`, where `_currentSide` returns
-`"right" if self.sideComboBox.currentIndex == 0 else "left"`). Such a setting has no
-parameter role, so for those extensions the whole channel was empty — the answer was
-recorded in `_workflow_choices` and reached nothing, and the run proceeded on
-whatever the control's factory default was. `scan._scan_value_controls` recovers the
-second channel from the widget class's own AST: the control's **items**, the
-**reader** that maps its state to a value (restricted to a ternary/if-else return
-over a literal comparison — anything else yields no map and the item text is the
-value), and the **consumers** `(method, arg_index)` that pass the reader's result
-into a logic call. `_widget_state_choice_binding` names the parameter that
-`arg_index` fills against the AST signature, so the result is the same
-`choice_bindings` shape the parameter-node branch produces, plus
-`bound_choice_parameters[method]` for the template layer.
+At runtime the answer travels **twice, deliberately**: `_build_format_kwargs` merges it into the fill
+kwargs (so `{side}` resolves — that is what makes the step correct), and
+`_build_widget_state_choice_materialization_code` drives the extension's own control to the matching
+option (so the panel shows it, the connected handler fires, and a later step reading the control
+agrees). They cannot disagree — same recorded value, same scanned option list. A missing **item**
+raises; a missing **widget** only warns.
 
-Three facts about that path are load-bearing, because each fails *silently*:
+### A range choice reaches its consumer by name
 
-- **The options are the control's own, not the cookbook's paraphrase**
-  (`stage4._reconcile_value_control_choices`, gated on a scanned item list so
-  checkboxes and Yes/No `branch_op`s are untouched). The orbital panel asks for the
-  fractured *side* but offers "Red box" / "Blue box" — deliberately, because the two
-  coloured boxes are drawn over the orbits and picking a colour is unambiguous where
-  "left" is not. A generated panel offering Left/Right asks a different question from
-  the one the surgeon is looking at.
-- **The index→value map inverts without a symptom.** That control's item 0 is the RED
-  box, which is the patient's **right** orbit, so an authored `[Left=left,
-  Right=right]` list selects the healthy side. The run completes, segments (with the
-  models swapped — fracture V-Net on the healthy half), reconstructs and reports
-  success, on the wrong orbit. Only the extension's own reader knows the mapping.
-- **A `.ui` file is evidence only if the widget loads it** (`scan._scan_ui_is_live`,
-  vacuously true when there is no `.ui` at all — otherwise a wizard module, whose
-  controls live on page classes, would enter the demotion path). Slicer's module
-  template ships one, and a module that later moved to building its panel in code
-  keeps the file: it then describes a GUI that does not exist while still parsing and
-  still carrying matching widget names. Orbital's stale file declares `sideComboBox`
-  with `[Left-sided fracture, Right-sided fracture]` — the opposite index order from
-  the real control — and names three node selectors (`inputSelector`,
-  `boundingBoxSelector`, `fullBoneSelector`) that the widget does not have.
-  `_scan_widget_attr_universe` + `stage4._drop_unloaded_ui_widget_class` discard a Qt
-  class that exists only in an unloaded file, returning the step to inference from
-  `node_class`.
+A `range` choice records `[lo, hi]` under the `parameter_name` the decomposition invented; the step
+that spends it asks for a placeholder. The names never come from the same place — the Segment Editor
+driver builds its Threshold-apply block from the **effect** alone, so it can only write the generic
+`{threshold_min: 150.0}`. `_build_format_kwargs` is the bridge.
 
-**The generator could not express the binding, so it invented one.** Rule "Do NOT use
-curly brace template placeholders" plus a blanket unresolved-placeholder error (which
-permitted only `{vol_lookup}`) left a required argument with no legal source, and the
-model reached for `side = logic._side` — the attribute the method *assigns from that
-very argument*, so always unset on the first run. The prompt now requires the
-placeholder, and the validators permit it **and require it** — a template calling the
-method without it is a blocking error, since the argument must then have come from
-somewhere else.
+The marker word can sit **anywhere** in the name (`thresholdRange`, `threshold_range_reference`), so
+`_range_alias_words` drops it wherever it appears and offers every remaining word as a concept.
+Stripping only a *trailing* marker emitted no alias for a marker in the middle, and both Apply steps
+thresholded at the placeholder's hard-coded 150-3000, overwriting the segment the range step had just
+committed — the user sets the slider, sees the mask they asked for, and meets a different one two steps
+later. Aliases **overwrite**, so the most recent range wins, which keeps consecutive threshold cycles
+correct and makes a replay truncation put the earlier one back.
 
-**Placeholder closure is enforced in TWO independent places**, and fixing one is not
-fixing it: `validation_contracts` checks each template as it is validated, and
-`contract_audit._final_package_audit` re-checks the shipped artifacts as the
-authoritative final gate (deliberately, so a template rewritten by verify_repair or
-revision cannot ship on a stale verdict). Carving the rule out of only the first one
-produces a package whose every step validates and which is then stamped
-`validation_failed` by the second — and `status` is what `extension_cli_loader/cache.py`
-and therefore `WorkflowRouter.build_extension_catalog()` gate on, so the whole
-procedure silently disappears from the router's catalog and every request for it is
-refused. Hence `_bound_choice_placeholders(gen)` lives once, in `validation_semantics`,
-and both gates call it.
-`validation_semantics._fill_remaining_placeholders` (now an instance method, so every
-call site benefits) fills such a placeholder from a real option rather than `""`;
-otherwise `_stage9_validate` would syntax- and security-check `segmentOrbits("")`,
-which the extension rejects by design, read that as a broken template, and hand a
-correct one to the repair ladder.
+### One question, several answers
 
-At runtime the answer travels **twice, deliberately**. `_build_format_kwargs` already
-merges recorded choices into the fill kwargs, so `{side}` resolves to the answer —
-that is what makes the step correct. `_build_widget_state_choice_materialization_code`
-additionally drives the extension's own control to the matching option (resolved
-`.ui.<name>` → `self.<name>` → objectName, mirroring the generator's
-`_resolve_qt_control_lines`), so the panel shows what the user chose, any connected
-handler fires, and a later step that reads the control agrees. They cannot disagree —
-both resolve the same recorded value through the same scanned option list. A missing
-*item* raises (the installed extension differs from the analysed source, so the
-recorded value may address a different option than the user saw); a missing widget
-only warns, since the template's own binding still carries the value.
+A `ctkCheckableComboBox` is indistinguishable from a plain combo in how it is filled or read
+(`addItems` in, `checkedIndexes()` out, and it *is* a QComboBox subclass), so the whole mechanism rests
+on its **Qt class** — `_MULTI_SELECT_WIDGET_CLASSES`, in both mirrors. Three places had to learn it,
+each failing silently alone: the **scan** (control absent from the page inventory, so the step shipped
+as a free-text box); the **label pairing** (a page building `fields = [(lText, self.lSelector), …]` and
+laying it out in a loop has no literal cell — the **pair literal itself** is the pairing, read last so
+a real layout call wins, and only for a 2-element literal with exactly one known label and one known
+combo); and the **runtime**, which would render a dropdown that works, commits, and instruments one
+level out of however many were ticked.
 
-**A range choice reaches its consumer by NAME, and the two names are chosen
-independently.** A `user_choice` step with `value_kind == "range"` records `[lo, hi]`
-under the `parameter_name` the decomposition invented; the step that spends it asks
-for a placeholder. Those never come from the same place: the Segment Editor session
-driver builds its Threshold-apply block from the EFFECT alone
-(`module_sessions._effect_operation_block`), so all it can write is the generic
-`{threshold_min: 150.0}` / `{threshold_max: 3000.0}`. `_build_format_kwargs` is the
-bridge, and it must reduce the recorded name to the concept the driver used.
+`_reconcile_multi_choice` fires on a **lone** match when the control is multi-select, but only when it
+is the step's *only* quote — one match against several means the scan missed the others, and rebuilding
+on that ships a form asking one of the step's questions and never the rest.
 
-The marker word can sit **anywhere** in that name -- `thresholdRange`,
-`referenceThresholdRange`, `threshold_range_reference` are all names the
-decomposition produces for the same thing -- so `_range_alias_words` drops it
-wherever it appears and offers every remaining word as a concept, rather than
-stripping a trailing marker and taking the stem's last word. That earlier rule
-covered exactly the marker-last spellings and silently covered nothing else:
-LongBoneFractureReduction's `threshold_range_reference` has the marker in the
-middle, so no alias was emitted at all and both its Apply steps thresholded at the
-placeholder's hard-coded 150-3000 -- overwriting the segment the range step had
-just committed. **Nothing raises.** The user sets the slider, sees the mask they
-asked for, and meets a different one two steps later, after Islands has already
-been pointed at it. The aliases OVERWRITE so the most-recently-recorded range wins,
-which is what keeps consecutive threshold cycles (reference, then moving) correct
-and what makes a replay truncation put the earlier one back.
-`scripts/check_range_choice_fill.py` holds this over every shipped package: for each
-`*_min`/`*_max` placeholder, the nearest preceding range choice must fill it, proven
-by filling the real template with the real loader.
+The emitted drive sets every row Checked or Unchecked **explicitly** (so a replay re-drive replaces
+rather than accumulates), identifies the control by **class as well as item set** (a plain sibling
+listing the same options must never be the one ticked), and **re-reads `checkedIndexes()`** — a control
+showing tick boxes while reporting nothing ticked is exactly the miss to catch. `findChildren` matches
+`className()` **exactly**, so the checkable class must be named in the search list.
 
-**One question, several answers.** A `user_choice` selector is normally one-of-N,
-but an extension may ask one that takes many -- PedicleScrewPlanner's
-"Instrumented Levels:" is a `ctkCheckableComboBox` where every level to instrument
-is ticked. Nothing about how such a control is filled or read distinguishes it
-from an ordinary combo (`addItems` in, `checkedIndexes()` out, and it *is* a
-QComboBox subclass), so the whole mechanism rests on its **Qt class** --
-`_MULTI_SELECT_WIDGET_CLASSES`, mirrored in `WorkflowRuntime` and
-`extension_cli_loader.choice_helpers` for the reason the node-class readers keep
-their two mirrors: the loader's half is baked into the code the step *executes*,
-so teaching only the runtime fixes what the panel shows and leaves what it does
-untouched.
+**Voice accumulates and does not auto-confirm**: one utterance names one option, so the form must not
+commit the moment every selector holds something. Such a step is committed by saying "done".
 
-Three places had to learn it, and each failed *silently* on its own:
+### A selector starts where its source control starts
 
-- **The scan did not know the class**, so the control was absent from the page
-  inventory entirely -- and since the reconciler matches the cookbook's quoted
-  label against that inventory, the step shipped as a free-text box.
-- **The label never paired with the widget.** `_scan_wizard_pages` pairs a
-  `QLabel` with a combo from the page's own layout calls, and this page has none
-  to read: it builds `fields = [(lText, self.lSelector), ...]` and lays it out
-  with `for column, (label, widget) in enumerate(fields)`, so the `addWidget` call
-  names loop variables and its cell is `column * 2`, not a literal. The **pair
-  literal itself** is the pairing, and it is now read as such -- last, so a real
-  layout call always wins, and only for a 2-element literal holding exactly one
-  known label and one known combo. That one rule also recovered the labels of the
-  four ordinary combos beside it, which is why the whole step had degraded.
-- **The runtime would have rendered a dropdown**, which works, commits, and
-  instruments one level out of however many were ticked.
+A GUI control answers its own question before anyone touches it, and that answer is binding:
+`doStepProcessing` writes `sSelector.currentText` on exit whether or not the dropdown was opened. So
+`_combo_default_option` carries the scanned startup option into `default_value` and the panel
+pre-selects it, adding **no** placeholder row.
 
-`_reconcile_multi_choice` marks the rebuilt item `multi_select` and fires on a
-**lone** match when the control is multi-select -- there the alternative is not "a
-different control" but "this control as a dropdown". Only when it is the step's
-*only* quote, though: one match against several quotes means the scan missed the
-other controls, and rebuilding on that ships a form that asks one of the step's
-questions and never the rest. That is worse than the free-text box, so the gap is
-logged and the step passes through.
+This is not "pre-select item 0": a page may open on a **prompt** whose handler rebuilds geometry, so a
+pre-selected value would silently move something an earlier iteration fixed. One rule separates them —
+the prompt row is already dropped from `options`, so a default **not among its own options** is
+withheld; likewise a checkable combo and one with `live_items`.
 
-At runtime the item routes through the **multi-selection form** -- the only
-renderer that can put a tick list on screen -- so `_multi_choice_items` returns a
-ONE-item list for a lone multi-select selector (and synthesizes it from
-`choice_info` for artifacts predating `choice_info_list`), and the panel reproduces
-the source's own `ctkCheckableComboBox`, falling back to a checkable `QListWidget`
-rather than ever to a dropdown. The commit is a **list**, and a selector with
-nothing ticked counts as unanswered -- the same rule the extension enforces in its
-own `validate()`.
-
-**The drive reads its answer back.** The emitted code sets every row Checked or
-Unchecked explicitly (so a re-drive on replay *replaces* rather than accumulates),
-identifies the control by class as well as by item set (a plain sibling listing
-the same options must never be the one ticked), and then re-reads
-`checkedIndexes()` -- because "setCheckState did not raise" is not evidence that
-the control was checkable, and a control showing tick boxes while reporting
-nothing ticked is exactly the miss `_mc_missed` exists to catch. `findChildren`
-matches `className()` **exactly**, so the checkable class has to be named in the
-search list; a QComboBox subclass is not found under `"QComboBox"`.
-
-**Voice accumulates and does not auto-confirm.** One utterance names one option,
-so a spoken pick is added to what is ticked rather than replacing it -- and the
-form must therefore not commit the moment every selector holds something, since
-after the first level one level is exactly what "answered" looks like. Such a step
-is committed by saying "done", which `ACTION_PROCEED` routes to the form's own
-Confirm (the generic Done records no selector and drives no control).
-
-**A selector starts where its SOURCE control starts.** A GUI control answers its
-own question before anyone touches it, and that answer is binding, not cosmetic:
-the ROI page opens on "L&R" / "Posterior" and `doStepProcessing` writes
-`sSelector.currentText` on exit whether or not the surgeon ever opened the
-dropdown. A reproduced panel that opens on `-- Select --` therefore demands a
-decision the original never demanded. So `_combo_default_option` carries the
-scanned control's own startup option into `choice_info_list[i]["default_value"]`
-and the panel pre-selects it, adding **no** placeholder row.
-
-The opposite mistake is worse, and is why this is not "pre-select item 0": the
-Measurements page opens on a PROMPT ("Choose the puncture site") whose handler
-`Helper.Screw` deletes and rebuilds the screw line, so a pre-selected value would
-silently move a screw an earlier loop iteration already fixed. One rule separates
-the two shapes without a second placeholder heuristic — the prompt row is already
-dropped from `options`, so a default that is **not among its own options** is
-withheld. A checkable combo (nothing ticked) and a combo whose items are computed
-at runtime (`live_items`) are withheld for the same reason.
-
-Where the default comes from is `setCurrentText` / `setCurrentIndex` (including
-PythonQt's `combo.currentIndex = 2` property spelling) with a LITERAL argument;
-first write wins, since a handler re-pointing the combo later states a fact about
-a run rather than about the control. Absent all of that it is item 0, which is what
-Qt itself selects once a combo is populated. The panel's two readers of "answered"
-have to agree: the confirm gate gives an unanswered selector no value, and the
-**voice** gate must ask the same question of the same thing — it reads the current
-TEXT, never `currentIndex <= 0`, which called a defaulted selector unanswered
-forever and left the form unable to confirm with nothing on screen to say why.
-
-### A fix that is applied once and thrown away every run
-
-Self-correction repairs a generated step at runtime, and
-`_persistGeneratedTemplateRepair` writes the working code back into the step's
-`.tpl` so the next run loads the fix instead of re-deriving it. When that
-write-back refuses, nothing tells anyone: the step self-corrects, advances,
-discards the fix, and does it again on the next run, forever. It refuses for two
-reasons, and **both** were firing.
-
-**The template really was broken, and could never work.** BoneReconstructionPlanner's
-`cb_step_12` searched every node name for `"{curve_name_keyword: mandible}"` — a
-placeholder written inside a **string literal**. The loader's filler masks string
-literals before it substitutes (deliberately: a template's prose must survive
-filling), so it never fills that one, and the dispatched code searches for the
-brace text itself. `MISSING_NODE` on every run, by construction — and the same
-shape ships in CranialImplantPlanning, where
-`AddNewNodeByClass(cls, "{curve_name: CuttingCurve}")` names its node
-`{curve_name: CuttingCurve}` and raises nothing at all.
-
-The blanket unresolved-placeholder rule cannot catch either, because both carry a
-**default** — and a default is precisely what makes a placeholder safe at
-dispatch, everywhere except inside a string, where it is never read.
-`TemplateReviser.inert_placeholders()` measures it with the loader's own filler
-and `validation_semantics._validate_placeholder_reachability` refuses it. The
-discriminator is the **string token's own prefix**, asked of Python and never of a
-regex: `f"role '{role}'"` is how every generated template reports an error, so
-flagging an f-string interpolation would refuse the common case to catch the rare
-one. Over the 181 shipped templates it reports exactly the two above.
-
-**And the write-back's own guard was measuring the wrong thing.** It refuses a
-template carrying placeholders because the corrected code is the *filled* code, so
-persisting it would freeze this run's `{side}` into the package — right, and the
-reason the guard exists. But it answered "does this template have placeholders?"
-with a raw brace scan, and a raw brace scan matches every f-string interpolation.
-The precondition block every generated step carries ends with
-`print(f"...: {_module_enter_error}")`, so the guard fired on **82 of the 181**
-shipped templates, of which only **13** contain anything the filler actually looks
-up. The write-back was dead for most of the cookbook. It now asks
-`fillable_placeholder_names()` — the same function ✍ Revise's closure check uses,
-for the same reason, documented one section down and never applied here.
-
-A brace span the filler never looks up expands to the same text on every run, so
-persisting it loses nothing; the escape/refill round trip is exact, which
-`check_template_write_back.py` proves against the real recorded corrections rather
-than assuming. What is still refused is what should be: `{side}`,
-`{initial_space}`, `{mandibular_segmentation_node_name}` — values a run supplies.
+The default comes from `setCurrentText` / `setCurrentIndex` (including PythonQt's
+`combo.currentIndex = 2` spelling) with a **literal** argument, first write wins; absent that, item 0.
+The panel's two readers of "answered" must agree: the **voice** gate reads the current **text**, never
+`currentIndex <= 0`, which called a defaulted selector unanswered forever.
 
 ### A checkbox the extension reads as a comparison
 
-An extension states the same fact about a checkbox in two spellings, and
-`_extract_ui_parameter_bindings` used to read only the first:
-
 ```python
-if self.ui.showOriginalMandibleCheckBox.checked:              # an attribute test
-if self.ui.generateFibula...Button.checkState == qt.Qt.Checked:   # a COMPARISON
+if self.ui.showOriginalMandibleCheckBox.checked:                   # attribute test
+if self.ui.generateFibulaPlanesButton.checkState == qt.Qt.Checked: # COMPARISON
 ```
 
-The second is not an eccentricity — it is what a control whose state is not a bool
-requires. BoneReconstructionPlanner's "Update fibula planes …" control is a
-`ctkCheckablePushButton` built in Python (so it is in no `.ui` file), read as
-`checkState == qt.Qt.Checked` and written as `checkState = 2`. A `Compare` node is
-not an `Attribute` chain, so the scan returned nothing, and **every consequence of
-that is silent**: no `ui_parameter_binding` on the step, so the deterministic
-toggle emitter never fires, so the step falls through to free-form generation,
-which is free to guess. It guessed `'true'`. The extension compares
-`GetParameter(role) == "True"`, so the parameter was set, the read was False
-forever, `onPlaneModifiedTimer` never started its timer — and the symptom surfaced
-two steps later and looked like a different feature: dragging a mandibular cut
-plane no longer recomputed the fibula.
+The second is what a control whose state is not a bool requires. A `Compare` node is not an `Attribute`
+chain, so the scan returned nothing — no `ui_parameter_binding`, so the deterministic emitter never
+fired, so the step fell through to free-form generation, which guessed `'true'` against an extension
+comparing `== "True"`. The parameter was set, the read was False forever, and the symptom surfaced two
+steps later looking like a different feature.
 
-Three rules, and each is load-bearing on its own:
+- **Polarity is read, or nothing is recorded.** `_widget_state_test` handles the attribute test, `not`
+  of one, and the comparison in either operand order with `==`/`!=`/`is`/`is not`, deciding ON from the
+  compared value. Anything undecidable (`PartiallyChecked`, a variable, a `BoolOp`) records **no**
+  binding — a guessed polarity clears the box the cookbook asked to tick. Admitted only for two-state
+  properties (`checked`, `checkState`, `visible`, `enabled`), so it never invents boolean semantics for
+  `currentIndex == 0`.
+- **The ON/OFF strings come from the source** (`true_value`/`false_value`), merged onto **one** role
+  entry per (role, access, property) — the if/else branches are two `SetParameter` calls and downstream
+  reads `roles[0]`, so appending the else branch as a second dict dropped every `false_value`.
+- **The control is driven on the property the source uses.** A second scan reads the extension writing
+  its own control from the parameter, which pairs widget with role independently *and* states the exact
+  write form. Not cosmetic: `ctkCheckablePushButton`'s indicator is separate from the button's checked
+  state, so `checked = True` raises nothing and ticks nothing — and an unticked control is a **ratchet**,
+  since every sibling wired on `stateChanged` re-runs `updateParameterNodeFromGUI` and writes the
+  parameter back to `"False"`.
 
-- **Polarity is read, or nothing is recorded.** `_widget_state_test` handles the
-  attribute test, `not` of one, and the comparison in either operand order with
-  `==` / `!=` / `is` / `is not`, deciding the ON state from the compared value
-  (`2`, `True`, `qt.Qt.Checked` — and `0` / `qt.Qt.Unchecked` for OFF). Anything it
-  cannot decide — `Qt.PartiallyChecked`, a variable, a `BoolOp` — records **no**
-  binding, because a guessed polarity ships a step that clears the box the cookbook
-  asked to tick. The comparison form is admitted only for a two-state property
-  (`checked`, `checkState`, `visible`, `enabled`), so the rule never invents
-  boolean semantics for `currentIndex == 0`.
-- **The parameter's ON/OFF strings come from the source.** `true_value` /
-  `false_value` are what the extension itself writes, and the emitter now uses
-  them (`_parameter_state_string`) instead of hard-coding `'True'`. They are also
-  merged onto **one** role entry per (role, access, property): the if- and
-  else-branches are two `SetParameter` calls, and downstream reads `roles[0]`, so
-  appending the else branch as a second dict silently dropped every `false_value`.
-- **The control is driven on the property the source uses.** A second scan reads
-  the opposite direction — the extension writing its OWN control from the parameter
-  (`if GetParameter(role) == "True": self.ui.w.checkState = 2` / `else: = 0`) —
-  which pairs widget with role independently *and* states the exact write form.
-  `_widget_sync_lines` reproduces it, falling back to a Qt vocabulary
-  (`checked` → `True`, `checkState` → `qt.Qt.Checked`, and `import qt` emitted only
-  when a line needs it). This is not cosmetic: `ctkCheckablePushButton` is a
-  QPushButton subclass whose indicator is separate from the button's own checked
-  state, so `checked = True` raises nothing and ticks nothing — and an unticked
-  control is a **ratchet**, since every sibling wired on `stateChanged` re-runs
-  `updateParameterNodeFromGUI`, which reads this control and writes the parameter
-  back to `"False"`.
+Enforced again at validation (`_validate_parameter_state_spelling`), because free-form generation,
+self-correction and Revise also write templates. Wired into the **per-template** gate only, where the
+error is named and repairable — a rule living only in the late gate stamps `validation_failed` on a
+package whose every step validated.
 
-**The spelling is enforced a second time, at validation**, because the emitter is
-not the only producer: free-form generation, self-correction and ✍ Revise all write
-templates. `validation_semantics._validate_parameter_state_spelling` refuses a
-literal `SetParameter(role, value)` whose value is not one of the strings the source
-compares that role against — for roles whose ON *and* OFF spellings were both
-recovered, and never for a non-literal value, which is not decidable there. Over
-the 37 shipped BoneReconstructionPlanner templates it refuses exactly one, the one
-that carries this bug. It is wired into the **per-template** gate only, where the
-error is named and repairable, and deliberately not into `_final_package_audit`:
-a rule that lives only in the late gate stamps `validation_failed` on a package
-whose every step validated.
+### A toggled button is clicked twice
 
-### A toggled button is clicked twice, and the second click is not the first
+"Place a control point" ARMS placement and, clicked again, ENDS it; both emitted
+`setPlaceModeEnabled(True)`. Invisible where it is made (re-enabling an enabled place widget raises
+nothing), it surfaces on a **later** step and reads as a different bug: the loop's next iteration opens
+on "rotate the red slice" and every attempt drops another control point.
 
-A wizard's "Place a control point" button ARMS point placement and, clicked again,
-ENDS it. `_maybe_generate_wizard_template` emitted `setPlaceModeEnabled(True)` for
-both, and that defect is invisible where it is made: re-enabling an enabled place
-widget raises nothing, so the step succeeds and the run continues with the views
-still owned by the markup tool. The symptom surfaces on a **later** step and reads
-as a different bug — the loop's next iteration opens on "rotate the red slice" and
-every attempt to rotate it drops another control point.
+Polarity comes from the step's recorded `target_value`, falling back to `_infer_final_state_intent` over
+the step text (which knows "inactivate", the cookbook's own word — not a prefixed spelling of
+"activate", since every true pattern is space-anchored). **Both** routes to the widget carry it. The
+disabling form also switches the interaction node to view-transform mode.
 
-Polarity is read the way every other toggle in this pipeline reads it: the step's
-recorded `target_value`, falling back to `_infer_final_state_intent` over the step
-text (which now knows "inactivate", the cookbook's own word for the second click —
-not a prefixed spelling of "activate", since every true pattern is space-anchored).
-Both routes to the widget carry it, the direct call and the whole-representation
-search, because a fix applied to one of them lasts until the attribute moves. The
-disabling form additionally switches the interaction node to view-transform mode:
-that changes nothing when the place widget was reached, and when it was not, the
-alternative is a surgeon who cannot use the views at all.
-
-Two consequences elsewhere. `_reconcile_wizard_placement` defers a placement step
-to the extension's own widget only when the button before it ARMED that widget —
-after a disable there is nothing armed, and deferring would leave the step with no
-way to place anything. And the **view-adjustment pre-template releases the mouse**
-(`SwitchToViewTransformMode`), which the post-template already did: applying it
-only on Done is the same fix one step too late to help the person doing the
-adjusting, and it is why this could hide for so long — the run looks correct
-afterwards. A `module_tool_interaction` step must NOT release it: there the
-extension's own tool is holding the clicks on purpose.
+`_reconcile_wizard_placement` defers to the extension's own widget only when the button before it
+**armed** that widget. And the view-adjustment **pre**-template releases the mouse, which the post
+already did — applying it only on Done is the same fix one step too late to help the person doing the
+adjusting. A `module_tool_interaction` step must **not** release it: there the extension's tool is
+holding the clicks on purpose.
 
 ### A node class is a lookup key, not prose
 
-`node_class` goes straight to `getNodesByClass` and to `qMRMLSubjectHierarchyTreeView.nodeTypes`,
-but it arrives from an LLM decomposition, which sometimes writes it decorated:
-`"vtkMRMLVolumeNode (CT scalar volume)"` — a real class plus a helpful gloss. As a key
-that matches nothing, and the symptom points away from the cause: the pick step's tree
-comes up empty, and `WorkflowInputs` reports the scene as missing a CT the surgeon has
-already loaded. It also inverts that module's fail-open promise — an unnameable demand
-is not positive evidence, but it *is* a requirement no scene can satisfy, so under
-`GUIDED_ONLY_MODE` the procedure becomes unreachable.
-
-**A gate keyed on an exact class name must first ask whether that name is reachable.**
-The sole-node auto-select (`_autoSelectableSoleNode`, gate F) refuses to commit unless
-`node.GetClassName() == node_class`, so that it never chooses between siblings — a
-labelmap is a `vtkMRMLScalarVolumeNode` subclass and must not auto-answer a
-"source volume" step. Against an ABSTRACT class that comparison is not selective, it
-is unsatisfiable: no node's `GetClassName()` is ever `vtkMRMLVolumeNode`, so the step
-sat waiting for a click on the single candidate it already had. It also contradicted
-the manual path, which accepts that node via `IsA` (`_nodeTreeValidCurrentNode`) — the
-same node was valid or not depending on who selected it. The gate now runs only when
-`_nodeClassIsInstantiable(node_class)`, answered from the scene's own registry
-(`IsNodeClassRegistered`; a class is registered by handing the scene an instance, so
-an abstract one never appears) and cached per class. Read-only deliberately: probing
-with `CreateNodeByClass` answers the same question but `vtkMRMLScene::CreateNodeByClass`
-dereferences its null result when a default node is registered for the class, so it can
-segfault Slicer. Sibling protection is untouched — there the class is concrete.
-
-The stage-4 allow-list is what should have caught it and is exactly what let it
-through: `_stage4_semantic_context` built `allowed_node_classes` from each logic
-parameter's **`type`**, which the logic-annotation prompt asks the model to fill with
-"types/descriptions", and admitted anything passing `startswith("vtkMRML")`. The gloss
-entered the allow-list, after which the `references unknown node_class` check
-validated it against itself. Allow-lists derived from LLM prose have to be normalized
-at the point of construction, or they authorize whatever contaminated them.
-
-Both sides now reduce a decorated value to its class token — deterministic, since the
-name has a fixed lexical shape: `stage4._normalized_node_class` (in the *normalizer*,
-which runs before validation, so the repair costs no re-ask) and
-`WorkflowRuntime.normalize_node_class`. The runtime half is what lets an already-shipped
-package keep working; it warns and names the artifact so the package still gets
-regenerated.
-
-**There are TWO runtime readers of `node_class`, in the two mirrors this codebase
-deliberately keeps** (`WorkflowRuntime._node_class_from_step_meta` and
-`extension_cli_loader.choice_helpers._node_class_for_choice`, which already mirror
-`_NONSPECIFIC_NODE_CLASSES` and the family predicates for the same reason). Normalizing
-only the runtime one fixes what the panel *shows* and leaves what it *executes* broken:
-the loader's copy is baked into emitted code as `IsA(<class>)` and
-`GetNodesByClass(<class>)`, so the picked node resolves to None and the step fails into
-self-correction — which then spends attempts rediscovering that the string is not a
-class name. Every reader in both mirrors goes through a normalizer, including the
-alias channel and the `parameterNodeWrapper` input guard.
-
-### Interactive Workflow System
-
-For extensions requiring user 3D interaction (drawing curves, positioning planes, placing fiducials), the system supports guided interactive workflows:
-
-- **`InteractionManager.py`** — Low-level Slicer interaction: creates markup nodes, enters placement mode, manages VTK observers with debounce timers.
-- **`WorkflowOrchestrator.py`** — Runtime state machine managing workflow steps (`WorkflowStep`, `WorkflowState`). Tracks progress across interactive and automated steps.
-- **ExtensionCLIAnalyzer Stages 4.5–4.9** — Auto-detects interactive patterns in extension source (AST scan for markup nodes, observers, placement mode calls), classifies them into workflow phases via LLM, builds a workflow graph, and generates split templates (pre-interaction setup + post-interaction processing).
-- **Widget workflow UI** — `_setupWorkflowUI()` adds a "Waiting for your interaction..." banner with Done/Cancel buttons. `_enterWorkflowWait()` / `_onWorkflowDoneClicked()` manage the wait-complete-advance cycle.
-- **Manifest `workflow_type` field** — `"simple"` (existing behavior) vs `"interactive"` (new). Interactive extensions include `workflow.json` describing the step graph.
-- **System prompt `INTERACTIVE WORKFLOWS` section** — Instructs the LLM on the step protocol (call tool → relay instructions → wait for user → advance).
-
-### Workflow Replay Stepper
-
-An in-memory, per-step history of a generated-CLI workflow run, driven by three buttons around the progress bar: **Back**, **Forward**, and **Run from here**.
-
-- **`WorkflowRuntime.py`** — Records a `WorkflowCheckpoint` per completed step (and per loop continue/exit decision), holding the replay action/args, a `repeat_states` snapshot, the completed/choices prefix, the step's guidance text, `before_node_ids`/`created_node_ids`, the `layout_before`, and a full before-step `vtkMRMLSceneViewNode` (`sceneview_node_id`). **Back/Forward** recover the *full* scene state at a step without ever deleting a node: `_restore_to_view()` copies every stored node's properties onto its matching live node by ID (`_restore_scene_properties` — recovers baseline-node display like the loaded segmentation, transforms, slice/view nodes, colors), hides nodes that didn't exist yet (`_hide_nodes_after`), and restores the layout (`_set_layout`). Slicer's own `RestoreScene` is unusable here — `removeNodes=False` aborts when later nodes are present, and `removeNodes=True` deletes+recreates (which drops display nodes); the property-copy avoids both. The live state is snapshotted on first Back so Forward returns to it exactly; `preview_index` tracks position. **Run from here** commits via `rewind_to_checkpoint(preview_index)` → `_commit_node_state` (property-restore the before-step state, delete the downstream `created_node_ids`), truncates the `WorkflowSession` + `extension_cli_loader` module-global mirrors to that prefix, then re-dispatches with `action="start"` through the normal `_runWorkflowStepDirect` → `handle_execution_result` → auto-advance loop; loop resume reuses `_repeat_transition_after_completion` / `_handle_pending_repeat_decision`.
-- **`extension_cli_loader/workflow_state.py`** — `truncate_workflow_completions`, `set_workflow_choices`, `get_workflow_choices`, `set_all_workflow_repeat_states` overwrite the per-extension mirror dicts to a rewind prefix. `SlicerAIAgentLib/workflow_state.py` adds `prune_missing_interaction_nodes`.
-- **`app/widget_replay.py`** (`WidgetReplayMixin`) — `_setupReplayControls` wraps the existing `_workflowProgressBar` in a row with native-icon `QToolButton`s (`:/Icons/pqVcrBack24.png` / `pqVcrForward24.png` / `pqVcrPlay24.png`, text fallback). Stepping back updates the green-box guidance labels (`_workflowActionLabel`/`_workflowInstructionLabel`) via `_updateWorkflowPanel`'s direct-dict path. Recorded live, kept after completion, torn down on cancel or when a new workflow starts.
-
-### Baseline Comparison Harness
-
-Manual, per-step evaluation of the runtime pipeline against three alternative code producers. After a workflow has been run, step **Back** to a step and click the **⚖ Baseline** button (4th control in the replay row, right of "Run from here"); a section opens below it.
-
-- **`BaselineRunner.py`** — Qt-free core: mode metadata, prompt construction, tool ablation, JSON records. Three modes:
-  - `pure_llm` — one `LLMClient.chatIsolated` call with a minimal system prompt + the MRML scene summary. No retrieval, no tools, no knowledge base, no CLI, no conversation history.
-  - `online_only` — `chatWithToolsIsolated` with dense pre-retrieval and the built-in search tools, but the generated extension CLI ablated: `strip_generated_cli_tools()` removes CLI schemas *by identity* (from `get_dynamic_extension_tools()`, not by name pattern) and `LLMClient.suppress_extension_cli` short-circuits the CLI/`ext:`/cookbook sections of `_buildSystemPrompt`.
-  - `claude_code` — code arrives over MCP from an external Claude Code session running the `slicer-skill` skill.
-- **`BaselineMCPServer.py`** — two transports; the panel uses **`BaselineMCPBridge`**.
-  - `BaselineMCPBridge` (default) **attaches to the skill's own `slicer-mcp-server.py`**, which the user pastes into Slicer's Python console exactly as the skill documents (its MCP config section and `--add-dir` unchanged). It finds `TOOL_HANDLERS` / `mcpLogic` in `__main__`; while armed it swaps *only* `execute_python` for a wrapper and restores the original on disarm — every other tool is untouched, armed or not. Restoration is by identity and is skipped if the user re-pasted the script, so a stale handler can never clobber a fresh registry. Not pasted ⇒ arming is refused with instructions, never a silent substitution: the transport is recorded in every run record (`"transport"`).
-  - `BaselineMCPServer` (fallback, unused by the panel) — a self-hosted endpoint on port 2027 with the same tool surface, for when the console script cannot be used. Selecting it is a deliberate deviation from the skill's documented setup.
-
-  Under either transport, `execute_python` routes the code through the agent's CodeValidator + `SafeExecutor.execute()` *synchronously* (so the real stdout/stderr goes back to Claude Code) and advances the step on the next event-loop turn. A failed attempt stays armed so the external agent can iterate; every attempt is recorded separately.
-- **`app/widget_baseline.py`** (`WidgetBaselineMixin`) — run orchestration, and a UI that **reuses the existing prompt box and Send button** rather than adding a second pair. The ⚖ button toggles *baseline mode*: one selector row appears above the input row, Send's caption follows the selector (`send_label` in `BASELINE_MODES`) and turns amber, and `onSendButtonClicked` / `onPromptTextChanged` are overridden in the mixin (which precedes `WidgetExecutionMixin` in the MRO, so `super()` reaches `WidgetSendMixin` when baseline mode is off). In Claude Code mode Send arms the MCP endpoint and, while armed, becomes "Stop waiting". Generated code goes to the usual Debug ▸ Generated Code view.
-  `_prepareReplayRewind` (extracted from `_rerunFromCheckpoint`) restores the exact pre-step scene, then `WorkflowRuntime.begin_external_step()` opens the step *without* dispatching its CLI template — recording a replay checkpoint as `run_step` would — and `handle_execution_result()` completes it and auto-advances.
-
-All three conditions share the tail of the real pipeline (CodeValidator → SafeExecutor → WorkflowRuntime completion), so only the code producer differs. They deliberately do **not** get plan validation, `ApiSanityChecker`, or the self-correction loop — those are properties of the system under test.
-
-**Baseline prompt & context.** The goal is that each baseline is given every chance to solve the
-step, so a failure is a failure of the *approach* and not of the harness. What separates "generous"
-from "cheating" is not how much text a condition gets but **where the text came from**: a baseline
-gets everything that describes the **task and the world** — the same things a surgeon standing in
-front of the running application has — and nothing that is a product of the **offline analysis**,
-which is the artefact under test. `BaselineRunner.TASK_STEP_KEYS` is the ALLOW-list (`step_id`,
-`operation_type`, `description`), so a field added to `workflow.json` later defaults to withheld;
-`WITHHELD_STEP_KEYS` names the other side explicitly (`extension_method_hint`,
-`ui_parameter_binding`, `widget_name`, `value_property`, `operation_model`, `node_roles`, …) so the
-ablation is legible in review rather than implicit in the code. `build_step_brief()` renders the
-allowed side: the step's own cookbook description, its clinical guidance from `step_instructions.json`
-(title / simple / detailed — the same words the panel shows the surgeon), where it sits in the
-procedure, the steps already completed, the values and nodes the user already chose, and a
-`BASELINE_LOOKAHEAD_STEPS`-step lookahead marked *context only*. Every run record carries the full `step_context` and a
-`generation.prompt_chars`, so a reader can verify what the condition knew and compare context sizes
-across conditions directly.
-
-- **Pure LLM** — `baseline_pure_llm_prompt.md`. Comprehensive *situationally*, empty *technically*.
-  It gets the output contract, the execution environment (`__main__` level, no `self`, what is
-  pre-imported), the CodeValidator blocked list verbatim (so a rejection measures the model and not
-  a rule it was never told), how to reach a scripted module's widget/logic from Python in general
-  terms, the live scene, and — because it has no tools and cannot call `GetNodeProperties` mid-turn
-  like the pipeline can — full properties of up to 14 relevant data nodes pushed up front
-  (`_baselineNodeDetails`). What it does not get is any Slicer API answer: the code still comes from
-  the model's own knowledge, in one shot.
-- **Online only** — `baseline_online_only_prompt.md`, appended to the CLI-suppressed production
-  prompt. The ablation is of the **analysis**, not of the code base: ablating the CLI must not
-  silently also ablate the extension source, or the condition is not what it claims to be. So the
-  raw `ext:<Name>/` source trees stay searchable and are advertised (`extension_source_roots_block()`
-  — module name and path only, no logic-class shortcut, no workflow graph), with a concrete recipe
-  for deriving an extension's API from source: find the module → grep the `.ui` label for the
-  objectName → follow the `connect()` to the handler → check for `parameterNodeWrapper` → confirm
-  the signature with `ReadFile`. Tool budget is raised to 16 rounds
-  (`BASELINE_ONLINE_TOOL_ROUNDS`) because this condition's whole thesis is "can it find the API by
-  searching?", and cutting it off mid-search would measure the budget instead of the approach.
-- **Claude Code** — its *prompt* is authored on the Claude Code side, but its **task brief is not
-  optional**: arming a step writes `render_step_brief_document()` to `MCPConnection/current_step.md`,
-  and `MCPConnection/CLAUDE.md` tells that session to read it first. Without it Claude Code would be
-  the only condition working from the user's sentence alone while the other two get ~1.8 KB of task
-  context injected — a comparison of briefings rather than of approaches. Identical text, identical
-  `TASK_STEP_KEYS` allow-list; only the delivery differs, because that session takes its prompt
-  elsewhere. It needs no extra MCP tool (the skill's surface stays as it ships) and no `--add-dir`
-  (the file lands in its own workspace). A copy goes to the run folder so what it was told is
-  auditable. The live scene is deliberately *not* in the file — Claude Code pulls it with
-  `list_nodes` / `get_node_properties`, which is fresher than a snapshot.
-
-**Context parity across the three.** `step_context` is computed **once**, in `_beginBaselineRun`, for
-every mode — so the three conditions cannot drift apart by construction. The two prompt-driven modes
-have it injected into their messages; Claude Code reads the same bytes from a file.
-
-**Conditions tested back-to-back on one step are isolated from each other.** Running pure LLM,
-then stepping Back and running online-only, then Claude Code, gives all three the *identical*
-pre-step scene. The mechanism is self-healing: each successful baseline re-creates the step's
-checkpoint, and its before-snapshot is captured *after* the rewind, so it is the same pre-step
-state the previous condition saw. A **failed** attempt used to break this — the pending
-checkpoint is discarded, so whatever the attempt half-built belonged to no checkpoint and no
-later rewind could remove it, silently handing the next condition the previous one's debris.
-`WorkflowRuntime.rollback_failed_step()` closes that: on failure it does what
-`_record_checkpoint` does on success — diffs the live scene against the snapshot taken when the
-step opened, deletes what appeared, restores properties and layout, and **keeps** the pending
-checkpoint so a retry reuses the identical starting state. Called from every baseline failure
-path (`_rollbackFailedBaselineStep`), including the Claude Code still-armed retry. The pipeline
-is deliberately untouched: its pending checkpoint survives across self-correction attempts, so
-it is already self-healing, and it is the system under test.
-The one real exception is `PedicleScrewPlanner` — the only wizard extension, where downstream
-nodes are deliberately kept (deleting them hangs its cached-Python-ref `onEntry`), so
-conditions tested on it are *not* isolated and should be reported separately.
-
-**Nothing from after the stepped-back step reaches a baseline.** Rewinding to step N truncates
-`completed_steps`, the choices mirror, the completions mirror, `repeat_states`, `last_result` and the
-checkpoint list to the step-N prefix, and deletes the downstream nodes — and it happens *before*
-`_baselineStepContext`, the scene read and the node-property read, so all three see only pre-N state.
-No result object (`_currentWorkflowStepInfo`, `last_result`, `currentCode`, `conversation_history`)
-is ever passed into a baseline message, and `next_step` goes only to `step.json` in the log.
-
-The one deliberate exception is the **lookahead**: `BASELINE_LOOKAHEAD_STEPS` (default 3) upcoming
-step *descriptions*, marked "context only — do NOT do them". It is cookbook prose — no code, no step
-ids, no metadata — and it is what a surgeon reading the written procedure sees on the next page; it
-helps a condition leave the scene in a state the procedure can continue from. Note it is **more than
-the pipeline has**: the pipeline dispatches its template with no lookahead at all. So it favours the
-baselines, in the spirit of giving each condition every chance. Set it to `0` for a strict
-no-forward-information ablation — nothing else needs to change.
-
-**Which steps are comparable.** A baseline substitutes a *code producer*, so the step must be one the pipeline answers with executable code. Of the six canonical operation types (`extension_cli_analyzer.common.CANONICAL_OPERATION_TYPES`) exactly two qualify — `WorkflowRuntime.CODE_STEP_OPERATION_TYPES`, an **allow-list** so a type added later defaults to not-comparable:
-
-| type | comparable | why not |
-|---|---|---|
-| `extension_op` | ✅ | — |
-| `slicer_op` | ✅ | — |
-| `user_choice` | ❌ | user picks a value/node; no code, and the pick is what later steps read via `_workflow_choices` |
-| `user_interaction` | ❌ | the surgeon acts in the 3D view; no producer can stand in for a hand |
-| `branch_op` | ❌ | the answer, not the code, decides the next step |
-| `review_op` | ❌ | human review checkpoint — has no template at all |
-
-Across the nine cookbook extensions that is 106 of 184 steps (58%). `external_step_eligibility(step_id)` returns `(ok, reason)`.
-
-**The prompt is never authored by the panel.** The box is only ever *emptied*, never pre-filled: the prompt is the independent variable of the comparison, so it is the user's to write for every step and every condition.
-
-**The generated code is unreachable, by enforcement not by convention.** A baseline runs on a step the
-pipeline has already answered, so the obvious way to corrupt the comparison is for a baseline to read the
-template the pipeline used. Every channel is closed: the prompt is user-typed; `TASK_STEP_KEYS` is an
-allow-list carrying no template; `suppress_extension_cli` drops the CLI prompt sections; the CLI tool
-schemas are stripped by identity; the isolated chat calls never read `conversation_history`; and the
-rewind deletes the step's own output from the scene before the baseline runs. The one channel that was
-*open* was the online-only condition's search tools — `SkillToolExecutor._resolve_path` accepted absolute
-paths as-is and joined relative ones without normalising, so `ReadFile("../../extension_CLI/<Ext>/templates/<step>.tpl")`
-would have returned the answer. `_DENIED_SUBTREES` (`skill_tools/setup.py`) now refuses any path resolving
-inside `Resources/extension_CLI`, `Resources/Prompts`, `SlicerAIAgentLib` or `logs`, checked on the
-**resolved** path so neither an absolute path nor a `../` traversal gets through. Nothing legitimate reads
-those through this executor: the knowledge base is `skill_path`, extension source is `extra_roots`, and the
-CLI generation pipeline uses its own file access. The Claude Code condition is fenced the same way, by
-scoping its `--add-dir` set (see `MCPConnection/CLAUDE.md`).
-
-**Stepping resets the arm.** `_resetBaselineForNavigation()` runs before Back / Forward / Run-from-here: it leaves baseline mode and empties the prompt box, so each step is judged on its own and neither the previous step's mode nor its prompt text follows the user along the timeline. The user re-arms with ⚖ on the step they land on (possible only where the ⚖ button is enabled, i.e. a comparable step). It returns False while a run is in flight, and the caller abandons the navigation — stepping out from under an executing baseline would orphan its checkpoint and its record.
-
-The ⚖ button is **hidden outright** on a step whose operation type cannot be compared — there is nothing to offer there. That is only safe because the arm can never outlive the step it was set on: Back/Forward reset it, and `_updateBaselineControls` also auto-disarms (and clears the box) when the workflow *auto-advances* onto a non-comparable step after a run. Without that invariant a hidden-but-armed toggle would be unreachable. During a run the icon stays visible-but-disabled so the row cannot vanish under an executing baseline.
-
-Two separate notions still drive the rest: **`_baselineActive`** is the toggle intent, while **`_baselineEngaged()`** is that intent resolved against the step in view (`active and eligible`, plus always-true while a run is in flight). Engagement — not the raw toggle — drives the selector row's visibility, the prompt/Send gate (`_guidedWorkflowOwnsInput`), Send's caption, and Send's routing. The button is `setCheckable(True)` so the armed state is legible.
-
-**Input gating** (`WidgetStreamingMixin`, "Free-text input availability"). Once a generated-CLI workflow is running, every step is dispatched by the runtime and driven from the workflow panel's own controls, so `promptInput` and `sendButton` are switched off for the duration — and switched back on by baseline mode, which is exactly the mode that needs them. `_guidedWorkflowOwnsInput()` is the predicate (`has_active_workflow() and not _baselineActive`); `_setSendEnabled()` is the single funnel every *enabling* call site goes through, so no stray `setEnabled(True)` can defeat the gate (the `setEnabled(False)` sites are left direct — disabling is always safe). `_refreshInputAvailability()` re-applies it and is called from `_updateBaselineControls`, which runs on every `_updateWorkflowPanel`. Escape hatch when a workflow is stuck: the panel's **Exit** button (right end of the replay row) resets the session and returns the input row — the only escape now that there is no traditional turn, which is why it is visible unconditionally while the panel is up and why `onSceneEndClose` triggers the same reset.
-
-**Debug-view isolation** (`WidgetStreamingMixin`, "Debug-view contexts"). The Debug section's two pages are shared by the pipeline and each baseline, but their content never mixes. Two pointers do it: `_debugContext` (which buffer is *displayed* — the ⚖ toggle and the baseline selector move it) and `_debugWriteContext` (which buffer new content is *written to* — the producer currently running moves it). `_chatEntriesHtml` plus the two widgets always hold the displayed buffer; the others are parked in `_debugBuffers` and swapped by `_switchDebugContext`. Every chat append goes through `_debugWriteEntries()` and every code write through `_setGeneratedCode()`, so the two pointers may diverge: when a baseline run finishes and auto-advance hands back to the pipeline, the pipeline's output accumulates invisibly in the `pipeline` buffer and reappears complete the moment the baseline row is closed. Baseline reasoning is committed permanently (the pipeline's streaming entry hides it after `thinking_done`); the online-only tool loop commits one entry per reasoning round via the `baseline_thinking` queue event.
-
-Records land in the run's own folder as `baseline_<step>_<mode>_a<attempt>_<HHMMSS>.json`. The
-cross-condition table is built on demand by `scripts/collect_runs.py` (see "Debug Artifacts"), not
-written a second time at runtime.
-
-### Experiments panel
-
-Per-procedure analysis of the runs kept under `Experiments/<Extension>/`, behind a selector in the
-Experiments section. `SlicerAIAgentLib/experiments/<name>.py` holds the numerics (Qt-free, so it runs
-and is checkable outside Slicer) and `<name>_panel.py` the button; a module registers itself with
-`@register_experiment_panel("<Extension>")`, and `_PANEL_MODULES` lists what to import.
-
-**`EXPERIMENT_PANELS` maps a procedure to a LIST of builders, and the section builds all of them.**
-Two modules can legitimately claim one procedure — one scoring its runs while another prepares its
-input — and a dict of one builder made the later import silently erase the earlier, so
-LongBoneFractureReduction's analysis panel did not exist and the section showed the other tool as if
-that were all there was. Nothing raised — an overwrite is a legal dict assignment, and which panel
-survived depended on the order of a tuple. Registration now appends (replacing in place on a module
-reload, keyed on `__module__` + `__qualname__`, so Reload does not stack duplicates), the builders run
-in `_PANEL_MODULES` order with a rule between them, and a failing builder no longer calls
-`_clearExperimentContent()` — that would delete an earlier panel's working widgets because a later one
-raised.
-
-**No shipped procedure claims two panels today**, which is why
-`scripts/check_longbone_analysis.py` §10 pins the property against *synthetic* builders driving the
-shipped registry code: an invariant nothing exercises is the one that rots. The module that used to
-be the second claimant — a DICOM→NRRD converter panel over `Test_data/<name>/Original`, registering
-for every entry of its own `DATASETS` — has been removed along with its `dicom_dataset` half. It only
-ever prepared **input** data, which is a step outside what this section is for, and the folder it read
-does not exist in this checkout, so it could only report a missing path in red directly beneath an
-analysis, where it read as a fault in the analysis.
-
-`run_timing.py` is shared by all of them: what a run folder looks like (`discover_cases`) and what
-its `Statistic/timing.txt` says (`parse_timing`, `parse_timing_steps`, `timing_sheet`) are properties
-of `RunLog`, not of a procedure. It is parsed from the **rendered report** rather than from
-`run_manifest.json`, deliberately — the report is what `Statistic/` guarantees and what a reader
-compares against, so a case whose manifest was lost still yields a row. The cost is a dependency on
-that report's wording, which is why every field is an explicit regex: a report that rephrases a line
-leaves a blank cell instead of a wrong number.
-
-`zygomatic.py` scores relative BIC against the surgeon's STL paths. Three things it enforces rather
-than assumes, because all three fail *silently* rather than loudly:
-
-- Paths are paired with their manual counterpart **by entry point**, never by file name — on the
-  current data set `1.stl` belongs with `Implant_3` and `4.stl` with `Implant_1`. The STLs under
-  `Dataset/<subject>/` may therefore be named anything; renaming them changes no number. The
-  assignment is total, so a `MAX_ENTRY_MATCH_MM` ceiling rejects a rod too far from the entry to be
-  the same implant — without it, a case folder holding an STL that is not an implant would have one
-  scored against it.
-- `geometry_io.resolve_frame` proves the paths and the bone are in one coordinate frame before
-  anything is scored. An LPS/RAS mix-up mirrors a path onto the other side of the head, where it
-  still intersects bone and still produces a BIC number, just a meaningless one.
-- The **physical** BIC (`bic_score`, over the drawn segment, used for both sides of the comparison)
-  is kept distinct from the **planner's own** score (`planner_bic_score`), which is taken over the
-  candidate vector *before* the tip is pulled back by `safetyMargin` and clips its projection
-  instead of excluding out-of-segment points. Reproducing the latter exactly is the evidence that
-  the bone cloud was reconstructed correctly, and it is never what the comparison divides.
-
-`orbital.py` scores **symmetric surface distance** against the surgeon's ground truth
-(`Dataset/<subject>/<subject>_Label.nii.gz`, the correct orbital volume on the fractured side) and
-writes a colour map of it. Two comparisons per case, and the second is not padding: the pipeline's
-`OFR_Reconstructed_Seg`, *and* the `OFR_Fractured_Seg` it started from. A 0.8 mm reconstruction error
-is excellent on an orbit that was 4 mm out and unremarkable on one that was 1 mm out, so the
-`IMPROVEMENT` block pairs them and the claim rests on the pair, never on the reconstruction figure
-alone.
-
-Four things it enforces rather than assumes:
-
-- **One meshing pipeline for all three surfaces**, at one `SURFACE_SMOOTHING`. A distance between two
-  surfaces built by different rules measures the rules. This is also why the ground truth is routed
-  through a segmentation node rather than meshed directly from its label map — so it goes through the
-  *same* conversion as the two it is compared against.
-- **The frames are proved, not assumed** (`_frame_gap_mm` against `FRAME_TOLERANCE_MM`). The ground
-  truth is stored on the full CT grid and the run's segmentations on the cropped one; both resolve to
-  the same anatomy in RAS, so no resampling is needed — but an LPS/RAS mix-up mirrors one orbit onto
-  the other side of the head, which still yields a plausible distance. The two scales (a few mm of
-  real anatomical difference, tens of mm for a mirrored frame) cannot be confused.
-- **`hd95` leads, not the maximum.** Marching cubes can always produce one stray vertex at the edge of
-  a label map, and it moves the maximum by an arbitrary amount and the 95th percentile not at all.
-  Both are reported; only the percentile is safe to quote.
-- **The colour scale is fixed at 0–`COLOR_MAX_MM`**, not auto-ranged. An auto range renders a 0.5 mm
-  case and a 4 mm case with the identical spread of colour, so the one thing a map is for — comparing
-  cases by eye — silently stops working.
-
-Unlike `zygomatic.py` this module **needs Slicer**: reading a `.seg.nrrd` and a `.nii.gz`, meshing
-them identically, and writing a scene a surgeon can open are all Slicer's own machinery. Everything
-that does not need it is kept out of the Slicer-only functions (`slicer`/`vtk` are imported lazily,
-inside the functions that mesh and render), so the statistics, the improvement pairing, case
-discovery and the MRML splicer are all importable and checked by
-`scripts/check_orbital_analysis.py`.
-
-**`slicer.util.saveScene("….mrml")` writes the scene XML and NOTHING else.** For a `.mrml` suffix it
-routes to `qSlicerSceneWriter::writeToMRML`, which is `SetURL` + `SetRootDirectory` +
-`vtkMRMLScene::Commit()` — and `Commit` serialises the node *elements* but never asks a storage node
-to write its data. (Same fact, same reason, as `_saveSceneFlat` writing its nodes first and the scene
-last.) Assuming otherwise produces a scene whose storage nodes name files that do not exist, and
-Slicer reports it only when the scene is *opened*: `vtkMRMLStorableNode::UpdateScene failed: Failed to
-read node … using storage node …`. So `_write_error_scene` writes each node with
-`slicer.util.saveNode` and then checks the file is **on disk**, and the splice below happens only on
-a True from it — a scene must never be edited to point at a file whose write was assumed. A user
-`vtkMRMLColorTableNode` needs its own storage node for the same reason: it serialises `numcolors`
-into the XML but not the colours.
-
-**The error maps are written into the run's own `Statistic/scene/`, and the run's `scene.mrml` is
-edited in place.** That is the one operation here that can damage existing data, so: the original is
-copied to `scene.mrml.orig` **once** (a second copy taken later would preserve a splice, not the run);
-every spliced element's MRML id carries `ID_MARKER`, which is what makes a re-run *replace* its
-previous output instead of stacking a second copy; and the splice is XML surgery rather than
-load-modify-save, because the run's scene carries the 40 MB CT and every node the procedure made, and
-rewriting all of it 30 times to add two models is both slow and a far larger blast radius.
-`_renamed_id` strips the trailing digits and appends the marker, so a new id cannot collide with a
-Slicer-generated one — and the rewrite uses a `(?![0-9])` lookahead, without which
-`vtkMRMLModelNode1` would be rewritten inside `vtkMRMLModelNode10`. The splicer follows a node's
-references only into `_SPLICEABLE_TAGS`: a display node also references its *view*, and following
-that would splice a second `View` node into a scene that already has one.
-
-**Three Slicer-side constraints, each of which crashed the application or silently skipped work
-when broken.** `numpy_to_vtk` defaults to `deep=0`, which makes the VTK array a *view* on the numpy
-buffer -- no VTK object may outlive what owns its memory, and `scripts/check_orbital_analysis.py`
-enforces `deep=1` at the AST level because there is no VTK outside Slicer to test against. The
-ground truth is **cropped to its labelled bounding box before meshing**: it arrives on the full CT
-grid, so meshing all of it is 31-142x wasted work and exhausts memory on the largest case. And
-`_write_error_scene` is handed the nodes to write rather than asking the scene, since
-`getNodesByClass("vtkMRMLColorTableNode")` also returns Slicer's built-in colour tables -- some of
-which point into the application's own installation.
-
-The panel **refuses while a guided workflow is open** and confirms before starting, because the
-analysis builds each case's models in the main scene — the only way to save a scene Slicer is certain
-to reopen — and therefore closes whatever is open.
-
-`shoulder.py` scores the four measures of Li et al. (IJCARS 2022;17:1017-1027) — θ₁, θ₂ (each long
-screw against the middle peg), θ₃ (the two screws against each other), and **δ**, the chosen path's
-bone-density integral over the largest integral anywhere in its cone once the screw-exposure
-constraint is dropped — plus the run's time split into the paper's t1/t2/t3.
-
-**Two plans are scored, not one.** Beside the pipeline's `Path_Screw*` each case carries the
-surgeon's own `Manual_Screw_Model_*` and an `RSA_ManualPlanResults.tsv`, and the workbook's leading
-block pairs them per baseplate hole. What makes that a *paired* comparison rather than two separately
-normalised numbers is that the hand plan reuses the pipeline's baseplate pose: the two trajectories
-leave the same point along the same axis — measured at 0.000000 mm apart on every screw of every
-saved case — so `_cone_denominators` builds **one** cone per hole and both sides divide by it.
-`delta_gain` is then a subtraction that means something, and the pairing is enforced
-(`ENTRY_PAIR_TOLERANCE_MM`) rather than assumed from the digit in the file name. The manual geometry
-comes from the **table**, not the mesh: `Manual_Screw_Model_*.vtk` is the screw cylinder, which
-overhangs its entry by 3 mm and is 3.1 mm in radius, so neither its extreme vertex nor its cap
-centroid is the trajectory's start — the mesh is read only as a witness that its axis agrees with the
-row (`mesh_agreement_deg`). Note the result splits by `selection`: on the 14 `planned` screws the
-pipeline is denser 11 times, on the 6 `BEST EFFORT` screws only once — which is what should happen,
-since a best-effort trajectory was aimed by depth and not by density at all.
-
-**Every number is recomputed, because the extension stores none of them.** `RSA_PlanResults.tsv`
-carries endpoints and a status but no score; `quality_index` is identically 1.000 (`path_optimizer.py`
-assigns `stability_score` and `max_hu` the same value); and δ's *denominator* is never computed at
-all — the optimizer `continue`s past a rejected candidate **before** scoring it, so the integral of
-the paths it turned down does not exist anywhere. That makes reproducing the planner's arithmetic
-exactly the whole job, and the evidence that it was reproduced is `score_reproduced`: the recomputed
-integral equals the `Stability score` the run printed at the time, bit for bit (5098 and 4855 on the
-two reference runs). The planner's stdout is truncated near 10 KB, so screw 2 usually has no witness
-— a blank there is a missing witness, not a disagreement.
-
-Four things it enforces rather than assumes:
-
-- **The LPS→RAS flip cannot be validated by the angles.** Slicer writes models in LPS, the CT is
-  indexed from RAS, and `geometry_io.read_vtk_points` converts nothing (its docstring says RAS and is
-  wrong). But `lps_to_ras` is orthogonal, so every dot product — and therefore all three angles — is
-  *exactly* invariant under the mirror: θ comes out perfect either way. Only δ notices, and it
-  notices by reading **1.000**: the mirrored path leaves the CT array, every sample takes the
-  out-of-bounds sentinel, and numerator and denominator become the same large negative number, i.e. a
-  flawless score for a plan that is not in the patient. Three independent guards, none redundant —
-  `tsv_max_gap_mm` (the plan table is written in RAS and is an independent witness),
-  `samples_in_bounds` (below which no ratio is reported at all), and a δ > 1 flag.
-- **There are two denominators and they answer different questions.** `path_generator.py` drops every
-  azimuth pointing at the other screw's hole, so the planner searches *half* the cone. That is an
-  anti-crossing rule, not the exposure constraint δ ablates, so `delta` divides by the **full** cone
-  (the paper's "entire conical space") and `delta_searched` by the half read out of the run's own
-  saved `Cone_Region` model. Both are reported. The sweep is also repeated at 2× resolution, because
-  the denominator is a maximum over a grid and a reader is entitled to ask whether δ is an artefact
-  of it.
-- **The summary never pools the two populations.** When nothing in the cone keeps the whole screw
-  inside the bone the planner returns the deepest-reaching candidate instead — tie-broken by
-  protrusion, and only then by density — so that screw's δ scores a trajectory that was never
-  optimised for density. Half the screws of the two reference runs are such rows. `delta (planned)`
-  and `delta (BEST EFFORT)` are therefore separate summary rows and the panel's headline quotes the
-  first; a pooled mean would answer neither question and would drift with the proportion of
-  best-effort screws in the cohort.
-- **The cone's geometry is measured, not assumed.** Half-angle, height and radius come from the saved
-  `Cone_Region` model and the lengths from the drawn tubes, because all three are spin boxes the
-  surgeon can change — a run made at a different setting must be scored against the cone it actually
-  had. Note the shipped half-angle is **22.5°**, i.e. half the paper's α; θ₁/θ₂ are bounded by it,
-  not by 45. The *axis* is the middle peg's direction and is never fitted from the cone: that base is
-  a 180° half-disc, so its centroid is 5.5 mm off-axis and a centroid fit yields 23.5°.
-- **A step in no timing phase is named, not dropped.** `PHASE_STEPS` maps cookbook steps to
-  t1 (bone reconstruction) / t2 (the reference point *and* the baseplate pose — this version picks
-  one fiducial, and `onPositionBaseplate` reads control point 0 only, so the pose replaces the paper's
-  missing p2–p4) / t3 (`cb_step_20` **alone**, which runs the whole cone search) plus t0 and
-  t_refine, which sum into the total and into none of the three. Charging the post-plan dragging of
-  steps 21–23 to "automatic planning" would have overstated t3 by 8.3 s on one reference run. A
-  renumbered workflow would otherwise make the phases silently shrink.
-
-Unlike `orbital.py` this module needs **no Slicer at all** — it is arithmetic over point sets and one
-CT array, so `volume_io.py` reads the saved `.nrrd` itself (gzip, and the LPS flip in both the
-direction vectors and the origin) and `scripts/check_rsa_analysis.py` runs the *entire* analysis, δ
-included, against the real runs outside Slicer. Given that the failure above produces a perfect-looking
-number rather than an error, that is not a convenience. The panel writes only the workbook: it builds
-nothing in the scene, so unlike the orbital one it needs no confirmation and no scene-close warning.
-
-`cranial.py` scores the three metrics of the **AutoImplant 2021 challenge** (Li et al., *Medical
-Image Analysis* 88 (2023) 102865, §3.3) — DSC, HD95 in mm, and **bDSC**, Dice restricted to the part
-of each implant lying within `t` of the *defective* skull, which is the transition where the fit is
-decided. Every measure is voxelwise and exact: the ground truth and the prediction share a byte-
-identical grid in all 100 cases, so nothing is resampled and no binary mask is ever interpolated.
-
-Four things it enforces rather than assumes, each of which yields a plausible number rather than an
-error when got wrong:
-
-- **Segments are resolved by NAME.** `Cranial Implant Result.seg.nrrd` is ONE shared labelmap holding
-  `Skull` = 1 *and* `Implant` = 2. Reading it as non-zero scores the ground truth against the whole
-  skull — 320 k voxels against 2.1 M — and reports a DSC near 0.2 that reads like a pipeline failure
-  rather than a coding error. `volume_io.read_nrrd` deliberately drops every `key:=value` line, so
-  `segment_label_values()` parses the segment table itself.
-- **The defective skull is that same file's `Skull` segment**, not `Cranial_Segmentation.seg.nrrd`.
-  The latter is the COMPLETE skull, thresholded from the CT *before* the defect was cut: 87–99 % of
-  every ground-truth implant lies inside it, so banding against it would put the whole implant in the
-  border and turn bDSC into DSC. The `Skull` segment's intersection with the ground truth is exactly
-  0 voxels in 100/100 cases, which is what makes it the right object — and the check script asserts it.
-- **Spacing is the COLUMN NORM of IJK→RAS**, not of its inverse. The inverse gives voxels-per-mm,
-  which scales every distance by ~2.6× on this data and leaves DSC (dimensionless) untouched — so
-  only HD95 shows it, and only against a reference. It put HD95 at 3–12 mm against the paper's
-  1.3–7.4; corrected it is 1.4–3.7. In-plane spacing also varies per case (0.38–0.61 mm) while slices
-  are always 0.75 mm, so no voxel volume is ever assumed.
-- **The metric window is a crop, and the crop is exact.** Both surfaces lie inside
-  `bbox(gt | pred)`, so surface distances are unchanged; and any voxel within `t` of the skull has its
-  nearest skull voxel within `t`, so a margin ≥ `t` reproduces the border predicate exactly. Uncropped
-  the batch takes 32 minutes, cropped 5 — and `check_cranial_analysis.py` proves the two agree bit for
-  bit on real cases rather than taking the argument on trust.
-
-`t` is reported **twice**, for the reason `shoulder.py` reports two cone denominators: `bdsc` uses the
-paper's `t = 10` **voxels** and is the published metric, while `bdsc_mm` uses a fixed 5 mm band —
-10 voxels is 3.8 mm in-plane on the finest case and 7.5 mm through-plane on every case, so the
-physical size of the band moves with the acquisition. Both are reported; neither is picked silently.
-
-**Quote the MEDIAN HD95, not the mean, and read the two one-directional shares beside it.** On this
-cohort the median is 2.1 mm and the mean 8.0, with a maximum of 137 mm — and the outliers are not
-noise or a stray component (every mask is a single connected component). They are one-directional: on
-A0061, *none* of the predicted surface is more than 20 mm from the truth while 67 % of the truth has
-no prediction within 20 mm. The implant is accurate wherever it exists and simply covers a fraction of
-a much larger defect. HD95 pools both directions, so it reports that as one large number and cannot
-say which way it went; `gt_covered_2mm_pct` (completeness) and `implant_on_gt_2mm_pct` (false-positive
-area) can, and they are the paper's own two feasibility criteria measured on the surface. This is why
-the table carries more than three columns, and why the summary reports median, p25 and p75 rather than
-mean alone.
-
-The error map follows `orbital.py` and **imports its machinery rather than copying it** — the meshing
-pipeline, the distance filter, the write gate and the `scene.mrml` splicer are the most dangerous code
-in the package (they edit a saved run in place) and a second copy would be a second thing to keep
-correct. Only the colour table and the model node are re-implemented, because orbital's bake in its
-own 3 mm ceiling and a cranial map on that scale is red almost everywhere (`COLOR_MAX_MM = 5.0`).
-The map colours the **predicted** implant by its distance to the ground truth — the question a reader
-brings to a cranioplasty map is "where is the implant I produced wrong", not "which part of the truth
-did it miss" — which is why the prediction is passed to `_surface_distances` first. `map_hd95_mm` is
-the same figure recomputed from those smoothed meshes and is carried in the table beside the voxel
-`hd95_mm`, so the picture and the number can be seen to agree instead of being trusted to.
-
-`pelvic.py` scores how far a planned fracture reduction is from the surgeon's, and it **reads that
-number rather than measuring it**. Each run saved three things into its own `Statistic/scene/`:
-`Fragment Reduction*.seg.nrrd` (where the pipeline put every bone), `Ground truth*.seg.nrrd` (where
-they belong), and `Ground truth*.transforms.json` — **the per-piece rigid transform between them,
-recorded when the annotation was saved**. That transform *is* the reduction error, so
-`displacement_mm` and `rotation_deg` come straight out of it.
-
-The first version of this module recovered the same transform by ICP between the two segmentations.
-It agreed with the record to **0.009–0.034°**, which is a good reason to believe both and no reason
-to keep spending a hundred iterations per piece re-deriving a number that is written down. The
-estimator is gone, and `check_pelvic_analysis.py` asserts statically that no `kabsch` /
-`rigid_register` / SVD has grown back — a fitting step added later would agree with the record to a
-hundredth of a degree, so nothing else would notice the claim had stopped being true.
-
-**Reading a number instead of measuring one has exactly one hazard, and it is not hypothetical.** A
-record measures whatever was on disk *when it was written*; ICP measured whatever is on disk now. A
-ground truth re-annotated afterwards leaves the record silently stale — which happened here: an
-earlier ground truth gave 5.83° where the record says 2.25°. So the segmentations are still read,
-and `transform_residual_mm` applies the recorded matrix to the reduction's own surface and measures
-how far it lands from the ground truth's (0.14–0.24 mm on the saved runs — the two grids' sampling).
-Two verdicts, and they are not interchangeable: **`record_consistent`** judges the record against
-*itself* (the matrix is a proper rotation, its stated angle and axis are the ones it encodes, it
-carries `centroid_reduced_mm` onto `centroid_annotated_mm`) and catches a malformed file;
-**`transform_verified`** judges it against the *files* and is the only thing that catches a stale one.
-The check script builds a deliberately stale case — a ground truth moved one way, an internally
-perfect record saying another — and requires it to be refused. `verify=False` (a panel checkbox)
-skips the segmentations entirely and finishes in milliseconds, reporting identical displacement and
-rotation and leaving the second verdict **blank rather than True**: a blank and a failure must not
-print the same.
-
-**`displacement_mm` is measured at ONE point and `point_error_*` is not.** A rigid body's
-displacement depends on which point you pick: case 0001's Left Ilium is 1.74 mm out at its reference
-centroid and **6.13 mm** out at its worst surface point, because 2.25° of rotation moves the far end
-of an ilium far more than its centre. `point_error_*` applies the recorded matrix to every surface
-point — arithmetic, not estimation — and is the figure to quote. `surface_*` is the symmetric
-distance between the two surfaces *as they stand* and is smaller again, because a point that slid
-**along** the surface still has a near neighbour on it. No Dice: for a rigid piece, overlap is a
-function of the same pose error the record states directly.
-
-Pieces are paired by NAME. The record names **fewer** pieces than the reduction moves — the surgeon
-only corrected some — so the rest are listed as unannotated rather than dropped, and a ground-truth
-segment with no recorded transform is reported too.
-
-`segmentation_io.py` is the Slicer-free reader this needs, and `volume_io.read_nrrd` could not be it:
-a segmentation with overlapping segments is **4-D**, and its `list` axis of LAYERS is the first of
-`sizes:` and therefore the **last** array index. `array[layer]` is in bounds, is the right dtype, and
-returns a slab of the volume instead of a layer of it — after which every segment comes back nearly
-empty. A segment is addressed by the pair `(layer, label value)`: case 0001's `Right Ilium` and
-`Left Ilium` are both label 2, in different layers. `Segment<N>_Extent` is deliberately **unused** —
-cropping to it would be a large speed-up, and the extent is the segment's *tight* box, so foreground
-on its faces is expected and a truncated read looks exactly like a correct one. Everything is scanned
-in slabs with a one-plane halo instead (peak memory is a slab, not the 912 MB a case-0001 file
-unpacks to), and the centroid comes from per-axis marginal counts rather than `np.nonzero`, which
-over a half-full 32 MB slab would itself cost 380 MB.
-
-`longbone.py` scores a long-bone reduction from **one** rigid residual,
-`E = G · P⁻¹` — the transform still needed to carry the pipeline's reduced fragment onto the ground
-truth. `P` is the pose the run computed and `G` is the truth's; rotation, translation, the point
-error over the fragment's own surface and the clinical split are all readings of that single matrix.
-The whole module is about getting `P` and `G` from two populations that state them completely
-differently, and every way that can go wrong yields plausible millimetres rather than an error.
-
-- **`P` is read out of the run's own `.h5` transforms** — `Reduction Transform` composed with
-  `Reduction Base` — and Slicer's Python has no `h5py`, so `read_itk_affine` locates the twelve
-  doubles by their *properties* (a proper rotation) and requires **exactly one** match in the file.
-  It is not trusted: on the 7 annotated runs the pose it recovers equals the
-  `pose_before_annotation_ras` those runs recorded independently, to 6e-14, and that agreement is the
-  only licence for using it on the other 57. ITK's conventions are all three wrong-way-round
-  (from-parent, LPS, centre of rotation folded in), and each is undone explicitly.
-- **The composition order comes from `scene.mrml`, never from the file names.** `Reduction Base` is
-  the identity on every run saved so far, so composing the chain backwards is invisible today and
-  wrong the day a run has a real one — the check script builds that day.
-- **`G` is `D` or `D⁻¹`, and which is a property of the RUN.** An annotated case states `G` outright.
-  A simulated one has only the simulator's `displacement_matrix_ras` `D`, applied to **one** of the
-  two fragments: reducing that fragment undoes `D`, reducing the other applies `D` to it, because the
-  reference is whatever the run did not move. Across these 57 runs the surgeon moved the displaced
-  fragment 25 times and the fixed one 32, so this is not a constant that could be hard-coded. It is
-  decided by a 2×2 centroid assignment (the fixed fragment's centroid follows from the union's, since
-  the saved labelmap is binary and cannot tell them apart) and then **checked** by abutment:
-  a correct `G` closes the fracture, so `truth_fit_mm` is 0.3–1.7 mm with the right matrix and never
-  under 14.7 mm with the wrong one.
-- **The LPS/RAS frame is measured per case, not assumed.** An un-mirrored bone is the same bone on the
-  far side of the origin and still produces distances, so both frames are offered to a witness that
-  knows where the bone is — the annotation's own saved shape, or the simulator's recorded fragment
-  centroid — and neither fitting is a refusal.
-- **No shaft axis is inferred.** The clinical split (malrotation / angulation / shortening / offset)
-  needs the bone's axis, and the obvious estimate — the fragment's principal axis — disagrees with the
-  axis the simulator recorded by a median of 6.5° and up to 12.4°, which is larger than most of the
-  residual rotations it would be decomposing (a femoral head pulls it off the shaft). So those four
-  columns are reported only where the axis is a *recorded fact*, blank on the annotated cases, and
-  `pca_axis_vs_recorded_deg` carries the measurement that justifies the refusal into the workbook.
-  For the same reason the summary's pooled block drops any metric only one population carries: it
-  would be the simulated block reprinted under a name saying it covered everything.
-- **`initial_*` and `residual_fraction` sit beside the error, not in a footnote.** A 1 mm residual is
-  excellent on a fragment that was 40 mm out and unremarkable on one that was 3 mm out — the same
-  pairing `orbital.py` makes, for the same reason.
-
-Slicer-free, so `scripts/check_longbone_analysis.py` runs the entire analysis — reader, chain walk,
-role choice, verdicts and all 64 cases — outside Slicer, and asserts statically that the module
-contains no write and no delete.
-
-`pedicle.py` scores a pedicle screw plan against a per-vertebra ground truth: the
-**Gertzbein-Robbins** grade and the millimetres behind it, which wall the screw
-crosses and by how much it clears the others, how much of the implant is in bone,
-the pedicle width at the isthmus and the fill ratio against it, the depth left in
-front of the tip, and the bone the screw is gripping (path HU *inside* the
-cylinder it occupies, contact area per density band, trabecular HU with the
-cortex eroded off).
-
-The guide's own §3 is the constraint the whole module is shaped by: **no HU
-threshold separates "inside this vertebra" from "outside it"** on these scans,
-because trabecular marrow reads 0-100 HU while paraspinal muscle reads 40-60. So
-every positional claim is made against the label and only the density ones
-against the CT.
-
-Five things it enforces rather than assumes, each of which yields a plausible
-millimetre rather than an error:
-
-- **The plan and the ground truth are in different frames, and the bridge is a
-  property of the voxel GRID, not of a header.** The run loaded its CT centred
-  (`space origin` = minus half the extent) while the data set keeps the scanner's
-  origin; same sizes, same direction cosines, so the two index the same image and
-  a point crosses **through the voxel index**. The run's volume is found by
-  matching that grid, never by name -- `baselineROI.nrrd` sits in the same folder
-  and is a 0.245 mm resample of the same data. `entry_on_surface_mm` is the
-  independent witness that it worked: the planner puts the entry ON the bone
-  surface (`Helper.probeVolume`), so it is 0.1-0.9 mm on the saved runs, and a
-  screw beyond `ENTRY_SURFACE_LIMIT_MM` is reported unscored rather than scored
-  wrongly.
-- **Neither name is evidence, and one of them is actively wrong.** The level is
-  decided by voting the vertebra labels in a ball around the surgeon's own
-  `Isthmus-<N>` landmark, cross-checked against the level's anterior landmark; the
-  ball rather than a point probe because one real landmark sits one voxel outside
-  the label, where a point probe reports no vertebra at all. The **side** comes
-  from the screw's entry relative to that vertebra's own centroid -- `Helper.Pdata3`
-  calls index 1 of each `T` triple "left" and index 2 "right" without ever looking
-  at a coordinate, so on **both** saved runs every screw named `_L` is on the
-  patient's RIGHT. Since medial and lateral are defined against the midline,
-  taking the side from the name would invert exactly the distinction the safety
-  gate rests on.
-- **A screw is not breached where it crosses the entry cortex.** The wall within
-  about one radius of an entry placed on the surface is necessarily half outside:
-  +0.9 to +2.4 mm at 0 mm on the saved runs, which grades four of eight
-  otherwise-contained screws as B. The graded span therefore runs from the start
-  of the pedicle window (`isthmus - 5 mm`, and never nearer than one radius) to
-  the tip -- that stretch is also where a whole-vertebra label can least answer
-  the question, having no boundary between lamina, facet and transverse process.
-  Nothing is hidden: `breach_proximal_mm` is the worst point in the excluded
-  stretch and `graded_from_mm` says where the span begins.
-- **The distance field is debiased by half a voxel.** `EDT(outside) - EDT(inside)`
-  measures centre to centre, so its zero crossing is exactly on the voxel face but
-  every magnitude beyond one voxel is `h/2` too large -- +0.25 to +0.5 mm here. It
-  inflates a breach and, worse, inflates a *clearance* compared against a 1 mm
-  threshold. The correction inverts the relation exactly (slope 2 inside the
-  one-voxel band, offset 1 beyond it, continuous where they meet) and moved one
-  real screw from Grade C to Grade B.
-- **The width is reported twice**, for the reason `shoulder.py` reports two cone
-  denominators. `pedicle_width_mm` is the minimum caliper of the section
-  perpendicular to the trajectory (the anatomic width the 70-80% fill target
-  refers to) and `channel_width_mm` the narrowest chord of that section *through
-  the axis*. The caliper over-reads where the plane catches a neighbour, the chord
-  under-reads where the screw sits off-centre; they agree to about a millimetre on
-  the saved runs, and where they do not, the caliper is the one to distrust.
-
-`breach_direction` comes from the distance field's own gradient with the component
-along the screw projected out: a cylinder's **side** can only leave through a wall,
-and the axial part of the normal says how the surface tilts rather than which wall
-was crossed -- without the projection the anterolateral corner one real screw exits
-through is named "anterior", which is true of the bone and useless to a surgeon.
-Only a TIP CAP breach keeps the axis, and there `>=` decides the tie, because a
-screw out the front of the body protrudes through its wall and its cap by exactly
-the same amount.
-
-Not computed, and named as such in the workbook: **deviation from the pedicle axis**
-(§2.11) needs the pedicle segmented apart from the vertebra, and the only
-pedicle-shaped object here is the channel around the screw -- so the axis would be
-derived from the trajectory it is meant to judge. **Facet violation** (§2.10) and
-**cortical vs cancellous contact** (§2.8) need structures this ground truth does
-not carry; `contact_mm2_ge250` is the HU proxy for the second and is labelled as
-one. A circular number that looks like a measurement is worse than a blank column.
-
-Slicer-free, so `scripts/check_pedicle_analysis.py` runs the entire analysis --
-scene reader, bridge, distance field, breach, widths, phase split -- outside
-Slicer, and asserts statically that the module contains no write and no delete.
-
-`mandible.py` scores a fibula reconstruction against the **healthy mandible segment that used to
-fill the defect** — which is the whole problem, because that segment does not exist. It came out
-with the tumour, and what the surgeon removed (`Cut Mandible Pieces/Mandible Segment <n>`) is
-diseased bone, expanded or eroded by the lesion and therefore not the shape the plan is aiming at.
-So the ground truth is **predicted**: `mandible_repair.py` (vendored verbatim from
-`Test_data/.../Mandile_Reconstruction/deploy/`, with `Resources/Models/mandible_repair.onnx`,
-gitignored at 143 MB) completes `Cut Bones/Resected mandible` and returns the missing segment.
-Guo et al. do exactly this and for the stated reason — a mandible is not symmetric and a
-midline-crossing defect has no side to mirror — and, having no complete mandible for the plans they
-compare against, they score every one of them against their own Stage-I prediction. The prediction
-is cached as `Statistic/analysis/predicted_healthy_segment.stl` **inside the run** and the metrics
-are taken on that file, so the ground truth a reader can load beside the plan is the one that was
-scored; a hidden in-memory mask would be a second ground truth nobody can inspect.
-
-The three headline numbers are Guo et al. §4.2's, which are Nakao et al.'s: **Rv** volume ratio,
-**Ec** contour error (= Nakao's shape distance `Es`) and **Ep** maximum projection. Beside them:
-Dice, symmetric surface distance and HD95, the two 2 mm coverage shares, and Guo's own
-slice-weighted Dice objective (eqs. 4–5). Nakao's **`Er`** mirror-symmetric distance is **not**
-computed and the workbook says so — it needs the contralateral mandible and the mandibular
-coordinate system built from a tangent plane and a *located midline*, which is the step Guo et al.
-single out as unreliable; a guessed midline yields a number that looks like the paper's.
-
-Six things it enforces rather than assumes, each of which yields a plausible millimetre rather than
-an error when got wrong:
-
-- **A Slicer plane-cut model is PARTIALLY welded** — the cut wall and its cap meet at points stored
-  twice — so it is geometrically closed and topologically open. `vtkPolyDataToImageStencil` on one
-  over-fills the resected mandible by **4%** and under-fills a cut fibula segment by **38%**, both
-  as plausible volumes; on the reference case the inflated mandible then made the completion network
-  predict a 45 cm³ blob where the correct input gives 19 cm³. Ray parity treats each triangle
-  independently and is immune, so that is what is used — for the metrics *and* for the network's
-  input, which is the one deliberate change to the shipped `repair()` and is checked by reproducing
-  its graft bounds exactly.
-- **Swept along all three axes and unioned.** A ray whose crossing count comes out odd is skipped
-  rather than filled, so a genuine hole (one shipped run has a 44-edge one) silently costs the
-  columns through it; a sweep along another axis recovers them, and the union matches VTK's own
-  stencil to 0.001 cm³ on every piece. `open_edges` is reported per case for what remains.
-- **The contour scan walks AWAY from each sample**, outward until the fibula ends where it covers
-  the sample and inward until it begins where it does not. Nakao marches inward from a ring outside
-  the mandible, which finds the same crossing everywhere the geometry is not degenerate and, in a
-  concavity, locks onto the far side of the arch and reports it as a 15 mm protrusion.
-- **The crossing is read off the fibula's signed distance field, then debiased by half a voxel.**
-  A boolean lookup flips at the midplane between voxel centres, so it quantises to the step grid and
-  breaks ties whichever way `rint` rounds — a 2 mm gap read −1.75 mm on one side of a slab and
-  −2.00 on the other. And the scan starts at a surface voxel's *centre* while the surface it stands
-  for is half a voxel further out, so without `− spacing/2` two **identical** masks read 0.25 mm
-  apart and a 3.0 mm protrusion reads 3.25.
-- **`Ec` is meaningless without `contour_coverage_pct`.** It is averaged over the contour the fibula
-  actually reaches, and a fibula cannot reach the alveolar crest — coverage is ~50% on a correct
-  plan. Likewise `Rv` is ~25–30% on a correct single-barrel plan: read it against other plans, never
-  against 100.
-- **Storage file names in `scene.mrml` are URL-escaped**, and every model this procedure saves has
-  spaces in its name. Joining `fileName` verbatim gives a path that does not exist, and the only
-  symptom is a scene reporting no fibula pieces at all — which is how both real runs failed the
-  first time this ran. Roles come from the subject-hierarchy **folder**, never from the file name:
-  the transformed pieces are saved as `..._15.vtk` on one run and `..._4.vtk` on the next, that
-  suffix being the extension's own update counter.
-
-Slicer-free, so `scripts/check_mandible_analysis.py` runs the entire analysis — reader, voxeliser,
-contour scan, every metric — outside Slicer, and asserts statically that the module never deletes.
-
-`canonical_step_id` moved from `shoulder.py` into `run_timing.py` when this became the second phase
-split to need it — the run folder zero-pads step ids so they sort and the timing report does not, so
-reconciling the two belongs beside the report, not in any one procedure.
-
-### Debug Artifacts
-
-`SlicerAIAgentLib/RunLog.py` owns run-folder naming and artifact writing (Qt-free, fail-soft — a
-logging failure must never abort the run being logged). The folder name is the only thing visible in
-a file browser, so it carries the five facts a reader needs before opening anything:
+`node_class` goes straight to `getNodesByClass` and `nodeTypes`, but it arrives from an LLM
+decomposition, which sometimes writes `"vtkMRMLVolumeNode (CT scalar volume)"`. As a key that matches
+nothing, and the symptom points away from the cause: the pick step's tree is empty and `WorkflowInputs`
+reports the scene as missing a CT already loaded.
+
+- **A gate keyed on an exact class name must first ask whether that name is reachable.** The sole-node
+  auto-select requires `GetClassName() == node_class` so it never chooses between siblings — but against
+  an **abstract** class that is unsatisfiable, and it contradicted the manual path, which accepts the
+  node via `IsA`. It now runs only when `_nodeClassIsInstantiable()`, answered from the scene's registry
+  (`IsNodeClassRegistered`) and cached. Read-only deliberately: `CreateNodeByClass` answers the same
+  question but dereferences its null result when a default node is registered, so it can **segfault**.
+- **Allow-lists derived from LLM prose must be normalized at construction**, or they authorize whatever
+  contaminated them. `allowed_node_classes` was built from each logic parameter's `type` field and
+  admitted anything `startswith("vtkMRML")`, after which the `references unknown node_class` check
+  validated the gloss against itself.
+- **Both runtime readers must normalize.** Fixing only `WorkflowRuntime` fixes what the panel *shows*
+  and leaves what it *executes* broken — the loader's copy is baked into emitted code as `IsA(<class>)`.
+  `stage4._normalized_node_class` (in the normalizer, so the repair costs no re-ask) and
+  `WorkflowRuntime.normalize_node_class` both reduce a decorated value to its class token; the runtime
+  half keeps shipped packages working and warns so they still get regenerated.
+
+### A fix applied once and thrown away every run
+
+Self-correction repairs a step at runtime and `_persistGeneratedTemplateRepair` writes it back into the
+`.tpl`. When that refuses, nothing tells anyone: the step self-corrects, advances, discards the fix, and
+does it again forever. Two causes, both firing:
+
+- **A placeholder inside a string literal is never filled.** The filler masks string literals before
+  substituting (deliberately — a template's prose must survive filling), so
+  `"{curve_name_keyword: mandible}"` searches for the brace text itself. The blanket
+  unresolved-placeholder rule cannot catch it because it carries a **default** — exactly what makes a
+  placeholder safe at dispatch, everywhere except inside a string.
+  `TemplateReviser.inert_placeholders()` measures it with the loader's own filler and
+  `_validate_placeholder_reachability` refuses it. The discriminator is the string token's **prefix**,
+  asked of Python and never a regex: `f"role '{role}'"` is how every generated template reports an
+  error, so flagging f-string interpolation would refuse the common case to catch the rare one. Over
+  181 shipped templates it reports exactly two.
+- **The guard measured the wrong thing.** Refusing a template with placeholders is right (the corrected
+  code is *filled*, so persisting it freezes this run's `{side}` into the package) but it used a raw
+  brace scan, which matches every f-string interpolation. The precondition block every step carries ends
+  in one, so the guard fired on **82 of 181** templates, of which only **13** contain anything the
+  filler looks up. It now asks `fillable_placeholder_names()`.
+
+## Runtime features
+
+### Interactive workflows and the replay stepper
+
+`InteractionManager` creates markup nodes and manages observers; analyzer stages 4.5-4.9 detect
+interactive patterns, classify them into phases, build the graph and generate split templates (pre-
+interaction setup + post-interaction processing). Manifest `workflow_type` is `"simple"` or
+`"interactive"`; interactive packages ship `workflow.json`.
+
+**Back / Forward / Run from here.** `WorkflowRuntime` records a `WorkflowCheckpoint` per completed step
+(and per loop decision) holding the replay action/args, a `repeat_states` snapshot, the completed/choices
+prefix, guidance text, `before_node_ids`/`created_node_ids`, `layout_before`, and a full before-step
+`vtkMRMLSceneViewNode`.
+
+**Back/Forward recover the full scene without ever deleting a node**: `_restore_to_view()` copies every
+stored node's properties onto its live match by ID, hides nodes that did not exist yet, and restores the
+layout. Slicer's own `RestoreScene` is unusable — `removeNodes=False` aborts when later nodes are
+present, `removeNodes=True` deletes and recreates (dropping display nodes). The live state is snapshotted
+on first Back so Forward returns to it exactly.
+
+**Run from here** commits via `rewind_to_checkpoint(preview_index)`, truncates the session and the
+module-global mirrors to that prefix, then re-dispatches with `action="start"`.
+
+### Voice control
+
+**One microphone button arms the feature; the SPACE BAR gates capture.** Hold, speak, release — nothing
+is transmitted unless somebody is holding the key, which removes the energy detector's whole failure
+class and is a stronger privacy property than any matching discipline. The always-on mode remains behind
+`voicePushToTalk`.
+
+The key is a setting (`voicePttKey`, F4/F8 offered) because bare Space is `qMRMLSegmentEditorWidget`'s
+"swap the last two effects", live whenever Segment Editor is entered. **Ctrl+Shift+Space (markups Place
+mode) is never intercepted** — the filter compares modifier bits, not just the key.
+
+The key is taken over **only while armed** and given back on every teardown path. Five gates per event,
+each a defect if missing: focus is not a text entry (Slicer's Python console is a `QTextEdit`); no modal
+is up; the main window is active; modifiers match exactly; a session is armed. Two Qt traps:
+**auto-repeat is swallowed only while we own the hold** (returning True unconditionally ate every repeat
+of a key we had *declined*), and **`QEvent.ShortcutOverride` must be accepted**, since Qt resolves
+shortcuts before delivering key events. `_held` is the real state, not `isAutoRepeat()`.
+`WindowDeactivate` ends a hold — the release is not guaranteed to arrive.
+
+**The key hook has two implementations and picks one at arm time, by proof.** The correct one is an
+application-wide event filter (a `QShortcut` has no release signal, and push-to-talk is *defined* by the
+release). PythonQt cannot always dispatch a C++ virtual to a Python override, and a filter never called
+presents as "the key does nothing" — so arming sends one synthetic event through it and falls back to
+polling the OS key state at 30 ms.
+
+Four things stop a mis-recognition driving the scene:
+
+1. **The matcher declines by default** — an utterance resolves only against the closed vocabulary the
+   step on screen offers, and anything below `ACCEPT_SCORE` (0.62) is `ACTION_NONE`. Fixed verbs match
+   the **whole** utterance, never a substring ("we're done with the previous patient" would advance a
+   step). Free text needs a "set"/"enter" lead-in.
+2. **The mic is muted while the app speaks** — the words just spoken are precisely those most likely to
+   match the step's labels. Pressing the key **cuts the announcement and unmutes**, or push-to-talk
+   would sit behind twenty seconds of speech. In always-on mode the unmute is on the speak thread, not
+   the queue handler, since Exit drains `_streamQueue` wholesale.
+3. **Every committing action is announced, naming the label and not the value** ("Selecting Red box.").
+   It is enqueued before the action is applied but synthesis is a network round trip, so it makes a
+   mis-hearing audible when it happens; it is **not** a veto. Naming the label is what makes it work —
+   a surgeon who said "left" hears "Selecting Blue box" and can act on the mismatch.
+4. An optional **confirm mode**, which *is* a veto. The step it was resolved against is stored with it,
+   since the workflow can move on while the user decides.
+
+Vocabulary hardening is kept even under push-to-talk: "ready" and "go ahead" are absent from the advance
+vocabulary, "right"/"ok"/"okay" from the confirm vocabulary — "right" is also the *value* of an option
+on the orbital step, so accepting it as assent would let a surgeon correcting the side confirm the wrong
+one.
+
+**A positional pick is matched as a WHOLE utterance, never by finding an ordinal in a sentence.** The
+ordinal branch is reached exactly when label matching failed — the state ordinary conversation is in —
+so "just a second" selected option two, which on the orbital step is the other side of the head. Token
+filtering does not rescue the loose form, so `_ordinal_index` is a lookup against an enumerated phrase
+table and nothing else. Nothing is lost: every label is read aloud, so saying it is always safer.
+
+`match_score` scores over a cross product of spellings (verbatim, carrier words removed, numerals spelled
+out, number words digitised), and `_match_score_one` **takes the max of its heuristics** rather than
+returning from the first that fires — token overlap is weakest and fires most often.
+
+**`grammar.py` mirrors the panel's render branch and must change with it.** `_family_for_state` takes
+`_renderWorkflowChoices`' branches in the panel's order, not alphabetically — a segments-table step also
+carries a `node_class`, a range step also a `parameter_name`. And the choice value is **what the button
+would send, not what the artifact declares**: the render loop coerces a Yes/No *label* to `True`/`False`
+regardless of the declared value, so reading `choices[i]["value"]` would make speaking and clicking
+disagree — and on a repeat block the string never equals the boolean `exit_value`, so the loop could not
+exit.
+
+**Every action goes through the widget method the mouse would have called** and never through
+`WorkflowRuntime.run_step`: each shortcut loses something (interaction cleanup, the threshold commit
+later steps depend on, the extension's own control being driven first so its handler fires).
+
+**An idle hot microphone does not talk to the router** — with no workflow there is no closed vocabulary,
+so every sentence would become a routing call and a modal refusal. A spoken request must open like one
+and be at least three words.
+
+**Nothing the microphone hears is written to disk by default** (`VOICE_LOG_TRANSCRIPTS = False`) — run
+folders are copied, shared and attached to papers, and most of what a theatre microphone transcribes is
+conversation about a patient. Artifacts record durations, byte counts, language and the resolved
+**action**; audio bytes are never persisted.
+
+**A failure streak stops the session** — a wrong region or bad key fails every utterance identically and
+the status line lives in a collapsed group, so three consecutive failures raise a dialog naming the three
+settings.
+
+**Two tiers, and the second is only for the uncertain, not the empty.** A sentence matching *nothing* is
+more likely conversation than a paraphrase; an *ambiguous* result is a question for the surgeon, not a
+coin flip. The fallback is offered the step's options as the only candidates and must return an
+**index**, so the model can rename an option but never introduce one. `resolve_llm` exists beside
+`resolve` because tier 2 is an HTTP round trip that would freeze Slicer on the panel's thread, and its
+answer is re-checked against the live `current_step`.
+
+**Three fences, not interchangeable.** `_guidedSessionEpoch` (captured per *utterance*) retires work
+against an exited workflow; `_voiceSessionSeq` is a **microphone** session token (`stop()` emits a final
+state handled up to 50 ms later, by which time the button may be back on); `_voiceHandlingTranscript` is
+a **re-entrancy** guard, since both draining the queue and applying a command pump the event loop.
+
+**Speech is announced once per step OCCURRENCE, not per repaint** — `_voiceAnnounceKey` is
+`(workflow_id, step_id, len(completed_instances), family, status)`. Automated steps are never spoken, and
+a node-pick step about to auto-answer itself is deliberately silent.
+
+**API.** `qwen3-asr-flash` / `qwen3-tts-flash` over DashScope's *native* multimodal endpoint via `urllib`
+— not `httpx`, which is in `requirements.txt` but imported by no project code and unproven inside
+Slicer. The OpenAI-compatible mode **does not exist for ASR in the US region** and model ids are
+region-suffixed, so a wrong region is a 404 that reads like a bad key. Speech-out derives its endpoint
+from the speech-in region; the speech key is its own QSettings entry; `voiceRegion` is applied **before**
+the other voice settings because its handler rewrites the model list and endpoint. `sounddevice` is the
+only binary wheel, installed on first listen and degrading to a named reason. TTS audio returns as a
+**URL** with no documented container request, so bytes are sniffed and `audio_format` reported.
+
+### Revise — rewriting a step's template at runtime
+
+**A generated step can pass every check and still be wrong, and the only detector is a person.** It runs,
+raises nothing, and reconstructs the wrong orbit or leaves a node the next step cannot find.
+Self-correction fires on a raised error, static validation sees valid code, the api-probe sees the method
+exists. So: step Back to it, press Revise, say what should have happened, press Send.
+
+It replaced a "Repair Generated CLI" button that took free-form sentences, asked an LLM which of 27 steps
+each meant, and repaired blind — untestable without re-running the whole procedure. Pointing at the step
+removes the classification and lets the revision be given the dispatched code, what it printed, the live
+scene, the answers already given, and the step's previous revisions. That button was also the only
+trigger of the live-execution validation gate, which is therefore gone; packages are validated
+**statically only**.
+
+**The TEMPLATE is rewritten, not the filled code** — which is what makes this stronger than the
+write-back beside it. What replaces that guard is **placeholder closure**: a revision may drop a
+placeholder and re-default one it has, but may not introduce a name the original lacked (a new bare
+`{name}` raises `KeyError` inside the loader, and the symptom is a step that silently never executes).
+
+Four install checks:
+
+- **Placeholder closure** over `fillable_placeholder_names()`, not a brace scan — a raw scan matches
+  every f-string interpolation, and f-strings are how every generated template reports an error. The
+  defaulted form `{name: default}` is not an escape hatch: it is the same six characters as a dict
+  literal `{key: 1}`, which the filler also replaces.
+- **The filler, run for real.** `unfillable_placeholders()` calls `templates._fill_template` itself
+  rather than re-deriving its rules; a drifted copy would answer confidently about a different string.
+  A survivor is split by asking **Python**: inside a real STRING token it is an interpolation; outside
+  one it is trapped by an unbalanced apostrophe, typically in a prose comment.
+- **Syntax and CodeValidator**, both on a `sample_fill()`ed copy.
+- **Scope.** `parse_reply` resolves the model's paths against the step's own template list and drops
+  anything else. A reply whose `templates` key is misspelled is a *correctable* error, never a
+  fall-through to the single-block shape — that would install the JSON document as the template, and
+  nothing downstream would object (a JSON object is a valid Python dict literal: it parses, imports
+  nothing, has no placeholders). The step would raise nothing, print nothing and do nothing.
+
+**The reply must be FENCED** — `_runToolLoop` ends a round only when `_extractCode` finds a fenced block,
+so a prompt asking for bare JSON produces a loop that can never accept a correct answer. Rejections are
+fed back verbatim with `MAX_ROUNDS` (3) attempts; the checks are deterministic, so the retry message is
+evidence rather than an opinion. The call is `chatWithToolsIsolated` with CLI schemas **stripped by
+identity**.
+
+**The original is kept, and the promise is checked.** `versions/revision_<ts>/` is the package BEFORE the
+write — deliberately not `repair_NNN`, which archives the *result*. `snapshot_package_version` returns
+`None` on failure, so `apply_revision` refuses to write when the snapshot did not land. Records go to
+`debug/revision_<ts>/` and `debug/revisions.json` (under `debug/`, which survives a regeneration), plus a
+copy in the run folder.
+
+Three traps:
+
+- **The header strip must not be greedy.** Each rewrite prepends `# [revised] …` and the model
+  reproduces one; stripping "the header and every comment after it" ate the `# precondition:begin …`
+  block on the second revision — the only marker for firing `enter()`, whose absence breaks every later
+  interactive step and raises nothing. Continuation lines are enumerated instead.
+- **The header is validated too**, because it is written after validation: the surgeon's sentence goes
+  into a comment above executable code, so an unbalanced apostrophe would swallow the placeholder below
+  — the exact defect the validator refuses in the model's output, entering through the door beside it.
+- **The loader cache is NOT invalidated.** Template content is opened fresh per dispatch, and
+  `invalidate_cache()` mid-run re-reads every manifest and would drop any package failing the status
+  gate — possibly the one the surgeon is standing in.
+
+**The revised step is re-run automatically and the scene is put back first.** Three states reach it and
+only one has a committed checkpoint: *scrubbed back* and *completed and left behind* go through
+`_rerunFromCheckpoint`; **standing in it** has none (checkpoints are recorded on completion), which is
+what `rollback_failed_step` is for — it restores from the *pending* checkpoint and keeps it so the retry
+starts identical. Never re-dispatch on top of the existing scene: a PRE template creating a node would
+create a second, after which the POST template's "last node of this class" picks the wrong one. The
+re-run is deferred with `singleShot(0, …)` because it is reached from inside `_drainStreamQueue`.
+
+**A template returned verbatim is not written.** The agent is asked for every template the step owns, so
+it echoes back the ones it did not touch; writing those would stamp a header on them and report untouched
+files as revised. Bodies are compared with headers stripped; *every* template unchanged is an **error**
+naming them, not a silent success.
+
+**Mutual exclusivity with baseline mode is two-directional.** Each toggle disengages the other and
+refuses while the other is busy, and each Send-restore is guarded on the other's flag. One-directional
+fails silently: with both armed the panel repaints Send purple (revise's sync runs last) while
+`onSendButtonClicked` still routes to baseline (which precedes revise in the MRO), so a button reading
+"Revise step" starts a baseline whose first act deletes every downstream node. Revise is disabled while a
+baseline runs (it has repointed `_currentLogDir`); Exit and the replay controls refuse during a revision;
+the reply carries `_guidedSessionEpoch`. Exit tears the mode down **before** `_prepareCleanRuntime`,
+which clears `_reviseActive` as a raw attribute write.
+
+The glyph is **text**, not a `:/Icons/` resource — `qt.QIcon` on an unregistered path returns a NULL icon
+rather than raising, rendering as an empty button. It carries U+FE0E so Windows font fallback does not
+draw a colour cartoon hand. It is **visible from panel build**, disabled with the reason in its tooltip,
+because a hidden button reads as a missing feature. Its stylesheet needs an explicit `:disabled` rule — a
+stylesheet `color` REPLACES the palette for every state, and this button is disabled most of its life.
+
+### Baseline comparison harness
+
+Step **Back** to a step and click the **balance** button. Three alternative code producers:
+
+- **`pure_llm`** — one `chatIsolated` call, minimal prompt + scene summary. No retrieval, tools,
+  knowledge base, CLI or history.
+- **`online_only`** — `chatWithToolsIsolated` with pre-retrieval and the search tools, CLI ablated:
+  schemas stripped **by identity**, `suppress_extension_cli` short-circuits the CLI/`ext:`/cookbook
+  sections.
+- **`claude_code`** — code arrives over MCP from an external Claude Code session running the
+  `slicer-skill` skill. `BaselineMCPBridge` **attaches to the skill's own `slicer-mcp-server.py`**,
+  swapping *only* `execute_python` while armed and restoring **by identity** (skipped if the user
+  re-pasted the script). Not pasted means arming is refused with instructions, never a silent
+  substitution; the transport is in every run record.
+
+All three share the tail of the real pipeline (CodeValidator → SafeExecutor → completion), so only the
+producer differs. They deliberately do **not** get plan validation, `ApiSanityChecker`, or
+self-correction — those are properties of the system under test.
+
+**The context boundary.** A baseline gets everything describing the **task and the world** — what a
+surgeon in front of the running application has — and nothing produced by the **offline analysis**, which
+is the artefact under test. `TASK_STEP_KEYS` is the ALLOW-list (`step_id`, `operation_type`,
+`description`), so a field added to `workflow.json` later defaults to withheld; `WITHHELD_STEP_KEYS`
+names the other side explicitly so the ablation is legible in review. `build_step_brief()` adds the
+clinical guidance from `step_instructions.json` (the words the panel shows), position in the procedure,
+completed steps, values and nodes already chosen, and a lookahead marked *context only*.
+
+`step_context` is computed **once**, in `_beginBaselineRun`, for every mode — so the three cannot drift
+apart by construction. The two prompt-driven modes have it injected; Claude Code reads the same bytes
+from `MCPConnection/current_step.md`, because without it that session would be the only condition
+working from the user's sentence alone.
+
+Condition-specific generosity, so a failure is a failure of the *approach*: pure LLM gets the
+CodeValidator blocked list verbatim and full properties of up to 14 relevant nodes up front (it has no
+tools to ask mid-turn); online-only keeps the raw `ext:<Name>/` source trees searchable and advertised
+with a recipe for deriving an API from source, at 16 tool rounds, since cutting it off mid-search would
+measure the budget instead of the approach.
+
+**The generated code is unreachable, by enforcement not convention.** The prompt is user-typed,
+`TASK_STEP_KEYS` carries no template, the CLI sections and schemas are dropped, the isolated chats never
+read history, and the rewind deletes the step's own output. The one channel that was *open* was the
+search tools — `ReadFile("../../extension_CLI/<Ext>/templates/<step>.tpl")` would have returned the
+answer. `_DENIED_SUBTREES` refuses any path resolving inside `Resources/extension_CLI`,
+`Resources/Prompts`, `SlicerAIAgentLib` or `logs`, checked on the **resolved** path. Claude Code is
+fenced by its `--add-dir` set.
+
+**Nothing from after the stepped-back step reaches a baseline.** Rewinding truncates `completed_steps`,
+both mirrors, `repeat_states`, `last_result` and the checkpoint list, and deletes downstream nodes —
+*before* the step context, scene read and node-property read. The one deliberate exception is the
+**lookahead** (`BASELINE_LOOKAHEAD_STEPS`, default 3): upcoming step *descriptions* marked "context only",
+which is cookbook prose and what a surgeon sees on the next page. Note it is **more than the pipeline
+has** — the pipeline dispatches with no lookahead at all — so it favours the baselines. Set it to `0` for
+a strict ablation.
+
+**Conditions tested back-to-back on one step are isolated**, self-healingly: each successful baseline
+re-creates the step's checkpoint and captures its before-snapshot *after* the rewind. A **failed** attempt
+used to break this, so `rollback_failed_step()` does on failure what `_record_checkpoint` does on success
+and **keeps** the pending checkpoint. The pipeline is untouched — its pending checkpoint survives
+self-correction, so it is already self-healing and it is the system under test. The one exception is
+`PedicleScrewPlanner`, the only wizard extension, where downstream nodes are deliberately kept (deleting
+them hangs its cached-Python-ref `onEntry`) — conditions tested on it are *not* isolated and should be
+reported separately.
+
+**Which steps are comparable.** `CODE_STEP_OPERATION_TYPES` is an **allow-list**, so a type added later
+defaults to not-comparable: `extension_op` and `slicer_op` qualify; `user_choice` (the user picks a value
+later steps read), `user_interaction` (no producer stands in for a hand), `branch_op` (the answer, not
+the code, decides the next step) and `review_op` (no template at all) do not. Across the nine cookbook
+extensions that is 106 of 184 steps (58%).
+
+**The prompt is never authored by the panel** — the box is only ever *emptied*. The prompt is the
+independent variable of the comparison.
+
+**Stepping resets the arm** (`_resetBaselineForNavigation()`), so neither the previous step's mode nor its
+prompt follows the user along the timeline; it returns False during a run and the caller abandons the
+navigation. The button is **hidden outright** on a non-comparable step, safe only because the arm cannot
+outlive the step: Back/Forward reset it and `_updateBaselineControls` auto-disarms on an auto-advance onto
+a non-comparable step. **`_baselineActive`** is the toggle intent; **`_baselineEngaged()`** is that intent
+resolved against the step in view, and engagement drives visibility, the input gate, Send's caption and
+Send's routing.
+
+**Input gating.** While a workflow runs, `promptInput` and `sendButton` are off — and switched back on by
+baseline mode, the one mode that needs them. `_guidedWorkflowOwnsInput()` is the predicate and
+`_setSendEnabled()` the single funnel every *enabling* call site goes through, so no stray
+`setEnabled(True)` defeats the gate (disabling sites are left direct — disabling is always safe).
+
+**Debug-view isolation.** `_debugContext` is which buffer is *displayed*, `_debugWriteContext` which
+receives new content. They may diverge — when a baseline finishes and auto-advance hands back, the
+pipeline's output accumulates invisibly and reappears complete when the baseline row closes.
+
+## Logs and artifacts
+
+`RunLog.py` owns run-folder naming and artifact writing (Qt-free, fail-soft — a logging failure must never
+abort the run being logged).
 
 ```
 logs/ZygomaticImplantPlanner_baoyawen_pipeline_20260803_154954/
-     ZygomaticImplantPlanner_baoyawen_pureLLM_cb_step_08_a1_20260803_155230/
-     \_____________________/\_______/\______/\__________/\_/\_____________/
-          procedure          subject condition   step  attempt    when
+     \_____________________/\_______/\________/\_____________/
+          procedure          subject condition      when
 ```
 
 **Procedure first, timestamp last**, because analysis is per procedure and per subject — the four
-conditions run on one patient are the unit of comparison, and a leading timestamp scatters exactly
-that grouping through the listing. A name sort is therefore no longer chronological; sort on the
-trailing stamp (or on `started` in the manifest) for that. The **subject** is the input data set,
-derived from the folder the scene's data was loaded out of, and omitted entirely when it cannot be
-determined — a placeholder would silently merge two patients' runs.
+conditions on one patient are the unit of comparison, and a leading timestamp scatters that grouping. A
+name sort is therefore **not** chronological; sort on the trailing stamp. The **subject** is derived from
+the folder the scene's data came from and is **omitted entirely** when undeterminable — a placeholder
+would silently merge two patients' runs.
 
-`_sceneSubjectName` takes the most common parent folder of the storage nodes' files, and a count
-alone is not enough. Opening any module that needs the colour logic makes
-`vtkMRMLColorLogic::AddDefaultColorNodes` load ~20 colour tables out of
-`<slicerHome>/share/…/ColorFiles`, each a storable node with a storage node and a file name, which
-beats a case folder holding one volume and one markup 20 to 2 — observed, as a run folder named
-`ZygomaticImplantPlanner_ColorFiles_pipeline_…`. Whether it happens depends on which modules the
-session has touched, so it is intermittent, and its symptom is a plausible name rather than an
-error. Two filters, either sufficient alone: only nodes that are the **user's data** vote
-(`_isUserDataNode` — not `HideFromEditors`, `SaveWithScene`; the same predicate `_saveSceneFlat`
-uses for File ▸ Save Data, and every colour node sets `HideFromEditors` in its constructor), and
-**application-owned directories are excluded** — `slicerHome` and `extensionsInstallPath` alongside
-our own `logs/`, Slicer's temp and the DICOM database, compared as paths rather than by `startswith`
-so a sibling is not caught by a prefix. The name is fixed when `_createRunLogDir` opens the folder at
-workflow **start**, not at Exit, so a mislabelled run stays mislabelled — and since the experiments
-analysis pairs a run with `Dataset/<subject>`, that is not only cosmetic.
+`_sceneSubjectName` takes the most common parent folder of the storage nodes' files, and a count alone is
+not enough: opening any module needing the colour logic loads ~20 colour tables from
+`<slicerHome>/share/…/ColorFiles`, beating a case folder 20 to 2 (observed, as a run folder named
+`…_ColorFiles_pipeline_…`). It depends on which modules the session touched, so it is intermittent and its
+symptom is a plausible name. Two filters, either sufficient: only **user data** votes (`_isUserDataNode`
+— not `HideFromEditors`, `SaveWithScene`; every colour node sets `HideFromEditors`), and
+**application-owned directories are excluded** (`slicerHome`, `extensionsInstallPath`, our `logs/`,
+Slicer's temp, the DICOM database), compared as paths not by `startswith`. The name is fixed at workflow
+**start**, so a mislabelled run stays mislabelled — and the experiments analysis pairs a run with
+`Dataset/<subject>`, so that is not only cosmetic.
 
-A general, non-workflow turn is `task_pipeline_turnN_<stamp>`; a request the router
-refused under `GUIDED_ONLY_MODE` is `refused_pipeline_<stamp>`, holding the `00_router/` call that
-declined it and a manifest sealed `refused` with the cause.
+Other names: `task_pipeline_turnN_<stamp>`, `refused_pipeline_<stamp>`, and a flat
+`…_<condition>_<step>_a<n>_<stamp>` for a baseline. **One run folder per workflow, one subfolder per
+step**; step folders are zero-padded purely so they sort, and the true unpadded `step_id` is in
+`step.json` and the manifest.
 
-**One run folder per workflow, one subfolder per step.** Chat turns that drive an already-active
-workflow ("done", a choice) keep writing into the same run folder rather than each opening a new
-one. Step folders are zero-padded (`cb_step_08`) purely so they sort in run order — the true,
-unpadded `step_id` is always in `step.json` and in the manifest.
-
-**A run folder has exactly two children**, so which one a reader wants is answerable from the
-name: `runtime/` is everything written while the run executes, `Statistic/` is the report and the
-scene it produced. `_currentLogDir` is the *runtime* dir (so every writer is unchanged) and
-`_currentRunRoot` is the folder holding both — that is what `Statistic/` hangs off, and what
-"Exit without saving" deletes.
+A run folder has exactly **two children**, so which one a reader wants is answerable from the name:
 
 ```
-logs/ZygomaticImplantPlanner_Case01_pipeline_20260804_122026/
- runtime/
-  run_manifest.json        condition + label, subject + its source path, prompt,
-                           model, router cost, per-step
-                           status/seconds/errors, totals. Rewritten on every mutation,
-                           so a session killed mid-workflow still leaves a usable record.
-  role_trace.json          the whole run's events
-  00_router/               the routing call: messages_sent.txt, reply.txt, call.json
-  cb_step_01/
-    step.json              step id, operation type, description, origin, next step
-    code.py                the code this step executed
-    agent_plan.json
-    execution.json         success, seconds, error, scene_delta   <- NEW
-    output.txt             raw stdout / stderr                    <- NEW
-    role_trace.json        only this step's slice of the trace
-    timing.txt             per-step performance breakdown
-    thinking.txt           reasoning for this step
-    correction_1/          attempt.json, first_prompt.txt, code.py, agent_plan.json,
-                           response.json — nested under the step it repairs
-    revision_1/            request.txt, messages_sent.txt, reply.txt, revision.json
-                           — one per ✍ Revise of this step. The package keeps its
-                           own copy (plus the before/after and the diff) under
-                           <ext>/debug/revision_<ts>/, because the two answer
-                           different questions: why THIS run's step 12 differs
-                           from the shipped template, versus what has ever been
-                           asked of this package.
-  cb_step_02/ …
- Statistic/                written at Exit — see below
-```
-
-A baseline folder is flat (it is one step by construction) and additionally holds `prompt.txt`,
-`messages_sent.txt` / `.json` (the **exact** payload the condition received, so a reviewer can
-confirm no offline-analysis artefact reached it), `step_context.json`, and the
-`baseline_<step>_<mode>_a<n>_<time>.json` record.
-
-**`logs/<run>/Statistic/` — what pressing Exit leaves behind.** A run folder stays self-contained, so
-copying or deleting one takes its statistics with it:
-
-```
-logs/ZygomaticImplantPlanner_Case01_pipeline_20260804_101200/
-  Statistic/
+logs/<run>/
+  runtime/                   everything written while the run executes
+    run_manifest.json        condition, subject + source path, prompt, model, router cost, per-step
+                             status/seconds/errors, totals. Rewritten on every mutation, so a
+                             session killed mid-workflow still leaves a usable record.
+    role_trace.json
+    00_router/               messages_sent.txt, reply.txt, call.json
+    cb_step_01/
+      step.json  code.py  agent_plan.json  execution.json  output.txt
+      role_trace.json  timing.txt  thinking.txt
+      correction_1/          attempt.json, first_prompt.txt, code.py, response.json
+      revision_1/            request.txt, messages_sent.txt, reply.txt, revision.json
+  Statistic/                 written at Exit
     timing.txt
-    scene/
-      scene.mrml
-      Cranial_Segmentation.seg.nrrd
-      SkullModel.vtk
-      SymmetryPlane.mrk.json
-      ImplantPath_1.mrk.json …
+    scene/                   scene.mrml + one flat file per node
 ```
 
-**The scene folder is flat, matching File ▸ Save Data with every row pointed at one directory.**
-`slicer.util.saveScene(<dir>)` cannot produce that: a directory path routes to
-`qSlicerSceneWriter::writeToDirectory` → `SaveSceneToSlicerDataBundleDirectory`, which builds `Data/`
-and `private/` subfolders. `_saveSceneFlat()` reproduces `qSlicerSaveDataDialogPrivate` instead —
-skip non-storable / `HideFromEditors` / `!SaveWithScene` nodes, `AddDefaultStorageNode()` and skip
-anything that needs none (it lives in the scene), skip `fileWriterFileType == "NoFile"`, name each
-file `<sanitised node name>.<GetDefaultWriteFileExtension()>` (so a segmentation lands as
-`.seg.nrrd` and a markup as `.mrk.json`, exactly as the dialog shows), and write the **nodes first,
-the scene last** so the `.mrml` records the paths just written. Same-named nodes are de-duplicated
-rather than silently overwriting each other.
+`_currentLogDir` is the *runtime* dir (so every writer is unchanged); `_currentRunRoot` holds both and is
+what "Exit without saving" deletes. `_artifactDir()` is the single funnel; `_setStepLogContext(step_id)`
+opens a step's folder and repoints the LLM client's prompt dumps. A baseline parks the pipeline's folder,
+manifest, step context **and role trace**, so the step it auto-advances to neither logs inside the
+baseline's folder nor inherits its events. A baseline folder also holds `prompt.txt`, `messages_sent.*`
+(the **exact** payload the condition received) and `step_context.json`.
 
-Every mutation it makes to the live scene is undone in a `finally`: storage-node file names, the
-scene URL and root directory, and — critically — `SetStorableNodesModifiedSinceRead()`. Writing a
-storable node stamps its `StoredTime`, which clears `GetModifiedSinceRead()` scene-wide; without the
-restore the surgeon's own segmentations would show as "Not Modified" and unchecked in File ▸ Save
-Data, quitting Slicer would raise no unsaved-data warning, and the only copy on disk would be the one
-inside `logs/`. Slicer's own MRB writer does the same restore for the same reason
-(`qSlicerSceneWriter::writeToMRB`); the directory writer does not.
+**No `thinking.txt` in a clean guided run is correct.** The routing call is deliberately non-thinking, and
+dispatched steps call no model at all, so reasoning appears only on self-correction or in a baseline
+folder. `00_router/call.json` records the flags and states this.
 
-**Two clocks, because one is not enough.** The manifest's per-step `seconds` is the time SafeExecutor
-spent running that step's code — *machine* time. It is not how long the step took: a `user_choice`
-step whose code runs in 8 ms sits on screen for as long as the surgeon takes to pick a node, and a
-`user_interaction` step is almost entirely hand time. So `RunManifest.open_step()` stamps
-`opened_epoch` when the step appears and `finish_step()` stamps `completed_epoch` when the workflow
-moves past it, giving three columns per step: **wall** (screen to screen), **exec** (accumulated
-across pre+post templates, repair retries and loop iterations — so `exec_seconds_total`, not the last
-run's duration), and **wait** = wall − exec, attributed to *the surgeon* on the four
-`HUMAN_IN_LOOP_TYPES` and to *runtime overhead* on the automated two. The total is anchored to the
-**Send click** (`send_clicked_epoch`), not to the manifest's own `started_epoch`, which is stamped
-only once the router has answered — several seconds the surgeon sat through would otherwise vanish;
-it decomposes into startup / inside the steps / between steps / **reviewing the replay timeline** /
-waiting for Exit, which sum to it.
+Three earlier defects this layout replaced, all of which cost data: every step wrote plan, role trace and
+timing to the **same three filenames** (a 33-step run retained only the last step's); correction artifacts
+were keyed by attempt number alone (two steps failing on attempt 0 overwrote each other); and the pipeline
+persisted **no execution result at all**, leaving the system under test the least-instrumented condition.
 
-**One table, in the order things happened.** `manifest["timeline"]` records a row per step *visit*
-and a row per replay review, and the report renders that — so a run that stepped back from step 20
-and re-ran from step 10 shows steps 1–20, a `<< step back` row, then steps 10 onward again. `steps`
-still holds the aggregate (`scripts/collect_runs.py` reads it) and the report falls back to it for
-manifests written before the timeline existed. A replay row's time is **taken out of** the step that
-was on screen (`suspend_step_span` banks its span and closes its row), or a review lands in a
-`user_choice` step's `wall` and — since `exec` does not move — prints as think time on a step nobody
+### Saving a flat scene
+
+**`saveScene(<dir>)` cannot produce a flat folder** — a directory routes to
+`SaveSceneToSlicerDataBundleDirectory`, which builds `Data/` and `private/`. And **`saveScene("….mrml")`
+writes the XML and NOTHING else** — it is `SetURL` + `SetRootDirectory` + `Commit()`, which serialises node
+*elements* but never asks a storage node to write its data, so the result names files that do not exist
+and Slicer only reports it when the scene is *opened*.
+
+`save_scene_flat()` (in `PlanningRecorder.py`; `_saveSceneFlat` delegates) reproduces
+`qSlicerSaveDataDialogPrivate`: skip non-storable / `HideFromEditors` / `!SaveWithScene`,
+`AddDefaultStorageNode()` and skip anything needing none, skip `fileWriterFileType == "NoFile"`, name each
+file `<sanitised name>.<GetDefaultWriteFileExtension()>`, and write the **nodes first, the scene last**.
+Same-named nodes are de-duplicated.
+
+**The scene is written several teardown steps AFTER the Exit click**, so "what you saw is what is
+saved" has to be made true rather than assumed. Between the click and the write, `_resetGuidedSession`
+leaves placement mode, drops the threshold preview, lets the interaction manager delete what it
+created, and clears the replay timeline (which restores the live scene when the user was
+mid-preview). Today all of those *remove nodes* rather than flip visibility on a survivor, so the
+round trip is faithful — by the absence of a counter-example, not by construction.
+
+`_capturePresentationState()` at step 0b records every display node's visibility before any of that
+runs, and `_restorePresentationState()` re-applies it immediately before `_saveRunStatistics`. It is
+a **guard**: a no-op on the common path, skipping any node the teardown deleted (re-creating one
+would save geometry the run no longer has), touching visibility only so a teardown that legitimately
+changes a colour or an opacity is left alone, and **logging a warning** when it does restore
+something — a teardown step that quietly changes what the surgeon left on screen is worth knowing
+about, not worth silently correcting on every run. The failure it forecloses is invisible: a reopened
+scene showing something that was hidden reads as a planning mistake, and the saved file is the only
+record either way.
+
+The guard preserves the state at Exit; it does not decide what that state should be. That is
+`SAVE_HIDDEN_NODE_PREFIXES`, applied by `_applySaveVisibilityPolicy` **immediately after** the
+restore and before the write — and the order is the point: the restore undoes what the teardown
+changed by *accident*, the policy applies what the study decided *on purpose*, so running them the
+other way round would put the hidden nodes back.
+
+**A procedure may declare which of its nodes are working aids rather than results.** The mechanism is
+generic (prefix match over `vtkMRMLDisplayableNode`, live scene, save time only); the table is one
+line per procedure and a procedure absent from it has nothing hidden, which is what every one of them
+did before this existed. BoneReconstructionPlanner leaves two families behind, one per view, and
+**no node in a saved scene is restricted to a 3D view** (`viewNodeRef` is unset everywhere), so each
+lands on top of the bone the other view is for:
+
+- `Transformed Mandible <n>` / `Transformed Mandible Segment <n>` — the mandible registered **onto the
+  fibula** to work out where to cut. A planning aid, drawn over the fibula.
+- `Mandible <n>` / `Mandible Segment <n>` — **whole-mandible surfaces**, not pieces: `Mandible <n>` is
+  a point-for-point copy of `decimatedMandible` (identical vertex count; BRP makes one per cut as
+  dynamic-modeler input). A 2-segment plan stacks four of them on the remnant and a 3-segment plan
+  six, all coincident — so they z-fight, and the more segments a plan has the worse it looks, which is
+  why the fault reads as "this case is broken" rather than as something every case does.
+
+What survives is what the view is for: `Resected mandible` (the remnant, ~4.5 k points against ~8 k)
+and `Transformed Fibula Segment <n>` (the graft). Two spellings carry that distinction and both are
+load-bearing — the key is `"Transformed Mandible"` and not `"Transformed"`, or the graft would go; and
+`"Mandible "` carries a **trailing space**, without which it would also match `MandibleSegmentation`,
+`mandibularCurve` and `decimatedMandible`. None of these families is hidden by BRP itself and all are
+recreated on every plan update, so a hide applied by hand during a session does not survive to the
+save — which is what this table exists to make unnecessary.
+
+**`_clearMaximizedViewForSave` un-maximizes, and needs no table** — an operator can double-click a
+view in any procedure. Slicer records that as a `MaximizedView` reference on the layout node, and it
+sits ON TOP of `currentViewArrangement`: the scene records the procedure's own layout and still opens
+as a single panel. The saved arrangement therefore looks correct to anyone inspecting the file, which
+is what makes it hard to see — three of the 37 saved BRP runs were in that state with the layout id
+reading 101 in every one of them. Both accessors are fetched with `getattr`, so a Slicer whose
+`vtkMRMLLayoutNode` lacks them is left alone rather than crashed at Exit.
+
+Every mutation is undone in a `finally`: storage file names, scene URL and root directory, and —
+critically — `SetStorableNodesModifiedSinceRead()`. Writing a storable node stamps its `StoredTime`, which
+clears `GetModifiedSinceRead()` scene-wide; without the restore the surgeon's own segmentations show as
+"Not Modified" in File ▸ Save Data, quitting raises no unsaved-data warning, and the only copy on disk is
+the one inside `logs/`. Slicer's own MRB writer does this restore; the directory writer does not.
+
+A user `vtkMRMLColorTableNode` needs its own storage node — it serialises `numcolors` but not the colours.
+
+### Two clocks
+
+Per-step `seconds` is SafeExecutor time — *machine* time, not how long the step took. So `open_step()`
+stamps `opened_epoch` and `finish_step()` stamps `completed_epoch`, giving **wall** (screen to screen),
+**exec** (accumulated across pre+post templates, repair retries and loop iterations) and **wait** =
+wall − exec, attributed to *the surgeon* on `HUMAN_IN_LOOP_TYPES` and to *runtime overhead* on the
+automated two. The total is anchored to the **Send click**, not `started_epoch` (stamped only once the
+router answered).
+
+`manifest["timeline"]` records a row per step *visit* and per replay review; `steps` holds the aggregate
+that `collect_runs.py` reads. A replay row's time is **taken out of** the step on screen, or a review lands
+in a `user_choice` step's `wall` and — since `exec` does not move — prints as think time on a step nobody
 was thinking about.
 
-Five invariants that are easy to get wrong, each enforced in code because getting one wrong produces
-a plausible number rather than an error:
+Five invariants, each producing a plausible number rather than an error when wrong:
 
-- **A step is measured per *visit*, not first-open-to-last-completion.** Within one visit
-  (`start` → `choice_made`/`proceed`) the clock must *not* restart, or a choice step's think time and
-  an interaction step's placement time — the whole point — are erased. But a step can be **re-visited**:
-  a repeat block re-arms its body and re-dispatches every member with `start` (6 of the 9 workflows
-  have multi-step loop bodies), and the replay stepper and baseline harness re-run steps the same way.
-  Spanning that would make each body step cover the *whole loop* including its siblings — per-step
-  spans overlap, their sum exceeds the run they are reported against, and a neighbouring interaction's
-  hand time prints as an automated step's overhead. So `open_step` banks the closed span and starts a
-  new one **only on `action="start"`**, and `wall_seconds` is their sum.
-- **A step entering a wait is not a step completing.** An interactive step runs its PRE template on
-  `start`, and the execution recorder stamps every execution as a completion — it runs before the
-  runtime has decided. `reopen_step()` retracts that stamp on the confirmed entering-wait branch, so
-  the real completion lands when the POST template runs after Done.
+- **A step is measured per *visit*.** Within one visit the clock must *not* restart, or a choice step's
+  think time and an interaction step's placement time are erased. But a step can be **re-visited** — a
+  repeat block re-dispatches every member with `start` (6 of 9 workflows have multi-step bodies), and so
+  do the replay stepper and baseline harness. Spanning that makes each body step cover the whole loop:
+  spans overlap, their sum exceeds the run, and a neighbour's hand time prints as an automated step's
+  overhead. `open_step` banks the closed span and starts a new one **only on `action="start"`**.
+- **A step entering a wait is not a step completing.** The execution recorder stamps every execution as a
+  completion, before the runtime has decided; `reopen_step()` retracts that on the entering-wait branch.
 - **The no-code path only completes a step that actually moved on** (`next_step` or
-  `workflow_completed`), since it is also reached by a step entering a wait.
-- **Exit seals whatever was still open** (`_seal_open_spans`, called from `finish()`), so a run
-  abandoned mid-step or mid-preview still has every interval as a row and the table still sums.
-  A span is live only if no `completed_epoch` has landed *since* it opened — `finish_step`
-  deliberately leaves `span_opened_epoch` in place so a re-visit can bank it, so its mere presence
-  is not "still running"; treating it as such rewrote every completed step's wall to
-  first-open→Exit.
-- **`build_run_statistics()` is a pure function of the manifest**, so the same report can be
-  re-derived later from `run_manifest.json` alone; and its five-way split is never clamped — a
-  negative residual prints as `[!] clocks inconsistent` rather than being hidden, because that
-  residual is the only evidence a reader has that the two clocks disagree.
+  `workflow_completed`) — it is also reached by a step entering a wait.
+- **Exit seals whatever was still open.** A span is live only if no `completed_epoch` landed *since* it
+  opened — `finish_step` deliberately leaves `span_opened_epoch` in place so a re-visit can bank it, so
+  its presence alone is not "still running".
+- **`build_run_statistics()` is a pure function of the manifest**, and its five-way split is never clamped
+  — a negative residual prints as `[!] clocks inconsistent`, the only evidence a reader has that the two
+  clocks disagree.
 
-Writing the report also closed a gap it depended on: steps that produce no code never left `running`
-in the manifest — four steps of a completed 27-step run were recorded that way.
+The scene is saved **after** the replay timeline is torn down, so the hidden `vtkMRMLSceneViewNode` per
+step is already gone. Both halves are fail-soft and independent.
 
-The scene is saved **after** the replay timeline is torn down, so the one hidden
-`vtkMRMLSceneViewNode` per step is already gone — otherwise the folder would carry a full copy of
-every intermediate state. Both halves are fail-soft and independent: a scene that cannot be saved
-still produces the report, with the failure recorded *in* it. Only the Exit button triggers this;
-the other two callers of `_resetGuidedSession` are a runtime cancel and a scene close, and on the
-latter there is no scene left to save.
+**The aggregate view is derived, not written.** `scripts/collect_runs.py` walks `logs/*/runtime/` (falling
+back to the run root for pre-split runs) and emits one row per (run, step) across **all four** conditions.
+It replaced an append-only `baseline_runs.jsonl` that duplicated the per-run record byte for byte and
+covered only the three baselines — a second live writer of the same facts can drift from the first; a
+derivation cannot.
 
-**Saving is the user's choice, not a consequence of exiting.** The confirmation offers three
-outcomes — *Exit and save* / *Exit without saving* / *Cancel* — because "leave the panel" and "keep
-the record" are independent decisions, and a Yes/No dialog welds them together: saving writes a full
-scene copy, hundreds of megabytes and tens of seconds on a segmented CT, which a user abandoning a
-mis-started run has no reason to sit through. `_resetGuidedSession(save=…)` gates the write *and*
-the progress dialog; `save=None` derives it from `reason`, so the two non-Exit callers are unchanged.
+## Experiments panel
 
-**"Without saving" DELETES the run folder**, because a run's artifacts are written *incrementally as
-it executes* — there is no "don't write it" to choose, only a removal. `_discardRunLogDirs()` takes
-`_sessionLogDirs` (the pipeline's folder plus any baseline folders opened off its steps; reset by
-`_createRunLogDir(new_session=True)` at the router's workflow-start, so a `refused_pipeline_*` folder
-written between two runs is never swept up). `rmtree` is the only irreversible thing in the module,
-so it is gated on a **containment check on the resolved path** — a direct child of this extension's
-own `logs/`, nothing else — rather than on the caller having passed the right thing.
-`_releaseRunLogDir()` runs first: `LLMClient._debugPath` and `RunManifest.write` both
-`os.makedirs(exist_ok=True)`, so one later write would re-create the folder just removed. The answer is read back as a **button role**, never as
-button identity or position: Qt reorders by platform convention, and PythonQt can return a fresh
-wrapper for the same `QAbstractButton`, so `clickedButton() is save` may be False for the button
-just clicked. The dialog is shown even when nothing is at risk, because saving is the main thing
-Exit does on a *finished* run.
+Per-procedure analysis of runs under `Experiments/<Extension>/`. `experiments/<name>.py` holds the
+numerics (Qt-free, so it runs and is checkable outside Slicer) and `<name>_panel.py` the button;
+`@register_experiment_panel("<Extension>")` registers, `_PANEL_MODULES` lists what to import.
 
-The save is slow and blocks the Qt main thread, so it runs behind a modal progress dialog
-(`_beginExitProgress`). That dialog calls `slicer.app.processEvents()` to paint, which is why
-`_resetGuidedSession` opens with a `_guidedExitInProgress` guard — without it a scene close delivered
-during the pump would start a second teardown through half-dismantled state.
+**`EXPERIMENT_PANELS` maps a procedure to a LIST of builders.** A dict of one made the later import
+silently erase the earlier — nothing raised, and which panel survived depended on tuple order.
+Registration appends (replacing in place on reload, keyed on `__module__` + `__qualname__`), and a failing
+builder no longer calls `_clearExperimentContent()`, which would delete an earlier panel's widgets because
+a later one raised. No shipped procedure claims two today, which is why `check_longbone_analysis.py` §10
+pins the property against *synthetic* builders: an invariant nothing exercises is the one that rots.
 
-**The aggregate view is derived, not written.** `scripts/collect_runs.py` walks `logs/*/runtime/`
-(falling back to the run root for pre-split runs, so no run silently drops out) and emits one
-row per (run, step) across **all four** conditions — `--step cb_step_9` prints that step under every
-condition side by side; `logs/runs_index.csv` is the full table. This replaced
-`logs/baseline_runs.jsonl`, an append-only file that duplicated the per-run record byte for byte and
-covered only the three baselines: a "whole session in one file" that silently omitted the system
-under test invites analysing whichever conditions are convenient, and a second live writer of the
-same facts can drift from the first. A derivation cannot.
+`run_timing.py` is shared — what a run folder looks like and what its `Statistic/timing.txt` says are
+properties of `RunLog`, not of a procedure. It parses the **rendered report** rather than the manifest,
+deliberately: the report is what `Statistic/` guarantees and what a reader compares against, so a case
+whose manifest was lost still yields a row. Every field is an explicit regex, so a rephrased line leaves a
+blank cell instead of a wrong number.
 
-Three prior defects this replaced, all of which cost data:
-- Every step of a workflow wrote its plan, role trace and timing to the **same three filenames** in
-  one folder, so a 33-step run retained only the last step's.
-- Correction artifacts were keyed by attempt number alone (`1_correction_0_…`), so two steps each
-  failing on attempt 0 overwrote each other.
-- The pipeline persisted **no execution result at all** — success, stdout, errors and scene delta
-  reached only the role trace, which the next step then overwrote. That left the system under test
-  the least-instrumented of the four conditions.
+**Every reader goes through `run_timing.resolve_experiment_dir()`; nobody joins `EXPERIMENT_DIR` by
+hand.** Each module declares the flat spelling `Experiments/<Ext>`, but the collection is grouped into
+tiers (`1_Quanti_Eva`, `2_Quali_Eva`, `3_User_Study`) whose names are the study's to choose — the first
+has already been renamed once, from `1_QuantitativeEvaluation`. When a hand-joined path misses, **nothing
+raises**: `discover_cases()` returns `[]`, every panel prints "No cases found", and every real-data
+section of every `check_*_analysis.py` hits its `if not results: SKIP` guard and the checker reports a
+pass. All eight procedures were in exactly that state, and the checkers were green throughout.
 
-`_artifactDir()` is the single funnel every writer goes through; `_setStepLogContext(step_id)` opens
-a step's folder and repoints the LLM client's prompt dumps into it. A baseline parks the pipeline's
-folder, manifest, step context **and role trace** (`_restorePipelineLogDir`) so the step it
-auto-advances to — dispatched by the *pipeline* — neither logs inside the baseline's folder nor
-inherits its events.
+So the resolver searches for the **extension's own folder**, which cannot be renamed without breaking far
+more than this: flat first (an untouched checkout is unaffected), then **one** level of tier, in name
+order. One level only — a full walk descends into the runs themselves, tens of gigabytes, and could match
+a folder inside somebody's saved scene. Nothing matches on the tier's *name*, which is the whole point.
+Two tiers holding the same procedure is logged rather than resolved silently: one of them is a copy, and
+scoring the wrong one yields a complete, plausible workbook off stale data. `experiment_dir_label()` is
+the same resolution rendered for a panel's own prose, so "no cases found under …" never names a folder
+the analysis is not reading. `check_longbone_analysis.py` §11 pins all of it against a synthetic tree,
+including that no module has grown a hand-join back.
 
-**No `thinking.txt` in a clean guided run is correct, not a bug.** The routing call is deliberately
-non-thinking (`thinking=False`, `reasoning_effort="low"`, `temperature=0`) — a 9-way classification
-against a fixed JSON schema does not need reasoning tokens, and thinking would slow the one turn
-this path exists to speed up. After it, the dispatched steps are deterministic template execution
-and call no model at all. So reasoning only appears when self-correction fires, or in an
-`onlineOnly` / `pureLLM` baseline folder. `00_router/call.json` records the flags and states this,
-so the absence is answerable from the artifacts alone.
+| module | scores | needs Slicer |
+|---|---|---|
+| `zygomatic.py` | relative BIC against the surgeon's STL paths | no |
+| `orbital.py` | symmetric surface distance vs the surgeon's label, plus a colour map | **yes** |
+| `shoulder.py` | the four measures of Li et al. (IJCARS 2022;17:1017-1027) + the t1/t2/t3 split | no |
+| `cranial.py` | DSC / HD95 / bDSC of AutoImplant 2021 (Li et al., MedIA 88 (2023) 102865) | no |
+| `pelvic.py` | reduction error **read** from each run's recorded annotation transform | no |
+| `longbone.py` | the rigid residual `E = G · P^-1` over both kinds of case | no |
+| `pedicle.py` | Gertzbein-Robbins grade and the millimetres behind it | no |
+| `mandible.py` | fibula vs a **predicted** healthy mandible segment (Guo et al. §4.2 / Nakao) | no |
 
-### What the PERSON did: the user-study instrument
+### The user-study evaluation
 
-**`SlicerAIAgentLib/PlanningRecorder.py` measures a planning session from Slicer's own input
-events, and the same file runs in both arms of the user study.** `RunLog`'s three clocks divide a
-step between the machine and "the user" (`wall`, `exec`, `wait`), which is as far as a step clock can
-see: a `user_interaction` step's `wait` is one number covering reading the instruction, deciding,
-dragging the plane, and the pause before Done. A learning curve is made of the difference between
-those. And the comparison arm — the extension's own GUI, driven by hand — has no steps at all, so it
-produced no clock of any kind.
+The **User study** subsection (`user_study.py` + `user_study_panel.py`, last child of the Experiments
+group) scores `Experiments/3_User_Study/Results/【arm】procedure【participant】/` folders into
+`Quanti_Quali_Eva/<the folder's own name>.xlsx` -- one workbook per folder, so the count follows the
+folders and a new participant needs no code. It **re-derives no metric**: each procedure's
+`build_report` takes an optional `cases=` run set (built by `run_timing.discover_runs` from the two
+explicit folders, since runs and `Dataset/<procedure>/` are not siblings here), and the evaluation only
+adds a *Run set* sheet (what was scored) and an *Interaction* sheet (the recorder's own numbers, the one
+measurement both arms share -- the Timing sheet is built for the guided arm's steps).
 
-**Seven states, disjoint, summing to the session's wall clock**, in this precedence:
-`away` (Slicer is not the active window) > `compute` (the Qt main thread was blocked) >
-`view_3d` / `view_2d` / `panel` / `other` (inside a burst of input landing there) > `idle`.
-**`panel` is THIS extension's panel and `other` is the rest of Slicer** — other modules, other
-extensions, the toolbars, the menus, the data probe, the Python console. That distinction is the
-point of the pair: matching `panel` by class name counted every module's frame (they all carry
-`qSlicerWidget`), so a participant who opened Volumes to set a window level had those clicks booked
-as operating the procedure's own panel — which flatters the comparison arm exactly where a learning
-curve should show hunting through modules falling away. The owning widget is therefore passed in:
-`addRecorderPanel` takes the host module widget's own frame, and the guided arm passes the agent's.
-`_widget_is_inside` asks Qt's `isAncestorOf` first (no identity comparison, since PythonQt can hand
-out a fresh wrapper for one C++ object) and walks the chain for the root itself, which
-`isAncestorOf` excludes. With no owner named, the old class-name rule remains as a fallback.
-Totality is the property that makes the split checkable rather than a set of overlapping estimates,
-and `render_interaction_sections` **prints a warning** when the seven do not sum — a residual is a
-bug, and hiding it would make the report quietly contradict itself.
+- **The procedure comes from the run folder names** (`<Extension>_<subject>_<condition>_<stamp>`), never
+  from the display name, which is the study's prose; `ANALYSES` maps extension → module + the panels'
+  defaults. A run filed under the wrong arm (its condition disagrees) is reported, not scored silently.
+- **Runs are listed in the order performed** (by the folder's stamp), not by name: the first case of
+  each arm is where the learning happens.
+- **It writes only the workbook**, with one deliberate exception: orbital runs with `write_scenes=False`
+  (same numbers, no colour maps spliced into the runs, no scene close), while mandible keeps its cache of
+  each run's predicted ground truth in `Statistic/analysis/`.
 
-**Span reconstruction is a pure function of the recorded event list** (`partition()`). The filter
-appends `(kind, time, target)` and nothing else; every rule lives in `snapshot()`. So the derivation
-is testable outside Slicer, and a rule can be revisited later against sessions already recorded —
-which is why `interaction.json` keeps the spans beside the manifest's aggregate.
+### Rules that recur across these modules
 
-Five constants are judgement calls, and three of them fail *silently* when wrong:
+Each yields a believable number instead of a failure when got wrong:
 
-- **`BLOCK_THRESHOLD_S = 0.5` is generous on purpose.** Shorter and it reclassifies *stuttery
-  interaction* as computation: dragging a mandibular cut plane re-clips the fibula on a 50 ms
-  coalescing timer, so the main thread is repeatedly busy for a few hundred milliseconds while the
-  person is plainly still dragging. `compute` beating activity is only safe because of this.
-- **A heartbeat gap is CUT at every input delivery** (`_unattended_stretches`), and only the
-  stretches with nothing delivered in them — each still longer than the threshold — are the
-  machine's. Delivering an event IS the main thread turning over, so the thread was alive at every
-  timestamp inside a gap and can only have been blocked between them. One rule then answers both
-  cases: a click that starts a four-second computation leaves one four-second stretch, and a drag
-  whose render blocks in bursts leaves only stretches under the threshold and contributes no compute.
-  This replaced an all-or-nothing verdict on the whole gap, which failed in the direction that
-  mattered — a gap runs from the last tick before the block to the first tick *after* it, so its
-  trailing edge is up to one heartbeat later, and on Windows the timer message is delivered only once
-  the queue is otherwise empty, so everything queued during the block flushes into that sliver. One
-  click before and one release after was enough to hand a whole computation back to the person: one
-  real unaided run reported **0.0 s** of algorithm time for a procedure the guided arm measured at
-  **24.8 s**. Both edges of a stretch are open, since the click that starts a computation and the
-  release that flushes after it are neither of them evidence that the thread was alive in between. A
-  busy-cursor stretch is never cut this way: there the extension has said outright that it is
-  working, and a surgeon clicking at a busy application is not operating it.
-- **A busy cursor makes a live heartbeat count as compute.** Several study extensions drive a
-  progress dialog, which keeps timers alive, so a heartbeat-gap rule alone would put their algorithm
-  time in `idle` and read as the participant sitting and thinking. Only `overrideCursor` is used,
-  never "a modal window is up": a progress dialog and a confirmation dialog are both modal and the
-  second is a person deciding.
-- **`BURST_PAD_S = 0.25`.** Without it an isolated click is one zero-duration event, so a step
-  answered with one button press reads as 100% idle — and the comparison arm is mostly button
-  presses. A burst also ends on a **target change**, so "clicked Apply, then dragged in 3D" is not
-  reported entirely as one or the other.
-- **Hover is not recorded** (`RECORD_HOVER = False`). Parking the pointer over the 3D view while
-  thinking is thinking; recording it would make `idle` unreachable for anyone who does not move
-  their hand away.
-- **`classify_widget` matches `className()` by SUBSTRING up the parent chain.** Slicer nests its
-  views several layers deep and the receiver of a mouse event is whichever layer holds focus, so an
-  exact list would enumerate implementation detail and go wrong on the next release — as "every
-  click is `other`", which looks like a participant who never touched a view. The name is read three
-  ways (`className()`, `metaObject().className()`, the Python type) for the same reason.
-- **The chain alone is not enough, and the failure is exactly that "every click is `other`".** Qt
-  delivers a mouse event to the `QWidgetWindow` FIRST and to the widget second, and an
-  application-wide filter sees both — but a window's parents are windows, so the chain from the
-  first delivery cannot reach the view. Once repeat deliveries were suppressed, that first one was
-  the one kept, and the whole 3D / slice / panel split sat at zero while the total rose. So
-  `_resolve_target` asks the chain and then, only when it answered nothing, the widget under the
-  **pointer** (`QApplication.widgetAt`) — a hit test, so the common case still costs one walk. And
-  `_upgrade_target` lets a later delivery of the same physical event correct an `other` that was
-  already counted, rewriting the recorded EVENT as well as the counter, since the event's target is
-  what the time attribution reads. Motion is the larger half: moves are not deduplicated, so the
-  first delivery decides the bucket, and a drag filed under `other` moves seconds rather than units.
-  The panel's status line shows an `elsewhere` figure so that this failure says so on screen instead
-  of looking like nothing was clicked.
+- **Prove the coordinate frame; never assume it.** An LPS/RAS mix-up mirrors anatomy to the far side of
+  the head, where it still intersects bone and still produces a distance. In `shoulder.py` the flip is
+  *exactly invariant* for every angle (the transform is orthogonal), so only the density integral notices
+  — and it notices by reading a flawless **1.000**, because the mirrored path leaves the CT array and
+  numerator and denominator become the same out-of-bounds sentinel. Hence three independent guards there,
+  `_frame_gap_mm` in `orbital.py`, and a per-case measured frame in `longbone.py`.
+- **One meshing pipeline for every surface compared**, at one smoothing setting — a distance between
+  surfaces built by different rules measures the rules. `orbital.py` routes the ground truth through a
+  segmentation node rather than meshing its label map directly, so it takes the *same* conversion.
+- **Report a percentile, not a maximum.** Marching cubes can always produce one stray vertex, which moves
+  the maximum arbitrarily and the 95th percentile not at all. On `cranial.py` quote the **median** HD95
+  (2.1 mm), not the mean (8.0): the outliers are one-directional — on one case *none* of the prediction is
+  >20 mm from the truth while 67% of the truth has no prediction within 20 mm, i.e. accurate wherever it
+  exists and covering a fraction of the defect. HD95 pools both directions; `gt_covered_2mm_pct` and
+  `implant_on_gt_2mm_pct` separate them, and are the paper's own feasibility criteria.
+- **Never pool two populations.** `shoulder.py` reports `delta (planned)` and `delta (BEST EFFORT)`
+  separately — when nothing in the cone keeps the screw inside the bone the planner returns the
+  deepest-reaching candidate, never optimised for density, and that is half the screws.
+- **Report both denominators when two are defensible**, rather than picking silently: `shoulder.py`'s
+  full cone vs the half actually searched (plus the sweep at 2x resolution, since the denominator is a
+  maximum over a grid); `cranial.py`'s `t = 10` **voxels** (published) vs a fixed 5 mm band;
+  `pedicle.py`'s perpendicular caliper vs the chord through the axis.
+- **Measure the tool's geometry, do not assume it.** `shoulder.py` reads cone half-angle, height and
+  radius from the saved model because all three are spin boxes the surgeon can change — the shipped
+  half-angle is **22.5°**, half the paper's α. The cone *axis* is the middle peg's direction, never fitted
+  from the cone: that base is a 180° half-disc, so a centroid fit is 5.5 mm off-axis.
+- **Fix the colour scale** (`COLOR_MAX_MM`). Auto-ranging renders a 0.5 mm case and a 4 mm case with the
+  same spread of colour, so the one thing a map is for stops working.
+- **Pair the result with where it started.** 0.8 mm is excellent on an orbit that was 4 mm out and
+  unremarkable on one that was 1 mm out — `orbital.py`'s IMPROVEMENT block (which is why it also scores
+  the *fractured* segmentation) and `longbone.py`'s `initial_*` / `residual_fraction`.
+- **A read number beats an estimated one — but it can be stale.** `pelvic.py` reads the recorded
+  transform instead of re-deriving it by ICP (which agreed to 0.009-0.034°), and the check script asserts
+  statically that no `kabsch`/SVD has grown back. The hazard is a ground truth re-annotated after the
+  record was written — which happened, 5.83° where the record says 2.25° — so `transform_verified` judges
+  the record against the **files** while `record_consistent` judges it against itself. `verify=False`
+  leaves the second **blank rather than True**: a blank and a failure must not print the same.
+- **State which point a displacement is measured at.** One case's Left Ilium is 1.74 mm out at its
+  centroid and **6.13 mm** at its worst surface point, because 2.25° moves the far end of an ilium far
+  more than its centre. `point_error_*` is the figure to quote.
+- **Do not compute what the data cannot support; name the blank.** `mandible.py` omits Nakao's `Er` (it
+  needs a located midline, the step Guo et al. call unreliable); `pedicle.py` omits pedicle-axis deviation
+  (the axis would come from the trajectory it judges), facet violation and cortical/cancellous contact;
+  `longbone.py` leaves the clinical split blank on annotated cases, since the obvious shaft-axis estimate
+  disagrees with the recorded axis by a median of 6.5° — larger than most residual rotations it would
+  decompose. A circular number that looks like a measurement is worse than a blank column.
+- **Pair by geometry, not by file name.** `zygomatic.py` pairs implants by entry point (`1.stl` belongs
+  with `Implant_3`) with a `MAX_ENTRY_MATCH_MM` ceiling, since the assignment is total. `shoulder.py`
+  pairs within `ENTRY_PAIR_TOLERANCE_MM`, which is what makes its comparison *paired*: the hand plan
+  reuses the pipeline's baseplate pose (0.000000 mm apart on every screw), so one cone serves both sides
+  and `delta_gain` is a meaningful subtraction. `pedicle.py` takes the screw's **side** from its entry
+  relative to the vertebra centroid — the extension's helper calls index 1 "left" without looking at a
+  coordinate, so on both saved runs every screw named `_L` is on the patient's RIGHT, and since
+  medial/lateral are defined against the midline the name would invert the safety distinction.
+- **Reproducing the tool's own arithmetic is the evidence the input was read correctly.**
+  `shoulder.py`'s `score_reproduced` equals the score the run printed at the time, bit for bit — which
+  matters because the extension stores none of these numbers. `zygomatic.py` keeps `planner_bic_score`
+  distinct from the physical `bic_score` the comparison divides. `mandible.py` reproduces the shipped
+  `repair()`'s graft bounds exactly.
+- **Take geometry from the table, the mesh only as a witness.** `shoulder.py` reads the manual trajectory
+  from the TSV, not the `.vtk`: that mesh is the screw cylinder, overhanging its entry by 3 mm and 3.1 mm
+  in radius, so neither its extreme vertex nor its cap centroid is the trajectory's start.
+- **A step in no phase is named, not dropped.** `PHASE_STEPS` maps steps to t1/t2/t3 plus t0 and
+  t_refine, which sum into the total and into none of the three — charging post-plan dragging to
+  "automatic planning" overstated t3 by 8.3 s, and a renumbered workflow would make the phases silently
+  shrink.
 
-**The heartbeat is a SPAN extended in place, not one event per tick.** At 10 Hz the points alone
-would be 36,000 entries an hour, a list that grows with the clock rather than with anything that
-happened. `_alive_spans` accepts both forms and `check_planning_recorder.py` §7 proves they yield
-the same partition, so the compaction is demonstrated rather than asserted. For the same reason the
-panel's once-a-second status line calls **`live_summary()`** (counters only, O(1)) and never
-`snapshot()`, which re-derives the whole partition: an hour in, that would be hundreds of
-milliseconds of main-thread work per second, i.e. the recorder charging the participant compute
-time for the act of watching the clock.
+### Slicer-side and I/O constraints
 
-**A Settings checkbox puts a live readout at the foot of the panel.**
-`showInteractionCounter` adds one line under everything else in the agent's module panel: elapsed
-time, total clicks, and the four targets split out, refreshed once a second. It sits at the **bottom
-of the whole panel, not inside Settings**, because Settings is collapsed for almost all of a session
-and a counter that collapses with it cannot be watched, which is the only thing it is for.
+- **`numpy_to_vtk` defaults to `deep=0`**, making the VTK array a *view* on the numpy buffer. No VTK object
+  may outlive what owns its memory; `check_orbital_analysis.py` enforces `deep=1` at the AST level, since
+  there is no VTK outside Slicer to test against.
+- **A Slicer plane-cut model is PARTIALLY welded** — geometrically closed, topologically open — so
+  `vtkPolyDataToImageStencil` over-fills a resected mandible by **4%** and under-fills a cut fibula segment
+  by **38%**, both as plausible volumes; the inflated mandible made the completion network predict a 45 cm³
+  blob where correct input gives 19 cm³. `mandible.py` uses **ray parity** (each triangle independent) for
+  the metrics *and* the network's input, swept along all three axes and unioned: a ray with an odd crossing
+  count is skipped, so a genuine hole costs the columns through it until another axis recovers them. The
+  union matches VTK's own stencil to 0.001 cm³.
+- **Crop before meshing** — a ground truth on the full CT grid is 31-142x wasted work and exhausts memory.
+- **Hand `_write_error_scene` the nodes to write**, never `getNodesByClass` — that also returns Slicer's
+  built-in colour tables, some pointing into the application's own installation. And it checks each file is
+  **on disk** before splicing: a scene must never be edited to point at a file whose write was assumed.
+- **The `scene.mrml` splice is XML surgery**, not load-modify-save (the scene carries a 40 MB CT). The
+  original is copied to `scene.mrml.orig` **once**; every spliced id carries `ID_MARKER` so a re-run
+  *replaces* rather than stacks; the rewrite uses a `(?![0-9])` lookahead, without which `…ModelNode1`
+  would be rewritten inside `…ModelNode10`; references are followed only into `_SPLICEABLE_TAGS`, since a
+  display node also references its *view*.
+- **Storage file names in `scene.mrml` are URL-escaped**, and every model this procedure saves has spaces
+  in its name — joining `fileName` verbatim gives a path that does not exist, and the only symptom is a
+  scene reporting no pieces at all. Roles come from the subject-hierarchy **folder**, never the file name.
+- **`volume_io.read_nrrd` cannot read a segmentation with overlapping segments** — that is **4-D**, and its
+  `list` axis of LAYERS is the first of `sizes:` and therefore the **last** array index, so `array[layer]`
+  is in bounds, the right dtype, and a slab of the volume instead of a layer. A segment is addressed by
+  `(layer, label value)`. `segmentation_io.py` ignores `Segment<N>_Extent` (it is the *tight* box, so a
+  truncated read looks exactly like a correct one), scans in slabs with a one-plane halo, and takes
+  centroids from per-axis marginal counts — `np.nonzero` over a half-full 32 MB slab costs 380 MB.
+- **Segments are resolved by NAME.** One `.seg.nrrd` holds several; reading it as non-zero scores against
+  the whole skull and reports a DSC near 0.2 that reads like a pipeline failure rather than a coding error.
+- **Spacing is the COLUMN NORM of IJK→RAS, not of its inverse.** The inverse gives voxels-per-mm, scaling
+  every distance by ~2.6x and leaving DSC untouched — so only HD95 shows it, and only against a reference.
+- **The metric window is a crop, and the crop is exact** — both surfaces lie inside `bbox(gt | pred)`, and
+  a margin ≥ `t` reproduces the border predicate exactly. 32 minutes uncropped, 5 cropped, proven bit for
+  bit rather than taken on trust.
+- **ITK conventions are all three wrong-way-round** (from-parent, LPS, centre of rotation folded in), each
+  undone explicitly. Slicer's Python has no `h5py`, so `read_itk_affine` locates the twelve doubles by
+  their *properties* and requires **exactly one** match; the recovered pose is not trusted until it equals
+  what the 7 annotated runs recorded independently (to 6e-14). Composition order comes from `scene.mrml`,
+  never from file names.
 
-It works with **no workflow running**, and that is the part worth stating: the run recorder exists
-only between a router decision and Exit, so a checkbox that showed nothing until a procedure started
-would look broken at exactly the moment somebody is verifying the instrument. An enabled counter
-with no run in flight therefore owns a **preview** recorder — same class, same classification,
-written nowhere — and the readout says which of the two is feeding it. `_syncInteractionCounter`
-guarantees there is never more than one: two application-wide filters would each see every click and
-**double** every number in the run's record, silently, in the arm the study compares against. So the
-preview stands down in `_startInteractionRecording` before the run's recorder goes up, and
-`_teardownInteractionCounter` (called from `cleanup`) stops it and its timer, both of which outlive
-the widget across a module reload. The refresh reads `live_summary()` and never `snapshot()`, for
-the reason the comparison arm's status line does.
+`orbital.py` and `cranial.py` share the dangerous code (meshing, distance filter, write gate, splicer) by
+**import, not copy** — they edit a saved run in place. Only the colour table and model node are
+re-implemented, because orbital's bake in a 3 mm ceiling and a cranial map on that scale is red everywhere.
 
-**Clicks are counted only while the Slicer main window is active.** The filter is installed on our
-own `QApplication`, so another application's clicks could never reach it; the gate is for time —
-alt-tabbing to a browser is `away`, and its minutes must not land in `idle`.
+The orbital panel **refuses while a guided workflow is open** and confirms before starting, because it
+builds each case's models in the main scene and therefore closes whatever is open.
 
-**One physical event reaches an application-wide filter MORE THAN ONCE, and both consequences are
-defects.** The filter runs once per *delivery*, and Slicer's VTK views re-dispatch a mouse event to
-a second object — so one press-and-drag rotating a 3D model counted several clicks. That half is
-visible. The other half was not: the button state was a **counter**, incremented per press and
-decremented per release, so N deliveries of one press against one release left it stuck at N−1 for
-the rest of the session — and `_on_move` gates on it, so from the first duplicated press onward
-every *hover* was recorded as a drag. The session's idle time would have been absorbed into
-3D-view interaction, which is precisely the quantity a learning curve is made of, and the report
-would have looked entirely normal.
+## The user-study instrument
 
-Two independent fixes, because either alone leaves a real defect. `_is_duplicate_delivery` counts a
-physically identical event once — exactly, via Qt's `timestamp()`, which two deliveries of one event
-share and two real clicks never do; and where PythonQt does not expose it, by an identical
-(type, button, screen position) inside `DUPLICATE_WINDOW_S` (50 ms), which no hand can produce
-twice. And `_read_button_mask` takes the held-button set from the event's own `buttons()` rather
-than counting, so it cannot drift however the deliveries are shaped. Every suppression is counted
-(`clicks_duplicate_suppressed`) and printed when non-zero: a fix that silently discards input is
-indistinguishable from one that discards too much. `check_planning_recorder.py` §9 drives the real
-filter with the same event delivered one, two and four times and requires one click, one drag, an
-unstuck mask, a surviving double click, and two same-pixel clicks seconds apart staying two.
+`PlanningRecorder.py` measures a planning session from Slicer's own input events, and **the same file runs
+in both arms**. `RunLog`'s three clocks divide a step between the machine and "the user", which is as far
+as a step clock can see: a `user_interaction` step's `wait` covers reading, deciding, dragging and the
+pause before Done, and a learning curve is made of the difference between those. The comparison arm — the
+extension's own GUI, driven by hand — has no steps at all.
 
-**Guided arm: armed by the FIRST KEYSTROKE, stopped by Exit, then cleared.**
-`onPromptTextChanged` calls `_armInteractionRecordingOnInput`, so the clock starts at the first
-character in the prompt box. It used to start at the router's decision, which is several seconds
-later: reading the panel, deciding what to ask for and typing the request are all part of the trial,
-and the comparison arm's **Start** button covers exactly that. Measuring the two arms from different
-points is the one thing that makes their totals incomparable, and it flattered this one by however
-long a request takes to compose.
+**Seven states, disjoint, summing to the session's wall clock**, in this precedence: `away` (Slicer not
+active) > `compute` (main thread blocked) > `view_3d` / `view_2d` / `panel` / `other` (inside a burst of
+input landing there) > `idle`.
 
-Three things hold that together, and each fails on its own. `_startInteractionRecording` is
-**idempotent** — it is now reached from the keystroke *and* from `_applyRouterDecision`, and
-restarting on the second would discard everything measured before Send; the router's call stays as
-the fallback for a request that never passed through the keyboard, which is what a spoken one is.
-`_prepareCleanRuntime` no longer drops a **running** recorder, since from the first keystroke onward
-the one it finds there is the current request's rather than residue — which leaves the leak it
-guarded (a run that never reached a teardown) to `cleanup`, where the module reload that causes it
-already goes. And `_stopInteractionRecording` **drops** the recorder after snapshotting it into the
-manifest, so the finished request's figures do not sit in the live counter while the next one is
-being composed; the next keystroke builds a fresh recorder from zero.
+**`panel` is THIS extension's panel and `other` is the rest of Slicer.** Matching `panel` by class name
+counted every module's frame (they all carry `qSlicerWidget`), so a participant who opened Volumes had
+those clicks booked as operating the procedure's own panel — flattering the comparison arm exactly where a
+learning curve should show hunting through modules falling away. The owning widget is passed in;
+`_widget_is_inside` asks Qt's `isAncestorOf` first (no identity comparison — PythonQt hands out fresh
+wrappers) and walks the chain for the root itself, which `isAncestorOf` excludes.
 
-One consequence the report states rather than hides: the recorded window is **longer** than
-`TOTAL RUN TIME`, which is anchored to the Send click. The INTERACTION section prints the difference
-and why, because a reader who adds the seven states up and finds more than the total is owed the
+Totality is what makes the split checkable rather than a set of overlapping estimates, and
+`render_interaction_sections` **prints a warning** when the seven do not sum.
+
+**Span reconstruction is a pure function of the recorded event list** (`partition()`). The filter appends
+`(kind, time, target)` and nothing else; every rule lives in `snapshot()`. So it is testable outside Slicer
+and revisitable against sessions already recorded — which is why `interaction.json` keeps the spans beside
+the aggregate.
+
+Five constants are judgement calls, three failing silently:
+
+- **`BLOCK_THRESHOLD_S = 0.5` is generous on purpose.** Shorter and it reclassifies *stuttery interaction*
+  as computation: dragging a cut plane re-clips on a 50 ms coalescing timer, so the main thread is
+  repeatedly busy while the person is plainly still dragging.
+- **A heartbeat gap is CUT at every input delivery**, and only stretches with nothing delivered in them are
+  the machine's. Delivering an event IS the main thread turning over. One rule answers both cases: a click
+  starting a four-second computation leaves one four-second stretch; a drag whose render blocks in bursts
+  contributes no compute. The all-or-nothing verdict it replaced failed in the direction that mattered — a
+  gap runs to the first tick *after* the block, and on Windows the timer message arrives only once the
+  queue is empty, so everything queued during the block flushes into that sliver. One click before and one
+  release after handed a whole computation back to the person: a real unaided run reported **0.0 s** of
+  algorithm time for a procedure the guided arm measured at **24.8 s**. Both edges are open. A busy-cursor
+  stretch is never cut this way.
+- **A busy cursor makes a live heartbeat count as compute** — several study extensions drive a progress
+  dialog, which keeps timers alive. Only `overrideCursor` is used, never "a modal is up": a progress dialog
+  and a confirmation dialog are both modal and the second is a person deciding.
+- **`BURST_PAD_S = 0.25`** — without it an isolated click is one zero-duration event, so a step answered
+  with one button press reads as 100% idle, and the comparison arm is mostly button presses. A burst also
+  ends on a **target change**.
+- **Hover is not recorded** (`RECORD_HOVER = False`) — parking the pointer over the 3D view while thinking
+  is thinking.
+
+**Target resolution.** `classify_widget` matches `className()` by **substring up the parent chain** —
+Slicer nests views several layers deep and the receiver is whichever layer holds focus, so an exact list
+would go wrong on the next release, as "every click is `other`". The name is read three ways for the same
 reason.
 
-`_markInteractionStep` sits beside `manifest.open_step` so the two clocks agree on where a step
-begins; `_stopInteractionRecording` is **step 1b of `_resetGuidedSession`**, before the teardown —
-the scene write alone is tens of seconds and charging it to the participant would put a minute of
-"idle" on every run, growing with the size of the scene. The snapshot goes into
-`manifest["interaction"]` there, which is before `_saveRunStatistics` reads it: `build_run_statistics`
-is a pure function of the manifest and has to stay one. `_prepareCleanRuntime` drops a stale
-recorder, because the event filter and the 100 ms timer live as long as the **process** and a run
-that ended without a teardown would leak both. Per-step attribution is `by_label`, keyed on the step
-id, so a loop iteration or a replay re-run **accumulates** — matching `steps[]`, not `timeline`.
+**The chain alone is not enough, and the failure is exactly that.** Qt delivers a mouse event to the
+`QWidgetWindow` FIRST, and a window's parents are windows, so the chain from the first delivery cannot
+reach the view — once repeat deliveries were suppressed, that first one was kept and the whole
+3D/slice/panel split sat at zero while the total rose. `_resolve_target` asks the chain and then, only when
+it answered nothing, the widget under the **pointer** (`QApplication.widgetAt`). `_upgrade_target` lets a
+later delivery correct an `other` already counted, rewriting the recorded EVENT as well as the counter,
+since the event's target is what the time attribution reads. Motion is the larger half — moves are not
+deduplicated, so a drag filed under `other` moves seconds rather than units.
 
-**Comparison arm.** `addRecorderPanel(self, "<Procedure>")` in `setup()` and `stopRecorderPanel(self)`
-in `cleanup()` is the entire diff in each of the four study extensions
-(OrbitalFractureReconstruction, ZygomaticImplantPlanner, BoneReconstructionPlanner,
-PedicleScrewPlanner, under `../External_extensions`). The section **inserts itself at index 0**
-of the module panel rather than appending, so it is the first thing the operator sees and where
-the call sits in a host `setup()` does not matter -- two of the four fill the panel's whole height
-before it is reached, and an instrument that has to be scrolled for is one found un-started at the
-end of a session. Which four is the study's choice, not a
-property of the recorder, and the list lives in exactly one place --
-`check_planning_recorder.py::STUDY_EXTENSIONS`. An extension dropped from the study is
-**reverted**, never left instrumented: a vendored copy the check script no longer names is a
-copy nothing compares against the canonical one, and a drifted copy records happily and
-produces numbers the other arm cannot be compared with. Start / Stop / Save run, and **nothing reaches
-`logs/` until Save**: Start only *names* the folder (from the subject the scene shows at the start
-and the clock at the start, so the stamp says when the trial began rather than when it was saved),
-Stop only stops the hooks, and `write_all` creates and writes the whole thing. An abandoned or
-mis-started trial therefore leaves no folder to find and delete, which is what the study's organiser
-asked for. The cost is the other half and is why it is said out loud: a forgotten Save now loses the
-whole trial and not merely its scene. So `PlanningRunRecord.unsaved` is a property the panel reads,
-the status line says **NOT SAVED** in those words for as long as it is true, starting a new run on
-top of a finished unsaved one **asks first**, and a module teardown with an unsaved run logs a
-warning rather than quietly writing one.
+**One physical event reaches an application-wide filter MORE THAN ONCE, and both consequences are
+defects.** Slicer's VTK views re-dispatch, so one press-and-drag counted several clicks — visible. The other
+was not: the button state was a **counter**, so N deliveries of one press against one release left it stuck
+at N−1 for the session, and `_on_move` gates on it — from the first duplicated press onward every *hover*
+was recorded as a drag, absorbing idle time into 3D-view interaction, which is precisely the quantity a
+learning curve is made of. Two independent fixes: `_is_duplicate_delivery` counts a physically identical
+event once (via Qt's `timestamp()`, which two deliveries share and two real clicks never do; falling back
+to identical type/button/position inside 50 ms), and `_read_button_mask` takes the held-button set from the
+event's own `buttons()`. Suppressions are counted and printed when non-zero.
 
-**Closing the scene ends the trial and does not zero it.** The case is gone, so continuing to
-measure would charge the next case's minutes to this trial — and the guided arm already ends its
-session on `EndCloseEvent`, so without this the comparison arm would be the only one whose clock ran
-across two cases. It **stops**, deliberately, rather than resetting: nothing is written before Save,
-so zeroing here would destroy a trial held only in memory, at the one moment nobody is watching the
-panel. The counters return to zero on the next **Start**, which builds a fresh record — which is
-where that belongs. A run already stopped is left untouched, so closing the scene between Stop and
-Save cannot lose it either. The observer is removed in `shutdown()`: a VTK observer holding a bound
-method keeps the panel alive and would fire into a torn-down one after a module reload. The scene is written *first* inside `write_all` so the
-manifest and the report can name what landed, and its failure is not fatal — a scene that cannot be
-written still leaves the measurement, with the reason in the report. The run
-folder is `logs/<Procedure>_<subject>_<condition>_<stamp>/` with the guided arm's own two children
-(`runtime/` + `Statistic/`) and the same file names, so `scripts/collect_runs.py` and the
-per-procedure analyses read both arms with no special case; `steps` is present and **empty on
-purpose**, so a reader sees that this arm has no step structure rather than wondering whether the
-field failed to write. Condition token `manual`, declared in **both** `RunLog.CONDITION_MANUAL` and
-`PlanningRecorder.CONDITION_MANUAL` — the vendored file cannot import the library — and a mismatch
-would put the two arms in folders no analysis pairs up.
+**The heartbeat is a SPAN extended in place, not one event per tick** — at 10 Hz the points alone would be
+36,000 entries an hour. The panel's status line calls **`live_summary()`** (counters only, O(1)) and never
+`snapshot()`, which re-derives the whole partition: an hour in that would be the recorder charging the
+participant compute time for the act of watching the clock.
 
-**And into the SAME `logs/` — the agent's own, which the recorder finds for itself.** Two arms in
-two directories is a comparison nobody can run, and its only symptom is a folder that does not fill
-up. `resolve_logs_root()` tries the `SlicerAIAgent/studyLogRoot` setting, then the **installed**
-agent module's directory (definitionally where the pipeline writes, since `SLICER_AI_AGENT_ROOT` is
-derived the same way), then `agent_checkout_root()`, and only then a different directory — which is
-labelled `NO AGENT FOUND` in the panel, because that is the one answer meaning the arms will split.
-`agent_checkout_root` searches for the directory holding **`SlicerAIAgent.py`**, never for a folder
-called `Slicer_agent`: three named relative routes cover the five places the file is vendored and
-cost nothing, then a bounded walk tries each ancestor and its immediate children, and **every**
-candidate is confirmed by that file's presence, so a wrong guess is never accepted and a checkout
-cloned under another name still resolves. The panel prints the path *and* which source won.
+**Clicks are counted only while the Slicer main window is active** — the gate is for time, since alt-tabbing
+is `away` and its minutes must not land in `idle`.
 
-**`PlanningRecorder.py` is VENDORED, byte-identical, in five places**, because the comparison arm
-has to keep recording on a machine where the agent is not installed: an instrument that stops
-working when the thing it measures against is absent is not an instrument. It is also the **one**
-implementation of `save_scene_flat` — `_saveSceneFlat` now delegates to it — since that function
-mirrors `qSlicerSaveDataDialogPrivate` in detail and every detail is a saved scene that silently
-does not reload. `scripts/check_planning_recorder.py` asserts the copies are identical, proves the
-partition, and refuses the two wirings that both parse: a `def cleanup` nested inside `setup` (never
-runs, so the filter outlives the session) and a bare statement in a class body (runs at import with
-no `self`, so the module does not load). Both were produced while writing this.
+### Pausing
 
-```bash
-python scripts/check_planning_recorder.py   # before every study session
-```
+**A pause is REMOVED FROM THE SESSION, not bucketed inside it.** `Pause` / `Resume` is one button in both
+arms (the comparison arm's recorder panel, and beside the agent's live readout), and it exists for the
+interruption a study session cannot avoid — a question, a phone call, the next participant arriving —
+which would otherwise land in `idle` and read as the person thinking about the task. So `partition()`
+subtracts the pauses from the **session** before deriving anything, `wall_seconds` is the elapsed clock
+**minus** the pauses, and the seven states still sum to it. The raw clock survives as `elapsed_seconds`
+beside `paused_seconds` and `pause_count`, so the two reconcile and the report states the difference
+rather than quietly shortening a trial.
 
-**The guided report splits all four targets PER STEP**, in two tables — where the TIME went and
-where the CLICKS landed — measured over each step's **own visit windows**, from `timeline`
-intersected with `interaction.spans` and `interaction.input_events`. Not `by_label`: a label window
-runs from one step being marked to the NEXT, so the labels tile the whole recording, gaps between
-steps and the wait for Exit included, while a step's wall clock does not. Reading those against the
-wall inflated every row — 9.9 s over 114 s on the run it was found on, and 7x on the last step —
-under a header claiming they summed. They now do, which is why `away` is a column: leaving it out
-would be the same defect in miniature. `input_events` carries the clicks (not the pointer motion,
-which is the bulk) precisely so a caller can attribute them to a window of its own choosing. That is the pipeline's distinguishing detail and the one thing the
-comparison arm cannot say: which step the surgeon spent their 3D time in, and which step they spent
-hunting elsewhere in Slicer. Both were pooled — one `active` column and one click total — until the
-tables were split. Two tables rather than one, because twelve columns do not fit; neither repeats
-the `type` column, since `PER-STEP TIMING` lists the same step ids directly above and already names
-each one's type. The clicks table shows `wheel` and **not** `drags`: a drag is a GESTURE, tallied
-only at its release into the run-level counters, so `slice_totals` never sees one and a per-step
-drag column would have been a column of zeros.
+Three ways to get it wrong, each a plausible number and not an error:
 
-`scripts/collect_runs.py` carries the split into the comparison table for both arms:
-`wall_seconds`, `active_seconds`, `compute_seconds`, `idle_seconds`, `away_seconds`, `clicks`,
-`clicks_3d`, `clicks_2d`, `clicks_panel`, `clicks_other` — appended after the existing columns,
-empty for runs recorded before the instrument existed. The fourth click column is there because
-without it the three named ones look like they should sum to `clicks` and do not.
+- **A pause manufactures `compute`.** Pausing stops the heartbeat, so every pause leaves a gap with
+  nothing delivered in it — the exact signature of a blocked main thread. Clipping the *result* against
+  the session is not enough either: the stretch runs from the last tick before the pause to the first
+  after the resume, so its two ends survive the clip as slivers of up to a heartbeat each, and a session
+  paused twenty times accumulates seconds of compute out of nothing but the operator's thumb. The gap is
+  therefore cut in `_blocked_from_ticks` **before** the threshold is applied.
+- **A pause lands in `idle`.** `idle` is the partition's remainder and `totals_in_windows`' remainder, so
+  anything not explicitly removed ends up there. Hence `totals_in_windows` takes `paused` too — the
+  per-step tables are the caller that would otherwise report a coffee break as thinking time.
+- **The held-button mask survives the pause.** A button pressed before and released after leaves the mask
+  stuck, and `_on_move` gates on it, so every later hover is recorded as a drag — the same defect
+  duplicate deliveries used to cause. `pause()` clears the mask, the open alive span and the last pointer
+  position; `resume()` re-states the focus, since a `WindowDeactivate` swallowed by the pause would leave
+  the time after it credited to the session.
 
-## Coding Conventions
+Everything else follows from those: the filter declines every event while paused (including the click on
+Resume), `live_summary()` reports the **active** elapsed so the on-screen clock freezes rather than
+counting time the report will not contain, `stop()` closes an open pause at the stop, and the per-step
+TIME table grows a **`paused` column when and only when the run had one**, so its rows keep summing to the
+step's wall clock and an uninterrupted run's report is byte-for-byte what it was before. Pausing is never
+undone implicitly — typing in the prompt box does not resume the guided arm, because
+`_armInteractionRecordingOnInput` only starts a recorder that is not *running* and a paused one is — which
+is why both readouts say PAUSED in capitals.
 
-- 4-space indentation. PascalCase filenames matching primary class/responsibility.
-- Module/widget/logic/test classes use `SlicerAIAgent*` naming per Slicer's `ScriptedLoadableModule` pattern.
+### Guided arm
+
+**Armed by the FIRST KEYSTROKE, stopped by Exit, then cleared.** It used to start at the router's decision,
+several seconds later — but reading the panel, deciding and typing are all part of the trial, and the
+comparison arm's **Start** button covers exactly that. Measuring the two arms from different points is the
+one thing that makes their totals incomparable.
+
+Three supports: `_startInteractionRecording` is **idempotent** (reached from the keystroke *and* from
+`_applyRouterDecision`, which remains the fallback for a spoken request); `_prepareCleanRuntime` no longer
+drops a **running** recorder, leaving the leak it guarded to `cleanup`; and `_stopInteractionRecording`
+**drops** the recorder after snapshotting it, so the finished request's figures do not sit in the live
+counter while the next is composed.
+
+The recorded window is **longer** than `TOTAL RUN TIME` (anchored to Send), and the report prints the
+difference and why — a reader who adds the seven states up and finds more than the total is owed the reason.
+
+`_markInteractionStep` sits beside `manifest.open_step`; `_stopInteractionRecording` is **step 1b of
+`_resetGuidedSession`**, before the teardown, since the scene write alone is tens of seconds and charging it
+to the participant would put a minute of "idle" on every run. The snapshot goes into `manifest["interaction"]`
+there, before `_saveRunStatistics` reads it, because `build_run_statistics` is a pure function of the
+manifest. Per-step attribution is `by_label`, keyed on step id, so a loop iteration or replay re-run
+**accumulates** — matching `steps[]`, not `timeline`.
+
+**A Settings checkbox (`showInteractionCounter`) puts a live readout at the foot of the panel** — at the
+**bottom of the whole panel, not inside Settings**, because Settings is collapsed for almost all of a
+session and a counter that collapses with it cannot be watched. It works with **no workflow running**,
+owning a **preview** recorder written nowhere, because a checkbox showing nothing until a procedure starts
+looks broken at exactly the moment somebody is verifying the instrument. `_syncInteractionCounter`
+guarantees there is never more than one: two application-wide filters would each see every click and
+**double** every number in the run's record, silently, in the arm the study compares against.
+
+### Comparison arm
+
+`addRecorderPanel(self, "<Procedure>")` in `setup()` and `stopRecorderPanel(self)` in `cleanup()` is the
+entire diff in each study extension (under `../External_extensions`). The section **inserts itself at index
+0** of the module panel, so it is the first thing the operator sees and where the call sits does not matter
+— an instrument that has to be scrolled for is one found un-started at the end of a session. The study's
+extension list lives in exactly one place, `check_planning_recorder.py::STUDY_EXTENSIONS`; one dropped from
+the study is **reverted**, never left instrumented, since a drifted copy records happily and produces
+numbers the other arm cannot be compared with.
+
+**Nothing reaches `logs/` until Save.** Start only *names* the folder (from the subject and clock at the
+start, so the stamp says when the trial began), Stop only stops the hooks, `write_all` creates and writes
+everything — so an abandoned trial leaves no folder to find and delete. The cost is said out loud: a
+forgotten Save loses the whole trial. So `PlanningRunRecord.unsaved` is a property the panel reads, the
+status line says **NOT SAVED** in those words, starting a new run over a finished unsaved one **asks
+first**, and a teardown with an unsaved run logs a warning rather than quietly writing one.
+
+**Closing the scene ends the trial and does not zero it.** The case is gone, so continuing would charge the
+next case's minutes to this trial — and the guided arm already ends on `EndCloseEvent`, so without this the
+comparison arm would be the only one whose clock ran across two cases. It **stops** rather than resets:
+nothing is written before Save, so zeroing here would destroy a trial held only in memory, at the one moment
+nobody is watching the panel. Counters return to zero on the next **Start**. The observer is removed in
+`shutdown()` — a VTK observer holding a bound method keeps the panel alive and fires into a torn-down one
+after a reload.
+
+**Both arms write into the SAME `logs/` — the agent's own, which the recorder finds for itself.** Two arms
+in two directories is a comparison nobody can run, and its only symptom is a folder that does not fill up.
+`resolve_logs_root()` tries the `SlicerAIAgent/studyLogRoot` setting, then the **installed** agent module's
+directory, then `agent_checkout_root()`, and only then a different directory — labelled `NO AGENT FOUND` in
+the panel, because that is the one answer meaning the arms will split. `agent_checkout_root` searches for
+the directory holding **`SlicerAIAgent.py`**, never for a folder called `Slicer_agent`, and **every**
+candidate is confirmed by that file's presence, so a checkout cloned under another name still resolves.
+
+The scene is written *first* inside `write_all` so the manifest and report can name what landed, and its
+failure is not fatal. The run folder is `logs/<Procedure>_<subject>_manual_<stamp>/` with the guided arm's
+two children and the same file names, so `collect_runs.py` and the analyses read both arms with no special
+case. `steps` is present and **empty on purpose**, so a reader sees this arm has no step structure rather
+than wondering whether the field failed to write. The token `manual` is declared in **both**
+`RunLog.CONDITION_MANUAL` and `PlanningRecorder.CONDITION_MANUAL` (the vendored file cannot import the
+library), and a mismatch would put the two arms in folders no analysis pairs up.
+
+**`PlanningRecorder.py` is VENDORED, byte-identical, in five places**, because the comparison arm has to keep
+recording on a machine where the agent is not installed. It is also the **one** implementation of
+`save_scene_flat`, since every detail of that function is a saved scene that silently does not reload.
+`check_planning_recorder.py` asserts the copies are identical, proves the partition, and refuses the two
+wirings that both parse: a `def cleanup` nested inside `setup` (never runs, so the filter outlives the
+session) and a bare statement in a class body (runs at import with no `self`).
+
+### The per-step split
+
+**The guided report splits all four targets PER STEP**, in two tables — where the TIME went and where the
+CLICKS landed — over each step's **own visit windows**, from `timeline` intersected with `interaction.spans`
+and `interaction.input_events`. **Not `by_label`**: a label window runs from one step being marked to the
+NEXT, so the labels tile the whole recording (gaps and the wait for Exit included) while a step's wall clock
+does not — reading those against the wall inflated every row, 7x on the last step, under a header claiming
+they summed. `away` is a column for the same reason. Two tables because twelve columns do not fit; neither
+repeats `type`, listed directly above. The clicks table shows `wheel` and **not** `drags` — a drag is a
+gesture, tallied only at its release into the run-level counters.
+
+That split is the pipeline's distinguishing detail and the one thing the comparison arm cannot say: which
+step the surgeon spent their 3D time in, and which step they spent hunting elsewhere in Slicer.
+
+`collect_runs.py` carries it into the comparison table for both arms (`wall_seconds`, `active_seconds`,
+`compute_seconds`, `idle_seconds`, `away_seconds`, `clicks`, `clicks_3d`, `clicks_2d`, `clicks_panel`,
+`clicks_other`), empty for runs recorded before the instrument existed. The fourth click column is there
+because without it the three named ones look like they should sum to `clicks` and do not.
+
+## Coding conventions
+
+- 4-space indentation; PascalCase filenames matching the primary class/responsibility.
+- Module/widget/logic/test classes use `SlicerAIAgent*` per Slicer's `ScriptedLoadableModule` pattern.
 - Commit messages use conventional prefixes: `feat:`, `fix:`, `chore:`, `docs:`.
 - Do not commit API keys, model caches, debug logs, or retrieval indexes.
+- **Do not hand-patch `Resources/extension_CLI/*`** — fix the generator and regenerate.
+- Every prompt is a file under `Resources/Prompts/`, never a Python string literal.
+- After changing anything in `SlicerAIAgentLib/`, **restart Slicer once**; the module Reload button alone
+  does not pick up library changes.
 
-## Security Considerations
+## Security
 
-When modifying execution behavior, update `CodeValidator.py` and `SafeExecutor.py` together. Code execution runs in Slicer's `__main__` namespace with blocked imports (`os`, `subprocess`, `sys`, `socket`, etc.) and blocked functions (`eval`, `exec`, `open`, `getattr`, etc.). The `CodeValidator` maintains three sets: `blocked_modules`, `blocked_functions`, and `allowed_modules`. SafeExecutor intercepts VTK C++ errors by temporarily replacing the global `vtkOutputWindow`.
+When modifying execution behaviour, update `CodeValidator.py` and `SafeExecutor.py` **together**. Code runs
+in Slicer's `__main__` with blocked imports (`os`, `subprocess`, `sys`, `socket`, …) and blocked functions
+(`eval`, `exec`, `open`, `getattr`, …). `CodeValidator` maintains `blocked_modules`, `blocked_functions` and
+`allowed_modules`. SafeExecutor intercepts VTK C++ errors by temporarily replacing the global
+`vtkOutputWindow`.
+
+Prompts that describe the blocked lists **render them from the validator** rather than restating them — a
+prompt describing a list that has since changed teaches a rule the executor does not enforce.

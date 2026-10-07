@@ -137,6 +137,27 @@ class WidgetExperimentsMixin:
         self._experimentSelector.currentIndexChanged.connect(
             self._onExperimentExtensionChanged)
         self._populateExperimentSelector()
+        self._setupUserStudySection()
+
+    def _setupUserStudySection(self):
+        """The user-study subsection, below the per-extension content.
+
+        Built like a panel module -- imported here, fail-soft -- so a broken
+        study evaluation costs that subsection and nothing else. It is the LAST
+        child of the group, and ``_newExperimentContent`` inserts each
+        replacement content container above it.
+        """
+        self._userStudyGroup = None
+        try:
+            from SlicerAIAgentLib.experiments.user_study_panel import build_section
+            self._userStudyGroup = build_section(self, self._experimentsOuterLayout)
+        except Exception as exc:
+            logger.warning("User-study section failed to load", exc_info=True)
+            error = qt.QLabel(f"The user-study evaluation failed to load: {exc}")
+            error.setWordWrap(True)
+            error.setStyleSheet("color: #b00;")
+            self._experimentsOuterLayout.addWidget(error)
+            self._userStudyGroup = error
 
     def _insertExperimentsGroup(self):
         """Place the group after the CLI generator and before Debug.
@@ -232,7 +253,14 @@ class WidgetExperimentsMixin:
         content = qt.QWidget()
         layout = qt.QVBoxLayout(content)
         layout.setContentsMargins(0, 0, 0, 0)
-        self._experimentsOuterLayout.addWidget(content)
+        # Above the user-study subsection when it exists, so replacing the
+        # per-extension content on a selector change never moves it below.
+        anchor = getattr(self, "_userStudyGroup", None)
+        index = self._experimentsOuterLayout.indexOf(anchor) if anchor is not None else -1
+        if index >= 0:
+            self._experimentsOuterLayout.insertWidget(index, content)
+        else:
+            self._experimentsOuterLayout.addWidget(content)
         self._experimentContent = content
         self._experimentContentLayout = layout
 
